@@ -1,0 +1,5 @@
+# Normalize project prose while preserving original reference bytes.
+*.md text eol=lf
+.gitattributes text eol=lf
+references/originals/** -text
+references/trustedqsl/upstream/** -text
