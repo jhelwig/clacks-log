@@ -1,0 +1,75 @@
+# Web interface architecture comparison
+
+Checked 17 October 2026 against D03, D07, D63, D65–D67, D189–D193, D213, D215, D221–D223. D223 accepts Leptos/Axum with server rendering and browser hydration. The comparison explains that selection; optional components and detailed integration remain proposals, not implementation authorization. No prototype, build, benchmark or browser interaction test was performed.
+
+## Selected approach (D223)
+
+Use **Leptos for a Rust-authored interactive web application, with Axum integration and server rendering followed by browser-side hydration**. Hydration means that Rust compiled to WebAssembly attaches interactive behavior to the initial page produced by the server. WebAssembly is the browser's portable executable format; generated JavaScript loads it and connects to browser facilities. This requires no TypeScript application code, but does not promise a JavaScript-free runtime. Ordinary Hypertext Markup Language (HTML) elements and Cascading Style Sheets (CSS) remain part of web presentation.
+
+The basis is the eventual application, not just administration: stateful logbook browsing/editing, reports with interactive filters, and potentially a logging workspace. Leptos supplies a coherent model for those browser interactions as well as server-rendered pages. [Leptos rendering/build options](https://book.leptos.dev/getting_started/index.html), [reactive components](https://book.leptos.dev/view/01_basic_component.html)
+
+Axum is the proposed Rust web routing/request layer inside the existing single Clacks server application, alongside its synchronization and background work. It is not another deployed service or an independently owned database schema. Leptos officially supports both Axum and Actix; recommending Axum follows the documented default integration, not a claim that Actix cannot meet the requirements. [Supported server integrations](https://book.leptos.dev/ssr/index.html)
+
+## Requirements and comparison basis
+
+- Preserve the Rust preference and avoid a TypeScript application codebase.
+- Support D222's eventual logbook browsing/editing and reporting, with logging a possibility. Future capabilities are not MVP commitments.
+- Permit substantial browser state: filters, selections, editing buffers, validation feedback, and incoming updates that do not overwrite work in progress. Exact interaction policies remain separate design work.
+- Support useful data tables and reports without loading the whole account into the browser or assuming every component must be written from scratch.
+- Reuse framework-independent Rust domain types, normalization and validation with the egui desktop/server; keep database access and authoritative acceptance on the server.
+- Preserve account isolation, browser sign-in, one Linux-container application deployment plus PostgreSQL, and D221's Elastic License 2.0 with upstream obligations.
+- Do not infer browser offline logging, full desktop parity, a new desktop toolkit, or direct browser capture of local radio-program network traffic.
+
+## Architectural options
+
+These rows compare rendering/state ownership and framework approaches, rather than treating server rendering as synonymous with simple administration pages. Fit assessments are engineering judgments based on the capabilities cited below.
+
+| Approach | How it works | Fit for the broader Clacks web scope | Principal tradeoff |
+| --- | --- | --- | --- |
+| Rust templates, ordinary forms and htmx enhancements | Rust renders HTML; browser requests replace page fragments. Small scripts handle local behavior beyond the fragment model. | Capable of browsing/editing, reports and live updates. Not inherently administration-only. | As editing buffers, table selection, keyboard interaction and local coordination grow, their state increasingly needs explicit scripting or another browser component model alongside templates. |
+| Leptos full-stack application with hydration | Rust components render initial HTML and manage reactive state in the browser; server calls handle persistence. | Recommended: one Rust presentation model spans ordinary pages and interactive workspaces, with concrete table/form integration leads. | Native and browser builds, hydration correctness, browser downloads, framework-specific reactive code and ecosystem/version coordination. |
+| Dioxus full-stack web application | Rust components and reactive state, integrated routing/server calls, server rendering and hydration. | Strong alternative; its integrated tooling, live communication and component offering are real advantages. | Cross-platform presentation sharing adds less value here because desktop egui is already selected. Actual component suitability still matters; no claimed measured performance deficit. |
+| Yew browser application with a Rust backend | Rust components run in WebAssembly and communicate with server endpoints; server rendering/hydration are also supported. | Can support the full intended web scope. | Backend integration, state exchange and overall assembly need to be chosen explicitly. The sources reviewed establish no compensating Clacks-specific advantage over the two integrated full-stack candidates. |
+| Conventional JavaScript browser application with a Rust backend | Browser framework/components own interactive state; Rust serves data and commands. TypeScript is optional for many choices. | Technically capable and offers access to established JavaScript widgets/charts. | Moves substantial application presentation logic out of Rust and requires maintaining the language boundary. Keeping TypeScript out alone does not satisfy the preference to remain Rust-oriented. |
+| egui compiled for the browser | Reuse the Rust immediate-mode presentation ecosystem in a browser canvas. | Could share more desktop presentation code. | HTML tables, normal browser document interaction and report composition are less direct. The existing desktop selection is not sufficient reason to choose the same presentation for the web. |
+
+### Templates and htmx: credible, but not the recommended application foundation
+
+Askama compiles templates into Rust. htmx extends HTML with requests and fragment replacement and supports additional scripting. Large applications can use this successfully; there is no arbitrary scale limit at which server rendering stops working. [Askama](https://askama.rs/en/stable/), [htmx documentation](https://htmx.org/docs/)
+
+The relevant question is who owns interactions between requests. Consider a logbook table with a pending edit, a selected set of contacts and an incoming update. Any architecture must preserve those states correctly. A hypermedia design can do so, but decisions about fragment replacement and locally retained state become central. Given the preference to keep application behavior in Rust, I favor an explicit Rust browser component/state model for this direction. This is a development-fit judgment, not a claim that htmx cannot implement a rich logger. htmx's own guidance distinguishes interaction patterns suited to hypermedia from those requiring more client-local state. [Hypermedia fit guidance](https://htmx.org/essays/when-to-use-hypermedia/)
+
+### Leptos and Dioxus: the finalists
+
+Leptos signals track changing browser values and update dependent presentation. Its forms and actions can use normal browser form behavior, enhanced after hydration. This supports both setup pages and more involved editing without defining the whole interface around page-fragment replacement. [Leptos components/state](https://book.leptos.dev/view/01_basic_component.html), [forms/progressive enhancement](https://book.leptos.dev/progressive_enhancement/index.html)
+
+Dioxus is equally a serious Rust full-stack option: documented facilities include typed routing, server functions, forms, WebSockets, streaming, server rendering and browser hydration. Its development tool includes Rust hot reload. The framework still expects external database/session libraries, as would the proposed Clacks stack. [Dioxus full-stack facilities](https://dioxuslabs.com/learn/0.7/essentials/fullstack/), [Dioxus rendering/hydration](https://dioxuslabs.com/learn/0.7/essentials/fullstack/ssr/)
+
+Dioxus has a [component collection](https://dioxuslabs.github.io/dioxus-components/docs/) rather than only bare framework primitives. Its desktop/mobile reach is useful generally, but should not drive Clacks's web choice while egui remains the selected desktop. I favor Leptos because the reviewed web-specific form/rendering model and table integration provide a concrete fit for Clacks's demanding views. This is a modest preference between capable candidates, not a claim that framework reactivity style predicts actual speed or that Dioxus lacks capable components.
+
+Yew also supports server rendering and hydration; do not incorrectly classify it as browser-only. Its documentation demonstrates the required dual environments and hydration concerns. On the evidence reviewed, there is no reason to prefer assembling that combination over Leptos or Dioxus for this new application. [Yew rendering](https://yew.rs/docs/advanced-topics/server-side-rendering)
+
+## Concrete table, reporting and update paths
+
+**Tables:** `leptos-struct-table` documents asynchronous partial loading, sorting, single/multiple selection, visible-row rendering, pagination and editable-cell renderers. Its compatibility table explicitly maps component versions to Leptos versions. It is a credible starting component, not an accepted dependency or proof that keyboard/accessibility/selection behavior already matches Clacks. Data-provider sorting/filtering must operate over the actual query result, rather than merely the currently loaded rows. [Table capabilities and compatibility](https://docs.rs/leptos-struct-table/latest/leptos_struct_table/)
+
+**Reports:** server queries can produce filtered aggregates, tables and downloadable results; browser components can manage filters and chart interaction. Reporting does not inherently mean charts. For graphical reports, Chartistry demonstrates a Rust/Leptos chart path using Scalable Vector Graphics (SVG), including series, axes and tooltips. It is an existence proof, not a selected reporting package: compatible versions, license, report requirements, accessible alternatives and printable output still need checking. [Chartistry](https://docs.rs/leptos-chartistry/latest/leptos_chartistry/)
+
+**Incoming updates:** ordinary browser WebSockets or server-sent events can update/invalidate displayed query results without moving all authoritative data into browser memory. Community `leptos-use` supplies a documented WebSocket integration. Dioxus has its own full-stack stream integration. Transport and cache correctness remain Clacks work; framework reactivity does not itself implement synchronization or preserve edits. No additional broker or database service is proposed. [Leptos WebSocket helper](https://leptos-use.rs/network/use_websocket.html)
+
+## Proposed boundaries and deployment
+
+1. Keep portable domain types, transforms and validation independent of egui and Leptos. Share the relevant Rust logic; do not promise direct reuse of desktop widgets or every native dependency in WebAssembly.
+2. Browser code owns presentation/query state and editing buffers. Server operations perform authentication, account checks, validation and conditional acceptance using the shared application rules. Leptos server functions are request endpoints, not privileged calls merely because their signatures are Rust. They adapt to domain/application operations rather than becoming the canonical desktop sync protocol. [Server functions](https://book.leptos.dev/server/25_server_functions.html), [server request context](https://book.leptos.dev/server/26_extractors.html)
+3. Render initial pages on the server and hydrate interactive views. Use the standard hydrated application first; do not prescribe selective-island machinery or a separate rendering stack for admin pages without an actual benefit. Partial hydration remains an available optimization, not a prerequisite. [Leptos islands](https://book.leptos.dev/islands.html)
+4. Build a native Rust server and browser WebAssembly assets; serve them from the one Clacks application/deployment. No Node.js runtime, TypeScript application layer, separately deployed web backend or mandatory external asset host follows from this choice. The build still needs Rust browser tooling and generated JavaScript; CSS tooling depends on the styling choice. [Page-load/build lifecycle](https://book.leptos.dev/ssr/22_life_cycle.html), [container deployment](https://book.leptos.dev/deployment/ssr.html)
+
+Browser editors must participate in the existing concurrent-change rules; merely choosing a reactive framework does not settle their full workflow. Likewise potential browser logging does not grant direct access to local WS Suite network broadcasts or imply offline capture parity. Those capabilities need separate requirements if pursued. This architecture supports growth without pretending every future behavior is already specified.
+
+## Licensing, costs and remaining verification
+
+Leptos and Axum use MIT; `leptos-struct-table` offers MIT or Apache 2.0. No direct conflict with Elastic License 2.0 is identified. Dioxus also offers MIT or Apache 2.0, so licensing is not a reason to reject it. Askama offers the same permissive choice, and htmx uses the zero-clause Berkeley Software Distribution (BSD) license. Exact dependency/asset inventories still require review. [Leptos terms](https://raw.githubusercontent.com/leptos-rs/leptos/main/leptos/Cargo.toml), [Axum terms](https://raw.githubusercontent.com/tokio-rs/axum/main/axum/Cargo.toml), [table terms](https://raw.githubusercontent.com/Synphonyte/leptos-struct-table/master/Cargo.toml), [Dioxus terms](https://raw.githubusercontent.com/DioxusLabs/dioxus/main/packages/dioxus/Cargo.toml), [Askama terms](https://raw.githubusercontent.com/askama-rs/askama/main/Cargo.toml), [htmx terms](https://raw.githubusercontent.com/bigskysoftware/htmx/master/LICENSE)
+
+The main cost relative to templates is an explicit Rust browser build and hydration/reactive-state debugging. Rust browser components have less direct access to JavaScript-framework widgets; wrappers or custom composition may be needed. Styling, keyboard navigation, screen-reader behavior, focus preservation and reporting quality are still application work. No claim is made about measured bundle size, compile time, responsiveness, developer productivity or which framework is fastest.
+
+Once a prototype is authorized, verify a large query-backed table, state/selection under incoming changes, validated edits and stale submissions, keyboard/focus behavior, a representative interactive report, browser startup/download behavior and container packaging. A component's feature list is not acceptance evidence. D223 accepts Leptos/Axum; those checks qualify the eventual implementation rather than postponing the recommendation or authorizing code.

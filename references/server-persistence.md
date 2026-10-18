@@ -1,0 +1,266 @@
+# Server persistence architecture survey and recommendation
+
+16 October 2026. **Capability research checked 16 October 2026; selection updated 17 October 2026. D213 selects PostgreSQL for the server and embedded SQLite for the client. Detailed mechanisms below remain proposals unless already accepted separately; this is not an implementation plan.** This report compares persistence architectures against the agreed Clacks requirements, then evaluates concrete candidates within them. It covers transaction boundaries, concurrency, deployment, backup, and recovery for radio contacts (QSOs) and their related server state.
+
+The evaluated field includes embedded relational storage (SQLite and Firebird), embedded transactional key-value storage (redb, Lightning Memory-Mapped Database Manager, and transactional RocksDB), relational services (PostgreSQL and Firebird), document storage (MongoDB), a persistent data-structure service (Redis), distributed transactional storage (FoundationDB and CockroachDB), and custom file/object or event-log persistence. DuckDB is also screened as an analytical alternative. Representative engines make the architectural costs concrete; this is not a claim to enumerate every database product.
+
+MySQL and MariaDB are outside this comparison. D213 selects PostgreSQL for the
+server after considering the remaining architectures.
+
+Primary documentation was checked on this date. No database was provisioned, bindings selected, workload benchmarked, or restore performed. Database capability findings, application design inferences and accepted product decisions are distinguished below. SQL means Structured Query Language; it is the query language used by the relational candidates. MVP means minimum viable product. Atomicity, consistency, isolation and durability are the transaction properties collectively called ACID. Multiversion concurrency control means readers can see consistent earlier values while other transactions make changes.
+
+## Recommendation
+
+Recommend a **transactional relational service** as the primary server store. Within that architecture, **PostgreSQL is my preferred engine**, with Firebird technically viable as another relational service. Recommend one application database containing all accounts, with account-owned QSOs, tags, service evidence and shared configuration in one synchronization scope per account; retain explicit account ownership on records. Start with one Clacks deployment and one database service, with durable jobs/publication work in that database. No separate message broker or distributed database cluster is needed by the agreed requirements.
+
+The architectural reason is the combination of cross-record invariants, independent background writers, indexed operational queries and documented recovery. Relational services supply transactions, constraints, indexes, query planning and administration together. Other families can satisfy the correctness requirements, but generally move more integrity/query/recovery work into Clacks or add a distributed deployment without an agreed need for its availability/scale benefits.
+
+The engine preference is narrower than the architecture recommendation. PostgreSQL adds native row-security policies and useful transactional schema-change support to the common relational capabilities. Those conveniences help account isolation and controlled schema upgrades, but are not requirements that disqualify the other relational engines. I have no measured throughput evidence that establishes PostgreSQL as faster, nor evidence that Firebird cannot implement this application.
+
+For a deployment prioritizing the fewest operational components, **embedded relational storage is the strongest alternative**. SQLite is the simpler candidate with serialized writes; Firebird is a real embedded option when concurrent relational transactions are valuable. Embedded does not inherently mean single-writer, and multiple accounts do not inherently require a database service.
+
+Client persistence uses embedded SQLite under D213; its physical schema is independent of the server schema. Every option still needs the agreed Clacks replication protocol: a database's own replication/recovery logs do not implement account-level application ancestry, indefinitely offline clients, user-resolved QSO edits, or actor retirement.
+
+## Selected client persistence: SQLite (D213)
+
+SQLite runs inside the desktop application with local storage and no external database service. Keep durable local contact working values, received shared values, pending edits/comparison evidence, directory snapshots, scope checkpoints and account-shared data transactionally consistent. Logical logbooks do not require separate database files. Preserve sensitive credentials through protected operating-system storage under D194 rather than requiring encryption/unlock of the ordinary log database.
+
+Use ordinary transaction management through the chosen database library: short transactions, appropriate busy-timeout/contention handling, and bounded import/synchronization batches where needed. SQLite's single-writer behavior does not establish a need for a custom write queue; none is prescribed. Keep network requests outside database transactions. Atomically install received state, retained pending comparison evidence and checkpoints before acknowledging receipt under D156. Each completed import unit must survive interruption without partially applied records under D171.
+
+Write-ahead logging with synchronous=FULL is a proposed configuration for concurrent consistent reads and durable commits, not a separately accepted tuning decision. A read snapshot can support D211's point-in-time export, with attention to long-reader checkpoint/storage effects. Exact library, schema, migrations, transaction units and settings remain open. Server and client may use different physical schemas while preserving domain values and comparison semantics. [SQLite application storage](https://sqlite.org/whentouse.html), [write-ahead logging](https://sqlite.org/wal.html), [durability settings](https://sqlite.org/pragma.html#pragma_synchronous)
+
+## Requirements that drive the choice
+
+| Agreed property | Persistence consequence |
+| --- | --- |
+| Multiple isolated accounts, browser enrollment, individual revocation: D62/D63/D190–D193 | Persist account identity bindings, clients, authorization, roles, and account-owned data with enforceable ownership boundaries. No assumed account-count ceiling. |
+| Conditional acceptance and tag/QSO deletion: D146/D244/D248 | Check compared records and applicable references and commit resulting changes atomically. One account scope does not require one account-wide transaction. |
+| One synchronization scope per account: D154/D248 | Store account timeline metadata and durable checkpoints; accounts remain isolated. |
+| Service processing and recovery evidence: D32/D140/D248/D251 | Keep actual sent-value context, outcomes, observations, decisions, and resulting edits consistent and replay-safe. Enforce at most one local QSO per external record/account/service destination. |
+| Directory snapshots: D203/D204/D207/D209 | Store provider data independently from recorded contact facts; select complete snapshots by successful lookup time and deterministic tie-breaker per contact/normalized key. |
+| Oldest authorized-client retention boundary: D155/D156 | Persist acknowledgments, ancestry/baselines, deletion evidence, and pending transfer obligations; compaction must not lose information still required by an authorized offline client. |
+| Older server restoration: D58/D141/D143/D144 | Restore installation state and protected-key recovery material, pause uploads, then reconcile surviving client evidence. Database recovery alone cannot recover facts absent from its backup. |
+| Documented backup/recovery is sufficient: D57 | Use established database tools and deployment procedures. No built-in Clacks backup command or fixed recovery-time/data-loss promise is selected. |
+
+Each account may have multiple logbooks and clients, and the server can host independent accounts. Expected modest actors per account do not establish a server-wide load estimate. Account count, contact volume, burst size, worker overlap, and storage performance have not been measured. D211 point-in-time Amateur Data Interchange Format (ADIF) export runs against client-local state; it is not a requirement to put desktop queries on the server or a separate reason to select PostgreSQL. A successful server acceptance response must follow the durable database commit; D156 client-local acknowledgment durability remains a separate client-storage obligation.
+
+## Architecture comparison
+
+A transactional domain is the set of data that can be checked and changed atomically. Its placement matters more than a particular disk format: tag lifecycle, affected QSO tag sets and related service evidence share one account synchronization scope (D248). Keep the records needed for atomic reference, compared-state and association checks in the same transactional domain. A synchronization scope does not require one account-wide transaction. The following assessments are engineering judgments based on the documented mechanisms linked in the candidate sections.
+
+| Architecture / candidates | Transaction boundaries and concurrency | Deployment, backup and recovery | Fit for Clacks |
+| --- | --- | --- | --- |
+| Relational service: PostgreSQL, Firebird | Multi-record transactions, indexed queries and integrity constraints; independent transactions can run concurrently, with shared rows coordinated explicitly. | Another service to configure/upgrade. Established engine tools support consistent backups; restoration includes global/security configuration where separate. | Recommended architecture: combines the facilities the server needs with modest application-specific storage machinery. |
+| Embedded relational: SQLite, Firebird | Same application domain can be transactional. SQLite serializes writers per file; Firebird has concurrent relational transactions. | No network database connection is required. Package engine/files with the application and use supported backup or stopped-copy procedures; restore engine-compatible data and security material. | Credible simpler deployment; no correctness disqualification. Trade service operations against local engine/file management and measured contention. |
+| Embedded transactional key-value: redb, Lightning Memory-Mapped Database Manager (LMDB), transactional RocksDB | Atomic multi-key work in one database/environment. Writer concurrency differs by engine. Clacks maintains secondary indexes, parent checks and query composition explicitly. | Embedded libraries/files; engine-specific consistent backup/checkpoint or quiesced-copy procedure. Restore indexes and data together or rebuild verified derivable indexes. | Correctness-capable, but lower-level storage creates application responsibilities without an established compensating need. |
+| Document service: MongoDB | Single-document atomic writes plus multi-document transactions; related collections can be coordinated. A snapshot read alone does not enforce a live-parent invariant. | Transactional use requires replica-set configuration, not a plain standalone server. Consistent backup must include the required operation-log context or use a supported snapshot method. | Viable, not rejected for lacking transactions; Clacks's catalog/contact/job relationships do not gain a demonstrated simplification from documents. |
+| Persistent data-structure service: Redis | Conditional transactions and server-side operations can coordinate keys, but execution errors do not have relational-style rollback. Application manages indexes and invariants. | Separate service, memory-oriented data structures and an explicitly chosen snapshot/append-log durability policy. Backup files must be engine-consistent. | Poor default primary store for this model; not categorically incapable or inherently nonpersistent. No separate Redis queue is needed if the primary database stores jobs. |
+| Distributed transactions: FoundationDB, CockroachDB | Transactions can span machines; FoundationDB exposes ordered keys, CockroachDB relational queries. Distributed conflict/retry/placement concerns remain. | Can start small, but resilient deployment entails process topology, replication/consensus and distributed backups. Native backup tools exist. | Capable, but no agreed requirement for a server storage quorum, multi-region writes or automatic database failover justifies this operating model now. |
+| Custom files/object snapshots + manifest | Multi-record atomicity must come from a committed manifest or application journal; per-object atomic writes alone are insufficient. Clacks implements indexes, concurrency and crash recovery. | Few database components, more custom persistence machinery and coordinated backup/restore tooling. | Possible; less attractive than an established transactional engine for the existing invariants. |
+| Event log plus projections | Append and expected-version checks can serialize work; cross-stream invariants and side-effect replay need deliberate handling. Read indexes are separate projections. | Backup log, snapshots/projection metadata and supported replay versions consistently. Can itself use a relational or key-value engine. | Orthogonal storage pattern, not an engine replacement. A permanent full QSO event history is not required by D59. |
+
+## Concrete candidate findings
+
+### SQLite: embedded relational baseline
+
+SQLite can implement conditional acceptance, account-scoped constraints and publication records in one file. Write-ahead logging (WAL) allows readers to coexist with a writer, but there is one writer per database file. Short transactions and bounded batches can make that sufficient; Clacks has no measured contrary workload. A networked application server in front of SQLite is explicitly a supported use case. [Deployment guidance](https://www.sqlite.org/whentouse.html), [WAL concurrency](https://sqlite.org/wal.html)
+
+One file per account permits independent account writers and gives an account-oriented backup unit. Keep each account’s QSOs, tags, service evidence and shared configuration together; tags are overlapping views, not physical database partitions. A separate global identity registry needs coordinated provisioning and backup inventory. A single file for all accounts is simpler but shares its writer queue. SQLite's supported online backup makes a consistent copy; arbitrary copying of a live main file is not the backup procedure. [Backup interface](https://sqlite.org/backup.html)
+
+**Assessment:** strongest minimal-components baseline. Choosing a service over SQLite is a concurrency/operations tradeoff, not a transaction or multi-tenancy requirement.
+
+### Firebird: embedded and service relational alternative
+
+Firebird supports embedded access and network-server deployment. Its documented architecture includes modes allowing shared database access and multiversion transaction behavior; embedded deployment is not equivalent to SQLite's one writer. The engine/provider configuration and security database are operational details that need packaging. [Firebird 5 guide](https://www.firebirdsql.org/file/documentation/html/en/firebirddocs/qsg5/firebird-5-quickstartguide.html), [multiversion architecture](https://www.firebirdsql.org/file/documentation/papers_presentations/Multi_version_concurrency_control.pdf)
+
+Firebird supplies logical backup/restore through gbak and full/incremental physical backup through nbackup. Incremental restore needs the matching chain. Its security database and configuration must be included where applicable, just as PostgreSQL roles/configuration require recovery outside a single logical application dump. [gbak](https://www.firebirdsql.org/file/documentation/html/en/firebirddocs/gbak/firebird-gbak.html), [nbackup](https://www.firebirdsql.org/file/documentation/html/en/firebirddocs/nbackup/firebird-nbackup.html)
+
+**Assessment:** technically viable in either architecture and an important embedded finalist. Prefer SQLite if the purpose of embedding is the simplest local database package; consider Firebird if embedded relational concurrency is the goal. PostgreSQL's native account-policy and proposed schema/query facilities motivate my service preference, not a finding that Firebird cannot perform the work.
+
+### PostgreSQL: preferred relational service
+
+PostgreSQL provides concurrent transactions, row locks, consistent read snapshots and conditional writes. Native row-security policies can supplement account-scoped application checks. These are useful together for catalog/QSO checks, per-scope publication and durable job tables. Database transaction retry remains separate from client-side business conflict resolution. [Isolation](https://www.postgresql.org/docs/current/transaction-iso.html), [locks](https://www.postgresql.org/docs/current/explicit-locking.html), [row security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html)
+
+Physical base backups, recovery-log archiving and logical exports provide established recovery choices. The selected deployment keeps web handlers, synchronization and background workers within one Clacks server application that owns database access; this is not a proposal for independent services sharing tables. Many ordinary schema changes can be grouped in a rollbackable transaction; operations such as concurrent index creation need separate handling. [Transactional schema changes](https://wiki.postgresql.org/wiki/Transactional_DDL_in_PostgreSQL:_A_Competitive_Analysis), [concurrent index exception](https://www.postgresql.org/docs/current/sql-createindex.html). Its cost is another service, connections, maintenance and explicit version upgrades. One shared instance couples accounts during instance-level physical recovery. [Base backups](https://www.postgresql.org/docs/current/app-pgbasebackup.html), [archived-log recovery](https://www.postgresql.org/docs/current/continuous-archiving.html)
+
+**Assessment:** preferred default within the recommended architecture. Row security is an additional safeguard, not a substitute for authorization or proof that other engines cannot isolate accounts.
+
+### redb and LMDB: embedded transactional keys
+
+redb is a Rust-native embedded key-value database with transactional tables and consistent readers. Its current published database interface documents one active write at a time. That is a property of the published interface, not a claim about every experimental branch. It suits a Rust-oriented implementation but does not provide a relational query/index/constraint layer for Clacks. [Project](https://github.com/cberner/redb), [database interface](https://docs.rs/redb/latest/redb/struct.Database.html)
+
+LMDB means Lightning Memory-Mapped Database Manager. Its environment can contain several databases within one transaction domain; writes are serialized while readers use older committed versions. It supplies environment-copy backup operations. Long-lived readers can retain old pages and grow storage. [Official interface and backup documentation](https://raw.githubusercontent.com/LMDB/lmdb/mdb.master/libraries/liblmdb/lmdb.h)
+
+For either, a contact update must also maintain its callsign/time/band indexes, live-parent check, scope state and publication keys in the same transaction. A query such as due uploads for one account, excluding paused routes, needs maintained indexes and application query logic. For redb, a stopped/closed consistent file copy is a viable minimal documented backup approach; an online-backup integration is not claimed here. Recover schema/index versions alongside data.
+
+**Assessment:** viable if control of a purpose-built key layout or a Rust-native embedded engine outweighs the additional application data-management work. Neither is automatically superior because the native model contains hierarchical enums or reference sets.
+
+### Transactional RocksDB: embedded concurrent keys
+
+RocksDB has both pessimistic and optimistic transactional interfaces. It is not limited to atomic write batches. In particular, a normal read does not automatically become a protected transaction precondition: the documented GetForUpdate mechanism establishes the read/write conflict check. This matters for preventing acceptance of a membership referencing a concurrently deleted tag. [Transactions and preconditions](https://github.com/facebook/rocksdb/wiki/Transactions)
+
+RocksDB supplies checkpoint and backup-engine facilities. A checkpoint is a local consistent database directory, not an independent off-host backup by itself. Clacks would still own secondary indexes, account/reference integrity, schema versions, transaction retries and background storage/compaction configuration. [Backup engine](https://github.com/facebook/rocksdb/wiki/How-to-backup-RocksDB), [checkpoints](https://github.com/facebook/rocksdb/wiki/Checkpoints)
+
+**Assessment:** stronger embedded writer-concurrency option than a blanket single-writer assumption suggests. It trades away relational facilities and adds storage-engine integration/tuning work. No demonstrated Clacks storage workload requires that trade today.
+
+### MongoDB: document service with real transactions
+
+MongoDB supports atomic document updates and transactions across documents. Plain standalone deployment does not support those multi-document transactions; a replica-set deployment is required. The application needs a real multi-document transaction for catalog/contact/processing/publication effects that span documents, not one indefinitely growing account document. [Atomicity](https://www.mongodb.com/docs/manual/core/write-operations-atomicity/), [transaction deployment and stale-read considerations](https://www.mongodb.com/docs/manual/core/transactions-production-consideration/)
+
+A parent merely read in a transaction's snapshot can have been deleted concurrently. The documented write-lock/write-conflict approach can enforce the needed live-parent guard. Thus MongoDB can implement the invariant, but document storage does not eliminate the integrity work. Backup while writes continue needs an operation-log-aware procedure or supported consistent snapshot; mongodump with oplog capture and replay is documented with restrictions, whereas an unrestricted live dump is not a single-point snapshot. [Backup/operation-log semantics](https://www.mongodb.com/docs/database-tools/mongodump/)
+
+**Assessment:** capable, but separate QSO facts, directory snapshots, catalog lifecycle and job evidence already span objects. Nested values alone do not outweigh replica-set setup and additional relationship enforcement. No claim is made that deployment needs a particular minimum number of physical machines; topology must be selected explicitly.
+
+### Redis: persistent service, different transaction failure semantics
+
+Redis supports conditional transactions through WATCH and grouped execution through MULTI/EXEC. It does not supply rollback of execution-time errors like the relational transaction model. Clacks would need prevalidation/server-side logic that avoids partially applied domain/index state. This is a specific semantic mismatch, not a claim that Redis operations cannot be atomic. [Transaction semantics](https://redis.io/docs/latest/develop/using-commands/transactions/)
+
+Redis supports snapshots and append-only persistence with configurable flush policies. A common once-per-second policy admits recent acknowledged-write loss; a stricter policy exists, so durability is a configuration tradeoff rather than an inherent absence of persistence. Backup and restore must include the actual selected persistence format/manifest. [Persistence](https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/)
+
+**Assessment:** not my primary-store choice: it combines service operation with application-maintained query/integrity logic and a transaction-error model requiring more care. Existing relational job tables avoid introducing it solely as a queue.
+
+### FoundationDB and CockroachDB: distributed transactional alternatives
+
+FoundationDB supplies ordered key-value transactions spanning its storage processes, with strong isolation, automatic conflict retries and native consistent backup tooling. Higher-level query schemas/indexes are supplied by layers or the application. It can begin on one machine; claiming it categorically requires several machines would be wrong. Short transaction-lifetime/size constraints favor bounded batches and external calls outside transactions, which Clacks should already use. [Features](https://apple.github.io/foundationdb/features.html), [limits](https://apple.github.io/foundationdb/known-limitations.html), [backup agents and consistent restore](https://apple.github.io/foundationdb/backups.html)
+
+CockroachDB combines relational queries and transactions with replicated ranges coordinated through Raft, a consensus protocol. In a replicated range, a majority agrees before write commit. It supplies full/incremental backup and restore mechanisms. Its advantage is database-level distribution/failure tolerance, not a substitute for offline Clacks synchronization. [Architecture](https://www.cockroachlabs.com/docs/stable/architecture/overview), [backup/restore](https://www.cockroachlabs.com/docs/stable/backup-and-restore-overview)
+
+**Assessment:** both meet relevant atomicity needs and deserve consideration; neither should be rejected because Clacks allows eventual client consistency. They are less attractive because no agreed server-storage availability, geographic write-placement or scale requirement pays for the extra topology/consensus or layering. Their replication and internal history collection also do not remove Clacks's indefinite-offline and rollback responsibilities. We do not need to invent a quorum requirement to adopt a transactional service.
+
+### Files/object manifests and event-sourced storage
+
+A file per QSO with an atomic replacement does not by itself atomically update that QSO, its live-parent check, service decision and scope-publication state. A commit manifest over immutable data, or an application journal plus recovery, can supply a transaction boundary. Object stores can also use such a design, but single-object atomicity is not multi-object atomicity. Amazon S3 documents that distinction explicitly; other self-hosted object stores need their own guarantees checked. [Object consistency boundaries](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html)
+
+Clacks would then implement write ordering, conflict checks, index updates/rebuilds, crash recovery, deletion collection and consistent backup of manifest plus referenced objects. This is possible, but it creates substantial database-like code when established transactional stores already fit. Immutable object storage remains useful as a backup destination without becoming the live authoritative database.
+
+Event sourcing stores accepted changes as events and derives read state through projections. It can be implemented on a relational or key-value database, so it is not a mutually exclusive database-engine choice. It offers audit/replay but adds event-version compatibility, projection consistency and replay-side-effect handling. [Pattern description](https://martinfowler.com/eaaDev/EventSourcing.html)
+
+**Assessment:** not forbidden, but full permanent contact edit history is not an agreed requirement, and D59 permits coalescing. Keep the necessary immutable service evidence and bounded publication work without adopting a full event-sourced contact model merely to obtain durability.
+
+### DuckDB: analytical screening candidate
+
+DuckDB provides concurrent writer threads within its embedded writer process, so it must not be described as merely single-writer SQLite. Its documented design targets analytical queries; current remote multi-process alternatives are evolving and introduce their own service/catalog choices. [Concurrency documentation](https://duckdb.org/docs/current/connect/concurrency)
+
+**Assessment:** no observed analytical workload motivates making it the primary store for small conditional record transactions, durable job claims and lifecycle invariants. It could be considered later for analytics if required; that is not a proposed second MVP database.
+
+## Backup and recovery across the candidates
+
+| Candidate | Supported consistent backup/recovery path | Main Clacks-specific obligation |
+| --- | --- | --- |
+| SQLite | Online backup or a properly quiesced database copy. | Include any global account registry, all account files, configuration and keys; do not copy only an arbitrary live main file. |
+| Firebird | gbak logical backup/restore or nbackup physical full/incremental chain. | Restore a compatible database plus applicable security/configuration; keep the correct incremental chain. |
+| PostgreSQL | Physical base backup with needed WAL; optional continuous WAL archive; logical export for portability. | Recover external configuration/keys, then Clacks state/evidence; physical instance recovery spans accounts. |
+| redb | Minimal profile: stop/close the application and capture a consistent database file. | Document downtime and loss window; do not claim a selected online backup facility. Include schema/index versions and keys. |
+| LMDB | Supported environment copy. | Reader/page-retention effects during copy; all logical tables and required configuration/keys belong in the recovery set. |
+| Transactional RocksDB | BackupEngine or consistent checkpoint copied to independent backup storage. | Preserve indexes/options/schema context and transaction state; a local checkpoint alone does not survive host loss. |
+| MongoDB | Supported storage snapshot or full replica-set dump with required operation-log capture/replay restrictions. | Coordinate topology/roles/configuration and live changes; an ordinary live dump can mix times. |
+| Redis | Consistent snapshot/append-only recovery set matching configured persistence. | Accepted-write durability policy, data/index consistency and all required persistence files, not a guessed single file. |
+| FoundationDB / CockroachDB | Native distributed backup/restore mechanisms. | Preserve range/log or incremental recovery sets as required and configuration/keys; live replication is not a historical backup. |
+| Custom files/event log | Application-defined commit-manifest/log snapshot and verified referenced-data set. | Specify/test consistency and replay versioning; file synchronization alone is not the Clacks recovery protocol. |
+
+All paths still require the D141 restore-time upload pause and normal client reconciliation. None can restore a later revocation or upload success whose only copy was lost. Clock timestamps, database recovery timelines and storage log offsets do not replace Clacks's causal/timeline metadata. Backup cadence, accepted data-loss interval and restore-time target are not yet product commitments.
+
+## Why this recommendation, and what would change it
+
+Choose a relational service because it covers the required transaction domain, indexed operational access and independent writers with established mechanisms, while D123 explicitly permits the service burden. This favors less custom data-management code over fewer deployment components. It does not assume a high account count, prove an embedded bottleneck, or turn optional hosted deployment into an availability requirement.
+
+Choose PostgreSQL within that family for the proposed combination of row-security policies, locking/isolation choices, transactionally coupled publication/job tables and established recovery. Firebird also combines relational transactions, two deployment modes and established backup. The engine preference is a reasoned default, not a unique correctness result or benchmark ranking.
+
+Embedded SQLite becomes preferable if operational minimalism is weighted most heavily and measured transaction queueing is acceptable. Embedded Firebird becomes particularly interesting if avoiding a service while keeping concurrent relational transactions is the priority. redb/LMDB/RocksDB become preferable if a measured need for purpose-built key layout or embedded integration outweighs maintaining the data/query layer. Distributed candidates become preferable if server-side availability or geographic placement becomes a real requirement. None of those changed priorities is assumed today.
+
+Recommend supporting one server backend for MVP. Exact driver/library compatibility, release/version policy and deployment licensing/package review belong to implementation selection for any chosen engine; this report makes no unverified claim about comparative license cost or Rust binding quality. The named PostgreSQL application design below is the proposed implementation of the broader architecture recommendation, not the evidence used to exclude alternatives.
+
+## Recommended implementation: PostgreSQL storage organization
+
+Use shared account-scoped tables with explicit account IDs and stable object IDs. Keep ownership, parent references, lookup keys, ordering/acceptance metadata and job eligibility indexable; versioned structured payloads can preserve the native model where appropriate. This does not select the final schema or mode serialization. Do not force native hierarchical modes or activity references into one-to-one interchange columns.
+
+Store accepted QSO values, profiles/equipment, logbook lifecycle, per-scope timelines/ancestry, directory snapshots, client acknowledgments, deletion/replay evidence, service attempts/outcomes, observations/decisions, routing, protected credentials, jobs and publication work in this database. Unresolved user proposals and their comparison evidence remain client-local under the agreed model; the server does not acquire a competing-version review queue.
+
+A directory snapshot's logical identity is its QSO plus normalized request key. The winning value is one complete successful result ordered by lookup time and stable tie-break identity. Independent snapshot writes must not change the QSO's business comparison token merely by being associated with it. Old-key records may remain temporarily but cannot supply fallback, overwrite a different key's value, or resurrect deleted parents. Exact obsolete-record cleanup remains a representation task under existing retention rules.
+
+Use account-scoped reference constraints so a QSO cannot reference another account's tag and service evidence cannot reference another account's QSO. Add PostgreSQL row security as defense in depth. The runtime role should not own tables or have superuser/row-security-bypass privileges; migration/backup roles are separate. Set account context transaction-locally when reusing pooled connections. Row security supplements authentication and correctly scoped jobs; it does not replace them. PostgreSQL documents owner and privileged-role bypass explicitly. [Row security policies](https://www.postgresql.org/docs/current/ddl-rowsecurity.html)
+
+Store credential ciphertext and metadata transactionally where practical, with required decryption/recovery material supplied separately through the eventual secret-protection design. This avoids a new per-certificate filesystem transaction boundary, but does not choose an encryption library, key format, or rotation mechanism. Directory credential distribution and server-only signing/upload secret boundaries remain unchanged.
+
+## Transaction boundaries
+
+A transaction is the indivisible unit that commits completely or leaves its database changes unapplied. The following boundaries are application requirements/proposals, not automatic consequences of picking PostgreSQL.
+
+| Operation | Commit together | Keep outside the transaction |
+| --- | --- | --- |
+| Accept a client record | Account/client eligibility checks, live tag/reference validation, compared-state condition, accepted values/deletion state, related imported service claims where applicable, required acceptance metadata, scope-publication marker and durable follow-up work. | Client-side business comparison/user interaction; network streaming. |
+| Delete a tag | Tag deletion state and the selected preserve/delete-all/delete-unique effects, with compared-state/reference revalidation and durable account publication for accepted changes. Preserve required deletion/service evidence; exact batching and partial-conflict mechanics remain specification work. | User choice and previews; waiting for offline pending work; physical cleanup after safe retention. |
+| Apply a directory result | Parent eligibility, QSO/key association, conditional maximum over successful lookup ordering, snapshot value/provenance, scope publication and effective-output work as needed. | Provider request; user conflict resolution, which is not used for these snapshots. |
+| Process a remote observation | Observation identity/deduplication, explicit processing disposition, unique external-record/QSO association when selected, any resulting accepted QSO edit, and account publication records. | Download request and any required user match/add/reject decision. |
+| Claim/start an upload | Eligible current destination and effective accepted values, external association/collision check, job claim/attempt identity, actual payload context and any durable pending work. | Signing/network submission where practical; never hold database locks while waiting for a provider. |
+| Record upload outcome | Attempt-linked result/diagnostics, its exact sent-value coverage, retry/pause state and recovery-relevant publication work. | The external service's commit, which is not controlled by this database. |
+| Advance a download cursor | Cursor and all observations durably retained through that cursor. Contact processing may follow separately from retained observations. | Fetching additional pages; unresolved manual processing. |
+| Install a compaction baseline | Safe covered boundary, participant/acknowledgment validation, surviving-reference interpretation, installed-baseline marker. | Incremental removal of safely superseded detail after the baseline is durable. |
+
+For downloaded data, distinguish a durably ingested cursor from completion of all processing decisions. An external record associates with at most one local QSO within its account/service destination. Keep the association, processing result and resulting accepted edit consistent in the account scope; multiple tags do not multiply associations or effects. Provider-specific identity representation and atomic uniqueness enforcement remain engineering work.
+
+Tag-reference validation needs an explicit lifecycle check, not merely a foreign key: a soft-deleted tag row still exists. Existing PostgreSQL row locks, constraints and conditional updates can coordinate tag deletion with membership acceptance. A deleted-tag reference remains pending for explicit removal/replacement; it does not prevent acceptance of unrelated contacts or make the tag a QSO owner. Deletion may also mark selected QSOs deleted under the user's D244 choice; those edits retain ordinary whole-record reconciliation. Specify preview revalidation and transaction batches without assuming one account-wide transaction. Use a consistent lock order and retry aborted database transactions. [PostgreSQL row locks](https://www.postgresql.org/docs/current/explicit-locking.html)
+
+## Concurrency and durable publication
+
+Use short transactions, bounded connection pools and bounded batches. Start with PostgreSQL's default Read Committed isolation plus explicit reference/lifecycle checks and compared-state conditions for ordinary acceptance. Use Repeatable Read for multi-query consistent read views. Use Serializable isolation where an invariant depends on predicates not protected by explicit locks/constraints, with automatic retry of serialization failures. Retrying a database transaction is distinct from asking the operator to resolve a genuine QSO conflict. [Transaction isolation](https://www.postgresql.org/docs/current/transaction-iso.html)
+
+For each account synchronization scope, a practical publication mechanism is a transactionally updated scope row: acquire its lock, allocate a scope position, commit changed state and its transfer/publication record together, then release the lock. This gives an ordered committed publication boundary without serializing every account through one global counter. A shared scope can still be a hotspot; group bounded work and measure it. This is a proposed storage mechanism for the agreed timeline model, not a new causal representation or permanent per-edit history graph.
+
+Do not use the maximum allocated database sequence value as proof of a complete synchronization prefix. Sequence allocation is not rolled back, and allocation order need not equal commit order. For example, transaction A allocates 10 and waits while B commits 11: a cursor that skips everything through 11 can miss A's later commit. PostgreSQL documents sequence gaps and nontransactional sequence state. [Sequence behavior](https://www.postgresql.org/docs/current/functions-sequence.html)
+
+Durable publication work means a table written in the same transaction as accepted changes, then drained after commit. This is often called a transactional outbox. Notifications may wake a worker, but reconnection must consult retained database state, not depend on an ephemeral notification. PostgreSQL NOTIFY is a commit-related signaling facility, not Clacks's durable catch-up history. [Notification semantics](https://www.postgresql.org/docs/current/sql-notify.html)
+
+A job table can support multiple workers using short row-lock claims and SKIP LOCKED, which skips work another worker currently holds. Its documented queue use is suitable for claims, not for generating an allegedly complete sync snapshot. Persist claim ownership/attempt state before doing external work and reject obsolete local completion updates. Lease expiry does not make a remote request disappear or guarantee that an expired worker has stopped. [Queue-oriented locking](https://www.postgresql.org/docs/current/sql-select.html)
+
+A database cannot atomically commit with Logbook of The World (LoTW) or QRZ. A provider may accept an upload and the process may die before recording success. Retain the attempt and uncertainty, and follow D47's retry-unless-explicitly-successful policy with diagnostics; do not advertise exactly-once remote effects. Build each new attempt from current accepted effective output. A later successful result covers the values actually sent, not whatever newer values exist when the reply arrives. No credential-distribution or provider-matching policy changes follow from the database choice.
+
+Use durable commits for accepted sync state, job/evidence state and acknowledgments. Keep PostgreSQL fsync/full-page-write protection and local synchronous commit enabled. Waiting for a local durable commit requires no storage quorum or synchronous standby. SQLite could also provide durable commits with its appropriate synchronization settings; these are configuration obligations for either engine. [PostgreSQL durability settings](https://www.postgresql.org/docs/current/runtime-config-wal.html), [SQLite synchronization settings](https://sqlite.org/pragma.html#pragma_synchronous)
+
+## Linux container deployment
+
+Recommend a documented two-service deployment: Clacks and PostgreSQL, with persistent database storage, protected deployment secrets, a private database connection and a bounded application pool. A pre-existing compatible PostgreSQL service can substitute for the bundled database container. Use a supported stable release, pin deployment versions and document upgrades; do not select a prerelease merely because it is available. No container runtime/orchestrator or Rust database library is selected by this report.
+
+The web interface, synchronization endpoint and workers can run in one Clacks deployment initially. Splitting workers later is possible because claims and outcomes are durable database state, but horizontal application deployment is not an MVP requirement. No database-per-account, separate cache, external message broker, read replica, or distributed database is needed to meet the agreed model.
+
+Run migrations with a separate authorized role and controlled startup. Keep application-schema compatibility explicit under D179; don't run mismatched application versions against an incompatible schema. A migration rollback may require restoring data, so deployment recovery must preserve the matching application version/configuration and protected keys.
+
+Compared with SQLite, operators must manage database connections, its persistent volume, health, backup execution and major-version upgrades. This is the principal recommendation cost, not something to hide behind a container file. PostgreSQL processes do not remove the need to size memory/storage or monitor archive growth and database maintenance.
+
+## Backup recommendation
+
+Recommend documented PostgreSQL physical base backups plus continuous WAL archiving for deployments wanting recovery between scheduled backups. A base backup is a database-instance copy captured with supported backup tooling; archived WAL supplies changes after that base. pg_basebackup can also create a self-contained online backup including the logs needed to restore that backup, which is a simpler scheduled-snapshot option for small self-hosting when the operator accepts the intervening loss window. No fixed cadence, retention, recovery time or maximum loss interval has been agreed. [Base backup tools](https://www.postgresql.org/docs/current/app-pgbasebackup.html)
+
+Make base-backup-plus-archive the documented production profile; make the standalone-backup loss boundary explicit in the simpler self-hosted profile. Use established external scheduling/storage tools under D57, not a new Clacks backup command. Archive continuity, successful off-host retention and periodic actual restores must be checked. Retaining an archive on the same failed volume is not a recoverable second copy. Archive stalls also consume local storage. [Continuous archiving and recovery](https://www.postgresql.org/docs/current/continuous-archiving.html)
+
+Logical pg_dump archives remain useful for portability and controlled migrations. They provide a consistent database view during ordinary concurrent use, but do not include cluster-wide roles and are not a substitute for archived changes. PostgreSQL's current pg_dump documentation cautions against treating it as the general regular-production-backup solution. Preserve required roles separately through documented provisioning or global-object backup. [pg_dump](https://www.postgresql.org/docs/current/app-pgdump.html)
+
+The recovery set must also contain deployment/database configuration, application/schema version information and the protected-secret recovery material needed to decrypt credential ciphertext. Database WAL does not capture separately edited configuration files or external key files. Prefer versioned key references and retention of all key versions needed by retained backups. Protect the key recovery set appropriately without requiring one particular key-management product. [Recovery coverage](https://www.postgresql.org/docs/current/continuous-archiving.html)
+
+Physical recovery targets the PostgreSQL instance, not an individual account or logbook. One shared database simplifies transactionally consistent whole-server recovery but couples accounts operationally. If per-account surgical recovery is later needed, restore a backup into an isolated temporary instance and extract/reconcile the intended data; do not overwrite one account's records while ignoring its timelines/service evidence. No per-account restore command is added to MVP.
+
+## Recovery into the Clacks synchronization model
+
+1. Fence the previous deployment so two divergent restored servers do not both accept production traffic or run uploads. Restore PostgreSQL and the matching configuration/key material into a controlled deployment.
+2. Explicitly start Clacks with uploads paused using a restore-time deployment control. Do not rely on a pause flag contained only in the older backup. Synchronization remains available under D141; no new server identity on every ordinary restart is proposed.
+3. Let enrolled clients reconcile surviving accepted state and service evidence through the agreed symmetric protocol, with fuller-state comparison where incremental history is absent. Use application timeline ancestry/coverage and normal client reconciliation; database recovery is not authority to overwrite newer client state.
+4. Recover job/attempt state conservatively: stored success retains its sent-value scope; missing outcomes stay uncertain and retryable under D47. Never replay an already recorded observation's enrichment simply because the restored QSO has older values.
+5. The operator checks available clients/evidence and explicitly resumes uploads under D141. An indefinitely absent client or unresolved local conflict does not establish a server-side publication veto.
+
+PostgreSQL's recovery timelines track branches of database physical recovery. They are instance-wide and do not cover every logical restore path; Clacks's per-account application timelines have different semantics. Do not substitute database timeline IDs or recovery-log positions for the agreed application identities/ancestry. A rollback can still lose a later revocation or a success outcome whose only copy was lost. No engine provides knowledge from a backup's future. [PostgreSQL recovery timelines](https://www.postgresql.org/docs/current/continuous-archiving.html)
+
+Database WAL retention is also separate from D155's authorized-client ordering-evidence boundary. Reclaiming PostgreSQL recovery logs must follow database backup/recovery requirements; collecting Clacks causal/deletion/service evidence must follow its own rules. Neither retention process authorizes the other.
+
+## What still needs verification
+
+This recommendation establishes a storage direction, not a benchmark result or completed schema proof. Before implementation acceptance, verify:
+
+- Both orders of tag membership acceptance versus tag deletion; preserve/delete-all/delete-unique effects, including active untagged versus deleted contacts; concurrent tag/fact edits; competing claims on one external association; stale compared-state rejection; concurrent client revocation and acceptance; correct account scoping in runtime/worker/backup roles.
+- Report edit plus directory refresh proceeding independently; deterministic snapshot winners under equal times, reversed arrival order and replay; old-key results never contaminating new-key output.
+- No missed publication when transactions commit in a different order from allocation; restart between commit and notification; catch-up-to-stream overlap under retained/outdated cursors.
+- Provider acceptance followed by process failure before outcome commit, stale worker completion after reclaim, and duplicate observation ingestion without duplicated effects.
+- Baseline installation interrupted before/after commit, authorized offline-client retention, and older-backup reconciliation with available/missing evidence.
+- Restore into an isolated instance, validate credential recovery, pause uploads before service startup, and resume only after the operator's recovery workflow.
+- Measure realistic burst catch-up, service downloads, directory refreshes and cleanup across varying account counts. Measure per-scope lock wait, queue latency, transaction duration, pool pressure and storage growth; do not invent capacity claims from actor counts.
+
+Workload verification may change the balance between service deployment and embedded deployment, but is not needed to identify the transaction/query/backup capabilities documented above. Changes in operator preference or an existing supported database deployment could also make Firebird preferable. Supporting several engines in MVP is not part of this recommendation.

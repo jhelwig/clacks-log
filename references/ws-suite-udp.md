@@ -1,6 +1,6 @@
-# WS Suite UDP logging fields
+# WS Suite (the WSJT-X family of weak-signal radio applications) User Datagram Protocol (UDP) logging fields
 
-Source investigation dated 11 October 2026. Findings below are from the official **WS 3.2.1 build 261010 standard GUI source package**, a beta release. This is not a capture of Jacob's running installation and does not establish that every older WS/WSJT-X build has identical fields.
+Source investigation dated 11 October 2026. Findings below are from the official **WS 3.2.1 build 261010 standard graphical user interface (GUI) source package**, a beta release. Source inspection does not establish that every older WS/WSJT-X build has identical fields.
 
 ## Sources
 
@@ -12,7 +12,7 @@ This note records protocol behavior rather than importing WS implementation code
 
 ## Logging paths
 
-The primary UDP server carries the WSJT-X-style binary protocol. A completed QSO emits both **QSO Logged, type 5**, and **Logged ADIF, type 12**. The latter wraps an ADIF record in the binary message protocol; it is not a standalone plain-text UDP record.
+The primary UDP server carries the WSJT-X-style binary protocol. A completed radio contact (QSO) emits both **QSO Logged, type 5**, and **Logged Amateur Data Interchange Format (ADIF), type 12**. The latter wraps an ADIF record in the binary message protocol; it is not a standalone plain-text UDP record.
 
 A separately configured Secondary UDP Server can send a plain ADIF record ending with `<eor>`, intended for destinations such as N1MM Logger+. That path is separate from type 12.
 
@@ -22,7 +22,7 @@ References: `widgets/mainwindow.cpp`, `MainWindow::acceptQSO`, lines 12339 onwar
 
 | Meaning | Type 5 field | Type 12 ADIF representation |
 | --- | --- | --- |
-| Other station | DX call | `CALL` |
+| Other station | DX (the other station) call | `CALL` |
 | Other station grid | DX grid | `GRIDSQUARE` |
 | Start and end | Date and Time On/Off | `QSO_DATE`, `TIME_ON`, `QSO_DATE_OFF`, `TIME_OFF` |
 | Frequency | Frequency integer in Hz | `FREQ` in MHz; `BAND` also generated |
@@ -31,7 +31,7 @@ References: `widgets/mainwindow.cpp`, `MainWindow::acceptQSO`, lines 12339 onwar
 | Our station callsign | My call | `STATION_CALLSIGN` |
 | Our grid | My grid | `MY_GRIDSQUARE`, omitted if empty |
 | Operator callsign | Operator call | `OPERATOR`, omitted if empty |
-| Power entered in the logging dialog | Tx power | `TX_PWR`, omitted if empty; not the CAT power reading |
+| Power entered in the logging dialog | Tx power | `TX_PWR`, omitted if empty; not the computer-aided transceiver control (CAT) power reading |
 | Comments and name | Comments, Name | `COMMENT`, `NAME`, omitted if empty |
 | Contest exchange | Exchange sent/received | Derived `STX`, `SRX`, and activity-dependent fields; not a general verbatim copy of both strings |
 | Propagation | ADIF Propagation mode | `PROP_MODE`, omitted if empty |
@@ -63,16 +63,29 @@ References: `widgets/logqso.cpp`, lines 269-282 and 365 onward; `widgets/mainwin
 
 The ADIF generator can provide the **other station's `STATE`** from an RTTY exchange, or from a configured grid/callsign lookup when not in a special activity. Field Day can produce `CONTEST_ID`, `SRX_STRING`, `CLASS`, and `ARRL_SECT`; contest serials can produce `STX`/`SRX`.
 
-The inspected generator does not supply our `MY_DXCC`, `MY_STATE`, `MY_CNTY`, `MY_CQ_ZONE`, `MY_ITU_ZONE`, or POTA references (`MY_SIG`/`MY_SIG_INFO` or counterpart equivalents). Those may come from Clacks Log context or later enrichment; do not confuse counterpart `STATE` with our operating location. Do not reinterpret a free-form comment or contest number as a POTA reference without an explicit rule.
+The inspected generator does not supply our `MY_DXCC`, `MY_STATE`, `MY_CNTY`, `MY_CQ_ZONE`, `MY_ITU_ZONE`, or Parks on the Air (POTA) references (`MY_SIG`/`MY_SIG_INFO` or counterpart equivalents). Those may come from Clacks Log context or later enrichment; do not confuse counterpart `STATE` with our operating location. Do not reinterpret a free-form comment or contest number as a POTA reference without an explicit rule.
 
 ## Planning implications and open decisions
 
-- Station callsign, own grid, and operator can overlap Clacks Log defaults. Prefer supplied fields when present and fill missing operating context from current client defaults. No discrepancy notices or reconciliation workflow are planned for now. Empty-value semantics remain open.
-- ADIF type 12 is a candidate primary completed-QSO input because it carries optional enrichment and explicit mode/submode fields. Selecting it is still a proposal.
-- Type 5 and type 12 must not create two QSOs for one logging event. Handling forwarded/repeated packets and duplicate capture across clients needs design.
-- The message Id identifies the sending application instance; it is not a stable per-QSO UUID. Create our own stable QSO identifiers and define import deduplication separately.
-- A nonempty supplied operator takes precedence over client defaults. An absent operator may be filled from the current client context; the exact treatment of an explicitly empty field remains to be defined.
+- Station callsign, own grid, and operator can overlap Clacks Log defaults. Prefer supplied fields when present and fill missing operating context from current client defaults. No discrepancy notices or reconciliation workflow are planned for now. D80 treats empty live station-context fields like omitted fields for current-context fallback.
+- D79 selects ADIF type 12 as preferred completed-QSO input, type 5 fallback when ADIF is absent, and correlation of paired notifications into one contact. Type 12 carries optional enrichment and explicit mode/submode fields. Exact correlation and fallback timing remain open.
+- D79 requires one QSO per logging event, including paired or repeated notifications. Handling forwarded/repeated packets and duplicate capture across clients needs design.
+- The message Id identifies the sending application instance; it is not a stable per-QSO universally unique identifier (UUID). Create our own stable QSO identifiers and define import deduplication separately.
+- A nonempty supplied operator takes precedence over client defaults. An absent or explicitly empty operator may be filled from the current client context under D80.
 - Do not change current logging defaults simply because an incoming QSO contains different values.
-- UDP message reception is not a verified durable replay mechanism. Automatic catch-up from the WS ADIF log is explicitly outside MVP; manual import scope remains open.
+- D81 configures one capturing Clacks client per WS source, using its defaults and delivering the QSO to other clients through sync. Exact source setup/identity and accidental duplicate capture remain open.
+- UDP message reception is not a verified durable replay mechanism. Automatic catch-up from the WS ADIF log is explicitly outside minimum viable product (MVP); ADIF file import is MVP under D31, with historical-context and comparison rules under D38-D43.
 
 No live packets or local WS settings were inspected. Field population, routing, forwarding, and configuration on the actual deployment need later validation.
+
+## In-progress DX call and lookup (D91)
+
+D91 requires Clacks to follow WS DX-call UDP updates and run directory lookup after a debounce on actual call changes, including locally edited Clacks calls. QSO completion is not the primary lookup trigger. D92 makes local edits lookup-only in MVP and defers sending WS DX-call changes to post-MVP. D93 makes incoming WS DX-call values authoritative over local edits. D94 sets lookup debounce to 500 ms after the last effective Clacks DX-call change. D116 makes empty incoming calls authoritative, clearing Clacks's call and associated lookup/history display; stale display responses must not repopulate it.
+
+[Official upstream WSJT-X protocol source](https://raw.githubusercontent.com/WSJTX/wsjtx/master/Network/NetworkMessage.hpp), checked 2026-10-12, documents Status type 1 with DX call and DX grid, and status emission when DX Call changes. This verifies the upstream protocol capability, not a live capture of the installed WS build or a new inspection of WS-specific status serialization. Prior WS source investigation in this note focused on completed-QSO paths.
+
+Status updates that leave Clacks's effective call unchanged must not continually postpone lookup. Under D93, a repeated WS call still replaces a different locally entered Clacks call and restarts debounce because the effective call changed. Completion data must be associated with the correct source/contact rather than the current displayed call; a late lookup response cannot attach metadata to a subsequent contact. In-progress display state does not itself constitute a completed QSO.
+
+## Activity references versus exchanges
+
+Planning clarification 2026-10-12: a contest identifier is activity/reference metadata and does not imply a dedicated contest subsystem. D127 accepts a shared typed context pattern with POTA references. D128 explicitly includes optional phone/continuous-wave Morse code (CW)/digital signal reports in the QSO model, separate from contest exchanges. [ADIF 3.1.6](https://www.adif.org/316/ADIF_316.htm) defines CONTEST_ID, MY_POTA_REF/POTA_REF, and separate STX_STRING/SRX_STRING exchange fields. A shared internal pattern must retain those distinct export meanings and cardinality; D129 places dedicated sent/received exchange recording post-MVP, allowing free-text comments in MVP; exact historical-import field retention remains open.

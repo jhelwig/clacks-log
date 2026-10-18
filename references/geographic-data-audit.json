@@ -1,0 +1,424 @@
+{
+  "scope": "Candidate research audit, not a Clacks implementation or exhaustive accuracy certification",
+  "tools": {
+    "shapely": "2.2.0",
+    "pyshp": "3.1.6"
+  },
+  "sources": {
+    "ne_subunits": {
+      "archive_bytes": 5030083,
+      "sha256": "c2fd677e0ef254d7d6d37c92f9779a0ff69c2ab66f503dbe2a6f0cf4bbd8a199"
+    },
+    "ne_minor": {
+      "archive_bytes": 314932,
+      "sha256": "47c0b3ce26df7b4dbabdbb251023918cb2f5c83462a426288f1f253da7284db2"
+    },
+    "census_state": {
+      "archive_bytes": 9957057,
+      "sha256": "2e17ea40dff3e00163eec87a26efa0b0ff7e8fe364a191bf1a7754dcb49ea326"
+    },
+    "census_county": {
+      "archive_bytes": 83378454,
+      "sha256": "b527c9ba7aeb8f17ef118f026eae5e5a938aa1d00b873bc32342d0dce59321c0"
+    },
+    "census_county2021": {
+      "archive_bytes": 82328531,
+      "sha256": "26890ff92275ff1392cd205c7021ba510b7f63f2ff985ca327b9f5fd5e9ecc90"
+    }
+  },
+  "zones": {
+    "cq": {
+      "features": 40,
+      "sha256": "1764e65acbbb82a6b3b6e8ba31c69fbc271965772e73ad7ad02b14bc2bae5ddf",
+      "invalid": [],
+      "exact_original_outer_sequences": 36,
+      "sample_results": {
+        "Seattle": [
+          3
+        ],
+        "New Haven": [
+          5
+        ],
+        "Denver": [
+          4
+        ],
+        "Honolulu": [
+          31
+        ],
+        "Anchorage": [
+          1
+        ],
+        "London": [
+          14
+        ],
+        "Tokyo": [
+          25
+        ],
+        "Sydney": [
+          30
+        ],
+        "Auckland": [
+          32
+        ],
+        "Suva": [
+          32
+        ],
+        "Apia": [
+          32
+        ]
+      },
+      "longitude_domain": [
+        -205.0,
+        192.31292
+      ],
+      "sample_area_CN87": [
+        3
+      ]
+    },
+    "itu": {
+      "features": 90,
+      "sha256": "79c6e5c723bfa0c27e527e79a9e12a52bd19669faec31b9fb27bcd71da7b61b7",
+      "invalid": [
+        [
+          2,
+          "Self-intersection[-141.004029762845 79.9990700000146]"
+        ],
+        [
+          4,
+          "Self-intersection[-89.999999 48.0599312474403]"
+        ],
+        [
+          14,
+          "Self-intersection[-58.3374 -16.5]"
+        ],
+        [
+          15,
+          "Self-intersection[-58.3520777423994 -16.5246678200686]"
+        ],
+        [
+          31,
+          "Self-intersection[80.5987360162877 42.8944145845096]"
+        ],
+        [
+          42,
+          "Self-intersection[80.5987360162877 42.8944145845096]"
+        ]
+      ],
+      "exact_original_outer_sequences": 74,
+      "sample_results": {
+        "Seattle": [
+          6
+        ],
+        "New Haven": [
+          8
+        ],
+        "Denver": [
+          7
+        ],
+        "Honolulu": [
+          61
+        ],
+        "Anchorage": [
+          1
+        ],
+        "London": [
+          27
+        ],
+        "Tokyo": [
+          45
+        ],
+        "Sydney": [
+          59
+        ],
+        "Auckland": [
+          60
+        ],
+        "Suva": [
+          56
+        ],
+        "Apia": [
+          62
+        ]
+      },
+      "longitude_domain": [
+        -200.0,
+        191.03851
+      ],
+      "sample_area_CN87": [
+        6
+      ]
+    }
+  },
+  "natural_earth": {
+    "subunit_count": 360,
+    "Seattle": [
+      {
+        "NAME": "United States of America",
+        "SU_A3": "USB",
+        "GEOUNIT": "United States of America",
+        "ADMIN": "United States of America"
+      }
+    ],
+    "New Haven": [
+      {
+        "NAME": "United States of America",
+        "SU_A3": "USB",
+        "GEOUNIT": "United States of America",
+        "ADMIN": "United States of America"
+      }
+    ],
+    "Denver": [
+      {
+        "NAME": "United States of America",
+        "SU_A3": "USB",
+        "GEOUNIT": "United States of America",
+        "ADMIN": "United States of America"
+      }
+    ],
+    "Honolulu": [
+      {
+        "NAME": "Hawaii",
+        "SU_A3": "USH",
+        "GEOUNIT": "United States of America",
+        "ADMIN": "United States of America"
+      }
+    ],
+    "Anchorage": [
+      {
+        "NAME": "Alaska",
+        "SU_A3": "USK",
+        "GEOUNIT": "United States of America",
+        "ADMIN": "United States of America"
+      }
+    ],
+    "London": [
+      {
+        "NAME": "England",
+        "SU_A3": "ENG",
+        "GEOUNIT": "England",
+        "ADMIN": "United Kingdom"
+      }
+    ],
+    "Tokyo": [
+      {
+        "NAME": "Honshu",
+        "SU_A3": "JPH",
+        "GEOUNIT": "Japan",
+        "ADMIN": "Japan"
+      }
+    ],
+    "Sydney": [
+      {
+        "NAME": "Australia",
+        "SU_A3": "AUZ",
+        "GEOUNIT": "Australia",
+        "ADMIN": "Australia"
+      }
+    ],
+    "Auckland": [
+      {
+        "NAME": "North I.",
+        "SU_A3": "NZN",
+        "GEOUNIT": "New Zealand",
+        "ADMIN": "New Zealand"
+      }
+    ],
+    "Suva": [
+      {
+        "NAME": "Fiji",
+        "SU_A3": "FJI",
+        "GEOUNIT": "Fiji",
+        "ADMIN": "Fiji"
+      }
+    ],
+    "Apia": [],
+    "Edinburgh": [
+      {
+        "NAME": "Scotland",
+        "SU_A3": "SCT",
+        "GEOUNIT": "Scotland",
+        "ADMIN": "United Kingdom"
+      }
+    ],
+    "Corsica": [],
+    "Azores": [],
+    "Reunion": [
+      {
+        "NAME": "R\u00e9union",
+        "SU_A3": "REU",
+        "GEOUNIT": "Reunion",
+        "ADMIN": "France"
+      }
+    ],
+    "Vatican": [
+      {
+        "NAME": "Vatican",
+        "SU_A3": "VAT",
+        "GEOUNIT": "Vatican",
+        "ADMIN": "Vatican"
+      }
+    ],
+    "Market Reef": [],
+    "Mount Athos": [
+      {
+        "NAME": "Greece",
+        "SU_A3": "GRC",
+        "GEOUNIT": "Greece",
+        "ADMIN": "Greece"
+      }
+    ],
+    "ITU headquarters": [
+      {
+        "NAME": "Switzerland",
+        "SU_A3": "CHE",
+        "GEOUNIT": "Switzerland",
+        "ADMIN": "Switzerland"
+      }
+    ],
+    "additional_interior_probes": {
+      "Corsica (9.05,42.15)": "FXC",
+      "Sao Miguel (-25.5,37.8)": "PAZ",
+      "Upolu (-171.8,-13.9)": "WSM"
+    }
+  },
+  "census": {
+    "census_state": {
+      "records": 56,
+      "CT_names": [
+        "Connecticut"
+      ],
+      "sample_results": {
+        "Anchorage": {
+          "name": "Alaska",
+          "GEOID": "02"
+        },
+        "New Haven": {
+          "name": "Connecticut",
+          "GEOID": "09"
+        },
+        "Honolulu": {
+          "name": "Hawaii",
+          "GEOID": "15"
+        },
+        "Denver": {
+          "name": "Colorado",
+          "GEOID": "08"
+        },
+        "Seattle": {
+          "name": "Washington",
+          "GEOID": "53"
+        }
+      }
+    },
+    "census_county": {
+      "records": 3235,
+      "CT_names": [
+        "Naugatuck Valley",
+        "South Central Connecticut",
+        "Greater Bridgeport",
+        "Western Connecticut",
+        "Northwest Hills",
+        "Capitol",
+        "Lower Connecticut River Valley",
+        "Southeastern Connecticut",
+        "Northeastern Connecticut"
+      ],
+      "sample_results": {
+        "Seattle": {
+          "name": "King",
+          "GEOID": "53033"
+        },
+        "Anchorage": {
+          "name": "Anchorage",
+          "GEOID": "02020"
+        },
+        "New Haven": {
+          "name": "South Central Connecticut",
+          "GEOID": "09170"
+        },
+        "Honolulu": {
+          "name": "Honolulu",
+          "GEOID": "15003"
+        },
+        "Denver": {
+          "name": "Denver",
+          "GEOID": "08031"
+        }
+      }
+    },
+    "census_county2021": {
+      "records": 3234,
+      "CT_names": [
+        "Middlesex",
+        "New London",
+        "New Haven",
+        "Tolland",
+        "Hartford",
+        "Windham",
+        "Fairfield",
+        "Litchfield"
+      ],
+      "sample_results": {
+        "Honolulu": {
+          "name": "Honolulu",
+          "GEOID": "15003"
+        },
+        "Denver": {
+          "name": "Denver",
+          "GEOID": "08031"
+        },
+        "Anchorage": {
+          "name": "Anchorage",
+          "GEOID": "02020"
+        },
+        "New Haven": {
+          "name": "New Haven",
+          "GEOID": "09009"
+        },
+        "Seattle": {
+          "name": "King",
+          "GEOID": "53033"
+        }
+      }
+    }
+  },
+  "source_urls": {
+    "ne_subunits": "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_map_subunits.zip",
+    "ne_minor": "https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_minor_islands.zip",
+    "census_state": "https://www2.census.gov/geo/tiger/TIGER2026/STATE/tl_2026_us_state.zip",
+    "census_county": "https://www2.census.gov/geo/tiger/TIGER2026/COUNTY/tl_2026_us_county.zip",
+    "census_county2021": "https://www2.census.gov/geo/tiger/TIGER2021/COUNTY/tl_2021_us_county.zip"
+  },
+  "repository_pins": {
+    "HA8TKS_CQ": "c86428d396f05540a96becf29729c70d3343f862",
+    "HA8TKS_ITU": "cc727e8d969a4171bc0fc13fe7ebd97ad1887029",
+    "HB9HIL": "091b813f35c899af194d028d3841fc10b16fbd45",
+    "GridTracker": "12b6ab0da041ef991140303e6a9267df4989079a"
+  },
+  "original_HA8TKS": {
+    "CQ": {
+      "features": 40,
+      "open_rings": [],
+      "invalid_polygon_interpretations": []
+    },
+    "ITU": {
+      "features": 90,
+      "open_rings": [
+        2,
+        4,
+        14,
+        15,
+        38
+      ],
+      "invalid_polygon_interpretations": [
+        2,
+        4,
+        14,
+        15,
+        31,
+        42
+      ]
+    },
+    "note": "Original files contain per-zone LineStrings. Polygon interpretation closes open rings. Six ITU self-intersections persist in the HB9HIL polygon conversion. No corrected shipping dataset was produced."
+  }
+}

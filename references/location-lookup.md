@@ -1,0 +1,100 @@
+# Geographic dataset comparison and selected direction
+
+Research checkpoint: **17 October 2026**. D239 selects the compared source combination; this research does not produce a shipping dataset. Public source data was inspected in temporary storage, with findings retained in the [candidate audit](geographic-data-audit.json). No Clacks application implementation was performed.
+
+## Required coverage and behavior
+
+D77/D132 require offline operating-location autofill. D133 requires United States (US) coverage, including state/county, and desires worldwide DX Century Club (DXCC) entities, CQ magazine zones and International Telecommunication Union (ITU) zones without full worldwide fidelity for the minimum viable product (MVP). Richer worldwide state/province/county coverage is not required. D134 requires independently versioned/replaceable data bundled with application releases; an in-application updater is not required for MVP.
+
+D184 already settles lookup semantics: use the entire Maidenhead grid area for a grid-derived location and a point for explicit coordinates. Populate unambiguous fields independently, allowing manual selection for ambiguous results. D78 preserves manual corrections until the operating position changes. Existing contact/profile snapshots must not be silently recalculated when a data release changes. These are settled requirements, not new questions raised by dataset selection.
+
+## Selected combination (D239)
+
+| Purpose | Selected input | Why this fits | Main cost or limitation |
+| --- | --- | --- | --- |
+| US state/county | Census TIGER/Line 2026 state and county geometry; use the eight Connecticut county features from Census 2021 in place of the nine planning-region features | Direct national producer, detailed boundaries and stable geographic identifiers; explicit reproduction permission | Larger upstream inputs than cartographic layers; boundary accuracy varies. Select actual county geometry for Connecticut, not a renamed planning region. |
+| Worldwide CQ/ITU zones | HA8TKS's zone coordinate data under the permissive MIT License (named for the Massachusetts Institute of Technology), extracted from the CQ/ITU Leaflet repositories into normalized polygon data | Original inspected publisher, all 40 CQ and 90 ITU zone records, explicit permissive redistribution terms | Community map geometry, not an authoritative precision guarantee. Date-line normalization and six ITU self-intersection corrections need reviewed build transformations. |
+| Worldwide DXCC | Natural Earth 1:10 million map subunits 5.1.1 and minor islands 4.1.0, with a Clacks-authored subunit/island-to-DXCC mapping and documented exceptions | Traceable, public-domain geographic foundation; separates many territories already; no unexplained third-party DXCC polygon compilation required | Not a ready-made DXCC dataset. Mapping and exceptions are real authored work. Generalized coasts, omitted small features and special entities limit automatic classification. |
+
+D239 selects this combination for the agreed coverage, with detailed US geometry and a best-effort worldwide radio layer. It has a compatible redistribution basis for both application downloads and commercial hosting. The project retains upstream data terms; Elastic License 2.0 for Clacks code does not replace those terms. This recommendation includes building the DXCC correspondence table and reviewed geometry transformations; it does **not** claim those deliverables already exist or that every DXCC entity can be inferred reliably from coordinates.
+
+## Provenance, redistribution and maintenance
+
+### Census: US states and counties
+
+The [2026 release page](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) reports release on 14 October 2026 and boundaries as of 1 January 2026. Its [technical documentation](https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf), sections 1.1–1.2, permits reproduction, requests Census attribution and gives trademark/repackaging guidance. Sections 3.3.3–3.3.6 document the coordinate reference system and varying spatial accuracy. Decimal places are not an accuracy guarantee. These are detailed geographic inputs, not survey-grade legal determinations.
+
+Inspected official archives:
+
+- [2026 states](https://www2.census.gov/geo/tiger/TIGER2026/STATE/tl_2026_us_state.zip): 56 features, including states, District of Columbia and included territories.
+- [2026 counties and equivalents](https://www2.census.gov/geo/tiger/TIGER2026/COUNTY/tl_2026_us_county.zip): 3,235 features; Connecticut entries are nine planning regions.
+- [2021 counties and equivalents](https://www2.census.gov/geo/tiger/TIGER2021/COUNTY/tl_2021_us_county.zip): 3,234 features; Connecticut entries are the eight counties. Extract only those eight as the explicit Connecticut county input; retain other regions from the current release.
+
+Counties are not ambiguously defined and do not have an alternative radio meaning. Planning regions are not counties. The task is simply to select county geometry. Current Census data remains useful for places that use ordinary county-equivalent subdivisions, such as Louisiana parishes and Alaska boroughs/census areas; it is not a reason to substitute Connecticut planning regions for counties.
+
+The [2023 Census page](https://www.census.gov/geographies/mapping-files/2023/geo/tiger-line-file.html) also documents earlier Connecticut reference geometry. The inspected 2021 national archive is a concrete available source, avoiding a dependency on inferred filenames or a label crosswalk. Five point checks returned the expected states and King, Denver, Honolulu, Anchorage, and New Haven county/subdivision names when using the county selection above. This is a sample check, not nationwide certification.
+
+Maintenance: review each annual release and errata, retain stable original identifiers and source dates, compare changed boundaries, and keep the Connecticut extraction explicit. Confirm the current datum transformation when compiling with world layers rather than silently treating all coordinate systems as identical. Keep detailed lookup geometry separate from any simplified display map. No exact compression tolerance or release cadence is selected here.
+
+### CQ/ITU: HA8TKS, with an inspected downstream conversion
+
+Original inspected sources:
+
+- [Leaflet.CQzones](https://github.com/ha8tks/Leaflet.CQzones/tree/c86428d396f05540a96becf29729c70d3343f862), revision `c86428d396f05540a96becf29729c70d3343f862`.
+- [Leaflet.ITUzones](https://github.com/ha8tks/Leaflet.ITUzones/tree/cc727e8d969a4171bc0fc13fe7ebd97ad1887029), revision `cc727e8d969a4171bc0fc13fe7ebd97ad1887029`.
+
+Each repository publishes an MIT license with copyright 2019 HA8TKS. Preserve the author's copyright, permission notice and disclaimer with extracted/modified coordinate data. No JavaScript or Leaflet mapping-library runtime is required by Clacks: the recommendation concerns data conversion during reference-data preparation. The repositories do not document an earlier survey/cartographic lineage or measured positional accuracy; author publication and permissive terms are established, authoritative boundary precision is not.
+
+[HB9HIL's GeoJSON (geographic JavaScript Object Notation) conversion](https://github.com/HB9HIL/hamradio-zones-geojson/tree/091b813f35c899af194d028d3841fc10b16fbd45) is also explicitly MIT-licensed, copyright 2024 HB9HIL. Its README identifies Wavelog use but does not explain input lineage. Coordinate comparison establishes 36/40 CQ outer coordinate sequences and 74/90 ITU sequences are exactly identical to the corresponding HA8TKS lines. The rest are not all identical: changes include tiny coordinate offsets and different southern CQ boundaries. This is evidence of a closely related dataset, not proof of a documented attribution chain. Prefer the inspected HA8TKS input plus explicit Clacks transformations. If importing HB9HIL modifications, preserve its notice as well.
+
+The original CQ file contains 40 closed per-zone line strings; the ITU file contains 90, with five unclosed lines. Polygon interpretation detects self-intersections in ITU zones **2, 4, 14, 15, 31 and 42**, also present in the downstream conversion. Some longitudes fall outside −180° to +180°. Ordinary planar lookup at Auckland or Suva misses CQ 32 unless equivalent longitudes are considered. Do not clamp coordinates: split/normalize at the date line while retaining topology. Close rings explicitly and review intersection repairs against the original linework; a generic repair operation is not proof of the intended boundary. The raw files are therefore not shipping-ready lookup artifacts.
+
+Eleven representative point queries in the downstream polygons, with longitude wrapping, returned one zone in each layer: Seattle 3/6, New Haven 5/8, Denver 4/7, Honolulu 31/61, Anchorage 1/1, London 14/27, Tokyo 25/45, Sydney 30/59, Auckland 32/60, Suva 32/56 and Apia 32/62 (CQ/ITU). The CN87 grid area returned CQ 3 and ITU 6. These are reproducible lookup results, not independent worldwide validation. [CQ's published written definitions](https://www.cqww.com/cq_waz_list.htm) provide an independent check for administrative boundaries, notably US state assignments; using Census state geometry for those assignments can avoid a rough zone line disagreeing with the state boundary.
+
+[ITU's official broadcasting reference entry](https://www.itu.int/itu-r/eterrestrial/ebroadcasting/ehfbc) did not establish a directly redistributable offline polygon artifact in this investigation. Official reference maps can support verification; availability on an official website alone is not redistribution permission. No official ITU polygon package is claimed here.
+
+Maintenance: both original repositories' inspected latest commits are dated 31 May 2024; the existence of an active downstream application does not guarantee boundary upkeep. Pin originals, retain reviewed corrections separately, review upstream changes and published zone definitions, and exercise date-line/polar/overlap cases on every rebuild. This is a small but real Clacks data-maintenance obligation.
+
+### DXCC: Natural Earth geometry with an explicit correspondence layer
+
+Natural Earth is a cartographer-maintained world dataset. Its [terms](https://www.naturalearthdata.com/about/terms-of-use/) explicitly place raster/vector data in the public domain and allow modification and commercial redistribution without permission. Retain source acknowledgments and transformation provenance even where attribution is not mandatory. Do not infer that unrelated datasets repackaged elsewhere share those terms.
+
+Inspected inputs:
+
+- [Map subunits 5.1.1](https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-details/): 360 features; archive 5,030,083 bytes. Subunits distinguish, among others, England/Scotland, Alaska/Hawaii, Corsica, Azores and overseas territories.
+- [Minor islands 4.1.0](https://www.naturalearthdata.com/downloads/10m-physical-vectors/10m-minor-islands/): 2,795 features; archive 314,932 bytes. The publisher traces this layer to World Vector Shoreline at 1:250,000 and notes incomplete polar detail. It is a supplement: these island geometries are not automatically included in administrative polygons and contain no ready-made DXCC ownership mapping.
+
+**1:10 million is a map scale, not ten-metre accuracy.** Natural Earth is generalized cartographic geometry with de facto boundary choices. It is suitable as an MVP worldwide foundation, not evidence of precise coastlines, political entitlement or award eligibility. [Natural Earth's maintenance and boundary policy](https://www.naturalearthdata.com/about/) is distinct from the [ARRL DXCC rules](https://www.arrl.org/dxcc-rules).
+
+Create a versioned, Clacks-authored table mapping identified subunits/islands to the factual DXCC entity codes, with explicit split/merge/exclusion rules and source citations. The existing TrustedQSL/Amateur Data Interchange Format (ADIF) entity catalog can supply identifiers under its existing provenance/notice handling; do not copy an unexplained third-party geographic compilation or assume every political country is one entity. This is a correspondence table, not an invented geographical definition.
+
+Representative geometry checks distinguish Alaska, Hawaii, England, Scotland and Réunion; interior checks distinguish Corsica, São Miguel in the Azores, and Upolu in Samoa. Coastal probes at Ajaccio, Ponta Delgada and Apia fell outside the generalized administrative geometry. Mount Athos returned Greece, and the ITU headquarters location returned Switzerland: both demonstrate why raw country/subunit lookup is insufficient for special entities. Market Reef did not match a subunit. Those observations establish concrete limits, not a completed exception inventory or a measured global error rate.
+
+The mapping must mask unsupported special areas instead of silently inheriting a known-wrong parent, and add sourced island/exception geometry where available. A representative entity point is not a polygon and must not become an arbitrary circle or nearest-entity claim. Some special classifications also need operating context; preserve manual correction/unknown results rather than claiming universal coordinate-only resolution. Under D133, incomplete worldwide fidelity is acceptable; this recommendation does not reduce the required US state/county coverage.
+
+Maintenance: Natural Earth has named releases and public issue/change history. Review changed feature identifiers/geometries against the DXCC table, monitor ARRL entity changes, and retain reviewed exception records with their own provenance. The table and exception work make this more effort than using an existing DXCC-labelled file, but avoid dependence on unexplained origin or guessed licensing. No complete DXCC crosswalk or corrected world package was constructed in this research task.
+
+## Alternatives and why they are not the default combination
+
+| Candidate | Provenance and redistribution | Accuracy/maintenance assessment | Result |
+| --- | --- | --- | --- |
+| GridTracker's `dxcc.json`, `cqzone.json`, `ituzone.json` | Current repository uses Berkeley Software Distribution three-clause (BSD-3-Clause) terms. Inspected per-file history and third-party notes do not identify original geometry or a dataset-specific lineage. | Convenient compact radio-labelled inputs. Current repository activity does not establish geometry accuracy or upkeep. | Keep as comparison material; do not make unclear DXCC origin the foundation when a traceable alternative exists. Repository terms are evidence, not proof of every incorporated input's origin. |
+| `amazingproducer/dxcc-world-map` | Public repository contains README and geometry but no license at inspection. | Only three commits shown; no accuracy specification or maintenance commitment. | Public access is insufficient redistribution permission. Exclude as a shipping input. |
+| Natural Earth US county layer | Same public-domain basis as its other data. | Generalized map geometry; Census provides a more direct detailed source for required county lookup. | Useful for display, not preferred lookup geometry. |
+| geoBoundaries **gbOpen** | Worldwide administrative data under Creative Commons Attribution 4.0 (CC BY 4.0), with country/source metadata. Preserve attribution, license and modification notices. | Useful for later richer international subdivisions. Does not itself classify DXCC/CQ/ITU; adds an aggregator where Census already meets US needs. | Compatible optional future input, not required for this bundle. Do not assume every other geoBoundaries product has identical terms. |
+| OpenStreetMap | Community data under Open Database License (ODbL); attribution and database share-alike obligations. | Richer geometry possible, but extraction, tagging differences, snapshot management and the same radio correspondence work remain. | Viable alternative if higher world detail justifies cost. Keep database rights separate from application licensing; no claim that ODbL automatically requires relicensing Clacks code. |
+| Global Administrative Areas (GADM) | Published terms generally require permission for redistribution/commercial use. | Worldwide administrative geometry does not remove radio mapping work. | Exclude from the default redistributable/commercial-hosting bundle. |
+| AD1C Country Files | Author publishes permissive MIT-style redistribution terms. | Callsign/prefix rules and representative coordinates, not operating-position polygons. | Useful independent radio reference, not a substitute for geographic lookup. No automatic inference of an operating location from a callsign is proposed. |
+| Official radio maps/rules, or commercial atlases | Authority for definitions is separate from permission to copy a map/data compilation. No suitable unrestricted commercial-atlas geometry license was established here. | Good verification references; a displayed/downloadable map is not necessarily a usable offline data product. | Consult for correctness; do not ship their artwork/geometry without suitable terms. |
+
+Primary sources for these assessments: [GridTracker pinned tree](https://gitlab.com/gridtracker.org/gridtracker2/-/tree/12b6ab0da041ef991140303e6a9267df4989079a), [DXCC world-map repository](https://github.com/amazingproducer/dxcc-world-map), [Natural Earth county product](https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-2-counties/), [geoBoundaries](https://www.geoboundaries.org/), [OpenStreetMap terms](https://www.openstreetmap.org/copyright), [GADM terms](https://gadm.org/license.html), [AD1C terms](https://www.country-files.com/copyright/) and [file format](https://www.country-files.com/cty-dat-format/). The GridTracker file history has an initial 2024 import and an October 2026 change; inspecting those plus `README-3rdparty.md` did not complete the missing source chain. This is not an allegation that its maintainers lack rights.
+
+## Packaging and accuracy acceptance
+
+Prepare a versioned offline reference artifact with original source versions/digests, license notices, transformation version, mappings/corrections and coverage/known-limit metadata. Hashes in the [audit](geographic-data-audit.json) identify inspected downloaded releases; no TrustedQSL per-file checksum manifest is reintroduced. Keep sources separated in provenance even if compiled into one local query store. No external map service or runtime spatial-database server is required.
+
+Use the detailed Census layer for required US administrative lookup and explicit Census-based state-to-CQ assignments where the written definitions apply. Do not let a coarse world polygon contradict that result. Grid areas require intersection/coverage checks, including holes and uncovered portions; a single returned feature is not sufficient evidence if it covers only part of the area. Do not use the grid center or silently pick one result at a border. Exact spatial indexing and storage format are engineering choices.
+
+Before a production bundle, validate repaired zone topology, date-line/pole handling, shared US borders, islands, overlaps/gaps, representative special entities and every mapping entry. Preserve small features rather than applying unmeasured simplification. Validate data-set compatibility as a build, not three independently updated files that happen to parse. Those are delivery checks and authorship work for the recommended sources, not unresolved research about which source families to use.
+
+The audit supplies source pins, digests, counts, invalid-geometry diagnostics and representative results. It does not establish nationwide/global error bounds, complete DXCC coverage, finished coordinate transformations, corrected polygons or application interoperability. No dataset has been copied into Clacks for shipping, and D239 selects the source combination rather than certifying those unfinished deliverables.
