@@ -10,6 +10,11 @@ implementation remains stopped. This roadmap does not resume it.
 
 Reviewed and reconciled with the agreed scope on **18 October 2026**.
 
+Delivery is tracked through [GitHub milestones and capability issues](github-backlog.md).
+Each issue starts with brainstorming to produce a reviewed specification and
+implementation plan before coding. Creating the backlog does not mark any phase
+complete or authorize implementation directly from issue descriptions.
+
 The [product model](product.md) and [decision register](decisions.md) define the
 scope. The [remaining-work index](open-questions.md) distinguishes engineering
 work from deferred capabilities. A radio contact is a QSO. Logbook of The World

@@ -8,6 +8,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 
 - [Planning completion and continuation handoff](docs/handoff.md)
 - [Phased MVP roadmap](docs/mvp-roadmap.md)
+- [GitHub milestones and capability issues](docs/github-backlog.md)
 - [Product scope and operating workflows](docs/product.md)
 - [Decision register](docs/decisions.md)
 - [Architectural review](docs/architecture-review.md)
