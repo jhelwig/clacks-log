@@ -2,12 +2,12 @@
 
 Clacks Log is a planned amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). Implementation has not been authorized. Rust is the intended implementation language wherever practical. PostgreSQL is selected for server persistence, embedded SQLite for client persistence (D213), and egui for the desktop interface (D215). No application implementation or migration is underway.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The initial implementation attempt has been discarded; implementation is stopped pending concrete planning. Rust is the intended implementation language wherever practical. PostgreSQL is selected for server persistence, embedded SQLite for client persistence (D213), and egui for the desktop interface (D215). No application implementation or migration is underway.
 
 ## Planning documents
 
 - [Planning completion and continuation handoff](docs/handoff.md)
-- [MVP implementation plan and subsystem task plans](docs/superpowers/plans/2026-10-17-clacks-log.md)
+- [MVP milestone outline and subsystem milestones](docs/superpowers/plans/2026-10-17-clacks-log.md)
 - [Product scope and operating workflows](docs/product.md)
 - [Decision register](docs/decisions.md)
 - [Architectural review](docs/architecture-review.md)

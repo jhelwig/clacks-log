@@ -1,6 +1,6 @@
-# Integrated validation, packaging and operations Implementation Plan
+# Integrated validation, packaging and operations Milestone Outline
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: milestone outline, not an executable implementation plan.** This document maps scope, dependencies and acceptance goals. Proposed files, interfaces and verification targets are provisional. Before coding, prepare a concrete plan for the selected milestone covering its data model, behavior, algorithms, edge cases and tests. Do not infer those choices while executing this outline.
 
 A radio contact is a **QSO**; Logbook of The World is **LoTW**; minimum viable product is **MVP**; OpenID Connect is **OIDC**; User Datagram Protocol is **UDP**; user interface is **UI**. These plans distinguish installed-artifact evidence from simulated provider success.
 
@@ -50,7 +50,7 @@ The Files entries below use `lib/<crate-name>` for libraries and `bin/<applicati
 - Consumes: Completed subsystem APIs, disposable PostgreSQL/server, multiple real SQLite clients, local identity/directory/provider simulators.
 - Produces: SystemHarness starts the one server application and independent clients with controllable network, clock and failure boundaries. Scenario reports identify fixture versions, injected failure and observed durable state; no private production credentials in fixtures.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 offline_sync::manual_and_ws_contacts_during_outage; all_tags_replicated; deleted_tag_pending_choice; concurrent_tag_fact_resolution; profile_reload_not_automatic. accounts::foreign_object_and_stream_denied. publication::occupied_association_race; pending_vs_accepted_payload. recovery::rollback_with_evidence_and_compaction; revoked_actor_manual_tail. Verify the package-wide Review Focus cases, not only successful CRUD.
 
@@ -63,15 +63,11 @@ assert_eq!(external_associations_for_one_key, 1);
 assert!(no_secret_sentinel_in_logs_or_other_account_responses);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Add deterministic end-to-end scenarios plus generated interleavings around conditional acceptance and durable acknowledgment. Start real storage and protocol endpoints; use simulators only at external provider boundaries. Report performance measurements for representative imports, large filtered history, catch-up and geography queries without imposing an invented account/log-size cap. Review invariants with the actual implementation; do not accept test stubs as evidence of network, disk or provider behavior.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-system-tests; cargo test --workspace --all-targets
@@ -79,9 +75,6 @@ cargo test -p clacks-system-tests; cargo test --workspace --all-targets
 
 **Expected:** all named tests/checks pass; All accepted MVP workflows have recorded end-to-end evidence and unresolved failures block release candidacy.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: end-to-end failure and concurrency scenarios` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### R2: Installed Windows client and provider interoperability
 
@@ -101,7 +94,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: Built desktop/server, geographic artifact manifest, selected dependency lockfile and signing test vectors.
 - Produces: Reproducible build/packaging entry points produce a Windows installer/application and Linux server image. Record supported target/toolchain/library versions and actual artifact contents; packaging metadata filenames can follow the selected standard tooling without changing architecture.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 Verify installed Windows logging, protected secret storage, browser callbacks, WS UDP, keyboard/scaling and restart; verify container startup/migrations/OIDC/web/sync/jobs. Use controlled owner-approved service accounts/records for real QRZ/LoTW submission/query and compare actual acceptance/confirmation evidence. Authentication/signature verification alone is not a LoTW upload acceptance test.
 
@@ -113,15 +106,11 @@ assert!(production_dependency_graph.contains_no_openssl_backend());
 assert!(controlled_lotw_submission.has_explicit_service_success_evidence());
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Select standard Windows packaging and Linux-container tooling, retain dependency/upstream/data notices and perform version/feature-specific license/advisory review. Verify pure-Rust TLS/cryptographic dependency features actually used by both targets; no backend substitution through a transitive default. Execute real provider tests only with authorized test material and record provider-normalized outcomes. Review desktop/web mockups before implementation and installed UI before release; do not add TS, tray behavior or native Windows server hosting.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo fmt --all -- --check; cargo clippy --workspace --all-targets -- -D warnings; cargo test --workspace --all-targets; cargo build -p clacks-log --release; cargo build -p clacks-log-server --release
@@ -129,9 +118,6 @@ cargo fmt --all -- --check; cargo clippy --workspace --all-targets -- -D warning
 
 **Expected:** all named tests/checks pass; Installed Windows and Linux-container candidates pass their actual target checks; real-service evidence and artifact notices are recorded.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: installed windows client and provider interoperability` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### R3: Deployment, backup/restore drill and release handoff
 
@@ -150,7 +136,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: A3 key-recovery procedures, S4 recovery model, R2 artifacts and measured system behavior.
 - Produces: Operator runbooks specify database/configuration/key recovery sets, supported consistent SQLite/PostgreSQL backup paths, upgrade/rollback steps, observability wiring and administrator-assisted identity recovery. No built-in application backup/restore command is introduced.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 Execute documented steps from a fresh Linux-container deployment and Windows client: back up; create later records/tags/outcomes; restore an older server with uploads paused independently of saved flags; reconcile surviving clients; explicitly resume. Also test missing key versions, corrupted/incomplete backups, incompatible schema upgrade preservation and administrator identity recovery.
 
@@ -163,27 +149,14 @@ assert!(missing_wrapping_key_stops_credential_use_explicitly());
 assert!(upgrade_preserves_enrollment_pending_and_originals());
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Document actual tested commands and secrets/configuration handling, including complete protected-key backups and consistent native client state. Explain that sync/ADIF do not recover unsynchronized data lost from every copy; copied client identity is not solved by assuming a new physical machine. Preserve D240’s explicit built-in client recovery process as post-MVP. State measured deployment limits and backup loss windows rather than invented service guarantees. Update handoff and remaining-work status from evidence, and produce release notes with known limitations. Hosted launch and lawyer-led contributor agreement stay outside MVP implementation gates.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 Execute docs/operations runbooks in disposable environments; rerun cargo test -p clacks-system-tests --test recovery
 ```
 
 **Expected:** all named tests/checks pass; A fresh operator can deploy, observe, back up, restore and upgrade the actual release candidate using the verified documentation.
-
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: deployment, backup/restore drill and release handoff` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
-
-## Completion gate
-
-A fresh operator can deploy, observe, back up, restore and upgrade the actual release candidate using the verified documentation.
-No later work is authorized merely because this plan is complete. See the coordinating plan for execution and release gates.

@@ -1,6 +1,6 @@
-# Clacks Log Implementation Plan
+# Clacks Log Milestone Outline
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: milestone outline, not an executable implementation plan.** This document maps scope, dependencies and acceptance goals. Proposed files, interfaces and verification targets are provisional. Before coding, prepare a concrete plan for the selected milestone covering its data model, behavior, algorithms, edge cases and tests. Do not infer those choices while executing this outline.
 
 **Goal:** Deliver the agreed minimum viable product (MVP): a durable offline Windows amateur-radio logger with account-owned tagged contacts, self-hostable synchronization and server-owned Logbook of The World (LoTW)/QRZ integration.
 
@@ -10,7 +10,7 @@
 
 **Spec:** [Product](../../product.md), [decisions through D251](../../decisions.md), [synchronization](../../synchronization.md), [accounts](../../accounts.md), [integrations](../../integrations.md), [LoTW](../../lotw.md), [observability](../../observability.md), [backup/recovery](../../backup-recovery.md), [architectural review](../../architecture-review.md), and [remaining engineering work](../../open-questions.md).
 
-Prepared 17 October 2026 against commit `91078a5`, which contains the agreed documentation and resolved review findings AR1–AR4. There is no application implementation yet. **Only preparation of this plan is authorized.** Checkboxes are prospective; no application build, test, dependency selection, deployment or service interoperability described below has been executed.
+Prepared 17 October 2026 against commit `91078a5`, which contains the agreed documentation and resolved review findings AR1–AR4. The F1/S1 implementation attempt was discarded at the user’s direction on 17 October 2026. No application implementation remains. These documents are milestone outlines and must not be executed as implementation plans. Verification of discarded code establishes no completion or correctness for a future implementation.
 
 A radio contact is a **QSO**; Logbook of The World is **LoTW**; Amateur Data Interchange Format is **ADIF**, whose text representation is **ADI** and whose XML representation is **ADX**. Parks on the Air is **POTA**. OpenID Connect is **OIDC**. Other specialist terms are defined in the subsystem plans that use them. ID needs no expansion.
 
@@ -67,7 +67,7 @@ The project is too broad for a single undifferentiated task list. These coordina
 | [07 External services](2026-10-17-clacks-log-07-external-services.md) | E1/E2/L1/L2/E3 | Evidence/jobs, pure-Rust LoTW and both provider integrations |
 | [08 Release](2026-10-17-clacks-log-08-release.md) | R1–R3 | End-to-end validation, installed artifacts and verified operating procedures |
 
-The 29 tasks are review units, not effort estimates. A task may contain several implementation commits if that keeps changes reviewable. Maintain the listed interfaces between tasks; contract changes require updating affected tests and downstream plans in the same change, not an unrecorded divergence.
+The 29 milestones map scope and dependencies, not implementation steps or effort estimates. Their proposed interfaces, file layouts and named tests are starting points for detailed planning, not frozen contracts. A concrete implementation plan must establish the model and behavior before code or downstream schemas depend on them.
 
 ## Planned workspace and file ownership
 
@@ -228,13 +228,13 @@ Source merging, restart-persistent unfinished manual entries and dedicated impor
 
 No calendar estimate is asserted. Re-estimate from F1/S1/L1/G2 results and observed implementation throughput; do not reuse the withdrawn LoTW estimate. Routine choices such as crate versions, transaction batches, target build features and schema/index design are owned by implementation tasks. Escalate only a demonstrated behavioral tradeoff or contradiction with accepted requirements, with a concrete counterexample.
 
-## Plan status and execution handoff
+## Milestone status and planning handoff
 
 - [x] Read integrated product, architecture, handoff, research and review findings through D251.
 - [x] Map MVP behavior to owning tasks and exclude superseded/deferred scope.
 - [x] Define planned file ownership, inter-task contracts, dependency order and release gates.
 - [x] Self-review type ownership, dependency cycles, failure-case coverage and plan links.
-- [ ] User reviews this implementation plan and selects an execution approach.
-- [ ] Implementation is explicitly authorized and begins with F1/S1 contracts, plus the early L1/G2 risk work when dependencies permit.
+- [ ] Prepare a concrete plan for a selected milestone, resolving its model, behavior and validation before coding.
+- [ ] Resume implementation only after detailed planning and the user’s instruction to proceed. No milestone is implemented.
 
-Recommended execution is native, in reviewed milestone slices: implement tasks in dependency order, use the executable model for the highest-risk contracts, and obtain an independent review at integration gates. The tasks have tightly shared record/evidence/protocol interfaces, so milestone integration matters more than broad simultaneous file editing. Subagent-driven execution is an available alternative when explicitly selected; the choice does not change scope or validation gates.
+The next engineering activity is detailed planning, not execution of these outlines. Do not substitute file lists, placeholder interfaces and test names for an implementation plan. Product and architectural decisions remain authoritative; do not silently add behavior or present incomplete models as finished milestones.

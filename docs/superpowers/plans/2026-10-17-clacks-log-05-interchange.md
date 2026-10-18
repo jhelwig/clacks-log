@@ -1,6 +1,6 @@
-# Contact interchange Implementation Plan
+# Contact interchange Milestone Outline
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: milestone outline, not an executable implementation plan.** This document maps scope, dependencies and acceptance goals. Proposed files, interfaces and verification targets are provisional. Before coding, prepare a concrete plan for the selected milestone covering its data model, behavior, algorithms, edge cases and tests. Do not infer those choices while executing this outline.
 
 Amateur Data Interchange Format is **ADIF**; its text representation is **ADI** and its XML representation is **ADX**. A radio contact is a **QSO**; minimum viable product is **MVP**; Coordinated Universal Time is **UTC**; Parks on the Air is **POTA**. LoTW means Logbook of The World. FT4/MFSK are mode/submode names preserved and mapped by the domain contract.
 
@@ -51,7 +51,7 @@ The Files entries below use `lib/<crate-name>` for libraries and `bin/<applicati
 - Consumes: F1 mode/location/native values and stable equality; source LOG4OM field inventory.
 - Produces: prepare_adi(input: &[u8], context: ImportContext) -> PreparedImport; PreparedImport { complete_records, structural_error, unsupported_fields, diagnostics }; classify_match(incoming: &MatchFacts, local: &MatchFacts) -> MatchClass::{Confident,Possible,NoMatch}. Document exact field mappings, supported lengths and precision-aware matching tables in this task.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 preparation::independent_field_sets; broken_length_stops_at_prefix; optional_invalid_is_warning; minimum_unknown_submode_valid; frequency_wins_band; coordinates_win_inconsistent_grid; possible_match_midnight_window. Include MODE=FT4, MODE=MFSK/SUBMODE=FT4, unknown submode-only, and incomplete identity at ±30 minutes.
 
@@ -64,15 +64,11 @@ assert_eq!(incomplete_single_candidate, MatchClass::Possible);
 assert_eq!(unknown_mode.source_value(), supplied_mode);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Parse the whole file before mutation, discovering fields across independent record sets. Expose structural errors and unsupported-field counts during preparation; do not guess boundaries beyond damaged lengths. Minimum new-contact facts are call, valid UTC start, band or usable frequency and preserved mode/submode information. Warn on invalid optional values and mode/grid/band corrections under selected precedence. Define deterministic transforms and confidence/possible classification using precision, not a universal automatic ±30-minute dedupe. Use sanitized synthetic fixtures; do not add a personal log export to the repository.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-adif --test preparation
@@ -80,9 +76,6 @@ cargo test -p clacks-adif --test preparation
 
 **Expected:** all named tests/checks pass; Prepared results contain every reliable complete record and upfront diagnostics without changing any local data.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: adi preparation, mapping and candidate classification` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### I2: Prepared import application and reports
 
@@ -98,7 +91,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: PreparedImport, F3 commands, E1 imported service-claim representation and comparison rules.
 - Produces: apply_import(prepared: PreparedImport, choices: ImportChoices, target: TagId, cancel: &CancelToken) -> Result<ImportReport, ImportError>; ImportChoices includes Update/Duplicate/Skip and explicit ambiguous/possible candidate selection; ImportReport separately counts unchanged facts, memberships added, applied/skipped/failed/unprocessed records.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 import_application::account_wide_match_adds_tag; skip_does_not_retag; duplicate_new_id_no_occupied_external_binding; stale_candidate_recomparison; optional_invalid_preserves_existing; missing_vs_empty; crash_and_normal_reimport; cancellation_at_record_boundary. Include untagged candidates and positive/missing per-service statuses.
 
@@ -111,15 +104,11 @@ assert_eq!(report.memberships_added, 1);
 assert_eq!(after_restart.completed_records, before_crash.completed_records);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Apply the selected tag to reused matches without copying identity. Revalidate preparation choices against current local working state and tag validity; preserve explicit update field choices and normal sync evidence. Atomically apply one contact plus its imported service claims. Invalid optional fields warn/omit for new contacts and preserve existing values on updates; omitted fields are not clears, explicit empty fields are optional user-selected clears. Positive imported statuses suppress uploads/confirm immediately without fabricated attempts; missing upload statuses are pending independently. Keep completed changes on cancellation/crash, stop at a safe boundary and use normal re-import for recovery. No dedicated session-resume system.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-client --test import_application
@@ -127,9 +116,6 @@ cargo test -p clacks-client --test import_application
 
 **Expected:** all named tests/checks pass; Partial imports and reruns produce truthful reports, stable identities and no silent tag changes on Skip.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: prepared import application and reports` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### I3: Consistent ordinary and POTA-compatible export
 
@@ -147,7 +133,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: F2 working_view snapshot and F1 effective_contact; native POTA reference scope and selected output mode.
 - Produces: export_adi(snapshot: ExportSnapshot, options: ExportOptions, destination: ExportDestination, cancel: &CancelToken) -> Result<ExportReport, ExportError>; ExportOptions chooses Ordinary or PotaCompatible; ExportReport distinguishes native contacts from output entries/files and conversion warnings.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 export_safety::snapshot_stable_during_edits; unresolved_working_version_once; destination_unchanged_on_failure; cancellation_does_not_publish_partial_files. export_mapping::unicode_warning_original_preserved; grid_center_output; two_own_three_contacted_parks; tag_names_not_activity_fields.
 
@@ -160,27 +146,14 @@ assert_eq!(entries_per_pota_file, [3, 3]);
 assert_eq!(destination_after_failure, destination_before);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Capture membership, facts and eligible provider snapshots at one local point in time, without requiring successful sync. Exclude pending deletions; do not emit competing conflict versions. Export grid/coordinates, preserving native area/point semantics even though ADIF may lose them. Transliterate human text best-effort with warnings; omit optional unrepresentable text while preserving native values. Ordinary output emits one entry per selected QSO identity; POTA output groups by actual own park/location and expands applicable contacted parks. Define multi-file staging/finalization so failure does not overwrite existing destinations; rollback/recovery of partially finalized output is part of this task’s contract, not permission for unsafe partial replacement.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-client --test export_safety; cargo test -p clacks-adif --test export_mapping
 ```
 
 **Expected:** all named tests/checks pass; Both export modes pass failure/cancellation tests, report conversions and leave native data unmodified.
-
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: consistent ordinary and pota-compatible export` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
-
-## Completion gate
-
-Both export modes pass failure/cancellation tests, report conversions and leave native data unmodified.
-No later work is authorized merely because this plan is complete. See the coordinating plan for execution and release gates.

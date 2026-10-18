@@ -1,6 +1,6 @@
-# Desktop logging and WS Suite capture Implementation Plan
+# Desktop logging and WS Suite capture Milestone Outline
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: milestone outline, not an executable implementation plan.** This document maps scope, dependencies and acceptance goals. Proposed files, interfaces and verification targets are provisional. Before coding, prepare a concrete plan for the selected milestone covering its data model, behavior, algorithms, edge cases and tests. Do not infer those choices while executing this outline.
 
 A radio contact is a **QSO**; minimum viable product is **MVP**; user interface is **UI**; Coordinated Universal Time is **UTC**; User Datagram Protocol is **UDP**. WS Suite refers to the WSJT-X family of weak-signal applications. Amateur Data Interchange Format is **ADIF**, whose text representation is **ADI**. FT8 and CW denote an eight-tone digital mode and continuous-wave Morse operation; DX means the contacted station. Computer-aided transceiver control is **CAT**; high-DPI means high display pixel density.
 
@@ -50,7 +50,7 @@ The Files entries below use `lib/<crate-name>` for libraries and `bin/<applicati
 - Consumes: F3 ClientCommands and durable local defaults; F1 validation.
 - Produces: clacks_desktop::main_entry() -> std::process::ExitCode; EntryController::save(commands: &ClientCommands) -> Result<QsoId, EntryError>; TimeField::{Live,Locked}; select_current_tag(tag: TagId) controls only views/default membership. Implement async event delivery separate from frame rendering.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 manual_entry::independent_live_locks; save_resets_both; failed_save_keeps_entry; minimum_fields; no_timestamp_age_mode; operator_is_not_station_callsign. Use an injected clock and failing storage fixture, not wall-clock sleeps.
 
@@ -62,15 +62,11 @@ assert_eq!(after_failed_save, before_failed_save);
 assert_eq!(saved.station, context_at_save);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Keep desktop composition, configuration, event-loop startup and substantive error handling in `lib/clacks-desktop`; the `bin/clacks-log` executable delegates to its library entry point. Prepare entry/context/history mockups for review before implementing layout. Implement one manual workflow with current defaults and editable own/contact facts. Require call, valid UTC start, band and mode; end/reports/frequency/power/location are optional. Support FT8/phone/CW-compatible reports, comments and manually entered activity identifiers without contest-exchange machinery. Use grid/coordinate and frequency/band rules from F1. No mandatory operating sessions, persistent unfinished drafts, CAT or close-to-tray behavior.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-desktop --test manual_entry; cargo check -p clacks-log
@@ -78,9 +74,6 @@ cargo test -p clacks-desktop --test manual_entry; cargo check -p clacks-log
 
 **Expected:** all named tests/checks pass; A Windows user can save contacts offline, reopen saved state and operate locks/defaults without data loss.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: desktop shell and manual entry` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### D2: Tagged history, Worked Before and account-wide review
 
@@ -96,7 +89,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: F2 working_view; F3 membership/deletion/profile commands; S2 pending comparisons.
 - Produces: HistoryQuery uses current tag plus selected filters; WorkedBeforeQuery uses the effective call prefix against local working contacts; PendingReviewQuery spans the account with tag/record-type filters. FieldResolution submits through S2, never directly overwrites server state.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 contact_views::one_working_row_per_qso; pending_deletion_hidden_but_reviewable; untagged_accessible; shared_tag_views_same_identity; prefix_match; bulk_tag_changes; profile_baseline_indicators. Include a missing deleted tag not selectable in normal navigation.
 
@@ -109,15 +102,11 @@ assert!(pending_review.contains(deleted_qso));
 assert!(untagged_view.contains(active_untagged_qso));
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Implement call/time/band-mode/own-call/grid-POTA/service-status filters; show pending/conflict indicators. Support individual/selected-group membership edits and the three-choice populated-tag deletion preview. Provide access to active untagged contacts without requiring a tag. Render field-level reconciliation with change-attribution distinctions and missing-reference choices. Profile reload is explicit; equipment reassignment/removal follows F3/S2. Do not infer park references from tag names.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-desktop --test contact_views
@@ -125,9 +114,6 @@ cargo test -p clacks-desktop --test contact_views
 
 **Expected:** all named tests/checks pass; One shared contact behaves consistently across filtered views, including pending deletion and conflict review.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: tagged history, worked before and account-wide review` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### D3: WS Suite source and completion handling
 
@@ -144,7 +130,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: Pinned WS Suite protocol findings, F3 save commands, I1 ADI decoding for type 12 and secondary ADI messages.
 - Produces: decode_ws(datagram: &[u8]) -> Result<WsEvent, WsDecodeError>; CaptureController::handle(source: SourceId, event: WsEvent) -> Vec<CaptureEffect>. WsEvent separates Status and Completion; source association and duplicate-completion correlation are explicit, documented engineering rules.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 ws_capture::status_before_completion; type5_and_type12_one_qso; repeated_completed_delivery; empty_authoritative_call; repeated_ws_value_overrides_local_edit; truncated_and_older_schema; supplied_frequency_not_offset_twice. Use synthetic protocol fixtures with provenance.
 
@@ -156,15 +142,11 @@ assert!(after_empty_call.lookup_display.is_empty());
 assert_eq!(saved_frequency, supplied_frequency);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Implement source setup/reassignment and enforce one selected capturing client per source within known account state; document the limit that independently disconnected clients cannot negotiate a live lease, without inventing automatic capture failover. Preserve source-provided own-station context and completion time. Correlate binary/ADI completion variants before persistence; type 12 is not bare ADI. Incoming calls, including empty values, are authoritative. Preserve optional supplied fields; older shorter packets remain decodable when valid. Keep GridTracker Generate Messages status forwarding in the same flow. No outbound WS controls or automatic missed-contact recovery.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-client --test ws_capture
@@ -172,9 +154,6 @@ cargo test -p clacks-client --test ws_capture
 
 **Expected:** all named tests/checks pass; Recorded/replayed supported packet variants produce the intended call display and one durable completed contact.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: ws suite source and completion handling` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### D4: Desktop integration and cross-platform boundaries
 
@@ -191,7 +170,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: Local logging/views, capture, synchronization, directory and interchange APIs.
 - Produces: Desktop commands orchestrate existing domain/client services; browser setup opens account-authorized management endpoints. PlatformServices owns browser opening, protected storage and file dialogs without OS-specific domain types.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 desktop_flows::capture_during_sync_outage; lookup_during_server_outage; import_while_logging; close_stops_capture; setup_opens_web; slow_response_not_next_contact. Include keyboard navigation, display scaling and a large local log fixture.
 
@@ -203,27 +182,14 @@ assert_eq!(lookup_result.qso_id, original_qso_id);
 assert!(closing_stops_background_capture);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Connect reviewed layouts to native workflows, cancellation/reporting and routine service/sync diagnostics. Keep network, database and geometry work from blocking frame interaction. Verify Windows keyboard/input/accessibility behavior, selection and high-DPI scaling; document measurements instead of inventing a maximum log size. Include platform abstraction compile checks without requiring macOS/Linux release packages.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-desktop --test desktop_flows; cargo test -p clacks-desktop; cargo build -p clacks-log --release
 ```
 
 **Expected:** all named tests/checks pass; A packaged Windows candidate supports the complete offline-to-synchronized workflow; manual verification evidence records actual limitations.
-
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: desktop integration and cross-platform boundaries` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
-
-## Completion gate
-
-A packaged Windows candidate supports the complete offline-to-synchronized workflow; manual verification evidence records actual limitations.
-No later work is authorized merely because this plan is complete. See the coordinating plan for execution and release gates.

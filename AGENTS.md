@@ -1,6 +1,9 @@
 # Clacks Log collaboration guidance
 
-Read [the planning handoff](docs/handoff.md), [decision register](docs/decisions.md), and relevant design documents before continuing work. Product and architectural planning for the agreed MVP is complete (D242). The repository contains accepted decisions and research; no application implementation or implementation-plan execution is authorized.
+Read [the planning handoff](docs/handoff.md), [decision register](docs/decisions.md), and relevant design documents before continuing work. Product and architectural planning for the agreed MVP is complete (D242). The repository contains accepted decisions and research; the initial application implementation has been discarded and implementation is stopped.
+
+- The documents under `docs/superpowers/plans/2026-10-17-clacks-log*.md` are milestone outlines, not implementation-ready plans. Do not execute them directly. Before coding, establish a concrete plan for the selected milestone covering its data model, behavior, algorithms, edge cases and validation. Do not infer new behavior during implementation and then present it as previously agreed.
+- Preserve the user's Rust 1.99.1 requirement. Timestamp-precision metadata was rejected. Other review corrections and unresolved representation questions are recorded in the handoff; do not resurrect discarded implementation choices as requirements.
 
 - Follow the user's current request. Do not automatically continue the completed product/architecture brainstorming phase or start a prototype. Remaining specification, implementation design and validation are engineering work, not an unresolved product-decision queue; implementation still requires authorization.
 - Answer direct questions first. State the evidence, assumptions, and scope behind architectural proposals.

@@ -1,6 +1,6 @@
-# External services and signing Implementation Plan
+# External services and signing Milestone Outline
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: milestone outline, not an executable implementation plan.** This document maps scope, dependencies and acceptance goals. Proposed files, interfaces and verification targets are provisional. Before coding, prepare a concrete plan for the selected milestone covering its data model, behavior, algorithms, edge cases and tests. Do not infer those choices while executing this outline.
 
 A radio contact is a **QSO**; Logbook of The World is **LoTW**; minimum viable product is **MVP**; Public-Key Cryptography Standards #12 is **PKCS#12**; foreign function interface is **FFI**. DX denotes the contacted station and DE our station. QRZ and TrustedQSL are named service/tool products, not Clacks ownership identities.
 
@@ -50,7 +50,7 @@ The Files entries below use `lib/<crate-name>` for libraries and `bin/<applicati
 - Consumes: F1 effective/native values; I1 candidate matcher; F2 account transaction boundary. Reads existing API/source research before defining provider-specific keys.
 - Produces: ProviderDestination, ExternalRecordKey, PublicationAttempt, SentPayload, RemoteObservation, ImportedServiceClaim; effective_payload(qso: &QsoRecord, sources: &EligibleSources, service: Service) -> Result<ServicePayload, PayloadError>; resolve_route(qso: &QsoRecord, configured: &[ProviderDestination]) -> RouteDecision; associate(ctx: &AccountContext, external: ExternalRecordKey, qso: QsoId) -> Result<(), AssociationError>. Define canonical service/destination identity independent of credential rotation. Expose automatic_eligible(policies: impl IntoIterator<Item = UploadPolicy>) -> bool for the shared tri-state rule.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 service_contracts::tri_state_forbid_precedence; untagged_no_grant; overlapping_tags_one_payload; occupied_association_rejected; distinct_destinations_independent; imported_positive_suppresses; missing_status_pending_independently; effective_change_not_metadata_change; route_saved_station_and_date.
 
@@ -63,15 +63,11 @@ assert!(second_qso_same_external_key.is_err());
 assert!(metadata_only_refresh.does_not_need_upload());
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Write exact provider identity/normalization, effective payload field sets, confirmation applicability, imported flags/dates and routing contracts before dispatch code. For provider records without opaque IDs, derive identity from documented service behavior and verify it against fixtures; do not use local destination-config IDs to evade uniqueness for the same actual provider target. Retain trusted imported statuses with provenance without fabricated payload history. Prevent duplicates inheriting occupied external associations. Multi-certificate/QRZ routing uses saved station callsign/date; missing/ambiguous routes pause affected uploads only. Publish this contract for I2/S4/E2/E3.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-server --test service_contracts
@@ -79,9 +75,6 @@ cargo test -p clacks-server --test service_contracts
 
 **Expected:** all named tests/checks pass; Known provider identity rules and tests support uniqueness before/after writes; unsupported ambiguities remain blocked, not silently overwritten.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: provider contracts, evidence and external association identity` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### E2: Durable publication jobs and outcome handling
 
@@ -97,7 +90,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: E1 payload/route/identity contracts; A3 credential lifecycle; PostgreSQL transaction/job claims.
 - Produces: plan_attempt(ctx: &AccountContext, qso: QsoId, service: Service, trigger: UploadTrigger) -> Result<AttemptId, DispatchBlocked>; record_outcome(attempt: AttemptId, outcome: ProviderOutcome) -> Result<(), ServiceError>; UploadTrigger distinguishes automatic/manual; ProviderAdapter::submit(attempt: &PreparedAttempt) -> Result<ProviderOutcome, ProviderError>. PreparedAttempt freezes actual sent values, destination and credential version.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 publication_jobs::current_values_on_retry; old_response_does_not_cover_new_correction; concurrent_duplicate_target_blocked; lost_response_retry_diagnostic; explicit_success_no_retry; non_transient_affected_only_pause; manual_bypasses_cooldown_not_pause; removal_prevents_new_signing; restore_startup_pause. Inject crashes before dispatch, after provider success and before local outcome commit.
 
@@ -110,15 +103,11 @@ assert!(unrelated_destination_continues);
 assert!(restore_mode.blocks_upload_until_explicit_resume());
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Implement durable job claim/outcome work using ordinary transactions, bounded workers and provider-aware throttling. Do not hold database locks during network calls. Evaluate all tags, route and association constraints at dispatch; record exact values before external effects. Implement configurable scheduling with the recorded working defaults: upload checks every 60 seconds, cooldown 300 seconds since the last edit, downloads every 1800 seconds. These are application defaults, not provider mandates. Add injected-clock tests of the boundaries, manual controls, retries/backoff and actionable diagnostics. Retain ambiguous outcomes truthfully; do not claim exactly-once provider writes. Coordinate duplicate-target reservations and in-flight attempts under E1’s identity contract. Define races with credential removal, deletion and policy changes as dispatch semantics, preserving truthful outcomes for already-started calls.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-server --test publication_jobs
@@ -126,9 +115,6 @@ cargo test -p clacks-server --test publication_jobs
 
 **Expected:** all named tests/checks pass; Failure/retry/race scenarios preserve sent-value coverage and only affected work pauses.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: durable publication jobs and outcome handling` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### L1: Pure-Rust certificate import and eligibility
 
@@ -146,7 +132,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: Pinned TrustedQSL 2.8.6 source/configuration and cryptographic comparison; synthetic/test-only certificate material.
 - Produces: decode_archive(bytes: &[u8], password: &SecretString) -> Result<ImportedCredential, CredentialError>; eligible_certificates(request: &SigningIdentity, candidates: &[CertificateMetadata]) -> EligibilityResult; ImportedCredential separates secret key material from retained public metadata. Server-side storage uses A3; explicit supersession validates coverage gaps.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 certificate_compatibility::correct_password; wrong_password; key_certificate_mismatch; duplicate_import; date_callsign_eligibility; expired_and_superseded; explicit_supersession_gap_preview; removal_preserves_public_metadata. Generate supported test archives with independently checked tooling and record format/algorithm provenance.
 
@@ -159,15 +145,11 @@ assert!(!supersession_is_inferred_from_newer_expiration);
 assert_eq!(coverage_gap_preview, expected_uncovered_dates);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Evaluate released pure-Rust archive/certificate/signing dependencies against actual supported archive algorithms, certificate extensions and source rules. Record exact features, versions, trust validation and advisory assessment. Port certificate semantics using the source map, not upstream filesystem stores or global error state. Import requires a server connection; support multiple credentials and explicit supersession. Do not add certificate requests/renewals or reusable private-key export. No runtime OpenSSL or direct tqsllib FFI fallback. Any unsupported required compatibility becomes a documented engineering blocker with failing fixture, not an unannounced backend substitution.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-lotw --test certificate_compatibility; cargo tree -p clacks-lotw -e features
@@ -175,9 +157,6 @@ cargo test -p clacks-lotw --test certificate_compatibility; cargo tree -p clacks
 
 **Expected:** all named tests/checks pass; The supported archive/certificate matrix passes, secret handling is explicit and no OpenSSL runtime dependency is introduced.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: pure-rust certificate import and eligibility` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### L2: Source-guided station normalization, signing and serialization
 
@@ -194,7 +173,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: L1 eligible explicit credential access; E1 current effective payload; pinned signature definitions and configuration.
 - Produces: prepare_submission(payloads: &[ServicePayload], station: &SigningStation, credential: &SigningCredential) -> Result<SignedSubmission, SigningError>; SignedSubmission retains actual canonical values plus compatible certificate/station/contact records. GAbbI is TrustedQSL’s linked signed-record format.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 signing_vectors::station_field_normalization; mode_band_date_rules; linked_record_references; canonical_signature_bytes; independent_signature_verification; unsupported_station_fields_diagnostic. Use independently verified vectors and reference output, not only sign/verify with the same implementation.
 
@@ -206,15 +185,11 @@ assert!(independent_verifier.accepts(signature));
 assert_eq!(submission.sent_values, payload_values);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Port normalization, signature-definition selection and GAbbI serialization from the pinned source/configuration; preserve relevant notices, including copied-source notices where applicable. Use established pure-Rust primitives with the chosen signing-path mitigations/advisory assessment. Independently inspect signatures and packaged requests. Preserve station identity and reject unrepresentable signing inputs diagnostically. Do not reinterpret GridTracker/directory information as own-station context. Runtime library builds/signing tests are necessary but do not prove live service acceptance; R2 owns that gate.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-lotw --test signing_vectors
@@ -222,9 +197,6 @@ cargo test -p clacks-lotw --test signing_vectors
 
 **Expected:** all named tests/checks pass; Pinned reference behavior and independent checks establish a defensible signed-submission implementation before live provider claims.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: source-guided station normalization, signing and serialization` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### E3: QRZ/LoTW adapters and durable download processing
 
@@ -242,7 +214,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: E1 service contracts; E2 jobs; L2 signing; I1 parsing/matching; account-isolated setup/diagnostics from A4.
 - Produces: ProviderAdapter implementations submit/query using provider-specific response semantics; ingest_page(ctx: &AccountContext, page: ProviderPage) -> Result<IngestedPage, ServiceError>; process_observation(id: ObservationId, choice: ProcessingChoice) -> Result<ProcessingResult, ServiceError>. Cursor progress reflects durable ingestion, not completion of every user decision.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 provider_adapters::explicit_submission_success; per_record_acceptance_distinct_confirmation; qrz_own_report_not_counterpart; correction_status_history. download_reconciliation::overlapping_windows_duplicate_safe; changed_remote_version_new_work; unique_confident_auto; possible_single_requires_choice; ambiguous_at_most_one; unmatched_explicit_add_reject; rejected_identical_suppressed_changed_reprocessed; deleted_contact_not_reoffered; cursor_never_ahead_of_retained_work.
 
@@ -255,27 +227,14 @@ assert!(retained_page_coverage.covers(&advanced_cursor));
 assert!(own_uploaded_location.is_not_counterpart_fallback());
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Implement current provider requests/responses from verified official specifications and controlled fixtures; distinguish upload acceptance, per-record processing and counterpart confirmation. Retain provider observations separately; never overwrite recorded on-air facts or DE context. Track page/window coverage and atomically retain observation/disposition/effect associations. Pending ambiguity must not block unrelated processing. Confirmed status applies only while evidence matches the current QSO; retain historical positives when applicability changes or a newer explicit unconfirmed observation arrives. Finish web configuration for multiple QRZ destinations/certificates, credential removal, supersession gaps and diagnostics. Do not clear status on absent fields or empty windows.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-server --test provider_adapters; cargo test -p clacks-server --test download_reconciliation
 ```
 
 **Expected:** all named tests/checks pass; Both providers pass submission/query fixtures, source-provenance and duplicate-safe processing tests; live interoperability remains R2.
-
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: qrz/lotw adapters and durable download processing` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
-
-## Completion gate
-
-Both providers pass submission/query fixtures, source-provenance and duplicate-safe processing tests; live interoperability remains R2.
-No later work is authorized merely because this plan is complete. See the coordinating plan for execution and release gates.

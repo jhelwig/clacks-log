@@ -1,6 +1,6 @@
-# Synchronization and recovery Implementation Plan
+# Synchronization and recovery Milestone Outline
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: milestone outline, not an executable implementation plan.** This document maps scope, dependencies and acceptance goals. Proposed files, interfaces and verification targets are provisional. Before coding, prepare a concrete plan for the selected milestone covering its data model, behavior, algorithms, edge cases and tests. Do not infer those choices while executing this outline.
 
 A radio contact is a **QSO**; the minimum viable product is **MVP**. Causal context summarizes known updates; timeline ancestry records exceptional recovery/coverage relationships. Account acknowledgment means durable local installation, not merely network receipt.
 
@@ -49,7 +49,7 @@ The Files entries below use `lib/<crate-name>` for libraries and `bin/<applicati
 - Consumes: F1 account/record identities and stable native equality. Research describes semantics, not a ready-made protocol implementation.
 - Produces: classify_record<T: Eq + Clone>(original: &T, local: &T, shared: &T) -> RecordComparison; RecordComparison::{Unchanged,LocalOnly,SharedOnly,EqualChanges,NeedsResolution}. Define ActorId, TimelinePosition, CausalContext, CoverageBoundary, AcceptedRecord, WorkingChange, ComparedState, AccountCheckpoint, SyncMessage and ProtocolVersion in this task’s contract. Specify exact wire encoding and compatibility before F2/S2/S3 depend on them.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 model_scenarios::three_way_cases; tag_and_fact_changes_conflict; old_timeline_coverage_is_not_future_coverage; restart_keeps_identity; repeated_delivery_is_idempotent. Model (T2,205) incorporating (T1,200), and prove it does not cover T1:201 or retroactively change earlier T2 coverage. Generate small event schedules with disconnect, restore and duplicate delivery.
 
@@ -61,15 +61,11 @@ assert_eq!(classify_record(&0, &1, &1), RecordComparison::EqualChanges);
 assert!(!coverage.covers(t1_at_201));
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Write a state-transition specification and executable pure model, drawing on the existing survey rather than inventing a new replication family. Define authored versus accepted state, vector lifecycle, timeline forks/coverage, comparison inputs, retry identities and evidence joins. Include two-way recovery when originals are missing and explained uncertainty when ordering is unavailable. Choose an encoding only after tests demonstrate required distinctions; record it as engineering design. Deletion is a record state. No automatic merge for different fields or tags. If a candidate representation fails an accepted property, stop its adoption, record the counterexample and refine the engineering model; do not silently weaken the property.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-replication --test model_scenarios
@@ -77,9 +73,6 @@ cargo test -p clacks-replication --test model_scenarios
 
 **Expected:** all named tests/checks pass; The contract and executable model cover all listed counterexamples; downstream schemas/messages reference these exact types.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: executable reconciliation model and protocol contract` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### S2: Conditional server acceptance and client pending review
 
@@ -97,7 +90,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: S1 ComparedState/WorkingChange; F2 stores; A1 authenticated AccountContext/ClientContext. Use fixtures implementing those contexts until A2 transport enrollment is complete.
 - Produces: accept_change(ctx: &ClientContext, change: WorkingChange, compared: ComparedState) -> Result<Acceptance, AcceptError>; Acceptance::{Accepted,RefreshRequired,MissingReference,AssociationConflict}; reconcile_local(store: &ClientStore, incoming: AcceptedRecord) -> Result<ReconciliationResult, SyncError>. PendingReview is account-wide and includes hidden deletions and missing references.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 conditional_acceptance::changed_after_compare_requires_refresh; deleted_tag_stays_pending; cross_account_reference_rejected; stale_delete_preview_revalidated. reconciliation::disjoint_changes_require_resolution; pending_delete_hidden; one_sided_and_equal_skip_resolution. Include existing-QSO deletion versus edit separately from a new QSO with a deleted tag.
 
@@ -109,15 +102,11 @@ assert!(pending_original_qso_is_retained);
 assert!(unrelated_change_is_accepted);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Reject stale compared state atomically without interpreting business differences on the server. Client re-runs whole-record comparison and retains originals/local/shared inputs. Use field-level choices inside the resolution UI contract. Enforce account references, tag existence and D251 association uniqueness; no accepted dangling tag references. Resolve missing tags only by explicit removal/replacement. Revalidate tag-deletion preview/effects under ordinary record rules; specification must make partial-conflict/transaction boundaries explicit before deletion is wired into the UI.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-server --test conditional_acceptance; cargo test -p clacks-client --test reconciliation
@@ -125,9 +114,6 @@ cargo test -p clacks-server --test conditional_acceptance; cargo test -p clacks-
 
 **Expected:** all named tests/checks pass; Compare/accept races, deletion conflicts and unrelated progress are reproducible under concurrent transactions.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: conditional server acceptance and client pending review` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### S3: Durable catch-up, WebSocket streaming and compatibility
 
@@ -145,7 +131,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: S1 SyncMessage/version; S2 acceptance; A2 per-client credentials and active revocation checks.
 - Produces: Server sync route in the existing Axum application; SyncSession::run(ctx: ClientContext) -> Result<(), SyncError>; ClientSync::connect(endpoint: ServerEndpoint) -> Result<SyncStatus, SyncError>; install_batch(batch: SyncBatch) -> Result<AccountCheckpoint, SyncError>. Acknowledge only the returned durable checkpoint.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 sync_transport::snapshot_to_stream_has_no_gap; overlapping_batches_are_idempotent; bounded_backpressure; revoked_open_stream_stops. sync_install::crash_each_install_boundary; incompatible_upgrade_preserves_pending; server_can_request_missing_client_accepted_state. Change accepted records during catch-up and drop each message boundary.
 
@@ -157,15 +143,11 @@ assert!(durable_coverage.covers(&acknowledged_checkpoint));
 assert!(upgrade_required.preserves_enrollment);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Use the same state negotiation both directions with bounded incremental batches and fuller-state fallback. Keep accepted recovery evidence distinct from local pending edits. Stream after an ordered catch-up boundary, with overlap idempotent. Persist records, originals, required causal evidence and checkpoint before acknowledgment. Negotiate incompatible versions without clearing data or enrollment. Expose only connection state, last successful synchronization and current error as required diagnostics. Do not tie catch-up to upload cooldown.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-server --test sync_transport; cargo test -p clacks-client --test sync_install
@@ -173,9 +155,6 @@ cargo test -p clacks-server --test sync_transport; cargo test -p clacks-client -
 
 **Expected:** all named tests/checks pass; Interrupted/repeated transfers converge without lost work, duplicate effects or premature acknowledgments.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: durable catch-up, websocket streaming and compatibility` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### S4: Compaction, actor retirement and restored-server recovery
 
@@ -194,7 +173,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: S1 ancestry/causal contract; S3 durable checkpoints; E1 publication/observation evidence types. S4 follows E1 for full evidence recovery rather than testing contact rows alone.
 - Produces: retention_boundary(participants: &[AuthorizedCheckpoint], ancestry: &TimelineCoverage) -> Result<CollectionBoundary, OrderingUncertain>; recover_state(input: RecoveryInput) -> RecoveryOutcome; Revocation closes old actor admission without deleting accepted contributions.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 recovery_scenarios::offline_client_pins_collection; revoke_advances_boundary; pending_original_survives_ack; restore_advance_then_old_client; below_compacted_baseline; new_actor_after_reauthorization; service_success_recovered_without_replay. Restore native database snapshots and simulate later revocation lost by rollback.
 
@@ -206,27 +185,14 @@ assert_eq!(boundary_after_revoking_third, at_700);
 assert!(recovered_success.covers_only(actual_sent_values));
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Install interpretable baselines before collecting safe detail. Retain locally self-contained pending comparison evidence and surviving reference meaning. Offline unrevoked clients may pin ordering evidence indefinitely; transfer journals can still compact with fuller-state reconciliation. Reauthorization preserves data but excluded unsynchronized old-actor edits require manual reconciliation. Restore mode keeps uploads paused independently of old database flags until explicit operator resume; do not create a publication veto tied to an absent client’s unresolved conflict. Include conflicting recovered external associations as explicit resolution, never duplicate binding.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-server --test recovery_scenarios; cargo test -p clacks-replication
 ```
 
 **Expected:** all named tests/checks pass; Recovery report documents passed schedules and remaining limits; no claim to recover facts absent from every surviving copy.
-
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: compaction, actor retirement and restored-server recovery` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
-
-## Completion gate
-
-Recovery report documents passed schedules and remaining limits; no claim to recover facts absent from every surviving copy.
-No later work is authorized merely because this plan is complete. See the coordinating plan for execution and release gates.

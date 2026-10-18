@@ -1,6 +1,6 @@
-# Directory lookup and geographic reference data Implementation Plan
+# Directory lookup and geographic reference data Milestone Outline
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: milestone outline, not an executable implementation plan.** This document maps scope, dependencies and acceptance goals. Proposed files, interfaces and verification targets are provisional. Before coding, prepare a concrete plan for the selected milestone covering its data model, behavior, algorithms, edge cases and tests. Do not infer those choices while executing this outline.
 
 A radio contact is a **QSO**; minimum viable product is **MVP**. DX Century Club is **DXCC**; International Telecommunication Union is **ITU**; CQ zones are amateur-radio operating zones. LoTW means Logbook of The World; Hypertext Transfer Protocol is **HTTP**; user interface is **UI**. Point versus grid area describes location meaning, not just the display of center coordinates.
 
@@ -50,7 +50,7 @@ The Files entries below use `lib/<crate-name>` for libraries and `bin/<applicati
 - Consumes: F1 recorded facts and source-aware effective_contact contract.
 - Produces: normalize_lookup_key(call: &str) -> Result<LookupKey, LookupKeyError>; choose_snapshot(a: &DirectorySnapshot, b: &DirectorySnapshot) -> DirectorySnapshot; DirectorySnapshot { qso_id, lookup_key, provider, successful_at, tie_break_id, fields }; snapshot_eligible(snapshot: &DirectorySnapshot, qso: &QsoRecord) -> bool. EffectiveSources selection uses recorded → eligible LoTW → eligible QRZ → eligible directory.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 snapshot_rules::portable_call_retains_recorded_call; old_key_ineligible; equal_time_deterministic; recognition_no_fact_write; whole_location_no_mixing. Document normalization for supported portable/compound forms rather than stripping every slash expression.
 
@@ -62,15 +62,11 @@ assert!(!old_key_snapshot_is_eligible);
 assert_eq!(choose_snapshot(&a, &b), choose_snapshot(&b, &a));
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Keep provider information, including names, separate from recorded contact facts. Retain snapshots when the normalized key is unchanged and stop using them immediately on a key change. Latest successful client lookup timestamp plus stable tie-breaker wins; retries/propagation do not refresh it. Failed/not-found results do not replace snapshots. Apply whole-location precedence even to partial recorded locations. Define eligibility against current QSO identity for confirmation-provider evidence without relabeling our uploaded values as counterpart information.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-directory --test snapshot_rules
@@ -78,9 +74,6 @@ cargo test -p clacks-directory --test snapshot_rules
 
 **Expected:** all named tests/checks pass; Source eligibility, deterministic arbitration and fallback preserve recorded facts and station identity.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: lookup keys, snapshots and source eligibility` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### G2: Build and validate offline geographic bundle
 
@@ -103,7 +96,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: F1 Location basis; selected Census, HA8TKS and Natural Earth sources and candidate audit. Resolve exact source versions and checksums at build execution.
 - Produces: clacks_geography_build::main_entry() -> std::process::ExitCode; GeoBundle::open(path: &Path) -> Result<GeoBundle, GeoError>; GeoBundle::lookup(location: &Location) -> Result<GeoCandidates, GeoError>; GeoCandidates reports independent unambiguous values and ambiguous alternatives with dataset provenance.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 build_validation::argument_errors_and_manifest_validation_without_process_exit; coverage::us_county_state; cq_itu_worldwide; dxcc_mapping_and_exceptions; grid_crossing_boundary; explicit_point; date_line; six_itu_repairs; corrupt_bundle_rejected. Select representative real reference locations from pinned datasets and record expected provenance.
 
@@ -116,15 +109,11 @@ assert_eq!(grid_query.basis, LocationBasis::GridArea);
 assert!(corrupt_bundle_open.is_err());
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Use `clacks-geography-build` as the builder library package and `clacks-log-geography` as the thin executable package. Argument parsing, configuration, build/validation and substantive error handling live in the library; the binary delegates to its entry point. Build a reproducible independently versioned artifact with exact upstream versions/hashes, redistribution basis and notices. Compile the explicit DXCC mapping/exception layer; review the six ITU polygon repairs, coordinate reference/datum treatment and date-line normalization. Use U.S. states/counties as defined by the selected source, not invented radio county-equivalent semantics. Query the whole grid area for grid-derived positions and the point for explicit coordinates. Populate unambiguous fields, offer manual selection for ambiguous ones and allow corrections until location changes under the existing rules. Validate before bundling; do not claim worldwide fidelity beyond the accepted source limits.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo check -p clacks-log-geography; cargo test -p clacks-geography-build; cargo test -p clacks-geography --test coverage; cargo run -p clacks-log-geography -- validate --manifest data/geography/sources.json
@@ -132,9 +121,6 @@ cargo check -p clacks-log-geography; cargo test -p clacks-geography-build; cargo
 
 **Expected:** all named tests/checks pass; The release bundle is reproducible, redistributable and passes recorded U.S./worldwide and ambiguity fixtures.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: build and validate offline geographic bundle` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### G3: Provider adapters, live debounce and bulk lookup
 
@@ -152,7 +138,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: G1 key/snapshot rules; A3 directory credential updates; D1 entry identity; F2 snapshot persistence. D3 later supplies WS call events to this controller.
 - Produces: DirectoryProvider::lookup(key: &LookupKey, credentials: &DirectoryCredentials) -> Result<LookupOutcome, LookupError>; LookupController::call_changed(entry: EntryId, value: String, now: Instant) -> Vec<LookupEffect>; bulk_lookup(ids: &[QsoId], cancel: &CancelToken) -> BulkLookupReport. Lookup correlation records entry ID, eventual QSO ID and requested normalized key.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 lookup_flow::five_hundred_ms_debounce; repeated_unchanged_status_no_reset; empty_call_no_request; late_result_original_qso; server_down_provider_up; key_change_discards_old_display; successful_refresh_replaces; failure_not_found_preserve; bulk_partial_cancel; provider_auth_pause. Use a fake clock and local HTTP response fixtures.
 
@@ -165,27 +151,14 @@ assert_eq!(late_result.qso_id, completed_original_id);
 assert_eq!(failed_refresh.snapshot, previous_snapshot);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Implement both provider adapters, session reuse where appropriate and account-selected-provider-only operation. Keep credentials in protected local storage and allow lookup during sync-server outages. Do not delay contact save for a lookup. Bind late results to the original saved QSO/key and prevent deleted-QSO or next-entry contamination. Bulk selected/filtered IDs deduplicate identities, apply snapshots as successes arrive and report unchanged/not-found/failure/unprocessed outcomes. Keep completed updates on cancellation; pause only affected-provider authentication failures until credential update or explicit retry. No automatic reconnect bulk action.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-directory --test provider_responses; cargo test -p clacks-client --test lookup_flow
 ```
 
 **Expected:** all named tests/checks pass; Live/manual/WS call changes and bulk refresh preserve source separation under latency, cancellation and outages.
-
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: provider adapters, live debounce and bulk lookup` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
-
-## Completion gate
-
-Live/manual/WS call changes and bulk refresh preserve source separation under latency, cancellation and outages.
-No later work is authorized merely because this plan is complete. See the coordinating plan for execution and release gates.

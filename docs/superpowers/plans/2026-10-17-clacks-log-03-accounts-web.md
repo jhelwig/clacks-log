@@ -1,6 +1,6 @@
-# Accounts, web management and observability Implementation Plan
+# Accounts, web management and observability Milestone Outline
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: milestone outline, not an executable implementation plan.** This document maps scope, dependencies and acceptance goals. Proposed files, interfaces and verification targets are provisional. Before coding, prepare a concrete plan for the selected milestone covering its data model, behavior, algorithms, edge cases and tests. Do not infer those choices while executing this outline.
 
 OpenID Connect is **OIDC**; a radio contact is a **QSO**; minimum viable product is **MVP**; user interface is **UI**; data transfer object is **DTO**. LoTW means Logbook of The World. An issuer/subject pair identifies a login binding, not the Clacks account itself.
 
@@ -50,7 +50,7 @@ The Files entries below use `lib/<crate-name>` for libraries and `bin/<applicati
 - Consumes: F1 AccountId; F2 account-scoped database transactions; configurable identity provider.
 - Produces: AccountContext { account_id, roles }; ClientContext { account: AccountContext, client_id, actor_id }; authenticate_web(input: VerifiedIdentity) -> Result<AccountContext, AuthError>; link_identity(ctx: &AccountContext, proof: FreshIdentityProof) -> Result<(), AuthError>; unlink_identity(ctx: &AccountContext, binding: BindingId, proof: RemainingIdentityProof) -> Result<(), AuthError>. Only a verified protocol adapter can construct VerifiedIdentity/proof types.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 account_identity::first_login_provisions_once; multiple_providers_same_account; concurrent_link_unique; cannot_unlink_last; cannot_link_other_account_identity; fresh_remaining_identity_required. Include equal emails with different issuer/subject pairs.
 
@@ -62,15 +62,11 @@ assert!(link_already_bound_elsewhere.is_err());
 assert!(unlink_last_identity.is_err());
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Select a maintained standard OIDC integration at execution, validate issuer/subject and callback/session bindings, and implement account provisioning plus explicit link/unlink workflows. Do not equate an OIDC identity with the internal account or automatically link by email. Keep administrator role assignment explicit and out of band. Document administrator-assisted recovery without automated self-service recovery or account merging.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-server --test account_identity
@@ -78,9 +74,6 @@ cargo test -p clacks-server --test account_identity
 
 **Expected:** all named tests/checks pass; Identity race, linking and recovery-boundary tests pass across isolated accounts.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: stable accounts and login-identity bindings` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### A2: Browser-callback enrollment and revocable client credentials
 
@@ -99,7 +92,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: A1 authenticated browser AccountContext; F1 actor/client identities; protected platform storage adapter.
 - Produces: begin_enrollment(server: ServerEndpoint) -> Result<EnrollmentRequest, AuthError>; finish_enrollment(callback: EnrollmentCallback) -> Result<ClientEnrollment, AuthError>; authorize_client(proof: ClientProof) -> Result<ClientContext, AuthError>; revoke_client(ctx: &AccountContext, client: ClientId) -> Result<(), AuthError>. Define credential renewal and independent causal identity lifetime in the authentication contract.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 client_enrollment::callback_replay_rejected; account_session_bound; interrupted_flow_safe; individual_revocation; no_offline_expiry. client_credentials::restart_uses_protected_storage; reauthorization_keeps_local_data. Use a local test identity provider; reserve real tsidp checks for R2.
 
@@ -112,15 +105,11 @@ assert!(other_client_access.is_ok());
 assert_eq!(retained_qsos, before_reauthorization);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Use standard browser-callback authorization support, document the chosen callback mechanism and protect request/session correlation. The native client receives its own revocable credential, not a provider secret or browser password. Renewal must not create a new causal actor on each token refresh. Apply revocation to subsequent requests and existing streams; keep accepted data and preserve offline edits for explicit recovery under S4. Use protected operating-system storage with platform adapters; no device-code fallback in MVP.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-server --test client_enrollment; cargo test -p clacks-client --test client_credentials
@@ -128,9 +117,6 @@ cargo test -p clacks-server --test client_enrollment; cargo test -p clacks-clien
 
 **Expected:** all named tests/checks pass; Enrollment, replay rejection, renewal and individual-client revocation work without data erasure.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: browser-callback enrollment and revocable client credentials` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### A3: Account envelope encryption and directory credential provisioning
 
@@ -149,7 +135,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: A1 account context; A2 enrolled-client authorization; protected local storage adapter.
 - Produces: CredentialStore::put(ctx: &AccountContext, input: SecretInput) -> Result<CredentialId, SecretError>; remove(ctx: &AccountContext, id: CredentialId) -> Result<(), SecretError>; provision_directory(ctx: &ClientContext) -> Result<DirectoryCredentialUpdate, SecretError>. Secret values must use non-debug-printing wrappers; directory provisioning never includes LoTW keys or publication credentials.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 secret_boundaries::independent_account_keys; swapped_account_ciphertext_fails; missing_key_not_regenerated; wrong_key_restore_fails; client_receives_only_directory_credentials; removal_keeps_public_metadata. Include old wrapping-key versions and disconnected clients retaining previously received credentials.
 
@@ -161,15 +147,11 @@ assert!(swapped_record_decryption.is_err());
 assert!(provisioned.contains_no_signing_or_upload_secrets());
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Use established authenticated encryption with independent random account keys wrapped by a deployment key mounted outside PostgreSQL/image. Authenticate account/credential identities as encryption context. Specify key versions, rotation and backup recovery. Removal blocks future permitted signing and preserves public metadata/history; define in-flight handling before wiring jobs. Provision selected directory credentials securely to enrolled clients; do not promise remote erasure of disconnected caches or independent backups.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo test -p clacks-server --test secret_boundaries
@@ -177,9 +159,6 @@ cargo test -p clacks-server --test secret_boundaries
 
 **Expected:** all named tests/checks pass; Key/account binding, provisioning restrictions and recoverable key-version procedures are demonstrated.
 
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: account envelope encryption and directory credential provisioning` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
 
 ### A4: Leptos management workflows and production observability
 
@@ -199,7 +178,7 @@ Check the task diff against its specification and constraints; correct failures,
 - Consumes: A1–A3 account/enrollment/secret services; E1 diagnostic DTOs; E3 provider adapters when available.
 - Produces: clacks_server::main_entry() -> std::process::ExitCode; app(state: ServerState) -> axum::Router; management routes call the same internal account/service operations as the server. Expose account-isolated SyncStatus and UploadDiagnostic views. No second management database or separately deployed Clacks service.
 
-- [ ] **Step 1: Add the named regression/acceptance tests and their fixtures.**
+**Acceptance scenarios to specify:**
 
 management_routes::cross_account_object_access_denied; management_and_sync_share_state; reauth_required_for_identity_changes. telemetry_redaction::request_and_provider_secrets_removed; trace_job_correlation; bounded_metric_labels. Test production logging configuration, not only a standalone redaction helper.
 
@@ -211,27 +190,14 @@ assert!(!captured_logs.contains(secret_sentinel));
 assert!(request_trace_and_job_trace_are_correlated);
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the expected pre-implementation failure.**
-
-Run each focused command listed in Step 4 after creating a compilable minimal target. Confirm failure comes from missing behavior or the explicitly missing module/type, rather than an unavailable database, provider or toolchain. For infrastructure/artifact tasks, use the named reproducible verification scenario instead of adding tests that merely mirror configuration.
-
-- [ ] **Step 3: Implement the listed interfaces and behavior.**
+**Required outcomes:**
 
 Keep startup/runtime, configuration, telemetry and substantive error handling in `lib/clacks-server`; `bin/clacks-log-server/src/main.rs` delegates only to its library entry point. Create concrete workflow mockups for review before UI implementation. Implement sign-in, identity linking/unlinking, client list/revoke, administrator account creation and external-service setup/diagnostics. Full setup opens from desktop; station/profile editing remains native. Keep architecture suitable for future browsing/editing/reporting without adding them to MVP. Add structured logs, tracing and metrics across web/sync/jobs with operator security events, correlation, cardinality limits and redaction. Choose actual telemetry exporters/tooling as execution-time engineering; do not add an account-user security-history page.
 
-- [ ] **Step 4: Verify the task deliverable.**
+**Candidate verification targets:**
 
 ```text
 cargo check -p clacks-log-server; cargo test -p clacks-server --test management_routes; cargo test -p clacks-server --test telemetry_redaction; cargo check -p clacks-web --target wasm32-unknown-unknown --no-default-features --features hydrate
 ```
 
 **Expected:** all named tests/checks pass; Management and telemetry run in one application; native and browser builds pass and secrets never appear in captured telemetry.
-
-- [ ] **Step 5: Review and commit the bounded change.**
-
-Check the task diff against its specification and constraints; correct failures, then commit the listed implementation/tests and any contract updates with message `feat: leptos management workflows and production observability` (use `docs:` for a documentation-only contract). Update the task checkbox and verification evidence. Do not advance a failing gate or change an accepted policy to make a test pass.
-
-## Completion gate
-
-Management and telemetry run in one application; native and browser builds pass and secrets never appear in captured telemetry.
-No later work is authorized merely because this plan is complete. See the coordinating plan for execution and release gates.

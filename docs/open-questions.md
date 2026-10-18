@@ -6,6 +6,10 @@ This file retains its existing path as an index of remaining engineering work an
 
 No application implementation, prototype, implementation-plan execution, migration or publication is authorized by this completion checkpoint. A demonstrated contradiction, missing requirement or material behavioral/architectural tradeoff can justify a focused decision later; ordinary engineering details do not.
 
+The initial implementation has been discarded. The subsystem documents describe
+milestones, not executable implementation plans. Detailed planning for a selected
+milestone is required before implementation resumes.
+
 ## Deferred product and legal work
 
 These matters are outside the completed MVP planning phase:
