@@ -32,6 +32,8 @@ These matters are outside the completed MVP planning phase:
 
 ## Implementation specification and validation
 
+The [implementation plan](superpowers/plans/2026-10-17-clacks-log.md) assigns this work to concrete tasks, dependencies and verification gates. It does not change scope or authorize execution.
+
 The following work realizes the selected architecture and accepted behavior. It is not a list of unresolved product or architectural choices.
 
 ### Client and server engineering
@@ -96,6 +98,6 @@ See the [source map](../references/trustedqsl/source-map.md) and [LoTW design](l
 
 ## Deferred and uncommitted scope boundaries
 
-The following are deferred or uncommitted, not missing MVP decisions: bulk editing; computer-aided transceiver control (CAT); paper contact-confirmation (QSL) workflows; dedicated contest exchanges; individual-contact moves; individual-contact restoration and equipment restore/clone resolution options; selective sync; ADX; a separate geographic-data updater; built-in backup/restore commands; outbound WS control; device-authorization fallback; automatic directory-provider fallback; and macOS/Linux releases. Preserve each decision's exact scope rather than treating every item as a guaranteed later release.
+The following are deferred or uncommitted, not missing MVP decisions: bulk editing of contact facts (direct tag assignment is MVP); computer-aided transceiver control (CAT); paper contact-confirmation (QSL) workflows; dedicated contest exchanges; individual-contact restoration and equipment restore/clone resolution options; selective sync; ADX; a separate geographic-data updater; built-in backup/restore commands; outbound WS control; device-authorization fallback; automatic directory-provider fallback; and macOS/Linux releases. Preserve each decision's exact scope rather than treating every item as a guaranteed later release.
 
 Other eQSL, award/heard-station, GridTracker wanted/award-data, archive and persistent reusable directory-cache capabilities remain uncommitted. Provider-result merging is excluded; unsaved manual-draft restoration and dedicated import-session resumption are not future backlog commitments. Use [decisions](decisions.md) for the exact boundaries, rather than promoting this parking list into requirements.

@@ -6,6 +6,8 @@ Checkpoint: **17 October 2026**. Project owner: Jacob Helwig (`jhelwig`). Reposi
 
 ## How to continue
 
+The [implementation plan](superpowers/plans/2026-10-17-clacks-log.md) is prepared against D01–D251, with 29 tasks across eight subsystem plans, dependency gates, coverage and validation requirements. It uses `lib/<crate-name>` libraries and thin `bin/<application-name>` wrappers, with application behavior and startup in libraries. Preparing it does not authorize implementation or plan execution. Read it alongside the current product and architecture documents; no application checks in the plan have run.
+
 Follow the user's next request. Do not resume an endless sequence of product approvals or automatically begin implementation. If asked for engineering preparation, use the accepted decisions as requirements and treat concrete schemas, protocol messages, transaction handling, mappings, dependency choices/configuration, geographic-data compilation and verification as implementation specification/design work. A genuinely demonstrated contradiction, missing requirement or material tradeoff can warrant a focused decision; an unwritten engineering detail alone does not.
 
 The [remaining-work index](open-questions.md) separates engineering work from deferred product/legal matters. Its filename is retained for existing links; it is not an unresolved MVP product-decision queue. The detailed [decision register](decisions.md) remains authoritative, including later refinements of earlier decisions.

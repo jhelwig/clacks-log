@@ -7,6 +7,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 ## Planning documents
 
 - [Planning completion and continuation handoff](docs/handoff.md)
+- [MVP implementation plan and subsystem task plans](docs/superpowers/plans/2026-10-17-clacks-log.md)
 - [Product scope and operating workflows](docs/product.md)
 - [Decision register](docs/decisions.md)
 - [Architectural review](docs/architecture-review.md)
