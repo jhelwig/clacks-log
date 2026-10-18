@@ -6,9 +6,9 @@ This file retains its existing path as an index of remaining engineering work an
 
 No application implementation, prototype, implementation-plan execution, migration or publication is authorized by this completion checkpoint. A demonstrated contradiction, missing requirement or material behavioral/architectural tradeoff can justify a focused decision later; ordinary engineering details do not.
 
-The initial implementation has been discarded. The subsystem documents describe
-milestones, not executable implementation plans. Detailed planning for a selected
-milestone is required before implementation resumes.
+The initial implementation has been discarded. The [MVP roadmap](mvp-roadmap.md)
+describes phases, capability milestones and dependencies. Detailed planning for a selected milestone is required before
+implementation resumes.
 
 ## Deferred product and legal work
 
@@ -36,7 +36,7 @@ These matters are outside the completed MVP planning phase:
 
 ## Implementation specification and validation
 
-The [implementation plan](superpowers/plans/2026-10-17-clacks-log.md) assigns this work to concrete tasks, dependencies and verification gates. It does not change scope or authorize execution.
+The [MVP roadmap](mvp-roadmap.md) groups this work into delivery phases and capability milestones. It does not prescribe task-level implementation or change the agreed scope.
 
 The following work realizes the selected architecture and accepted behavior. It is not a list of unresolved product or architectural choices.
 
