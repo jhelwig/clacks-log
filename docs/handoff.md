@@ -1,12 +1,14 @@
 # Clacks Log planning completion handoff
 
-Checkpoint: **17 October 2026**. Project owner: Jacob Helwig (`jhelwig`). Repository: https://github.com/jhelwig/clacks-log . Working name: **Clacks Log**.
+Checkpoint: **18 October 2026**. Project owner: Jacob Helwig (`jhelwig`). Repository: https://github.com/jhelwig/clacks-log . Working name: **Clacks Log**.
 
 **Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). No known unresolved product or architecture decision blocks that scope.** The repository records decisions D01–D251 and supporting research. The account-owned radio contact (QSO)/tag model, account-wide synchronization scope and external-record association rules are integrated into the product and architecture documents (D243–D251). The F1/S1 implementation attempt was discarded at the user's direction on 17 October 2026. No application implementation remains, and implementation is stopped. Upstream reference C++ files are research material, not Clacks implementation.
 
 ## How to continue
 
 The [MVP roadmap](mvp-roadmap.md) organizes delivery into six phases with capability milestones, dependencies and completion evidence. It replaces the misplaced subsystem outlines and contains no task-level file, interface or coding instructions. Before implementation resumes, prepare a concrete plan for the selected milestone against the agreed requirements. Do not fill gaps with unreviewed assumptions while coding. The workspace convention remains `lib/<crate-name>` libraries and thin `bin/<application-name>` wrappers, with behavior and startup in libraries; Rust 1.99.1 remains the user-selected toolchain.
+
+The roadmap review corrections are integrated: service-evidence and association foundations precede imports and publication; directory web configuration precedes lookup; offline contact editing/deletion is explicit. Phase 3 covers existing-client reauthorization with preserved state, while Phase 4 covers the separate export/empty-enrollment/re-import migration of unrelated populated logs. Phase 5 includes manual uploads and native service controls alongside web setup/diagnostics. United States geographic coverage remains required and worldwide coverage desired under D133. These corrections change milestone coverage and sequencing, not the agreed architecture or the stopped implementation status.
 
 The discarded code, tests, dependency choices, implementation contracts, progress claims and verification reports are not part of the current project. Preserve review corrections in future planning: no separate timestamp-precision metadata; a band/frequency value is not equipment; the native mode catalog must not be a small placeholder; activity/reference context must implement D127's unification and correct contact/own-station/counterpart scope. Coordinate granularity and two-character grid support were questioned, not settled as new requirements.
 

@@ -8,6 +8,8 @@ separate work, prepared for the milestone being undertaken.
 **Status:** No phase is complete. The initial implementation was discarded;
 implementation remains stopped. This roadmap does not resume it.
 
+Reviewed and reconciled with the agreed scope on **18 October 2026**.
+
 The [product model](product.md) and [decision register](decisions.md) define the
 scope. The [remaining-work index](open-questions.md) distinguishes engineering
 work from deferred capabilities. A radio contact is a QSO. Logbook of The World
@@ -18,11 +20,11 @@ Data Interchange Format is ADIF, with its text representation called ADI.
 
 | Phase | Milestone outcome | Main dependency |
 | --- | --- | --- |
-| 1. Foundations and early risks | Native model and synchronization behavior are established; certificate and geographic delivery risks have concrete evidence. | Accepted product and architectural requirements. |
-| 2. Durable offline logging | A Windows operator can record, organize and reopen contacts without the server. | Phase 1 native model. |
-| 3. Accounts and synchronized operation | Independently writable clients reconcile through an isolated, managed account. | Phase 2 durable state and Phase 1 synchronization model. |
-| 4. Complete logging workflows | Capture, lookup, geographic assistance and ADI interchange work together during normal and disconnected operation. | Phase 2 logging and Phase 3 identity/credential capabilities. |
-| 5. External services and recovery | LoTW and QRZ publication, confirmations and recovery work safely with accepted account state. | Phase 3 synchronization, Phase 4 interchange and early compatibility evidence. |
+| 1. Foundations and early risks | Native model, synchronization and shared service-evidence behavior are established; certificate and geographic delivery risks have concrete evidence. | Accepted product and architectural requirements. |
+| 2. Durable offline logging | A Windows operator can record, edit, delete, organize and reopen contacts without the server. | Phase 1 native model. |
+| 3. Accounts and synchronized operation | Independently writable clients enroll, reconcile and recover access through an isolated account; directory setup is available. | Phase 2 durable state and Phase 1 synchronization/service-evidence foundations. |
+| 4. Complete logging workflows | Capture, lookup, geographic assistance, ADI interchange and migration of unrelated populated logs work together. | Phase 3 account synchronization, directory configuration and protected credential provisioning. |
+| 5. External services and recovery | Automatic/manual publication, confirmations and operational controls work safely with accepted account state. | Phase 3 evidence synchronization and association safeguards, Phase 4 interchange and early compatibility evidence. |
 | 6. Release readiness | Installed applications, deployment and recovery procedures demonstrate the complete MVP. | Integrated outcomes from Phases 1–5. |
 
 The sequence expresses cumulative completion, not a requirement to finish every
@@ -43,8 +45,14 @@ Milestones:
   whole-record comparison, deletion, offline edits, timeline recovery, authorized
   client retention and actor retirement. Explain conservative reconciliation when
   ordering evidence is unavailable.
-- Establish early compatibility evidence for source-guided pure-Rust LoTW certificate handling
-  and signing, and produce representative geographic data with verified provenance
+- Establish shared service-evidence and external-record association behavior for
+  imports, synchronization and later publication. Preserve provenance and recovery
+  meaning; an external record may associate with at most one local QSO within an
+  account and service destination. These foundations precede imports and live
+  jobs; live provider integration remains in Phase 5.
+- Establish early compatibility evidence for source-guided pure-Rust LoTW
+  certificate handling and signing, and produce representative geographic data
+  with verified provenance
   and redistribution rights. Surface incompatibilities before publication or
   location workflows depend on them.
 
@@ -59,6 +67,9 @@ Milestones:
 
 - Deliver Windows manual contact entry with the agreed timestamp behavior,
   optional operating profiles, equipment selection and historical snapshots.
+- Support editing saved contact facts and deleting individual contacts offline,
+  independently of tag changes. Saved edits appear in local working history;
+  pending deletions leave normal views while remaining available for review.
 - Support offline tag creation, naming, renaming, membership changes and deletion
   choices. Contacts can belong to multiple tags or remain untagged; removing
   membership and deleting a contact have distinct effects.
@@ -76,21 +87,29 @@ Milestones:
 - Deliver isolated accounts, OIDC sign-in and identity linking, browser-based
   desktop enrollment, individual-client revocation and administrator-assisted
   account recovery.
-- Synchronize all account contacts, tags and shared configuration to every
-  enrolled client. Provide catch-up and streaming, client-side conflict review,
+- Support reauthorization of an existing installation without discarding its
+  synchronized data or pending work. Previously unsynchronized edits excluded by
+  revocation require explicit manual reconciliation. Joining unrelated populated
+  logs is a separate Phase 4 interchange workflow; no automatic merge is implied.
+- Synchronize all account contacts, tags, service evidence and shared configuration
+  to every enrolled client. Provide catch-up and streaming, client-side conflict review,
   missing-reference resolution and preservation of pending work while unrelated
-  synchronization proceeds.
-- Establish web account/client management, account credential protection,
-  protected client provisioning of directory credentials, and production server
-  tracing, logs and metrics. The web architecture accommodates its agreed future
-  scope beyond administration; external-service setup and diagnostics finish
-  with Phase 5.
+  synchronization proceeds. Preserve recovery-relevant outcomes, observations and
+  processing decisions, and prevent competing claims to one external record.
+- Establish web account/client management, including safeguarded login-identity
+  linking and unlinking, and account credential protection. Deliver account-level
+  directory-provider selection and web credential configuration with protected
+  provisioning to enrolled clients before Phase 4 lookup.
+- Establish production server tracing, logs and metrics. The web architecture
+  accommodates its agreed future scope beyond administration; publication and
+  confirmation-service setup and diagnostics finish with Phase 5.
 
 Completion means multiple clients can edit independently, reconnect and reconcile
 without losing work or exposing one account's state to another. Recovery from an
 older server state, indefinite authorized offline return and safe retention must
-be demonstrated for the core account state; Phase 5 extends that evidence to
-external-service effects and history.
+be demonstrated for core account state and available service evidence. Phase 5
+extends that evidence to actual provider effects and history. Reauthorization
+preserves existing local state; it does not use the empty-log migration path.
 
 ## Phase 4 — Complete logging workflows
 
@@ -103,17 +122,28 @@ Milestones:
   provider, separate synchronized directory snapshots, late results and
   user-triggered selected/filtered bulk lookup. Logging continues when lookup or
   the synchronization server is unavailable.
-- Deliver bundled offline geographic assistance for required United States
-  coverage and the agreed minimum worldwide coverage, retaining point-versus-area
-  meaning, ambiguity handling and manual correction.
+- Deliver bundled offline geographic assistance with required United States
+  coverage. Pursue desired worldwide coverage with at least DX Century Club
+  (DXCC) entity, CQ operating zones and International Telecommunication Union
+  (ITU) zones, without making worldwide coverage an additional mandatory release
+  gate. Retain point-versus-area meaning, ambiguity handling and manual correction.
 - Deliver prepared ADI import with account-wide matching, explicit choices,
   partial results and diagnostics; provide consistent local-state export with
   ordinary and optional POTA-compatible output and destination protection.
+- Support joining an unrelated independently populated log through export,
+  enrollment with an empty local log, and re-import. This milestone follows ADI
+  import/export availability and retains the existing matching and association
+  safeguards; it does not add automatic populated-log merging.
 
 Completion means these workflows operate against the same contact and source
-model. Imported statuses and associations are retained for Phase 5 service use;
-imports, capture and lookup do not silently overwrite recorded exchange facts or
-create organizational copies of contacts.
+model. Recognized positive imported upload and confirmation statuses are accepted
+immediately with available dates and provenance, without verification calls;
+missing upload status remains pending independently per service. Imports preserve
+association uniqueness and synchronized recovery evidence before live publication
+arrives. Imports, capture and lookup do not silently overwrite recorded exchange
+facts or create organizational copies of contacts. Required United States
+geographic coverage is demonstrated; worldwide results and limits are documented
+against the desired scope.
 
 ## Phase 5 — External services and recovery
 
@@ -125,6 +155,10 @@ Milestones:
 - Deliver server-side publication using current accepted effective contact values,
   tag policies, trusted imported statuses, diagnostic retries and affected-only
   pauses. Unresolved client proposals do not become publishable state.
+- Provide explicit manual uploads, live service status and routine operational
+  controls in the desktop, with full publication/confirmation setup and detailed
+  upload diagnostics in the web interface. Retry and pause/resume actions retain
+  the agreed routing, eligibility and failure-remedy rules.
 - Deliver confirmation downloads, explicit association of ambiguous records,
   duplicate/rejection/deletion handling and provenance-aware confirmation facts.
   Local deletions leave external copies untouched.
@@ -143,6 +177,8 @@ Milestones:
 
 - Validate the complete operating workflow across real client/server storage,
   account isolation, disconnection, restart, conflicts and recovery failures.
+  Include existing-client reauthorization, the separate ADI migration workflow,
+  manual publication and native service controls.
 - Produce and verify the installed Windows desktop and Linux-container server,
   including geographic data, dependency notices, protected credential storage,
   user-facing diagnostics and production observability.

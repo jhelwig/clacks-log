@@ -1,6 +1,6 @@
 # Remaining work after planning completion
 
-Reconciled **17 October 2026** against D01–D251 in the [decision register](decisions.md). **Product and architectural planning for the agreed minimum viable product (MVP) is complete.** Account-owned contacts with logbook tags, one synchronization scope per account and unique external-record associations are part of the current [product model](product.md#contacts-logbooks-and-tags), not a separate proposal. [Architectural review](architecture-review.md) findings AR1–AR4 are resolved at the design/documentation level; implementation verification remains. The stale synchronization-scope and process-topology wording identified in the follow-up review has been corrected under existing decisions.
+Reconciled **18 October 2026** against D01–D251 in the [decision register](decisions.md) and the roadmap review. **Product and architectural planning for the agreed minimum viable product (MVP) is complete.** Account-owned contacts with logbook tags, one synchronization scope per account and unique external-record associations are part of the current [product model](product.md#contacts-logbooks-and-tags), not a separate proposal. [Architectural review](architecture-review.md) findings AR1–AR4 are resolved at the design/documentation level; implementation verification remains. The stale synchronization-scope and process-topology wording identified in the follow-up review has been corrected under existing decisions.
 
 This file retains its existing path as an index of remaining engineering work and deferred matters. Entries below are not a product-decision backlog or an approval queue. Concrete schemas, protocol messages, transaction handling, mappings, dependency configuration, data preparation and validation are implementation specification/design or verification work. Their incompleteness does not mean product planning remains open.
 
@@ -37,6 +37,18 @@ These matters are outside the completed MVP planning phase:
 ## Implementation specification and validation
 
 The [MVP roadmap](mvp-roadmap.md) groups this work into delivery phases and capability milestones. It does not prescribe task-level implementation or change the agreed scope.
+
+Its dependencies place service-evidence and association foundations in Phase 1
+and their synchronized safeguards in Phase 3, before Phase 4 imports and Phase 5
+publication. Phase 2 includes individual contact editing and deletion. Directory
+selection, web credential configuration and protected provisioning arrive in
+Phase 3 before Phase 4 lookup. Existing-client reauthorization belongs to Phase 3;
+the distinct Amateur Data Interchange Format (ADIF) export/empty-enrollment/
+re-import migration follows interchange availability in Phase 4. Manual uploads
+and native service status/controls belong to Phase 5 alongside full publication
+and confirmation web setup and diagnostics.
+Required United States and desired worldwide geographic coverage retain D133's
+different priorities.
 
 The following work realizes the selected architecture and accepted behavior. It is not a list of unresolved product or architectural choices.
 
