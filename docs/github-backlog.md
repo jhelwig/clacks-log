@@ -30,8 +30,14 @@ completion prerequisites; independent investigation and brainstorming can begin
 earlier. They are linked in the issue bodies. A phase is not an all-to-all blocker
 for every issue in the next phase.
 
-Required U.S. geographic coverage and desired worldwide coverage retain their
-different priorities. The latter is not an additional mandatory release gate.
+Required U.S. geographic autofill includes DX Century Club (DXCC) entity, state,
+county, CQ operating zone and International Telecommunication Union (ITU) zone.
+Desired worldwide coverage retains its different priority and is not an
+additional mandatory release gate.
+
+Prepared ADI import (#24) depends on pending/conflict review (#15) and reuses its
+shared field-level resolution interface when updating matched contacts.
+
 No due dates, estimates or assignees have been imposed.
 
 ## Milestones and issues
