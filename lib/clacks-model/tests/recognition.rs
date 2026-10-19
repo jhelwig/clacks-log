@@ -11,7 +11,7 @@ fn older_recognition_cannot_rewrite_a_specialization() -> TestResult {
         label: "FT4".into(),
         parent: Some("MFSK".into()),
     };
-    let full = RecognitionCatalog::adif_318();
+    let full = RecognitionCatalog::adif_318()?;
     let old = RecognitionCatalog::from_json(include_str!("fixtures/recognition-old.json"))?;
     let a = Mode::from_recorded_identity(id.clone())?;
     let b: Mode = serde_json::from_value(serde_json::to_value(&a)?)?;
@@ -26,7 +26,7 @@ fn older_recognition_cannot_rewrite_a_specialization() -> TestResult {
 
 #[test]
 fn every_source_row_is_recognized_from_data() -> TestResult {
-    let full = RecognitionCatalog::adif_318();
+    let full = RecognitionCatalog::adif_318()?;
     assert_eq!(full.bands.len(), 33);
     assert_eq!(full.modes.len(), 91);
     assert_eq!(full.submodes.len(), 198);
@@ -86,7 +86,7 @@ fn every_source_row_is_recognized_from_data() -> TestResult {
 
 #[test]
 fn unfamiliar_context_and_deprecated_labels_survive() -> TestResult {
-    let full = RecognitionCatalog::adif_318();
+    let full = RecognitionCatalog::adif_318()?;
     for id in [
         ModeIdentity::Parent {
             label: "MFSK".into(),
@@ -136,7 +136,7 @@ fn unfamiliar_context_and_deprecated_labels_survive() -> TestResult {
 
 #[test]
 fn supplied_catalog_rows_extend_recognition_without_code_changes() -> TestResult {
-    let base = RecognitionCatalog::adif_318();
+    let base = RecognitionCatalog::adif_318()?;
     let mut data = serde_json::to_value(base)?;
     data["modes"]
         .as_array_mut()
@@ -199,7 +199,7 @@ fn supplied_catalog_rows_extend_recognition_without_code_changes() -> TestResult
 
 #[test]
 fn supplied_band_rows_are_not_limited_to_compiled_labels() -> TestResult {
-    let base = RecognitionCatalog::adif_318();
+    let base = RecognitionCatalog::adif_318()?;
     let mut data = serde_json::to_value(base)?;
     data["bands"]
         .as_array_mut()

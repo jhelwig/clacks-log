@@ -11,7 +11,7 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 #[test]
 fn band_and_frequency_authority_does_not_feed_back() -> TestResult {
-    let c = RecognitionCatalog::adif_318();
+    let c = RecognitionCatalog::adif_318()?;
     assert!(BandFrequency::new(None, None, c).is_err());
     let mut p = BandFrequency::new(
         Some(Hertz::new(14_074_000)?),
@@ -33,7 +33,7 @@ fn band_and_frequency_authority_does_not_feed_back() -> TestResult {
 
 #[test]
 fn a_present_receive_pair_is_a_whole_override() -> TestResult {
-    let c = RecognitionCatalog::adif_318();
+    let c = RecognitionCatalog::adif_318()?;
     let primary = BandFrequency::new(Some(Hertz::new(14_074_000)?), None, c)?;
     let receive = BandFrequency::new(None, Some(Band::from_recorded_label("20m").unwrap()), c)?;
     assert_eq!(primary.effective_receive(None), &primary);

@@ -131,9 +131,6 @@ impl BandFrequency {
         if self.frequency.is_none() && self.band.is_none() {
             return Err(RecordError::MissingBandAndFrequency.into());
         }
-        if let Some(b) = &self.band {
-            Band::from_recorded_label(b.label())?;
-        }
         Ok(())
     }
 }
@@ -283,7 +280,6 @@ impl Qso {
         }
         self.own_station.validate()?;
         self.contacted_station.validate()?;
-        Mode::from_recorded_identity(self.mode.identity())?;
         for (name, value) in [
             ("sent report", self.sent_report.as_deref()),
             ("received report", self.received_report.as_deref()),

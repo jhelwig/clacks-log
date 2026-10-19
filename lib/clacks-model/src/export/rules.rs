@@ -152,13 +152,13 @@ pub struct ExpressionContext<'a> {
 
 /// Validated group data with reusable, nonserialized expression support.
 ///
-/// This owned definition snapshot is paired with evaluation state rather than
+/// This borrowed definition is paired with evaluation state rather than
 /// serialized as contact data. See [`crate::export::rules::compile_definition`], [`Self::evaluate`] and
 /// [`Self::normalize_reference`] for its lifecycle and operations.
 #[derive(Clone, Debug)]
-pub struct CompiledGroupDefinition {
-    /// Definition snapshot used for evaluation and group-scoped diagnostics.
-    definition: GroupDefinition,
+pub struct CompiledGroupDefinition<'a> {
+    /// Borrowed definition used for evaluation and group-scoped diagnostics.
+    definition: &'a GroupDefinition,
     /// Compiled full-value patterns keyed by validated definition paths.
     patterns: BTreeMap<String, regex::Regex>,
     /// Pattern text to compiled-path correspondence for expression evaluation.
@@ -174,12 +174,10 @@ enum Shape {
     Collection,
 }
 
-impl CompiledGroupDefinition {
-    /// Borrow the definition snapshot whose rules this compiled value evaluates.
-    ///
-    /// Changes to a separately held definition do not alter this compiled snapshot.
+impl CompiledGroupDefinition<'_> {
+    /// Borrow the source definition associated with this compiled value.
     pub fn definition(&self) -> &GroupDefinition {
-        &self.definition
+        self.definition
     }
 
     /// Attach this group’s identity and a definition location to a configuration diagnostic.
@@ -290,9 +288,15 @@ impl CompiledGroupDefinition {
     }
 
     /// Validate one output plan’s partition bindings, scalar fields and demonstrable assignment conflicts.
-    fn check_plan(&mut self, plan: &GroupExportPlan, path: &str) -> Result<(), DefinitionError> {
+    fn check_plan(
+        &mut self,
+        fields: &[FieldBinding],
+        partitions: &[PartitionRule],
+        expansions: &[ExpansionRule],
+        path: &str,
+    ) -> Result<(), DefinitionError> {
         let mut bindings = BTreeSet::new();
-        for (i, partition) in plan.file_partition.iter().enumerate() {
+        for (i, partition) in partitions.iter().enumerate() {
             match partition {
                 PartitionRule::ByValue(value) => {
                     if self.check_expression(
@@ -311,11 +315,11 @@ impl CompiledGroupDefinition {
                 }
             }
         }
-        for expansion in &plan.entry_expansion {
+        for expansion in expansions {
             self.declare_binding(&mut bindings, &expansion.binding, path)?;
         }
         let mut static_fields: BTreeMap<&str, &str> = BTreeMap::new();
-        for (i, field) in plan.fields.iter().enumerate() {
+        for (i, field) in fields.iter().enumerate() {
             let location = format!("{path}.fields[{i}]");
             if field.field.trim().is_empty() {
                 return Err(self.error(&location, "output field cannot be blank"));
@@ -471,7 +475,7 @@ impl CompiledGroupDefinition {
         &self,
         association: &ReferenceAssociation,
     ) -> Result<ReferenceAssociation, DefinitionError> {
-        let d = &self.definition;
+        let d = self.definition;
         if association.group_id != d.id {
             return Err(self.error("identifier", "definition ID does not match association"));
         }
@@ -523,13 +527,15 @@ pub(crate) fn reference_identifiers(qso: &Qso, group: GroupId, side: StationSide
 ///
 /// Compile whole-value regexes, enforce expression/context/binding constraints,
 /// and reject statically detectable mapping conflicts. Returns `DefinitionError`
-/// with group and path context. Dynamic assignment conflicts remain evaluation errors.
+/// with group and path context. Definition data is borrowed without a recursive
+/// clone, including when excessive expression depth is rejected. Dynamic
+/// assignment conflicts remain evaluation errors.
 /// No catalog download, native-record mutation or account provisioning occurs.
 pub fn compile_definition(
     definition: &GroupDefinition,
-) -> Result<CompiledGroupDefinition, DefinitionError> {
+) -> Result<CompiledGroupDefinition<'_>, DefinitionError> {
     let mut compiled = CompiledGroupDefinition {
-        definition: definition.clone(),
+        definition,
         patterns: BTreeMap::new(),
         pattern_paths: BTreeMap::new(),
     };
@@ -560,14 +566,18 @@ pub fn compile_definition(
         }
     }
     compiled.check_plan(
-        &GroupExportPlan {
-            fields: definition.export_mappings.ordinary_interchange.clone(),
-            ..Default::default()
-        },
+        &definition.export_mappings.ordinary_interchange,
+        &[],
+        &[],
         "ordinary_interchange",
     )?;
     for (id, plan) in &definition.export_mappings.targeted {
-        compiled.check_plan(plan, &format!("targeted.{id}"))?;
+        compiled.check_plan(
+            &plan.fields,
+            &plan.file_partition,
+            &plan.entry_expansion,
+            &format!("targeted.{id}"),
+        )?;
     }
     Ok(compiled)
 }

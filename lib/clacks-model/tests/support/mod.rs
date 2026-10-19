@@ -44,7 +44,7 @@ pub fn qso(id: QsoId) -> Qso {
         primary: BandFrequency::new(
             Some(Hertz::new(14_074_000).unwrap()),
             None,
-            RecognitionCatalog::adif_318(),
+            RecognitionCatalog::adif_318().expect("bundled recognition fixture must be valid"),
         )
         .unwrap(),
         receive_override: None,

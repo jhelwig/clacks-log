@@ -23,6 +23,7 @@ Terms: radio contact (QSO); minimum viable product (MVP); Amateur Data Interchan
 - There is one account synchronization scope. Tags organize account-owned QSOs; they do not own child contact records.
 - Dedicated contest exchanges and serial-number assistance remain separate from participation/reference associations and remain post-MVP.
 - Recognition changes alone affect interpretation, not underlying saved values or edits.
+- Propagate ordinary production failures without `expect()` or `unwrap()`. Retain checked values rather than re-looking them up and panicking. Bundled-catalog initialization is fallible.
 - An absent receive override means the primary pair is used in both directions.
 - A band-only receive override does not borrow primary frequency, even for the same band.
 - Current operating defaults are client-local and persistent; saved profiles and equipment synchronize.
@@ -222,7 +223,7 @@ retaining locator length, including coarse historical areas.
 
 **Interfaces:**
 
-- `RecognitionCatalog::adif_318() -> &'static Self`, `from_json(&str) -> Result<Self, ValueError>`. Compatibility tests load an explicit older-catalog fixture.
+- `RecognitionCatalog::adif_318() -> Result<&'static Self, ValueError>`, `from_json(&str) -> Result<Self, ValueError>`. Compatibility tests load an explicit older-catalog fixture.
 - Add `ValueError::InvalidRecognitionCatalog { reason: String }` for malformed/inconsistent table data. The data schema contains `release`, complete `bands` (`code`, inclusive `lower_hz`, optional inclusive `upper_hz`), `modes` and `submodes` (`code`, `parent`, `deprecated`). Preserve deprecated labels and explicit aliases from the source, not inferred aliases.
 - `Band` stores a validated label; `from_recorded_label(&str) -> Result<Self, ValueError>`, `label() -> &str`, `interpret<'a>(&self, &'a RecognitionCatalog) -> Option<&'a BandRow>` and `for_frequency(Hertz, &RecognitionCatalog) -> Option<Self>`.
 - `Mode` stores a validated `ModeIdentity`; `from_recorded_identity(ModeIdentity) -> Result<Self, ValueError>`, `identity() -> ModeIdentity`, `interpret<'a>(&self, &'a RecognitionCatalog) -> ModeInterpretation<'a>`.
@@ -233,7 +234,7 @@ retaining locator length, including coarse historical areas.
 ```rust
 // older_recognition_cannot_rewrite_a_specialization
 let id = ModeIdentity::Specialization { label: "FT4".into(), parent: Some("MFSK".into()) };
-let full = RecognitionCatalog::adif_318();
+let full = RecognitionCatalog::adif_318()?;
 let old = RecognitionCatalog::from_json(include_str!("fixtures/recognition-old.json"))?;
 let a = Mode::from_recorded_identity(id.clone())?;
 let b: Mode = serde_json::from_value(serde_json::to_value(&a)?)?;
@@ -283,8 +284,8 @@ context through ordinary serialization.
 
 ```rust
 // a_present_receive_pair_is_a_whole_override
-let primary = BandFrequency::new(Some(Hertz::new(14_074_000)?), Some(Band::from_recorded_label("20m")?), RecognitionCatalog::adif_318())?;
-let receive = BandFrequency::new(None, Some(Band::from_recorded_label("20m")?), RecognitionCatalog::adif_318())?;
+let primary = BandFrequency::new(Some(Hertz::new(14_074_000)?), Some(Band::from_recorded_label("20m")?), RecognitionCatalog::adif_318()?)?;
+let receive = BandFrequency::new(None, Some(Band::from_recorded_label("20m")?), RecognitionCatalog::adif_318()?)?;
 assert_eq!(primary.effective_receive(None), &primary);
 assert!(primary.effective_receive(Some(&receive)).frequency().is_none());
 ```
@@ -360,8 +361,8 @@ explicit and let Forbid override automatic-upload grants.
 - `GroupDefinition`/`CatalogBinding`/`MetadataDisplayBinding`/`ReferenceCatalog`/`SourceInformation` match spec section 9. `ReferenceCatalog` has **no** version field. `SourceInformation.obtained_at` uses UtcTimestamp; URL (Uniform Resource Locator) provenance is optional text validated by the acquiring adapter, not a new network dependency here.
 - `MetadataValue` uses ordinary `serde_json::Value` for non-authoritative catalog attributes; reject nonfinite numeric inputs through normal JSON decoding. Compiled state and catalog metadata do not enter Qso equality.
 - `DefinitionSet::new(Vec<GroupDefinition>) -> Result<Self, DefinitionError>`, `get(GroupId) -> Option<&GroupDefinition>`; duplicate IDs with competing definitions error, names may repeat.
-- `normalize_reference(association: &ReferenceAssociation, definition: Option<&GroupDefinition>) -> Result<ReferenceAssociation, DefinitionError>` applies the explicit entry/edit operation; a missing definition returns the supplied association unchanged. `interpret_reference<'a>(association: &ReferenceAssociation, definitions: &'a DefinitionSet) -> Option<&'a GroupDefinition>` returns only the definition with matching ID; it never normalizes recorded values.
-- `lookup_reference(association: &ReferenceAssociation, definitions: &DefinitionSet, catalogs: &CatalogSet) -> CatalogFinding` distinguishes `NotConfigured`, `Unavailable`, `NotListed` and `Found`. These are lookup findings, not new persistent validity states or automatic rejection policies. `CatalogSet = BTreeMap<CatalogId, ReferenceCatalog>`. `CatalogFinding::{NotConfigured, Unavailable { catalog_id: CatalogId }, NoLookupKey, InvalidBinding { reason: String }, NotListed { key: String }, Found { key: String, entry: CatalogEntry }}` contains copied display data. `MetadataField` is a nonblank string key, `MetadataDisplayBinding` follows the spec fields, and `CatalogEntry { metadata: BTreeMap<String, serde_json::Value> }`.
+- `normalize_reference(association: &ReferenceAssociation, definition: Option<&GroupDefinition>) -> Result<ReferenceAssociation, DefinitionError>` applies the explicit entry/edit operation; a missing definition returns the supplied association unchanged. Read-only definition access uses `definitions.get(association.group_id)` directly.
+- `lookup_reference(association: &ReferenceAssociation, definitions: &DefinitionSet, catalogs: &CatalogSet) -> anyhow::Result<CatalogFinding>` distinguishes `NotConfigured`, `Unavailable`, `NotListed` and `Found`. These are lookup findings, not new persistent validity states or automatic rejection policies. `CatalogSet = BTreeMap<CatalogId, ReferenceCatalog>`. `CatalogFinding::{NotConfigured, Unavailable { catalog_id: CatalogId }, NoLookupKey, NotListed { key: String }, Found { key: String, entry: CatalogEntry }}` contains copied display data. `MetadataField` is a nonblank string key, `MetadataDisplayBinding` follows the spec fields, and `CatalogEntry { metadata: BTreeMap<String, serde_json::Value> }`.
 
 - `TextNormalization::{Trim, Uppercase, Lowercase}` applies in listed order. `IdentifierDefinition { required: bool, normalization: Vec<TextNormalization>, syntax: Option<String> }` fills `GroupDefinition.identifier`. Add `DefinitionError::{DuplicateGroupId { id: GroupId }, MissingIdentifier { group_id: GroupId }, InvalidIdentifier { group_id: GroupId, value: String }, InvalidDefinition { group_id: GroupId, path: String, reason: String }}`.
 - Introduce the complete serialized mapping/expression/profile types listed in Task 8 now, because GroupDefinition and CatalogBinding contain them. Task 8 adds compilation, not a second representation. Types may refer to each other across Rust modules; none depend on compiled state. `ProfileSet = BTreeMap<OutputProfileId, OutputProfile>` is also declared here.
@@ -374,7 +375,7 @@ let (contact, association, definitions, mut catalogs, catalog_id) = support::cat
 let before = serde_json::to_value(&contact)?;
 catalogs.get_mut(&catalog_id).unwrap().entries.get_mut("US-1234").unwrap()
     .metadata.insert("name".into(), serde_json::json!("Revised park name"));
-let finding = lookup_reference(&association, &definitions, &catalogs);
+let finding = lookup_reference(&association, &definitions, &catalogs)?;
 assert!(matches!(finding, CatalogFinding::Found { .. }));
 assert_eq!(serde_json::to_value(&contact)?, before);
 ```
@@ -382,7 +383,7 @@ assert_eq!(serde_json::to_value(&contact)?, before);
 Add the deterministic `support::catalog_case() -> (Qso, ReferenceAssociation, DefinitionSet, CatalogSet, CatalogId)` fixture containing a US-1234 association and catalog entry. Test source provenance round trips without a separate version, name/status/location display metadata and missing catalog availability without rewriting a reference or importing a park center into a QSO.
 
 - [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test groups_and_catalogs`; expect missing definition/catalog behavior.
-- [x] **Step 3:** Implement the interfaces. Keep optional catalog lookup separate from normalization/syntax. The fixture contains a POTA-like required-ID/location-bearing group and a participation-only CQ World Wide Single Sideband (CQ-WW-SSB) contest group with fixed IDs; it is illustrative supplied data, not a privileged built-in registry. Definitions arrive as records; no program-name switch, group editor, seeding side effect or network fetch. Account creation will persist defaults later. Compile regexes once per compiled definition in Task 8; this task uses a private regex-validation helper; Task 8 promotes it into the shared compiler. Catalog lookup accepts only expressions evaluable from the current association (literal, current identifier and capture; joins require a collection and QSO paths/expansion bindings are unavailable in this context). Invalid contexts return `CatalogFinding::InvalidBinding { reason: String }`, not NotListed. The catalog lookup initially uses that helper; the compiler/evaluator reuse this behavior rather than introducing a second expression dialect.
+- [x] **Step 3:** Implement the interfaces. Keep optional catalog lookup separate from normalization/syntax. The fixture contains a POTA-like required-ID/location-bearing group and a participation-only CQ World Wide Single Sideband (CQ-WW-SSB) contest group with fixed IDs; it is illustrative supplied data, not a privileged built-in registry. Definitions arrive as records; no program-name switch, group editor, seeding side effect or network fetch. Account creation will persist defaults later. Compile regexes once per compiled definition in Task 8; this task uses a private regex-validation helper; Task 8 promotes it into the shared compiler. Catalog lookup accepts only expressions evaluable from the current association (literal, current identifier and capture; joins require a collection and QSO paths/expansion bindings are unavailable in this context). Invalid definition or evaluation contexts return an error preserving the concrete `DefinitionError`, not a listing outcome. The catalog lookup initially uses that helper; the compiler/evaluator reuse this behavior rather than introducing a second expression dialect.
 - [x] **Step 4:** Run group/catalog and contacts tests. Confirm a second equivalent group with another ID/name has identical generic capabilities and that merely interpreting an existing identifier does not run entry normalization.
 - [x] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
 
@@ -448,7 +449,7 @@ operation so it cannot invent service-observation guarantees.
 - `QsoFieldPath::{OwnCallsign, ContactedCallsign, OwnPrimarySubdivision, ContactedPrimarySubdivision}` initially exposes the native paths needed by reference mappings. Common ADIF date/mode formatting is supplied by the later format adapter, not ad-hoc dynamic reflection.
 - `FieldBinding { field: String, value: ValueExpression, when: BindingCondition }`; conditions are `Always`, `BoundPresent(String)` or `AssociationPresent(StationSide)`.
 - `PartitionRule::{ByValue(ValueExpression), EachReference { side: StationSide, binding: String }}`; `ExpansionRule { side: StationSide, binding: String, keep_one_if_empty: bool }` declares whether to retain one entry if empty; POTA-compatible data sets it true. A required file-partition reference that is absent reports output readiness, not silent filtering.
-- `compile_definition(&GroupDefinition) -> Result<CompiledGroupDefinition, DefinitionError>` validates regexes, full-match semantics, declared paths and binding/capture names. `CompiledGroupDefinition` retains the original GroupDefinition plus reusable compiled patterns keyed by definition path; it does not hold borrowed input lifetimes. `CompiledGroupDefinition` is nonserialized derived state. `OutputProfile { id: OutputProfileId, name: String, purpose: OutputPurpose, contextual_fields: BTreeSet<String> }` with `OutputPurpose::{OrdinaryInterchange, Targeted}` supplies the reference-planning interface; ordinary ADIF data lists `CONTEST_ID` as a contextual field.
+- `compile_definition(&GroupDefinition) -> Result<CompiledGroupDefinition<'_>, DefinitionError>` validates regexes, full-match semantics, declared paths and binding/capture names. `CompiledGroupDefinition<'a>` borrows its source `GroupDefinition` and owns reusable compiled patterns keyed by definition path. Validate expression depth without recursively cloning input; excessive nesting must return a definition error, not abort the process. `CompiledGroupDefinition` is nonserialized derived state. `OutputProfile { id: OutputProfileId, name: String, purpose: OutputPurpose, contextual_fields: BTreeSet<String> }` with `OutputPurpose::{OrdinaryInterchange, Targeted}` supplies the reference-planning interface; ordinary ADIF data lists `CONTEST_ID` as a contextual field.
 
 - Expression evaluation uses `ExpressionValue::{Absent, Scalar(String), Collection(Vec<String>)}`. Literals/fields/current or bound identifiers yield scalar/absence; Identifiers yields an ordered collection for the current group/side; Capture maps scalar or collection values without altering source identifiers; Join converts a collection to a scalar and omits an empty collection. FieldBinding must yield scalar/absence; an unjoined collection is an InvalidDefinition diagnostic. A capture name absent from the regex is a definition error; a declared capture absent from an optional match yields absence. File partition/entry bindings are scoped and bound before evaluating fields.
 
@@ -502,7 +503,7 @@ the caller-selected contact set.
 
 **Interfaces:**
 
-- `plan_reference_export(qsos: &[Qso], context: &ExportContext, definitions: &DefinitionSet, profiles: &ProfileSet, resolutions: &BTreeMap<QsoId, ContextResolution>) -> anyhow::Result<ReferenceExportPlan>`.
+- `plan_reference_export(qsos: &[Qso], context: &ExportContext, definitions: &DefinitionSet, profiles: &ProfileSet, resolutions: &BTreeMap<QsoId, ContextResolution>) -> anyhow::Result<ReferenceExportPlan>`. Compile each participating definition once per export operation, reuse it across contacts and both selection/evaluation, and exclude unrelated groups before preparation. Keep reuse state private and local to that immutable definition set.
 - `ReferenceExportPlan { files: Vec<ReferenceExportFile>, decisions: Vec<ExportDecision>, warnings: Vec<ExportWarning>, source_contact_count: usize }`; `ReferenceExportFile { partition_key: Vec<String>, entries: Vec<ReferenceExportEntry> }` groups by profile/target plus declared partition values. `ReferenceExportEntry { qso_id: QsoId, reference_fields: BTreeMap<String, String> }` references the original contact, not a modified QSO or fully encoded ADI text.
 - Duplicate identical input identities are represented once; conflicting versions supplied under one QsoId return NotReady rather than selecting one arbitrarily. Unresolved context decisions remain visible and do not publish fields from an arbitrary choice. `ExportWarning::OmittedContextField { qso_id, field, candidates }` accompanies explicit omission. A required partition source absent from a targeted plan returns `ExportError::NotReady { qso_id, reason }`, preserving the contact set for reporting.
 

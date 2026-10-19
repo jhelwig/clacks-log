@@ -88,7 +88,7 @@ fn location_reference_blocks_home_location() {
 fn catalog_point_is_not_station_point() {
     let (q, association, defs, catalogs, _) = support::catalog_case();
     assert!(matches!(
-        lookup_reference(&association, &defs, &catalogs),
+        lookup_reference(&association, &defs, &catalogs).unwrap(),
         CatalogFinding::Found { .. }
     ));
     let chosen = select_location(

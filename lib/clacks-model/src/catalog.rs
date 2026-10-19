@@ -3,7 +3,7 @@
 use crate::export::rules::{
     ExpressionContext, ExpressionValue, ValueExpression, compile_definition,
 };
-use crate::group::DefinitionSet;
+use crate::group::{DefinitionError, DefinitionSet};
 use crate::ids::CatalogId;
 use crate::reference::ReferenceAssociation;
 use crate::scalar::UtcTimestamp;
@@ -89,11 +89,6 @@ pub enum CatalogFinding {
     },
     /// The association yielded no lookup value.
     NoLookupKey,
-    /// Definition compilation or key evaluation failed.
-    InvalidBinding {
-        /// Configuration/evaluation diagnostic for presentation.
-        reason: String,
-    },
     /// A usable key has no entry in the available dataset.
     NotListed {
         /// Derived key that was not found.
@@ -110,61 +105,50 @@ pub enum CatalogFinding {
 
 /// Look up descriptive metadata for one recorded association using supplied local data.
 ///
-/// Returns a diagnostic outcome rather than rejecting or editing the contact.
-/// It performs no download or normalization; key expressions may use only the
-/// association context. A catalog location must not become an asserted station point.
+/// Availability and listing outcomes are returned without rejecting or editing
+/// the contact. Definition or key-evaluation failures propagate their concrete
+/// diagnostics through `anyhow::Error`. Keys use association-local context only.
+/// This operation performs no download or normalization.
 pub fn lookup_reference(
     association: &ReferenceAssociation,
     definitions: &DefinitionSet,
     catalogs: &CatalogSet,
-) -> CatalogFinding {
-    let Some(binding) = definitions
-        .get(association.group_id)
-        .and_then(|d| d.catalog.as_ref())
-    else {
-        return CatalogFinding::NotConfigured;
+) -> anyhow::Result<CatalogFinding> {
+    let Some(definition) = definitions.get(association.group_id) else {
+        return Ok(CatalogFinding::NotConfigured);
+    };
+    let Some(binding) = &definition.catalog else {
+        return Ok(CatalogFinding::NotConfigured);
     };
     let Some(catalog) = catalogs.get(&binding.dataset_id) else {
-        return CatalogFinding::Unavailable {
+        return Ok(CatalogFinding::Unavailable {
             catalog_id: binding.dataset_id,
-        };
+        });
     };
-    let definition = definitions
-        .get(association.group_id)
-        .expect("binding came from definition");
-    let compiled = match compile_definition(definition) {
-        Ok(c) => c,
-        Err(e) => {
-            return CatalogFinding::InvalidBinding {
-                reason: e.to_string(),
-            };
-        }
-    };
+    let compiled = compile_definition(definition)?;
     let bindings = BTreeMap::new();
     let context = ExpressionContext {
         qso: None,
         current_identifier: association.identifier.as_deref(),
         bindings: &bindings,
     };
-    let key = match compiled.evaluate(&binding.lookup_key, &context) {
-        Ok(ExpressionValue::Scalar(key)) => key,
-        Ok(ExpressionValue::Absent) => return CatalogFinding::NoLookupKey,
-        Ok(ExpressionValue::Collection(_)) => {
-            return CatalogFinding::InvalidBinding {
+    let key = match compiled.evaluate(&binding.lookup_key, &context)? {
+        ExpressionValue::Scalar(key) => key,
+        ExpressionValue::Absent => return Ok(CatalogFinding::NoLookupKey),
+        ExpressionValue::Collection(_) => {
+            return Err(DefinitionError::InvalidDefinition {
+                group_id: association.group_id,
+                path: "catalog.lookup_key".into(),
                 reason: "catalog key must be scalar".into(),
-            };
-        }
-        Err(e) => {
-            return CatalogFinding::InvalidBinding {
-                reason: e.to_string(),
-            };
+            }
+            .into());
         }
     };
-    match catalog.entries.get(&key) {
+    Ok(match catalog.entries.get(&key) {
         Some(entry) => CatalogFinding::Found {
             key,
             entry: entry.clone(),
         },
         None => CatalogFinding::NotListed { key },
-    }
+    })
 }

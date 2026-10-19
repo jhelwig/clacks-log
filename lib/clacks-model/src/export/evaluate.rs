@@ -3,16 +3,17 @@
 use super::{rules::reference_identifiers, select::evaluate_fields};
 use crate::contact::Qso;
 use crate::export::rules::{
-    CompiledGroupDefinition, ExpressionContext, ExpressionValue, PartitionRule, compile_definition,
+    CompiledGroupDefinition, ExpressionContext, ExpressionValue, PartitionRule,
 };
 use crate::export::select::{
     ContextResolution, ExportDecision, ExportError, ExportWarning, SelectedGroupMapping,
-    select_mappings,
+    select_mappings_with_compiled,
 };
 use crate::export::{ExportContext, OutputPurpose, ProfileSet};
 use crate::group::DefinitionSet;
 use crate::ids::{GroupId, QsoId};
 use crate::reference::StationSide;
+use anyhow::Context;
 use std::collections::BTreeMap;
 
 /// In-memory reference output plus decisions and diagnostics for a selected contact snapshot.
@@ -107,7 +108,7 @@ fn extend_references(
 fn targeted_entries(
     qso: &Qso,
     selected: &SelectedGroupMapping,
-    definition: &CompiledGroupDefinition,
+    definition: &CompiledGroupDefinition<'_>,
 ) -> anyhow::Result<Vec<(Vec<String>, ReferenceExportEntry)>> {
     let plan = &selected.plan;
     let mut rows = vec![Row::default()];
@@ -206,13 +207,15 @@ pub fn plan_reference_export(
         ..Default::default()
     };
     let mut files: BTreeMap<Vec<String>, Vec<ReferenceExportEntry>> = BTreeMap::new();
+    let mut compiled_definitions = BTreeMap::new();
     for qso in unique.values() {
-        let selected = select_mappings(
+        let selected = select_mappings_with_compiled(
             qso,
             context,
             definitions,
             profiles,
             resolutions.get(&qso.id),
+            &mut compiled_definitions,
         )?;
         plan.decisions.extend(selected.decisions);
         plan.warnings.extend(selected.warnings);
@@ -227,13 +230,12 @@ pub fn plan_reference_export(
                     bindings: &bindings,
                 };
                 for group in selected.groups {
-                    let compiled = compile_definition(
-                        definitions
-                            .get(group.group_id)
-                            .expect("selection retained definition"),
-                    )?;
+                    let compiled =
+                        compiled_definitions.get(&group.group_id).with_context(|| {
+                            format!("group {} has no prepared export definition", group.group_id)
+                        })?;
                     for (field, value) in
-                        evaluate_fields(&compiled, &group.plan.fields, &expression_context)?
+                        evaluate_fields(compiled, &group.plan.fields, &expression_context)?
                     {
                         if let Some(previous) =
                             reference_fields.insert(field.clone(), value.clone())
@@ -259,16 +261,15 @@ pub fn plan_reference_export(
                 base_key.push(
                     context
                         .target_group_id
-                        .expect("selection validated target")
+                        .ok_or_else(|| not_ready(qso, "targeted output requires a target group"))?
                         .to_string(),
                 );
                 for group in selected.groups {
-                    let compiled = compile_definition(
-                        definitions
-                            .get(group.group_id)
-                            .expect("selection retained definition"),
-                    )?;
-                    for (partition, entry) in targeted_entries(qso, &group, &compiled)? {
+                    let compiled =
+                        compiled_definitions.get(&group.group_id).with_context(|| {
+                            format!("group {} has no prepared export definition", group.group_id)
+                        })?;
+                    for (partition, entry) in targeted_entries(qso, &group, compiled)? {
                         let mut key = base_key.clone();
                         key.extend(partition);
                         files.entry(key).or_default().push(entry);

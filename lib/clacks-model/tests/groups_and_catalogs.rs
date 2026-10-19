@@ -1,7 +1,7 @@
 mod support;
 
 use clacks_model::catalog::{CatalogFinding, CatalogSet, ReferenceCatalog, lookup_reference};
-use clacks_model::group::{DefinitionSet, interpret_reference, normalize_reference};
+use clacks_model::group::{DefinitionSet, normalize_reference};
 use clacks_model::ids::GroupId;
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
@@ -29,7 +29,7 @@ fn explicit_normalization_does_not_rewrite_existing_references() -> TestResult {
         normalize_reference(&participation, defs.get(participation.group_id))?,
         participation
     );
-    assert_eq!(interpret_reference(&a, &defs).unwrap().id, group.id);
+    assert_eq!(defs.get(a.group_id).unwrap().id, group.id);
     Ok(())
 }
 
@@ -45,7 +45,7 @@ fn a_catalog_refresh_is_not_a_qso_edit() -> TestResult {
         .unwrap()
         .metadata
         .insert("name".into(), serde_json::json!("Revised park name"));
-    match lookup_reference(&association, &defs, &catalogs) {
+    match lookup_reference(&association, &defs, &catalogs)? {
         CatalogFinding::Found { entry, .. } => {
             assert_eq!(entry.metadata["name"], "Revised park name")
         }
@@ -60,7 +60,7 @@ fn a_catalog_refresh_is_not_a_qso_edit() -> TestResult {
     );
     assert!(serde_json::to_value(catalog)?.get("version").is_none());
     assert!(matches!(
-        lookup_reference(&association, &defs, &CatalogSet::new()),
+        lookup_reference(&association, &defs, &CatalogSet::new())?,
         CatalogFinding::Unavailable { .. }
     ));
     assert!(matches!(
@@ -68,7 +68,7 @@ fn a_catalog_refresh_is_not_a_qso_edit() -> TestResult {
             &support::reference(association.group_id, Some("US-9999")),
             &defs,
             &catalogs
-        ),
+        )?,
         CatalogFinding::NotListed { .. }
     ));
     Ok(())
@@ -89,11 +89,34 @@ fn equivalent_groups_have_equal_capabilities_not_shared_identity() -> TestResult
             Some("US-1234")
         );
     }
+    assert_eq!(
+        DefinitionSet::new(vec![a.clone(), a.clone()])?.get(a.id),
+        Some(a)
+    );
     b.id = a.id;
     b.name = "competing definition".into();
     assert!(DefinitionSet::new(vec![a.clone(), b]).is_err());
     let unknown = support::reference(support::id::<GroupId>(100), Some(" unchanged "));
-    assert!(interpret_reference(&unknown, &defs).is_none());
+    assert!(defs.get(unknown.group_id).is_none());
     assert_eq!(normalize_reference(&unknown, None)?, unknown);
     Ok(())
+}
+
+#[test]
+fn catalog_configuration_errors_retain_their_definition_diagnostic() {
+    let (_, association, definitions, catalogs, _) = support::catalog_case();
+    let mut definition = definitions.get(association.group_id).unwrap().clone();
+    definition.catalog.as_mut().unwrap().lookup_key =
+        clacks_model::export::rules::ValueExpression::Capture {
+            value: Box::new(clacks_model::export::rules::ValueExpression::CurrentIdentifier),
+            pattern: "[".into(),
+            name: "reference".into(),
+        };
+    let definitions = DefinitionSet::new(vec![definition]).unwrap();
+    let error = lookup_reference(&association, &definitions, &catalogs).unwrap_err();
+    assert!(matches!(
+        error.downcast_ref::<clacks_model::group::DefinitionError>(),
+        Some(clacks_model::group::DefinitionError::InvalidDefinition { group_id, path, .. })
+            if *group_id == association.group_id && path == "catalog.lookup_key"
+    ));
 }

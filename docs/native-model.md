@@ -35,6 +35,12 @@ errors without forwarding-only enum variants. Callers can downcast to the
 concrete error type when they need structured handling. Export-readiness
 context retains the underlying validation error in the diagnostic chain.
 
+Catalog lookup returns normal availability/listing outcomes separately from
+configuration failures; failures retain their concrete errors through
+`anyhow::Result`. The bundled recognition loader returns a fallible shared
+catalog reference. Production library code propagates failures without
+`expect()` or `unwrap()`.
+
 ## Mapping rules and catalog data
 
 `CurrentIdentifier` requires one association's context; collection mappings use
@@ -48,6 +54,12 @@ contains 33 bands, 91 mode labels and 198 submode declarations.
 [Catalog provenance](../lib/clacks-model/data/README.md) explains source-table
 discrepancies and extraction. Tests cover the committed rows; they do not
 independently certify upstream source tables. Builds do not fetch catalogs.
+
+Compiled group definitions borrow their source data rather than recursively
+cloning it. Excessive expression depth is rejected during bounded validation.
+Reference-export planning prepares each relevant definition once per operation
+and reuses it for selection and evaluation across contacts. Preparation remains
+limited to participating groups allowed by the export context.
 
 ## Adapter boundaries
 

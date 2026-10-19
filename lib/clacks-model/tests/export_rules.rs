@@ -110,3 +110,47 @@ fn compiled_state_is_not_serialized() -> TestResult {
     assert_eq!(serde_json::to_value(compiled.definition())?, before);
     Ok(())
 }
+
+#[test]
+fn excessive_expression_depth_is_rejected_before_recursive_clone() {
+    const CHILD_FLAG: &str = "CLACKS_TEST_DEEP_EXPRESSION";
+    if std::env::var_os(CHILD_FLAG).is_some() {
+        let mut definition = support::definitions().iter().next().unwrap().clone();
+        let mut expression = ValueExpression::Literal("value".into());
+        for _ in 0..100_000 {
+            expression = ValueExpression::Capture {
+                value: Box::new(expression),
+                pattern: "(?P<value>.*)".into(),
+                name: "value".into(),
+            };
+        }
+        definition
+            .export_mappings
+            .ordinary_interchange
+            .first_mut()
+            .unwrap()
+            .value = expression;
+        // The subprocess owns this intentionally leaked input: its recursive drop
+        // must not obscure whether compilation itself rejects the excessive depth.
+        let definition = Box::leak(Box::new(definition));
+        assert!(matches!(
+            compile_definition(definition),
+            Err(DefinitionError::InvalidDefinition { reason, .. })
+                if reason == "expression nesting exceeds 32"
+        ));
+        return;
+    }
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "excessive_expression_depth_is_rejected_before_recursive_clone",
+        ])
+        .env(CHILD_FLAG, "1")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "compiler subprocess failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

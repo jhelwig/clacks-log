@@ -188,3 +188,55 @@ fn missing_partition_is_not_silent_filtering() {
         .is_err()
     );
 }
+
+#[test]
+fn shared_definitions_keep_each_contacts_reference_values() -> TestResult {
+    let group = support::id::<GroupId>(1);
+    let mut first = support::qso(support::id::<QsoId>(1));
+    first
+        .own_station
+        .references
+        .insert(support::reference(group, Some("US-1001")));
+    first
+        .contacted_station
+        .references
+        .insert(support::reference(group, Some("US-2001")));
+    let mut second = support::qso(support::id::<QsoId>(2));
+    second
+        .own_station
+        .references
+        .insert(support::reference(group, Some("US-1002")));
+    second
+        .contacted_station
+        .references
+        .insert(support::reference(group, Some("US-2002")));
+    for (targeted, own_field, other_field) in [
+        (false, "MY_POTA_REF", "POTA_REF"),
+        (true, "MY_SIG_INFO", "SIG_INFO"),
+    ] {
+        let plan = plan_reference_export(
+            &[first.clone(), second.clone()],
+            &context(targeted, group),
+            &support::definitions(),
+            &support::profiles(),
+            &BTreeMap::new(),
+        )?;
+        assert_eq!(plan.source_contact_count, 2);
+        let rows: BTreeMap<_, _> = plan
+            .files
+            .iter()
+            .flat_map(|file| &file.entries)
+            .map(|entry| (entry.qso_id, &entry.reference_fields))
+            .collect();
+        assert_eq!(rows.len(), 2);
+        for (id, own, other) in [
+            (first.id, "US-1001", "US-2001"),
+            (second.id, "US-1002", "US-2002"),
+        ] {
+            let fields = rows.get(&id).unwrap();
+            assert_eq!(fields.get(own_field).map(String::as_str), Some(own));
+            assert_eq!(fields.get(other_field).map(String::as_str), Some(other));
+        }
+    }
+    Ok(())
+}

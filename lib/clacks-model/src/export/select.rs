@@ -9,7 +9,7 @@ use crate::export::{ExportContext, OutputPurpose, ProfileSet};
 use crate::group::{DefinitionError, DefinitionSet};
 use crate::ids::{GroupId, OutputProfileId, QsoId};
 use crate::reference::StationSide;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
 
 /// A reference-export context, assignment or readiness failure.
 ///
@@ -135,7 +135,7 @@ pub(crate) fn has_association(qso: &Qso, group: GroupId, side: StationSide) -> b
 ///
 /// Absent expressions omit assignments; collection values require explicit joining.
 pub(crate) fn evaluate_fields(
-    compiled: &CompiledGroupDefinition,
+    compiled: &CompiledGroupDefinition<'_>,
     fields: &[FieldBinding],
     context: &ExpressionContext<'_>,
 ) -> anyhow::Result<BTreeMap<String, String>> {
@@ -193,6 +193,28 @@ pub fn select_mappings(
     profiles: &ProfileSet,
     resolution: Option<&ContextResolution>,
 ) -> anyhow::Result<MappingSelection> {
+    select_mappings_with_compiled(
+        qso,
+        context,
+        definitions,
+        profiles,
+        resolution,
+        &mut BTreeMap::new(),
+    )
+}
+
+/// Select one contact’s mappings using definitions prepared within the current export operation.
+///
+/// The cache must belong to this immutable definition set and operation; it is
+/// populated only for participating groups allowed by the selected context.
+pub(crate) fn select_mappings_with_compiled<'a>(
+    qso: &Qso,
+    context: &ExportContext,
+    definitions: &'a DefinitionSet,
+    profiles: &ProfileSet,
+    resolution: Option<&ContextResolution>,
+    compiled_definitions: &mut BTreeMap<GroupId, CompiledGroupDefinition<'a>>,
+) -> anyhow::Result<MappingSelection> {
     let profile = profiles
         .get(&context.output_profile_id)
         .ok_or(ExportError::UnknownProfile {
@@ -236,7 +258,10 @@ pub fn select_mappings(
             });
             continue;
         };
-        let compiled = compile_definition(definition)?;
+        let compiled = match compiled_definitions.entry(group_id) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => entry.insert(compile_definition(definition)?),
+        };
         let mut plan = match profile.purpose {
             OutputPurpose::OrdinaryInterchange => GroupExportPlan {
                 fields: definition.export_mappings.ordinary_interchange.clone(),
@@ -257,7 +282,7 @@ pub fn select_mappings(
                 .retain(|f| !profile.contextual_fields.contains(&f.field));
         }
         if profile.purpose == OutputPurpose::OrdinaryInterchange {
-            let values = evaluate_fields(&compiled, &plan.fields, &expression_context)?;
+            let values = evaluate_fields(compiled, &plan.fields, &expression_context)?;
             for (field, value) in values {
                 if profile.contextual_fields.contains(&field) {
                     candidates.entry(field).or_default().insert(group_id, value);
@@ -293,7 +318,7 @@ pub fn select_mappings(
             }
             .into());
         }
-        return select_mappings(
+        return select_mappings_with_compiled(
             qso,
             &ExportContext {
                 target_group_id: Some(*id),
@@ -302,6 +327,7 @@ pub fn select_mappings(
             definitions,
             profiles,
             None,
+            compiled_definitions,
         );
     }
     if resolution.is_some() && ambiguous.is_empty() {

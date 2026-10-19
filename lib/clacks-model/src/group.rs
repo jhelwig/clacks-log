@@ -5,7 +5,7 @@ use crate::export::rules::{GroupExportMappings, compile_definition};
 use crate::ids::GroupId;
 use crate::reference::ReferenceAssociation;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, btree_map::Entry};
 
 /// Data-defined participation/reference behavior shared by an account.
 ///
@@ -99,11 +99,16 @@ impl DefinitionSet {
     /// This does not seed an account or merge conflicting shared records.
     pub fn new(definitions: Vec<GroupDefinition>) -> Result<Self, DefinitionError> {
         let mut map = BTreeMap::new();
-        for d in definitions {
-            if let Some(previous) = map.insert(d.id, d.clone())
-                && previous != d
-            {
-                return Err(DefinitionError::DuplicateGroupId { id: d.id });
+        for definition in definitions {
+            match map.entry(definition.id) {
+                Entry::Vacant(entry) => {
+                    entry.insert(definition);
+                }
+                Entry::Occupied(entry) => {
+                    if entry.get() != &definition {
+                        return Err(DefinitionError::DuplicateGroupId { id: definition.id });
+                    }
+                }
             }
         }
         Ok(Self(map))
@@ -140,15 +145,4 @@ pub fn normalize_reference(
         Some(d) => compile_definition(d)?.normalize_reference(association),
         None => Ok(association.clone()),
     }
-}
-
-/// Borrow the available definition for a recorded association without normalizing it.
-///
-/// Unknown groups return `None` and remain preserved. Use this read-only path
-/// when interpreting a saved contact or checking location context.
-pub fn interpret_reference<'a>(
-    association: &ReferenceAssociation,
-    definitions: &'a DefinitionSet,
-) -> Option<&'a GroupDefinition> {
-    definitions.get(association.group_id)
 }

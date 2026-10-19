@@ -59,14 +59,15 @@ impl RecognitionCatalog {
     /// Borrow the bundled Amateur Data Interchange Format (ADIF) 3.1.8 recognition baseline.
     ///
     /// Use as the initial offline catalog; it includes deprecated historical labels
-    /// and performs no network acquisition.
-    pub fn adif_318() -> &'static Self {
+    /// and performs no network acquisition. Malformed or inconsistent bundled
+    /// data returns `ValueError::InvalidRecognitionCatalog`.
+    pub fn adif_318() -> Result<&'static Self, ValueError> {
         /// Shared immutable copy of the bundled baseline.
-        static CATALOG: OnceLock<RecognitionCatalog> = OnceLock::new();
-        CATALOG.get_or_init(|| {
-            Self::from_json(include_str!("../data/adif-3.1.8.json"))
-                .expect("validated bundled catalog")
-        })
+        static CATALOG: OnceLock<Result<RecognitionCatalog, ValueError>> = OnceLock::new();
+        CATALOG
+            .get_or_init(|| Self::from_json(include_str!("../data/adif-3.1.8.json")))
+            .as_ref()
+            .map_err(Clone::clone)
     }
 
     /// Decode and validate a supplied recognition catalog before using it for interpretation.
