@@ -1,6 +1,6 @@
 # Decision register
 
-This register records explicit decisions from the planning conversation through 17 October 2026 (D01–D251). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
+This register records explicit decisions from the planning conversation through 18 October 2026 (D01–D255). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
 
 ## Accepted decisions
 
@@ -160,7 +160,7 @@ Unmatched downloaded records require explicit user confirmation to add the QSO l
 
 #### D38
 
-Historical imports, including ADIF and downloaded QSOs explicitly added locally, use supplied historical station context. Leave missing DE-station fields unknown; do not fill them from current client defaults. D28's default fallback remains for live QSO capture.
+Historical imports, including ADIF and downloaded QSOs explicitly added locally, use supplied historical station context. Leave missing optional DE-station fields unknown; do not fill them from current client defaults. D252 requires explicit historical callsign assignment before creating a contact when our callsign is missing. D28's default fallback remains for live QSO capture.
 
 #### D39
 
@@ -286,7 +286,7 @@ Operator identity is client-local, persists across restarts, and is excluded fro
 
 #### D69
 
-Saved-profile conflicts use the same record-level conflict and shared field-level resolution workflow as QSO conflicts. Rejected profile edits remain pending on the editing client; unrelated records continue synchronizing. Current operating defaults and logging remain unchanged until the user explicitly reloads the profile, including after conflict resolution.
+Loading or explicitly reloading a saved profile replaces the current own-station snapshot as a whole, clearing values absent from the profile. Operator information and transmit power remain unchanged; equipment is copied from the optional default configuration when present and otherwise remains unchanged. Saved-profile conflicts use the same record-level conflict and shared field-level resolution workflow as QSO conflicts. Rejected profile edits remain pending on the editing client; unrelated records continue synchronizing. Current operating defaults and logging remain unchanged until the user explicitly reloads the profile, including after conflict resolution.
 
 #### D70
 
@@ -462,7 +462,7 @@ In MVP, a downloaded confirmation with multiple matching local records is treate
 
 #### D112
 
-Saving a manually entered QSO requires worked callsign, UTC start date/time, band, and mode. Reports, end time, exact frequency, power, and location details may remain unset. Missing external-service-required information pauses the affected upload rather than preventing local saving. Historical-import validation remains separately open.
+Saving a manually entered QSO requires both station callsigns, UTC start date/time, either a frequency or a band, and mode under D252. A supplied frequency auto-populates the band when it can be derived; band is not independently required. A frequency outside recognized band ranges does not prevent local saving. Reports, end time, power, and location details may remain unset; exact frequency may be unset when a band is supplied. Missing external-service-required information pauses the affected upload rather than preventing local saving. D166 supplies the historical-import minimum; detailed field mappings remain integration work.
 
 #### D113
 
@@ -524,11 +524,11 @@ Manually recorded paper-contact confirmation (QSL) sent/received status and date
 
 #### D127
 
-POTA references and contest identifiers share a typed activity/reference context pattern carried into QSO snapshots, with field-specific ADIF mapping and correct QSO/own-station/counterpart scope. Identifier recording does not imply a separate contest subsystem. Exact supported types/cardinality/defaults and exchange scope remain open.
+POTA references and contest identifiers share a typed activity/reference context pattern carried into QSO snapshots, with field-specific ADIF mapping and correct own-station/contacted-station reference sets on each QSO. Identifier recording does not imply a separate contest subsystem. D129 and D254 settle exchange separation, data-driven groups, cardinality and station-side association shape; the native-model specification consolidates later refinements.
 
 #### D128
 
-Optional sent/received signal reports are part of the QSO model in MVP, supporting phone, continuous-wave Morse code (CW), and digital formats such as FT8. Preserve report text rather than restricting values to one numeric report format; reports remain optional under D112. Contest exchanges are separate data and remain unscoped.
+Optional sent/received signal reports are part of the QSO model in MVP, supporting phone, continuous-wave Morse code (CW), and digital formats such as FT8. Preserve report text rather than restricting values to one numeric report format; reports remain optional under D112. Contest exchanges are separate data; D129 places dedicated exchange recording post-MVP.
 
 #### D129
 
@@ -536,11 +536,11 @@ Dedicated contest-exchange recording is post-MVP. MVP provides a general QSO com
 
 #### D130
 
-Saved profiles may optionally include contest identifiers alongside POTA references, using existing profile-loading and QSO-snapshot rules. These values load into current defaults and snapshot into new QSOs without changing previous contacts. Exact supported reference types and catalog lookup/validation scope remain open.
+Saved profiles may optionally include contest identifiers alongside POTA references, using existing profile-loading and QSO-snapshot rules. These values load into current defaults and snapshot into new QSOs without changing previous contacts. D254 and subsequent issue #1 discussion define data-driven groups, optional catalogs and validation, with profile station snapshots loaded as a whole.
 
 #### D131
 
-Manually entering known activity/reference identifiers is sufficient for MVP. Park-name/reference catalog lookup is not required for MVP; no future catalog feature commitment is made. This does not change D77 station-location geographic autofill, which is a separate requirement.
+Manually entering known activity/reference identifiers is sufficient for MVP. Park-name/reference catalog lookup is not required for MVP. D254 later accepts optional catalog support in group definitions; acquisition/update/distribution workflows are separate work, not prohibited by this sufficient-manual-entry baseline. This does not change D77 station-location geographic autofill, which is a separate requirement.
 
 #### D132
 
@@ -682,7 +682,7 @@ Automatically skip confidently matched ADIF import records that add no informati
 
 #### D166
 
-Creating a new contact from ADIF requires worked callsign, valid UTC start date/time, band supplied directly or derived from usable frequency, and mode information (mode or submode, clarified by D175). End time, reports, exact frequency, power, and location details remain optional. Missing historical own-station context remains unknown under D38; service-specific requirements affect upload readiness rather than local importability. Report and skip new-contact records missing required information while other usable records proceed under D43. Existing-contact updates retain D42 omitted-field behavior. Exact field-format validation and invalid optional-field handling remain open.
+Creating a new contact from ADIF requires both station callsigns, valid UTC start date/time, either a usable frequency or a band, and mode information (mode or submode, clarified by D175). Auto-populate band from supplied usable frequency when derivable under D164; band is not independently required, and inability to classify a usable frequency does not prevent import. End time, reports, power, and location details remain optional; exact frequency may be unset when a band is supplied. D252 requires explicit historical callsign assignment when our callsign is missing; other missing optional own-station context remains unknown under D38. Service-specific requirements affect upload readiness separately from local importability. Report and skip new-contact records missing required information while other usable records proceed under D43. Existing-contact updates retain D42 omitted-field behavior. Exact field-format validation and invalid optional-field handling remain open.
 
 #### D167
 
@@ -974,7 +974,7 @@ Protect manually recorded QSO information from automatic replacement by download
 
 #### D238
 
-Use recorded QSO information first, then eligible LoTW-provided information, then eligible QRZ-provided information, then the eligible directory snapshot as logical fallback. Keep all provider information separate; fallback does not fill or overwrite recorded QSO facts. For location, select the first available location as a whole, including a partial recorded location; never patch missing location fields from lower-priority sources. Apply this source selection consistently to display and supported export/upload fields, retaining provenance and existing association/applicability rules. This completes D237's combined fallback policy and refines D34/D35 and D199–D204 accordingly. Exact supported fields, effective-output comparison and representation remain engineering work.
+Use recorded QSO information first, then eligible LoTW-provided information, then eligible QRZ-provided information, then the eligible directory snapshot as logical fallback. Keep all provider information separate; fallback does not fill or overwrite recorded QSO facts. For location, select the first available location as a whole, including a partial recorded location; never patch missing location fields from lower-priority sources. Recorded location-specific references also establish location presence, including park, summit, island and other location-specific contest/event references; leave unresolved geographic details unknown rather than using lower-priority provider locations. This is not limited to one reference program and does not treat participation-only identifiers as locations. Apply this source selection consistently to display and supported export/upload fields, retaining provenance and existing association/applicability rules. This completes D237's combined fallback policy and refines D34/D35 and D199–D204 accordingly. Exact supported fields, effective-output comparison and representation remain engineering work.
 
 #### D239
 
@@ -1028,7 +1028,38 @@ When synchronizing a QSO that references a deleted tag, preserve the pending QSO
 
 Within an account and external-service destination, allow at most one local QSO associated with a given external record. A QSO can still have its own associations to different services/destinations; this is not a global one-service-only rule. Preserve established-association precedence, automatic association for a unique confident match, and explicit selection for possible matches even when unique. When multiple local candidates are ambiguous, select at most one QSO for that external record. This supersedes D110/D111’s multiple-association direction, D160’s multiple-contact observation associations and D227’s multiple-selection refinement. Distinct local QSOs may still share candidate-matching fields, and Duplicate remains available; a duplicate does not inherit an external association already held by another QSO. If its publication would target an already-associated external record, require resolution rather than silently creating another association or replacing that record’s contents. Preserve deletion memory, imported service evidence and account/destination isolation; historical upload/confirmation claims are not authority to bind one external record to multiple QSOs. Exact provider identity, atomic uniqueness enforcement and collision diagnostics remain engineering work. No implementation is authorized.
 
+### Subsequent design refinements
+
+The [native-model specification](superpowers/specs/2026-10-18-native-model-design.md) consolidates these refinements for user review. Its separately labeled engineering proposals are not additional accepted decisions.
+
+#### D252
+
+Require both own-station and contacted-station callsigns in every saved QSO. Imports missing our callsign require explicit historical callsign assignment before creating a contact, including when a service download is explicitly added locally; never silently substitute current operating defaults. Existing-contact updates retain omitted-field semantics under D42, and no update may clear a required callsign. Records still missing required callsigns are not created and are identified in the partial-import report. Incomplete entry/import working data may exist before saving. This refines D38, D112 and D166, replacing permission to save a contact with unknown own-station callsign while retaining unknown optional historical context. Incomplete incoming identity can still produce review-only matches under D225; choosing Duplicate requires a valid new contact. This choice does not require distinct station snapshot types.
+
+#### D253
+
+Include an optional receive band/frequency pair in MVP, alongside primary operating information containing a frequency, a band, or both under D112/D166. Frequencies use whole-hertz resolution. Apply the existing frequency/band consistency rules independently to each pair: editing frequency determines band, editing only band clears that pair's exact frequency, and usable imported frequency determines or corrects that pair's band with a warning for mismatches. An absent receive pair means no override, using the primary pair for both directions. A present receive pair supplies receive information as a whole; preserve band-only overrides without borrowing the primary frequency, even when the bands match. If the primary frequency is unknown with no receive override, the effective receive frequency is also unknown. Receive information is optional and does not change the other minimum saved-contact requirements. This adds native contact/interchange representation for split-frequency and cross-band contacts; computer-aided transceiver control remains post-MVP.
+
+Use the complete ADIF 3.1.8 band catalog as the initial recognition baseline, with a text-preserving fallback for unfamiliar labels. Preserve underlying band values across clients/upgrades; recognition changes affect interpretation without rewriting saved values, creating edits or synchronization conflicts.
+
+#### D254
+
+Model reference groups and their behavioral properties as data. Individual contests/events are groups themselves, peers of POTA, with their own reference definitions and properties. A participation/reference association contains a group ID and one optional identifier; each group defines whether that identifier is required, allowing group-only participation where appropriate. Keep contest exchanges and serial-number assistance separate from participation/reference information; they do not require named fields in a reference association. Dedicated exchange recording remains post-MVP under D129. Group definitions specify normalization and syntax validation for entry and explicit edits, without silently rewriting existing references; syntax checks do not require a reference-value catalog.
+
+Group definitions also support optional reference catalogs. Catalog provenance records dataset name, optional publisher/source URL, obtained-at time and optional upstream version. The stable catalog ID identifies the dataset; do not introduce a separate catalog-version field or version scheme. Keep catalog metadata separate from recorded QSO information; catalog descriptions and reference locations do not assert the actual station position or add fields to the saved group-ID-plus-optional-identifier association. Default and future user-defined groups have the same catalog capabilities. Catalog acquisition, refresh and distribution workflows remain specification work; D131 makes manual entry sufficient rather than prohibiting catalog support.
+
+Preserve unrecognized group associations and their supplied values without guessing their properties. Later definitions may interpret them without rewriting recorded values, creating edits or synchronization conflicts, or changing stored equality/reconciliation solely because recognition became available. A reference belongs to a group, and the application uses the group definition to interpret properties such as whether its references bear operating-location context.
+
+User-defined reference groups must support the full behavior available to groups included by default through the same generic engine; do not encode each program as an application-specific reference kind or select privileged behavior by program name. Default groups are definitions using the same capabilities, including those needed for their location and interchange/export behavior. Retain own-station/contacted-station sets and deduplication by group ID and optional identifier, including group-only associations. This refines D127 and the location-reference presence rule under D238.
+
+Seed default group definitions into each new account as ordinary account-owned shared records and synchronize them to enrolled clients, where locally synchronized definitions support offline use. Default groups do not have a separate client-bundled interpretation path. MVP does not include user management of groups. Future user-defined groups retain full capability parity; deferring management does not permit hardcoded default-group privileges. The native-model specification presents a concrete logical schema and explicitly proposed engineering details for review; D131 does not require reference-value/park catalog lookup in MVP.
+
+#### D255
+
+Export context consists of an output profile and an optional target group, separate from the selected contact set. Group definitions distinguish ordinary interchange mappings from mappings for exports targeting that group. Ordinary ADIF without a target uses ordinary interchange mappings, including supported reference lists, and emits one entry per QSO without activating program-specific expansion. Emit CONTEST_ID when a QSO has exactly one distinct applicable contest identifier. If it has several, identify the ambiguity during export preparation and allow selecting a contest context or proceeding with those ambiguous CONTEST_ID fields omitted and reported; contacts belonging to different single contests do not create ambiguity with each other. For ordinary ADIF targeting a contest, that contest determines CONTEST_ID and other contest associations do not compete. A program-compatible profile uses its selected group's submission mappings, validation, partitioning and expansion. Conflicting assignments within a selected definition are configuration errors reported before writing output. Do not silently choose a contest, add participation, rewrite native associations or change the selected contact set. This replaces the unaccepted generic per-binding omit_with_warning proposal with context selection and explicit handling of representation limits. It refines D212/D254 without changing D210/D211 local-state and output-publication safeguards.
+
 ## Intentions with details still open
+
 
 D221 selects standard Elastic License 2.0 following the D219/D220 hosting policy. Optional subscription packaging and contributor-rights arrangements remain open; application-license selection is settled. D215 selects the desktop toolkit. ADIF workflows are largely settled; exact mappings, validation and remaining specification/verification work are tracked in docs/open-questions.md. The hosting subscription is optional; self-hosting must remain possible.
 

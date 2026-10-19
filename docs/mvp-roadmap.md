@@ -40,11 +40,13 @@ parallel preparation does not mean independent applications or deployed services
 
 ## Phase 1 — Foundations and early risks
 
+Issue #1 has a [written native-model specification for user review](superpowers/specs/2026-10-18-native-model-design.md). It does not complete the milestone or authorize implementation.
+
 Milestones:
 
 - Establish a native model covering contact identity, timestamps, modes,
   station snapshots, reusable equipment, profiles, tags and unified activity
-  context with correct contact/own-station/counterpart scope. Recognition and
+  context with own-station/contacted-station reference sets. Recognition and
   source separation preserve recorded meaning across clients and upgrades.
 - Demonstrate the agreed synchronization semantics with an executable model:
   whole-record comparison, deletion, offline edits, timeline recovery, authorized

@@ -22,7 +22,7 @@ For context, the [LoTW matching rules](https://lotw.arrl.org/lotw-help/frequentl
 
 Apply these ADIF import candidate rules to all account QSOs, including untagged contacts (D247). Apply the selected tag when reusing a matched QSO; tag changes are ordinary QSO edits under D243. Preserve Update/Duplicate/Skip and explicit ambiguous/possible selection. Skip changes neither facts nor tags. Report added memberships separately from unchanged contact facts. Unassociated Logbook of The World (LoTW)/QRZ downloads use the same confident/possible distinction with account-wide search and established-association precedence (D227). Each external record has at most one associated local QSO within the account/service destination; ambiguous matching selects at most one (D251), as described in [download reconciliation](service-reconciliation.md). Local candidate rules are distinct from provider confirmation matching; candidate-matching fields are not a uniqueness constraint on the QSO store. Distinct contacts may share those fields while external-record associations remain unique under D251.
 
-D165 selects automatic skipping of confidently matched records that add no information after mapping/normalization. Under D247, adding a missing selected tag is a change even when contact facts are unchanged; skip the whole record only when neither facts nor membership add information. Still open: exact compatibility tables for incomplete input under D225, precision-aware window boundary details under D226, exact recognized-mode tables and matching of unrecognized classifications under D174/D175, and detailed repeated-import/report mechanics.
+D165 selects automatic skipping of confidently matched records that add no information after mapping/normalization. Under D247, adding a missing selected tag is a change even when contact facts are unchanged; skip the whole record only when neither facts nor membership add information. Still open: exact compatibility tables for incomplete input under D225, precision-aware window boundary details under D226, implementation of the accepted complete ADIF 3.1.8 recognition baseline and matching of unrecognized classifications under D174/D175, and detailed repeated-import/report mechanics.
 
 ## Accepted missing/empty-field handling for updates (D42)
 
@@ -32,7 +32,7 @@ A field omitted from the incoming record supplies no update; a present, explicit
 
 Allow partial imports, with a clear report identifying every record not imported and why. Usable records can proceed while records that fail validation remain unimported. Do not silently invent missing facts or silently omit failed records. Duplicate/update choices remain governed by D39-D42.
 
-Missing historical DE (our station) context is permitted by D38; it is not by itself grounds to reject a contact. Contact importability and readiness for a particular publication service are separate checks. D166 selects minimum information for new imported contacts below. D167 selects warnings and omission of invalid optional values, preserving existing values on update. Correction/retry interaction remains open.
+Missing optional historical DE (our station) context is permitted by D38. Under D252, creating a contact requires both station callsigns; if our callsign is missing, require explicit historical callsign assignment before creation, without silently using current defaults. Contact importability and readiness for a particular publication service are separate checks. D166 selects minimum information for new imported contacts below. D167 selects warnings and omission of invalid optional values, preserving existing values on update. Correction/retry interaction remains open.
 
 The [American Radio Relay League (ARRL) submission guidance](https://lotw.arrl.org/lotw-help/developer-submit-qsos/) identifies callsign, date, start time, band, and mode as core contact data; frequency can supply band in its submission path. This is useful context, not an automatic decision to make every LoTW signing requirement a local import requirement.
 
@@ -48,7 +48,7 @@ Automatically skip confidently matched records that add no information after nor
 
 ## Minimum information for new imported contacts (D166)
 
-Require worked callsign, valid UTC start date/time, band supplied directly or derived from usable frequency under D164, and mode information supplied as mode or submode under D175. End time, reports, exact frequency, power, and location details are optional. Missing historical own-station context remains unknown under D38. Service-specific requirements determine upload readiness rather than local importability. Report and skip new-contact records missing required information while other usable records proceed under D43. This minimum applies to creating contacts; existing-contact updates retain D42 omitted-field behavior. D167 selects invalid optional-value handling; exact validation formats remain open.
+Require both station callsigns, valid UTC start date/time, either a usable frequency or a band, and mode information supplied as mode or submode under D175. Auto-populate band from supplied usable frequency when derivable under D164; band is not independently required, and inability to classify a usable frequency does not prevent import. End time, reports, power, and location details are optional; exact frequency may be unset when a band is supplied. Missing our callsign requires explicit historical assignment under D252; other missing optional historical own-station context remains unknown under D38. Service-specific requirements determine upload readiness rather than local importability. Report and skip new-contact records missing required information while other usable records proceed under D43. This minimum applies to creating contacts; existing-contact updates retain D42 omitted-field behavior. D167 selects invalid optional-value handling; exact validation formats remain open.
 
 ## Invalid optional values (D167)
 
@@ -76,13 +76,13 @@ Use built-in mappings for supported fields, including explicitly supported usefu
 
 ## Imported coordinates and grid (D173)
 
-Complete valid coordinates determine an inconsistent grid. Preserve the supplied valid grid length when calculating the corrected grid, and show a warning identifying the supplied and calculated grids. Accept the otherwise valid record. Coordinates inside the supplied grid are consistent even when they are not its center; retain that coordinate precision. Grid-only input can derive center coordinates; coordinates-only input derives grid at the selected/default precision under D76. Apply to both supplied own-station and contacted-station fields, without substituting current operating defaults for absent historical facts. Malformed optional values follow D167; exact supported lengths and field-update grouping remain open.
+Complete valid coordinates determine an inconsistent grid. Preserve the supplied valid grid length when calculating the corrected grid, and show a warning identifying the supplied and calculated grids. Accept the otherwise valid record. Coordinates inside the supplied grid are consistent even when they are not its center; retain that coordinate precision. Grid-only input can derive center coordinates; coordinates-only input derives grid at the selected/default precision under D76. Apply to both supplied own-station and contacted-station fields, without substituting current operating defaults for absent historical facts. Malformed optional values follow D167. The native-model design accepts lengths 2, 4, 6, 8, 10 and 12, integer-millionth-degree coordinates, and imported two-character coarse areas; ADIF field encoding and update application remain adapter work.
 
 ## Mode/submode normalization (D174)
 
 At the ADIF boundary, interpret recognized submode names supplied in MODE through the defined parent/submode relationship. D176 does not require storing that pair as native contact fields. A broad parent does not determine a child. For example, MODE=FT4 alone normalizes to MODE=MFSK with SUBMODE=FT4; MODE=MFSK alone remains MFSK with submode unspecified. Here MFSK means multiple frequency-shift keying. MODE=USB alone similarly normalizes to MODE=SSB with SUBMODE=USB, while SSB alone does not establish upper versus lower sideband. SSB means single sideband and USB means upper sideband. These parent relationships come from the [ADIF submode enumeration](https://www.adif.org/316/ADIF_316.htm); accepting a recognized child in MODE is Clacks's tolerant import policy.
 
-When both fields are supplied, a recognized SUBMODE determines the parent MODE. Correct an inconsistent parent with a warning; derive a missing parent from the recognized submode. Normalize before candidate matching under D41. Do not infer missing submodes from frequency or operating conventions. D175 preserves unfamiliar submode values even without a known parent. Exact recognized tables, matching of incomplete/unrecognized classifications, and field-group behavior when applying selected updates remain open.
+When both fields are supplied, a recognized SUBMODE determines the parent MODE. Correct an inconsistent parent with a warning; derive a missing parent from the recognized submode. Normalize before candidate matching under D41. Do not infer missing submodes from frequency or operating conventions. D175 preserves unfamiliar submode values even without a known parent. The initial native recognition baseline is the complete ADIF 3.1.8 mode/submode catalog. Matching of incomplete/unrecognized classifications and field-group behavior when applying selected updates remain interchange specification work.
 
 ## Preserve mode information independently of classification (D175)
 
@@ -172,7 +172,7 @@ Export the client's current saved state, including unsynchronized and unresolved
 
 ## Activity/reference export expansion — discussion checkpoint 16 October 2026
 
-D127 already establishes a shared typed activity/reference context for Parks on the Air (POTA) references and contest/event identifiers, with correct contact/own-station/counterpart scope and field-specific mapping. D130 permits these values in saved profiles under established loading/snapshot rules; D131 makes manual identifier entry sufficient. Do not restart this as a separate POTA-specific model or bundle those existing decisions into another approval question.
+D127 already establishes a shared typed activity/reference context for Parks on the Air (POTA) references and contest/event identifiers, with correct own-station/contacted-station reference sets on each QSO and field-specific mapping. D130 permits these values in saved profiles under established loading/snapshot rules; D131 makes manual identifier entry sufficient. Do not restart this as a separate POTA-specific model or bundle those existing decisions into another approval question.
 
 D212 accepts optional POTA-compatible export in MVP alongside default ordinary ADIF export: one native QSO may produce multiple output entries for applicable POTA references when requested. Distinguish this from the native model, profile loading, ordinary QSO identity/history, and automatic service-upload policy. D212 selects POTA-specific file grouping/entry expansion and ordinary export as the default; other destinations’ expansion behavior remains unselected. D210's one local working version per QSO prevents exporting competing conflict versions as duplicates; it does not preclude an explicitly selected reference-expansion output transform.
 
@@ -194,8 +194,35 @@ The [logging guide](https://docs.pota.app/docs/activator_reference/logging_made_
 
 For Clacks, this supports an optional POTA-compatible export transformation that groups files by own park/location and expands each contact by applicable contacted parks. It must not create duplicate native QSOs. General ADIF export can still use supported list fields. D212 accepts this optional POTA-compatible mode in MVP, with ordinary ADIF as the default. Exact export-field validation, naming/grouping details, and multi-file finalization remain open. Do not repeat the earlier incomplete suggestion that ADIF list fields alone resolve POTA submission compatibility.
 
+## Standard interchange versus POTA submission mappings — checked 18 October 2026
+
+Ordinary ADIF 3.1.8 interchange can represent own/contacted park collections
+through `MY_POTA_REF` and `POTA_REF`. Those standard fields alone do not define
+pota.app submission compatibility. The [POTA ADIF technical reference](https://docs.pota.app/docs/activator_reference/ADIF_for_POTA_reference.html)
+documents `MY_SIG=POTA` with `MY_SIG_INFO` for our park and `SIG=POTA` with
+`SIG_INFO` for the contacted park. It also documents `MY_STATE` for resolving
+activation location when a park spans administrative boundaries. The park fields
+are optional for basic processing; the uploader may request missing activation
+information. They must not all be described as mandatory fields for every QSO.
+
+The [POTA rules](https://docs.pota.app/docs/rules.html) independently define
+required submission fields, including band, and one park/location per log.
+The [park-to-park guide](https://docs.pota.app/docs/activator_reference/park_2_park.html)
+requires distinct contacted references in expanded entries to obtain all
+multi-park credits. Keep ordinary interchange bindings, submission field
+bindings, submission validation and output grouping/expansion distinct. Native
+saving remains governed by D112/D166, including frequency-or-band validity.
+These findings constrain the group-definition schema proposal; they do not
+select its concrete representation or expand MVP scope.
+
+The [native-model specification](../docs/superpowers/specs/2026-10-18-native-model-design.md), awaiting user review, consolidates the accepted native values, group/catalog capabilities and D255 export context. It does not select the import-side station assignment of CONTEST_ID or complete every ADIF mapping.
+
 ## Accepted export modes (D212)
 
 Ordinary ADIF export is the MVP default: one entry per QSO using supported mappings, including list-valued reference fields where supported. Optional POTA-compatible export creates files by own park/location and expands contact entries by applicable contacted-station park references according to the verified POTA requirements above. Do not create native duplicate QSOs, alter callsigns/timestamps, split unrelated contest/event references, or infer automatic POTA submission.
 
 Both modes use D210/D211 consistent point-in-time local working state, eligible directory fallback, and existing-destination protection on cancellation/failure. Report source contact count separately from generated entry/file counts. Exact export-field validation, file naming/grouping details, and multi-file staging/finalization mechanics remain open. One native working version per QSO under D210 is compatible with explicit POTA output expansion.
+
+## Export-context mapping selection (D255)
+
+Export context consists of an output profile and an optional target group, separate from the selected contact set. Group definitions distinguish ordinary interchange mappings from mappings for exports targeting that group. Ordinary ADIF without a target uses ordinary interchange mappings, including supported reference lists, and emits one entry per QSO without activating program-specific expansion. Emit CONTEST_ID when a QSO has exactly one distinct applicable contest identifier. If it has several, identify the ambiguity during export preparation and allow selecting a contest context or proceeding with those ambiguous CONTEST_ID fields omitted and reported; contacts belonging to different single contests do not create ambiguity with each other. For ordinary ADIF targeting a contest, that contest determines CONTEST_ID and other contest associations do not compete. A program-compatible profile uses its selected group's submission mappings, validation, partitioning and expansion. Conflicting assignments within a selected definition are configuration errors reported before writing output. Do not silently choose a contest, add participation, rewrite native associations or change the selected contact set. This replaces the unaccepted generic per-binding omit_with_warning proposal with context selection and explicit handling of representation limits. It refines D212/D254 without changing D210/D211 local-state and output-publication safeguards.

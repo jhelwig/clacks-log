@@ -46,7 +46,7 @@ No due dates, estimates or assignees have been imposed.
 
 [GitHub milestone](https://github.com/jhelwig/clacks-log/milestone/1)
 
-- [#1 — Establish the native contact and shared-data model](https://github.com/jhelwig/clacks-log/issues/1)
+- [#1 — Establish the native contact and shared-data model](https://github.com/jhelwig/clacks-log/issues/1) — [written specification awaiting user review](superpowers/specs/2026-10-18-native-model-design.md); issue remains open and unimplemented.
 - [#2 — Demonstrate the synchronization and recovery model](https://github.com/jhelwig/clacks-log/issues/2)
 - [#3 — Establish service history and external-record association behavior](https://github.com/jhelwig/clacks-log/issues/3)
 - [#4 — Validate pure-Rust LoTW certificate and signing compatibility](https://github.com/jhelwig/clacks-log/issues/4)

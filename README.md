@@ -2,13 +2,14 @@
 
 Clacks Log is a planned amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The initial implementation attempt has been discarded; implementation is stopped pending concrete planning. Rust is the intended implementation language wherever practical. PostgreSQL is selected for server persistence, embedded SQLite for client persistence (D213), and egui for the desktop interface (D215). No application implementation or migration is underway.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The initial implementation attempt has been discarded; implementation is stopped pending a reviewed specification and implementation plan. Rust is the intended implementation language wherever practical. PostgreSQL is selected for server persistence, embedded SQLite for client persistence (D213), and egui for the desktop interface (D215). No application implementation or migration is underway.
 
 ## Planning documents
 
 - [Planning completion and continuation handoff](docs/handoff.md)
 - [Phased MVP roadmap](docs/mvp-roadmap.md)
 - [GitHub milestones and capability issues](docs/github-backlog.md)
+- [Native-model specification — awaiting user review](docs/superpowers/specs/2026-10-18-native-model-design.md)
 - [Product scope and operating workflows](docs/product.md)
 - [Decision register](docs/decisions.md)
 - [Architectural review](docs/architecture-review.md)
@@ -19,7 +20,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Research provenance and original documents](references/README.md)
 - [TrustedQSL reference source map](references/trustedqsl/source-map.md)
 
-The current planning documents reflect the conversation through 17 October 2026 (D01–D251). Original handoffs are historical evidence, not instructions or current requirements. Later explicit decisions take precedence over earlier research and assistant proposals.
+The current planning documents reflect the conversation through 18 October 2026 (D01–D255). Original handoffs are historical evidence, not instructions or current requirements. Later explicit decisions take precedence over earlier research and assistant proposals.
 
 ## Project direction
 

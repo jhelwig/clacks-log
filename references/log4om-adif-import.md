@@ -55,7 +55,7 @@ Still open: exact supported import fields and semantic mappings, service-status 
 
 ## Historical operating context (D38)
 
-Historical ADIF imports use station context supplied by the record and leave missing our station (DE) fields unknown. Do not fill missing historical fields from current client defaults. This also applies to downloaded QSOs explicitly added locally; D28's default fallback applies to live QSO capture. The sample's differing station callsigns/grids and uneven MY_STATE coverage illustrate why current defaults are not a safe historical fallback. Validation and later explicit correction remain separate work.
+Historical ADIF imports use supplied historical station context. D252 requires explicit historical callsign assignment before creating a contact when our callsign is missing; other missing optional our-station (DE) fields remain unknown. Do not fill missing historical fields from current client defaults. This also applies to downloaded QSOs explicitly added locally; D28's default fallback applies to live QSO capture. The sample's differing station callsigns/grids and uneven MY_STATE coverage illustrate why current defaults are not a safe historical fallback. Validation and later explicit correction remain separate work.
 
 ## Matched ADIF records (D39-D40)
 
@@ -63,7 +63,7 @@ For an incoming record confidently matched to an existing QSO but containing dif
 
 D164 resolves imported frequency/band precedence: a usable frequency supplies band; correct a mismatched band with a warning and accept the otherwise valid record. Derive missing band from frequency; band-only records remain eligible. This is an import policy, not an observed property of the LOG4OM sample. See [frequency/band normalization](adif-matching.md#frequency-and-band-normalization-d164).
 
-D166 requires worked callsign, valid UTC start date/time, band (direct or frequency-derived), and mode information to create a new imported contact; D175 permits supplied submode without a known parent. Other operating/contact details remain optional, including missing historical own-station context under D38. Existing-contact updates retain D42 omitted-field handling.
+D166, as refined by D252, requires both station callsigns, valid UTC start date/time, either a usable frequency or a band, and mode information to create a new imported contact; D175 permits supplied submode without a known parent. Auto-populate band from supplied usable frequency when derivable; band is not independently required and inability to classify the frequency does not prevent import. Missing our callsign requires explicit historical assignment before creation; other operating/contact details remain optional, including missing optional historical own-station context under D38. Existing-contact updates retain D42 omitted-field handling.
 
 D167 permits otherwise valid records with warnings for invalid optional values: omit unusable values on creation and preserve existing values on update. Warnings identify the record, field, supplied value, and reason. This is distinct from a selectable explicit clear and from D164 band correction.
 
