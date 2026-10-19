@@ -38,3 +38,11 @@ mod tag;
 
 pub use profile::*;
 pub use tag::*;
+
+mod catalog;
+mod export;
+mod group;
+
+pub use catalog::*;
+pub use export::*;
+pub use group::*;
