@@ -28,11 +28,12 @@ struct Row {
     bindings: BTreeMap<String, String>,
 }
 
-fn not_ready(qso: &Qso, reason: impl Into<String>) -> ExportError {
+fn not_ready(qso: &Qso, reason: impl Into<String>) -> anyhow::Error {
     ExportError::NotReady {
         qso_id: qso.id,
         reason: reason.into(),
     }
+    .into()
 }
 
 fn extend_references(
@@ -43,7 +44,7 @@ fn extend_references(
     binding: &str,
     partition: bool,
     keep_one: bool,
-) -> Result<Vec<Row>, ExportError> {
+) -> anyhow::Result<Vec<Row>> {
     let identifiers = reference_identifiers(qso, group, side);
     if identifiers.is_empty() {
         if keep_one {
@@ -72,7 +73,7 @@ fn targeted_entries(
     qso: &Qso,
     selected: &SelectedGroupMapping,
     definition: &CompiledGroupDefinition,
-) -> Result<Vec<(Vec<String>, ReferenceExportEntry)>, ExportError> {
+) -> anyhow::Result<Vec<(Vec<String>, ReferenceExportEntry)>> {
     let plan = &selected.plan;
     let mut rows = vec![Row::default()];
     for partition in &plan.file_partition {
@@ -131,7 +132,7 @@ pub fn plan_reference_export(
     definitions: &DefinitionSet,
     profiles: &ProfileSet,
     resolutions: &BTreeMap<QsoId, ContextResolution>,
-) -> Result<ReferenceExportPlan, ExportError> {
+) -> anyhow::Result<ReferenceExportPlan> {
     let profile = profiles
         .get(&context.output_profile_id)
         .ok_or(ExportError::UnknownProfile {
@@ -139,7 +140,13 @@ pub fn plan_reference_export(
         })?;
     let mut unique: BTreeMap<QsoId, &Qso> = BTreeMap::new();
     for qso in qsos {
-        qso.validate().map_err(|e| not_ready(qso, e.to_string()))?;
+        qso.validate().map_err(|error| {
+            let reason = error.to_string();
+            error.context(ExportError::NotReady {
+                qso_id: qso.id,
+                reason,
+            })
+        })?;
         if let Some(previous) = unique.insert(qso.id, qso)
             && previous != qso
         {
@@ -190,7 +197,8 @@ pub fn plan_reference_export(
                             return Err(ExportError::ConflictingBindings {
                                 group_id: group.group_id,
                                 field,
-                            });
+                            }
+                            .into());
                         }
                     }
                 }

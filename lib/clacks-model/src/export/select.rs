@@ -11,8 +11,6 @@ pub enum ExportError {
     InvalidResolution { qso_id: QsoId, reason: String },
     #[error("group {group_id} conflicts on output field {field}")]
     ConflictingBindings { group_id: GroupId, field: String },
-    #[error("{0}")]
-    Definition(#[from] DefinitionError),
     #[error("QSO {qso_id} is not ready for output: {reason}")]
     NotReady { qso_id: QsoId, reason: String },
 }
@@ -71,7 +69,7 @@ pub(crate) fn evaluate_fields(
     compiled: &CompiledGroupDefinition,
     fields: &[FieldBinding],
     context: &ExpressionContext<'_>,
-) -> Result<BTreeMap<String, String>, ExportError> {
+) -> anyhow::Result<BTreeMap<String, String>> {
     let group_id = compiled.definition().id;
     let mut output = BTreeMap::new();
     for binding in fields {
@@ -94,7 +92,8 @@ pub(crate) fn evaluate_fields(
                     return Err(ExportError::ConflictingBindings {
                         group_id,
                         field: binding.field.clone(),
-                    });
+                    }
+                    .into());
                 }
             }
             ExpressionValue::Collection(_) => {
@@ -116,7 +115,7 @@ pub fn select_mappings(
     definitions: &DefinitionSet,
     profiles: &ProfileSet,
     resolution: Option<&ContextResolution>,
-) -> Result<MappingSelection, ExportError> {
+) -> anyhow::Result<MappingSelection> {
     let profile = profiles
         .get(&context.output_profile_id)
         .ok_or(ExportError::UnknownProfile {
@@ -125,13 +124,14 @@ pub fn select_mappings(
     if let Some(id) = context.target_group_id
         && definitions.get(id).is_none()
     {
-        return Err(ExportError::UnknownTarget { id });
+        return Err(ExportError::UnknownTarget { id }.into());
     }
     if profile.purpose == OutputPurpose::Targeted && context.target_group_id.is_none() {
         return Err(ExportError::NotReady {
             qso_id: qso.id,
             reason: "targeted output requires a target group".into(),
-        });
+        }
+        .into());
     }
     let group_ids: BTreeSet<_> = qso
         .own_station
@@ -201,7 +201,8 @@ pub fn select_mappings(
         return Err(ExportError::NotReady {
             qso_id: qso.id,
             reason: "contact does not participate in target group".into(),
-        });
+        }
+        .into());
     }
     let ambiguous: Vec<_> = candidates
         .into_iter()
@@ -212,7 +213,8 @@ pub fn select_mappings(
             return Err(ExportError::InvalidResolution {
                 qso_id: qso.id,
                 reason: "choice is not an ambiguous candidate".into(),
-            });
+            }
+            .into());
         }
         return select_mappings(
             qso,
@@ -229,7 +231,8 @@ pub fn select_mappings(
         return Err(ExportError::InvalidResolution {
             qso_id: qso.id,
             reason: "no ambiguous field to omit".into(),
-        });
+        }
+        .into());
     }
     for (field, candidates) in ambiguous {
         for group in &mut selection.groups {

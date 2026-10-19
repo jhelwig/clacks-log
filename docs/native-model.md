@@ -23,10 +23,12 @@ to absence and inherits the primary pair. Targeted export excludes unrelated
 groups before compiling definitions, so an unrelated malformed definition cannot
 block the selected context.
 
-The four public error types use `thiserror` for their display messages and
-standard error implementations. `RecordError::InvalidValue` and
-`ExportError::Definition` preserve the contained error’s message and expose it
-through `std::error::Error::source()`, including conversions through `From`.
+Concrete validation and configuration errors use `thiserror` for their display
+messages and standard error implementations. Operations combining record,
+profile or export failures return `anyhow::Result` and propagate original
+errors without forwarding-only enum variants. Callers can downcast to the
+concrete error type when they need structured handling. Export-readiness
+context retains the underlying validation error in the diagnostic chain.
 
 ## Mapping rules and catalog data
 

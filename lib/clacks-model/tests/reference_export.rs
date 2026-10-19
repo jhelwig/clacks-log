@@ -157,15 +157,17 @@ fn no_program_name_switch() -> TestResult {
 fn missing_partition_is_not_silent_filtering() {
     let mut q = contact(GroupId::from_u128(1));
     q.own_station.references.clear();
+    let error = plan_reference_export(
+        &[q],
+        &context(true, GroupId::from_u128(1)),
+        &support::definitions(),
+        &support::profiles(),
+        &BTreeMap::new(),
+    )
+    .unwrap_err();
     assert!(matches!(
-        plan_reference_export(
-            &[q],
-            &context(true, GroupId::from_u128(1)),
-            &support::definitions(),
-            &support::profiles(),
-            &BTreeMap::new()
-        ),
-        Err(ExportError::NotReady { .. })
+        error.downcast_ref::<ExportError>(),
+        Some(ExportError::NotReady { .. })
     ));
     let q = contact(GroupId::from_u128(1));
     let mut competing = q.clone();

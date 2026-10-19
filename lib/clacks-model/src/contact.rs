@@ -12,8 +12,6 @@ pub enum RecordError {
     EmptyOptionalAggregate { field: String },
     #[error("blank optional {field} must be absent")]
     InvalidOptionalText { field: String },
-    #[error("{0}")]
-    InvalidValue(#[from] ValueError),
     #[error("equipment configuration {id} is unavailable")]
     MissingEquipment { id: EquipmentConfigurationId },
     #[error("expected equipment {expected}, supplied {supplied}")]
@@ -34,7 +32,7 @@ impl BandFrequency {
         frequency: Option<Hertz>,
         band: Option<Band>,
         catalog: &RecognitionCatalog,
-    ) -> Result<Self, RecordError> {
+    ) -> anyhow::Result<Self> {
         let band = frequency
             .map(|f| Band::for_frequency(f, catalog))
             .unwrap_or(band);
@@ -65,9 +63,9 @@ impl BandFrequency {
         override_pair.unwrap_or(self)
     }
 
-    pub fn validate(&self) -> Result<(), RecordError> {
+    pub fn validate(&self) -> anyhow::Result<()> {
         if self.frequency.is_none() && self.band.is_none() {
-            return Err(RecordError::MissingBandAndFrequency);
+            return Err(RecordError::MissingBandAndFrequency.into());
         }
         if let Some(b) = &self.band {
             Band::from_recorded_label(b.label())?;
@@ -121,22 +119,24 @@ pub struct Qso {
     pub tags: BTreeSet<TagId>,
 }
 
-pub(crate) fn validate_optional_text(value: Option<&str>, field: &str) -> Result<(), RecordError> {
+pub(crate) fn validate_optional_text(value: Option<&str>, field: &str) -> anyhow::Result<()> {
     if value.is_some_and(|s| s.trim().is_empty()) {
         return Err(RecordError::InvalidOptionalText {
             field: field.into(),
-        });
+        }
+        .into());
     }
     Ok(())
 }
 
 impl StationSnapshot {
-    pub fn validate(&self) -> Result<(), RecordError> {
+    pub fn validate(&self) -> anyhow::Result<()> {
         if let Some(l) = &self.location {
             if !l.has_values() {
                 return Err(RecordError::EmptyOptionalAggregate {
                     field: "location".into(),
-                });
+                }
+                .into());
             }
             for (name, text) in [
                 ("dxcc", &l.dxcc),
@@ -154,14 +154,15 @@ impl StationSnapshot {
 }
 
 impl Qso {
-    pub fn validate(&self) -> Result<(), RecordError> {
+    pub fn validate(&self) -> anyhow::Result<()> {
         if let Some(end) = self.end
             && end < self.start
         {
             return Err(RecordError::EndBeforeStart {
                 start: self.start,
                 end,
-            });
+            }
+            .into());
         }
         self.primary.validate()?;
         if let Some(r) = &self.receive_override {
@@ -184,7 +185,8 @@ impl Qso {
             if operator.callsign.is_none() && operator.recorded_name.is_none() {
                 return Err(RecordError::EmptyOptionalAggregate {
                     field: "operator information".into(),
-                });
+                }
+                .into());
             }
             validate_optional_text(operator.recorded_name.as_deref(), "operator name")?;
         }
@@ -232,7 +234,7 @@ impl Qso {
 }
 
 impl EquipmentValues {
-    pub fn validate(&self) -> Result<(), RecordError> {
+    pub fn validate(&self) -> anyhow::Result<()> {
         for (name, value) in [
             ("equipment", &self.equipment_description),
             ("antenna", &self.antenna_description),

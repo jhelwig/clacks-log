@@ -40,7 +40,7 @@ pub fn load_profile(
     current: &CurrentOperatingValues,
     profile: &SavedLocationProfile,
     equipment: Option<&EquipmentConfiguration>,
-) -> Result<CurrentOperatingValues, RecordError> {
+) -> anyhow::Result<CurrentOperatingValues> {
     profile.station.validate()?;
     let mut loaded = current.clone();
     loaded.station = profile.station.clone();
@@ -50,7 +50,8 @@ pub fn load_profile(
             return Err(RecordError::EquipmentIdMismatch {
                 expected,
                 supplied: equipment.id,
-            });
+            }
+            .into());
         }
         equipment.values.validate()?;
         loaded.equipment = Some(equipment.values.clone());

@@ -1,3 +1,5 @@
+mod support;
+
 use clacks_model::*;
 use std::error::Error;
 
@@ -183,32 +185,70 @@ fn error_messages_preserve_diagnostic_context() {
 }
 
 #[test]
-fn record_errors_expose_wrapped_values_as_their_source() {
-    let value = ValueError::EmptyText {
-        field: "callsign".into(),
-    };
-    let error = RecordError::from(value.clone());
-    assert_eq!(error.to_string(), "callsign cannot be blank");
-    let source = error.source().expect("wrapped value must be available");
-    assert_eq!(source.downcast_ref::<ValueError>(), Some(&value));
-    assert!(source.source().is_none());
+fn export_operations_propagate_definition_errors_without_forwarding_variants() {
+    let mut group = support::definitions().iter().next().unwrap().clone();
+    group.identifier.syntax = Some("[".into());
+    let mut qso = support::qso(QsoId::from_u128(1));
+    qso.own_station
+        .references
+        .insert(support::reference(group.id, Some("test")));
+    let definitions = DefinitionSet::new(vec![group]).unwrap();
+    let error = select_mappings(
+        &qso,
+        &ExportContext {
+            output_profile_id: OutputProfileId::from_u128(1),
+            target_group_id: None,
+        },
+        &definitions,
+        &support::profiles(),
+        None,
+    )
+    .unwrap_err();
+    assert!(
+        error.downcast_ref::<DefinitionError>().is_some(),
+        "original definition error must remain directly downcastable"
+    );
 }
 
 #[test]
-fn export_errors_expose_wrapped_definitions_as_their_source() {
-    let definition = DefinitionError::InvalidDefinition {
-        group_id: GroupId::from_u128(1),
-        path: "mapping".into(),
-        reason: "invalid regex".into(),
-    };
-    let error = ExportError::from(definition.clone());
+fn record_operations_return_downcastable_validation_errors() {
+    let mut qso = support::qso(QsoId::from_u128(1));
+    qso.end = Some(UtcSecond::from_unix_seconds(999));
+    let error = qso.validate().unwrap_err();
+    assert!(matches!(
+        error.downcast_ref::<RecordError>(),
+        Some(RecordError::EndBeforeStart { .. })
+    ));
+    assert_eq!(error.to_string(), "end 999 precedes start 1000");
+    assert!(error.root_cause().is::<RecordError>());
+}
+
+#[test]
+fn export_readiness_context_retains_the_validation_cause() {
+    let mut qso = support::qso(QsoId::from_u128(1));
+    qso.end = Some(UtcSecond::from_unix_seconds(999));
+    let error = plan_reference_export(
+        &[qso],
+        &ExportContext {
+            output_profile_id: OutputProfileId::from_u128(1),
+            target_group_id: None,
+        },
+        &support::definitions(),
+        &support::profiles(),
+        &std::collections::BTreeMap::new(),
+    )
+    .unwrap_err();
     assert_eq!(
         error.to_string(),
-        "group 00000000000000000000000001 at mapping: invalid regex"
+        "QSO 00000000000000000000000001 is not ready for output: end 999 precedes start 1000"
     );
-    let source = error
-        .source()
-        .expect("wrapped definition must be available");
-    assert_eq!(source.downcast_ref::<DefinitionError>(), Some(&definition));
-    assert!(source.source().is_none());
+    assert!(matches!(
+        error.downcast_ref::<ExportError>(),
+        Some(ExportError::NotReady { .. })
+    ));
+    assert!(matches!(
+        error.downcast_ref::<RecordError>(),
+        Some(RecordError::EndBeforeStart { .. })
+    ));
+    assert_eq!(error.chain().count(), 2);
 }
