@@ -1,62 +1,121 @@
+//! Per-contact mapping selection with explicit resolution of contextual ambiguity.
+
 use crate::*;
 use std::collections::{BTreeMap, BTreeSet};
 
+/// A reference-export context, assignment or readiness failure.
+///
+/// Operations return these diagnostics through `anyhow::Error` alongside original
+/// record/definition failures. Downcast when structured handling is needed.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ExportError {
+    /// The requested output profile is unavailable.
     #[error("unknown output profile {id}")]
-    UnknownProfile { id: OutputProfileId },
+    UnknownProfile {
+        /// Requested profile identity.
+        id: OutputProfileId,
+    },
+    /// The selected group has no available definition.
     #[error("unknown target group {id}")]
-    UnknownTarget { id: GroupId },
+    UnknownTarget {
+        /// Requested group identity.
+        id: GroupId,
+    },
+    /// A supplied ambiguity choice is not applicable to this contact/context.
     #[error("invalid export choice for {qso_id}: {reason}")]
-    InvalidResolution { qso_id: QsoId, reason: String },
+    InvalidResolution {
+        /// Contact needing a valid choice.
+        qso_id: QsoId,
+        /// Why the supplied resolution cannot be used.
+        reason: String,
+    },
+    /// Selected mappings assign differing values to one output field.
     #[error("group {group_id} conflicts on output field {field}")]
-    ConflictingBindings { group_id: GroupId, field: String },
+    ConflictingBindings {
+        /// Group responsible for the conflicting assignment.
+        group_id: GroupId,
+        /// Output field receiving incompatible values.
+        field: String,
+    },
+    /// Required data or context prevents planning this contact’s output.
     #[error("QSO {qso_id} is not ready for output: {reason}")]
-    NotReady { qso_id: QsoId, reason: String },
+    NotReady {
+        /// Contact that cannot currently produce the requested output.
+        qso_id: QsoId,
+        /// Missing input or invalid state requiring attention.
+        reason: String,
+    },
 }
 
+/// An explicit caller decision for ambiguous contextual fields on one contact.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ContextResolution {
+    /// Select a candidate group for this contact’s contextual fields.
     ChooseTarget(GroupId),
+    /// Omit ambiguous fields explicitly and report their candidate values.
     OmitReported,
 }
 
+/// A required operator choice that prevents unambiguous reference output.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExportDecision {
+    /// Participating groups supply different values for one contextual field.
     AmbiguousContextField {
+        /// Contact whose contextual field requires a decision.
         qso_id: QsoId,
+        /// Output field with competing group values.
         field: String,
+        /// Candidate value for each participating group.
         candidates: BTreeMap<GroupId, String>,
     },
 }
 
+/// A reported omission or unsupported association without altering the native contact.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExportWarning {
+    /// The caller explicitly chose omission of an ambiguous field.
     OmittedContextField {
+        /// Contact whose field was omitted.
         qso_id: QsoId,
+        /// Omitted contextual field.
         field: String,
+        /// Values omitted rather than chosen arbitrarily.
         candidates: BTreeMap<GroupId, String>,
     },
+    /// No available definition can supply this association’s mappings.
     UnsupportedGroup {
+        /// Contact retaining the unsupported participation.
         qso_id: QsoId,
+        /// Unavailable group definition.
         group_id: GroupId,
     },
 }
 
+/// A group plan selected for this contact’s participation and export context.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SelectedGroupMapping {
+    /// Participating group whose definition supplies this plan.
     pub group_id: GroupId,
+    /// Context-selected field, partition and expansion rules.
     pub plan: GroupExportPlan,
+    /// Station sides with recorded participation in this group.
     pub sides: BTreeSet<StationSide>,
 }
 
+/// Selected per-contact plans plus outstanding decisions and reportable warnings.
+///
+/// A successful selection may still contain unresolved decisions; it does not authorize publication.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MappingSelection {
+    /// Supported selected plans, without arbitrary competing contextual assignments.
     pub groups: Vec<SelectedGroupMapping>,
+    /// Choices still required before publishing output.
     pub decisions: Vec<ExportDecision>,
+    /// Explicit omissions and unsupported-group diagnostics for the export report.
     pub warnings: Vec<ExportWarning>,
 }
 
+/// Check group participation on a station side, including group-only associations.
 pub(crate) fn has_association(qso: &Qso, group: GroupId, side: StationSide) -> bool {
     let station = match side {
         StationSide::Own => &qso.own_station,
@@ -65,6 +124,9 @@ pub(crate) fn has_association(qso: &Qso, group: GroupId, side: StationSide) -> b
     station.references.iter().any(|r| r.group_id == group)
 }
 
+/// Evaluate enabled scalar assignments and reject conflicting values for one output field.
+///
+/// Absent expressions omit assignments; collection values require explicit joining.
 pub(crate) fn evaluate_fields(
     compiled: &CompiledGroupDefinition,
     fields: &[FieldBinding],
@@ -109,6 +171,14 @@ pub(crate) fn evaluate_fields(
     Ok(output)
 }
 
+/// Select reference mappings for one contact without changing its participation or values.
+///
+/// Ordinary output retains supported group mappings; a target limits contextual
+/// fields. Targeted output uses only the selected group’s profile-specific plan.
+/// Supply explicit resolutions for competing contextual values, or inspect returned
+/// decisions before publication. Registry keys must match embedded profile IDs.
+/// Unknown profiles/targets, invalid choices and unusable definitions return errors;
+/// unknown associated groups are reported where applicable, never added or rewritten.
 pub fn select_mappings(
     qso: &Qso,
     context: &ExportContext,

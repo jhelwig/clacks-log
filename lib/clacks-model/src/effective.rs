@@ -1,34 +1,55 @@
+//! Read-only recorded/provider fallback with explicit provenance and eligibility boundaries.
+
 use crate::{DefinitionSet, RecordedLocation, StationSnapshot, optional_text};
 
+/// Origin selected for an effective display/export value; not permission to edit recorded facts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InformationSource {
+    /// Facts explicitly recorded with the contact or its location-bearing references.
     Recorded,
+    /// Eligible Logbook of The World (LoTW) observation.
     Lotw,
+    /// Eligible QRZ observation.
     Qrz,
+    /// Eligible snapshot from the account-selected callsign directory.
     Directory,
 }
 
+/// An effective value paired with its selected information source.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Sourced<T> {
+    /// Selected value, including an authoritative absence when the payload permits it.
     pub value: T,
+    /// Origin governing the effective value.
     pub source: InformationSource,
 }
 
+/// Provider-supplied name and location facts kept separate from recorded station information.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct StationFacts {
+    /// Provider-supplied name, not a manually recorded QSO field.
     pub name: Option<String>,
+    /// Whole provider location; absent details are not patched from other providers.
     pub location: Option<RecordedLocation>,
 }
 
-/// Read projection only. The caller excludes stale-key and otherwise ineligible observations.
+/// Provider observations that the caller has already established are eligible.
+///
+/// Exclude stale directory keys, obsolete versions and other ineligible data before
+/// calling selectors. This projection does not perform provider matching or
+/// choose between concurrent snapshots.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EligibleStationFacts<'a> {
+    /// Already-eligible Logbook of The World (LoTW) station facts.
     pub lotw: Option<&'a StationFacts>,
+    /// Already-eligible QRZ station facts.
     pub qrz: Option<&'a StationFacts>,
+    /// Already-eligible selected-directory snapshot matching the current lookup key.
     pub directory: Option<&'a StationFacts>,
 }
 
 impl<'a> EligibleStationFacts<'a> {
+    /// Enumerate eligible fallback sources in LoTW, QRZ and directory priority order.
     fn sources(&self) -> [(InformationSource, Option<&'a StationFacts>); 3] {
         [
             (InformationSource::Lotw, self.lotw),
@@ -38,6 +59,12 @@ impl<'a> EligibleStationFacts<'a> {
     }
 }
 
+/// Choose the first eligible whole location: recorded, LoTW, QRZ, then directory.
+///
+/// Recorded location-bearing participation suppresses provider fallback even
+/// when its geography is unknown: `Some` with `value: None` represents that
+/// authoritative unknown location. Outer `None` means no source supplies one.
+/// Fields from different sources are never mixed and inputs are never changed.
 pub fn select_location(
     recorded: &StationSnapshot,
     eligible: &EligibleStationFacts<'_>,
@@ -71,6 +98,10 @@ pub fn select_location(
     })
 }
 
+/// Select nonblank recorded name text, then eligible LoTW, QRZ or directory text.
+///
+/// Use for logical display/export fallback. Blank values are skipped, nonblank
+/// text is preserved, and the recorded contact is never populated or overwritten.
 pub fn select_name(
     recorded: Option<&str>,
     eligible: &EligibleStationFacts<'_>,
@@ -92,7 +123,10 @@ pub fn select_name(
     })
 }
 
-/// Both inputs are already-normalized keys supplied by directory adapters.
+/// Test whether a snapshot remains applicable to the current directory lookup key.
+///
+/// Both keys must already be normalized by the directory adapter. This performs
+/// exact comparison only; recorded portable callsigns need a separate key derivation.
 pub fn directory_key_matches(current: &str, snapshot_key: &str) -> bool {
     current == snapshot_key
 }

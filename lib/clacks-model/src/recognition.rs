@@ -1,3 +1,5 @@
+//! Data-driven band and mode interpretation that preserves recorded identity.
+
 use crate::ValueError;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, sync::OnceLock};
@@ -8,36 +10,60 @@ mod mode;
 pub use band::*;
 pub use mode::*;
 
+/// Band/mode recognition rows supplied independently of recorded contact values.
+///
+/// Load external JSON with `from_json` for structural validation. Direct struct
+/// construction or deserialization does not enforce catalog consistency.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecognitionCatalog {
+    /// Source release label describing this catalog.
     pub release: String,
+    /// Band rows searched in order when deriving a band from frequency.
     pub bands: Vec<BandRow>,
+    /// Parent-mode rows used for case-insensitive label interpretation.
     pub modes: Vec<ModeRow>,
+    /// Specialization rows with exact references to parent-mode labels.
     pub submodes: Vec<SubmodeRow>,
 }
 
+/// A band label and its inclusive frequency range in whole hertz.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BandRow {
+    /// Recognized band label; matching is ASCII case-insensitive.
     pub code: String,
+    /// Inclusive positive lower frequency bound in hertz.
     pub lower_hz: u64,
+    /// Inclusive upper bound; `None` denotes an open-ended range.
     pub upper_hz: Option<u64>,
 }
 
+/// Recognition metadata for a parent mode label, including historical labels.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeRow {
+    /// Recognized parent-mode label.
     pub code: String,
+    /// Whether the source marks this label deprecated; historical values remain recognizable.
     pub deprecated: bool,
 }
 
+/// Recognition metadata linking a specialization label to its parent mode.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubmodeRow {
+    /// Recognized specialization label.
     pub code: String,
+    /// Exact code of this submode’s parent row.
     pub parent: String,
+    /// Whether the source marks this specialization deprecated.
     pub deprecated: bool,
 }
 
 impl RecognitionCatalog {
+    /// Borrow the bundled Amateur Data Interchange Format (ADIF) 3.1.8 recognition baseline.
+    ///
+    /// Use as the initial offline catalog; it includes deprecated historical labels
+    /// and performs no network acquisition. Stored identities do not depend on this baseline.
     pub fn adif_318() -> &'static Self {
+        /// Shared immutable offline baseline reused by all recognition requests.
         static CATALOG: OnceLock<RecognitionCatalog> = OnceLock::new();
         CATALOG.get_or_init(|| {
             Self::from_json(include_str!("../data/adif-3.1.8.json"))
@@ -45,6 +71,11 @@ impl RecognitionCatalog {
         })
     }
 
+    /// Decode and validate a supplied recognition catalog before using it for interpretation.
+    ///
+    /// Reject malformed JSON, blank or ASCII-case-colliding labels, invalid ranges
+    /// and missing exact parent references with `ValueError::InvalidRecognitionCatalog`.
+    /// This does not validate provenance, prohibit overlapping ranges or rewrite labels.
     pub fn from_json(json: &str) -> Result<Self, ValueError> {
         let invalid = |reason: String| ValueError::InvalidRecognitionCatalog { reason };
         let v: Self = serde_json::from_str(json).map_err(|e| invalid(e.to_string()))?;
@@ -76,6 +107,10 @@ impl RecognitionCatalog {
         Ok(v)
     }
 
+    /// Create a restricted recognition view without the exact listed mode/submode labels.
+    ///
+    /// Also removes submodes of removed parents. Useful for compatibility tests or
+    /// limited catalog views; band rows and recorded contact identities are unchanged.
     pub fn without_modes_and_submodes(&self, labels: &[&str]) -> Self {
         let mut v = self.clone();
         v.modes.retain(|r| !labels.contains(&r.code.as_str()));

@@ -1,14 +1,25 @@
+//! Maidenhead locator areas, explicit geographic points and exact grid geometry.
+
 use crate::ValueError;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+/// Number of subdivisions per longitude/latitude pair at each supported locator level.
 const RADICES: [i64; 6] = [18, 10, 24, 10, 24, 10];
 
+/// A supported Maidenhead locator length: 2, 4, 6, 8, 10 or 12 characters.
+///
+/// This permits coarse historical areas; own-station entry has an additional
+/// four-character minimum enforced by `Position::validate_operating_entry`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "u8", into = "u8")]
 pub struct GridLength(u8);
 
 impl GridLength {
+    /// Validate a locator’s retained character count.
+    ///
+    /// Returns `ValueError::InvalidGridLength` for unsupported lengths. This does
+    /// not pad a locator or impose the own-station entry minimum.
     pub fn new(length: u8) -> Result<Self, ValueError> {
         if [2, 4, 6, 8, 10, 12].contains(&length) {
             Ok(Self(length))
@@ -17,6 +28,7 @@ impl GridLength {
         }
     }
 
+    /// Return the number of characters to retain when displaying a locator.
     pub fn get(self) -> u8 {
         self.0
     }
@@ -36,11 +48,18 @@ impl From<GridLength> for u8 {
     }
 }
 
+/// A validated uppercase Maidenhead locator retaining its supplied precision.
+///
+/// It denotes an area, not an explicit station coordinate.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct Locator(String);
 
 impl Locator {
+    /// Parse a two- through twelve-character Maidenhead locator, accepting ASCII case differences.
+    ///
+    /// The supplied length is retained. Invalid length, pair alphabet, or non-ASCII
+    /// content returns `ValueError::InvalidLocator`; surrounding whitespace is not trimmed.
     pub fn parse(value: &str) -> Result<Self, ValueError> {
         let value = value.to_ascii_uppercase();
         let invalid = || ValueError::InvalidLocator {
@@ -62,10 +81,12 @@ impl Locator {
         Ok(Self(value))
     }
 
+    /// Return the locator’s original precision for display and derived-coordinate conversion.
     pub fn length(&self) -> GridLength {
         GridLength(self.0.len() as u8)
     }
 
+    /// Return longitude/latitude cell indices and subdivisions per axis for exact grid geometry.
     fn indices(&self) -> (i64, i64, i64) {
         let (mut lon, mut lat, mut count) = (0, 0, 1);
         let (pairs, _) = self.0.as_bytes().as_chunks::<2>();
@@ -78,6 +99,9 @@ impl Locator {
         (lon, lat, count)
     }
 
+    /// Return the entire grid cell as exact rational degree boundaries.
+    ///
+    /// Use for area-based geographic lookup; using only its center would discard ambiguity.
     pub fn bounds(&self) -> GridBounds {
         let (lon, lat, count) = self.indices();
         let degree = |index: i64, span: i64, origin: i64| RationalDegree {
@@ -92,6 +116,10 @@ impl Locator {
         }
     }
 
+    /// Return the grid center rounded to integer millionths of a degree.
+    ///
+    /// Use as a representative display coordinate. It does not turn this area
+    /// into evidence that the station occupied that particular point.
     pub fn center(&self) -> Coordinates {
         let (lon, lat, count) = self.indices();
         let midpoint = |index: i64, span: i64, origin: i64| {
@@ -127,28 +155,47 @@ impl From<Locator> for String {
     }
 }
 
+/// A degree value expressed as an exact numerator and denominator.
+///
+/// Grid calculations produce positive denominators to avoid premature coordinate rounding.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RationalDegree {
+    /// Signed degree numerator.
     pub numerator: i64,
+    /// Degree denominator; grid-generated values are always positive.
     pub denominator: u64,
 }
 
+/// Geographic edges of a Maidenhead cell, retaining exact angular boundaries.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GridBounds {
+    /// Southern edge in degrees.
     pub south: RationalDegree,
+    /// Northern edge in degrees.
     pub north: RationalDegree,
+    /// Western edge in degrees.
     pub west: RationalDegree,
+    /// Eastern edge in degrees.
     pub east: RationalDegree,
 }
 
+/// A geographic point in signed integer millionths of a degree.
+///
+/// Latitude is within ±90 degrees and longitude within ±180 degrees, inclusive.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "CoordinateFields", into = "CoordinateFields")]
 pub struct Coordinates {
+    /// Latitude in signed millionths of a degree.
     latitude: i32,
+    /// Longitude in signed millionths of a degree, retaining the supplied date-line endpoint.
     longitude: i32,
 }
 
 impl Coordinates {
+    /// Validate an explicit point supplied in millionths of a degree.
+    ///
+    /// Use when the source already has native integer resolution. Out-of-range
+    /// latitude or longitude returns `ValueError::InvalidCoordinate`.
     pub fn from_microdegrees(latitude: i32, longitude: i32) -> Result<Self, ValueError> {
         for (axis, value, max) in [
             ("latitude", latitude, 90_000_000),
@@ -167,6 +214,11 @@ impl Coordinates {
         })
     }
 
+    /// Parse decimal-degree latitude and longitude into native coordinate resolution.
+    ///
+    /// Validate the supplied ranges before rounding; round exact halfway values
+    /// away from zero. Reject exponent notation, nonfinite values and malformed text.
+    /// Use for explicit input, not to promote a grid-derived center into a point.
     pub fn from_decimal_degrees(latitude: &str, longitude: &str) -> Result<Self, ValueError> {
         Self::from_microdegrees(
             decimal(latitude, 90, "latitude")?,
@@ -174,14 +226,21 @@ impl Coordinates {
         )
     }
 
+    /// Return signed latitude in millionths of a degree for storage or formatting.
     pub fn latitude_microdegrees(self) -> i32 {
         self.latitude
     }
 
+    /// Return signed longitude in millionths of a degree, retaining either date-line endpoint.
     pub fn longitude_microdegrees(self) -> i32 {
         self.longitude
     }
 
+    /// Derive the containing grid cell at the requested supported precision.
+    ///
+    /// Use when displaying an explicit point. Positive 180° longitude selects the
+    /// same cell as negative 180°; the north pole selects the final latitude cell.
+    /// The stored point is not changed.
     pub fn locator(self, length: GridLength) -> Locator {
         let pair_count = usize::from(length.0 / 2);
         let count: i64 = RADICES.into_iter().take(pair_count).product();
@@ -206,9 +265,12 @@ impl Coordinates {
     }
 }
 
+/// Serialized explicit-point components subject to native range validation.
 #[derive(Serialize, Deserialize)]
 struct CoordinateFields {
+    /// Latitude in signed millionths of a degree.
     latitude: i32,
+    /// Longitude in signed millionths of a degree, retaining the supplied date-line endpoint.
     longitude: i32,
 }
 
@@ -229,10 +291,16 @@ impl From<Coordinates> for CoordinateFields {
     }
 }
 
+/// Round a rational value to the nearest integer, with exact ties away from zero.
+///
+/// The denominator must be positive and intermediate values must fit `i64`.
 fn round_ratio(n: i64, d: i64) -> i64 {
     n.signum() * ((n.abs() + d / 2) / d)
 }
 
+/// Parse one bounded geographic axis into millionths of a degree.
+///
+/// Reject invalid syntax or values beyond `max` degrees before rounding.
 fn decimal(value: &str, max: u32, axis: &str) -> Result<i32, ValueError> {
     let malformed = || ValueError::MalformedDecimal {
         value: value.into(),
@@ -277,16 +345,26 @@ fn decimal(value: &str, max: u32, axis: &str) -> Result<i32, ValueError> {
     Ok(if negative { -magnitude } else { magnitude })
 }
 
+/// Recorded location evidence as either a grid area or an explicit point.
+///
+/// The forms remain distinct even when a point equals a grid center.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Position {
+    /// A recorded grid cell whose entire area remains the location evidence.
     GridArea(Locator),
+    /// An explicitly supplied point with independent display-locator precision.
     ExplicitPoint {
+        /// Authoritative recorded coordinates, never replaced by the displayed grid center.
         coordinates: Coordinates,
+        /// Retained locator precision for deriving a display grid; not point uncertainty.
         grid_length: GridLength,
     },
 }
 
 impl Position {
+    /// Return an explicit point or a grid area’s representative center for display.
+    ///
+    /// Use `lookup_geometry` for geographic lookup so an area retains its ambiguity.
     pub fn display_coordinates(&self) -> Coordinates {
         match self {
             Self::GridArea(g) => g.center(),
@@ -294,6 +372,9 @@ impl Position {
         }
     }
 
+    /// Return the recorded area locator or derive a locator for an explicit point.
+    ///
+    /// Preserves the stored locator length without changing the position’s meaning.
     pub fn display_locator(&self) -> Locator {
         match self {
             Self::GridArea(g) => g.clone(),
@@ -304,6 +385,10 @@ impl Position {
         }
     }
 
+    /// Check the four-character minimum for own-station operating-location entry.
+    ///
+    /// Apply to newly entered own-station locations. Historical imports and
+    /// contacted-station data may retain valid two-character locators.
     pub fn validate_operating_entry(&self) -> Result<(), ValueError> {
         let length = self.display_locator().length().get();
         if length < 4 {
@@ -313,6 +398,9 @@ impl Position {
         }
     }
 
+    /// Select an area or point query without treating grid-derived coordinates as explicit.
+    ///
+    /// Geographic adapters should use this instead of display coordinates.
     pub fn lookup_geometry(&self) -> LookupGeometry {
         match self {
             Self::GridArea(g) => LookupGeometry::Area(g.bounds()),
@@ -320,6 +408,10 @@ impl Position {
         }
     }
 
+    /// Test whether geographic evidence is unchanged for retaining manual corrections.
+    ///
+    /// Explicit points ignore display-grid length; grid areas require the same
+    /// locator and precision. A grid area never equals an explicit point here.
     pub fn same_geographic_position(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::GridArea(a), Self::GridArea(b)) => a == b,
@@ -332,8 +424,11 @@ impl Position {
     }
 }
 
+/// Geometry that a geographic adapter should query without losing area/point meaning.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LookupGeometry {
+    /// Query the full locator footprint and retain ambiguous results.
     Area(GridBounds),
+    /// Query the explicitly recorded geographic point.
     Point(Coordinates),
 }

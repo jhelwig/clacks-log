@@ -1,33 +1,53 @@
+//! Pure reference-output planning with deterministic partitions and scoped row expansion.
+
 use super::{rules::reference_identifiers, select::evaluate_fields};
 use crate::*;
 use std::collections::BTreeMap;
 
+/// In-memory reference output plus decisions and diagnostics for a selected contact snapshot.
+///
+/// This is not a serialized ADIF file or proof of submission eligibility. A
+/// caller must resolve outstanding decisions and enforce publication safeguards.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ReferenceExportPlan {
+    /// Planned partitions and their in-memory reference rows.
     pub files: Vec<ReferenceExportFile>,
+    /// Unresolved contextual choices that must be handled before publication.
     pub decisions: Vec<ExportDecision>,
+    /// Reportable omitted fields or unsupported groups.
     pub warnings: Vec<ExportWarning>,
+    /// Unique native contact identities supplied, distinct from expanded output-entry count.
     pub source_contact_count: usize,
 }
 
+/// Entries sharing one planned output partition, without a filesystem path or open file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReferenceExportFile {
+    /// Ordered logical partition dimensions; not a safe filesystem path by itself.
     pub partition_key: Vec<String>,
+    /// Reference-output rows assigned to this partition.
     pub entries: Vec<ReferenceExportEntry>,
 }
 
+/// One output row linked to its original native contact identity.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReferenceExportEntry {
+    /// Original contact identity shared by any reference-expanded rows.
     pub qso_id: QsoId,
+    /// Selected reference mappings only; common contact-field formatting belongs to an adapter.
     pub reference_fields: BTreeMap<String, String>,
 }
 
+/// Selected partition components and reference bindings for one expanded output row.
 #[derive(Clone, Default)]
 struct Row {
+    /// Logical partition dimensions selected for this row.
     key: Vec<String>,
+    /// Reference values available to field expressions in this row.
     bindings: BTreeMap<String, String>,
 }
 
+/// Create a contact-scoped readiness diagnostic for missing required export input.
 fn not_ready(qso: &Qso, reason: impl Into<String>) -> anyhow::Error {
     ExportError::NotReady {
         qso_id: qso.id,
@@ -36,6 +56,9 @@ fn not_ready(qso: &Qso, reason: impl Into<String>) -> anyhow::Error {
     .into()
 }
 
+/// Expand rows over one group’s selected-side identifiers, optionally adding partition keys.
+///
+/// When no identifiers exist, retain a row only if the rule explicitly permits it.
 fn extend_references(
     qso: &Qso,
     group: GroupId,
@@ -69,6 +92,7 @@ fn extend_references(
     Ok(result)
 }
 
+/// Plan one selected group’s reference-specific partitions, expansions and fields for a contact.
 fn targeted_entries(
     qso: &Qso,
     selected: &SelectedGroupMapping,
@@ -126,6 +150,16 @@ fn targeted_entries(
         .collect()
 }
 
+/// Plan reference fields for an explicitly supplied, consistent local contact snapshot.
+///
+/// Ordinary output emits one entry per unique QSO; targeted rules may expand
+/// only the chosen group’s references into partitions/entries. Identical repeated
+/// IDs coalesce; differing versions of one ID fail rather than choosing a winner.
+/// Invalid records or unusable mappings return errors with their original causes.
+///
+/// Inspect returned decisions and warnings before publication. This operation
+/// does not fetch providers, take a storage snapshot, create files, validate a
+/// complete program submission, or replace destinations on failure/cancellation.
 pub fn plan_reference_export(
     qsos: &[Qso],
     context: &ExportContext,

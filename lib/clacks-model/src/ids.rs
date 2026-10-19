@@ -1,16 +1,28 @@
+//! Distinct stable entity IDs with string serialization; ordering is not causality.
+
 use crate::ValueError;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 
+/// Define noninterchangeable entity identities with common generation and string conversion.
 macro_rules! entity_ids {
-    ($($name:ident),+ $(,)?) => {$(
+    ($( $(#[$meta:meta])* $name:ident),+ $(,)?) => {$(
+        $(#[$meta])*
         #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
         #[serde(try_from = "String", into = "String")]
         pub struct $name(ulid::Ulid);
 
         impl $name {
+            /// Generate a fresh identity for a new native entity.
+            ///
+            /// Use the existing ID when editing or synchronizing an entity. Sort order
+            /// must not be used to establish causal edit order.
             pub fn new() -> Self { Self(ulid::Ulid::generate()) }
 
+            /// Preserve a known identity from its complete 128-bit value.
+            ///
+            /// Useful for deterministic fixtures or native identity conversion; this
+            /// does not generate uniqueness or establish account ownership.
             pub fn from_u128(value: u128) -> Self { Self(value.into()) }
         }
 
@@ -43,11 +55,18 @@ macro_rules! entity_ids {
 }
 
 entity_ids!(
+    /// Stable identity of an account-owned contact.
     QsoId,
+    /// Stable identity of a logbook tag independent of its display name.
     TagId,
+    /// Stable identity of a saved station-location profile.
     ProfileId,
+    /// Stable identity of a reusable equipment configuration.
     EquipmentConfigurationId,
+    /// Stable identity of a participation/reference group.
     GroupId,
+    /// Stable identity of a reference dataset independent of its upstream version.
     CatalogId,
+    /// Stable identity of an export output profile.
     OutputProfileId
 );

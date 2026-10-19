@@ -1,70 +1,122 @@
+//! Declarative group mapping expressions, validation and bounded local evaluation.
+
 use crate::{OutputProfileId, StationSide};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+/// A group’s ordinary interchange fields and separately selected submission plans.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GroupExportMappings {
+    /// Reference fields used without targeted partitioning or expansion.
     pub ordinary_interchange: Vec<FieldBinding>,
+    /// Submission plans keyed by the requesting output profile identity.
     pub targeted: BTreeMap<OutputProfileId, GroupExportPlan>,
 }
 
+/// Field mappings and ordered file/entry expansion rules for one selected group.
+///
+/// These rules describe in-memory output; they do not perform file publication.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GroupExportPlan {
+    /// Conditional scalar field assignments evaluated for each output row.
     pub fields: Vec<FieldBinding>,
+    /// Ordered partition dimensions; reference partitions also bind their selected value.
     pub file_partition: Vec<PartitionRule>,
+    /// Ordered row expansions after partitioning, restricted to this group.
     pub entry_expansion: Vec<ExpansionRule>,
 }
 
+/// A serializable expression producing absent, scalar or collection text.
+///
+/// Use to define mappings without scripts, network access or program-specific code.
+/// Compilation validates context, bindings, capture names and a nesting limit of 32.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ValueExpression {
+    /// Fixed text; an empty string evaluates as absence.
     Literal(String),
+    /// A supported recorded QSO field, requiring QSO context.
     QsoField(QsoFieldPath),
+    /// The single association identifier in the current lookup context.
     CurrentIdentifier,
+    /// Recorded identifier collection for this definition’s group on one station side.
     Identifiers(StationSide),
+    /// Value selected by a named partition/expansion binding, absent if not present.
     BoundIdentifier(String),
+    /// A named full-value regex capture applied to scalar or collection input.
     Capture {
+        /// Input expression; absent or unmatched values remain absent or are omitted from collections.
         value: Box<ValueExpression>,
+        /// Whole-value regex declared in this definition.
         pattern: String,
+        /// Required named capture to return from each match.
         name: String,
     },
+    /// Join a collection into scalar text; an empty collection remains absent.
     Join {
+        /// Expression required to produce a collection or absence.
         values: Box<ValueExpression>,
+        /// Text inserted between collection elements.
         separator: String,
     },
 }
 
+/// Recorded contact fields available to mapping expressions without provider fallback.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum QsoFieldPath {
+    /// Recorded own-station callsign.
     OwnCallsign,
+    /// Recorded contacted-station callsign.
     ContactedCallsign,
+    /// Recorded own-station primary subdivision, without provider fallback.
     OwnPrimarySubdivision,
+    /// Recorded contacted-station primary subdivision, without provider fallback.
     ContactedPrimarySubdivision,
 }
 
+/// Conditional assignment of a scalar expression to a named output field.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FieldBinding {
+    /// Nonblank output field name; format-specific adapters interpret it.
     pub field: String,
+    /// Expression that must produce a scalar or absence for assignment.
     pub value: ValueExpression,
+    /// Condition controlling whether the binding participates.
     pub when: BindingCondition,
 }
 
+/// The condition under which one output-field assignment is evaluated.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BindingCondition {
+    /// Evaluate regardless of binding or participation presence.
     Always,
+    /// Evaluate only when the named row binding exists.
     BoundPresent(String),
+    /// Evaluate only when this group is recorded on the selected station side.
     AssociationPresent(StationSide),
 }
 
+/// An ordered contribution to the planned file partition key.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PartitionRule {
+    /// Append a required scalar expression value to the partition key.
     ByValue(ValueExpression),
-    EachReference { side: StationSide, binding: String },
+    /// Create a separate partition for each selected-side identifier and bind its value.
+    EachReference {
+        /// Station side supplying this group’s partition references.
+        side: StationSide,
+        /// Unique name exposing the reference selected for this partition.
+        binding: String,
+    },
 }
 
+/// Per-reference output-entry expansion for the selected group and station side.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExpansionRule {
+    /// Station side whose identifiers supply rows for this group.
     pub side: StationSide,
+    /// Unique name exposing the selected reference to field expressions.
     pub binding: String,
+    /// Retain one unbound row if no identifier exists; otherwise report output not ready.
     pub keep_one_if_empty: bool,
 }
 
@@ -73,37 +125,62 @@ use crate::{
 };
 use std::collections::BTreeSet;
 
+/// An evaluated mapping value that retains the distinction between absence and collections.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExpressionValue {
+    /// No value is available; a scalar field assignment is omitted.
     Absent,
+    /// One text value suitable for a field or partition component.
     Scalar(String),
+    /// Ordered identifier/capture values requiring explicit joining or expansion.
     Collection(Vec<String>),
 }
 
+/// Read-only inputs available to an expression in its current association or export row.
+///
+/// Supply a QSO for contact-field/collection access, a current identifier for
+/// association-local lookup, and named bindings for declared partition/expansion values.
 pub struct ExpressionContext<'a> {
+    /// Contact facts available for QSO field paths and station-side reference collections.
     pub qso: Option<&'a Qso>,
+    /// Single association value used for catalog/identifier-local expressions.
     pub current_identifier: Option<&'a str>,
+    /// Values already selected by declared partition or expansion rules.
     pub bindings: &'a BTreeMap<String, String>,
 }
 
+/// Validated group data with reusable, nonserialized expression support.
+///
+/// Obtain through `compile_definition`. Use for repeated identifier preparation
+/// or expression evaluation; it does not become part of recorded QSO equality.
 #[derive(Clone, Debug)]
 pub struct CompiledGroupDefinition {
+    /// Definition snapshot used for evaluation and group-scoped diagnostics.
     definition: GroupDefinition,
+    /// Compiled full-value patterns keyed by validated definition paths.
     patterns: BTreeMap<String, regex::Regex>,
+    /// Pattern text to compiled-path correspondence for expression evaluation.
     pattern_paths: BTreeMap<String, String>,
 }
 
+/// Static expression result category used to reject invalid mapping combinations.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Shape {
+    /// One text value, or absence at runtime.
     Scalar,
+    /// A sequence of text values requiring explicit joining for scalar output.
     Collection,
 }
 
 impl CompiledGroupDefinition {
+    /// Borrow the definition snapshot whose rules this compiled value evaluates.
+    ///
+    /// Changes to a separately held definition do not alter this compiled snapshot.
     pub fn definition(&self) -> &GroupDefinition {
         &self.definition
     }
 
+    /// Attach this group’s identity and a definition location to a configuration diagnostic.
     fn error(&self, path: &str, reason: impl Into<String>) -> DefinitionError {
         DefinitionError::InvalidDefinition {
             group_id: self.definition.id,
@@ -112,12 +189,14 @@ impl CompiledGroupDefinition {
         }
     }
 
+    /// Borrow a compiled pattern or return a definition diagnostic for unavailable state.
     fn pattern(&self, path: &str) -> Result<&regex::Regex, DefinitionError> {
         self.patterns
             .get(path)
             .ok_or_else(|| self.error(path, "compiled pattern missing"))
     }
 
+    /// Make a full-value regex available at a definition path for subsequent validation/evaluation.
     fn add_pattern(&mut self, path: &str, pattern: &str) -> Result<(), DefinitionError> {
         let regex = if let Some(previous) = self.pattern_paths.get(pattern) {
             self.pattern(previous)?.clone()
@@ -131,6 +210,7 @@ impl CompiledGroupDefinition {
         Ok(())
     }
 
+    /// Validate an expression’s required context and bindings and return its static result shape.
     fn check_expression(
         &mut self,
         expression: &ValueExpression,
@@ -207,6 +287,7 @@ impl CompiledGroupDefinition {
         })
     }
 
+    /// Validate one output plan’s partition bindings, scalar fields and demonstrable assignment conflicts.
     fn check_plan(&mut self, plan: &GroupExportPlan, path: &str) -> Result<(), DefinitionError> {
         let mut bindings = BTreeSet::new();
         for (i, partition) in plan.file_partition.iter().enumerate() {
@@ -263,6 +344,7 @@ impl CompiledGroupDefinition {
         Ok(())
     }
 
+    /// Require a nonblank binding name that is unique within the current output plan.
     fn declare_binding(
         &self,
         bindings: &mut BTreeSet<String>,
@@ -275,6 +357,11 @@ impl CompiledGroupDefinition {
         Ok(())
     }
 
+    /// Evaluate a definition expression against explicit local inputs without mutating records.
+    ///
+    /// Use expressions belonging to this compiled definition so capture patterns
+    /// are available. Missing values yield `Absent`; incompatible contexts, shapes
+    /// or excessive nesting return `DefinitionError`. This does not select export context.
     pub fn evaluate(
         &self,
         expression: &ValueExpression,
@@ -283,6 +370,7 @@ impl CompiledGroupDefinition {
         self.evaluate_depth(expression, context, 0)
     }
 
+    /// Evaluate an expression with a bounded nesting budget and the supplied row/association context.
     fn evaluate_depth(
         &self,
         expression: &ValueExpression,
@@ -368,6 +456,11 @@ impl CompiledGroupDefinition {
         })
     }
 
+    /// Prepare one new or explicitly edited association using this compiled group’s rules.
+    ///
+    /// Require a matching group ID, apply configured normalization, then validate
+    /// requiredness and whole-value syntax. Returns a prepared copy or a definition/
+    /// identifier error. Do not use merely to reinterpret saved references after a refresh.
     pub fn normalize_reference(
         &self,
         association: &ReferenceAssociation,
@@ -404,6 +497,9 @@ impl CompiledGroupDefinition {
     }
 }
 
+/// Collect recorded identifiers for one group and station side in deterministic set order.
+///
+/// Group-only associations have no identifier to emit; other groups are excluded.
 pub(crate) fn reference_identifiers(qso: &Qso, group: GroupId, side: StationSide) -> Vec<String> {
     let station = match side {
         StationSide::Own => &qso.own_station,
@@ -417,6 +513,12 @@ pub(crate) fn reference_identifiers(qso: &Qso, group: GroupId, side: StationSide
         .collect()
 }
 
+/// Validate a supplied group definition for identifier, catalog and reference-export use.
+///
+/// Compile whole-value regexes, enforce expression/context/binding constraints,
+/// and reject statically detectable mapping conflicts. Returns `DefinitionError`
+/// with group and path context. Dynamic assignment conflicts remain evaluation errors.
+/// No catalog download, native-record mutation or account provisioning occurs.
 pub fn compile_definition(
     definition: &GroupDefinition,
 ) -> Result<CompiledGroupDefinition, DefinitionError> {
