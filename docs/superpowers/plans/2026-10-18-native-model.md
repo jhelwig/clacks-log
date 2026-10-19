@@ -175,7 +175,7 @@ toolchain so later applications can remain thin wrappers.
 - `Position::{GridArea(Locator), ExplicitPoint { coordinates: Coordinates, grid_length: GridLength }}`; `display_coordinates() -> Coordinates`, `display_locator() -> Locator`, `validate_operating_entry() -> Result<(), ValueError>` (four-character minimum), `lookup_geometry() -> LookupGeometry` where `LookupGeometry::{Area(GridBounds), Point(Coordinates)}` distinguishes lookup inputs. `Position::same_geographic_position(&self, other: &Self) -> bool` compares area identity or explicit coordinates, ignoring only the point form's display grid length.
 - `RecordedLocation` has the spec's optional position/DXCC/primary subdivision/secondary subdivision/CQ/ITU values. `RecordedLocation` fields are `position: Option<Position>`, `dxcc: Option<String>`, `primary_subdivision: Option<String>`, `secondary_subdivision: Option<String>`, `cq_zone: Option<CqZone>` and `itu_zone: Option<ItuZone>`. Geographic identifiers are nonblank preserved text, not display-name IDs or prematurely hardcoded datasets. `CqZone::new(u8)` and `ItuZone::new(u8)` return `Result<Self, ValueError>` and enforce 1–40 and 1–90 respectively. `has_values() -> bool` treats an all-absent structure as empty. Add `ValueError::{InvalidCoordinate { axis: String, value: String }, InvalidLocator { value: String }, InvalidGridLength { length: u8 }, MalformedDecimal { value: String }, InvalidZone { system: String, value: u8 }}`.
 
-- [ ] **Step 1:** Add these tests and table-driven checks for all six locator lengths:
+- [x] **Step 1:** Add these tests and table-driven checks for all six locator lengths:
 
 ```rust
 // preserve_area_point_and_supplied_length
@@ -197,10 +197,10 @@ assert_eq!(Coordinates::from_decimal_degrees("-0.0000005", "0")?.latitude_microd
 
 Test no precision padding, invalid cell letters/digits, negative zero, signed `.5`, long fractional tails, ±90/±180, equal centers with different area/point meaning, and explicit point retention through repeated display conversion. At twelve characters, derive from the integers without floating-point accumulation. In `display_precision_does_not_change_point_identity`, changing only an explicit point's grid length leaves `same_geographic_position` true; changing coordinates or an area cell makes it false. Geographic lookup later uses this guard to retain corrections; this library does not run lookup or replace geographic values.
 
-- [ ] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test positions`; expect missing position implementation.
-- [ ] **Step 3:** Implement the interfaces. Decimal parsing validates every source digit/range before rounding. For locator indexing use absolute offsets, pair radices 18/10/24/10/24/10 and integer division; calculate bounds/centers as rational cell offsets before final microdegree rounding. Longitude +180 wraps only for indexing; latitude +90 clamps only the cell index to the last row. Grid-area lookup returns bounds, not its center as a point. No geographic dataset lookup is implemented here.
-- [ ] **Step 4:** Run the positions test, then the values test; expect success with unchanged point integers and bounded indices for the extrema.
-- [ ] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
+- [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test positions`; expect missing position implementation.
+- [x] **Step 3:** Implement the interfaces. Decimal parsing validates every source digit/range before rounding. For locator indexing use absolute offsets, pair radices 18/10/24/10/24/10 and integer division; calculate bounds/centers as rational cell offsets before final microdegree rounding. Longitude +180 wraps only for indexing; latitude +90 clamps only the cell index to the last row. Grid-area lookup returns bounds, not its center as a point. No geographic dataset lookup is implemented here.
+- [x] **Step 4:** Run the positions test, then the values test; expect success with unchanged point integers and bounded indices for the extrema.
+- [x] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
 
 ```text
 feat(model): preserve grid-area and explicit-point positions

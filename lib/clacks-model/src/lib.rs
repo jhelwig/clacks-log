@@ -14,3 +14,9 @@ mod scalar;
 pub use error::*;
 pub use ids::*;
 pub use scalar::*;
+
+mod location;
+mod position;
+
+pub use location::*;
+pub use position::*;
