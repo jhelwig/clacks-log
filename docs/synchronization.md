@@ -7,6 +7,11 @@ here. Later client/server persistence and WebSocket integration use and extend
 that implementation. Tests exercise failures in the production logic; a separate
 simulated synchronization implementation does not complete the issue.
 
+The [issue #2 metadata and transition proposal](superpowers/specs/2026-10-18-synchronization-metadata-proposal.md)
+provides a concrete engineering composition and worked examples for review.
+It does not supersede the accepted decisions or claim implementation/proof of
+the proposed representation.
+
 ## Working changes and symmetric synchronization (D59)
 
 Use the same state/history negotiation and transfer mechanism for client-to-server and server-to-client synchronization. A restored server can request missing synchronized state from clients just as a behind client can request it from the server. The server's coordination of accepted state and external service jobs does not make its stored history infallible.

@@ -25,6 +25,13 @@ runtime or evidence-only demonstration does not satisfy implementation scope.
 Later integration adds persistence, transport, workflows or coverage to the same
 components without treating the earlier implementation as throwaway work.
 
+Issue #2 has a [proposed metadata and transition design](superpowers/specs/2026-10-18-synchronization-metadata-proposal.md)
+for review. It carries the settled synchronization requirements forward and
+specifies explicit record vectors, account coverage, timeline boundaries,
+retirement and baseline transitions with worked failure/recovery examples.
+Its engineering choices remain proposals; no issue #2 implementation plan or
+product code has been authorized by the document itself.
+
 ## Read first
 
 Read the [native-model specification](superpowers/specs/2026-10-18-native-model-design.md), [implementation plan](superpowers/plans/2026-10-18-native-model.md) and [library scope and validation](native-model.md) for domain contracts and adapter boundaries.
