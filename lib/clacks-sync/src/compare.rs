@@ -66,8 +66,6 @@ pub fn compare_records(
         }
         .into());
     }
-    let lb = evidence.baseline(left.key.account, left.stamp.baseline)?;
-    let rb = evidence.baseline(right.key.account, right.stamp.baseline)?;
     if left.stamp.accepted_at == right.stamp.accepted_at && left.state != right.state {
         return Err(MetadataError::Conflict {
             detail: format!(
@@ -77,23 +75,35 @@ pub fn compare_records(
         }
         .into());
     }
+    compare_contexts(left.key, &left.stamp, &right.stamp, evidence)
+}
+
+/// Interpret context-only descriptors without constructing invented native envelopes.
+pub(crate) fn compare_contexts(
+    key: crate::record::RecordKey,
+    left: &crate::record::VersionStamp,
+    right: &crate::record::VersionStamp,
+    evidence: &EvidenceView<'_>,
+) -> anyhow::Result<RecordRelation> {
+    let lb = evidence.baseline(key.account, left.baseline)?;
+    let rb = evidence.baseline(key.account, right.baseline)?;
     let (Some(lb), Some(rb)) = (lb, rb) else {
         return Ok(RecordRelation::Unknown(UnknownReason::MissingBaseline));
     };
     let positions = evidence
         .lineage
-        .compare(left.stamp.accepted_at, right.stamp.accepted_at);
-    let raw = left.stamp.vector.compare_components(&right.stamp.vector);
-    let left_covered = rb.coverage.covers(left.stamp.accepted_at);
-    let right_covered = lb.coverage.covers(right.stamp.accepted_at);
-    if left.stamp.accepted_at == right.stamp.accepted_at {
+        .compare(left.accepted_at, right.accepted_at);
+    let raw = left.vector.compare_components(&right.vector);
+    let left_covered = rb.coverage.covers(left.accepted_at);
+    let right_covered = lb.coverage.covers(right.accepted_at);
+    if left.accepted_at == right.accepted_at {
         if raw == VectorRelation::Equal || (lb != rb && (left_covered || right_covered)) {
             return Ok(RecordRelation::SameVersion);
         }
         return Err(MetadataError::Conflict {
             detail: format!(
                 "record {:?} has incompatible contexts for the same acceptance",
-                left.key
+                key
             ),
         }
         .into());
@@ -103,40 +113,38 @@ pub fn compare_records(
     }
     // An explicit server component can prove record succession beyond global coverage.
     let l_in_r = right
-        .stamp
         .vector
-        .component(ClockActor::Server(left.stamp.accepted_at.timeline))
-        >= left.stamp.accepted_at.revision;
+        .component(ClockActor::Server(left.accepted_at.timeline))
+        >= left.accepted_at.revision;
     let r_in_l = left
-        .stamp
         .vector
-        .component(ClockActor::Server(right.stamp.accepted_at.timeline))
-        >= right.stamp.accepted_at.revision;
+        .component(ClockActor::Server(right.accepted_at.timeline))
+        >= right.accepted_at.revision;
     let before =
         l_in_r || matches!(positions, PositionRelation::Before) || (left_covered && !right_covered);
     let after =
         r_in_l || matches!(positions, PositionRelation::After) || (right_covered && !left_covered);
     if before && after {
         return Err(MetadataError::Conflict {
-            detail: format!("opposite ordering evidence for {:?}", left.key),
+            detail: format!("opposite ordering evidence for {:?}", key),
         }
         .into());
     }
     if before {
         if !left_covered
-            && left.stamp.vector.entries().any(|(actor, n)| {
-                matches!(actor, ClockActor::Client(_)) && n > right.stamp.vector.component(actor)
+            && left.vector.entries().any(|(actor, n)| {
+                matches!(actor, ClockActor::Client(_)) && n > right.vector.component(actor)
             })
         {
             return Err(MetadataError::Conflict {
-                detail: format!("successor of {:?} loses client context", left.key),
+                detail: format!("successor of {:?} loses client context", key),
             }
             .into());
         }
         return Ok(RecordRelation::Before);
     }
     if after {
-        return compare_records(right, left, evidence).map(|r| match r {
+        return compare_contexts(key, right, left, evidence).map(|r| match r {
             RecordRelation::Before => RecordRelation::After,
             other => other,
         });
@@ -145,7 +153,7 @@ pub fn compare_records(
         VectorRelation::Before => Ok(RecordRelation::Before),
         VectorRelation::After => Ok(RecordRelation::After),
         VectorRelation::Equal => Err(MetadataError::Conflict {
-            detail: format!("different acceptances of {:?} reuse one context", left.key),
+            detail: format!("different acceptances of {:?} reuse one context", key),
         }
         .into()),
         VectorRelation::Concurrent => match positions {
