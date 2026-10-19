@@ -84,8 +84,7 @@ lib/clacks-model/src/position.rs   locators, coordinates, area/point calculation
 lib/clacks-model/src/location.rs   recorded geographic details and presence
 lib/clacks-model/src/recognition.rs          catalog loading and lookups
 lib/clacks-model/src/recognition/band.rs     band identity, interpretation and ranges
-lib/clacks-model/src/recognition/mode.rs     hierarchical Mode and preservation adapter
-lib/clacks-model/src/recognition/known.rs    complete known families/specializations
+lib/clacks-model/src/recognition/mode.rs     generic mode identity and catalog interpretation
 lib/clacks-model/src/reference.rs           ReferenceAssociation and station side
 lib/clacks-model/src/contact.rs             Qso, station/operator/context records
 lib/clacks-model/src/equipment.rs           reusable values/configurations
@@ -118,7 +117,10 @@ lib/clacks-model/tests/fixtures/recognition-old.json  deliberately reduced recog
 lib/clacks-model/tests/fixtures/recorded-values.json  preserved known/unfamiliar values
 ```
 
-Do not add build-time network requests or a code generator framework. `known.rs` contains the full typed enum/mapping implementation, checked against the complete data artifact. Mechanical enum variants not named in a test use idiomatic Rust names with an explicit canonical code mapping. No match may silently funnel recognized catalog rows into a generic placeholder.
+Do not add build-time network requests or a code generator framework. Concrete
+mode/submode/band labels and relationships live in the catalog data. D256
+supersedes the initially implemented known-family enums; no generated or
+hand-written Rust catalog duplicates the recognition tables.
 
 ## Task 1: Establish the library through tested scalar and identity values
 
@@ -216,25 +218,27 @@ retaining locator length, including coarse historical areas.
 
 ## Task 3: Deliver complete recognition and stable mode/band identity
 
-**Files:** Create `src/recognition.rs`, `src/recognition/{band,mode,known}.rs`, `data/{adif-3.1.8.json,README.md}`, `tests/recognition.rs` and the old-recognition/recorded-values fixtures; modify `src/lib.rs`.
+**Files:** Create `src/recognition.rs`, `src/recognition/{band,mode}.rs`, `data/{adif-3.1.8.json,README.md}`, `tests/recognition.rs` and the old-recognition/recorded-values fixtures; modify `src/lib.rs`.
 
 **Interfaces:**
 
 - `RecognitionCatalog::adif_318() -> &'static Self`, `from_json(&str) -> Result<Self, ValueError>`, `without_modes_and_submodes(&[&str]) -> Self` for representative old-view verification.
 - Add `ValueError::InvalidRecognitionCatalog { reason: String }` for malformed/inconsistent table data. The data schema contains `release`, complete `bands` (`code`, inclusive `lower_hz`, optional inclusive `upper_hz`), `modes` and `submodes` (`code`, `parent`, `deprecated`). Preserve deprecated labels and explicit aliases from the source, not inferred aliases.
-- `Band::{Known(KnownBand), Other(String)}`; `from_recorded_label(&str, &RecognitionCatalog) -> Result<Self, ValueError>`, `label() -> &str`, `interpret(&RecognitionCatalog) -> Option<KnownBand>` and `for_frequency(Hertz, &RecognitionCatalog) -> Option<Self>`.
-- `Mode` is the spec's partially hierarchical enum with family-specific child enums and structured `OtherMode`. Public operations: `from_recorded_identity(ModeIdentity, &RecognitionCatalog) -> Result<Self, ValueError>`, `identity() -> ModeIdentity`, `interpret(&RecognitionCatalog) -> ModeInterpretation`.
-- `ModeIdentity::{Parent { label: String }, Specialization { label: String, parent: Option<String> }}` is the ordinary Serde representation helper, not a second QSO field. `OtherMode` preserves those two fallback forms. `ModeInterpretation::{Known(KnownMode), Other(OtherMode)}` is a read result. `KnownMode::Mfsk(Option<MfskSubmode>)` and `MfskSubmode::Ft4` are exact names used by tests; every other baseline family/specialization must also be typed.
+- `Band` stores a validated label; `from_recorded_label(&str) -> Result<Self, ValueError>`, `label() -> &str`, `interpret<'a>(&self, &'a RecognitionCatalog) -> Option<&'a BandRow>` and `for_frequency(Hertz, &RecognitionCatalog) -> Option<Self>`.
+- `Mode` stores a validated `ModeIdentity`; `from_recorded_identity(ModeIdentity) -> Result<Self, ValueError>`, `identity() -> ModeIdentity`, `interpret<'a>(&self, &'a RecognitionCatalog) -> ModeInterpretation<'a>`.
+- `ModeIdentity::{Parent { label: String }, Specialization { label: String, parent: Option<String> }}` preserves the generic hierarchy. `ModeInterpretation<'a>::Known(RecognizedMode<'a>)` returns catalog metadata (`mode: &ModeRow`, `submode: Option<&SubmodeRow>`); `Other(ModeIdentity)` retains unfamiliar information. Concrete catalog values never appear as Rust variants.
 
-- [x] **Step 1:** Obtain complete 3.1.8 table facts into the data artifact, recording source/date and observed row counts. Add tests independently comparing every source row with typed lookup/encoding coverage, plus these exact preservation checks:
+- [x] **Step 1:** Obtain complete 3.1.8 table facts into the data artifact, recording source/date and observed row counts. Add tests independently comparing every source row with data-driven recognition/encoding coverage, plus these exact preservation checks:
 
 ```rust
 // older_recognition_cannot_rewrite_a_specialization
 let id = ModeIdentity::Specialization { label: "FT4".into(), parent: Some("MFSK".into()) };
 let full = RecognitionCatalog::adif_318();
 let old = full.without_modes_and_submodes(&["FT4"]);
-let a = Mode::from_recorded_identity(id.clone(), &old)?;
-let b = Mode::from_recorded_identity(id.clone(), full)?;
+let a = Mode::from_recorded_identity(id.clone())?;
+let b: Mode = serde_json::from_value(serde_json::to_value(&a)?)?;
+assert!(matches!(a.interpret(&old), ModeInterpretation::Other(_)));
+assert!(matches!(b.interpret(full), ModeInterpretation::Known(_)));
 assert_eq!(a, b);
 assert_eq!(serde_json::to_value(&a)?, serde_json::to_value(&b)?);
 assert_eq!(a.identity(), id);
@@ -246,7 +250,8 @@ assert!(Band::for_frequency(Hertz::new(1)?, full).is_none());
 Also test parent-only MFSK, unknown submode with no parent, unknown parent context, deprecated catalog labels, maximum/open-ended band ranges and every recorded range boundary. The old fixture must omit a real specialization rather than merely round-trip on one current catalog.
 
 - [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test recognition`; expect missing recognition types/lookup behavior.
-- [x] **Step 3:** Implement full typed coverage. Band ranges convert source megahertz (MHz) to integer hertz exactly; open-ended upper bounds stay open. Serialize mode/band through preserved semantic labels, not Rust variant ordinals. Deserialize into a typed known form only if serializing that form reproduces the preserved identity exactly; otherwise retain `OtherMode`/`Other` and expose richer interpretation separately. This prevents a newly recognized specialization with different supplied context from silently acquiring a new parent or spelling. Eq/Ord compare preserved identity, so ordering is consistent with equality. Canonicalization on explicit entry/import is a separate adapter operation, not a deserialization side effect. Standard Serde helpers suffice; do not build a second serialization protocol.
+- [x] **Step 3:** Implement full catalog-driven recognition. Band ranges convert source megahertz (MHz) to integer hertz exactly; open-ended upper bounds stay open. Serialize recorded generic mode identities and band labels with ordinary Serde conversion, validating nonblank labels without consulting recognition. Interpret catalog rows separately and preserve unfamiliar values and any supplied parent context. Equality/ordering use only recorded identity. Add a catalog-only mode family, submode and band in tests and verify they become recognizable without changing code. This incorporates the D256 correction to the original type-encoded implementation.
+
 - [x] **Step 4:** Run recognition, positions and values tests; inspect the baseline/source parity report and confirm there is no placeholder coverage. Tests must run offline from committed data; builds never fetch catalogs.
 - [x] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
 
@@ -278,13 +283,13 @@ context through ordinary serialization.
 
 ```rust
 // a_present_receive_pair_is_a_whole_override
-let primary = BandFrequency::new(Some(Hertz::new(14_074_000)?), Some(Band::Known(KnownBand::Meters20)), RecognitionCatalog::adif_318())?;
-let receive = BandFrequency::new(None, Some(Band::Known(KnownBand::Meters20)), RecognitionCatalog::adif_318())?;
+let primary = BandFrequency::new(Some(Hertz::new(14_074_000)?), Some(Band::from_recorded_label("20m")?), RecognitionCatalog::adif_318())?;
+let receive = BandFrequency::new(None, Some(Band::from_recorded_label("20m")?), RecognitionCatalog::adif_318())?;
 assert_eq!(primary.effective_receive(None), &primary);
 assert!(primary.effective_receive(Some(&receive)).frequency().is_none());
 ```
 
-Use `KnownBand::Meters20` as the exact Rust name for `20m`. Test that tag/reference reordering and duplicate insertion do not change a contact, while a different tag or comment does; same facts with another QsoId are distinct contacts. Test operator-name-only information without inventing an operator call. Serialize a valid contact and verify no start/end precision fields appear.
+Use the recorded `20m` label and supplied catalog data. Test that tag/reference reordering and duplicate insertion do not change a contact, while a different tag or comment does; same facts with another QsoId are distinct contacts. Test operator-name-only information without inventing an operator call. Serialize a valid contact and verify no start/end precision fields appear.
 
 - [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test contacts`; expect missing record/value operations.
 - [x] **Step 3:** Implement the interfaces and fixtures. Sets are `BTreeSet`; equipment descriptions/antenna/notes are optional preserved text. Empty operator/location aggregates normalize to absence through explicit normalization methods, not automatic provider filling; validation rejects noncanonical empty aggregates before saving. An empty receive override normalizes to absence as well. Frequency edits calculate band if possible; band edits clear frequency. Native record equality never reads current recognition or catalog state. Do not add persistence, import patches, a public QsoDraft/QsoParts hierarchy or revision fields. Saving adapters later call validation; in-memory test values can exercise invalid combinations without creating saved records.

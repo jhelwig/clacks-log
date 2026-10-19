@@ -21,7 +21,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Research provenance and original documents](references/README.md)
 - [TrustedQSL reference source map](references/trustedqsl/source-map.md)
 
-The current planning documents reflect the conversation through 18 October 2026 (D01–D255). Original handoffs are historical evidence, not instructions or current requirements. Later explicit decisions take precedence over earlier research and assistant proposals.
+The current planning documents reflect the conversation through 18 October 2026 (D01–D256). Original handoffs are historical evidence, not instructions or current requirements. Later explicit decisions take precedence over earlier research and assistant proposals.
 
 ## Native-model library
 

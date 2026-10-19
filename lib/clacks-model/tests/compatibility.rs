@@ -16,7 +16,7 @@ fn unrelated_edit_survives_old_recognition_round_trip() -> TestResult {
     });
     for identity in identities {
         let mut q = support::qso(QsoId::from_u128(1));
-        q.mode = Mode::from_recorded_identity(identity.clone(), RecognitionCatalog::adif_318())?;
+        q.mode = Mode::from_recorded_identity(identity.clone())?;
         let mut json = serde_json::to_value(&q)?;
         json["primary"]["band"] = fixture["bands"][0].clone();
         let after: serde_json::Value = serde_json::from_str(&support::legacy_view_round_trip(

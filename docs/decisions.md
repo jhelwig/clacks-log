@@ -1,6 +1,6 @@
 # Decision register
 
-This register records explicit decisions from the planning conversation through 18 October 2026 (D01–D255). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
+This register records explicit decisions from the planning conversation through 18 October 2026 (D01–D256). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
 
 ## Accepted decisions
 
@@ -728,11 +728,11 @@ ADIF interoperability does not require a one-to-one mapping between ADIF fields 
 
 #### D177
 
-Select a single native Mode value represented by a partially hierarchical Rust enum, with typed known-family specializations and a structured OtherMode fallback. Known parent-only values remain representable without inventing a specialization. OtherMode distinguishes unfamiliar mode-only information from unfamiliar submode information with optional supplied parent context; preserve those values under D175. Avoid a both-absent fallback and validate nonempty labels; canonicalize recognized forms at the boundary under D174/D176. The documented variants are illustrative, not a complete catalog or selected storage/wire encoding. D216 supplies the ordinary Serde-based implementation direction; exact schema/equality details must satisfy D178.
+Initially selected a single native Mode value represented by a partially hierarchical Rust enum, with typed known-family specializations and a structured OtherMode fallback. **D256 supersedes the type-encoded catalog:** retain the generic hierarchy and unfamiliar labels, but recognize concrete families/submodes from data. Known parent-only values remain representable without inventing a specialization. OtherMode distinguishes unfamiliar mode-only information from unfamiliar submode information with optional supplied parent context; preserve those values under D175. Avoid a both-absent fallback and validate nonempty labels; canonicalize recognized forms at the boundary under D174/D176. The documented variants are illustrative, not a complete catalog or selected storage/wire encoding. D216 supplies the ordinary Serde-based implementation direction; exact schema/equality details must satisfy D178.
 
 #### D178
 
-Differences in mode recognition between clients or application versions affect interpretation only. Preserve the underlying mode value and supplied context across synchronization, unrelated edits, and upgrades. Recognition-table changes alone do not create contact edits or sync conflicts. A client may interpret the same value through a typed known variant or OtherMode without changing its identity; do not serialize a changed interpretation over an untouched underlying value. D216 treats stable representation and comparison as ordinary schema work using standard serialization tooling. This does not select indefinite compatibility for every future application schema or protocol.
+Differences in mode recognition between clients or application versions affect interpretation only. Preserve the underlying mode value and supplied context across synchronization, unrelated edits, and upgrades. Recognition-table changes alone do not create contact edits or sync conflicts. A client may recognize the value from its supplied catalog or preserve it as unfamiliar without changing its identity; do not serialize a changed interpretation over an untouched underlying value. D216 treats stable representation and comparison as ordinary schema work using standard serialization tooling. This does not select indefinite compatibility for every future application schema or protocol.
 
 #### D179
 
@@ -1057,6 +1057,12 @@ Seed default group definitions into each new account as ordinary account-owned s
 #### D255
 
 Export context consists of an output profile and an optional target group, separate from the selected contact set. Group definitions distinguish ordinary interchange mappings from mappings for exports targeting that group. Ordinary ADIF without a target uses ordinary interchange mappings, including supported reference lists, and emits one entry per QSO without activating program-specific expansion. Emit CONTEST_ID when a QSO has exactly one distinct applicable contest identifier. If it has several, identify the ambiguity during export preparation and allow selecting a contest context or proceeding with those ambiguous CONTEST_ID fields omitted and reported; contacts belonging to different single contests do not create ambiguity with each other. For ordinary ADIF targeting a contest, that contest determines CONTEST_ID and other contest associations do not compete. A program-compatible profile uses its selected group's submission mappings, validation, partitioning and expansion. Conflicting assignments within a selected definition are configuration errors reported before writing output. Do not silently choose a contest, add participation, rewrite native associations or change the selected contact set. This replaces the unaccepted generic per-binding omit_with_warning proposal with context selection and explicit handling of representation limits. It refines D212/D254 without changing D210/D211 local-state and output-publication safeguards.
+
+### Decision D256
+
+#### D256
+
+Mode, submode and band recognition must be data-driven. Keep the parent-only versus specialization-with-optional-parent structure and recorded labels independent of recognition. Concrete families, specialization names, deprecation and band definitions/ranges belong to catalog data, not Rust enum variants or generated code mappings. Adding valid catalog rows must extend recognition without a source-code change. Preserve the existing recorded values, serialization, equality and ordering when catalogs differ or change. Interpretation may expose catalog metadata without rewriting recorded context. This supersedes D177's type-encoded known-family representation while retaining D174–D176/D178 preservation and interchange-boundary behavior.
 
 ## Intentions with details still open
 

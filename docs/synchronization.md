@@ -218,7 +218,7 @@ These are acceptance scenarios for future design and implementation, not claims 
 
 ## Mode interpretation across client versions (D178)
 
-Clients preserve the same underlying mode value and supplied context despite different recognition tables. A typed known variant on one client and OtherMode on another are interpretations of that value, not competing edits. Preserve it through unrelated contact edits and upgrades. Recognition updates alone must not advance contact revisions or create conflicts. Use ordinary Serde serialization/deserialization under D216, with stable representation and equality handled as routine schema implementation rather than a bespoke architecture. D178 does not select general perpetual compatibility for all future schemas/protocols.
+Clients preserve the same underlying mode value and supplied context despite different recognition tables. Recognition from one client's catalog and an unfamiliar interpretation on another are views of that value, not competing edits (D256). Concrete labels and relationships are data rather than compiled Rust variants. Preserve it through unrelated contact edits and upgrades. Recognition updates alone must not advance contact revisions or create conflicts. Use ordinary Serde serialization/deserialization under D216, with stable representation and equality handled as routine schema implementation rather than a bespoke architecture. D178 does not select general perpetual compatibility for all future schemas/protocols.
 
 ## Incompatible client versions (D179)
 

@@ -10,12 +10,12 @@ fn band_and_frequency_authority_does_not_feed_back() -> TestResult {
     assert!(BandFrequency::new(None, None, c).is_err());
     let mut p = BandFrequency::new(
         Some(Hertz::new(14_074_000)?),
-        Some(Band::Known(KnownBand::Meters40)),
+        Some(Band::from_recorded_label("40m").unwrap()),
         c,
     )?;
     assert_eq!(p.band().unwrap().label(), "20m");
     assert_eq!(p.frequency().unwrap().get(), 14_074_000);
-    p.set_band(Band::Known(KnownBand::Meters40));
+    p.set_band(Band::from_recorded_label("40m").unwrap());
     assert!(p.frequency().is_none());
     p.set_frequency(Hertz::new(7_074_000)?, c);
     assert_eq!(p.band().unwrap().label(), "40m");
@@ -30,7 +30,7 @@ fn band_and_frequency_authority_does_not_feed_back() -> TestResult {
 fn a_present_receive_pair_is_a_whole_override() -> TestResult {
     let c = RecognitionCatalog::adif_318();
     let primary = BandFrequency::new(Some(Hertz::new(14_074_000)?), None, c)?;
-    let receive = BandFrequency::new(None, Some(Band::Known(KnownBand::Meters20)), c)?;
+    let receive = BandFrequency::new(None, Some(Band::from_recorded_label("20m").unwrap()), c)?;
     assert_eq!(primary.effective_receive(None), &primary);
     assert!(
         primary
@@ -85,13 +85,10 @@ fn whole_record_equality_uses_sets_and_preserved_values() -> TestResult {
     b = a.clone();
     b.id = QsoId::from_u128(2);
     assert!(!a.same_recorded_values(&b));
-    a.mode = Mode::from_recorded_identity(
-        ModeIdentity::Specialization {
-            label: "Future".into(),
-            parent: None,
-        },
-        RecognitionCatalog::adif_318(),
-    )?;
+    a.mode = Mode::from_recorded_identity(ModeIdentity::Specialization {
+        label: "Future".into(),
+        parent: None,
+    })?;
     b = a.clone();
     b.comment = Some("unrelated".into());
     assert_eq!(

@@ -3,14 +3,12 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, sync::OnceLock};
 
 mod band;
-mod known;
 mod mode;
 
 pub use band::*;
-pub use known::*;
 pub use mode::*;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecognitionCatalog {
     pub release: String,
     pub bands: Vec<BandRow>,
@@ -18,20 +16,20 @@ pub struct RecognitionCatalog {
     pub submodes: Vec<SubmodeRow>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BandRow {
     pub code: String,
     pub lower_hz: u64,
     pub upper_hz: Option<u64>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeRow {
     pub code: String,
     pub deprecated: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubmodeRow {
     pub code: String,
     pub parent: String,

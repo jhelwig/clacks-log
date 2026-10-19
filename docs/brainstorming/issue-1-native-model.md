@@ -29,7 +29,7 @@ Interchange Format is ADIF. Parks on the Air is POTA.
   meaning, imported coordinate authority, corrections and whole-location fallback.
 - [Mode and band recognition](../superpowers/specs/2026-10-18-native-model-design.md#7-bandfrequency-and-mode-interpretation):
   complete ADIF 3.1.8 catalogs, deprecated mode labels for historical data,
-  hierarchical Mode with structured OtherMode and text-preserving band fallback.
+  generic mode hierarchy and preserved labels, with data-driven mode/submode/band interpretation (D256).
   Recognition alone does not change recorded values or synchronization equality.
 - [References and groups](../superpowers/specs/2026-10-18-native-model-design.md#8-participationreference-associations):
   own/contacted unordered sets, each association group ID plus optional identifier.

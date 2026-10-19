@@ -9,3 +9,8 @@ The Mode table lists additional phase-shift keying (PSK) specializations absent 
 Counts and parity are checked by recognition tests. Builds and tests use only the committed data and never download recognition tables. Changes to these facts must cite the selected release and preserve existing recorded identities.
 
 Extracted counts: 33 bands, 91 mode labels (including import-only), 188 explicit Submode table rows plus 10 PSK specializations explicitly listed only in the Mode table: 198 specialization declarations in total.
+
+Recognition reads these rows directly. No Rust enum or generated code enumerates
+concrete modes, submodes or bands. Supplied catalogs can add labels and parent
+relationships without recompiling the recognition implementation; those changes
+never rewrite recorded values.

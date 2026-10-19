@@ -1,8 +1,8 @@
-use super::{KnownMode, RecognitionCatalog};
+use super::{ModeRow, RecognitionCatalog, SubmodeRow};
 use crate::ValueError;
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
 
+/// Recorded hierarchy and labels. Recognition never rewrites this identity.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ModeIdentity {
     Parent {
@@ -14,59 +14,26 @@ pub enum ModeIdentity {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum OtherMode {
-    Parent {
-        label: String,
-    },
-    Specialization {
-        label: String,
-        parent: Option<String>,
-    },
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "ModeIdentity", into = "ModeIdentity")]
-pub enum Mode {
-    Known(KnownMode),
-    Other(OtherMode),
+pub struct Mode(ModeIdentity);
+
+/// A borrowed interpretation from the supplied catalog, never a stored mode value.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RecognizedMode<'a> {
+    pub mode: &'a ModeRow,
+    pub submode: Option<&'a SubmodeRow>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ModeInterpretation {
-    Known(KnownMode),
-    Other(OtherMode),
-}
-
-impl OtherMode {
-    fn from_identity(id: ModeIdentity) -> Self {
-        match id {
-            ModeIdentity::Parent { label } => Self::Parent { label },
-            ModeIdentity::Specialization { label, parent } => {
-                Self::Specialization { label, parent }
-            }
-        }
-    }
-
-    fn identity(&self) -> ModeIdentity {
-        match self {
-            Self::Parent { label } => ModeIdentity::Parent {
-                label: label.clone(),
-            },
-            Self::Specialization { label, parent } => ModeIdentity::Specialization {
-                label: label.clone(),
-                parent: parent.clone(),
-            },
-        }
-    }
+pub enum ModeInterpretation<'a> {
+    Known(RecognizedMode<'a>),
+    Other(ModeIdentity),
 }
 
 impl Mode {
-    pub fn from_recorded_identity(
-        id: ModeIdentity,
-        catalog: &RecognitionCatalog,
-    ) -> Result<Self, ValueError> {
-        let (label, parent) = match &id {
+    pub fn from_recorded_identity(identity: ModeIdentity) -> Result<Self, ValueError> {
+        let (label, parent) = match &identity {
             ModeIdentity::Parent { label } => (label, None),
             ModeIdentity::Specialization { label, parent } => (label, parent.as_ref()),
         };
@@ -75,59 +42,41 @@ impl Mode {
                 field: "mode or parent context".into(),
             });
         }
-        let other = Self::Other(OtherMode::from_identity(id.clone()));
-        if let ModeInterpretation::Known(k) = other.interpret(catalog)
-            && k.identity() == id
-        {
-            return Ok(Self::Known(k));
-        }
-        Ok(other)
+        Ok(Self(identity))
     }
 
     pub fn identity(&self) -> ModeIdentity {
-        match self {
-            Self::Known(k) => k.identity(),
-            Self::Other(o) => o.identity(),
-        }
+        self.0.clone()
     }
 
-    pub fn interpret(&self, catalog: &RecognitionCatalog) -> ModeInterpretation {
-        let id = self.identity();
-        let known = match &id {
+    pub fn interpret<'a>(&self, catalog: &'a RecognitionCatalog) -> ModeInterpretation<'a> {
+        let recognized = match &self.0 {
             ModeIdentity::Parent { label } => catalog
                 .modes
                 .iter()
-                .find(|r| r.code.eq_ignore_ascii_case(label))
-                .and_then(|r| KnownMode::from_parent(&r.code)),
+                .find(|row| row.code.eq_ignore_ascii_case(label))
+                .map(|mode| RecognizedMode {
+                    mode,
+                    submode: None,
+                }),
             ModeIdentity::Specialization { label, .. } => catalog
                 .submodes
                 .iter()
-                .find(|r| r.code.eq_ignore_ascii_case(label))
-                .and_then(|r| KnownMode::from_specialization(&r.code, &r.parent)),
+                .find(|row| row.code.eq_ignore_ascii_case(label))
+                .and_then(|submode| {
+                    catalog
+                        .modes
+                        .iter()
+                        .find(|row| row.code == submode.parent)
+                        .map(|mode| RecognizedMode {
+                            mode,
+                            submode: Some(submode),
+                        })
+                }),
         };
-        known
+        recognized
             .map(ModeInterpretation::Known)
-            .unwrap_or_else(|| ModeInterpretation::Other(OtherMode::from_identity(id)))
-    }
-}
-
-impl PartialEq for Mode {
-    fn eq(&self, other: &Self) -> bool {
-        self.identity() == other.identity()
-    }
-}
-
-impl Eq for Mode {}
-
-impl Ord for Mode {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.identity().cmp(&other.identity())
-    }
-}
-
-impl PartialOrd for Mode {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
+            .unwrap_or_else(|| ModeInterpretation::Other(self.identity()))
     }
 }
 
@@ -135,12 +84,12 @@ impl TryFrom<ModeIdentity> for Mode {
     type Error = ValueError;
 
     fn try_from(value: ModeIdentity) -> Result<Self, Self::Error> {
-        Self::from_recorded_identity(value, RecognitionCatalog::adif_318())
+        Self::from_recorded_identity(value)
     }
 }
 
 impl From<Mode> for ModeIdentity {
     fn from(value: Mode) -> Self {
-        value.identity()
+        value.0
     }
 }

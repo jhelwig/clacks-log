@@ -26,9 +26,9 @@ provider and catalog metadata. Account authorization and durability are adapter 
 
 All checks used the pinned compiler and committed dependency lockfile:
 
-- 48 integration tests passed with `cargo +1.99.1 test --workspace --all-targets --locked`.
+- 50 integration tests passed with `cargo +1.99.1 test --workspace --all-targets --locked`.
 - One compile-fail documentation test passed with `cargo +1.99.1 test --doc --workspace --locked`.
-- The same 48 tests passed offline after dependencies were acquired.
+- The same 50 tests passed offline after dependencies were acquired.
 - Formatting and Clippy (`--all-targets --locked -- -D warnings`) passed.
 - `cargo +1.99.1 check --workspace --target x86_64-pc-windows-msvc --locked` passed. This checks compilation, not a Windows runtime or installer.
 - Reviewed the dependency tree: regex 1.13.1, Serde 1.0.229, serde_json 1.0.154 and ulid 3.0.0 with their Rust/platform-randomness dependencies. No OpenSSL or application framework.
@@ -76,7 +76,7 @@ Each received a regression test that failed before the fix and passed afterward:
   excludes unrelated groups before compiling definitions, preventing an unrelated
   malformed configuration from blocking valid output.
 
-The full post-fix suite passed: 48 integration tests and one compile-fail
+The full post-fix suite passed: 50 integration tests and one compile-fail
 documentation test. Formatting, Clippy, offline verification and Windows
 cross-compilation were repeated after fixes. No second reviewer was dispatched;
 the native-execution workflow verifies the one fix pass with regression tests
@@ -100,3 +100,19 @@ the unmodified [Elastic License 2.0 text](../LICENSE), copied byte-for-byte from
 [Elastic's published text](https://raw.githubusercontent.com/elastic/elasticsearch/main/licenses/ELASTIC-LICENSE-2.0.txt).
 Cargo metadata and README identify the selected license. The contributor
 agreement remains separate lawyer-led work.
+
+## Data-driven recognition correction
+
+The user's D256 correction replaces concrete known-family/submode/band enums
+with generic recorded values and catalog-derived interpretations. Removed
+`recognition/known.rs`; no generated code or second catalog remains. The mode
+parent/specialization structure, band-label serialization, equality and ordering
+stay unchanged. Recorded-value construction no longer accepts a catalog;
+interpretation takes the desired catalog and borrows its matching rows.
+
+Two regression tests failed against the type-encoded implementation: supplied
+new mode/submode rows and supplied new band rows could not be recognized. Both
+now pass with catalog-only additions. Baseline tests inspect actual matched rows
+and metadata, and old/new recognition views preserve recorded identity/context.
+The current verification totals are 50 integration tests and one compile-fail
+documentation test.

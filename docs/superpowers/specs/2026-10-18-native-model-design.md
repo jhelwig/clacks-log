@@ -1,7 +1,7 @@
 # Native contact and shared-data model
 
 **Status: implemented under the user-authorized native-execution plan, 18 October 2026; whole-branch review and regression fixes are complete; integration remains a separate choice.** This
-consolidates the accepted issue #1 discussion and decisions through D255. It is
+consolidates the accepted issue #1 discussion and decisions through D256. It is
 the logical specification; [execution evidence](../../native-model-execution.md) records delivered library behavior and downstream boundaries.
 The behavioral requirements below are accepted. Logical field/type names and
 the engineering choices explicitly identified in section 2 are proposals for
@@ -281,11 +281,12 @@ changes alone affect interpretation, not underlying saved values or edits.
 
 ### 7.2 Mode value
 
-Use one native partially hierarchical Rust enum with typed known families and
-specializations and a structured `OtherMode` fallback (D177). It must represent:
+Use one native mode value with a generic parent/specialization structure and
+preserved labels (D256, superseding D177's concrete known-family variants).
+Recognition is a separate view over supplied catalog data. It must represent:
 
-- A known parent with no specified specialization.
-- A known specialization with its family.
+- A parent label with no specified specialization.
+- A specialization label with its supplied parent context.
 - Unfamiliar mode-only information.
 - Unfamiliar submode information with optional supplied parent context.
 
@@ -301,12 +302,19 @@ all ADIF fields. For example, supported equivalent encodings of FT4 resolve to
 the same native specialization, while an unknown submode retains its own value
 and any supplied parent context.
 
-Recognition through a known variant or `OtherMode` must not change identity.
-Keep the underlying classification/context intact on an older client and during
-unrelated edits. Ordinary Serde encoding and equality must preserve this
-contract; native enum discriminant order is not a wire identity. Do not design
-a custom serialization protocol to achieve it. Exact serialization configuration
-is implementation-plan work, with the cross-recognition tests in section 13.
+The catalog supplies concrete mode labels, parent relationships and deprecation
+metadata; no concrete family or submode is encoded as a Rust variant. Band
+labels and ranges follow the same data-driven rule. Adding catalog data must
+extend recognition without changing application source.
+
+`Mode` preserves `ModeIdentity` through ordinary Serde conversion; `Band`
+preserves its label. Construction and deserialization validate recorded values
+without consulting a recognition catalog. Interpretation borrows matched catalog
+rows, or reports the unchanged value as unfamiliar. Preserve supplied parent
+context even if the catalog identifies a different parent for that submode.
+Catalog changes affect interpretation only, never stored identity, serialization,
+equality, ordering or an unrelated contact edit. Parent/submode normalization at
+the interchange boundary remains separate under D174/D175.
 
 ## 8. Participation/reference associations
 

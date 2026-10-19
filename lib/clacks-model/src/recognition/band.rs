@@ -1,75 +1,39 @@
-use super::{KnownBand, RecognitionCatalog};
+use super::{BandRow, RecognitionCatalog};
 use crate::{Hertz, ValueError};
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// A recorded label whose identity is independent of current catalog recognition.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub enum Band {
-    Known(KnownBand),
-    Other(String),
-}
+pub struct Band(String);
 
 impl Band {
-    pub fn from_recorded_label(
-        label: &str,
-        catalog: &RecognitionCatalog,
-    ) -> Result<Self, ValueError> {
+    pub fn from_recorded_label(label: &str) -> Result<Self, ValueError> {
         if label.trim().is_empty() {
             return Err(ValueError::EmptyText {
                 field: "band".into(),
             });
         }
-        Ok(catalog
-            .bands
-            .iter()
-            .find(|r| r.code == label)
-            .and_then(|_| KnownBand::from_label(label))
-            .map(Self::Known)
-            .unwrap_or_else(|| Self::Other(label.into())))
+        Ok(Self(label.into()))
     }
 
     pub fn label(&self) -> &str {
-        match self {
-            Self::Known(b) => b.label(),
-            Self::Other(s) => s,
-        }
+        &self.0
     }
 
-    pub fn interpret(&self, catalog: &RecognitionCatalog) -> Option<KnownBand> {
+    pub fn interpret<'a>(&self, catalog: &'a RecognitionCatalog) -> Option<&'a BandRow> {
         catalog
             .bands
             .iter()
-            .find(|r| r.code.eq_ignore_ascii_case(self.label()))
-            .and_then(|r| KnownBand::from_label(&r.code))
+            .find(|row| row.code.eq_ignore_ascii_case(self.label()))
     }
 
     pub fn for_frequency(freq: Hertz, catalog: &RecognitionCatalog) -> Option<Self> {
         catalog
             .bands
             .iter()
-            .find(|r| freq.get() >= r.lower_hz && r.upper_hz.is_none_or(|u| freq.get() <= u))
-            .and_then(|r| Self::from_recorded_label(&r.code, catalog).ok())
-    }
-}
-
-impl PartialEq for Band {
-    fn eq(&self, other: &Self) -> bool {
-        self.label() == other.label()
-    }
-}
-
-impl Eq for Band {}
-
-impl Ord for Band {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.label().cmp(other.label())
-    }
-}
-
-impl PartialOrd for Band {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
+            .find(|row| freq.get() >= row.lower_hz && row.upper_hz.is_none_or(|u| freq.get() <= u))
+            .and_then(|row| Self::from_recorded_label(&row.code).ok())
     }
 }
 
@@ -77,12 +41,12 @@ impl TryFrom<String> for Band {
     type Error = ValueError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::from_recorded_label(&value, RecognitionCatalog::adif_318())
+        Self::from_recorded_label(&value)
     }
 }
 
 impl From<Band> for String {
     fn from(value: Band) -> Self {
-        value.label().into()
+        value.0
     }
 }

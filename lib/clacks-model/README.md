@@ -12,7 +12,9 @@ normalize optional aggregates with `Qso::normalize_optional_aggregates`, then
 call `Qso::validate` before saving; incomplete entry and import preparation stay
 outside saved records. `normalize_optional_aggregates` explicitly removes empty
 optional aggregates. Current recognition/metadata never participates in recorded
-value equality. Profile loading and equipment selection copy values.
+value equality. Modes/submodes and bands are recognized directly from supplied
+catalog rows; adding labels requires data changes only. Recorded-value constructors
+and deserialization do not consult recognition. Profile loading and equipment selection copy values.
 
 Group definitions are supplied account data, not a hardcoded registry. The test
 fixtures demonstrate generic mappings; they are not the production account seed.

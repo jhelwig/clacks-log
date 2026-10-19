@@ -27,7 +27,11 @@ pub fn qso(id: QsoId) -> Qso {
         )
         .unwrap(),
         receive_override: None,
-        mode: Mode::Known(KnownMode::Mfsk(Some(MfskSubmode::Ft4))),
+        mode: Mode::from_recorded_identity(ModeIdentity::Specialization {
+            label: "FT4".into(),
+            parent: Some("MFSK".into()),
+        })
+        .unwrap(),
         sent_report: None,
         received_report: None,
         comment: None,
@@ -130,7 +134,11 @@ pub fn legacy_view_round_trip(
     catalog: &RecognitionCatalog,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut q: Qso = serde_json::from_str(json)?;
-    q.mode = Mode::from_recorded_identity(q.mode.identity(), catalog)?;
+    let recorded_identity = match q.mode.interpret(catalog) {
+        ModeInterpretation::Known(_) => q.mode.identity(),
+        ModeInterpretation::Other(identity) => identity,
+    };
+    q.mode = Mode::from_recorded_identity(recorded_identity)?;
     q.comment = Some("edited by older recognition view".into());
     Ok(serde_json::to_string(&q)?)
 }

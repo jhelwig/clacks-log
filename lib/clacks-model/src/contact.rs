@@ -108,7 +108,7 @@ impl BandFrequency {
             return Err(RecordError::MissingBandAndFrequency);
         }
         if let Some(b) = &self.band {
-            Band::from_recorded_label(b.label(), RecognitionCatalog::adif_318())?;
+            Band::from_recorded_label(b.label())?;
         }
         Ok(())
     }
@@ -207,7 +207,7 @@ impl Qso {
         }
         self.own_station.validate()?;
         self.contacted_station.validate()?;
-        Mode::from_recorded_identity(self.mode.identity(), RecognitionCatalog::adif_318())?;
+        Mode::from_recorded_identity(self.mode.identity())?;
         for (name, value) in [
             ("sent report", self.sent_report.as_deref()),
             ("received report", self.received_report.as_deref()),
