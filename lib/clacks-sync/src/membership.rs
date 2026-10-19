@@ -64,3 +64,59 @@ impl MembershipSnapshot {
         Ok(())
     }
 }
+
+/// Atomic admission update guarded by the observed account head and epoch.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MembershipUpdate {
+    /// Required current synchronization head.
+    pub expected_head: Position,
+    /// Required current admission generation.
+    pub expected_generation: u64,
+    /// New membership rows.
+    pub next: MembershipSnapshot,
+    /// Account revision and admission epoch to save together.
+    pub next_account: AccountMetadata,
+}
+
+/// Close automatic admission without expiring other clients or deleting accepted data.
+///
+/// Save the returned account and membership rows in one conditional transaction.
+pub fn revoke(
+    actor: ClientActorId,
+    account: &AccountMetadata,
+    membership: &MembershipSnapshot,
+) -> anyhow::Result<MembershipUpdate> {
+    membership.validate(account)?;
+    let mut next = membership.clone();
+    let client = next
+        .clients
+        .iter_mut()
+        .find(|c| c.actor == actor)
+        .ok_or_else(|| MetadataError::Invalid {
+            detail: format!("cannot revoke unknown actor {actor}"),
+        })?;
+    if client.closed_at.is_some() {
+        return Ok(MembershipUpdate {
+            expected_head: account.head,
+            expected_generation: membership.generation,
+            next,
+            next_account: account.clone(),
+        });
+    }
+    let mut next_account = account.advance()?;
+    next_account.membership_generation =
+        membership
+            .generation
+            .checked_add(1)
+            .ok_or_else(|| MetadataError::Overflow {
+                counter: "membership generation".into(),
+            })?;
+    client.closed_at = Some(next_account.head);
+    next.generation = next_account.membership_generation;
+    Ok(MembershipUpdate {
+        expected_head: account.head,
+        expected_generation: membership.generation,
+        next,
+        next_account,
+    })
+}

@@ -24,3 +24,5 @@ pub mod acceptance;
 pub mod membership;
 
 pub mod transfer;
+
+pub mod compaction;

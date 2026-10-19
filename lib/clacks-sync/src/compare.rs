@@ -1,5 +1,7 @@
 //! Whole-record value policy and baseline-aware causal comparison.
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     account::EvidenceView,
     clock::{ClockActor, VectorRelation},
@@ -9,7 +11,7 @@ use crate::{
 };
 
 /// Three-way value attribution; use the whole record to decide whether to review.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ChangePattern {
     /// Neither side changed.
     Unchanged,
@@ -35,7 +37,7 @@ pub fn classify_changes<T: Eq>(original: &T, local: &T, shared: &T) -> ChangePat
 }
 
 /// Established ordering of two accepted versions of one record.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RecordRelation {
     /// Same logical version, including a compatible projected representation.
     SameVersion,
