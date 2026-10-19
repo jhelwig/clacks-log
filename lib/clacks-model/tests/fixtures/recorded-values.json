@@ -1,0 +1,25 @@
+{
+  "modes": [
+    {
+      "Parent": {
+        "label": "FUTURE-MODE"
+      }
+    },
+    {
+      "Specialization": {
+        "label": "FUTURE-SUB",
+        "parent": null
+      }
+    },
+    {
+      "Specialization": {
+        "label": "FT4",
+        "parent": "OTHER-CONTEXT"
+      }
+    }
+  ],
+  "bands": [
+    "future-band",
+    "20M"
+  ]
+}

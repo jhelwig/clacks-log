@@ -1,0 +1,16 @@
+# Recognition data provenance
+
+Source: [Amateur Data Interchange Format (ADIF) 3.1.8](https://www.adif.org/318/ADIF_318.htm), obtained 18 October 2026.
+
+Extracted the Band, Mode and Submode enumeration tables from that pinned HTML document. Band megahertz values were converted exactly with decimal arithmetic to whole hertz. The source supplies finite bounds for every band, including submm; the representation also supports a future open upper bound. Deprecated import-only mode labels are retained and marked.
+
+The Mode table lists additional phase-shift keying (PSK) specializations absent from the Submode table. Retain those explicit parent-list declarations too, labeled `source: mode-table-list`; do not infer aliases. The missing comma between the multiple-frequency shift keying (MFSK) labels MFSK128 and MFSK128L in the Mode table is resolved by their separate explicit Submode rows. Descriptive prose was not copied. These are factual recognition labels/relationships, not geographic reference data or reference-group seeds.
+
+Counts and parity are checked by recognition tests. Builds and tests use only the committed data and never download recognition tables. Changes to these facts must cite the selected release and preserve existing recorded identities.
+
+Extracted counts: 33 bands, 91 mode labels (including import-only), 188 explicit Submode table rows plus 10 PSK specializations explicitly listed only in the Mode table: 198 specialization declarations in total.
+
+Recognition reads these rows directly. No Rust enum or generated code enumerates
+concrete modes, submodes or bands. Supplied catalogs can add labels and parent
+relationships without recompiling the recognition implementation; those changes
+never rewrite recorded values.

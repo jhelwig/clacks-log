@@ -5,10 +5,12 @@ phases and observable milestones. It describes what becomes usable, the major
 dependencies and what establishes completion. Detailed implementation plans are
 separate work, prepared for the milestone being undertaken.
 
-**Status:** No phase is complete. The initial implementation was discarded;
-implementation remains stopped. This roadmap does not resume it.
+**Status:** No phase is complete. The [native-model library](native-model.md)
+provides values, records and pure selection/reference-planning operations.
+Synchronization, service evidence, signing and geographic data remain Phase 1
+capabilities.
 
-Reviewed and reconciled with the agreed scope on **18 October 2026**.
+Scope: accepted decisions D01–D256.
 
 Delivery is tracked through [GitHub milestones and capability issues](github-backlog.md).
 Each issue starts with brainstorming to produce a reviewed specification and
@@ -40,11 +42,13 @@ parallel preparation does not mean independent applications or deployed services
 
 ## Phase 1 — Foundations and early risks
 
+Issue #1 has a [native-model specification](superpowers/specs/2026-10-18-native-model-design.md), [implementation plan](superpowers/plans/2026-10-18-native-model.md) and [library scope](native-model.md). The remaining synchronization, service-evidence, signing and geographic milestones keep Phase 1 open.
+
 Milestones:
 
 - Establish a native model covering contact identity, timestamps, modes,
   station snapshots, reusable equipment, profiles, tags and unified activity
-  context with correct contact/own-station/counterpart scope. Recognition and
+  context with own-station/contacted-station reference sets. Recognition and
   source separation preserve recorded meaning across clients and upgrades.
 - Demonstrate the agreed synchronization semantics with an executable model:
   whole-record comparison, deletion, offline edits, timeline recovery, authorized
@@ -214,4 +218,4 @@ from these milestone descriptions is the next step.
 Deferred and uncommitted capabilities retain their status in the
 [scope index](open-questions.md#deferred-and-uncommitted-scope-boundaries).
 No calendar estimate is asserted. Milestone completion is based on observed
-capability and evidence; no discarded implementation is counted toward progress.
+capability and validation evidence.

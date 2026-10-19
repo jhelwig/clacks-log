@@ -2,13 +2,15 @@
 
 Clacks Log is a planned amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The initial implementation attempt has been discarded; implementation is stopped pending concrete planning. Rust is the intended implementation language wherever practical. PostgreSQL is selected for server persistence, embedded SQLite for client persistence (D213), and egui for the desktop interface (D215). No application implementation or migration is underway.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model library provides pure domain values and operations; applications, persistence and integrations remain downstream capabilities. Rust is the intended implementation language wherever practical. PostgreSQL is selected for server persistence, embedded SQLite for client persistence (D213), and egui for the desktop interface (D215). No desktop/server application or database migration is delivered by this library.
 
 ## Planning documents
 
 - [Planning completion and continuation handoff](docs/handoff.md)
 - [Phased MVP roadmap](docs/mvp-roadmap.md)
 - [GitHub milestones and capability issues](docs/github-backlog.md)
+- [Native-model specification](docs/superpowers/specs/2026-10-18-native-model-design.md)
+- [Native-model implementation plan and progress](docs/superpowers/plans/2026-10-18-native-model.md)
 - [Product scope and operating workflows](docs/product.md)
 - [Decision register](docs/decisions.md)
 - [Architectural review](docs/architecture-review.md)
@@ -19,7 +21,16 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Research provenance and original documents](references/README.md)
 - [TrustedQSL reference source map](references/trustedqsl/source-map.md)
 
-The current planning documents reflect the conversation through 17 October 2026 (D01–D251). Original handoffs are historical evidence, not instructions or current requirements. Later explicit decisions take precedence over earlier research and assistant proposals.
+The current planning documents reflect the conversation through 18 October 2026 (D01–D256). Original handoffs are historical evidence, not instructions or current requirements. Later explicit decisions take precedence over earlier research and assistant proposals.
+
+## Native-model library
+
+[`lib/clacks-model`](lib/clacks-model/README.md) contains recorded values, contacts,
+profiles, equipment, tags, data-driven reference definitions, effective source
+selection and in-memory reference-export planning. Rust 1.99.1 is pinned.
+Run `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings`
+from this checkout. See the [native-model library overview](docs/native-model.md)
+for scope, validation commands and downstream boundaries.
 
 ## Project direction
 
@@ -33,4 +44,4 @@ LoTW integration will use a source-guided Rust port of relevant tqsllib behavior
 
 ## License status
 
-Clacks Log selects Elastic License 2.0 for its own application code (D221), without a free/community-hosting exception. Individual personal self-hosting remains allowed under the selected license; hosting for others is reserved whether paid or free. Included third-party reference code, dependencies and assets retain their applicable upstream licenses and notices.
+Clacks Log licenses its own application code under [Elastic License 2.0](LICENSE) (D221), without a free/community-hosting exception. Individual personal self-hosting remains allowed under the selected license; hosting for others is reserved whether paid or free. Included third-party reference code, dependencies and assets retain their applicable upstream licenses and notices.

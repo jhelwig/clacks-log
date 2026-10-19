@@ -1,0 +1,1533 @@
+{
+  "release": "3.1.8",
+  "bands": [
+    {
+      "code": "2190m",
+      "lower_hz": 135700,
+      "upper_hz": 137800
+    },
+    {
+      "code": "630m",
+      "lower_hz": 472000,
+      "upper_hz": 479000
+    },
+    {
+      "code": "560m",
+      "lower_hz": 501000,
+      "upper_hz": 504000
+    },
+    {
+      "code": "160m",
+      "lower_hz": 1800000,
+      "upper_hz": 2000000
+    },
+    {
+      "code": "80m",
+      "lower_hz": 3500000,
+      "upper_hz": 4000000
+    },
+    {
+      "code": "60m",
+      "lower_hz": 5060000,
+      "upper_hz": 5450000
+    },
+    {
+      "code": "40m",
+      "lower_hz": 7000000,
+      "upper_hz": 7300000
+    },
+    {
+      "code": "30m",
+      "lower_hz": 10100000,
+      "upper_hz": 10150000
+    },
+    {
+      "code": "20m",
+      "lower_hz": 14000000,
+      "upper_hz": 14350000
+    },
+    {
+      "code": "17m",
+      "lower_hz": 18068000,
+      "upper_hz": 18168000
+    },
+    {
+      "code": "15m",
+      "lower_hz": 21000000,
+      "upper_hz": 21450000
+    },
+    {
+      "code": "12m",
+      "lower_hz": 24890000,
+      "upper_hz": 24990000
+    },
+    {
+      "code": "10m",
+      "lower_hz": 28000000,
+      "upper_hz": 29700000
+    },
+    {
+      "code": "8m",
+      "lower_hz": 40000000,
+      "upper_hz": 45000000
+    },
+    {
+      "code": "6m",
+      "lower_hz": 50000000,
+      "upper_hz": 54000000
+    },
+    {
+      "code": "5m",
+      "lower_hz": 54000001,
+      "upper_hz": 69900000
+    },
+    {
+      "code": "4m",
+      "lower_hz": 70000000,
+      "upper_hz": 71000000
+    },
+    {
+      "code": "2m",
+      "lower_hz": 144000000,
+      "upper_hz": 148000000
+    },
+    {
+      "code": "1.25m",
+      "lower_hz": 222000000,
+      "upper_hz": 225000000
+    },
+    {
+      "code": "70cm",
+      "lower_hz": 420000000,
+      "upper_hz": 450000000
+    },
+    {
+      "code": "33cm",
+      "lower_hz": 902000000,
+      "upper_hz": 928000000
+    },
+    {
+      "code": "23cm",
+      "lower_hz": 1240000000,
+      "upper_hz": 1300000000
+    },
+    {
+      "code": "13cm",
+      "lower_hz": 2300000000,
+      "upper_hz": 2450000000
+    },
+    {
+      "code": "9cm",
+      "lower_hz": 3300000000,
+      "upper_hz": 3500000000
+    },
+    {
+      "code": "6cm",
+      "lower_hz": 5650000000,
+      "upper_hz": 5925000000
+    },
+    {
+      "code": "3cm",
+      "lower_hz": 10000000000,
+      "upper_hz": 10500000000
+    },
+    {
+      "code": "1.25cm",
+      "lower_hz": 24000000000,
+      "upper_hz": 24250000000
+    },
+    {
+      "code": "6mm",
+      "lower_hz": 47000000000,
+      "upper_hz": 47200000000
+    },
+    {
+      "code": "4mm",
+      "lower_hz": 75500000000,
+      "upper_hz": 81000000000
+    },
+    {
+      "code": "2.5mm",
+      "lower_hz": 119980000000,
+      "upper_hz": 123000000000
+    },
+    {
+      "code": "2mm",
+      "lower_hz": 134000000000,
+      "upper_hz": 149000000000
+    },
+    {
+      "code": "1mm",
+      "lower_hz": 241000000000,
+      "upper_hz": 250000000000
+    },
+    {
+      "code": "submm",
+      "lower_hz": 300000000000,
+      "upper_hz": 7500000000000
+    }
+  ],
+  "modes": [
+    {
+      "code": "AM",
+      "deprecated": false
+    },
+    {
+      "code": "ARDOP",
+      "deprecated": false
+    },
+    {
+      "code": "ATV",
+      "deprecated": false
+    },
+    {
+      "code": "CHIP",
+      "deprecated": false
+    },
+    {
+      "code": "CLO",
+      "deprecated": false
+    },
+    {
+      "code": "CONTESTI",
+      "deprecated": false
+    },
+    {
+      "code": "CW",
+      "deprecated": false
+    },
+    {
+      "code": "DIGITALVOICE",
+      "deprecated": false
+    },
+    {
+      "code": "DOMINO",
+      "deprecated": false
+    },
+    {
+      "code": "DYNAMIC",
+      "deprecated": false
+    },
+    {
+      "code": "FAX",
+      "deprecated": false
+    },
+    {
+      "code": "FM",
+      "deprecated": false
+    },
+    {
+      "code": "FSK441",
+      "deprecated": false
+    },
+    {
+      "code": "FSK",
+      "deprecated": false
+    },
+    {
+      "code": "FT8",
+      "deprecated": false
+    },
+    {
+      "code": "HELL",
+      "deprecated": false
+    },
+    {
+      "code": "ISCAT",
+      "deprecated": false
+    },
+    {
+      "code": "JT4",
+      "deprecated": false
+    },
+    {
+      "code": "JT6M",
+      "deprecated": false
+    },
+    {
+      "code": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT44",
+      "deprecated": false
+    },
+    {
+      "code": "JT65",
+      "deprecated": false
+    },
+    {
+      "code": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "MSK144",
+      "deprecated": false
+    },
+    {
+      "code": "MTONE",
+      "deprecated": false
+    },
+    {
+      "code": "MT63",
+      "deprecated": false
+    },
+    {
+      "code": "OFDM",
+      "deprecated": false
+    },
+    {
+      "code": "OLIVIA",
+      "deprecated": false
+    },
+    {
+      "code": "OPERA",
+      "deprecated": false
+    },
+    {
+      "code": "PAC",
+      "deprecated": false
+    },
+    {
+      "code": "PAX",
+      "deprecated": false
+    },
+    {
+      "code": "PKT",
+      "deprecated": false
+    },
+    {
+      "code": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK2K",
+      "deprecated": false
+    },
+    {
+      "code": "Q15",
+      "deprecated": false
+    },
+    {
+      "code": "QRA64",
+      "deprecated": false
+    },
+    {
+      "code": "ROS",
+      "deprecated": false
+    },
+    {
+      "code": "RTTY",
+      "deprecated": false
+    },
+    {
+      "code": "RTTYM",
+      "deprecated": false
+    },
+    {
+      "code": "SSB",
+      "deprecated": false
+    },
+    {
+      "code": "SSTV",
+      "deprecated": false
+    },
+    {
+      "code": "T10",
+      "deprecated": false
+    },
+    {
+      "code": "THOR",
+      "deprecated": false
+    },
+    {
+      "code": "THRB",
+      "deprecated": false
+    },
+    {
+      "code": "TOR",
+      "deprecated": false
+    },
+    {
+      "code": "V4",
+      "deprecated": false
+    },
+    {
+      "code": "VOI",
+      "deprecated": false
+    },
+    {
+      "code": "WINMOR",
+      "deprecated": false
+    },
+    {
+      "code": "WSPR",
+      "deprecated": false
+    },
+    {
+      "code": "AMTORFEC",
+      "deprecated": true
+    },
+    {
+      "code": "ASCI",
+      "deprecated": true
+    },
+    {
+      "code": "C4FM",
+      "deprecated": true
+    },
+    {
+      "code": "CHIP64",
+      "deprecated": true
+    },
+    {
+      "code": "CHIP128",
+      "deprecated": true
+    },
+    {
+      "code": "DOMINOF",
+      "deprecated": true
+    },
+    {
+      "code": "DSTAR",
+      "deprecated": true
+    },
+    {
+      "code": "FMHELL",
+      "deprecated": true
+    },
+    {
+      "code": "FSK31",
+      "deprecated": true
+    },
+    {
+      "code": "GTOR",
+      "deprecated": true
+    },
+    {
+      "code": "HELL80",
+      "deprecated": true
+    },
+    {
+      "code": "HFSK",
+      "deprecated": true
+    },
+    {
+      "code": "JT4A",
+      "deprecated": true
+    },
+    {
+      "code": "JT4B",
+      "deprecated": true
+    },
+    {
+      "code": "JT4C",
+      "deprecated": true
+    },
+    {
+      "code": "JT4D",
+      "deprecated": true
+    },
+    {
+      "code": "JT4E",
+      "deprecated": true
+    },
+    {
+      "code": "JT4F",
+      "deprecated": true
+    },
+    {
+      "code": "JT4G",
+      "deprecated": true
+    },
+    {
+      "code": "JT65A",
+      "deprecated": true
+    },
+    {
+      "code": "JT65B",
+      "deprecated": true
+    },
+    {
+      "code": "JT65C",
+      "deprecated": true
+    },
+    {
+      "code": "MFSK8",
+      "deprecated": true
+    },
+    {
+      "code": "MFSK16",
+      "deprecated": true
+    },
+    {
+      "code": "PAC2",
+      "deprecated": true
+    },
+    {
+      "code": "PAC3",
+      "deprecated": true
+    },
+    {
+      "code": "PAX2",
+      "deprecated": true
+    },
+    {
+      "code": "PCW",
+      "deprecated": true
+    },
+    {
+      "code": "PSK10",
+      "deprecated": true
+    },
+    {
+      "code": "PSK31",
+      "deprecated": true
+    },
+    {
+      "code": "PSK63",
+      "deprecated": true
+    },
+    {
+      "code": "PSK63F",
+      "deprecated": true
+    },
+    {
+      "code": "PSK125",
+      "deprecated": true
+    },
+    {
+      "code": "PSKAM10",
+      "deprecated": true
+    },
+    {
+      "code": "PSKAM31",
+      "deprecated": true
+    },
+    {
+      "code": "PSKAM50",
+      "deprecated": true
+    },
+    {
+      "code": "PSKFEC31",
+      "deprecated": true
+    },
+    {
+      "code": "PSKHELL",
+      "deprecated": true
+    },
+    {
+      "code": "QPSK31",
+      "deprecated": true
+    },
+    {
+      "code": "QPSK63",
+      "deprecated": true
+    },
+    {
+      "code": "QPSK125",
+      "deprecated": true
+    },
+    {
+      "code": "THRBX",
+      "deprecated": true
+    }
+  ],
+  "submodes": [
+    {
+      "code": "8PSK125",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "8PSK125F",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "8PSK125FL",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "8PSK250",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "8PSK250F",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "8PSK250FL",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "8PSK500",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "8PSK500F",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "8PSK1000",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "8PSK1000F",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "8PSK1200F",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "AMTORFEC",
+      "parent": "TOR",
+      "deprecated": false
+    },
+    {
+      "code": "ASCI",
+      "parent": "RTTY",
+      "deprecated": false
+    },
+    {
+      "code": "C4FM",
+      "parent": "DIGITALVOICE",
+      "deprecated": false
+    },
+    {
+      "code": "CHIP64",
+      "parent": "CHIP",
+      "deprecated": false
+    },
+    {
+      "code": "CHIP128",
+      "parent": "CHIP",
+      "deprecated": false
+    },
+    {
+      "code": "DMR",
+      "parent": "DIGITALVOICE",
+      "deprecated": false
+    },
+    {
+      "code": "DOM-M",
+      "parent": "DOMINO",
+      "deprecated": false
+    },
+    {
+      "code": "DOM4",
+      "parent": "DOMINO",
+      "deprecated": false
+    },
+    {
+      "code": "DOM5",
+      "parent": "DOMINO",
+      "deprecated": false
+    },
+    {
+      "code": "DOM8",
+      "parent": "DOMINO",
+      "deprecated": false
+    },
+    {
+      "code": "DOM11",
+      "parent": "DOMINO",
+      "deprecated": false
+    },
+    {
+      "code": "DOM16",
+      "parent": "DOMINO",
+      "deprecated": false
+    },
+    {
+      "code": "DOM22",
+      "parent": "DOMINO",
+      "deprecated": false
+    },
+    {
+      "code": "DOM44",
+      "parent": "DOMINO",
+      "deprecated": false
+    },
+    {
+      "code": "DOM88",
+      "parent": "DOMINO",
+      "deprecated": false
+    },
+    {
+      "code": "DOMINOEX",
+      "parent": "DOMINO",
+      "deprecated": false
+    },
+    {
+      "code": "DOMINOF",
+      "parent": "DOMINO",
+      "deprecated": false
+    },
+    {
+      "code": "DSTAR",
+      "parent": "DIGITALVOICE",
+      "deprecated": false
+    },
+    {
+      "code": "FMHELL",
+      "parent": "HELL",
+      "deprecated": false
+    },
+    {
+      "code": "FREEDATA",
+      "parent": "DYNAMIC",
+      "deprecated": false
+    },
+    {
+      "code": "FREEDV",
+      "parent": "DIGITALVOICE",
+      "deprecated": false
+    },
+    {
+      "code": "FSK31",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "FSKH105",
+      "parent": "HELL",
+      "deprecated": false
+    },
+    {
+      "code": "FSKH245",
+      "parent": "HELL",
+      "deprecated": false
+    },
+    {
+      "code": "FSKHELL",
+      "parent": "HELL",
+      "deprecated": false
+    },
+    {
+      "code": "FSQCALL",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "FST4",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "FST4W",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "FT2",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "GTOR",
+      "parent": "TOR",
+      "deprecated": false
+    },
+    {
+      "code": "HELL80",
+      "parent": "HELL",
+      "deprecated": false
+    },
+    {
+      "code": "HELLX5",
+      "parent": "HELL",
+      "deprecated": false
+    },
+    {
+      "code": "HELLX9",
+      "parent": "HELL",
+      "deprecated": false
+    },
+    {
+      "code": "HFSK",
+      "parent": "HELL",
+      "deprecated": false
+    },
+    {
+      "code": "ISCAT-A",
+      "parent": "ISCAT",
+      "deprecated": false
+    },
+    {
+      "code": "ISCAT-B",
+      "parent": "ISCAT",
+      "deprecated": false
+    },
+    {
+      "code": "JS8",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "JT4A",
+      "parent": "JT4",
+      "deprecated": false
+    },
+    {
+      "code": "JT4B",
+      "parent": "JT4",
+      "deprecated": false
+    },
+    {
+      "code": "JT4C",
+      "parent": "JT4",
+      "deprecated": false
+    },
+    {
+      "code": "JT4D",
+      "parent": "JT4",
+      "deprecated": false
+    },
+    {
+      "code": "JT4E",
+      "parent": "JT4",
+      "deprecated": false
+    },
+    {
+      "code": "JT4F",
+      "parent": "JT4",
+      "deprecated": false
+    },
+    {
+      "code": "JT4G",
+      "parent": "JT4",
+      "deprecated": false
+    },
+    {
+      "code": "JT9-1",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9-2",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9-5",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9-10",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9-30",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9A",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9B",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9C",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9D",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9E",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9E FAST",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9F",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9F FAST",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9G",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9G FAST",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9H",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT9H FAST",
+      "parent": "JT9",
+      "deprecated": false
+    },
+    {
+      "code": "JT65A",
+      "parent": "JT65",
+      "deprecated": false
+    },
+    {
+      "code": "JT65B",
+      "parent": "JT65",
+      "deprecated": false
+    },
+    {
+      "code": "JT65B2",
+      "parent": "JT65",
+      "deprecated": false
+    },
+    {
+      "code": "JT65C",
+      "parent": "JT65",
+      "deprecated": false
+    },
+    {
+      "code": "JT65C2",
+      "parent": "JT65",
+      "deprecated": false
+    },
+    {
+      "code": "JTMS",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "JTTY",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "LSB",
+      "parent": "SSB",
+      "deprecated": false
+    },
+    {
+      "code": "M17",
+      "parent": "DIGITALVOICE",
+      "deprecated": false
+    },
+    {
+      "code": "MFSK4",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "MFSK8",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "MFSK11",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "MFSK16",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "MFSK22",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "MFSK31",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "MFSK32",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "MFSK64",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "MFSK64L",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "MFSK128",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "MFSK128L",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "NAVTEX",
+      "parent": "TOR",
+      "deprecated": false
+    },
+    {
+      "code": "OLIVIA 4/125",
+      "parent": "OLIVIA",
+      "deprecated": false
+    },
+    {
+      "code": "OLIVIA 4/250",
+      "parent": "OLIVIA",
+      "deprecated": false
+    },
+    {
+      "code": "OLIVIA 8/250",
+      "parent": "OLIVIA",
+      "deprecated": false
+    },
+    {
+      "code": "OLIVIA 8/500",
+      "parent": "OLIVIA",
+      "deprecated": false
+    },
+    {
+      "code": "OLIVIA 16/500",
+      "parent": "OLIVIA",
+      "deprecated": false
+    },
+    {
+      "code": "OLIVIA 16/1000",
+      "parent": "OLIVIA",
+      "deprecated": false
+    },
+    {
+      "code": "OLIVIA 32/1000",
+      "parent": "OLIVIA",
+      "deprecated": false
+    },
+    {
+      "code": "OPERA-BEACON",
+      "parent": "OPERA",
+      "deprecated": false
+    },
+    {
+      "code": "OPERA-QSO",
+      "parent": "OPERA",
+      "deprecated": false
+    },
+    {
+      "code": "PAC2",
+      "parent": "PAC",
+      "deprecated": false
+    },
+    {
+      "code": "PAC3",
+      "parent": "PAC",
+      "deprecated": false
+    },
+    {
+      "code": "PAC4",
+      "parent": "PAC",
+      "deprecated": false
+    },
+    {
+      "code": "PAX2",
+      "parent": "PAX",
+      "deprecated": false
+    },
+    {
+      "code": "PCW",
+      "parent": "CW",
+      "deprecated": false
+    },
+    {
+      "code": "PSK10",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK31",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK63",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK63F",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK63RC10",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK63RC20",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK63RC32",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK63RC4",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK63RC5",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK125",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK125RC10",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK125RC12",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK125RC16",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK125RC4",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK125RC5",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK250",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK250RC2",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK250RC3",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK250RC5",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK250RC6",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK250RC7",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK500",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK500RC2",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK500RC3",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK500RC4",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK800RC2",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK1000",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSK1000RC2",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSKAM10",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSKAM31",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSKAM50",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSKFEC31",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "PSKHELL",
+      "parent": "HELL",
+      "deprecated": false
+    },
+    {
+      "code": "QPSK31",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "Q65",
+      "parent": "MFSK",
+      "deprecated": false
+    },
+    {
+      "code": "QPSK63",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "QPSK125",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "QPSK250",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "QPSK500",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "QRA64A",
+      "parent": "QRA64",
+      "deprecated": false
+    },
+    {
+      "code": "QRA64B",
+      "parent": "QRA64",
+      "deprecated": false
+    },
+    {
+      "code": "QRA64C",
+      "parent": "QRA64",
+      "deprecated": false
+    },
+    {
+      "code": "QRA64D",
+      "parent": "QRA64",
+      "deprecated": false
+    },
+    {
+      "code": "QRA64E",
+      "parent": "QRA64",
+      "deprecated": false
+    },
+    {
+      "code": "RIBBIT_PIX",
+      "parent": "OFDM",
+      "deprecated": false
+    },
+    {
+      "code": "RIBBIT_SMS",
+      "parent": "OFDM",
+      "deprecated": false
+    },
+    {
+      "code": "ROS-EME",
+      "parent": "ROS",
+      "deprecated": false
+    },
+    {
+      "code": "ROS-HF",
+      "parent": "ROS",
+      "deprecated": false
+    },
+    {
+      "code": "ROS-MF",
+      "parent": "ROS",
+      "deprecated": false
+    },
+    {
+      "code": "SCAMP_FAST",
+      "parent": "FSK",
+      "deprecated": false
+    },
+    {
+      "code": "SCAMP_OO",
+      "parent": "MTONE",
+      "deprecated": false
+    },
+    {
+      "code": "SCAMP_OO_SLW",
+      "parent": "MTONE",
+      "deprecated": false
+    },
+    {
+      "code": "SCAMP_SLOW",
+      "parent": "FSK",
+      "deprecated": false
+    },
+    {
+      "code": "SCAMP_VSLOW",
+      "parent": "FSK",
+      "deprecated": false
+    },
+    {
+      "code": "SIM31",
+      "parent": "PSK",
+      "deprecated": false
+    },
+    {
+      "code": "SITORB",
+      "parent": "TOR",
+      "deprecated": false
+    },
+    {
+      "code": "SLOWHELL",
+      "parent": "HELL",
+      "deprecated": false
+    },
+    {
+      "code": "THOR-M",
+      "parent": "THOR",
+      "deprecated": false
+    },
+    {
+      "code": "THOR4",
+      "parent": "THOR",
+      "deprecated": false
+    },
+    {
+      "code": "THOR5",
+      "parent": "THOR",
+      "deprecated": false
+    },
+    {
+      "code": "THOR8",
+      "parent": "THOR",
+      "deprecated": false
+    },
+    {
+      "code": "THOR11",
+      "parent": "THOR",
+      "deprecated": false
+    },
+    {
+      "code": "THOR16",
+      "parent": "THOR",
+      "deprecated": false
+    },
+    {
+      "code": "THOR22",
+      "parent": "THOR",
+      "deprecated": false
+    },
+    {
+      "code": "THOR25X4",
+      "parent": "THOR",
+      "deprecated": false
+    },
+    {
+      "code": "THOR50X1",
+      "parent": "THOR",
+      "deprecated": false
+    },
+    {
+      "code": "THOR50X2",
+      "parent": "THOR",
+      "deprecated": false
+    },
+    {
+      "code": "THOR100",
+      "parent": "THOR",
+      "deprecated": false
+    },
+    {
+      "code": "THRBX",
+      "parent": "THRB",
+      "deprecated": false
+    },
+    {
+      "code": "THRBX1",
+      "parent": "THRB",
+      "deprecated": false
+    },
+    {
+      "code": "THRBX2",
+      "parent": "THRB",
+      "deprecated": false
+    },
+    {
+      "code": "THRBX4",
+      "parent": "THRB",
+      "deprecated": false
+    },
+    {
+      "code": "THROB1",
+      "parent": "THRB",
+      "deprecated": false
+    },
+    {
+      "code": "THROB2",
+      "parent": "THRB",
+      "deprecated": false
+    },
+    {
+      "code": "THROB4",
+      "parent": "THRB",
+      "deprecated": false
+    },
+    {
+      "code": "USB",
+      "parent": "SSB",
+      "deprecated": false
+    },
+    {
+      "code": "VARA HF",
+      "parent": "DYNAMIC",
+      "deprecated": false
+    },
+    {
+      "code": "VARA SATELLITE",
+      "parent": "DYNAMIC",
+      "deprecated": false
+    },
+    {
+      "code": "VARA FM 1200",
+      "parent": "DYNAMIC",
+      "deprecated": false
+    },
+    {
+      "code": "VARA FM 9600",
+      "parent": "DYNAMIC",
+      "deprecated": false
+    },
+    {
+      "code": "PSK125C12",
+      "parent": "PSK",
+      "deprecated": false,
+      "source": "mode-table-list"
+    },
+    {
+      "code": "PSK125R",
+      "parent": "PSK",
+      "deprecated": false,
+      "source": "mode-table-list"
+    },
+    {
+      "code": "PSK250C6",
+      "parent": "PSK",
+      "deprecated": false,
+      "source": "mode-table-list"
+    },
+    {
+      "code": "PSK250R",
+      "parent": "PSK",
+      "deprecated": false,
+      "source": "mode-table-list"
+    },
+    {
+      "code": "PSK500C2",
+      "parent": "PSK",
+      "deprecated": false,
+      "source": "mode-table-list"
+    },
+    {
+      "code": "PSK500C4",
+      "parent": "PSK",
+      "deprecated": false,
+      "source": "mode-table-list"
+    },
+    {
+      "code": "PSK500R",
+      "parent": "PSK",
+      "deprecated": false,
+      "source": "mode-table-list"
+    },
+    {
+      "code": "PSK800C2",
+      "parent": "PSK",
+      "deprecated": false,
+      "source": "mode-table-list"
+    },
+    {
+      "code": "PSK1000C2",
+      "parent": "PSK",
+      "deprecated": false,
+      "source": "mode-table-list"
+    },
+    {
+      "code": "PSK1000R",
+      "parent": "PSK",
+      "deprecated": false,
+      "source": "mode-table-list"
+    }
+  ]
+}

@@ -73,3 +73,14 @@ The [projected dependency compatibility review](licensing.md#projected-dependenc
 ## Geographic reference data
 
 [Dataset comparison and selected combination](location-lookup.md), checked 17 October 2026, records D239 selecting Census US state/county geometry, HA8TKS CQ/ITU zone boundaries and Natural Earth world subunits/minor islands with a Clacks-authored DXCC correspondence/exception layer. It compares provenance, redistribution, accuracy and maintenance against geoBoundaries, OpenStreetMap, GADM, GridTracker and callsign-oriented references. The [candidate audit](geographic-data-audit.json) retains inspected source pins, digests, geometry defects and sample results. Source selection is accepted; this is not a completed shipping dataset; DXCC mapping and reviewed geometry corrections remain delivery work. No application implementation occurred.
+
+## Native-model reference and exchange research
+
+The [contest exchange survey](contest-exchanges.md) uses organizer rules to
+identify exchange data beyond ordinary contact fields. The
+[logger-behavior survey](contest-logger-data.md) distinguishes serial operating
+assistance, saved exchanges and participation/reference identity. They informed
+the accepted separation of exchanges from the simple native reference
+association; dedicated contest exchanges remain post-MVP. They do not prescribe
+native fields or expand scope. The [native-model specification](../docs/superpowers/specs/2026-10-18-native-model-design.md)
+consolidates accepted behavior and clearly labeled schema proposals for review.

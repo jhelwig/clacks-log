@@ -23,7 +23,7 @@ Accepted shared state uses timeline/revision references with shared lineage meta
 
 ### Synchronization scope (D248)
 
-Use one synchronization scope per account. Account-owned QSOs, including their tag sets, tag definitions/lifecycle and synchronized shared configuration use the same account timeline, ancestry, client checkpoints and D155 collection boundary. D156 requires durable local installation before acknowledgment. Each authorized enrolled client participates in that account's retention boundary; an indefinitely offline client remains eligible and may hold collection back until it catches up or is revoked. D161 still requires full-account replication to every enrolled client in MVP; selective synchronization remains post-MVP.
+Use one synchronization scope per account. Account-owned QSOs, including their tag sets, tag definitions/lifecycle, reference-group definitions seeded into the account under D254, and synchronized shared configuration use the same account timeline, ancestry, client checkpoints and D155 collection boundary. D156 requires durable local installation before acknowledgment. Each authorized enrolled client participates in that account's retention boundary; an indefinitely offline client remains eligible and may hold collection back until it catches up or is revoked. D161 still requires full-account replication to every enrolled client in MVP; selective synchronization remains post-MVP.
 
 A QSO's identity and scope do not change when its tags change. Current display selection affects views/default tagging, not synchronization participation. Account isolation, server-only credential restrictions and client-local operating defaults remain unchanged. Account scopes are independent; their revision numbers are not directly comparable.
 
@@ -218,7 +218,7 @@ These are acceptance scenarios for future design and implementation, not claims 
 
 ## Mode interpretation across client versions (D178)
 
-Clients preserve the same underlying mode value and supplied context despite different recognition tables. A typed known variant on one client and OtherMode on another are interpretations of that value, not competing edits. Preserve it through unrelated contact edits and upgrades. Recognition updates alone must not advance contact revisions or create conflicts. Use ordinary Serde serialization/deserialization under D216, with stable representation and equality handled as routine schema implementation rather than a bespoke architecture. D178 does not select general perpetual compatibility for all future schemas/protocols.
+Clients preserve the same underlying mode value and supplied context despite different recognition tables. Recognition from one client's catalog and an unfamiliar interpretation on another are views of that value, not competing edits (D256). Concrete labels and relationships are data rather than compiled Rust variants. Preserve it through unrelated contact edits and upgrades. Recognition updates alone must not advance contact revisions or create conflicts. Use ordinary Serde serialization/deserialization under D216, with stable representation and equality handled as routine schema implementation rather than a bespoke architecture. D178 does not select general perpetual compatibility for all future schemas/protocols.
 
 ## Incompatible client versions (D179)
 
