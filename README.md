@@ -8,7 +8,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 
 - [Planning completion and continuation handoff](docs/handoff.md)
 - [Phased MVP roadmap](docs/mvp-roadmap.md)
-- [GitHub milestones and capability issues](docs/github-backlog.md)
+- [GitHub issues](https://github.com/jhelwig/clacks-log/issues) and [milestones](https://github.com/jhelwig/clacks-log/milestones)
 - [Native-model specification](docs/superpowers/specs/2026-10-18-native-model-design.md)
 - [Native-model implementation plan and progress](docs/superpowers/plans/2026-10-18-native-model.md)
 - [Product scope and operating workflows](docs/product.md)

@@ -478,7 +478,7 @@ rows for explicit resolution.
 
 ## Task 9: Composition verification, public API audit and handoff
 
-**Files:** Create `tests/scenarios.rs`, `lib/clacks-sync/README.md`, `docs/synchronization-core.md`; update `docs/handoff.md`, `docs/github-backlog.md`, `docs/mvp-roadmap.md`, and the design's status/implementation links to match actual delivery. Existing native-model scope remains accurate.
+**Files:** Create `tests/scenarios.rs`, `lib/clacks-sync/README.md`, `docs/synchronization-core.md`; update `docs/handoff.md`, `docs/mvp-roadmap.md`, and the design's status/implementation links to match actual delivery. Existing native-model scope remains accurate.
 
 **Consumes:** All prior task APIs. Adds no simulation engine or replacement algorithms.
 

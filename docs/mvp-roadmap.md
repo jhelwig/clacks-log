@@ -13,7 +13,7 @@ evidence, signing and geographic data remain Phase 1 capabilities.
 
 Scope: accepted decisions D01–D256.
 
-Delivery is tracked through [GitHub milestones and capability issues](github-backlog.md).
+Delivery is tracked through [GitHub issues](https://github.com/jhelwig/clacks-log/issues) and [milestones](https://github.com/jhelwig/clacks-log/milestones).
 Each issue starts with brainstorming to produce a reviewed specification and
 implementation plan before coding. Creating the backlog does not mark any phase
 complete or authorize implementation directly from issue descriptions.

@@ -529,7 +529,7 @@ belong to the later interchange capability.
 
 ## Task 11: Verify the cross-component contract and hand off evidence
 
-**Files:** Create `tests/compatibility.rs`; modify `tests/support/mod.rs`, the data README, the spec/status notes, `docs/handoff.md`, `docs/github-backlog.md` and `README.md` only as needed to report actual results.
+**Files:** Create `tests/compatibility.rs`; modify `tests/support/mod.rs`, the data README, the spec/status notes, `docs/handoff.md` and `README.md` only as needed to report actual results.
 
 **Interfaces:** Consume the public interfaces above without adding new behavior. Test-only `legacy_view_round_trip(&str, &RecognitionCatalog) -> Result<String, Box<dyn std::error::Error>>` uses the old-recognition fixture and the same preserved mode/band identities; it must not simply parse every value using the current recognition catalog. No public schema version or actor protocol is invented.
 
