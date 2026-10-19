@@ -99,47 +99,10 @@ pub fn normalize_reference(
     association: &ReferenceAssociation,
     definition: Option<&GroupDefinition>,
 ) -> Result<ReferenceAssociation, DefinitionError> {
-    let Some(d) = definition else {
-        return Ok(association.clone());
-    };
-    if d.id != association.group_id {
-        return Err(DefinitionError::InvalidDefinition {
-            group_id: d.id,
-            path: "identifier".into(),
-            reason: "definition ID does not match association".into(),
-        });
+    match definition {
+        Some(d) => compile_definition(d)?.normalize_reference(association),
+        None => Ok(association.clone()),
     }
-    let mut value = association.identifier.clone();
-    for operation in &d.identifier.normalization {
-        value = value.map(|v| match operation {
-            TextNormalization::Trim => v.trim().into(),
-            TextNormalization::Uppercase => v.to_uppercase(),
-            TextNormalization::Lowercase => v.to_lowercase(),
-        });
-    }
-    value = value.filter(|v| !v.trim().is_empty());
-    if d.identifier.required && value.is_none() {
-        return Err(DefinitionError::MissingIdentifier { group_id: d.id });
-    }
-    if let Some(pattern) = &d.identifier.syntax {
-        let re = full_regex(pattern).map_err(|e| DefinitionError::InvalidDefinition {
-            group_id: d.id,
-            path: "identifier.syntax".into(),
-            reason: e.to_string(),
-        })?;
-        if let Some(v) = &value
-            && !re.is_match(v)
-        {
-            return Err(DefinitionError::InvalidIdentifier {
-                group_id: d.id,
-                value: v.clone(),
-            });
-        }
-    }
-    Ok(ReferenceAssociation {
-        group_id: d.id,
-        identifier: value,
-    })
 }
 
 pub fn interpret_reference<'a>(

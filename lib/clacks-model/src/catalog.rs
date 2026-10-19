@@ -67,10 +67,36 @@ pub fn lookup_reference(
             catalog_id: binding.dataset_id,
         };
     };
-    let key = match catalog_key(&binding.lookup_key, association.identifier.as_deref()) {
-        Ok(Some(key)) => key,
-        Ok(None) => return CatalogFinding::NoLookupKey,
-        Err(reason) => return CatalogFinding::InvalidBinding { reason },
+    let definition = definitions
+        .get(association.group_id)
+        .expect("binding came from definition");
+    let compiled = match compile_definition(definition) {
+        Ok(c) => c,
+        Err(e) => {
+            return CatalogFinding::InvalidBinding {
+                reason: e.to_string(),
+            };
+        }
+    };
+    let bindings = BTreeMap::new();
+    let context = ExpressionContext {
+        qso: None,
+        current_identifier: association.identifier.as_deref(),
+        bindings: &bindings,
+    };
+    let key = match compiled.evaluate(&binding.lookup_key, &context) {
+        Ok(ExpressionValue::Scalar(key)) => key,
+        Ok(ExpressionValue::Absent) => return CatalogFinding::NoLookupKey,
+        Ok(ExpressionValue::Collection(_)) => {
+            return CatalogFinding::InvalidBinding {
+                reason: "catalog key must be scalar".into(),
+            };
+        }
+        Err(e) => {
+            return CatalogFinding::InvalidBinding {
+                reason: e.to_string(),
+            };
+        }
     };
     match catalog.entries.get(&key) {
         Some(entry) => CatalogFinding::Found {
@@ -78,27 +104,5 @@ pub fn lookup_reference(
             entry: entry.clone(),
         },
         None => CatalogFinding::NotListed { key },
-    }
-}
-
-fn catalog_key(expr: &ValueExpression, identifier: Option<&str>) -> Result<Option<String>, String> {
-    match expr {
-        ValueExpression::Literal(v) => Ok(Some(v.clone())),
-        ValueExpression::CurrentIdentifier => Ok(identifier.map(str::to_owned)),
-        ValueExpression::Capture {
-            value,
-            pattern,
-            name,
-        } => {
-            let re = crate::group::full_regex(pattern).map_err(|e| e.to_string())?;
-            if !re.capture_names().flatten().any(|n| n == name) {
-                return Err(format!("missing capture {name}"));
-            }
-            Ok(catalog_key(value, identifier)?.and_then(|v| {
-                re.captures(&v)
-                    .and_then(|c| c.name(name).map(|m| m.as_str().to_owned()))
-            }))
-        }
-        _ => Err("catalog keys require an association-local scalar expression".into()),
     }
 }
