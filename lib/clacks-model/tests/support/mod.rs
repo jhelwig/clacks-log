@@ -91,3 +91,36 @@ pub fn catalog_case() -> (
         id,
     )
 }
+
+pub fn profiles() -> ProfileSet {
+    [
+        (
+            OutputProfileId::from_u128(1),
+            OutputProfile {
+                id: OutputProfileId::from_u128(1),
+                name: "ordinary".into(),
+                purpose: OutputPurpose::OrdinaryInterchange,
+                contextual_fields: ["CONTEST_ID".into()].into(),
+            },
+        ),
+        (
+            OutputProfileId::from_u128(2),
+            OutputProfile {
+                id: OutputProfileId::from_u128(2),
+                name: "submission fixture".into(),
+                purpose: OutputPurpose::Targeted,
+                contextual_fields: BTreeSet::new(),
+            },
+        ),
+    ]
+    .into()
+}
+
+pub fn contest_definitions() -> DefinitionSet {
+    let defs = definitions();
+    let mut b = defs.get(GroupId::from_u128(2)).unwrap().clone();
+    b.id = GroupId::from_u128(3);
+    b.name = "Other contest".into();
+    b.export_mappings.ordinary_interchange[0].value = ValueExpression::Literal("CONTEST-B".into());
+    DefinitionSet::new(defs.iter().cloned().chain([b]).collect()).unwrap()
+}
