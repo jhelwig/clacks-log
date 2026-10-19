@@ -89,7 +89,7 @@ See [accounts and enrollment](accounts.md). Remaining work includes:
 The [consolidated native-model specification](superpowers/specs/2026-10-18-native-model-design.md) collects accepted native behavior and explicitly labeled engineering
 proposals. At the user's request, the [implementation plan](superpowers/plans/2026-10-18-native-model.md)
 has now been implemented on the native-model branch. See the [execution evidence](native-model-execution.md)
-for verification and remaining integration boundaries; whole-branch review precedes integration.
+for verification and remaining integration boundaries; whole-branch review and regression fixes are complete; integration remains a separate choice.
 Catalog provenance has no separate local version scheme. Optional catalog
 support does not select acquisition/update/distribution workflows. Export
 context selection is accepted under D255. Import-side assignment of an ADIF

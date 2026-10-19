@@ -4,7 +4,7 @@ Checkpoint: 18 October 2026. The user authorized native execution of the
 [issue #1 implementation plan](superpowers/plans/2026-10-18-native-model.md),
 against the [native-model specification](superpowers/specs/2026-10-18-native-model-design.md).
 Work is on branch `native-model` in an isolated Git worktree. The original main
-checkout is unchanged. Independent whole-branch review precedes integration;
+checkout is unchanged. An independent whole-branch review and the resulting regression fixes are complete; integration remains a separate choice;
 this checkpoint does not close the GitHub capability issue or complete a roadmap phase.
 
 ## Delivered boundary
@@ -26,9 +26,9 @@ provider and catalog metadata. Account authorization and durability are adapter 
 
 All checks used the pinned compiler and committed dependency lockfile:
 
-- 45 integration tests passed with `cargo +1.99.1 test --workspace --all-targets --locked`.
+- 48 integration tests passed with `cargo +1.99.1 test --workspace --all-targets --locked`.
 - One compile-fail documentation test passed with `cargo +1.99.1 test --doc --workspace --locked`.
-- The same 45 tests passed offline after dependencies were acquired.
+- The same 48 tests passed offline after dependencies were acquired.
 - Formatting and Clippy (`--all-targets --locked -- -D warnings`) passed.
 - `cargo +1.99.1 check --workspace --target x86_64-pc-windows-msvc --locked` passed. This checks compilation, not a Windows runtime or installer.
 - Reviewed the dependency tree: regex 1.13.1, Serde 1.0.229, serde_json 1.0.154 and ulid 3.0.0 with their Rust/platform-randomness dependencies. No OpenSSL or application framework.
@@ -60,7 +60,41 @@ missing implementations and then passed them and the workspace suite.
   of silently dropping contacts. Cost if wrong: deliberate zero-entry mappings
   would need a separate explicit contract.
 
-## Review status
+## Independent review and fixes
 
-Independent whole-branch review pending. Any important fixes and their regression
-checks will be recorded here before integration.
+A fresh reviewer inspected the entire branch at `9ad572b` and reproduced three
+Important findings using a temporary harness without changing the checkout.
+Each received a regression test that failed before the fix and passed afterward:
+
+- `empty_aggregates_require_normalization_before_saving`: validation now rejects
+  noncanonical empty location/operator structures until explicit normalization.
+  Cost of this boundary choice: saving adapters must normalize before validation;
+  validation does not mutate input or replace ordinary whole-record equality.
+- `empty_receive_override_normalizes_to_primary_fallback`: normalization now
+  removes an empty receive pair so receive inherits the primary pair.
+- `unrelated_invalid_group_does_not_block_targeted_export`: targeted output now
+  excludes unrelated groups before compiling definitions, preventing an unrelated
+  malformed configuration from blocking valid output.
+
+The full post-fix suite passed: 48 integration tests and one compile-fail
+documentation test. Formatting, Clippy, offline verification and Windows
+cross-compilation were repeated after fixes. No second reviewer was dispatched;
+the native-execution workflow verifies the one fix pass with regression tests
+and the complete suite.
+
+The review left these planned component boundaries in place:
+
+| Boundary | Why it remains downstream / practical limit |
+| --- | --- |
+| Provider eligibility, portable-call keys, request arbitration, cancellation and late results | Selectors consume eligible observations; service adapters must establish eligibility. |
+| Durability, account authorization, causal reconciliation, deletion transactions and reference resolution | Pure records/classifications provide no durable or account-isolation guarantees on their own. |
+| Geographic datasets and applying refreshed/manual corrections | Geometry/position guards exist; actual geographic autofill is not delivered. |
+| Import parsing, omitted-versus-cleared fields, historical assignment and canonicalization warnings | Native values are not import instructions; no file importer is delivered. |
+| Complete output mappings, effective provider fields, qualified submission validation, activation-location partitions and capture readiness | Generic reference mechanics do not certify program submission acceptance. |
+| Consistent export reads, decision-gated publication, destination replacement and cancellation | A storage-backed file workflow is still needed before exposing real export. |
+| Production group seeding and catalog acquisition/refresh | Application provisioning must supply the data through these interfaces. |
+| Entry workflows, persistent current defaults, Windows runtime and large-log performance | Application readiness and scale are not certified by model tests or cross-compilation. |
+
+Deferred Minor: add the unmodified selected Elastic License 2.0 text before
+source distribution. Cargo metadata and README declare the selected license;
+this packaging task is separate from the lawyer-led contributor agreement.

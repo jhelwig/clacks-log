@@ -5,8 +5,7 @@ The issue #1 design discussion has been consolidated into the
 dated 18 October 2026. The user then requested the
 [implementation plan](../superpowers/plans/2026-10-18-native-model.md), now
 executed with [verification evidence](../native-model-execution.md). This file
-remains an index, not a parallel specification. Independent whole-branch review
-precedes integration.
+remains an index, not a parallel specification. Independent whole-branch review and regression fixes are complete; integration remains a separate choice.
 
 A radio contact is a QSO. Minimum viable product is MVP. Amateur Data
 Interchange Format is ADIF. Parks on the Air is POTA.

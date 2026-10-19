@@ -1,6 +1,6 @@
 # Native contact and shared-data model
 
-**Status: implemented under the user-authorized native-execution plan, 18 October 2026; whole-branch review precedes integration.** This
+**Status: implemented under the user-authorized native-execution plan, 18 October 2026; whole-branch review and regression fixes are complete; integration remains a separate choice.** This
 consolidates the accepted issue #1 discussion and decisions through D255. It is
 the logical specification; [execution evidence](../../native-model-execution.md) records delivered library behavior and downstream boundaries.
 The behavioral requirements below are accepted. Logical field/type names and

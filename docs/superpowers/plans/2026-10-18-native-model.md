@@ -12,7 +12,7 @@ Terms: radio contact (QSO); minimum viable product (MVP); Amateur Data Interchan
 
 **Spec:** [Native contact and shared-data model](../specs/2026-10-18-native-model-design.md). The user subsequently authorized native execution of this plan. The four engineering choices in spec section 2 are the basis of this plan and remain visible in that section.
 
-**Status:** Native execution authorized and tasks implemented on 18 October 2026. Checked steps record execution; independent whole-branch review precedes integration. See [execution evidence](../../native-model-execution.md) for actual verification results.
+**Status:** Native execution authorized and tasks implemented on 18 October 2026. Checked steps record execution; independent whole-branch review and its regression fixes are complete. See [execution evidence](../../native-model-execution.md) for actual verification results.
 
 ## Global Constraints
 
@@ -112,6 +112,7 @@ lib/clacks-model/tests/export_rules.rs
 lib/clacks-model/tests/export_context.rs
 lib/clacks-model/tests/reference_export.rs
 lib/clacks-model/tests/compatibility.rs
+lib/clacks-model/tests/regressions.rs       independent-review regression cases
 lib/clacks-model/tests/fixtures/definitions.json  illustrative supplied group/profile data
 lib/clacks-model/tests/fixtures/recognition-old.json  deliberately reduced recognition view
 lib/clacks-model/tests/fixtures/recorded-values.json  preserved known/unfamiliar values
@@ -286,7 +287,7 @@ assert!(primary.effective_receive(Some(&receive)).frequency().is_none());
 Use `KnownBand::Meters20` as the exact Rust name for `20m`. Test that tag/reference reordering and duplicate insertion do not change a contact, while a different tag or comment does; same facts with another QsoId are distinct contacts. Test operator-name-only information without inventing an operator call. Serialize a valid contact and verify no start/end precision fields appear.
 
 - [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test contacts`; expect missing record/value operations.
-- [x] **Step 3:** Implement the interfaces and fixtures. Sets are `BTreeSet`; equipment descriptions/antenna/notes are optional preserved text. Empty operator/location aggregates normalize to absence through explicit normalization methods, not automatic provider filling. Frequency edits calculate band if possible; band edits clear frequency. Native record equality never reads current recognition or catalog state. Do not add persistence, import patches, a public QsoDraft/QsoParts hierarchy or revision fields. Saving adapters later call validation; in-memory test values can exercise invalid combinations without creating saved records.
+- [x] **Step 3:** Implement the interfaces and fixtures. Sets are `BTreeSet`; equipment descriptions/antenna/notes are optional preserved text. Empty operator/location aggregates normalize to absence through explicit normalization methods, not automatic provider filling; validation rejects noncanonical empty aggregates before saving. An empty receive override normalizes to absence as well. Frequency edits calculate band if possible; band edits clear frequency. Native record equality never reads current recognition or catalog state. Do not add persistence, import patches, a public QsoDraft/QsoParts hierarchy or revision fields. Saving adapters later call validation; in-memory test values can exercise invalid combinations without creating saved records.
 - [x] **Step 4:** Run contacts and prior test binaries. Verify changing an unrelated comment leaves serialized unknown mode/band identities untouched.
 - [x] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
 

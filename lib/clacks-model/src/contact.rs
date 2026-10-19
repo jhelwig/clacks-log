@@ -9,6 +9,9 @@ pub enum RecordError {
         start: UtcSecond,
         end: UtcSecond,
     },
+    EmptyOptionalAggregate {
+        field: String,
+    },
     InvalidOptionalText {
         field: String,
     },
@@ -31,6 +34,10 @@ impl fmt::Display for RecordError {
                 "end {} precedes start {}",
                 end.unix_seconds(),
                 start.unix_seconds()
+            ),
+            Self::EmptyOptionalAggregate { field } => write!(
+                f,
+                "empty {field} must be normalized to absence before saving"
             ),
             Self::InvalidOptionalText { field } => {
                 write!(f, "blank optional {field} must be absent")
@@ -164,6 +171,11 @@ pub(crate) fn validate_optional_text(value: Option<&str>, field: &str) -> Result
 impl StationSnapshot {
     pub fn validate(&self) -> Result<(), RecordError> {
         if let Some(l) = &self.location {
+            if !l.has_values() {
+                return Err(RecordError::EmptyOptionalAggregate {
+                    field: "location".into(),
+                });
+            }
             for (name, text) in [
                 ("dxcc", &l.dxcc),
                 ("primary subdivision", &l.primary_subdivision),
@@ -207,6 +219,11 @@ impl Qso {
             .into_iter()
             .flatten()
         {
+            if operator.callsign.is_none() && operator.recorded_name.is_none() {
+                return Err(RecordError::EmptyOptionalAggregate {
+                    field: "operator information".into(),
+                });
+            }
             validate_optional_text(operator.recorded_name.as_deref(), "operator name")?;
         }
         if let Some(e) = &self.own_context.equipment {
@@ -220,6 +237,13 @@ impl Qso {
     }
 
     pub fn normalize_optional_aggregates(&mut self) {
+        if self
+            .receive_override
+            .as_ref()
+            .is_some_and(|r| r.frequency.is_none() && r.band.is_none())
+        {
+            self.receive_override = None;
+        }
         for station in [&mut self.own_station, &mut self.contacted_station] {
             station.location = station
                 .location

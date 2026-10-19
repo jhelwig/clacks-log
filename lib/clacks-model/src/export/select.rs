@@ -173,6 +173,9 @@ pub fn select_mappings(
         bindings: &bindings,
     };
     for group_id in group_ids {
+        if profile.purpose == OutputPurpose::Targeted && Some(group_id) != context.target_group_id {
+            continue;
+        }
         let Some(definition) = definitions.get(group_id) else {
             selection.warnings.push(ExportWarning::UnsupportedGroup {
                 qso_id: qso.id,
@@ -186,20 +189,15 @@ pub fn select_mappings(
                 fields: definition.export_mappings.ordinary_interchange.clone(),
                 ..Default::default()
             },
-            OutputPurpose::Targeted => {
-                if Some(group_id) != context.target_group_id {
-                    continue;
-                }
-                definition
-                    .export_mappings
-                    .targeted
-                    .get(&profile.id)
-                    .cloned()
-                    .ok_or_else(|| ExportError::NotReady {
-                        qso_id: qso.id,
-                        reason: "target has no mapping for output profile".into(),
-                    })?
-            }
+            OutputPurpose::Targeted => definition
+                .export_mappings
+                .targeted
+                .get(&profile.id)
+                .cloned()
+                .ok_or_else(|| ExportError::NotReady {
+                    qso_id: qso.id,
+                    reason: "target has no mapping for output profile".into(),
+                })?,
         };
         if context.target_group_id.is_some() && context.target_group_id != Some(group_id) {
             plan.fields

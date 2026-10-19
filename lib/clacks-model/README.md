@@ -8,6 +8,7 @@ reference-export planner. It has no database, network, desktop or server runtime
 
 Use the public re-exports from `clacks_model`. Constrained scalar values validate
 through constructors and ordinary Serde decoding. Records are ordinary structs:
+normalize optional aggregates with `Qso::normalize_optional_aggregates`, then
 call `Qso::validate` before saving; incomplete entry and import preparation stay
 outside saved records. `normalize_optional_aggregates` explicitly removes empty
 optional aggregates. Current recognition/metadata never participates in recorded
