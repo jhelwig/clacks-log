@@ -54,7 +54,7 @@ No due dates, estimates or assignees have been imposed.
 [GitHub milestone](https://github.com/jhelwig/clacks-log/milestone/1)
 
 - [#1 — Establish the native contact and shared-data model](https://github.com/jhelwig/clacks-log/issues/1) — [specification](superpowers/specs/2026-10-18-native-model-design.md), [implementation plan](superpowers/plans/2026-10-18-native-model.md) and [library scope](native-model.md). Live issue status and integration are tracked in GitHub.
-- [#2 — Demonstrate the synchronization and recovery model](https://github.com/jhelwig/clacks-log/issues/2) — [proposed metadata and transitions](superpowers/specs/2026-10-18-synchronization-metadata-proposal.md), pending review.
+- [#2 — Demonstrate the synchronization and recovery model](https://github.com/jhelwig/clacks-log/issues/2) — [metadata and transitions](superpowers/specs/2026-10-18-synchronization-metadata-proposal.md) and [implementation plan](superpowers/plans/2026-10-19-synchronization-core.md), awaiting plan review and execution selection.
 - [#3 — Establish service history and external-record association behavior](https://github.com/jhelwig/clacks-log/issues/3)
 - [#4 — Validate pure-Rust LoTW certificate and signing compatibility](https://github.com/jhelwig/clacks-log/issues/4)
 - [#5 — Validate representative geographic data and redistribution](https://github.com/jhelwig/clacks-log/issues/5)

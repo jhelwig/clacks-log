@@ -1,6 +1,8 @@
 # Synchronization metadata and transitions
 
-**Status: proposed engineering design for [issue #2](https://github.com/jhelwig/clacks-log/issues/2), for review.**
+**Status: engineering design for [issue #2](https://github.com/jhelwig/clacks-log/issues/2), used for implementation planning at the user's request on 19 October 2026.**
+The [implementation plan](../plans/2026-10-19-synchronization-core.md) awaits review
+and execution-method selection.
 This document specifies production synchronization components. It is not an
 implementation plan, an implemented protocol, or a proof supplied by a research
 paper. Later persistence and transport work integrates and extends these
@@ -704,5 +706,6 @@ meaningful tests and transaction contracts:
 The worked cases show the intended transitions. In particular, baseline
 projection is the application-specific part requiring careful implementation and
 validation; published vector algorithms do not prove it merely because the
-metadata contains a map of counters. Review this proposal before preparing the
-implementation plan or writing product code.
+metadata contains a map of counters. The [implementation plan](../plans/2026-10-19-synchronization-core.md) specifies
+concrete interfaces and verification tasks. Review that plan before writing
+product code.

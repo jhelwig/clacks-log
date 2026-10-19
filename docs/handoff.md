@@ -1,6 +1,6 @@
 # Clacks Log planning completion handoff
 
-Checkpoint: **18 October 2026**. Project owner: Jacob Helwig (`jhelwig`). Repository: https://github.com/jhelwig/clacks-log . Working name: **Clacks Log**.
+Checkpoint: **19 October 2026**. Project owner: Jacob Helwig (`jhelwig`). Repository: https://github.com/jhelwig/clacks-log . Working name: **Clacks Log**.
 
 **Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). No known unresolved product or architecture decision blocks that scope.** The repository records decisions D01–D256 and supporting research. The account-owned radio contact (QSO)/tag model, account-wide synchronization scope and external-record association rules are integrated into the product and architecture documents (D243–D251). The [native-model library](native-model.md) supplies the pure domain operations; applications, persistence and integrations remain downstream. Upstream reference C++ files are research material, not Clacks implementation.
 
@@ -25,12 +25,12 @@ runtime or evidence-only demonstration does not satisfy implementation scope.
 Later integration adds persistence, transport, workflows or coverage to the same
 components without treating the earlier implementation as throwaway work.
 
-Issue #2 has a [proposed metadata and transition design](superpowers/specs/2026-10-18-synchronization-metadata-proposal.md)
-for review. It carries the settled synchronization requirements forward and
-specifies explicit record vectors, account coverage, timeline boundaries,
-retirement and baseline transitions with worked failure/recovery examples.
-Its engineering choices remain proposals; no issue #2 implementation plan or
-product code has been authorized by the document itself.
+Issue #2 has a [metadata and transition design](superpowers/specs/2026-10-18-synchronization-metadata-proposal.md)
+and a [concrete implementation plan](superpowers/plans/2026-10-19-synchronization-core.md)
+prepared at the user's request. The plan specifies the production `clacks-sync`
+library, native-record integration, exact interfaces, task dependencies and
+failure/recovery verification. Review the plan and choose its execution method
+before implementation. No issue #2 product code has been written.
 
 ## Read first
 
