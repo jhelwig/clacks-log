@@ -310,10 +310,9 @@ fn review_reason(
     }
     if let (OriginalBasis::Accepted(original), Observation::Accepted(current)) =
         (&pending.original, shared)
+        && let RecordRelation::Unknown(reason) = compare_records(original, current, evidence)?
     {
-        if let RecordRelation::Unknown(reason) = compare_records(original, current, evidence)? {
-            return Ok(Some(ReviewReason::OrderingUnknown(reason)));
-        }
+        return Ok(Some(ReviewReason::OrderingUnknown(reason)));
     }
     let local = Some(&pending.working);
     Ok(
@@ -358,20 +357,18 @@ pub fn receive_accepted(
             relation,
             Some(RecordRelation::Divergent | RecordRelation::Unknown(_))
         )
+        && let Observation::Accepted(old) = &current.latest
+        && old.state != incoming.state
     {
-        if let Observation::Accepted(old) = &current.latest {
-            if old.state != incoming.state {
-                next.pending = Some(PendingRecord {
-                    key: current.key,
-                    original: OriginalBasis::Unavailable {
-                        key: current.key,
-                        reason: UnknownReason::MissingOriginal,
-                    },
-                    working: old.state.clone(),
-                    prepared: None,
-                });
-            }
-        }
+        next.pending = Some(PendingRecord {
+            key: current.key,
+            original: OriginalBasis::Unavailable {
+                key: current.key,
+                reason: UnknownReason::MissingOriginal,
+            },
+            working: old.state.clone(),
+            prepared: None,
+        });
     }
     if let Some(p) = &mut next.pending {
         if let Some(prepared) = &p.prepared {

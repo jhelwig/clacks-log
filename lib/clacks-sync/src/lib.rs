@@ -26,3 +26,5 @@ pub mod membership;
 pub mod transfer;
 
 pub mod compaction;
+
+pub mod recovery;

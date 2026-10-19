@@ -239,13 +239,13 @@ pub fn plan_baseline(
         lineage: evidence.lineage.clone(),
         membership_generation: input.membership.generation,
     };
-    if let Some(old) = evidence.baseline(input.account.account, id)? {
-        if old != &baseline {
-            return Err(MetadataError::Conflict {
-                detail: format!("baseline {id} already has a different interpretation"),
-            }
-            .into());
+    if let Some(old) = evidence.baseline(input.account.account, id)?
+        && old != &baseline
+    {
+        return Err(MetadataError::Conflict {
+            detail: format!("baseline {id} already has a different interpretation"),
         }
+        .into());
     }
     let mut removable: BTreeSet<_> = input
         .membership

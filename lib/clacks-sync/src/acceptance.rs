@@ -97,7 +97,7 @@ pub enum RejectionReason {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AcceptanceDecision {
     /// Commit all returned rows under their stated preconditions.
-    Commit(AcceptanceCommit),
+    Commit(Box<AcceptanceCommit>),
     /// This client version is already incorporated.
     Covered(AcceptedRecord),
     /// The target or a reference changed; reconcile against this observation.
@@ -138,25 +138,24 @@ pub fn plan_acceptance(
         }
         .into());
     }
-    if let Observation::Accepted(current) = input.current {
-        if current.stamp.vector.component(own) >= count {
-            return Ok(AcceptanceDecision::Covered(current.clone()));
-        }
+    if let Observation::Accepted(current) = input.current
+        && current.stamp.vector.component(own) >= count
+    {
+        return Ok(AcceptanceDecision::Covered(current.clone()));
     }
-    if let VersionCondition::Is { stamp, .. } = &change.expected {
-        if !matches!(
+    if let VersionCondition::Is { stamp, .. } = &change.expected
+        && (!matches!(
             stamp.vector.compare_components(&change.vector),
             VectorRelation::Before
-        ) || count <= stamp.vector.component(own)
-        {
-            return Err(MetadataError::Invalid {
-                detail: format!(
-                    "proposal {:?} does not extend its compared context",
-                    change.key
-                ),
-            }
-            .into());
+        ) || count <= stamp.vector.component(own))
+    {
+        return Err(MetadataError::Invalid {
+            detail: format!(
+                "proposal {:?} does not extend its compared context",
+                change.key
+            ),
         }
+        .into());
     }
     plan_commit(
         change.key,
@@ -337,7 +336,7 @@ fn plan_commit(
         key,
         stamp: accepted.stamp.clone(),
     };
-    Ok(AcceptanceDecision::Commit(AcceptanceCommit {
+    Ok(AcceptanceDecision::Commit(Box::new(AcceptanceCommit {
         expected_head: input.account.head,
         expected_membership_generation: input.membership.generation,
         expected: expected.clone(),
@@ -346,5 +345,38 @@ fn plan_commit(
         accepted,
         native_changed,
         journal,
-    }))
+    })))
+}
+
+/// Commit a value-policy-approved recovery result with both interpretable contexts.
+pub(crate) fn plan_reconciled(
+    incoming: &AcceptedRecord,
+    state: &RecordState,
+    input: &AcceptanceInput<'_>,
+    evidence: &EvidenceView<'_>,
+) -> anyhow::Result<AcceptanceDecision> {
+    let expected = VersionCondition::from_observation(input.current)?;
+    validate_input(incoming.key, state, &expected, input, evidence)?;
+    if evidence
+        .baseline(incoming.key.account, incoming.stamp.baseline)?
+        .is_none()
+    {
+        return Err(MetadataError::Incomplete {
+            detail: "recovery context baseline unavailable".into(),
+        }
+        .into());
+    }
+    let context = match input.current {
+        Observation::Accepted(v) => v.stamp.vector.join(&incoming.stamp.vector),
+        _ => incoming.stamp.vector.clone(),
+    };
+    plan_commit(
+        incoming.key,
+        state,
+        &expected,
+        &[],
+        &context,
+        input,
+        evidence,
+    )
 }

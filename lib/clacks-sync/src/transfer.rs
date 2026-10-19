@@ -348,17 +348,17 @@ pub fn finish_window(
             .into());
         }
     }
-    if let WindowMode::Incremental { after } = &manifest.mode {
-        if after.entries().any(|(timeline, revision)| {
+    if let WindowMode::Incremental { after } = &manifest.mode
+        && after.entries().any(|(timeline, revision)| {
             !previous
                 .coverage
                 .covers(crate::record::Position { timeline, revision })
-        }) {
-            return Err(MetadataError::Incomplete {
-                detail: "incremental starting prefixes are not installed".into(),
-            }
-            .into());
+        })
+    {
+        return Err(MetadataError::Incomplete {
+            detail: "incremental starting prefixes are not installed".into(),
         }
+        .into());
     }
     for requirement in &manifest.records {
         let actual = installed

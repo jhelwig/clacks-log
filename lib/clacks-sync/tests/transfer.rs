@@ -83,13 +83,22 @@ fn interrupted_window_preserves_coverage_and_pending_conflict() {
             prepared: None,
         }),
     }];
-    let batch = plan_batch(&manifest, &progress, &[q.clone()], &local, &ev).unwrap();
+    let batch = plan_batch(&manifest, &progress, std::slice::from_ref(&q), &local, &ev).unwrap();
     assert!(batch.client_updates.first().unwrap().review.is_some());
     progress.installed.extend(batch.installed_keys);
     progress.generation = batch.next_generation;
     let progress: WindowProgress =
         serde_json::from_str(&serde_json::to_string(&progress).unwrap()).unwrap();
-    assert!(finish_window(&manifest, &progress, &[q.clone()], &previous, &ev).is_err());
+    assert!(
+        finish_window(
+            &manifest,
+            &progress,
+            std::slice::from_ref(&q),
+            &previous,
+            &ev
+        )
+        .is_err()
+    );
     assert!(previous.coverage.covers(clacks_sync::record::Position {
         timeline: id(2),
         revision: 40
