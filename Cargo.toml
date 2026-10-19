@@ -1,0 +1,3 @@
+[workspace]
+members = ["lib/clacks-model"]
+resolver = "3"

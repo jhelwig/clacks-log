@@ -131,7 +131,7 @@ Do not add build-time network requests or a code generator framework. `known.rs`
 - `UtcSecond::from_unix_seconds(i64) -> Self`, `unix_seconds() -> i64`; `UtcTimestamp::new(i64, u32) -> Result<Self, ValueError>`. The latter is for operational provenance, not additional QSO precision.
 - `ValueError` starts with `EmptyText { field: String }`, `ZeroQuantity { unit: String }`, `InvalidId { value: String }` and `InvalidTimestamp { nanoseconds: u32 }`. Later tasks add the position/catalog variants specified below. `RecordError` gains record-specific variants in its owning tasks. All error enums implement Display and std::error::Error; tests can return `Result<(), Box<dyn std::error::Error>>` to combine assertion setup and serialization errors.
 
-- [ ] **Step 1:** Create the minimal workspace and empty library entry point, then add `tests/values.rs` with these named assertions (imports resolve from `clacks_model` once implemented):
+- [x] **Step 1:** Create the minimal workspace and empty library entry point, then add `tests/values.rs` with these named assertions (imports resolve from `clacks_model` once implemented):
 
 ```rust
 // callsign_and_text_preserve_recorded_meaning
@@ -147,10 +147,10 @@ assert!(UtcTimestamp::new(42, 1_000_000_000).is_err());
 
 Also test ID string round trips, type separation with a compile-fail documentation example passing TagId where QsoId is required, negative Unix seconds, and JSON deserialization rejecting zero quantities. No callsign grammar beyond the selected normalization/nonblank requirement is introduced.
 
-- [ ] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test values`; expect unresolved native values before implementation, not an unrelated manifest/toolchain failure.
-- [ ] **Step 3:** Implement the interfaces. Use `serde = { version = "1", features = ["derive"] }`, `serde_json = "1"`, `regex = "1"`, `ulid = "3"`; package `edition = "2024"`, `rust-version = "1.99.1"`, `license = "Elastic-2.0"`, `publish = false`. Root membership is only `lib/clacks-model`. Use ordinary Serde validation/conversion for constrained wrappers; never deserialize an invalid numeric wrapper by bypassing its constructor. Keep any ID macro definition visually separated from invocations.
-- [ ] **Step 4:** Re-run the test and `cargo +1.99.1 fmt --all -- --check`; expect success. Commit Cargo.lock and preserve existing ignore entries. No database, network, GUI or executable crate is added.
-- [ ] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
+- [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test values`; expect unresolved native values before implementation, not an unrelated manifest/toolchain failure.
+- [x] **Step 3:** Implement the interfaces. Use `serde = { version = "1", features = ["derive"] }`, `serde_json = "1"`, `regex = "1"`, `ulid = "3"`; package `edition = "2024"`, `rust-version = "1.99.1"`, `license = "Elastic-2.0"`, `publish = false`. Root membership is only `lib/clacks-model`. Use ordinary Serde validation/conversion for constrained wrappers; never deserialize an invalid numeric wrapper by bypassing its constructor. Keep any ID macro definition visually separated from invocations.
+- [x] **Step 4:** Re-run the test and `cargo +1.99.1 fmt --all -- --check`; expect success. Commit Cargo.lock and preserve existing ignore entries. No database, network, GUI or executable crate is added.
+- [x] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
 
 ```text
 feat(model): establish native scalar and identity values
