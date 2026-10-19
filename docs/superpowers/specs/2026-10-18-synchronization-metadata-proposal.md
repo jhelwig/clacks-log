@@ -377,13 +377,8 @@ while one of its required accepted versions remains unrepresented.
 
 Commit revocation with its account position and exclude the old actor from new
 automatic proposals. A delayed pending proposal is not admitted because its
-counter is high. Suppose A submits a version, the server accepts it and sends
-it to C during normal synchronization, and A is later revoked. If the server
-is subsequently restored to an older backup, still-authorized C can return that
-previously server-distributed accepted version to the server. The path is
-A → server → C, followed later by C → restored server. C never obtains it directly
-from A. Revoking A does not turn that retained accepted state into a new proposal
-from A.
+counter is high. Previously accepted versions remain shared; their author's
+current admission status does not change their accepted status.
 
 Retire active writer/admission bookkeeping as its obligations end. Keep clock
 components still required by retained ordering evidence; they are historical
@@ -401,10 +396,10 @@ coverage. For normalized vectors this is a componentwise minimum in each
 numeric minimum of revisions from unrelated timelines.
 
 An indefinitely offline authorized client can hold that boundary back. Revocation
-removes it from the participant set. A record received during incomplete
-client-to-server recovery cannot make the server certify the entire old prefix.
+removes it from the participant set. Account coverage must satisfy the
+[complete-window rules](#5-interrupted-transfer-and-durable-acknowledgment).
 Membership and baseline publication must be checked atomically so enrollment,
-revocation or concurrent recovery cannot invalidate the chosen boundary.
+revocation or concurrent synchronization cannot invalidate the chosen boundary.
 
 ### 6.3 Projecting old clock components
 
@@ -428,8 +423,8 @@ below the new boundary it may retain:
 
 This is sufficient evidence for those particular comparisons, not a relabeling
 of the pending edit as based on the new checkpoint. A later state covering that
-checkpoint preserves the established succession relationship. A later recovered
-branch outside it must be compared using surviving context or return `Unknown`.
+checkpoint preserves the established succession relationship. Relationships
+outside the witness's retained context are not established by that witness.
 
 Apply projection as the following explicit transition:
 
@@ -457,8 +452,8 @@ Apply projection as the following explicit transition:
 The server need not store a witness for every private pending edit. The client's
 existing durable-acknowledgment obligation preserves those witnesses locally.
 If a future accepted head covers the witness's checkpoint, the known predecessor
-relationship remains valid. If it does not, compare retained lineage/context;
-the cached relationship is not evidence about an unrelated restored branch.
+relationship remains valid. Otherwise, the comparison requires additional
+retained lineage/context rather than extrapolating from the cached relationship.
 
 Keeping an old baseline ID solely as an opaque pointer is insufficient. A live
 reference must retain or acquire its interpretation before the backing detail is
@@ -483,6 +478,9 @@ Deleting ordering detail does not delete current record envelopes, QSO deletion
 memory, external associations or service-processing evidence. Their separate
 obligations remain. Issue #3 extends concrete evidence types; compaction may not
 assume that ordering stability alone makes those facts disposable.
+
+Rollback and restoration examples are in
+[section 8](#8-rollback-and-restoration).
 
 ## 7. Worked transitions
 
@@ -527,7 +525,7 @@ If its pending Q edit began at T1:20, that original value/context stays at 20.
 An unresolved Q conflict does not prevent H/P installation or checkpoint 60.
 If the acknowledgment is lost after the commit, safe repeat transfer suffices.
 
-### 7.3 Revoked writer with an authorized offline peer
+### 7.3 Revoked writer with an authorized offline client
 
 Client A authored an accepted QSO version at T1:60. Client B acknowledged T1:40
 and went offline. Client A has an additional unsynchronized edit when revoked
@@ -545,12 +543,8 @@ at T1:80.
    folded into the baseline where surviving references permit. There is no
    remaining active clock dimension merely because A once authored a QSO.
 
-Suppose the server also sent the accepted T1:60 envelope to authorized client C
-before revoking A. If the server later restores a backup predating T1:60, C can
-return that server-distributed copy to the restored server. A's revocation does
-not make this accepted version an unauthorized new edit. C has no connection to
-A and cannot relay A's excluded unsynchronized tail. If A itself returns, reauthorization gives it a fresh
-admission identity and preserves its excluded work for explicit reconciliation.
+If A returns, reauthorization gives it a fresh admission identity and preserves
+its excluded work for explicit reconciliation.
 
 ### 7.4 Compaction while a conflict remains pending
 
@@ -574,10 +568,13 @@ its original from 200 to 700.
 5. A crash during cleanup leaves either the old baseline, or the new baseline
    plus redundant old detail. Neither case discards pending values.
 
-This does not prove ordering against every possible future restored branch.
-Outside retained coverage, use the separate recovery fallback below.
+## 8. Rollback and restoration
 
-### 7.5 Older server, complete recovery, then a still-newer client
+This section applies the retained metadata to restored server state. The
+[retirement and compaction rules](#6-retirement-and-compaction) define which
+metadata remains available.
+
+### 8.1 Older server, complete recovery, then a still-newer client
 
 A server backup is at T1:160. Client A retains complete accepted state through
 T1:200. The restored server advertises T1:160 to A.
@@ -607,7 +604,20 @@ An equal-value result can combine per-record context without a user prompt.
 That combines this QSO's histories; it still does not certify all other records
 through the old prefix.
 
-### 7.6 Backup predating a collected baseline
+### 8.2 Recovering a version authored by a revoked client
+
+Client A submits a version at T1:60; the server accepts it and sends it to
+still-authorized client C. A is then revoked. If the server later restores a
+backup predating T1:60, C can return the server-distributed accepted envelope
+during normal recovery. The path is A → server → C, followed later by
+C → restored server. C never obtains the version directly from A.
+
+A's revocation does not turn this retained accepted version into a new proposal
+from A. C cannot relay A's excluded unsynchronized tail, which the server never
+accepted or distributed. The returning envelope follows the ordinary accepted-
+state recovery checks and retains its original acceptance context.
+
+### 8.3 Backup predating a collected baseline
 
 The current common baseline is through T1:700; the server backup is T1:160.
 A surviving client has current records and local pending evidence but some old
@@ -625,7 +635,7 @@ The old backup may also predate revocation. No mechanism here promises to recove
 a revocation or service outcome absent from every surviving source. Uploads
 remain under the operator-controlled restore pause/resume workflow.
 
-## 8. Rollback detection limits and metadata validation
+### 8.4 Detection limits and metadata validation
 
 Implement these concrete contradiction checks:
 
