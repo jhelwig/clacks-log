@@ -11,6 +11,9 @@ components. No separate reference synchronization engine is proposed.
 The [decision register](../../decisions.md), [synchronization contract](../../synchronization.md)
 and [recovery requirements](../../backup-recovery.md) remain authoritative.
 
+- All synchronization traffic is between a client and the server. Clients never
+  synchronize directly with one another. A client can return server-distributed
+  accepted state to an older restored server through that same connection.
 - One synchronization scope and timeline per account covers account-owned QSOs,
   tags and synchronized shared data. Every enrolled client receives that scope;
   the selected tag does not determine synchronization participation (D248).
@@ -374,9 +377,13 @@ while one of its required accepted versions remains unrepresented.
 
 Commit revocation with its account position and exclude the old actor from new
 automatic proposals. A delayed pending proposal is not admitted because its
-counter is high. An already-accepted envelope is different: its accepted context
-may be recovered through another authorized client, even when its original
-author is revoked.
+counter is high. Suppose A submits a version, the server accepts it and sends
+it to C during normal synchronization, and A is later revoked. If the server
+is subsequently restored to an older backup, still-authorized C can return that
+previously server-distributed accepted version to the server. The path is
+A → server → C, followed later by C → restored server. C never obtains it directly
+from A. Revoking A does not turn that retained accepted state into a new proposal
+from A.
 
 Retire active writer/admission bookkeeping as its obligations end. Keep clock
 components still required by retained ordering evidence; they are historical
@@ -538,9 +545,11 @@ at T1:80.
    folded into the baseline where surviving references permit. There is no
    remaining active clock dimension merely because A once authored a QSO.
 
-If an older server is later recovered using another authorized client's stored
-T1:60 accepted envelope, A's revocation does not make that accepted version an
-unauthorized new edit. If A itself returns, reauthorization gives it a fresh
+Suppose the server also sent the accepted T1:60 envelope to authorized client C
+before revoking A. If the server later restores a backup predating T1:60, C can
+return that server-distributed copy to the restored server. A's revocation does
+not make this accepted version an unauthorized new edit. C has no connection to
+A and cannot relay A's excluded unsynchronized tail. If A itself returns, reauthorization gives it a fresh
 admission identity and preserves its excluded work for explicit reconciliation.
 
 ### 7.4 Compaction while a conflict remains pending
