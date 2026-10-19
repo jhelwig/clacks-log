@@ -1,6 +1,6 @@
 # Synchronization Core Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans for native execution, or superpowers:subagent-driven-development if the user selects that method. Implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Read both this plan and its specification before execution.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans for native execution, or superpowers:subagent-driven-development if the user selects that method. Implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking. Read both this plan and its specification before execution.
 
 **Goal:** Deliver the production synchronization metadata and transition logic for issue #2, ready for later storage and transport integration.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust 1.99.1; standard collections; existing workspace Serde, thiserror and anyhow dependencies; existing typed IDs and native records. Serde is Rust's serialization framework.
 
-**Spec:** [Synchronization metadata and transitions](../specs/2026-10-18-synchronization-metadata-proposal.md), including its worked examples and hub-and-spoke corrections. The user's request to prepare this plan advances the written design to planning; implementation still requires plan review and execution authorization.
+**Spec:** [Synchronization metadata and transitions](../specs/2026-10-18-synchronization-metadata-proposal.md), including its worked examples and hub-and-spoke corrections. The user's request to prepare this plan advances the written design to planning; the user authorized native execution on 19 October 2026.
 
 ## Global constraints
 
@@ -27,7 +27,7 @@
 - Leaf errors derive `thiserror::Error`; aggregate operations return `anyhow::Result` preserving concrete causes. Expected review/retry outcomes are result data, not errors.
 - Use ordinary Serde representations. Leaf containers validate on deserialization; composite envelopes and native values validate at transition/acceptance boundaries, following the existing model. Encode structured enum map keys as entry sequences for JSON compatibility.
 - Commit subjects have substantive bodies explaining motivation/constraints and actual verification, not just restating a diff.
-- Product/application code remains absent until execution is authorized. Planning does not close issue #2.
+- The user authorized native execution. Delivery evidence and review, not planning, establish completion.
 
 ## Review focus
 
@@ -139,8 +139,8 @@ existing model; do not call profile loading or rewrite defaults. Validate group
 definitions as a whole using the existing compiler. Do not invent new tag-name,
 output-profile-name or catalog-recognition rules.
 
-- [ ] **Step 1:** Add the new package manifest/minimal documented crate entry and workspace wiring needed to run this task's tests. Inherit existing dependency versions and add dev dependencies serde_json/ulid. Run `cargo +1.99.1 check --workspace --offline` to add the path package to the lockfile without upgrading existing dependencies. Do not create empty future modules.
-- [ ] **Step 2:** Add failing `metadata.rs` tests using actual native fixtures. Pin scoped-key mismatch, round trips, actor-role distinction, `u64::MAX` overflow and raw vector algebra:
+- [x] **Step 1:** Add the new package manifest/minimal documented crate entry and workspace wiring needed to run this task's tests. Inherit existing dependency versions and add dev dependencies serde_json/ulid. Run `cargo +1.99.1 check --workspace --offline` to add the path package to the lockfile without upgrading existing dependencies. Do not create empty future modules.
+- [x] **Step 2:** Add failing `metadata.rs` tests using actual native fixtures. Pin scoped-key mismatch, round trips, actor-role distinction, `u64::MAX` overflow and raw vector algebra:
 
 ```rust
 assert_eq!(a_3_b_2.compare_components(&a_2_b_3), VectorRelation::Concurrent);
@@ -153,10 +153,10 @@ Fixture vectors contain the literal components in their names. Include a deleted
 envelope and an invalid QSO whose end precedes start. JSON serialization must
 round-trip client/server enum keys without a “key must be a string” failure.
 
-- [ ] **Step 3:** Run `cargo +1.99.1 test -p clacks-sync --test metadata --locked --offline`; expect unresolved metadata operations or failing assertions, not a missing package/toolchain.
-- [ ] **Step 4:** Implement the exact types, validation and methods above, with the existing crate's documentation/indexing/panic lint policy. The workspace path dependency is `clacks-model = { path = "lib/clacks-model" }`; the new member inherits it and serde/thiserror/anyhow.
-- [ ] **Step 5:** Run `cargo +1.99.1 test -p clacks-sync --test metadata --locked --offline`; all named cases must pass, including concrete native errors remaining downcastable.
-- [ ] **Step 6:** Commit the independently usable metadata/vector operations. Explain record versus account counter domains and inherited native validation in the body.
+- [x] **Step 3:** Run `cargo +1.99.1 test -p clacks-sync --test metadata --locked --offline`; expect unresolved metadata operations or failing assertions, not a missing package/toolchain.
+- [x] **Step 4:** Implement the exact types, validation and methods above, with the existing crate's documentation/indexing/panic lint policy. The workspace path dependency is `clacks-model = { path = "lib/clacks-model" }`; the new member inherits it and serde/thiserror/anyhow.
+- [x] **Step 5:** Run `cargo +1.99.1 test -p clacks-sync --test metadata --locked --offline`; all named cases must pass, including concrete native errors remaining downcastable.
+- [x] **Step 6:** Commit the independently usable metadata/vector operations. Explain record versus account counter domains and inherited native validation in the body.
 
 ## Task 2: Account lineage, complete-prefix coverage and initialization
 
@@ -187,7 +187,7 @@ solely because two timeline IDs occur in opposite directions at different cuts.
 Repeated identical boundaries are idempotent. Missing interpretation yields
 unknown, not proof of concurrency. No record API implicitly modifies coverage.
 
-- [ ] **Step 1:** Add failing tests with root T1, fork `(T2:0 includes T1:160)`, then `(T2:41 includes T1:200)`:
+- [x] **Step 1:** Add failing tests with root T1, fork `(T2:0 includes T1:160)`, then `(T2:41 includes T1:200)`:
 
 ```rust
 assert!(!lineage.coverage_at(pos(t2, 40))?.covers(pos(t1, 199)));
@@ -200,10 +200,10 @@ Also test conflicting duplicate boundaries, a true position cycle, deep valid
 ancestry without recursive stack overflow, cross-account evidence and revision
 zero initialization. Provide `Coverage::covers(Position) -> bool` in this task.
 
-- [ ] **Step 2:** Run the `lineage` integration test; confirm failures identify missing behavior.
-- [ ] **Step 3:** Implement coverage expansion and immutable-boundary validation. Account initialization returns the actual root baseline; seeding native definitions later uses ordinary acceptance, not this constructor.
-- [ ] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test lineage --locked --offline`; verify the T2:40/T2:41 distinction survives serialization/reload.
-- [ ] **Step 5:** Commit with the non-retroactive coverage invariant and known missing-lineage outcome in the body.
+- [x] **Step 2:** Run the `lineage` integration test; confirm failures identify missing behavior.
+- [x] **Step 3:** Implement coverage expansion and immutable-boundary validation. Account initialization returns the actual root baseline; seeding native definitions later uses ordinary acceptance, not this constructor.
+- [x] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test lineage --locked --offline`; verify the T2:40/T2:41 distinction survives serialization/reload.
+- [x] **Step 5:** Commit with the non-retroactive coverage invariant and known missing-lineage outcome in the body.
 
 ## Task 3: Causal comparison and the settled value policy
 
@@ -230,7 +230,7 @@ complete record contexts before claiming divergence. Same version/context with
 different native states is invalid. Native equality still bypasses business
 resolution when order is unknown; it does not fabricate lineage/coverage.
 
-- [ ] **Step 1:** Add the complete original/local/shared truth table, including deletion, two independent tag edits, tag-versus-comment edits and equal results. Assert:
+- [x] **Step 1:** Add the complete original/local/shared truth table, including deletion, two independent tag edits, tag-versus-comment edits and equal results. Assert:
 
 ```rust
 assert_eq!(classify_changes(&a, &b, &a), ChangePattern::LocalOnly);
@@ -245,10 +245,10 @@ baselines presented under one baseline ID, and a conflicting payload under the
 same version identity. Conflicting baseline definitions error rather than
 selecting the first match.
 
-- [ ] **Step 2:** Run `comparison`; verify the expected classifications fail before implementation.
-- [ ] **Step 3:** Implement these operations using native equality and metadata interpretation. Preserve input values for future field resolution; do not create a reflective field/patch engine. Call the same generic classifier on the whole `RecordState` to trigger review, then on individual field values for later field attribution. Field-level calls never decide whether to bypass whole-record review.
-- [ ] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test comparison --locked --offline`; all truth-table and evidence-conflict cases pass.
-- [ ] **Step 5:** Commit; explain the distinction between native equality, causal order and coverage.
+- [x] **Step 2:** Run `comparison`; verify the expected classifications fail before implementation.
+- [x] **Step 3:** Implement these operations using native equality and metadata interpretation. Preserve input values for future field resolution; do not create a reflective field/patch engine. Call the same generic classifier on the whole `RecordState` to trigger review, then on individual field values for later field attribution. Field-level calls never decide whether to bypass whole-record review.
+- [x] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test comparison --locked --offline`; all truth-table and evidence-conflict cases pass.
+- [x] **Step 5:** Commit; explain the distinction between native equality, causal order and coverage.
 
 ## Task 4: Durable pending/prepared state and own-version recognition
 
@@ -280,11 +280,11 @@ change }`, `Retry { record, change }`, `Review { record, input }`, `Unchanged {
 record }` variants. `resolve_review` retains the compared shared version as the
 next precondition and validates chosen native state; it does not publish it.
 
-- [ ] **Step 1:** Write failing `lost_response_keeps_later_work`: A at S1:200; freeze B at `{S1:200,B:1}`; change working to C; receive B at `{S1:201,B:1}`. Assert working remains C, original becomes witnessed B, and no review is generated. Receiving later D must compare B/C/D. Round-trip all durable rows between steps. Also test that no acceptance position is invented for witnessed B.
-- [ ] **Step 2:** Run `client_state` and observe failure.
-- [ ] **Step 3:** Implement the functions and needed native constructors/accessors. `receive_accepted` installs shared state while preserving pending originals and hidden local deletions. One unsettled prepared version per record; edits change working only. Retry returns the identical prepared version without advancing counters. A terminal changed version precondition settles the old proposal; a lost acknowledgment alone does not. New counters exceed both local high-water and all observed own components.
-- [ ] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test client_state --locked --offline`; include no-B-acceptance, same-value supersession, pending deletion, missing-original review, counter overflow and fresh reauthorization actor with retained excluded work. Receipt logs and separate request IDs must be absent.
-- [ ] **Step 5:** Commit; explain preserved original versus witnessed own version and the one-record prepared lifecycle.
+- [x] **Step 1:** Write failing `lost_response_keeps_later_work`: A at S1:200; freeze B at `{S1:200,B:1}`; change working to C; receive B at `{S1:201,B:1}`. Assert working remains C, original becomes witnessed B, and no review is generated. Receiving later D must compare B/C/D. Round-trip all durable rows between steps. Also test that no acceptance position is invented for witnessed B.
+- [x] **Step 2:** Run `client_state` and observe failure.
+- [x] **Step 3:** Implement the functions and needed native constructors/accessors. `receive_accepted` installs shared state while preserving pending originals and hidden local deletions. One unsettled prepared version per record; edits change working only. Retry returns the identical prepared version without advancing counters. A terminal changed version precondition settles the old proposal; a lost acknowledgment alone does not. New counters exceed both local high-water and all observed own components.
+- [x] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test client_state --locked --offline`; include no-B-acceptance, same-value supersession, pending deletion, missing-original review, counter overflow and fresh reauthorization actor with retained excluded work. Receipt logs and separate request IDs must be absent.
+- [x] **Step 5:** Commit; explain preserved original versus witnessed own version and the one-record prepared lifecycle.
 
 ## Task 5: Production acceptance conditions and commit updates
 
@@ -326,11 +326,11 @@ keep local values, and turn closed-actor/reference failures into their explicit
 review reasons without dropping the old prepared evidence. An adapter must match the emitted preconditions and save head,
 envelope and journal atomically; stale plans cannot be applied unchanged.
 
-- [ ] **Step 1:** Add failing tests: accept B against A produces S1:201 and retains B:1; repeat yields `Covered`, not another mutation. Change a tag/profile reference, head version or membership generation between planning inputs and require stale/rejection on re-evaluation. Include tag deletion and missing referenced equipment without silently rewriting pending values. From the Task 2 empty-account root, accept a native seeded group through `plan_server_acceptance`; assert server component S1:1 and no client component.
-- [ ] **Step 2:** Run `acceptance` to confirm missing behavior.
-- [ ] **Step 3:** Implement the exact acceptance inputs/outputs. Dependency conditions check native QSO tags and profile equipment; callers supply the compared dependency rows, not a fake lookup store. Do not treat missing group definitions as invalid references: unfamiliar associations are preserved. A metadata-only equal-result context join advances metadata but reports no native change. Emit `AcceptanceCommit.native_changed` from the compared native states, never vector differences; a context-only join sets it false without retaining a redundant old payload or adding a getter wrapper.
-- [ ] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test acceptance --locked --offline`; verify actual group compiler errors retain their source and revocation cannot be bypassed by a larger counter. Tests re-evaluate changed inputs; they must not claim this proves database atomicity.
-- [ ] **Step 5:** Commit with the adapter's atomic preconditions and context-only/native-change distinction in its body.
+- [x] **Step 1:** Add failing tests: accept B against A produces S1:201 and retains B:1; repeat yields `Covered`, not another mutation. Change a tag/profile reference, head version or membership generation between planning inputs and require stale/rejection on re-evaluation. Include tag deletion and missing referenced equipment without silently rewriting pending values. From the Task 2 empty-account root, accept a native seeded group through `plan_server_acceptance`; assert server component S1:1 and no client component.
+- [x] **Step 2:** Run `acceptance` to confirm missing behavior.
+- [x] **Step 3:** Implement the exact acceptance inputs/outputs. Dependency conditions check native QSO tags and profile equipment; callers supply the compared dependency rows, not a fake lookup store. Do not treat missing group definitions as invalid references: unfamiliar associations are preserved. A metadata-only equal-result context join advances metadata but reports no native change. Emit `AcceptanceCommit.native_changed` from the compared native states, never vector differences; a context-only join sets it false without retaining a redundant old payload or adding a getter wrapper.
+- [x] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test acceptance --locked --offline`; verify actual group compiler errors retain their source and revocation cannot be bypassed by a larger counter. Tests re-evaluate changed inputs; they must not claim this proves database atomicity.
+- [x] **Step 5:** Commit with the adapter's atomic preconditions and context-only/native-change distinction in its body.
 
 ## Task 6: Complete manifests, partial installation and durable checkpoint rows
 
@@ -378,11 +378,11 @@ rather than copying the entire manifest/installed set. Derive client updates
 from rows loaded within that same transaction so a concurrent local edit is not
 overwritten by a previously computed client update.
 
-- [ ] **Step 1:** Write failing T1:40→60 QSO/tag/profile interruption tests: install Q at 60, serialize/reload progress, assert `finish_window` errors while H/P are absent. Install H/P, finish and assert checkpoint 60. An unresolved local Q conflict must not prevent accepted Q installation or completion after all records arrive.
-- [ ] **Step 2:** Run `transfer` to observe the incomplete-window failures.
-- [ ] **Step 3:** Implement batch planning and completion validation. Batches update only listed records plus their local comparison evidence. The transport later sends committed checkpoint rows by caller contract; no simulated durability flag or acknowledgment-constructor wrapper. Preserve both original acceptance stamps and separate journal installation positions. Record vectors never mutate account coverage.
-- [ ] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test transfer --locked --offline`; include lost acknowledgment, stale/reordered/duplicate pages, replaced manifest, tombstone omission, cross-account descriptors and incompatible baseline. Full coverage remains 40 after Q alone.
-- [ ] **Step 5:** Commit with the consistent-source and committed-checkpoint adapter contracts.
+- [x] **Step 1:** Write failing T1:40→60 QSO/tag/profile interruption tests: install Q at 60, serialize/reload progress, assert `finish_window` errors while H/P are absent. Install H/P, finish and assert checkpoint 60. An unresolved local Q conflict must not prevent accepted Q installation or completion after all records arrive.
+- [x] **Step 2:** Run `transfer` to observe the incomplete-window failures.
+- [x] **Step 3:** Implement batch planning and completion validation. Batches update only listed records plus their local comparison evidence. The transport later sends committed checkpoint rows by caller contract; no simulated durability flag or acknowledgment-constructor wrapper. Preserve both original acceptance stamps and separate journal installation positions. Record vectors never mutate account coverage.
+- [x] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test transfer --locked --offline`; include lost acknowledgment, stale/reordered/duplicate pages, replaced manifest, tombstone omission, cross-account descriptors and incompatible baseline. Full coverage remains 40 after Q alone.
+- [x] **Step 5:** Commit with the consistent-source and committed-checkpoint adapter contracts.
 
 ## Task 7: Membership cutoff, basis witnesses and baseline projection
 
@@ -427,11 +427,11 @@ head. Missing proof means retain the component/context, not guess. Old accepted
 inputs covered by the baseline are known/superseded; inputs beyond it require
 residual evidence. Keep nonredundant position-dependent lineage intervals.
 
-- [ ] **Step 1:** Add failing tests for acknowledgments 900/700/300, server 950, pending original 200/local B/shared 600. Assert common coverage 300; revoking the client at 300 permits 700, while simple inactivity does not. With another writer closed at 80 and complete coverage 300, assert that writer's collectible component is actually removed while state and actual accepted position remain unchanged.
-- [ ] **Step 2:** Run `compaction` and observe failures.
-- [ ] **Step 3:** Implement closure, witness creation and projection under the specification's six-step transition. Emit expected head, membership generation and every touched version so actual installation revalidates them. New baseline must be durable before cleanup; projection plans themselves do not delete tombstones, evidence or payloads. No permanent clock-counter registry for removed writers is introduced.
-- [ ] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test compaction --locked --offline`; include missing witness context, pending prepared version, enrollment/revocation race, changed envelope, old baseline ID without its interpretation and multiple timeline coordinates. Assert preserved original 200 after acknowledgment 700 and no change to native/upload-relevant values.
-- [ ] **Step 5:** Commit with the retention proof conditions, residual-context fallback and real-installation preconditions.
+- [x] **Step 1:** Add failing tests for acknowledgments 900/700/300, server 950, pending original 200/local B/shared 600. Assert common coverage 300; revoking the client at 300 permits 700, while simple inactivity does not. With another writer closed at 80 and complete coverage 300, assert that writer's collectible component is actually removed while state and actual accepted position remain unchanged.
+- [x] **Step 2:** Run `compaction` and observe failures.
+- [x] **Step 3:** Implement closure, witness creation and projection under the specification's six-step transition. Emit expected head, membership generation and every touched version so actual installation revalidates them. New baseline must be durable before cleanup; projection plans themselves do not delete tombstones, evidence or payloads. No permanent clock-counter registry for removed writers is introduced.
+- [x] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test compaction --locked --offline`; include missing witness context, pending prepared version, enrollment/revocation race, changed envelope, old baseline ID without its interpretation and multiple timeline coordinates. Assert preserved original 200 after acknowledgment 700 and no change to native/upload-relevant values.
+- [x] **Step 5:** Commit with the retention proof conditions, residual-context fallback and real-installation preconditions.
 
 ## Task 8: Recovery boundaries and retained accepted-state installation
 
@@ -471,11 +471,11 @@ the still-authorized returning client. Unaccepted work from that author remains
 excluded; new reauthorization uses a fresh `ClientActorId` and preserves local
 rows for explicit resolution.
 
-- [ ] **Step 1:** Add failing cases for restored T1:160, witness through 200, fork T2:0, incomplete old window, then complete boundary at T2:41. Assert T1:199 is covered only after completion; T1:201 is not. A source-advertised 200 alone must not enable the boundary.
-- [ ] **Step 2:** Run `recovery` to observe failures.
-- [ ] **Step 3:** Implement regression checks and these conditional recovery transitions. Same-timeline counter regression, identity/state collision, boundary contradiction and falsely completed coverage are concrete diagnostics. Normal restart returns unchanged history. A below-baseline comparison without surviving interpretation returns explained unknown; genuine divergence without originals returns two-way review. Equal values do not require business resolution or fabricate global coverage.
-- [ ] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test recovery --locked --offline`; include A→server→C then C→restored server, revoked-A tail rejection, partial recovery with unrelated T2 progress, retained deletion memory and a backup before baseline 700. Include an explicit test documenting that an advertised revision already above the remembered one is **not** a universal rollback detector.
-- [ ] **Step 5:** Commit with the detection domain, preserved original stamps and hub-and-spoke data path in its body.
+- [x] **Step 1:** Add failing cases for restored T1:160, witness through 200, fork T2:0, incomplete old window, then complete boundary at T2:41. Assert T1:199 is covered only after completion; T1:201 is not. A source-advertised 200 alone must not enable the boundary.
+- [x] **Step 2:** Run `recovery` to observe failures.
+- [x] **Step 3:** Implement regression checks and these conditional recovery transitions. Same-timeline counter regression, identity/state collision, boundary contradiction and falsely completed coverage are concrete diagnostics. Normal restart returns unchanged history. A below-baseline comparison without surviving interpretation returns explained unknown; genuine divergence without originals returns two-way review. Equal values do not require business resolution or fabricate global coverage.
+- [x] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test recovery --locked --offline`; include A→server→C then C→restored server, revoked-A tail rejection, partial recovery with unrelated T2 progress, retained deletion memory and a backup before baseline 700. Include an explicit test documenting that an advertised revision already above the remembered one is **not** a universal rollback detector.
+- [x] **Step 5:** Commit with the detection domain, preserved original stamps and hub-and-spoke data path in its body.
 
 ## Task 9: Composition verification, public API audit and handoff
 
@@ -483,11 +483,11 @@ rows for explicit resolution.
 
 **Consumes:** All prior task APIs. Adds no simulation engine or replacement algorithms.
 
-- [ ] **Step 1:** Write composed tests using those production functions and native QSO/tag/profile data. Exercise: prepare→accept→lost response→later edit→receive; partial install→serialized reload→completion; revoke→offline return→baseline projection; restore→partial accepted recovery→complete coverage→still-newer returning client. Use test-local values to supply inputs; do not implement a fake transaction manager or network scheduler.
-- [ ] **Step 2:** Run `cargo +1.99.1 test -p clacks-sync --test scenarios --locked --offline` and confirm the assertions target the required transitions. Add any missing integration behavior in its owning module, with a focused regression there.
-- [ ] **Step 3:** Audit all public items for actual production callers/purpose, no test constructors, no unused wrapper APIs, no panic/indexing paths and complete standalone rustdoc. Check that serialization preserves baselines, original/prepared contexts and actor roles. Explicitly document store transaction obligations and the absence of a complete arbitrary-rollback detector.
-- [ ] **Step 4:** Run the full verification matrix below; all commands must succeed. Reconcile docs with the delivered subset, linking the library and precise downstream obligations. Keep issue #2 open until delivery evidence has actually been reviewed; do not equate this plan with delivery.
-- [ ] **Step 5:** Commit with the composed evidence and remaining store/transport integration boundary. Follow the user's chosen execution method's branch-review workflow before publication.
+- [x] **Step 1:** Write composed tests using those production functions and native QSO/tag/profile data. Exercise: prepare→accept→lost response→later edit→receive; partial install→serialized reload→completion; revoke→offline return→baseline projection; restore→partial accepted recovery→complete coverage→still-newer returning client. Use test-local values to supply inputs; do not implement a fake transaction manager or network scheduler.
+- [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-sync --test scenarios --locked --offline` and confirm the assertions target the required transitions. Add any missing integration behavior in its owning module, with a focused regression there.
+- [x] **Step 3:** Audit all public items for actual production callers/purpose, no test constructors, no unused wrapper APIs, no panic/indexing paths and complete standalone rustdoc. Check that serialization preserves baselines, original/prepared contexts and actor roles. Explicitly document store transaction obligations and the absence of a complete arbitrary-rollback detector.
+- [x] **Step 4:** Run the full verification matrix below; all commands must succeed. Reconcile docs with the delivered subset, linking the library and precise downstream obligations. Keep issue #2 open until delivery evidence has actually been reviewed; do not equate this plan with delivery.
+- [x] **Step 5:** Commit with the composed evidence and remaining store/transport integration boundary. Follow the user's chosen execution method's branch-review workflow before publication.
 
 ## Verification matrix
 
@@ -524,8 +524,10 @@ than changing the design or claiming a successful run.
 | Rollback/restoration examples and limits | 8–9 |
 | Production component and integration boundary | Delivery contract; 5–9 |
 
-Review this plan before implementation. The earlier native execution choice was
-for issue #1; it does not select execution for this new plan. Recommended method:
-**native**, because these tasks share tightly coupled metadata interfaces and
-form a sequential production library. Subagent-driven execution remains an
-available choice if the user prefers independent review after each task.
+Native execution is implemented in the [production core](../../synchronization-core.md).
+Store and transport integration remain downstream. `BaselinePlan` additionally
+returns `next_account` so baseline publication advances its guarded head.
+`RecoveredDecision::Reconciled` represents new value-policy-approved context
+acceptance separately from retained-envelope installation. Large acceptance
+results use boxed commit variants. Manifest immutability is enforced by the
+integrating store against its existing source/mode manifest row.

@@ -1,12 +1,10 @@
 # Synchronization metadata and transitions
 
-**Status: engineering design for [issue #2](https://github.com/jhelwig/clacks-log/issues/2), used for implementation planning at the user's request on 19 October 2026.**
-The [implementation plan](../plans/2026-10-19-synchronization-core.md) awaits review
-and execution-method selection.
-This document specifies production synchronization components. It is not an
-implementation plan, an implemented protocol, or a proof supplied by a research
-paper. Later persistence and transport work integrates and extends these
-components. No separate reference synchronization engine is proposed.
+**Status: engineering design implemented by the [production synchronization core](../../synchronization-core.md) for [issue #2](https://github.com/jhelwig/clacks-log/issues/2).**
+The [implementation plan](../plans/2026-10-19-synchronization-core.md) records the
+native execution tasks. Later persistence and transport integrate these components;
+the pure library does not establish actual database commit durability or a
+universal rollback detector.
 
 ## 1. Requirements carried forward
 
@@ -707,5 +705,4 @@ The worked cases show the intended transitions. In particular, baseline
 projection is the application-specific part requiring careful implementation and
 validation; published vector algorithms do not prove it merely because the
 metadata contains a map of counters. The [implementation plan](../plans/2026-10-19-synchronization-core.md) specifies
-concrete interfaces and verification tasks. Review that plan before writing
-product code.
+concrete interfaces and verification tasks. See the production core for implemented operations and downstream transaction obligations.

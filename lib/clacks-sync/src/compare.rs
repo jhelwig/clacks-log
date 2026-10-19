@@ -110,9 +110,6 @@ pub(crate) fn compare_contexts(
         }
         .into());
     }
-    if lb != rb && !left_covered && !right_covered {
-        return Ok(RecordRelation::Unknown(UnknownReason::CollectedContext));
-    }
     // An explicit server component can prove record succession beyond global coverage.
     let l_in_r = right
         .vector
@@ -135,7 +132,9 @@ pub(crate) fn compare_contexts(
     if before {
         if !left_covered
             && left.vector.entries().any(|(actor, n)| {
-                matches!(actor, ClockActor::Client(_)) && n > right.vector.component(actor)
+                matches!(actor, ClockActor::Client(_))
+                    && n > right.vector.component(actor)
+                    && (lb == rb || right.vector.component(actor) != 0)
             })
         {
             return Err(MetadataError::Conflict {
@@ -150,6 +149,9 @@ pub(crate) fn compare_contexts(
             RecordRelation::Before => RecordRelation::After,
             other => other,
         });
+    }
+    if lb != rb && !left_covered && !right_covered {
+        return Ok(RecordRelation::Unknown(UnknownReason::CollectedContext));
     }
     match raw {
         VectorRelation::Before => Ok(RecordRelation::Before),

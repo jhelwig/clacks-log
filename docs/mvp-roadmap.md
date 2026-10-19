@@ -7,8 +7,9 @@ separate work, prepared for the milestone being undertaken.
 
 **Status:** No phase is complete. The [native-model library](native-model.md)
 provides values, records and pure selection/reference-planning operations.
-Synchronization, service evidence, signing and geographic data remain Phase 1
-capabilities.
+The [synchronization core](synchronization-core.md) supplies production metadata
+and transitions; real-store/transport integration remains downstream. Service
+evidence, signing and geographic data remain Phase 1 capabilities.
 
 Scope: accepted decisions D01–D256.
 
@@ -49,7 +50,7 @@ parallel preparation does not mean independent applications or deployed services
 
 ## Phase 1 — Foundations and early risks
 
-Issue #1 has a [native-model specification](superpowers/specs/2026-10-18-native-model-design.md), [implementation plan](superpowers/plans/2026-10-18-native-model.md) and [library scope](native-model.md). The remaining synchronization, service-evidence, signing and geographic milestones keep Phase 1 open. Issue #2 has a [metadata design](superpowers/specs/2026-10-18-synchronization-metadata-proposal.md) and [implementation plan](superpowers/plans/2026-10-19-synchronization-core.md) awaiting plan review and execution selection; this does not complete the synchronization milestone.
+Issue #1 has a [native-model specification](superpowers/specs/2026-10-18-native-model-design.md), [implementation plan](superpowers/plans/2026-10-18-native-model.md) and [library scope](native-model.md). The remaining synchronization, service-evidence, signing and geographic milestones keep Phase 1 open. Issue #2 has a [metadata design](superpowers/specs/2026-10-18-synchronization-metadata-proposal.md) and [implementation plan](superpowers/plans/2026-10-19-synchronization-core.md) implemented by the [production core](synchronization-core.md), with delivery evidence awaiting review; later milestones integrate real persistence and transport.
 
 Milestones:
 

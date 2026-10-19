@@ -25,12 +25,13 @@ runtime or evidence-only demonstration does not satisfy implementation scope.
 Later integration adds persistence, transport, workflows or coverage to the same
 components without treating the earlier implementation as throwaway work.
 
-Issue #2 has a [metadata and transition design](superpowers/specs/2026-10-18-synchronization-metadata-proposal.md)
-and a [concrete implementation plan](superpowers/plans/2026-10-19-synchronization-core.md)
-prepared at the user's request. The plan specifies the production `clacks-sync`
-library, native-record integration, exact interfaces, task dependencies and
-failure/recovery verification. Review the plan and choose its execution method
-before implementation. No issue #2 product code has been written.
+Issue #2 supplies the production [`clacks-sync` library](synchronization-core.md),
+with its [metadata design](superpowers/specs/2026-10-18-synchronization-metadata-proposal.md)
+and [implementation plan](superpowers/plans/2026-10-19-synchronization-core.md).
+It implements pure synchronization transitions and explicit real-store conditions.
+Issues #6/#14/#16 integrate actual persistence and transport; transaction durability
+and protocol-session behavior still require that integration. Issue #3 extends
+service evidence. Issue #2 remains open pending review of delivery evidence.
 
 ## Read first
 

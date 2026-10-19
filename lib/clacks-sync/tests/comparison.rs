@@ -147,3 +147,27 @@ fn complete_incomparable_contexts_diverge_and_opposite_proof_errors() {
         .join(&RecordVector::from_entries([(ClockActor::Server(id(2)), 200)]).unwrap());
     assert!(compare_records(&contradictory, &accepted(200, "c"), &ev).is_err());
 }
+
+#[test]
+fn explicit_server_succession_survives_retired_component_projection() {
+    let (_, old) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let mut new = old.clone();
+    new.id = id(20);
+    new.coverage = Coverage::from_entries([(id(2), 300)]).unwrap();
+    let defs = [old.clone(), new];
+    let ev = EvidenceView {
+        lineage: &old.lineage,
+        baselines: &defs,
+    };
+    let mut a = accepted(400, "old");
+    a.stamp.vector = a
+        .stamp
+        .vector
+        .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 1)]).unwrap());
+    let mut b = accepted(600, "new");
+    b.stamp.baseline = id(20);
+    assert_eq!(
+        compare_records(&a, &b, &ev).unwrap(),
+        RecordRelation::Before
+    );
+}

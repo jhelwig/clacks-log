@@ -2,7 +2,7 @@
 
 Clacks Log is a planned amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model library provides pure domain values and operations; applications, persistence and integrations remain downstream capabilities. Rust is the intended implementation language wherever practical. PostgreSQL is selected for server persistence, embedded SQLite for client persistence (D213), and egui for the desktop interface (D215). No desktop/server application or database migration is delivered by this library.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional synchronization transitions; applications, persistence and integrations remain downstream capabilities. Rust is the intended implementation language wherever practical. PostgreSQL is selected for server persistence, embedded SQLite for client persistence (D213), and egui for the desktop interface (D215). No desktop/server application or database migration is delivered by this library.
 
 ## Planning documents
 
@@ -31,6 +31,13 @@ selection and in-memory reference-export planning. Rust 1.99.1 is pinned.
 Run `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings`
 from this checkout. See the [native-model library overview](docs/native-model.md)
 for scope, validation commands and downstream boundaries.
+
+## Synchronization library
+
+[`lib/clacks-sync`](lib/clacks-sync/README.md) supplies production metadata and
+conditional transitions for offline edits, acceptance, complete transfer windows,
+retirement and timeline recovery. The [integration contract](docs/synchronization-core.md)
+defines real-store transaction obligations and recovery limits.
 
 ## Project direction
 

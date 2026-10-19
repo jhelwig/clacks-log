@@ -7,10 +7,11 @@ here. Later client/server persistence and WebSocket integration use and extend
 that implementation. Tests exercise failures in the production logic; a separate
 simulated synchronization implementation does not complete the issue.
 
-The [issue #2 metadata and transition proposal](superpowers/specs/2026-10-18-synchronization-metadata-proposal.md)
-provides a concrete engineering composition and worked examples for review.
-It does not supersede the accepted decisions or claim implementation/proof of
-the proposed representation.
+The [issue #2 metadata design](superpowers/specs/2026-10-18-synchronization-metadata-proposal.md)
+is implemented by the [production synchronization core](synchronization-core.md).
+The library supplies conditional row transitions; actual database commits and
+transport remain downstream integration work. Published research explains the
+chosen mechanisms without proving every application-specific recovery transition.
 
 ## Working changes and symmetric synchronization (D59)
 
@@ -18,17 +19,17 @@ Use the same state/history negotiation and transfer mechanism for client-to-serv
 
 Local edits are durable working changes. Synchronization can coalesce accumulated edits into the state to transfer, without requiring a retained event for every intermediate edit. This does not mean waiting for synchronization to save local work. Previously synchronized state and newer working changes must remain distinguishable across retry/restart. The user's commit-and-push analogy does not establish a logbook branch, radio contact (QSO) files within that branch, or one atomic commit containing the whole logbook.
 
-Exact revision representation, synchronization boundaries for server-originated changes, and retention of synchronization evidence remain open. No Git storage format, logbook-wide commit model, or full per-edit event log is selected. D137 permits reconciliation without a conflict flow for one-sided record changes and equal resulting records; no general merge algorithm or interdependent-field conflict model is selected. D237 supersedes D36's confirmation-to-recorded-fact replacement behavior. D32 publication-attempt snapshots remain separate from recorded facts and provider evidence. Implementation batching must preserve the accepted record-level conflict semantics.
+The [production core](synchronization-core.md) supplies revision representation, server-originated acceptance and retention planning; real-store integration must enforce their emitted conditions. No Git storage format, logbook-wide commit model, or full per-edit event log is selected. D137 permits reconciliation without a conflict flow for one-sided record changes and equal resulting records; no general merge algorithm or interdependent-field conflict model is selected. D237 supersedes D36's confirmation-to-recorded-fact replacement behavior. D32 publication-attempt snapshots remain separate from recorded facts and provider evidence. Implementation batching must preserve the accepted record-level conflict semantics.
 
 ## Vector-based direction and revocation cutoff (D151–D152)
 
-Continue design using vector-based causal tracking; exact representation and implementation remain open. D152 closes automatic acceptance from an actor when its client is revoked. This supplies a policy boundary: unsynchronized edits not accepted before revocation do not remain eligible for automatic submission. A lost installation need not cooperate or report its final local counter. Recovering such work later requires explicit manual reconciliation; reauthorization does not reopen automatic acceptance from the old actor.
+The production core uses explicit record-local client/server vectors and interpretable baselines. D152 closes automatic acceptance from an actor when its client is revoked. This supplies a policy boundary: unsynchronized edits not accepted before revocation do not remain eligible for automatic submission. A lost installation need not cooperate or report its final local counter. Recovering such work later requires explicit manual reconciliation; reauthorization does not reopen automatic acceptance from the old actor.
 
 This is closure of the admissible update history, not a claim that every locally generated update was physically received. Already accepted shared records and evidence are not deleted or rejected because their originating actor was later revoked. Other authorized clients can still recover them into an older restored server. An enrolled client that is merely offline remains eligible indefinitely. Retirement knowledge and causal compaction must preserve these distinctions; exact metadata is not selected. D143 still applies if a backup predates the only surviving revocation record.
 
 ## Selected timeline-level ancestry (D154)
 
-Accepted shared state uses timeline/revision references with shared lineage metadata at exceptional recovery/fork/coverage boundaries. This records ordering without storing a version-history node for each contact edit. A boundary may establish that `(T2,205)` incorporates `(T1,200)`; this establishes coverage through T1:200, not T1:201, and must not retroactively attribute that coverage to earlier T2 positions. The original restored point and subsequently recovered coverage may differ. Normal server starts keep the timeline; exact detection and encoding remain open.
+Accepted shared state uses timeline/revision references with shared lineage metadata at exceptional recovery/fork/coverage boundaries. This records ordering without storing a version-history node for each contact edit. A boundary may establish that `(T2,205)` incorporates `(T1,200)`; this establishes coverage through T1:200, not T1:201, and must not retroactively attribute that coverage to earlier T2 positions. The original restored point and subsequently recovered coverage may differ. Normal server starts keep the timeline. The core implements position-dependent boundaries and witnessed regression detection, with the [documented detection limits](synchronization-core.md#verification-and-limits).
 
 
 ### Synchronization scope (D248)
@@ -59,7 +60,7 @@ An unrevoked enrolled client retains normal eligibility indefinitely. Do not cla
 
 Incremental transfer journals can be bounded independently of client eligibility. Keep current accepted records and the required deletion/service evidence; when a returning client's cursor predates retained transfers, use fuller-state reconciliation under D144 rather than forcing re-enrollment or discarding pending work. Retained lineage can establish the relation to the older timeline even when incremental payloads are gone. Compare ordinary pending work with its original values under D136–D138.
 
-Keep the small lineage structure separately from per-edit transfers. Its growth follows exceptional recovery boundaries, not every contact or actor edit. D155 selects the ordering-evidence retention boundary below; exact baseline and lineage encoding remain open. An expired incremental journal does not by itself authorize discarding ordering evidence still required by that boundary.
+Keep the small lineage structure separately from per-edit transfers. Its growth follows exceptional recovery boundaries, not every contact or actor edit. D155 selects the ordering-evidence retention boundary below; the core supplies baseline and sparse-lineage representations. An expired incremental journal does not by itself authorize discarding ordering evidence still required by that boundary.
 
 Deletion and service evidence have separate safety obligations: an old client must not resurrect deleted contacts or replay completed enrichment merely because an author or journal entry was collected. Preserve those facts or a demonstrably equivalent representation. Timeline ancestry proves relationships; it does not reconstruct missing payloads.
 
@@ -83,7 +84,7 @@ The published common-knowledge collection principle is discussed in [Peer-to-Pee
 
 Before acknowledging a checkpoint to the server, atomically save the received shared state, the checkpoint, and the comparison evidence required by pending local work. After a crash, either that checkpoint is durable or synchronization resumes from an older checkpoint with safe repeat transfer. Acknowledging receipt before this local commit would let collection advance past information the client could lose.
 
-Unresolved conflicts remain local and pending while unrelated synchronization progresses. Their comparison evidence must survive checkpoint advancement. This does not imply that publishing their eventual resolution can bypass D146's revalidation against current shared state. Exact dependency factoring and storage representation remain open.
+Unresolved conflicts remain local and pending while unrelated synchronization progresses. Their comparison evidence must survive checkpoint advancement. This does not imply that publishing their eventual resolution can bypass D146's revalidation against current shared state. The core returns exact dependency guards; physical storage and coupled workflow transactions remain integration work.
 
 
 ### Proposed pending comparison evidence — representation not yet selected
