@@ -24,3 +24,11 @@ pub use position::*;
 mod recognition;
 
 pub use recognition::*;
+
+mod contact;
+mod equipment;
+mod reference;
+
+pub use contact::*;
+pub use equipment::*;
+pub use reference::*;

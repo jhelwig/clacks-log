@@ -273,7 +273,7 @@ context through ordinary serialization.
 - `Qso::same_recorded_values(&self, &Self) -> bool` compares whole recorded contents for the same identity, including sets; cross-ID calls return false. `Qso` equality remains ordinary whole-record value equality. No automatic merge function is provided.
 - Test support supplies `qso(id: QsoId) -> Qso` with start 1000, callsigns W7HEX/K1ABC, primary 14_074_000 Hz, FT4 mode and empty optional values/sets; `reference(group: GroupId, identifier: Option<&str>) -> ReferenceAssociation`.
 
-- [ ] **Step 1:** Add tests covering frequency-only and band-only validity, both absent rejection, end 1000 valid/end 999 invalid, start/end spanning 86_400, both station callsigns, independently optional operator name/call and absent reports/equipment. Assert:
+- [x] **Step 1:** Add tests covering frequency-only and band-only validity, both absent rejection, end 1000 valid/end 999 invalid, start/end spanning 86_400, both station callsigns, independently optional operator name/call and absent reports/equipment. Assert:
 
 ```rust
 // a_present_receive_pair_is_a_whole_override
@@ -285,10 +285,10 @@ assert!(primary.effective_receive(Some(&receive)).frequency().is_none());
 
 Use `KnownBand::Meters20` as the exact Rust name for `20m`. Test that tag/reference reordering and duplicate insertion do not change a contact, while a different tag or comment does; same facts with another QsoId are distinct contacts. Test operator-name-only information without inventing an operator call. Serialize a valid contact and verify no start/end precision fields appear.
 
-- [ ] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test contacts`; expect missing record/value operations.
-- [ ] **Step 3:** Implement the interfaces and fixtures. Sets are `BTreeSet`; equipment descriptions/antenna/notes are optional preserved text. Empty operator/location aggregates normalize to absence through explicit normalization methods, not automatic provider filling. Frequency edits calculate band if possible; band edits clear frequency. Native record equality never reads current recognition or catalog state. Do not add persistence, import patches, a public QsoDraft/QsoParts hierarchy or revision fields. Saving adapters later call validation; in-memory test values can exercise invalid combinations without creating saved records.
-- [ ] **Step 4:** Run contacts and prior test binaries. Verify changing an unrelated comment leaves serialized unknown mode/band identities untouched.
-- [ ] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
+- [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test contacts`; expect missing record/value operations.
+- [x] **Step 3:** Implement the interfaces and fixtures. Sets are `BTreeSet`; equipment descriptions/antenna/notes are optional preserved text. Empty operator/location aggregates normalize to absence through explicit normalization methods, not automatic provider filling. Frequency edits calculate band if possible; band edits clear frequency. Native record equality never reads current recognition or catalog state. Do not add persistence, import patches, a public QsoDraft/QsoParts hierarchy or revision fields. Saving adapters later call validation; in-memory test values can exercise invalid combinations without creating saved records.
+- [x] **Step 4:** Run contacts and prior test binaries. Verify changing an unrelated comment leaves serialized unknown mode/band identities untouched.
+- [x] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
 
 ```text
 feat(model): define contact snapshots and whole-record comparisons
