@@ -1,6 +1,6 @@
 # Native contact and shared-data model
 
-**Status: written specification for user review, 18 October 2026.** This
+**Status: written specification; implementation plan prepared for review, 18 October 2026.** This
 consolidates the accepted issue #1 discussion and decisions through D255. It is
 not an approved implementation plan, delivered software, or permission to code.
 The behavioral requirements below are accepted. Logical field/type names and
@@ -677,8 +677,9 @@ capabilities rather than declared complete here.
 
 ## 14. Handoff and review boundary
 
-This is the consolidated design to review before an implementation plan is
-written. Issue #1 stays open until its implemented capability and verification
+This is the consolidated design underpinning the
+[implementation plan](../plans/2026-10-18-native-model.md), written at the user's request.
+Review the two together before execution. Issue #1 stays open until its implemented capability and verification
 evidence exist. No roadmap phase is marked complete by this document.
 
 Import-side `CONTEST_ID` station assignment is not approved or implemented;
@@ -688,6 +689,6 @@ adapters are downstream work, with optional catalog support and generic group
 parity preserved. Physical storage, sync protocol/recovery and concrete crate
 composition are not silently prescribed by the logical schema.
 
-The next workflow step after user approval of this written specification is a
-reviewable implementation plan. Writing this specification does not authorize
-coding or plan execution.
+The implementation plan supplies the concrete files, interfaces, task ordering
+and verification steps. Its preparation does not authorize coding or plan
+execution.

@@ -86,10 +86,10 @@ See [accounts and enrollment](accounts.md). Remaining work includes:
 
 ### Domain data, import and export
 
-The [consolidated native-model specification](superpowers/specs/2026-10-18-native-model-design.md) is written for
-user review. Accepted native behavior and the explicitly labeled engineering
-proposals are collected there; reviewing that document is the next issue #1
-step, not another product-decision queue. No implementation plan exists yet.
+The [consolidated native-model specification](superpowers/specs/2026-10-18-native-model-design.md) collects accepted native behavior and explicitly labeled engineering
+proposals. At the user's request, the [implementation plan](superpowers/plans/2026-10-18-native-model.md)
+is now written for review alongside it. This is issue #1 engineering preparation,
+not another product-decision queue. No plan task has been executed.
 Catalog provenance has no separate local version scheme. Optional catalog
 support does not select acquisition/update/distribution workflows. Export
 context selection is accepted under D255. Import-side assignment of an ADIF

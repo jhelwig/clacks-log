@@ -2,9 +2,10 @@
 
 The issue #1 design discussion has been consolidated into the
 [written native-model specification](../superpowers/specs/2026-10-18-native-model-design.md),
-dated 18 October 2026. That document is **awaiting user review**. It is the next
-artifact to review; this file is an index, not a parallel or competing spec.
-No implementation plan exists and implementation remains stopped.
+dated 18 October 2026. The user then requested the
+[implementation plan](../superpowers/plans/2026-10-18-native-model.md), now
+prepared for review alongside the specification. This file remains an index,
+not a parallel specification. No plan task has been executed.
 
 A radio contact is a QSO. Minimum viable product is MVP. Amateur Data
 Interchange Format is ADIF. Parks on the Air is POTA.
