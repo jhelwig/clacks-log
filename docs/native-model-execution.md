@@ -95,6 +95,8 @@ The review left these planned component boundaries in place:
 | Production group seeding and catalog acquisition/refresh | Application provisioning must supply the data through these interfaces. |
 | Entry workflows, persistent current defaults, Windows runtime and large-log performance | Application readiness and scale are not certified by model tests or cross-compilation. |
 
-Deferred Minor: add the unmodified selected Elastic License 2.0 text before
-source distribution. Cargo metadata and README declare the selected license;
-this packaging task is separate from the lawyer-led contributor agreement.
+The review's Minor packaging follow-up is resolved: the repository now includes
+the unmodified [Elastic License 2.0 text](../LICENSE), copied byte-for-byte from
+[Elastic's published text](https://raw.githubusercontent.com/elastic/elasticsearch/main/licenses/ELASTIC-LICENSE-2.0.txt).
+Cargo metadata and README identify the selected license. The contributor
+agreement remains separate lawyer-led work.
