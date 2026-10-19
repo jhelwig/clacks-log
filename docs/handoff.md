@@ -18,6 +18,13 @@ Follow the user's next request. Do not resume an endless sequence of product app
 
 The [remaining-work index](open-questions.md) separates engineering work from deferred product/legal matters. Its filename is retained for existing links; it is not an unresolved MVP product-decision queue. The detailed [decision register](decisions.md) remains authoritative, including later refinements of earlier decisions.
 
+Delivery issues produce production components, data tooling and artifacts that
+later work integrates and extends rather than replaces. Tests and fixtures verify
+those deliverables; a separate executable model, disposable prototype, artificial
+runtime or evidence-only demonstration does not satisfy implementation scope.
+Later integration adds persistence, transport, workflows or coverage to the same
+components without treating the earlier implementation as throwaway work.
+
 ## Read first
 
 Read the [native-model specification](superpowers/specs/2026-10-18-native-model-design.md), [implementation plan](superpowers/plans/2026-10-18-native-model.md) and [library scope and validation](native-model.md) for domain contracts and adapter boundaries.

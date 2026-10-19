@@ -14,6 +14,13 @@ requirements at creation; subsequent accepted decisions and user corrections
 remain authoritative. No phase or capability is complete merely because it has
 an issue.
 
+Delivery issues produce production components, data tooling and artifacts that
+later work integrates and extends rather than replaces. Tests and fixtures verify
+those deliverables; a separate executable model, disposable prototype, artificial
+runtime or evidence-only demonstration does not satisfy implementation scope.
+Later integration adds persistence, transport, workflows or coverage to the same
+components without treating the earlier implementation as throwaway work.
+
 ## Picking up an issue
 
 1. Read its outcome, scope, linked requirements and dependencies. Begin with

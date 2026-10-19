@@ -14,6 +14,11 @@ Downloads of our submission/acceptance history and downloads of counterpart subm
 
 [External-service state model and research](../references/service-state-model.md) records provider documentation and D32: keep current radio contact (QSO) data, per-service publication history, and remote observations separate. Exact fields, schema, provider identity/compatibility tables and import mappings remain engineering work; matching and association policies are specified below.
 
+Issue #3 delivers production evidence and association components implementing
+these contracts. Imports, synchronization and provider jobs integrate and extend
+those components; an isolated demonstration or schema-only exercise is not the
+deliverable. Persistence integration must enforce the required atomicity and
+uniqueness in the actual stores.
 
 ## Synchronization ownership (D248)
 

@@ -23,15 +23,22 @@ work from deferred capabilities. A radio contact is a QSO. Logbook of The World
 is abbreviated LoTW; Parks on the Air is POTA; OpenID Connect is OIDC; Amateur
 Data Interchange Format is ADIF, with its text representation called ADI.
 
+Delivery issues produce production components, data tooling and artifacts that
+later work integrates and extends rather than replaces. Tests and fixtures verify
+those deliverables; a separate executable model, disposable prototype, artificial
+runtime or evidence-only demonstration does not satisfy implementation scope.
+Later integration adds persistence, transport, workflows or coverage to the same
+components without treating the earlier implementation as throwaway work.
+
 ## Delivery sequence
 
 | Phase | Milestone outcome | Main dependency |
 | --- | --- | --- |
-| 1. Foundations and early risks | Native model, synchronization and shared service-evidence behavior are established; certificate and geographic delivery risks have concrete evidence. | Accepted product and architectural requirements. |
+| 1. Foundations and early risks | Production native-model, synchronization, service-evidence, certificate/signing and geographic-data foundations are implemented and verified. | Accepted product and architectural requirements. |
 | 2. Durable offline logging | A Windows operator can record, edit, delete, organize and reopen contacts without the server. | Phase 1 native model. |
 | 3. Accounts and synchronized operation | Independently writable clients enroll, reconcile and recover access through an isolated account; directory setup is available. | Phase 2 durable state and Phase 1 synchronization/service-evidence foundations. |
 | 4. Complete logging workflows | Capture, lookup, geographic assistance, ADI interchange and migration of unrelated populated logs work together. | Phase 3 account synchronization, directory configuration and protected credential provisioning. |
-| 5. External services and recovery | Automatic/manual publication, confirmations and operational controls work safely with accepted account state. | Phase 3 evidence synchronization and association safeguards, Phase 4 interchange and early compatibility evidence. |
+| 5. External services and recovery | Automatic/manual publication, confirmations and operational controls work safely with accepted account state. | Phase 3 evidence synchronization and association safeguards, Phase 4 interchange and Phase 1 certificate/signing components. |
 | 6. Release readiness | Installed applications, deployment and recovery procedures demonstrate the complete MVP. | Integrated outcomes from Phases 1–5. |
 
 The sequence expresses cumulative completion, not a requirement to finish every
@@ -50,23 +57,28 @@ Milestones:
   station snapshots, reusable equipment, profiles, tags and unified activity
   context with own-station/contacted-station reference sets. Recognition and
   source separation preserve recorded meaning across clients and upgrades.
-- Demonstrate the agreed synchronization semantics with an executable model:
-  whole-record comparison, deletion, offline edits, timeline recovery, authorized
-  client retention and actor retirement. Explain conservative reconciliation when
-  ordering evidence is unavailable.
-- Establish shared service-evidence and external-record association behavior for
-  imports, synchronization and later publication. Preserve provenance and recovery
+- Implement the production synchronization and recovery logic for whole-record
+  comparison, deletion, offline edits, timeline recovery, authorized-client
+  retention and actor retirement. Explain conservative reconciliation when
+  ordering evidence is unavailable. Later storage and transport work integrates
+  and extends this implementation; it does not replace a separate simulation.
+- Implement production shared service-evidence and external-record association
+  components for imports, synchronization and later publication. Preserve provenance and recovery
   meaning; an external record may associate with at most one local QSO within an
   account and service destination. These foundations precede imports and live
   jobs; live provider integration remains in Phase 5.
-- Establish early compatibility evidence for source-guided pure-Rust LoTW
-  certificate handling and signing, and produce representative geographic data
-  with verified provenance
-  and redistribution rights. Surface incompatibilities before publication or
-  location workflows depend on them.
+- Implement source-guided pure-Rust LoTW certificate handling and signing
+  components, with independently checked compatibility. Later credential
+  management and publication integrate these components.
+- Implement the production geographic-data preparation pipeline and artifact
+  format using the selected sources, with verified provenance and redistribution
+  rights. Validate representative derived artifacts through that pipeline; later
+  geographic assistance extends its coverage and consumes its artifacts.
 
-Completion means the models cover the accepted behavior and meaningful failure
-cases, with evidence for the principal external compatibility risks. A small
+Completion means production foundations implement the accepted behavior with
+meaningful failure and compatibility verification. Phase 1 need not deliver all
+later user workflows or complete geographic coverage, but its implemented
+components and data tooling must carry forward into those capabilities. A small
 placeholder catalog, a collection of type declarations or tests of only happy
 paths does not establish this milestone.
 

@@ -53,6 +53,12 @@ Direct foreign function interface (FFI) with one tenant per process and temporar
 
 ## Source and verification plan
 
+Issue #4 implements the production pure-Rust certificate/archive import,
+interpretation and signing/serialization components, with compatibility tests.
+Later credential management and live submission integrate and extend that code.
+A compatibility probe or alternate signing implementation intended for later
+replacement does not satisfy the issue.
+
 Remaining engineering preparation includes inventorying the reference functions and configuration sections needed for certificate import/interpretation, signing-input construction, signature generation, serialization, and transport. See the [initial source map](../references/trustedqsl/source-map.md).
 
 Future compatibility verification should compare signing bytes and parsed records against the reference, verify signatures independently, and check actual LoTW acceptance and retained values. Gzip metadata or incidental formatting need not match byte-for-byte when protocol semantics do. Include corrections, ambiguous upload outcomes, multiple callsigns/entities, historical dates, portable locations, satellite and cross-band contacts, and invalid credentials.
