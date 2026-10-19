@@ -17,3 +17,5 @@ pub mod account;
 pub mod lineage;
 
 pub mod compare;
+
+pub mod client;
