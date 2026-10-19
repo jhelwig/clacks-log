@@ -5,21 +5,15 @@ phases and observable milestones. It describes what becomes usable, the major
 dependencies and what establishes completion. Detailed implementation plans are
 separate work, prepared for the milestone being undertaken.
 
-**Status:** No phase is complete. The [native-model library](native-model.md)
-provides values, records and pure selection/reference-planning operations.
-Synchronization, service evidence, signing and geographic data remain Phase 1
-capabilities.
-
 Scope: accepted decisions D01–D256.
 
-Delivery is tracked through [GitHub milestones and capability issues](github-backlog.md).
+Delivery is tracked through [GitHub issues](https://github.com/jhelwig/clacks-log/issues) and [milestones](https://github.com/jhelwig/clacks-log/milestones).
 Each issue starts with brainstorming to produce a reviewed specification and
 implementation plan before coding. Creating the backlog does not mark any phase
 complete or authorize implementation directly from issue descriptions.
 
 The [product model](product.md) and [decision register](decisions.md) define the
-scope. The [remaining-work index](open-questions.md) distinguishes engineering
-work from deferred capabilities. A radio contact is a QSO. Logbook of The World
+scope. [Deferred scope](product.md#deferred-and-uncommitted-scope-boundaries) is recorded with the product contract. A radio contact is a QSO. Logbook of The World
 is abbreviated LoTW; Parks on the Air is POTA; OpenID Connect is OIDC; Amateur
 Data Interchange Format is ADIF, with its text representation called ADI.
 
@@ -49,7 +43,9 @@ parallel preparation does not mean independent applications or deployed services
 
 ## Phase 1 — Foundations and early risks
 
-Issue #1 has a [native-model specification](superpowers/specs/2026-10-18-native-model-design.md), [implementation plan](superpowers/plans/2026-10-18-native-model.md) and [library scope](native-model.md). The remaining synchronization, service-evidence, signing and geographic milestones keep Phase 1 open.
+The [native-model contract](native-model.md) and [synchronization model](synchronization-model.md)
+define the corresponding foundations. Their crate guides describe implementation
+and adapter boundaries; GitHub records capability status.
 
 Milestones:
 
@@ -228,6 +224,6 @@ engineering choices. Neither a new product-decision queue nor coding directly
 from these milestone descriptions is the next step.
 
 Deferred and uncommitted capabilities retain their status in the
-[scope index](open-questions.md#deferred-and-uncommitted-scope-boundaries).
+[product contract](product.md#deferred-and-uncommitted-scope-boundaries).
 No calendar estimate is asserted. Milestone completion is based on observed
 capability and validation evidence.

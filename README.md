@@ -2,35 +2,52 @@
 
 Clacks Log is a planned amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model library provides pure domain values and operations; applications, persistence and integrations remain downstream capabilities. Rust is the intended implementation language wherever practical. PostgreSQL is selected for server persistence, embedded SQLite for client persistence (D213), and egui for the desktop interface (D215). No desktop/server application or database migration is delivered by this library.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. Applications, persistence, database migrations and service integrations remain downstream capabilities.
 
-## Planning documents
+## Documentation
 
-- [Planning completion and continuation handoff](docs/handoff.md)
-- [Phased MVP roadmap](docs/mvp-roadmap.md)
-- [GitHub milestones and capability issues](docs/github-backlog.md)
-- [Native-model specification](docs/superpowers/specs/2026-10-18-native-model-design.md)
-- [Native-model implementation plan and progress](docs/superpowers/plans/2026-10-18-native-model.md)
-- [Product scope and operating workflows](docs/product.md)
+- [Product scope and workflows](docs/product.md)
+- [MVP roadmap](docs/mvp-roadmap.md)
+- [GitHub issues](https://github.com/jhelwig/clacks-log/issues) and [milestones](https://github.com/jhelwig/clacks-log/milestones)
 - [Decision register](docs/decisions.md)
-- [Architectural review](docs/architecture-review.md)
-- [Client synchronization and conflicts](docs/synchronization.md)
-- [External logbook services](docs/integrations.md)
-- [Logbook of The World (LoTW) signing and certificate management](docs/lotw.md)
-- [Remaining engineering and deferred work](docs/open-questions.md)
-- [Research provenance and original documents](references/README.md)
-- [TrustedQSL reference source map](references/trustedqsl/source-map.md)
+- [Native-model contract](docs/native-model.md)
+- [Synchronization behavior](docs/synchronization.md) and [metadata model](docs/synchronization-model.md)
+- [Accounts and enrollment](docs/accounts.md)
+- [External services](docs/integrations.md) and [LoTW signing](docs/lotw.md)
+- [Backup and recovery](docs/backup-recovery.md)
+- [Server observability](docs/observability.md)
+- [Research provenance](references/README.md) and [TrustedQSL source map](references/trustedqsl/source-map.md)
 
-The current planning documents reflect the conversation through 18 October 2026 (D01–D256). Original handoffs are historical evidence, not instructions or current requirements. Later explicit decisions take precedence over earlier research and assistant proposals.
+Product and architecture requirements are settled through D256. Engineering
+specifications and implementation plans are prepared for the capability being
+undertaken. GitHub owns delivery status; the roadmap describes phase outcomes
+and dependencies. Historical source material is evidence, not operative guidance.
+
+## Architecture
+
+| Component | Selected direction |
+| --- | --- |
+| Desktop | Rust with egui/eframe and egui_extras; Windows MVP, cross-platform foundations for later macOS/Linux clients |
+| Storage | Embedded SQLite on clients; PostgreSQL on the server; ordinary transactions without a custom client write queue |
+| Server | One Clacks application containing web, synchronization and background workers, deployed in Linux containers alongside PostgreSQL |
+| Web | Leptos/Axum with server rendering and Rust/WebAssembly hydration; architecture accommodates later browsing, editing and reporting |
+| Identity | Configurable OpenID Connect (OIDC), independent internal accounts, multiple login bindings and individually revocable clients |
+| Secrets | Per-account encryption keys protected by a deployment wrapping key; directory credentials reach protected client storage, LoTW signing keys stay server-side |
+| LoTW | Source-guided Rust port with pure-Rust certificate import, interpretation and signing |
+| Geographic data | Census U.S. states/counties, HA8TKS CQ/International Telecommunication Union (ITU) zones, Natural Earth plus explicit DX Century Club (DXCC) mapping |
 
 ## Native-model library
 
 [`lib/clacks-model`](lib/clacks-model/README.md) contains recorded values, contacts,
 profiles, equipment, tags, data-driven reference definitions, effective source
-selection and in-memory reference-export planning. Rust 1.99.1 is pinned.
-Run `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings`
-from this checkout. See the [native-model library overview](docs/native-model.md)
-for scope, validation commands and downstream boundaries.
+selection and in-memory reference-export planning. See its crate guide for usage and adapter boundaries, and [development](#development) for workspace verification.
+
+## Synchronization library
+
+[`lib/clacks-sync`](lib/clacks-sync/README.md) supplies production metadata and
+conditional transitions for offline edits, acceptance, complete transfer windows,
+retirement and timeline recovery. The [integration contract](lib/clacks-sync/README.md)
+defines real-store transaction obligations and recovery limits.
 
 ## Project direction
 
@@ -45,3 +62,32 @@ LoTW integration will use a source-guided Rust port of relevant tqsllib behavior
 ## License status
 
 Clacks Log licenses its own application code under [Elastic License 2.0](LICENSE) (D221), without a free/community-hosting exception. Individual personal self-hosting remains allowed under the selected license; hosting for others is reserved whether paid or free. Included third-party reference code, dependencies and assets retain their applicable upstream licenses and notices.
+
+Contributor-agreement selection, substantive adaptation and legal drafting are
+reserved for a qualified lawyer (D234), before accepting external contributions
+under that agreement. No agreement or future relicensing policy is selected.
+The [agreement comparison](references/contributor-agreements.md) and
+[questions for counsel](references/jetbrains-cla-review.md) retain the supporting
+evidence. Dependency versions, features and distribution require their applicable
+license and notice checks.
+
+## Development
+
+Use the pinned Rust 1.99.1 compiler and committed lockfile:
+
+```sh
+cargo +1.99.1 fmt --all --check
+cargo +1.99.1 test --workspace --all-targets --locked --offline
+cargo +1.99.1 test --workspace --doc --locked --offline
+cargo +1.99.1 clippy --workspace --all-targets --locked --offline -- -D warnings
+cargo +1.99.1 check --workspace --all-targets --target x86_64-pc-windows-msvc --locked --offline
+RUSTDOCFLAGS='-D warnings' cargo +1.99.1 doc --workspace --no-deps --document-private-items --locked --offline
+```
+
+Offline checks require cached dependencies and the selected target standard
+library. Windows target checks do not exercise the runtime or installer.
+
+Follow [collaboration guidance](AGENTS.md) when working on an issue. Keep
+maintained requirements and integration contracts in their owning documents.
+Completed execution plans are retained in Git history and pull requests; active
+plans may remain under `docs/superpowers/plans/` while their work is in review.

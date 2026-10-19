@@ -1,0 +1,144 @@
+[
+  {
+    "id": "00000000000000000000000001",
+    "name": "POTA fixture",
+    "identifier": {
+      "required": true,
+      "normalization": [
+        "Trim",
+        "Uppercase"
+      ],
+      "syntax": "[A-Z0-9]{1,4}-[0-9]{4,5}(?:@[A-Z]{2}-[A-Z0-9]{1,3})?"
+    },
+    "bears_location_context": true,
+    "catalog": {
+      "dataset_id": "00000000000000000000000001",
+      "lookup_key": "CurrentIdentifier",
+      "display_name": "name",
+      "details": [
+        {
+          "label": "Status",
+          "field": "status"
+        }
+      ]
+    },
+    "export_mappings": {
+      "ordinary_interchange": [
+        {
+          "field": "MY_POTA_REF",
+          "value": {
+            "Join": {
+              "values": {
+                "Identifiers": "Own"
+              },
+              "separator": ","
+            }
+          },
+          "when": "Always"
+        },
+        {
+          "field": "POTA_REF",
+          "value": {
+            "Join": {
+              "values": {
+                "Identifiers": "Contacted"
+              },
+              "separator": ","
+            }
+          },
+          "when": "Always"
+        }
+      ],
+      "targeted": {
+        "00000000000000000000000002": {
+          "fields": [
+            {
+              "field": "MY_SIG",
+              "value": {
+                "Literal": "POTA"
+              },
+              "when": "Always"
+            },
+            {
+              "field": "MY_SIG_INFO",
+              "value": {
+                "BoundIdentifier": "own_park"
+              },
+              "when": "Always"
+            },
+            {
+              "field": "SIG",
+              "value": {
+                "Literal": "POTA"
+              },
+              "when": {
+                "BoundPresent": "other_park"
+              }
+            },
+            {
+              "field": "SIG_INFO",
+              "value": {
+                "BoundIdentifier": "other_park"
+              },
+              "when": {
+                "BoundPresent": "other_park"
+              }
+            },
+            {
+              "field": "MY_STATE",
+              "value": {
+                "QsoField": "OwnPrimarySubdivision"
+              },
+              "when": "Always"
+            }
+          ],
+          "file_partition": [
+            {
+              "ByValue": {
+                "QsoField": "OwnCallsign"
+              }
+            },
+            {
+              "EachReference": {
+                "side": "Own",
+                "binding": "own_park"
+              }
+            }
+          ],
+          "entry_expansion": [
+            {
+              "side": "Contacted",
+              "binding": "other_park",
+              "keep_one_if_empty": true
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "00000000000000000000000002",
+    "name": "CQ-WW-SSB fixture",
+    "identifier": {
+      "required": false,
+      "normalization": [
+        "Trim"
+      ],
+      "syntax": null
+    },
+    "bears_location_context": false,
+    "catalog": null,
+    "export_mappings": {
+      "ordinary_interchange": [
+        {
+          "field": "CONTEST_ID",
+          "value": {
+            "Literal": "CQ-WW-SSB"
+          },
+          "when": "Always"
+        }
+      ],
+      "targeted": {}
+    }
+  }
+]

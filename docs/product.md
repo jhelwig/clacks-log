@@ -1,6 +1,6 @@
 # Product scope and operating workflows
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The [native-model specification](superpowers/specs/2026-10-18-native-model-design.md) defines the contact and shared-data contracts. The [native-model library](native-model.md) implements their pure value and selection operations; desktop/server applications and persistence remain downstream capabilities.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The [native-model specification](native-model.md) defines the contact and shared-data contracts. The [native-model library](../lib/clacks-model/README.md) implements their pure value and selection operations; desktop/server applications and persistence remain downstream capabilities.
 
 Clacks Log should replace the everyday shack logger while supporting independently writable offline logs on any number of clients. Fixed and portable operation use the same product model.
 
@@ -210,7 +210,7 @@ D254 makes reference groups and their behavioral properties data-driven. Each co
 
 Seed default definitions into each account as ordinary shared records, synchronize them to enrolled clients and use the locally synchronized definitions offline. Default and future user-defined groups have full capability parity through the same generic engine; program names do not select privileged behavior. MVP does not include group management.
 
-Optional reference catalogs supply descriptive lookup data separately from recorded QSO facts. Catalog locations do not assert the station position. Provenance records dataset name, optional publisher/source URL, obtained-at time and optional upstream version; the stable catalog ID identifies the dataset, without a separate local version scheme. Catalog acquisition/update/distribution remain separate specification work. The [native-model specification](superpowers/specs/2026-10-18-native-model-design.md) consolidates the accepted capabilities and defines the group schemas and declarative mapping rules.
+Optional reference catalogs supply descriptive lookup data separately from recorded QSO facts. Catalog locations do not assert the station position. Provenance records dataset name, optional publisher/source URL, obtained-at time and optional upstream version; the stable catalog ID identifies the dataset, without a separate local version scheme. Catalog acquisition/update/distribution remain separate specification work. The [native-model specification](native-model.md) consolidates the accepted capabilities and defines the group schemas and declarative mapping rules.
 
 D130 allows supported activity/reference values in current operating defaults to be optionally saved in a location profile, including contest identifiers as well as own POTA references. Loading the profile copies these values under existing profile rules; new QSOs snapshot them. Keep setting/clearing references explicit and do not infer an operating-session lifecycle from an identifier. Profiles load the whole station snapshot, including clearing absent location/reference values; the native-model specification consolidates this behavior. D131 makes manual entry of known identifiers sufficient for MVP; manual identifier entry remains sufficient; optional catalog bindings are accepted under D254, with acquisition/update/distribution specified separately. D254 makes normalization and syntax validation group-defined and accepts optional catalogs without making catalog metadata recorded QSO data. Geographic station-location autofill under D77 is a separate requirement.
 
@@ -226,7 +226,7 @@ Automatic catch-up of contacts missed while Clacks Log was not receiving WS UDP 
 
 D44 includes ADIF export of the whole log or selected contacts in MVP. Export current supported QSO values, including historical station context and supported confirmation information; exact service-history fields still depend on the detailed external-service model.
 
-eQSL is relevant to the existing workflow but has not been committed to MVP. Bulk editing, explicit restoration of deleted QSOs, and built-in backup/restore commands are post-MVP. D57 accepts documented backup and recovery procedures for MVP. D62 includes individual-client revocation without deleting shared QSOs or affecting other clients. D191 selects automatic isolated-account provisioning on first successful OIDC sign-in, reusing existing issuer/subject bindings without administrator pre-creation or a separate approval step. D64’s earlier sufficient/can-be statement was permissive, not a required workflow. D65 requires browser-based client authorization and a deployment-provided web UI. D213/D223 place web, synchronization and background workers in one Clacks server application alongside PostgreSQL; exact callback/protocol integration and deployment tooling remain engineering work. D66 includes sign-in, client authorization/listing/revocation, administrator account creation, external-service configuration, and upload diagnostics in the MVP web UI. Under D67, desktop external-service setup opens that web UI; station defaults/profiles remain native, alongside live service status and routine operational actions. D56 excludes direct enrollment-time merging of independently populated logs; MVP migration exports existing contacts to ADIF and re-imports them after joining synchronization with an empty local log. Detailed ADIF import behavior, remaining migration requirements and detailed export behavior, backup/export user experience (UX), and other ordinary logger functions still need explicit scoping rather than assuming every incumbent capability belongs in the first release. D192 makes manual out-of-band server-administrator assignment sufficient; an in-app role-assignment interface is not required for MVP.
+eQSL is relevant to the existing workflow but has not been committed to MVP. Bulk editing of recorded contact facts, explicit restoration of deleted QSOs, and built-in backup/restore commands are post-MVP; direct tag assignment remains MVP. D57 accepts documented backup and recovery procedures for MVP. D62 includes individual-client revocation without deleting shared QSOs or affecting other clients. D191 selects automatic isolated-account provisioning on first successful OIDC sign-in, reusing existing issuer/subject bindings without administrator pre-creation or a separate approval step. D64’s earlier sufficient/can-be statement was permissive, not a required workflow. D65 requires browser-based client authorization and a deployment-provided web UI. D213/D223 place web, synchronization and background workers in one Clacks server application alongside PostgreSQL; exact callback/protocol integration and deployment tooling remain engineering work. D66 includes sign-in, client authorization/listing/revocation, administrator account creation, external-service configuration, and upload diagnostics in the MVP web UI. Under D67, desktop external-service setup opens that web UI; station defaults/profiles remain native, alongside live service status and routine operational actions. D56 excludes direct enrollment-time merging of independently populated logs; MVP migration exports existing contacts to ADIF and re-imports them after joining synchronization with an empty local log. Detailed ADIF import behavior, remaining migration requirements and detailed export behavior, backup/export user experience (UX), and other ordinary logger functions still need explicit scoping rather than assuming every incumbent capability belongs in the first release. D192 makes manual out-of-band server-administrator assignment sufficient; an in-app role-assignment interface is not required for MVP.
 
 ## Later interests
 
@@ -249,3 +249,39 @@ D127’s shared activity/reference model remains separate from output expansion.
 D255 makes export context an output profile plus an optional target group, independent of the selected contacts. Ordinary ADIF without a target uses ordinary interchange mappings and emits a QSO's single distinct applicable contest identifier as CONTEST_ID. Multiple distinct contest identifiers on one QSO are surfaced during preparation: select a contest context or proceed with those ambiguous fields omitted and reported. Ordinary export retains one entry per QSO without program-specific expansion. With an explicit contest target, that contest determines CONTEST_ID; other contest associations do not compete. Program-compatible profiles select the target group's submission mappings, validation, partitioning and expansion. Conflicting assignments within a selected definition are configuration errors reported before output is written. Do not add participation, rewrite associations or silently change contact selection.
 
 For D212, report source contact count separately from generated output entry/file counts. Apply D210/D211 consistent point-in-time local state, eligible fallback, and preservation of existing destinations on cancellation/failure. Exact export-field validation, file naming/grouping details, and multi-file finalization mechanics remain open.
+
+## Deferred and uncommitted scope boundaries
+
+
+The following are deferred or uncommitted, not missing MVP decisions: bulk editing of contact facts (direct tag assignment is MVP); computer-aided transceiver control (CAT); paper contact-confirmation (QSL) workflows; dedicated contest exchanges; individual-contact restoration and equipment restore/clone resolution options; selective sync; ADX; a separate geographic-data updater; built-in backup/restore commands; outbound WS control; device-authorization fallback; automatic directory-provider fallback; and macOS/Linux releases. Preserve each decision's exact scope rather than treating every item as a guaranteed later release.
+
+Other eQSL, award/heard-station, GridTracker wanted/award-data, archive and persistent reusable directory-cache capabilities remain uncommitted. Provider-result merging is excluded; unsaved manual-draft restoration and dedicated import-session resumption are not future backlog commitments. Use [decisions](decisions.md) for the exact boundaries, rather than promoting this parking list into requirements.
+
+Hosted subscription launch, pricing, packaging, billing and hosted operational
+commitments are future work (D241); they do not gate the self-hosted MVP.
+Offline conflict resolution from cached shared values is permitted but is not a
+hard MVP requirement or a committed post-MVP deliverable (D139).
+
+## Workflow integration requirements
+
+Import adapters preserve field-specific defaults, historical callsign assignment,
+omitted-versus-cleared values, normalization warnings and invalid-optional-value
+diagnostics. Candidate comparison and stale-result revalidation use the shared
+resolution workflow. Import-side `CONTEST_ID` station assignment remains an import
+mapping decision, without adding another native reference scope.
+
+Export adapters define complete supported-field mappings, transliteration
+warnings, activation-location partitions and source/output counts, with consistent
+reads and cancellation-safe multi-file finalization. Catalog acquisition,
+refresh and distribution are separate from catalog interpretation; provenance
+uses obtained-at time and optional upstream version, without a local version scheme.
+
+Geographic artifacts retain source pins, redistribution notices, datum and
+date-line handling, explicit DXCC mapping/exceptions and review of the six ITU
+zone topology corrections identified by the [dataset audit](../references/geographic-data-audit.json).
+Required U.S. coverage and desired worldwide coverage retain their different
+priorities; a selected source is not a verified shipping dataset.
+
+Desktop verification covers large logs, keyboard/input methods, accessibility,
+display scaling, live updates, partial failures/cancellation and packaged Windows
+operation. Cross-platform foundations do not expand MVP release platforms.

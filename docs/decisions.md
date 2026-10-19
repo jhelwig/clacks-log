@@ -1030,7 +1030,7 @@ Within an account and external-service destination, allow at most one local QSO 
 
 ### Subsequent design refinements
 
-The [native-model specification](superpowers/specs/2026-10-18-native-model-design.md) defines the native contracts incorporating these refinements.
+The [native-model specification](native-model.md) defines the native contracts incorporating these refinements.
 
 #### D252
 
@@ -1067,7 +1067,7 @@ Mode, submode and band recognition must be data-driven. Keep the parent-only ver
 ## Intentions with details still open
 
 
-D221 selects standard Elastic License 2.0 following the D219/D220 hosting policy. Optional subscription packaging and contributor-rights arrangements remain open; application-license selection is settled. D215 selects the desktop toolkit. ADIF workflows are largely settled; exact mappings, validation and remaining specification/verification work are tracked in docs/open-questions.md. The hosting subscription is optional; self-hosting must remain possible.
+D221 selects standard Elastic License 2.0 following the D219/D220 hosting policy. Optional subscription packaging and contributor-rights arrangements remain open; application-license selection is settled. D215 selects the desktop toolkit. ADIF workflows are largely settled; mapping and workflow contracts live in [product.md](product.md), with remaining implementation tracked in [GitHub](https://github.com/jhelwig/clacks-log/issues). The hosting subscription is optional; self-hosting must remain possible.
 
 Retain imported upload and confirmation history when reasonable. Exact mapping and whether LOG4OM exports sufficient information depend on the external-service model, whose basic separation is accepted in D32 but whose detailed representation is not yet defined. D50 accepts positive imported upload status for scheduling without prior verification; D52 accepts recognized positive imported confirmations immediately with available dates and provenance; exact field mapping remains open. Do not infer that an imported status is a complete Clacks Log publication or confirmation record.
 

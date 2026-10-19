@@ -35,7 +35,7 @@ These are compatibility findings, not behavior we must copy into the product. D2
 
 The logger should provide its own station-location management. TrustedQSL (TQSL) signing tool's configuration describes country/entity-dependent fields and allowed values; a GUI wizard is not a protocol requirement.
 
-Each QSO captures its operating location as a snapshot at logging time. Saved profiles synchronize, while current logging defaults are independent per client. Profile/default edits do not change historical signing inputs; correcting existing QSOs requires explicit editing. Profiles are optional for one-off locations, and no operating-session start/end lifecycle is required. Native station/location values and validation are defined in the [implemented model specification](superpowers/specs/2026-10-18-native-model-design.md). LoTW-specific signing-input mapping and validation remain unimplemented.
+Each QSO captures its operating location as a snapshot at logging time. Saved profiles synchronize, while current logging defaults are independent per client. Profile/default edits do not change historical signing inputs; correcting existing QSOs requires explicit editing. Profiles are optional for one-off locations, and no operating-session start/end lifecycle is required. Native station/location values and validation are defined in the [implemented model specification](native-model.md). LoTW-specific signing-input mapping and validation remain unimplemented.
 
 ## What tqsllib supplies
 

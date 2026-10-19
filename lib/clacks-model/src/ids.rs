@@ -62,5 +62,13 @@ entity_ids!(
     /// Stable identity of a reference dataset independent of its upstream version.
     CatalogId,
     /// Stable identity of an export output profile.
-    OutputProfileId
+    OutputProfileId,
+    /// Account boundary for synchronized data and admission.
+    AccountId,
+    /// Enrolled client identity and record-vector writer identity.
+    ClientActorId,
+    /// Identity of an accepted server history.
+    TimelineId,
+    /// Identity of an interpretable common-history baseline.
+    BaselineId
 );

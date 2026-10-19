@@ -1,6 +1,6 @@
 # Contest exchange requirements
 
-Research checkpoint: **18 October 2026**. This is a representative survey of organizer rules, not an exhaustive contest catalog or an accepted Clacks schema. Its purpose is to test whether additional structured values have established uses before choosing a reference representation in [issue #1 brainstorming](../docs/brainstorming/issue-1-native-model.md).
+Research checkpoint: **18 October 2026**. This is a representative survey of organizer rules, not an exhaustive contest catalog or an accepted Clacks schema. Its purpose is to test whether additional structured values have established uses before choosing a reference representation in [issue #1 brainstorming](../docs/native-model.md).
 
 Dedicated contest-exchange recording remains **post-minimum viable product (MVP)** under D129; operators may use the general comment in MVP. Research here does not expand that scope. Radio contacts are called QSOs below.
 

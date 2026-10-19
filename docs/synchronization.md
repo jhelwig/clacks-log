@@ -7,23 +7,29 @@ here. Later client/server persistence and WebSocket integration use and extend
 that implementation. Tests exercise failures in the production logic; a separate
 simulated synchronization implementation does not complete the issue.
 
+The [issue #2 metadata design](synchronization-model.md)
+is implemented by the [production synchronization core](../lib/clacks-sync/README.md).
+The library supplies conditional row transitions; actual database commits and
+transport remain downstream integration work. Published research explains the
+chosen mechanisms without proving every application-specific recovery transition.
+
 ## Working changes and symmetric synchronization (D59)
 
 Use the same state/history negotiation and transfer mechanism for client-to-server and server-to-client synchronization. A restored server can request missing synchronized state from clients just as a behind client can request it from the server. The server's coordination of accepted state and external service jobs does not make its stored history infallible.
 
 Local edits are durable working changes. Synchronization can coalesce accumulated edits into the state to transfer, without requiring a retained event for every intermediate edit. This does not mean waiting for synchronization to save local work. Previously synchronized state and newer working changes must remain distinguishable across retry/restart. The user's commit-and-push analogy does not establish a logbook branch, radio contact (QSO) files within that branch, or one atomic commit containing the whole logbook.
 
-Exact revision representation, synchronization boundaries for server-originated changes, and retention of synchronization evidence remain open. No Git storage format, logbook-wide commit model, or full per-edit event log is selected. D137 permits reconciliation without a conflict flow for one-sided record changes and equal resulting records; no general merge algorithm or interdependent-field conflict model is selected. D237 supersedes D36's confirmation-to-recorded-fact replacement behavior. D32 publication-attempt snapshots remain separate from recorded facts and provider evidence. Implementation batching must preserve the accepted record-level conflict semantics.
+The [production core](../lib/clacks-sync/README.md) supplies revision representation, server-originated acceptance and retention planning; real-store integration must enforce their emitted conditions. No Git storage format, logbook-wide commit model, or full per-edit event log is selected. D137 permits reconciliation without a conflict flow for one-sided record changes and equal resulting records; no general merge algorithm or interdependent-field conflict model is selected. D237 supersedes D36's confirmation-to-recorded-fact replacement behavior. D32 publication-attempt snapshots remain separate from recorded facts and provider evidence. Implementation batching must preserve the accepted record-level conflict semantics.
 
 ## Vector-based direction and revocation cutoff (D151–D152)
 
-Continue design using vector-based causal tracking; exact representation and implementation remain open. D152 closes automatic acceptance from an actor when its client is revoked. This supplies a policy boundary: unsynchronized edits not accepted before revocation do not remain eligible for automatic submission. A lost installation need not cooperate or report its final local counter. Recovering such work later requires explicit manual reconciliation; reauthorization does not reopen automatic acceptance from the old actor.
+The production core uses explicit record-local client/server vectors and interpretable baselines. D152 closes automatic acceptance from an actor when its client is revoked. This supplies a policy boundary: unsynchronized edits not accepted before revocation do not remain eligible for automatic submission. A lost installation need not cooperate or report its final local counter. Recovering such work later requires explicit manual reconciliation; reauthorization does not reopen automatic acceptance from the old actor.
 
 This is closure of the admissible update history, not a claim that every locally generated update was physically received. Already accepted shared records and evidence are not deleted or rejected because their originating actor was later revoked. Other authorized clients can still recover them into an older restored server. An enrolled client that is merely offline remains eligible indefinitely. Retirement knowledge and causal compaction must preserve these distinctions; exact metadata is not selected. D143 still applies if a backup predates the only surviving revocation record.
 
 ## Selected timeline-level ancestry (D154)
 
-Accepted shared state uses timeline/revision references with shared lineage metadata at exceptional recovery/fork/coverage boundaries. This records ordering without storing a version-history node for each contact edit. A boundary may establish that `(T2,205)` incorporates `(T1,200)`; this establishes coverage through T1:200, not T1:201, and must not retroactively attribute that coverage to earlier T2 positions. The original restored point and subsequently recovered coverage may differ. Normal server starts keep the timeline; exact detection and encoding remain open.
+Accepted shared state uses timeline/revision references with shared lineage metadata at exceptional recovery/fork/coverage boundaries. This records ordering without storing a version-history node for each contact edit. A boundary may establish that `(T2,205)` incorporates `(T1,200)`; this establishes coverage through T1:200, not T1:201, and must not retroactively attribute that coverage to earlier T2 positions. The original restored point and subsequently recovered coverage may differ. Normal server starts keep the timeline. The core implements position-dependent boundaries and witnessed regression detection, with the [documented detection limits](../lib/clacks-sync/README.md#verification-and-limits).
 
 
 ### Synchronization scope (D248)
@@ -54,7 +60,7 @@ An unrevoked enrolled client retains normal eligibility indefinitely. Do not cla
 
 Incremental transfer journals can be bounded independently of client eligibility. Keep current accepted records and the required deletion/service evidence; when a returning client's cursor predates retained transfers, use fuller-state reconciliation under D144 rather than forcing re-enrollment or discarding pending work. Retained lineage can establish the relation to the older timeline even when incremental payloads are gone. Compare ordinary pending work with its original values under D136–D138.
 
-Keep the small lineage structure separately from per-edit transfers. Its growth follows exceptional recovery boundaries, not every contact or actor edit. D155 selects the ordering-evidence retention boundary below; exact baseline and lineage encoding remain open. An expired incremental journal does not by itself authorize discarding ordering evidence still required by that boundary.
+Keep the small lineage structure separately from per-edit transfers. Its growth follows exceptional recovery boundaries, not every contact or actor edit. D155 selects the ordering-evidence retention boundary below; the core supplies baseline and sparse-lineage representations. An expired incremental journal does not by itself authorize discarding ordering evidence still required by that boundary.
 
 Deletion and service evidence have separate safety obligations: an old client must not resurrect deleted contacts or replay completed enrichment merely because an author or journal entry was collected. Preserve those facts or a demonstrably equivalent representation. Timeline ancestry proves relationships; it does not reconstruct missing payloads.
 
@@ -78,42 +84,49 @@ The published common-knowledge collection principle is discussed in [Peer-to-Pee
 
 Before acknowledging a checkpoint to the server, atomically save the received shared state, the checkpoint, and the comparison evidence required by pending local work. After a crash, either that checkpoint is durable or synchronization resumes from an older checkpoint with safe repeat transfer. Acknowledging receipt before this local commit would let collection advance past information the client could lose.
 
-Unresolved conflicts remain local and pending while unrelated synchronization progresses. Their comparison evidence must survive checkpoint advancement. This does not imply that publishing their eventual resolution can bypass D146's revalidation against current shared state. Exact dependency factoring and storage representation remain open.
+Unresolved conflicts remain local and pending while unrelated synchronization progresses. Their comparison evidence must survive checkpoint advancement. This does not imply that publishing their eventual resolution can bypass D146's revalidation against current shared state. The core returns exact dependency guards; physical storage and coupled workflow transactions remain integration work.
 
 
-### Proposed pending comparison evidence — representation not yet selected
+### Pending comparison evidence
 
-A durable pending comparison snapshot would identify the record and its account scope, including the QSO’s complete tag set where applicable; preserve the original accepted values, current local working values, and latest observed accepted shared values, including explicit deletion states; and retain the accepted-version references and causal context needed to interpret those values. Causal context means what accepted history the comparison inputs include, not merely what the client has subsequently received. Completing unrelated synchronization must not relabel an edit based on revision 200 as an edit based on revision 900.
+Client rows preserve the genuine original, current local working values and
+latest accepted shared state, including deletions and the QSO's complete tag set.
+Preparing a version freezes its values independently of subsequent edits.
+Previously incorporated own values can become the witnessed basis for later
+work; the witness must apply to the current shared history before it authorizes
+comparison. Incomparable accepted envelopes remain separate from the true original.
 
-For collection, the context must remain interpretable through retained timeline ancestry or a sufficient local summary of the particular ordering relationships being removed. A reference to metadata that is about to be deleted is not self-contained evidence. Known comparison outcomes may be cached, but they do not establish how a future shared version relates to the saved inputs; eventual submission still revalidates current shared state under D146.
+Completing unrelated synchronization never advances a pending edit's basis. An
+original at revision 200 stays at 200 after acknowledgment of 900. Before releasing
+older shared evidence, persist a sealed basis witness with the baseline meanings
+needed to interpret it. Receipt and preparation consume that private evidence;
+an opaque reference to collected metadata is insufficient. No global pending-edit
+pin or per-edit history graph is required. See the [metadata model](synchronization-model.md#33-client-state)
+and [crate integration contract](../lib/clacks-sync/README.md#real-transaction-obligations).
 
-For an ordinary same-timeline conflict, original value A at revision 200, local value B based on A, and shared value C at revision 600 preserve the three-way comparison without retaining intervening payloads. If the client later acknowledges revision 900, it must still preserve the pending edit's actual basis and enough context to compare against subsequent shared state. This requires no complete per-edit history graph.
+### Baseline installation
 
-Before advancing an acknowledgment, the client must preserve the needed comparison values and context, including any necessary summary of older ordering relationships. Failure to save that evidence leaves the earlier acknowledgment in effect; it is not a new pending-edit retention rule. The earlier suggestion of an additional global collection pin was not supported by a concrete requirement and is withdrawn as a recommendation. The exact representation still needs validation, so this is not a proof that every possible metadata encoding permits local summarization. Shared baseline obligations for surviving references and deletion/service evidence remain independent. An arbitrary older-backup recovery outside retained coverage can still use the accepted explained manual fallback; local snapshots do not guarantee automatic ordering against every future recovered branch.
+Plan a baseline from a consistent view of common installed coverage, current
+membership and surviving references. Commit the baseline, projected envelopes and
+updated account head under their emitted conditions before physically removing
+redundant detail. Concurrent synchronization, enrollment or revocation requires
+revalidation. Cleanup can resume after interruption without discarding the
+installed interpretation or pending comparison evidence.
 
-This distinction has a published analogue in [Peer-to-Peer Replication in WinFS, sections 5.1.4 and 5.2.3](https://www.microsoft.com/en-us/research/wp-content/uploads/2006/06/tr-2006-78.pdf). Its “made-with knowledge” records the causal context of a version; unresolved versions retain explicit context even as replica-wide knowledge advances. Clacks's original/local/shared value semantics and server-star topology remain its own agreed requirements; no complete WinFS model is selected by this analogy.
+Preserve actual acceptance positions and the sparse ancestry intervals needed
+by surviving references. Projection is metadata bookkeeping: it changes neither
+native values nor external upload eligibility and does not delete tombstones or
+service facts. The [compaction model](synchronization-model.md#6-retirement-and-compaction)
+specifies proof conditions; actual database integration must enforce atomicity.
 
-### Proposed baseline installation mechanics — not yet a separate decision
+## Replication basis
 
-Build a compacted baseline from a consistent view of the D155 boundary, authorization membership, and surviving reference dependencies. Durably install the equivalent baseline before removing the detailed evidence it replaces. Concurrent synchronization or enrollment must not invalidate the collection proof. Physical cleanup can be incremental and restartable: interruption before installation leaves the old evidence authoritative; interruption afterward may leave redundant old evidence to remove later. This is a proposed durability invariant, not a selected storage algorithm or requirement for a new all-client acknowledgment round.
-
-A baseline must preserve required ordering relationships rather than replace every old record position with a newer position. Compaction is not a contact edit or a new service-relevant value; it must not trigger external uploads or erase pending conflict evidence. Backup recovery still negotiates surviving state/evidence under D153–D155; baseline installation does not make old backups rollback-proof.
-
-## Replication research before representation selection (D135)
-
-Stable entity identity is distinct from the unresolved means of recognizing shared, newer, stale, or divergent state. D120's Universally Unique Lexicographically Sortable Identifier (ULID)-like identity preference does not select causal metadata.
-
-Research distributed data replication broadly. conflict-free replicated data types (CRDTs) and vector clocks are illustrative starting points, not an exhaustive list or a preferred shortlist. Examine optimistic replication, conflict/reconciliation policies, causal tracking, anti-entropy, state/log/delta transfer, membership and actor retirement, garbage collection, rollback recovery, and other relevant published approaches. Learn from their assumptions and failure cases even where their full model would not fit Clacks Log.
-
-An individual account is expected to have a modest number of server/client replicas, without imposing a fixed client limit. Cumulative clock/actor identities still need a viable garbage-collection story. Compare that need with indefinite offline enrollment, explicit revocation, deletion memory, and restored-server recovery rather than assuming a particular metadata representation solves it.
-
-The [replication research](../references/replication-research/README.md) will separate source findings, application requirements, candidate designs, and unresolved questions. No algorithm, revision graph, clock scheme, storage engine, or transport is selected by this research direction.
-
-## Replication approaches and data-model research (D150)
-
-Survey published replication approaches, abstract data models, and data structures. Compare representation, reconciliation/convergence, causal evidence, and communication/failure/garbage collection (GC) assumptions against agreed behavior. Software systems may supply case-study evidence; implementation selection is a later question.
-
-The [replication approaches survey](../references/replication-research/approaches-survey.md) is the current analysis. No algorithm, clock ownership, storage engine, or implementation is selected. Superseded recommendations and software-fit reports have been removed.
+The [replication survey](../references/replication-research/approaches-survey.md)
+and [selected composition](synchronization-model.md#2-research-mechanisms-and-selected-composition)
+explain the published mechanisms, their assumptions and the Clacks adaptation.
+The [recovery analysis](../references/replication-research/recovery-fit.md) records
+its limits. These distinguish research evidence from product requirements and
+do not establish a universal rollback detector or select a replacement database.
 
 ## Accepted conflict semantics
 
