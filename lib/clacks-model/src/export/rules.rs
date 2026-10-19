@@ -112,9 +112,15 @@ impl CompiledGroupDefinition {
         }
     }
 
+    fn pattern(&self, path: &str) -> Result<&regex::Regex, DefinitionError> {
+        self.patterns
+            .get(path)
+            .ok_or_else(|| self.error(path, "compiled pattern missing"))
+    }
+
     fn add_pattern(&mut self, path: &str, pattern: &str) -> Result<(), DefinitionError> {
         let regex = if let Some(previous) = self.pattern_paths.get(pattern) {
-            self.patterns[previous].clone()
+            self.pattern(previous)?.clone()
         } else {
             crate::group::full_regex(pattern).map_err(|e| self.error(path, e.to_string()))?
         };
@@ -175,7 +181,8 @@ impl CompiledGroupDefinition {
                     depth + 1,
                 )?;
                 self.add_pattern(path, pattern)?;
-                if !self.patterns[path]
+                if !self
+                    .pattern(path)?
                     .capture_names()
                     .flatten()
                     .any(|n| n == name)
@@ -331,7 +338,7 @@ impl CompiledGroupDefinition {
                 let path = self.pattern_paths.get(pattern).ok_or_else(|| {
                     self.error("expression", "pattern not compiled in this definition")
                 })?;
-                let regex = &self.patterns[path];
+                let regex = self.pattern(path)?;
                 let capture = |v: String| {
                     regex
                         .captures(&v)

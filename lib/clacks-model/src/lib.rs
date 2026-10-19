@@ -7,6 +7,8 @@
 //! accepts_contact(TagId::new());
 //! ```
 
+#![deny(clippy::indexing_slicing)]
+
 mod error;
 mod ids;
 mod scalar;

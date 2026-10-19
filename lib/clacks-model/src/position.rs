@@ -47,11 +47,16 @@ impl Locator {
             value: value.clone(),
         };
         GridLength::new(value.len().try_into().map_err(|_| invalid())?).map_err(|_| invalid())?;
-        for (i, b) in value.bytes().enumerate() {
-            let radix = RADICES[i / 2];
-            let base = if i / 2 % 2 == 0 { b'A' } else { b'0' };
-            if b < base || i64::from(b - base) >= radix {
-                return Err(invalid());
+        let (pairs, remainder) = value.as_bytes().as_chunks::<2>();
+        if !remainder.is_empty() {
+            return Err(invalid());
+        }
+        for (i, ([longitude, latitude], radix)) in pairs.iter().zip(RADICES).enumerate() {
+            let base = if i % 2 == 0 { b'A' } else { b'0' };
+            for digit in [*longitude, *latitude] {
+                if digit < base || i64::from(digit - base) >= radix {
+                    return Err(invalid());
+                }
             }
         }
         Ok(Self(value))
@@ -63,11 +68,12 @@ impl Locator {
 
     fn indices(&self) -> (i64, i64, i64) {
         let (mut lon, mut lat, mut count) = (0, 0, 1);
-        for (i, pair) in self.0.as_bytes().as_chunks::<2>().0.iter().enumerate() {
+        let (pairs, _) = self.0.as_bytes().as_chunks::<2>();
+        for (i, ([longitude, latitude], radix)) in pairs.iter().zip(RADICES).enumerate() {
             let base = if i % 2 == 0 { b'A' } else { b'0' };
-            lon = lon * RADICES[i] + i64::from(pair[0] - base);
-            lat = lat * RADICES[i] + i64::from(pair[1] - base);
-            count *= RADICES[i];
+            lon = lon * radix + i64::from(*longitude - base);
+            lat = lat * radix + i64::from(*latitude - base);
+            count *= radix;
         }
         (lon, lat, count)
     }
@@ -177,7 +183,8 @@ impl Coordinates {
     }
 
     pub fn locator(self, length: GridLength) -> Locator {
-        let count: i64 = RADICES[..usize::from(length.0 / 2)].iter().product();
+        let pair_count = usize::from(length.0 / 2);
+        let count: i64 = RADICES.into_iter().take(pair_count).product();
         let lon = if self.longitude == 180_000_000 {
             -180_000_000
         } else {
@@ -185,16 +192,17 @@ impl Coordinates {
         };
         let mut x = (i64::from(lon) + 180_000_000) * count / 360_000_000;
         let mut y = ((i64::from(self.latitude) + 90_000_000) * count / 180_000_000).min(count - 1);
-        let mut bytes = vec![0; usize::from(length.0)];
-        for i in (0..usize::from(length.0 / 2)).rev() {
-            let radix = RADICES[i];
+        let mut pairs = Vec::with_capacity(pair_count);
+        for (i, radix) in RADICES.into_iter().take(pair_count).enumerate().rev() {
             let base = if i % 2 == 0 { b'A' } else { b'0' };
-            bytes[2 * i] = base + (x % radix) as u8;
-            bytes[2 * i + 1] = base + (y % radix) as u8;
+            pairs.push([
+                char::from(base + (x % radix) as u8),
+                char::from(base + (y % radix) as u8),
+            ]);
             x /= radix;
             y /= radix;
         }
-        Locator(String::from_utf8(bytes).expect("locator alphabet is ASCII"))
+        Locator(pairs.into_iter().rev().flatten().collect())
     }
 }
 
