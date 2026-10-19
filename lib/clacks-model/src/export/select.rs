@@ -1,44 +1,20 @@
 use crate::*;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt,
-};
+use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ExportError {
+    #[error("unknown output profile {id}")]
     UnknownProfile { id: OutputProfileId },
+    #[error("unknown target group {id}")]
     UnknownTarget { id: GroupId },
+    #[error("invalid export choice for {qso_id}: {reason}")]
     InvalidResolution { qso_id: QsoId, reason: String },
+    #[error("group {group_id} conflicts on output field {field}")]
     ConflictingBindings { group_id: GroupId, field: String },
-    Definition(DefinitionError),
+    #[error("{0}")]
+    Definition(#[from] DefinitionError),
+    #[error("QSO {qso_id} is not ready for output: {reason}")]
     NotReady { qso_id: QsoId, reason: String },
-}
-
-impl fmt::Display for ExportError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::UnknownProfile { id } => write!(f, "unknown output profile {id}"),
-            Self::UnknownTarget { id } => write!(f, "unknown target group {id}"),
-            Self::InvalidResolution { qso_id, reason } => {
-                write!(f, "invalid export choice for {qso_id}: {reason}")
-            }
-            Self::ConflictingBindings { group_id, field } => {
-                write!(f, "group {group_id} conflicts on output field {field}")
-            }
-            Self::Definition(e) => e.fmt(f),
-            Self::NotReady { qso_id, reason } => {
-                write!(f, "QSO {qso_id} is not ready for output: {reason}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for ExportError {}
-
-impl From<DefinitionError> for ExportError {
-    fn from(e: DefinitionError) -> Self {
-        Self::Definition(e)
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -1,6 +1,6 @@
 use crate::*;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt};
+use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GroupDefinition {
@@ -26,45 +26,21 @@ pub enum TextNormalization {
     Lowercase,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum DefinitionError {
-    DuplicateGroupId {
-        id: GroupId,
-    },
-    MissingIdentifier {
-        group_id: GroupId,
-    },
-    InvalidIdentifier {
-        group_id: GroupId,
-        value: String,
-    },
+    #[error("competing definitions for group {id}")]
+    DuplicateGroupId { id: GroupId },
+    #[error("group {group_id} requires an identifier")]
+    MissingIdentifier { group_id: GroupId },
+    #[error("identifier {value:?} does not match group {group_id}")]
+    InvalidIdentifier { group_id: GroupId, value: String },
+    #[error("group {group_id} at {path}: {reason}")]
     InvalidDefinition {
         group_id: GroupId,
         path: String,
         reason: String,
     },
 }
-
-impl fmt::Display for DefinitionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::DuplicateGroupId { id } => write!(f, "competing definitions for group {id}"),
-            Self::MissingIdentifier { group_id } => {
-                write!(f, "group {group_id} requires an identifier")
-            }
-            Self::InvalidIdentifier { group_id, value } => {
-                write!(f, "identifier {value:?} does not match group {group_id}")
-            }
-            Self::InvalidDefinition {
-                group_id,
-                path,
-                reason,
-            } => write!(f, "group {group_id} at {path}: {reason}"),
-        }
-    }
-}
-
-impl std::error::Error for DefinitionError {}
 
 #[derive(Clone, Debug, Default)]
 pub struct DefinitionSet(BTreeMap<GroupId, GroupDefinition>);

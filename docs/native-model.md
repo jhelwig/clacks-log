@@ -23,6 +23,11 @@ to absence and inherits the primary pair. Targeted export excludes unrelated
 groups before compiling definitions, so an unrelated malformed definition cannot
 block the selected context.
 
+The four public error types use `thiserror` for their display messages and
+standard error implementations. `RecordError::InvalidValue` and
+`ExportError::Definition` preserve the contained error’s message and expose it
+through `std::error::Error::source()`, including conversions through `From`.
+
 ## Mapping rules and catalog data
 
 `CurrentIdentifier` requires one association's context; collection mappings use

@@ -1,64 +1,26 @@
 use crate::*;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, fmt};
+use std::collections::BTreeSet;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum RecordError {
+    #[error("a frequency or band is required")]
     MissingBandAndFrequency,
-    EndBeforeStart {
-        start: UtcSecond,
-        end: UtcSecond,
-    },
-    EmptyOptionalAggregate {
-        field: String,
-    },
-    InvalidOptionalText {
-        field: String,
-    },
-    InvalidValue(ValueError),
-    MissingEquipment {
-        id: EquipmentConfigurationId,
-    },
+    #[error("end {} precedes start {}", .end.unix_seconds(), .start.unix_seconds())]
+    EndBeforeStart { start: UtcSecond, end: UtcSecond },
+    #[error("empty {field} must be normalized to absence before saving")]
+    EmptyOptionalAggregate { field: String },
+    #[error("blank optional {field} must be absent")]
+    InvalidOptionalText { field: String },
+    #[error("{0}")]
+    InvalidValue(#[from] ValueError),
+    #[error("equipment configuration {id} is unavailable")]
+    MissingEquipment { id: EquipmentConfigurationId },
+    #[error("expected equipment {expected}, supplied {supplied}")]
     EquipmentIdMismatch {
         expected: EquipmentConfigurationId,
         supplied: EquipmentConfigurationId,
     },
-}
-
-impl fmt::Display for RecordError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::MissingBandAndFrequency => write!(f, "a frequency or band is required"),
-            Self::EndBeforeStart { start, end } => write!(
-                f,
-                "end {} precedes start {}",
-                end.unix_seconds(),
-                start.unix_seconds()
-            ),
-            Self::EmptyOptionalAggregate { field } => write!(
-                f,
-                "empty {field} must be normalized to absence before saving"
-            ),
-            Self::InvalidOptionalText { field } => {
-                write!(f, "blank optional {field} must be absent")
-            }
-            Self::InvalidValue(e) => e.fmt(f),
-            Self::MissingEquipment { id } => {
-                write!(f, "equipment configuration {id} is unavailable")
-            }
-            Self::EquipmentIdMismatch { expected, supplied } => {
-                write!(f, "expected equipment {expected}, supplied {supplied}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for RecordError {}
-
-impl From<ValueError> for RecordError {
-    fn from(value: ValueError) -> Self {
-        Self::InvalidValue(value)
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

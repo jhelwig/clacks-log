@@ -1,40 +1,23 @@
-use std::fmt;
-
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ValueError {
+    #[error("invalid recognition catalog: {reason}")]
     InvalidRecognitionCatalog { reason: String },
+    #[error("{axis} outside geographic range: {value}")]
     InvalidCoordinate { axis: String, value: String },
+    #[error("invalid Maidenhead locator: {value}")]
     InvalidLocator { value: String },
+    #[error("invalid locator length: {length}")]
     InvalidGridLength { length: u8 },
+    #[error("invalid decimal degrees: {value}")]
     MalformedDecimal { value: String },
+    #[error("invalid {system} zone: {value}")]
     InvalidZone { system: String, value: u8 },
+    #[error("{field} cannot be blank")]
     EmptyText { field: String },
+    #[error("{unit} must be positive")]
     ZeroQuantity { unit: String },
+    #[error("invalid ID: {value}")]
     InvalidId { value: String },
+    #[error("nanoseconds outside 0..1,000,000,000: {nanoseconds}")]
     InvalidTimestamp { nanoseconds: u32 },
 }
-
-impl fmt::Display for ValueError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidRecognitionCatalog { reason } => {
-                write!(f, "invalid recognition catalog: {reason}")
-            }
-            Self::InvalidCoordinate { axis, value } => {
-                write!(f, "{axis} outside geographic range: {value}")
-            }
-            Self::InvalidLocator { value } => write!(f, "invalid Maidenhead locator: {value}"),
-            Self::InvalidGridLength { length } => write!(f, "invalid locator length: {length}"),
-            Self::MalformedDecimal { value } => write!(f, "invalid decimal degrees: {value}"),
-            Self::InvalidZone { system, value } => write!(f, "invalid {system} zone: {value}"),
-            Self::EmptyText { field } => write!(f, "{field} cannot be blank"),
-            Self::ZeroQuantity { unit } => write!(f, "{unit} must be positive"),
-            Self::InvalidId { value } => write!(f, "invalid ID: {value}"),
-            Self::InvalidTimestamp { nanoseconds } => {
-                write!(f, "nanoseconds outside 0..1,000,000,000: {nanoseconds}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for ValueError {}

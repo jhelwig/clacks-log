@@ -8,7 +8,7 @@ Terms: radio contact (QSO); minimum viable product (MVP); Amateur Data Interchan
 
 **Architecture:** One Rust library, `lib/clacks-model`, owns native values, records and pure reference/selection operations. Account-scoped storage and application adapters consume it later; it does not perform network access, persistence or file publication. Definition evaluation produces an in-memory reference-export plan, not an ADIF file writer.
 
-**Tech Stack:** Rust **1.99.1**, edition 2024; standard library collections; Serde 1 with derive, serde_json 1, regex 1 and ulid 3. Dependencies use compatible major-version ranges and a committed Cargo.lock resolved with the pinned compiler. No application or database crate is needed for this issue.
+**Tech Stack:** Rust **1.99.1**, edition 2024; standard library collections; Serde 1 with derive, serde_json 1, regex 1, ulid 3 and thiserror 2. Dependencies use compatible major-version ranges and a committed Cargo.lock resolved with the pinned compiler. No application or database crate is needed for this issue.
 
 **Spec:** [Native contact and shared-data model](../specs/2026-10-18-native-model-design.md). Section 2 defines the native representations used by this plan.
 
@@ -126,7 +126,7 @@ hand-written Rust catalog duplicates the recognition tables.
 
 **Files:** Create the workspace/toolchain files, library manifest, `src/{lib,error,ids,scalar}.rs`, `tests/values.rs` and `tests/support/mod.rs`.
 
-**Interfaces:** Consumes the pinned compiler and the four dependencies above; produces:
+**Interfaces:** Consumes the pinned compiler and the dependencies above; produces:
 
 - `QsoId`, `TagId`, `ProfileId`, `EquipmentConfigurationId`, `GroupId`, `CatalogId`, `OutputProfileId`: `new() -> Self`, `from_u128(u128) -> Self`, `FromStr<Err = ValueError>`, `Display`, clone/copy/equality/order/hash and string Serde. Generation uses the verified ULID API; fixed IDs in tests use `from_u128`.
 - `RecordedCallsign::new(&str) -> Result<Self, ValueError>` and `as_str(&self) -> &str`.
@@ -151,7 +151,7 @@ assert!(UtcTimestamp::new(42, 1_000_000_000).is_err());
 Also test ID string round trips, type separation with a compile-fail documentation example passing TagId where QsoId is required, negative Unix seconds, and JSON deserialization rejecting zero quantities. No callsign grammar beyond the selected normalization/nonblank requirement is introduced.
 
 - [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test values`; expect unresolved native values before implementation, not an unrelated manifest/toolchain failure.
-- [x] **Step 3:** Implement the interfaces. Use `serde = { version = "1", features = ["derive"] }`, `serde_json = "1"`, `regex = "1"`, `ulid = "3"`; package `edition = "2024"`, `rust-version = "1.99.1"`, `license = "Elastic-2.0"`, `publish = false`. Root membership is only `lib/clacks-model`. Use ordinary Serde validation/conversion for constrained wrappers; never deserialize an invalid numeric wrapper by bypassing its constructor. Keep any ID macro definition visually separated from invocations.
+- [x] **Step 3:** Implement the interfaces. Use `serde = { version = "1", features = ["derive"] }`, `serde_json = "1"`, `regex = "1"`, `ulid = "3"`, `thiserror = "2"`; package `edition = "2024"`, `rust-version = "1.99.1"`, `license = "Elastic-2.0"`, `publish = false`. Root membership is only `lib/clacks-model`. Use ordinary Serde validation/conversion for constrained wrappers; never deserialize an invalid numeric wrapper by bypassing its constructor. Keep any ID macro definition visually separated from invocations.
 - [x] **Step 4:** Re-run the test and `cargo +1.99.1 fmt --all -- --check`; expect success. Commit Cargo.lock and preserve existing ignore entries. No database, network, GUI or executable crate is added.
 - [x] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
 
@@ -565,7 +565,7 @@ cargo +1.99.1 test --workspace --all-targets --locked --offline
 git diff --check
 ```
 
-Expected: tests/doc tests pass, formatter/clippy/diff checks exit zero, offline tests make no data/network requests, and the dependency graph matches the four ordinary Rust libraries plus their necessary Rust transitive dependencies. On a host with the target installed, also run `cargo +1.99.1 check --workspace --target x86_64-pc-windows-msvc --locked`. Installing that standard-library target during authorized execution is acceptable. A cross-check is foundation evidence, not a Windows installer/runtime certification; the latter remains a later milestone.
+Expected: tests/doc tests pass, formatter/clippy/diff checks exit zero, offline tests make no data/network requests, and the dependency graph matches the five direct Rust dependencies plus their necessary Rust transitive dependencies. On a host with the target installed, also run `cargo +1.99.1 check --workspace --target x86_64-pc-windows-msvc --locked`. Installing that standard-library target during authorized execution is acceptable. A cross-check is foundation evidence, not a Windows installer/runtime certification; the latter remains a later milestone.
 
 ### Spec coverage map
 
