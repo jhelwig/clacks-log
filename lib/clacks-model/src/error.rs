@@ -2,6 +2,7 @@ use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ValueError {
+    InvalidRecognitionCatalog { reason: String },
     InvalidCoordinate { axis: String, value: String },
     InvalidLocator { value: String },
     InvalidGridLength { length: u8 },
@@ -16,6 +17,9 @@ pub enum ValueError {
 impl fmt::Display for ValueError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::InvalidRecognitionCatalog { reason } => {
+                write!(f, "invalid recognition catalog: {reason}")
+            }
             Self::InvalidCoordinate { axis, value } => {
                 write!(f, "{axis} outside geographic range: {value}")
             }

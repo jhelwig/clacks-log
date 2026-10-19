@@ -225,7 +225,7 @@ retaining locator length, including coarse historical areas.
 - `Mode` is the spec's partially hierarchical enum with family-specific child enums and structured `OtherMode`. Public operations: `from_recorded_identity(ModeIdentity, &RecognitionCatalog) -> Result<Self, ValueError>`, `identity() -> ModeIdentity`, `interpret(&RecognitionCatalog) -> ModeInterpretation`.
 - `ModeIdentity::{Parent { label: String }, Specialization { label: String, parent: Option<String> }}` is the ordinary Serde representation helper, not a second QSO field. `OtherMode` preserves those two fallback forms. `ModeInterpretation::{Known(KnownMode), Other(OtherMode)}` is a read result. `KnownMode::Mfsk(Option<MfskSubmode>)` and `MfskSubmode::Ft4` are exact names used by tests; every other baseline family/specialization must also be typed.
 
-- [ ] **Step 1:** Obtain complete 3.1.8 table facts into the data artifact, recording source/date and observed row counts. Add tests independently comparing every source row with typed lookup/encoding coverage, plus these exact preservation checks:
+- [x] **Step 1:** Obtain complete 3.1.8 table facts into the data artifact, recording source/date and observed row counts. Add tests independently comparing every source row with typed lookup/encoding coverage, plus these exact preservation checks:
 
 ```rust
 // older_recognition_cannot_rewrite_a_specialization
@@ -244,10 +244,10 @@ assert!(Band::for_frequency(Hertz::new(1)?, full).is_none());
 
 Also test parent-only MFSK, unknown submode with no parent, unknown parent context, deprecated catalog labels, maximum/open-ended band ranges and every recorded range boundary. The old fixture must omit a real specialization rather than merely round-trip on one current catalog.
 
-- [ ] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test recognition`; expect missing recognition types/lookup behavior.
-- [ ] **Step 3:** Implement full typed coverage. Band ranges convert source megahertz (MHz) to integer hertz exactly; open-ended upper bounds stay open. Serialize mode/band through preserved semantic labels, not Rust variant ordinals. Deserialize into a typed known form only if serializing that form reproduces the preserved identity exactly; otherwise retain `OtherMode`/`Other` and expose richer interpretation separately. This prevents a newly recognized specialization with different supplied context from silently acquiring a new parent or spelling. Eq/Ord compare preserved identity, so ordering is consistent with equality. Canonicalization on explicit entry/import is a separate adapter operation, not a deserialization side effect. Standard Serde helpers suffice; do not build a second serialization protocol.
-- [ ] **Step 4:** Run recognition, positions and values tests; inspect the baseline/source parity report and confirm there is no placeholder coverage. Tests must run offline from committed data; builds never fetch catalogs.
-- [ ] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
+- [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test recognition`; expect missing recognition types/lookup behavior.
+- [x] **Step 3:** Implement full typed coverage. Band ranges convert source megahertz (MHz) to integer hertz exactly; open-ended upper bounds stay open. Serialize mode/band through preserved semantic labels, not Rust variant ordinals. Deserialize into a typed known form only if serializing that form reproduces the preserved identity exactly; otherwise retain `OtherMode`/`Other` and expose richer interpretation separately. This prevents a newly recognized specialization with different supplied context from silently acquiring a new parent or spelling. Eq/Ord compare preserved identity, so ordering is consistent with equality. Canonicalization on explicit entry/import is a separate adapter operation, not a deserialization side effect. Standard Serde helpers suffice; do not build a second serialization protocol.
+- [x] **Step 4:** Run recognition, positions and values tests; inspect the baseline/source parity report and confirm there is no placeholder coverage. Tests must run offline from committed data; builds never fetch catalogs.
+- [x] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
 
 ```text
 feat(model): add complete ADIF recognition with preserved value identity
