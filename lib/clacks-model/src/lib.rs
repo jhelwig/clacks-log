@@ -32,3 +32,9 @@ mod reference;
 pub use contact::*;
 pub use equipment::*;
 pub use reference::*;
+
+mod profile;
+mod tag;
+
+pub use profile::*;
+pub use tag::*;

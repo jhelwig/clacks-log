@@ -315,7 +315,7 @@ disjoint tag and fact edits do not receive a special automatic merge.
 
 - Add `RecordError::{MissingEquipment { id: EquipmentConfigurationId }, EquipmentIdMismatch { expected: EquipmentConfigurationId, supplied: EquipmentConfigurationId }}` for load failures.
 
-- [ ] **Step 1:** Add `profile_load_clears_old_station_and_preserves_nonprofile_values`, `equipment_copies_survive_configuration_edit`, `upload_policy_truth_table`, `tag_deletion_counts_identities` and `duplicate_tag_names_preserve_ids`. Assert station county/references missing from the loaded profile are cleared; operator/power unchanged; no equipment default preserves current equipment; a selected default replaces copied values and missing/mismatched default errors.
+- [x] **Step 1:** Add `profile_load_clears_old_station_and_preserves_nonprofile_values`, `equipment_copies_survive_configuration_edit`, `upload_policy_truth_table`, `tag_deletion_counts_identities` and `duplicate_tag_names_preserve_ids`. Assert station county/references missing from the loaded profile are cleared; operator/power unchanged; no equipment default preserves current equipment; a selected default replaces copied values and missing/mismatched default errors.
 
 ```rust
 // upload_policy_truth_table
@@ -328,10 +328,10 @@ assert!(!automatic_upload_allowed([Enable, Forbid]));
 
 `remove_membership` contains surviving affected contacts only; `mark_deleted` contains contact identities for deletion, never merely untagging. Use 100 contacts, 30 also in another tag: LeaveAll marks 0 deleted; DeleteAll marks 100; DeleteUnique marks 70 and preserves/untags the shared 30. Membership removal must not mutate unrelated facts or infer external deletion. In `loaded_baseline_distinguishes_local_and_saved_changes`, test neither changed, local station-only, saved profile-only and both changed; operator/power changes do not set either flag. A newer saved profile is reported without auto-loading it.
 
-- [ ] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test defaults_and_tags`; expect missing copy/classification operations.
-- [ ] **Step 3:** Implement the interfaces. Require callsign in saved profiles through StationSnapshot's value type. Keep configuration display names/IDs out of QSO EquipmentValues. Do not store synchronization baselines in QSO facts, auto-reload current defaults, implement a session lifecycle or perform tag deletion against storage. Pure results hand off to the accepted reference/conflict/transaction rules in future storage/sync tasks.
-- [ ] **Step 4:** Run this test and contacts; all assertions pass. Confirm subsequent edits to returned/source values cannot mutate historical copies by aliasing.
-- [ ] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
+- [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test defaults_and_tags`; expect missing copy/classification operations.
+- [x] **Step 3:** Implement the interfaces. Require callsign in saved profiles through StationSnapshot's value type. Keep configuration display names/IDs out of QSO EquipmentValues. Do not store synchronization baselines in QSO facts, auto-reload current defaults, implement a session lifecycle or perform tag deletion against storage. Pure results hand off to the accepted reference/conflict/transaction rules in future storage/sync tasks.
+- [x] **Step 4:** Run this test and contacts; all assertions pass. Confirm subsequent edits to returned/source values cannot mutate historical copies by aliasing.
+- [x] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
 
 ```text
 feat(model): implement profile snapshots and tag policy semantics
