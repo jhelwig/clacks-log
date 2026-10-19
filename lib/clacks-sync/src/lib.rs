@@ -15,3 +15,5 @@ pub mod record;
 
 pub mod account;
 pub mod lineage;
+
+pub mod compare;

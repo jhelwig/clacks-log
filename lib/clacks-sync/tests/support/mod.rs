@@ -48,3 +48,28 @@ pub fn qso(id: QsoId) -> Qso {
         tags: BTreeSet::new(),
     }
 }
+
+pub fn accepted(revision: u64, comment: &str) -> clacks_sync::record::AcceptedRecord {
+    use clacks_sync::{
+        clock::{ClockActor, RecordVector},
+        record::{
+            AcceptedRecord, Position, RecordId, RecordKey, RecordState, RecordValue, VersionStamp,
+        },
+    };
+    let timeline = id(2);
+    let mut q = qso(id(10));
+    q.comment = Some(comment.into());
+    AcceptedRecord::new(
+        RecordKey {
+            account: id(1),
+            id: RecordId::Qso(q.id),
+        },
+        RecordState::Live(RecordValue::Qso(Box::new(q))),
+        VersionStamp {
+            accepted_at: Position { timeline, revision },
+            baseline: id(3),
+            vector: RecordVector::from_entries([(ClockActor::Server(timeline), revision)]).unwrap(),
+        },
+    )
+    .unwrap()
+}

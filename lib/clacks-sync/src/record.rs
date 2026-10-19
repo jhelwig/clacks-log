@@ -161,3 +161,51 @@ impl AcceptedRecord {
         Ok(())
     }
 }
+
+/// Observed shared state, distinguishing certified absence from missing evidence.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Observation {
+    /// A saved accepted envelope.
+    Accepted(AcceptedRecord),
+    /// No identity existed within this completed account view.
+    Absent {
+        /// Account-qualified identity whose absence was checked.
+        key: RecordKey,
+        /// Complete installed view used for absence certification.
+        checkpoint: crate::account::InstalledCheckpoint,
+    },
+    /// The shared state cannot currently be established.
+    Unavailable {
+        /// Identity for which evidence is missing.
+        key: RecordKey,
+        /// Why evidence is unavailable.
+        reason: crate::error::UnknownReason,
+    },
+}
+
+impl Observation {
+    /// Identify the observed record regardless of evidence availability.
+    pub fn key(&self) -> RecordKey {
+        match self {
+            Self::Accepted(v) => v.key,
+            Self::Absent { key, .. } | Self::Unavailable { key, .. } => *key,
+        }
+    }
+
+    /// Validate the account domain and any accepted native state.
+    pub fn validate(&self) -> anyhow::Result<()> {
+        match self {
+            Self::Accepted(v) => v.validate(),
+            Self::Absent { key, checkpoint } if key.account != checkpoint.account => {
+                Err(MetadataError::Scope {
+                    detail: format!(
+                        "absence checkpoint for {key:?} belongs to {}",
+                        checkpoint.account
+                    ),
+                }
+                .into())
+            }
+            _ => Ok(()),
+        }
+    }
+}
