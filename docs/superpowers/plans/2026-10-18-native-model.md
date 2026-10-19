@@ -128,7 +128,7 @@ hand-written Rust catalog duplicates the recognition tables.
 
 **Interfaces:** Consumes the pinned compiler and the dependencies above; produces:
 
-- `QsoId`, `TagId`, `ProfileId`, `EquipmentConfigurationId`, `GroupId`, `CatalogId`, `OutputProfileId`: `new() -> Self`, `from_u128(u128) -> Self`, `FromStr<Err = ValueError>`, `Display`, clone/copy/equality/order/hash and string Serde. Generation uses the verified ULID API; fixed IDs in tests use `from_u128`.
+- `QsoId`, `TagId`, `ProfileId`, `EquipmentConfigurationId`, `GroupId`, `CatalogId`, `OutputProfileId`: `new() -> Self`, `FromStr<Err = ValueError>`, `Display`, clone/copy/equality/order/hash and string Serde. Generation uses the verified ULID API; deterministic IDs belong in test helpers using the native string parser.
 - `RecordedCallsign::new(&str) -> Result<Self, ValueError>` and `as_str(&self) -> &str`.
 - `optional_text(&str) -> Option<String>`; `Hertz::new(u64)` and `Milliwatts::new(u64)` return `Result<Self, ValueError>`; both expose `get() -> u64`.
 - `UtcSecond::from_unix_seconds(i64) -> Self`, `unix_seconds() -> i64`; `UtcTimestamp::new(i64, u32) -> Result<Self, ValueError>`. The latter is for operational provenance, not additional QSO precision.
@@ -222,7 +222,7 @@ retaining locator length, including coarse historical areas.
 
 **Interfaces:**
 
-- `RecognitionCatalog::adif_318() -> &'static Self`, `from_json(&str) -> Result<Self, ValueError>`, `without_modes_and_submodes(&[&str]) -> Self` for representative old-view verification.
+- `RecognitionCatalog::adif_318() -> &'static Self`, `from_json(&str) -> Result<Self, ValueError>`. Compatibility tests load an explicit older-catalog fixture.
 - Add `ValueError::InvalidRecognitionCatalog { reason: String }` for malformed/inconsistent table data. The data schema contains `release`, complete `bands` (`code`, inclusive `lower_hz`, optional inclusive `upper_hz`), `modes` and `submodes` (`code`, `parent`, `deprecated`). Preserve deprecated labels and explicit aliases from the source, not inferred aliases.
 - `Band` stores a validated label; `from_recorded_label(&str) -> Result<Self, ValueError>`, `label() -> &str`, `interpret<'a>(&self, &'a RecognitionCatalog) -> Option<&'a BandRow>` and `for_frequency(Hertz, &RecognitionCatalog) -> Option<Self>`.
 - `Mode` stores a validated `ModeIdentity`; `from_recorded_identity(ModeIdentity) -> Result<Self, ValueError>`, `identity() -> ModeIdentity`, `interpret<'a>(&self, &'a RecognitionCatalog) -> ModeInterpretation<'a>`.
@@ -234,7 +234,7 @@ retaining locator length, including coarse historical areas.
 // older_recognition_cannot_rewrite_a_specialization
 let id = ModeIdentity::Specialization { label: "FT4".into(), parent: Some("MFSK".into()) };
 let full = RecognitionCatalog::adif_318();
-let old = full.without_modes_and_submodes(&["FT4"]);
+let old = RecognitionCatalog::from_json(include_str!("fixtures/recognition-old.json"))?;
 let a = Mode::from_recorded_identity(id.clone())?;
 let b: Mode = serde_json::from_value(serde_json::to_value(&a)?)?;
 assert!(matches!(a.interpret(&old), ModeInterpretation::Other(_)));
@@ -276,7 +276,7 @@ context through ordinary serialization.
 - `ReferenceAssociation { group_id: GroupId, identifier: Option<String> }`, `StationSide::{Own, Contacted}`; associations derive equality/order on group plus optional identifier without consulting definitions.
 - `BandFrequency::new(Option<Hertz>, Option<Band>, &RecognitionCatalog) -> anyhow::Result<Self>`, frequency/band getters, `set_frequency(Hertz, &RecognitionCatalog)`, `set_band(Band)` and `effective_receive<'a>(&'a self, override_pair: Option<&'a BandFrequency>) -> &'a BandFrequency`. Construction with a frequency derives its recognized band; if unclassified it retains the frequency without a derived band. Import adapters compare supplied versus derived band for correction warnings; deserialization preserves stored labels rather than re-running current recognition.
 - `StationSnapshot`, `OperatorInformation`, `OwnOperatingContext`, `EquipmentValues` and `Qso` use the exact logical fields in spec sections 4/11. `Qso::validate(&self) -> anyhow::Result<()>` checks end time/order and nested constraints. `Qso` is ordinary data, not an entry draft or database operation. Add `RecordError::{MissingBandAndFrequency, EndBeforeStart { start: UtcSecond, end: UtcSecond }, InvalidOptionalText { field: String }}`; constrained callsign/mode/unit constructors prevent missing required scalar values. `OperatorInformation::normalized(self) -> Option<Self>` and `RecordedLocation::normalized(self) -> Option<Self>` collapse all-absent aggregates; `Qso::normalize_optional_aggregates(&mut self)` applies these without consulting providers.
-- `Qso::same_recorded_values(&self, &Self) -> bool` compares whole recorded contents for the same identity, including sets; cross-ID calls return false. `Qso` equality remains ordinary whole-record value equality. No automatic merge function is provided.
+- `Qso` uses ordinary derived whole-record equality, including identities and tag/reference sets. Tests use `assert_eq!`/`assert_ne!` directly; no equality alias or automatic merge function is provided.
 - Test support supplies `qso(id: QsoId) -> Qso` with start 1000, callsigns W7HEX/K1ABC, primary 14_074_000 Hz, FT4 mode and empty optional values/sets; `reference(group: GroupId, identifier: Option<&str>) -> ReferenceAssociation`.
 
 - [x] **Step 1:** Add tests covering frequency-only and band-only validity, both absent rejection, end 1000 valid/end 999 invalid, start/end spanning 86_400, both station callsigns, independently optional operator name/call and absent reports/equipment. Assert:
@@ -407,9 +407,8 @@ Refreshing them must not move a contact or create a contact edit.
 - `EligibleStationFacts<'a> { lotw: Option<&'a StationFacts>, qrz: Option<&'a StationFacts>, directory: Option<&'a StationFacts> }`, where `StationFacts { name: Option<String>, location: Option<RecordedLocation> }` carries only read-side facts. This is a read projection of already eligible provider information, not the service-evidence storage schema.
 - `select_location(recorded: &StationSnapshot, eligible: &EligibleStationFacts<'_>, definitions: &DefinitionSet) -> Option<Sourced<Option<RecordedLocation>>>`: a recorded location-bearing reference can select recorded provenance with no geographic details. Do not collapse that to “no selected source, try directory.”
 - `select_name(recorded: Option<&str>, eligible: &EligibleStationFacts<'_>) -> Option<Sourced<String>>`.
-- `directory_key_matches(current: &str, snapshot_key: &str) -> bool` compares already-normalized lookup keys; full portable-call derivation/request correlation are downstream directory work.
 
-- [x] **Step 1:** Add `whole_location_never_patches_lower_source`, `location_reference_blocks_home_location`, `catalog_point_is_not_station_point` and `old_directory_key_cannot_supply_fallback`. A recorded state-only location blocks directory county/coordinates; a POTA-like association without a position selects recorded/unknown geographic details; with no recorded information, LoTW precedes QRZ then directory. Unknown group properties are not guessed.
+- [x] **Step 1:** Add `whole_location_never_patches_lower_source`, `location_reference_blocks_home_location`, `catalog_point_is_not_station_point` and `only_supplied_eligible_observations_provide_fallback`. A recorded state-only location blocks directory county/coordinates; a POTA-like association without a position selects recorded/unknown geographic details; with no recorded information, LoTW precedes QRZ then directory. Unknown group properties are not guessed.
 
 ```rust
 // location_reference_blocks_home_location
@@ -418,7 +417,7 @@ assert_eq!(chosen.source, InformationSource::Recorded);
 assert_eq!(chosen.value, None);
 ```
 
-Also test recorded name over provider names and empty aggregates as absence. Test the adapter composition excluding directory facts whose normalized key differs, while same-key suffix changes retain them. The selector never changes the input snapshots.
+Also test recorded name over provider names and empty aggregates as absence. Test absence and presence of supplied eligible observations. Normalized-key eligibility, portable-call derivation and request correlation must be tested in the downstream directory adapter rather than simulated by a model predicate. The selector never changes the input snapshots.
 
 - [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test effective_values`; expect missing selection behavior.
 - [x] **Step 3:** Implement the interfaces and document preconditions: callers supply current-key/eligible LoTW/QRZ/directory observations; issue #3/provider adapters establish eligibility. No direct provider query, snapshot arbitration record, lookup ID, causal metadata or submission history is invented here. Latest-successful-directory arbitration and canceled/late request processing are downstream integration obligations, not silently approximated in this selector.

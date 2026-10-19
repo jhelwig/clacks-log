@@ -18,12 +18,6 @@ macro_rules! entity_ids {
             /// Use the existing ID when editing or synchronizing an entity. Sort order
             /// must not be used to establish causal edit order.
             pub fn new() -> Self { Self(ulid::Ulid::generate()) }
-
-            /// Preserve a known identity from its complete 128-bit value.
-            ///
-            /// Useful for deterministic fixtures or native identity conversion; this
-            /// does not generate uniqueness or establish account ownership.
-            pub fn from_u128(value: u128) -> Self { Self(value.into()) }
         }
 
         impl Default for $name {

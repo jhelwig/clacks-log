@@ -104,16 +104,4 @@ impl RecognitionCatalog {
         }
         Ok(v)
     }
-
-    /// Create a restricted recognition view without the exact listed mode/submode labels.
-    ///
-    /// Also removes submodes of removed parents. Useful for compatibility tests or
-    /// limited catalog views; band rows and recorded contact identities are unchanged.
-    pub fn without_modes_and_submodes(&self, labels: &[&str]) -> Self {
-        let mut v = self.clone();
-        v.modes.retain(|r| !labels.contains(&r.code.as_str()));
-        v.submodes
-            .retain(|r| !labels.contains(&r.code.as_str()) && !labels.contains(&r.parent.as_str()));
-        v
-    }
 }

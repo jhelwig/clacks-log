@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 fn contact(group: GroupId) -> Qso {
-    let mut q = support::qso(QsoId::from_u128(1));
+    let mut q = support::qso(support::id::<QsoId>(1));
     for code in ["US-0001", "US-0002"] {
         q.own_station
             .references
@@ -27,17 +27,17 @@ fn contact(group: GroupId) -> Qso {
 
 fn context(targeted: bool, group: GroupId) -> ExportContext {
     ExportContext {
-        output_profile_id: OutputProfileId::from_u128(if targeted { 2 } else { 1 }),
+        output_profile_id: support::id::<OutputProfileId>(if targeted { 2 } else { 1 }),
         target_group_id: targeted.then_some(group),
     }
 }
 
 #[test]
 fn ordinary_export_does_not_expand() -> TestResult {
-    let q = contact(GroupId::from_u128(1));
+    let q = contact(support::id::<GroupId>(1));
     let plan = plan_reference_export(
         &[q.clone(), q],
-        &context(false, GroupId::from_u128(1)),
+        &context(false, support::id::<GroupId>(1)),
         &support::definitions(),
         &support::profiles(),
         &BTreeMap::new(),
@@ -53,16 +53,16 @@ fn ordinary_export_does_not_expand() -> TestResult {
 
 #[test]
 fn two_by_three_expands_only_target_group() -> TestResult {
-    let mut q = contact(GroupId::from_u128(1));
+    let mut q = contact(support::id::<GroupId>(1));
     for id in [2, 3] {
         q.own_station
             .references
-            .insert(support::reference(GroupId::from_u128(id), None));
+            .insert(support::reference(support::id::<GroupId>(id), None));
     }
     let before = serde_json::to_value(&q)?;
     let plan = plan_reference_export(
         std::slice::from_ref(&q),
-        &context(true, GroupId::from_u128(1)),
+        &context(true, support::id::<GroupId>(1)),
         &support::contest_definitions(),
         &support::profiles(),
         &BTreeMap::new(),
@@ -84,11 +84,11 @@ fn two_by_three_expands_only_target_group() -> TestResult {
 
 #[test]
 fn hunter_contact_retains_one_entry() -> TestResult {
-    let mut q = contact(GroupId::from_u128(1));
+    let mut q = contact(support::id::<GroupId>(1));
     q.contacted_station.references.clear();
     let plan = plan_reference_export(
         &[q],
-        &context(true, GroupId::from_u128(1)),
+        &context(true, support::id::<GroupId>(1)),
         &support::definitions(),
         &support::profiles(),
         &BTreeMap::new(),
@@ -104,15 +104,15 @@ fn hunter_contact_retains_one_entry() -> TestResult {
 
 #[test]
 fn omission_is_explicit_and_reported() -> TestResult {
-    let mut q = support::qso(QsoId::from_u128(1));
+    let mut q = support::qso(support::id::<QsoId>(1));
     for id in [2, 3] {
         q.own_station
             .references
-            .insert(support::reference(GroupId::from_u128(id), None));
+            .insert(support::reference(support::id::<GroupId>(id), None));
     }
     let plan = plan_reference_export(
         std::slice::from_ref(&q),
-        &context(false, GroupId::from_u128(1)),
+        &context(false, support::id::<GroupId>(1)),
         &support::contest_definitions(),
         &support::profiles(),
         &[(q.id, ContextResolution::OmitReported)].into(),
@@ -126,7 +126,7 @@ fn omission_is_explicit_and_reported() -> TestResult {
     );
     let unresolved = plan_reference_export(
         &[q],
-        &context(false, GroupId::from_u128(1)),
+        &context(false, support::id::<GroupId>(1)),
         &support::contest_definitions(),
         &support::profiles(),
         &BTreeMap::new(),
@@ -143,8 +143,8 @@ fn omission_is_explicit_and_reported() -> TestResult {
 #[test]
 fn no_program_name_switch() -> TestResult {
     let defs = support::definitions();
-    let mut generic = defs.get(GroupId::from_u128(1)).unwrap().clone();
-    generic.id = GroupId::from_u128(4);
+    let mut generic = defs.get(support::id::<GroupId>(1)).unwrap().clone();
+    generic.id = support::id::<GroupId>(4);
     generic.name = "User group with equivalent capabilities".into();
     let plan = plan_reference_export(
         &[contact(generic.id)],
@@ -160,11 +160,11 @@ fn no_program_name_switch() -> TestResult {
 
 #[test]
 fn missing_partition_is_not_silent_filtering() {
-    let mut q = contact(GroupId::from_u128(1));
+    let mut q = contact(support::id::<GroupId>(1));
     q.own_station.references.clear();
     let error = plan_reference_export(
         &[q],
-        &context(true, GroupId::from_u128(1)),
+        &context(true, support::id::<GroupId>(1)),
         &support::definitions(),
         &support::profiles(),
         &BTreeMap::new(),
@@ -174,13 +174,13 @@ fn missing_partition_is_not_silent_filtering() {
         error.downcast_ref::<ExportError>(),
         Some(ExportError::NotReady { .. })
     ));
-    let q = contact(GroupId::from_u128(1));
+    let q = contact(support::id::<GroupId>(1));
     let mut competing = q.clone();
     competing.comment = Some("different snapshot".into());
     assert!(
         plan_reference_export(
             &[q, competing],
-            &context(false, GroupId::from_u128(1)),
+            &context(false, support::id::<GroupId>(1)),
             &support::definitions(),
             &support::profiles(),
             &BTreeMap::new()

@@ -13,7 +13,7 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 #[test]
 fn empty_aggregates_require_normalization_before_saving() -> TestResult {
-    let base = support::qso(QsoId::from_u128(1));
+    let base = support::qso(support::id::<QsoId>(1));
     for field in 0..4 {
         let mut q = base.clone();
         match field {
@@ -28,7 +28,6 @@ fn empty_aggregates_require_normalization_before_saving() -> TestResult {
         );
         q.normalize_optional_aggregates();
         q.validate()?;
-        assert!(q.same_recorded_values(&base));
         assert_eq!(q, base);
     }
     Ok(())
@@ -36,7 +35,7 @@ fn empty_aggregates_require_normalization_before_saving() -> TestResult {
 
 #[test]
 fn empty_receive_override_normalizes_to_primary_fallback() -> TestResult {
-    let base = support::qso(QsoId::from_u128(1));
+    let base = support::qso(support::id::<QsoId>(1));
     let mut json = serde_json::to_value(&base)?;
     json["receive_override"] = serde_json::json!({"frequency":null,"band":null});
     let mut received: Qso = serde_json::from_value(json)?;
@@ -60,23 +59,24 @@ fn unrelated_invalid_group_does_not_block_targeted_export() -> TestResult {
         defs.iter()
             .cloned()
             .map(|mut d| {
-                if d.id == GroupId::from_u128(2) {
+                if d.id == support::id::<GroupId>(2) {
                     d.identifier.syntax = Some("[".into());
                 }
                 d
             })
             .collect(),
     )?;
-    let mut q = support::qso(QsoId::from_u128(1));
+    let mut q = support::qso(support::id::<QsoId>(1));
+    q.own_station.references.insert(support::reference(
+        support::id::<GroupId>(1),
+        Some("US-0001"),
+    ));
     q.own_station
         .references
-        .insert(support::reference(GroupId::from_u128(1), Some("US-0001")));
-    q.own_station
-        .references
-        .insert(support::reference(GroupId::from_u128(2), None));
+        .insert(support::reference(support::id::<GroupId>(2), None));
     let context = ExportContext {
-        output_profile_id: OutputProfileId::from_u128(2),
-        target_group_id: Some(GroupId::from_u128(1)),
+        output_profile_id: support::id::<OutputProfileId>(2),
+        target_group_id: Some(support::id::<GroupId>(1)),
     };
     let result = plan_reference_export(
         std::slice::from_ref(&q),
@@ -94,7 +94,7 @@ fn unrelated_invalid_group_does_not_block_targeted_export() -> TestResult {
         select_mappings(
             &q,
             &ExportContext {
-                output_profile_id: OutputProfileId::from_u128(1),
+                output_profile_id: support::id::<OutputProfileId>(1),
                 target_group_id: None
             },
             &definitions,

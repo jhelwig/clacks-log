@@ -14,7 +14,7 @@ use clacks_model::tag::{
     plan_tag_deletion,
 };
 fn current() -> CurrentOperatingValues {
-    let q = support::qso(QsoId::from_u128(1));
+    let q = support::qso(support::id::<QsoId>(1));
     CurrentOperatingValues {
         station: q.own_station,
         operator: Some(OperatorInformation {
@@ -31,9 +31,9 @@ fn current() -> CurrentOperatingValues {
 
 fn profile() -> SavedLocationProfile {
     SavedLocationProfile {
-        id: ProfileId::from_u128(1),
+        id: support::id::<ProfileId>(1),
         name: "field".into(),
-        station: support::qso(QsoId::from_u128(1)).own_station,
+        station: support::qso(support::id::<QsoId>(1)).own_station,
         default_equipment: None,
     }
 }
@@ -45,19 +45,20 @@ fn profile_load_clears_old_station_and_preserves_nonprofile_values() {
         secondary_subdivision: Some("county".into()),
         ..Default::default()
     });
-    c.station
-        .references
-        .insert(support::reference(GroupId::from_u128(1), Some("US-1234")));
+    c.station.references.insert(support::reference(
+        support::id::<GroupId>(1),
+        Some("US-1234"),
+    ));
     let loaded = load_profile(&c, &profile(), None).unwrap();
     assert_eq!(loaded.station, profile().station);
     assert_eq!(loaded.operator, c.operator);
     assert_eq!(loaded.transmit_power, c.transmit_power);
     assert_eq!(loaded.equipment, c.equipment);
     let mut p = profile();
-    p.default_equipment = Some(EquipmentConfigurationId::from_u128(1));
+    p.default_equipment = Some(support::id::<EquipmentConfigurationId>(1));
     assert!(load_profile(&c, &p, None).is_err());
     let wrong = EquipmentConfiguration {
-        id: EquipmentConfigurationId::from_u128(2),
+        id: support::id::<EquipmentConfigurationId>(2),
         name: "wrong".into(),
         values: EquipmentValues::default(),
     };
@@ -67,7 +68,7 @@ fn profile_load_clears_old_station_and_preserves_nonprofile_values() {
 #[test]
 fn equipment_copies_survive_configuration_edit() {
     let mut e = EquipmentConfiguration {
-        id: EquipmentConfigurationId::from_u128(1),
+        id: support::id::<EquipmentConfigurationId>(1),
         name: "base".into(),
         values: EquipmentValues {
             equipment_description: Some("rig A".into()),
@@ -77,7 +78,7 @@ fn equipment_copies_survive_configuration_edit() {
     let mut p = profile();
     p.default_equipment = Some(e.id);
     let c = load_profile(&current(), &p, Some(&e)).unwrap();
-    let mut q = support::qso(QsoId::from_u128(1));
+    let mut q = support::qso(support::id::<QsoId>(1));
     q.own_context.equipment = c.equipment.clone();
     e.values.equipment_description = Some("rig B".into());
     assert_eq!(
@@ -103,20 +104,20 @@ fn upload_policy_truth_table() {
             assert_eq!(automatic_upload_allowed([a, b]), expected);
         }
     }
-    let t = LogbookTag::new(TagId::from_u128(1), "test".into());
+    let t = LogbookTag::new(support::id::<TagId>(1), "test".into());
     assert_eq!(t.automatic_upload.lotw, Neither);
     assert_eq!(t.automatic_upload.qrz, Neither);
 }
 
 #[test]
 fn tag_deletion_counts_identities() {
-    let tag = TagId::from_u128(1);
+    let tag = support::id::<TagId>(1);
     let mut qsos: Vec<_> = (1..=100)
         .map(|n| {
-            let mut q = support::qso(QsoId::from_u128(n));
+            let mut q = support::qso(support::id::<QsoId>(n));
             q.tags.insert(tag);
             if n <= 30 {
-                q.tags.insert(TagId::from_u128(2));
+                q.tags.insert(support::id::<TagId>(2));
             }
             q
         })
@@ -139,8 +140,8 @@ fn tag_deletion_counts_identities() {
 
 #[test]
 fn duplicate_tag_names_preserve_ids() {
-    let a = LogbookTag::new(TagId::from_u128(1), "POTA".into());
-    let b = LogbookTag::new(TagId::from_u128(2), "POTA".into());
+    let a = LogbookTag::new(support::id::<TagId>(1), "POTA".into());
+    let b = LogbookTag::new(support::id::<TagId>(2), "POTA".into());
     assert_ne!(a.id, b.id);
     assert_eq!(a.name, b.name);
 }

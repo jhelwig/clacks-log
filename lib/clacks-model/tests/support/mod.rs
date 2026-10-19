@@ -12,6 +12,18 @@ use clacks_model::reference::ReferenceAssociation;
 use clacks_model::scalar::{Hertz, RecordedCallsign, UtcSecond, UtcTimestamp};
 use std::collections::BTreeSet;
 
+/// Construct a deterministic fixture ID through the native string parser.
+pub fn id<T>(value: u128) -> T
+where
+    T: std::str::FromStr,
+    T::Err: std::fmt::Debug,
+{
+    ulid::Ulid::from(value)
+        .to_string()
+        .parse()
+        .expect("fixture ULID must parse as a native ID")
+}
+
 pub fn qso(id: QsoId) -> Qso {
     Qso {
         id,
@@ -67,13 +79,13 @@ pub fn catalog_case() -> (
     CatalogSet,
     CatalogId,
 ) {
-    let mut contact = qso(QsoId::from_u128(1));
-    let association = reference(GroupId::from_u128(1), Some("US-1234"));
+    let mut contact = qso(id::<QsoId>(1));
+    let association = reference(id::<GroupId>(1), Some("US-1234"));
     contact
         .contacted_station
         .references
         .insert(association.clone());
-    let id = CatalogId::from_u128(1);
+    let id = id::<CatalogId>(1);
     let catalog = ReferenceCatalog {
         id,
         provenance: SourceInformation {
@@ -108,18 +120,18 @@ pub fn catalog_case() -> (
 pub fn profiles() -> ProfileSet {
     [
         (
-            OutputProfileId::from_u128(1),
+            id::<OutputProfileId>(1),
             OutputProfile {
-                id: OutputProfileId::from_u128(1),
+                id: id::<OutputProfileId>(1),
                 name: "ordinary".into(),
                 purpose: OutputPurpose::OrdinaryInterchange,
                 contextual_fields: ["CONTEST_ID".into()].into(),
             },
         ),
         (
-            OutputProfileId::from_u128(2),
+            id::<OutputProfileId>(2),
             OutputProfile {
-                id: OutputProfileId::from_u128(2),
+                id: id::<OutputProfileId>(2),
                 name: "submission fixture".into(),
                 purpose: OutputPurpose::Targeted,
                 contextual_fields: BTreeSet::new(),
@@ -131,8 +143,8 @@ pub fn profiles() -> ProfileSet {
 
 pub fn contest_definitions() -> DefinitionSet {
     let defs = definitions();
-    let mut b = defs.get(GroupId::from_u128(2)).unwrap().clone();
-    b.id = GroupId::from_u128(3);
+    let mut b = defs.get(id::<GroupId>(2)).unwrap().clone();
+    b.id = id::<GroupId>(3);
     b.name = "Other contest".into();
     b.export_mappings.ordinary_interchange[0].value = ValueExpression::Literal("CONTEST-B".into());
     DefinitionSet::new(defs.iter().cloned().chain([b]).collect()).unwrap()

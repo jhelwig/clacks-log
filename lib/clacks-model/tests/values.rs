@@ -1,3 +1,5 @@
+mod support;
+
 use clacks_model::ids::{QsoId, TagId};
 use clacks_model::scalar::{
     Hertz, Milliwatts, RecordedCallsign, UtcSecond, UtcTimestamp, optional_text,
@@ -36,7 +38,7 @@ fn quantities_and_operational_time_are_validated() -> TestResult {
 
 #[test]
 fn identity_round_trips_without_display_name_identity() -> TestResult {
-    let a = QsoId::from_u128(123);
+    let a = support::id::<QsoId>(123);
     assert_eq!(a.to_string().parse::<QsoId>()?, a);
     assert_eq!(
         serde_json::from_str::<QsoId>(&serde_json::to_string(&a)?)?,
@@ -44,6 +46,6 @@ fn identity_round_trips_without_display_name_identity() -> TestResult {
     );
     assert!("invalid".parse::<QsoId>().is_err());
     assert_ne!(QsoId::new(), QsoId::new());
-    assert_eq!(TagId::from_u128(123).to_string(), a.to_string());
+    assert_eq!(support::id::<TagId>(123).to_string(), a.to_string());
     Ok(())
 }

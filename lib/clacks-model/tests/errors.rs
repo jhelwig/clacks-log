@@ -77,8 +77,8 @@ fn error_messages_preserve_diagnostic_context() {
         assert!(error.source().is_none());
     }
 
-    let equipment = EquipmentConfigurationId::from_u128(1);
-    let other_equipment = EquipmentConfigurationId::from_u128(2);
+    let equipment = support::id::<EquipmentConfigurationId>(1);
+    let other_equipment = support::id::<EquipmentConfigurationId>(2);
     let record_cases = [
         (
             RecordError::MissingBandAndFrequency,
@@ -120,7 +120,7 @@ fn error_messages_preserve_diagnostic_context() {
         assert!(error.source().is_none());
     }
 
-    let group = GroupId::from_u128(1);
+    let group = support::id::<GroupId>(1);
     let definition_cases = [
         (
             DefinitionError::DuplicateGroupId { id: group },
@@ -151,11 +151,11 @@ fn error_messages_preserve_diagnostic_context() {
         assert!(error.source().is_none());
     }
 
-    let qso = QsoId::from_u128(1);
+    let qso = support::id::<QsoId>(1);
     let export_cases = [
         (
             ExportError::UnknownProfile {
-                id: OutputProfileId::from_u128(1),
+                id: support::id::<OutputProfileId>(1),
             },
             "unknown output profile 00000000000000000000000001",
         ),
@@ -195,7 +195,7 @@ fn error_messages_preserve_diagnostic_context() {
 fn export_operations_propagate_definition_errors_without_forwarding_variants() {
     let mut group = support::definitions().iter().next().unwrap().clone();
     group.identifier.syntax = Some("[".into());
-    let mut qso = support::qso(QsoId::from_u128(1));
+    let mut qso = support::qso(support::id::<QsoId>(1));
     qso.own_station
         .references
         .insert(support::reference(group.id, Some("test")));
@@ -203,7 +203,7 @@ fn export_operations_propagate_definition_errors_without_forwarding_variants() {
     let error = select_mappings(
         &qso,
         &ExportContext {
-            output_profile_id: OutputProfileId::from_u128(1),
+            output_profile_id: support::id::<OutputProfileId>(1),
             target_group_id: None,
         },
         &definitions,
@@ -219,7 +219,7 @@ fn export_operations_propagate_definition_errors_without_forwarding_variants() {
 
 #[test]
 fn record_operations_return_downcastable_validation_errors() {
-    let mut qso = support::qso(QsoId::from_u128(1));
+    let mut qso = support::qso(support::id::<QsoId>(1));
     qso.end = Some(UtcSecond::from_unix_seconds(999));
     let error = qso.validate().unwrap_err();
     assert!(matches!(
@@ -232,12 +232,12 @@ fn record_operations_return_downcastable_validation_errors() {
 
 #[test]
 fn export_readiness_context_retains_the_validation_cause() {
-    let mut qso = support::qso(QsoId::from_u128(1));
+    let mut qso = support::qso(support::id::<QsoId>(1));
     qso.end = Some(UtcSecond::from_unix_seconds(999));
     let error = plan_reference_export(
         &[qso],
         &ExportContext {
-            output_profile_id: OutputProfileId::from_u128(1),
+            output_profile_id: support::id::<OutputProfileId>(1),
             target_group_id: None,
         },
         &support::definitions(),

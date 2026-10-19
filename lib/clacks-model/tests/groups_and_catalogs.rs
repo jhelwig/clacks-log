@@ -8,7 +8,7 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 #[test]
 fn explicit_normalization_does_not_rewrite_existing_references() -> TestResult {
     let defs = support::definitions();
-    let group = defs.get(GroupId::from_u128(1)).unwrap();
+    let group = defs.get(support::id::<GroupId>(1)).unwrap();
     let a = support::reference(group.id, Some(" us-1234 "));
     assert_eq!(
         normalize_reference(&a, Some(group))?.identifier.as_deref(),
@@ -24,7 +24,7 @@ fn explicit_normalization_does_not_rewrite_existing_references() -> TestResult {
         .is_err()
     );
     assert_eq!(normalize_reference(&a, None)?, a);
-    let participation = support::reference(GroupId::from_u128(2), None);
+    let participation = support::reference(support::id::<GroupId>(2), None);
     assert_eq!(
         normalize_reference(&participation, defs.get(participation.group_id))?,
         participation
@@ -77,9 +77,9 @@ fn a_catalog_refresh_is_not_a_qso_edit() -> TestResult {
 #[test]
 fn equivalent_groups_have_equal_capabilities_not_shared_identity() -> TestResult {
     let defs = support::definitions();
-    let a = defs.get(GroupId::from_u128(1)).unwrap();
+    let a = defs.get(support::id::<GroupId>(1)).unwrap();
     let mut b = a.clone();
-    b.id = GroupId::from_u128(3);
+    b.id = support::id::<GroupId>(3);
     let both = DefinitionSet::new(vec![a.clone(), b.clone()])?;
     for id in [a.id, b.id] {
         assert_eq!(
@@ -92,7 +92,7 @@ fn equivalent_groups_have_equal_capabilities_not_shared_identity() -> TestResult
     b.id = a.id;
     b.name = "competing definition".into();
     assert!(DefinitionSet::new(vec![a.clone(), b]).is_err());
-    let unknown = support::reference(GroupId::from_u128(100), Some(" unchanged "));
+    let unknown = support::reference(support::id::<GroupId>(100), Some(" unchanged "));
     assert!(interpret_reference(&unknown, &defs).is_none());
     assert_eq!(normalize_reference(&unknown, None)?, unknown);
     Ok(())

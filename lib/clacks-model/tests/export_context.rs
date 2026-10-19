@@ -7,7 +7,7 @@ use clacks_model::group::DefinitionSet;
 use clacks_model::ids::{GroupId, OutputProfileId, QsoId};
 fn context(target: Option<GroupId>) -> ExportContext {
     ExportContext {
-        output_profile_id: OutputProfileId::from_u128(1),
+        output_profile_id: support::id::<OutputProfileId>(1),
         target_group_id: target,
     }
 }
@@ -36,11 +36,11 @@ fn per_contact_context_is_unambiguous_or_explicit() {
         (vec![3], Some("CONTEST-B")),
         (vec![2, 3], None),
     ] {
-        let mut q = support::qso(QsoId::from_u128(1));
+        let mut q = support::qso(support::id::<QsoId>(1));
         for g in groups {
             q.own_station
                 .references
-                .insert(support::reference(GroupId::from_u128(g), None));
+                .insert(support::reference(support::id::<GroupId>(g), None));
         }
         let before = q.clone();
         let s = select_mappings(&q, &context(None), &defs, &profiles, None).unwrap();
@@ -65,26 +65,26 @@ fn per_contact_context_is_unambiguous_or_explicit() {
                 &context(None),
                 &defs,
                 &profiles,
-                Some(&ContextResolution::ChooseTarget(GroupId::from_u128(2))),
+                Some(&ContextResolution::ChooseTarget(support::id::<GroupId>(2))),
             )
             .unwrap();
             assert_eq!(contest_literals(&chosen), vec!["CQ-WW-SSB"]);
         }
         assert_eq!(q, before);
     }
-    let mut equivalent = defs.get(GroupId::from_u128(3)).unwrap().clone();
+    let mut equivalent = defs.get(support::id::<GroupId>(3)).unwrap().clone();
     equivalent.export_mappings.ordinary_interchange[0].value =
         ValueExpression::Literal("CQ-WW-SSB".into());
     let same = DefinitionSet::new(vec![
-        defs.get(GroupId::from_u128(2)).unwrap().clone(),
+        defs.get(support::id::<GroupId>(2)).unwrap().clone(),
         equivalent,
     ])
     .unwrap();
-    let mut q = support::qso(QsoId::from_u128(1));
+    let mut q = support::qso(support::id::<QsoId>(1));
     for id in [2, 3] {
         q.own_station
             .references
-            .insert(support::reference(GroupId::from_u128(id), None));
+            .insert(support::reference(support::id::<GroupId>(id), None));
     }
     assert!(
         select_mappings(&q, &context(None), &same, &profiles, None)
@@ -96,14 +96,14 @@ fn per_contact_context_is_unambiguous_or_explicit() {
 
 #[test]
 fn target_does_not_invent_participation() {
-    let mut q = support::qso(QsoId::from_u128(1));
+    let mut q = support::qso(support::id::<QsoId>(1));
     q.own_station
         .references
-        .insert(support::reference(GroupId::from_u128(3), None));
+        .insert(support::reference(support::id::<GroupId>(3), None));
     let before = q.clone();
     let selected = select_mappings(
         &q,
-        &context(Some(GroupId::from_u128(2))),
+        &context(Some(support::id::<GroupId>(2))),
         &support::contest_definitions(),
         &support::profiles(),
         None,
@@ -115,18 +115,19 @@ fn target_does_not_invent_participation() {
 
 #[test]
 fn targeted_mapping_excludes_competing_context() {
-    let mut q = support::qso(QsoId::from_u128(1));
+    let mut q = support::qso(support::id::<QsoId>(1));
     for id in [2, 3] {
         q.own_station
             .references
-            .insert(support::reference(GroupId::from_u128(id), None));
+            .insert(support::reference(support::id::<GroupId>(id), None));
     }
-    q.own_station
-        .references
-        .insert(support::reference(GroupId::from_u128(1), Some("US-1234")));
+    q.own_station.references.insert(support::reference(
+        support::id::<GroupId>(1),
+        Some("US-1234"),
+    ));
     let selected = select_mappings(
         &q,
-        &context(Some(GroupId::from_u128(2))),
+        &context(Some(support::id::<GroupId>(2))),
         &support::contest_definitions(),
         &support::profiles(),
         None,

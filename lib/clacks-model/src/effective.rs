@@ -124,11 +124,3 @@ pub fn select_name(
             })
     })
 }
-
-/// Test whether a snapshot remains applicable to the current directory lookup key.
-///
-/// Both keys must already be normalized by the directory adapter. This performs
-/// exact comparison only; recorded portable callsigns need a separate key derivation.
-pub fn directory_key_matches(current: &str, snapshot_key: &str) -> bool {
-    current == snapshot_key
-}

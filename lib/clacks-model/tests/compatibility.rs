@@ -24,7 +24,7 @@ fn unrelated_edit_survives_old_recognition_round_trip() -> TestResult {
         parent: Some("MFSK".into()),
     });
     for identity in identities {
-        let mut q = support::qso(QsoId::from_u128(1));
+        let mut q = support::qso(support::id::<QsoId>(1));
         q.mode = Mode::from_recorded_identity(identity.clone())?;
         let mut json = serde_json::to_value(&q)?;
         json["primary"]["band"] = fixture["bands"][0].clone();
@@ -47,13 +47,14 @@ fn unrelated_edit_survives_old_recognition_round_trip() -> TestResult {
 
 #[test]
 fn source_mutation_cannot_rewrite_recorded_snapshots() -> TestResult {
-    let mut q = support::qso(QsoId::from_u128(1));
+    let mut q = support::qso(support::id::<QsoId>(1));
     let mut station = q.own_station.clone();
-    station
-        .references
-        .insert(support::reference(GroupId::from_u128(1), Some("US-1234")));
+    station.references.insert(support::reference(
+        support::id::<GroupId>(1),
+        Some("US-1234"),
+    ));
     let mut p = SavedLocationProfile {
-        id: ProfileId::from_u128(1),
+        id: support::id::<ProfileId>(1),
         name: "field".into(),
         station,
         default_equipment: None,
@@ -77,7 +78,7 @@ fn source_mutation_cannot_rewrite_recorded_snapshots() -> TestResult {
 
 #[test]
 fn empty_optional_aggregates_are_not_location_evidence() {
-    let mut q = support::qso(QsoId::from_u128(1));
+    let mut q = support::qso(support::id::<QsoId>(1));
     q.contacted_station.location = Some(RecordedLocation::default());
     let fallback = StationFacts {
         name: None,
@@ -102,14 +103,14 @@ fn empty_optional_aggregates_are_not_location_evidence() {
 
 #[test]
 fn whole_record_comparison_includes_disjoint_tag_edits() {
-    let base = support::qso(QsoId::from_u128(1));
+    let base = support::qso(support::id::<QsoId>(1));
     let mut local = base.clone();
     let mut remote = base.clone();
-    local.tags.insert(TagId::from_u128(1));
+    local.tags.insert(support::id::<TagId>(1));
     remote.comment = Some("remote edit".into());
-    assert!(!local.same_recorded_values(&base));
-    assert!(!remote.same_recorded_values(&base));
-    assert!(!local.same_recorded_values(&remote));
+    assert_ne!(local, base);
+    assert_ne!(remote, base);
+    assert_ne!(local, remote);
     let grid = Locator::parse("FN31PR").unwrap();
     let mut area = base.clone();
     let mut point = base;
@@ -124,12 +125,12 @@ fn whole_record_comparison_includes_disjoint_tag_edits() {
         }),
         ..Default::default()
     });
-    assert!(!area.same_recorded_values(&point));
+    assert_ne!(area, point);
 }
 
 #[test]
 fn invalid_deserialized_values_are_rejected_before_save() -> TestResult {
-    let q = support::qso(QsoId::from_u128(1));
+    let q = support::qso(support::id::<QsoId>(1));
     let mut json = serde_json::to_value(&q)?;
     json["primary"] = serde_json::json!({"frequency":null,"band":null});
     assert!(serde_json::from_value::<Qso>(json)?.validate().is_err());

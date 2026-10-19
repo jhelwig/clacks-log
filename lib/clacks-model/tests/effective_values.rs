@@ -2,8 +2,7 @@ mod support;
 
 use clacks_model::catalog::{CatalogFinding, lookup_reference};
 use clacks_model::effective::{
-    EligibleStationFacts, InformationSource, StationFacts, directory_key_matches, select_location,
-    select_name,
+    EligibleStationFacts, InformationSource, StationFacts, select_location, select_name,
 };
 use clacks_model::ids::{GroupId, QsoId};
 use clacks_model::location::RecordedLocation;
@@ -20,7 +19,7 @@ fn facts(state: &str) -> StationFacts {
 
 #[test]
 fn whole_location_never_patches_lower_source() {
-    let mut station = support::qso(QsoId::from_u128(1)).contacted_station;
+    let mut station = support::qso(support::id::<QsoId>(1)).contacted_station;
     station.location = Some(RecordedLocation {
         primary_subdivision: Some("WY".into()),
         ..Default::default()
@@ -48,10 +47,11 @@ fn whole_location_never_patches_lower_source() {
 
 #[test]
 fn location_reference_blocks_home_location() {
-    let mut station = support::qso(QsoId::from_u128(1)).contacted_station;
-    station
-        .references
-        .insert(support::reference(GroupId::from_u128(1), Some("US-1234")));
+    let mut station = support::qso(support::id::<QsoId>(1)).contacted_station;
+    station.references.insert(support::reference(
+        support::id::<GroupId>(1),
+        Some("US-1234"),
+    ));
     let home = facts("CT");
     let eligible = EligibleStationFacts {
         lotw: Some(&home),
@@ -62,9 +62,10 @@ fn location_reference_blocks_home_location() {
     assert_eq!(selected.source, InformationSource::Recorded);
     assert_eq!(selected.value, None);
     station.references.clear();
-    station
-        .references
-        .insert(support::reference(GroupId::from_u128(999), Some("unknown")));
+    station.references.insert(support::reference(
+        support::id::<GroupId>(999),
+        Some("unknown"),
+    ));
     assert_eq!(
         select_location(&station, &eligible, &support::definitions())
             .unwrap()
@@ -101,14 +102,15 @@ fn catalog_point_is_not_station_point() {
 }
 
 #[test]
-fn old_directory_key_cannot_supply_fallback() {
-    let station = support::qso(QsoId::from_u128(1)).contacted_station;
-    let old = facts("CT");
-    for (current_key, expected) in [("K1ABC", true), ("W7HEX", false)] {
+fn only_supplied_eligible_observations_provide_fallback() {
+    let station = support::qso(support::id::<QsoId>(1)).contacted_station;
+    let directory = facts("CT");
+    for observation in [None, Some(&directory)] {
         let eligible = EligibleStationFacts {
-            directory: directory_key_matches(current_key, "K1ABC").then_some(&old),
+            directory: observation,
             ..Default::default()
         };
+        let expected = observation.is_some();
         assert_eq!(
             select_location(&station, &eligible, &support::definitions()).is_some(),
             expected

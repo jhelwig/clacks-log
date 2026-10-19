@@ -13,7 +13,7 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 #[test]
 fn definition_errors_are_not_record_errors() {
     let defs = support::definitions();
-    let base = defs.get(GroupId::from_u128(1)).unwrap();
+    let base = defs.get(support::id::<GroupId>(1)).unwrap();
     for expr in [
         ValueExpression::BoundIdentifier("undeclared".into()),
         ValueExpression::Capture {
@@ -39,13 +39,13 @@ fn definition_errors_are_not_record_errors() {
     d.export_mappings.ordinary_interchange[0].value =
         ValueExpression::Identifiers(StationSide::Own);
     assert!(compile_definition(&d).is_err());
-    assert!(support::qso(QsoId::from_u128(1)).validate().is_ok());
+    assert!(support::qso(support::id::<QsoId>(1)).validate().is_ok());
 }
 
 #[test]
 fn full_match_and_named_capture() -> TestResult {
     let defs = support::definitions();
-    let mut d = defs.get(GroupId::from_u128(1)).unwrap().clone();
+    let mut d = defs.get(support::id::<GroupId>(1)).unwrap().clone();
     let expression = ValueExpression::Capture {
         value: Box::new(ValueExpression::CurrentIdentifier),
         pattern: "(?P<park>[A-Z0-9]{1,4}-[0-9]{4,5})(?:@(?P<location>[A-Z]{2}-[A-Z0-9]{1,3}))?"
@@ -78,15 +78,16 @@ fn full_match_and_named_capture() -> TestResult {
 #[test]
 fn bindings_are_group_scoped() -> TestResult {
     let defs = support::definitions();
-    let d = defs.get(GroupId::from_u128(1)).unwrap();
+    let d = defs.get(support::id::<GroupId>(1)).unwrap();
     let compiled = compile_definition(d)?;
-    let mut q = support::qso(QsoId::from_u128(1));
+    let mut q = support::qso(support::id::<QsoId>(1));
     q.own_station
         .references
         .insert(support::reference(d.id, Some("US-1234")));
-    q.own_station
-        .references
-        .insert(support::reference(GroupId::from_u128(999), Some("US-9999")));
+    q.own_station.references.insert(support::reference(
+        support::id::<GroupId>(999),
+        Some("US-9999"),
+    ));
     let bindings = BTreeMap::new();
     let context = ExpressionContext {
         qso: Some(&q),
@@ -103,7 +104,7 @@ fn bindings_are_group_scoped() -> TestResult {
 #[test]
 fn compiled_state_is_not_serialized() -> TestResult {
     let defs = support::definitions();
-    let d = defs.get(GroupId::from_u128(1)).unwrap();
+    let d = defs.get(support::id::<GroupId>(1)).unwrap();
     let before = serde_json::to_value(d)?;
     let compiled = compile_definition(d)?;
     assert_eq!(serde_json::to_value(compiled.definition())?, before);

@@ -57,7 +57,7 @@ fn a_present_receive_pair_is_a_whole_override() -> TestResult {
 
 #[test]
 fn validate_contact_times_and_required_station_identity() -> TestResult {
-    let mut q = support::qso(QsoId::from_u128(1));
+    let mut q = support::qso(support::id::<QsoId>(1));
     q.validate()?;
     for end in [1000, 86401] {
         q.end = Some(UtcSecond::from_unix_seconds(end));
@@ -77,19 +77,21 @@ fn validate_contact_times_and_required_station_identity() -> TestResult {
 
 #[test]
 fn whole_record_equality_uses_sets_and_preserved_values() -> TestResult {
-    let mut a = support::qso(QsoId::from_u128(1));
-    a.tags.extend([TagId::from_u128(2), TagId::from_u128(3)]);
-    a.own_station
-        .references
-        .insert(support::reference(GroupId::from_u128(1), Some("US-1234")));
+    let mut a = support::qso(support::id::<QsoId>(1));
+    a.tags
+        .extend([support::id::<TagId>(2), support::id::<TagId>(3)]);
+    a.own_station.references.insert(support::reference(
+        support::id::<GroupId>(1),
+        Some("US-1234"),
+    ));
     let mut b = a.clone();
-    b.tags.insert(TagId::from_u128(2));
-    assert!(a.same_recorded_values(&b));
+    b.tags.insert(support::id::<TagId>(2));
+    assert_eq!(a, b);
     b.comment = Some("changed".into());
-    assert!(!a.same_recorded_values(&b));
+    assert_ne!(a, b);
     b = a.clone();
-    b.id = QsoId::from_u128(2);
-    assert!(!a.same_recorded_values(&b));
+    b.id = support::id::<QsoId>(2);
+    assert_ne!(a, b);
     a.mode = Mode::from_recorded_identity(ModeIdentity::Specialization {
         label: "Future".into(),
         parent: None,

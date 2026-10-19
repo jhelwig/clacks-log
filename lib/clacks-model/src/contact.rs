@@ -309,14 +309,6 @@ impl Qso {
         Ok(())
     }
 
-    /// Compare the complete recorded working versions for whole-record reconciliation.
-    ///
-    /// Tag/reference order is irrelevant because those fields are sets. No provider
-    /// lookup, catalog interpretation or automatic field merge participates.
-    pub fn same_recorded_values(&self, other: &Self) -> bool {
-        self == other
-    }
-
     /// Prepare optional locations, operators, receive override and report/comment text for saving.
     ///
     /// Empty locations/operators collapse to absence; an empty receive override
