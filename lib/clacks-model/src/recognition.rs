@@ -12,15 +12,16 @@ pub use mode::*;
 
 /// Band/mode recognition rows supplied independently of recorded contact values.
 ///
-/// Load external JSON with `from_json` for structural validation. Direct struct
-/// construction or deserialization does not enforce catalog consistency.
+/// Its public rows and derived deserialization are unconstrained storage; the
+/// type itself does not enforce catalog consistency. For validated loading,
+/// see [`Self::from_json`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecognitionCatalog {
     /// Source release label describing this catalog.
     pub release: String,
-    /// Band rows searched in order when deriving a band from frequency.
+    /// Ordered band definitions.
     pub bands: Vec<BandRow>,
-    /// Parent-mode rows used for case-insensitive label interpretation.
+    /// Parent-mode definitions.
     pub modes: Vec<ModeRow>,
     /// Specialization rows with exact references to parent-mode labels.
     pub submodes: Vec<SubmodeRow>,
@@ -29,7 +30,7 @@ pub struct RecognitionCatalog {
 /// A band label and its inclusive frequency range in whole hertz.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BandRow {
-    /// Recognized band label; matching is ASCII case-insensitive.
+    /// Band label declared by the catalog.
     pub code: String,
     /// Inclusive positive lower frequency bound in hertz.
     pub lower_hz: u64,
@@ -42,7 +43,7 @@ pub struct BandRow {
 pub struct ModeRow {
     /// Recognized parent-mode label.
     pub code: String,
-    /// Whether the source marks this label deprecated; historical values remain recognizable.
+    /// Whether the source marks this label deprecated.
     pub deprecated: bool,
 }
 
@@ -61,9 +62,9 @@ impl RecognitionCatalog {
     /// Borrow the bundled Amateur Data Interchange Format (ADIF) 3.1.8 recognition baseline.
     ///
     /// Use as the initial offline catalog; it includes deprecated historical labels
-    /// and performs no network acquisition. Stored identities do not depend on this baseline.
+    /// and performs no network acquisition.
     pub fn adif_318() -> &'static Self {
-        /// Shared immutable offline baseline reused by all recognition requests.
+        /// Shared immutable copy of the bundled baseline.
         static CATALOG: OnceLock<RecognitionCatalog> = OnceLock::new();
         CATALOG.get_or_init(|| {
             Self::from_json(include_str!("../data/adif-3.1.8.json"))

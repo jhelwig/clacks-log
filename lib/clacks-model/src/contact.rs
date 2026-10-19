@@ -6,8 +6,7 @@ use std::collections::BTreeSet;
 
 /// A record invariant or profile-equipment reference that prevents acceptance.
 ///
-/// Record operations propagate these concrete diagnostics through `anyhow::Error`;
-/// callers may downcast when field-specific handling is needed.
+/// Variants carry the field or entity context needed for a targeted diagnostic.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum RecordError {
     /// Neither a frequency nor a band was supplied for a required pair.
@@ -51,8 +50,9 @@ pub enum RecordError {
 
 /// A recorded frequency and/or band for one contact direction.
 ///
-/// A newly supplied frequency determines the band using the selected catalog.
-/// Deserialization preserves recorded values; it does not reinterpret old bands.
+/// Its serialized representation contains the recorded pair without a catalog
+/// dependency. For construction and edits, see [`Self::new`],
+/// [`Self::set_frequency`] and [`Self::set_band`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BandFrequency {
     /// Separately recorded whole-hertz frequency, absent for a band-only pair.
@@ -66,7 +66,7 @@ impl BandFrequency {
     ///
     /// At least one value is required. A supplied frequency takes precedence over
     /// the band, including clearing the band if the catalog cannot classify it.
-    /// Import adapters must report any correction to a conflicting supplied band.
+    /// The supplied band is not retained separately when a frequency is present.
     pub fn new(
         frequency: Option<Hertz>,
         band: Option<Band>,
@@ -133,13 +133,13 @@ impl BandFrequency {
 
 /// Recorded station identity, operating location and participation for one side of a contact.
 ///
-/// The same shape describes own and contacted stations. Directory facts are
-/// separate and must not overwrite these recorded values.
+/// The same shape represents own and contacted stations. It contains recorded
+/// station facts, not directory observations.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StationSnapshot {
     /// Required recorded station callsign, including any portable components.
     pub callsign: RecordedCallsign,
-    /// Recorded operating-location details, selected as one source during fallback.
+    /// Optional recorded operating-location details.
     pub location: Option<RecordedLocation>,
     /// Unordered, deduplicated participation/reference associations for this station.
     pub references: BTreeSet<ReferenceAssociation>,
@@ -172,15 +172,16 @@ pub struct OwnOperatingContext {
     pub operator: Option<OperatorInformation>,
     /// Recorded positive transmit power at one-milliwatt resolution.
     pub transmit_power: Option<Milliwatts>,
-    /// Copied equipment facts; later configuration edits do not change this snapshot.
+    /// Owned equipment facts with no live configuration reference.
     pub equipment: Option<EquipmentValues>,
 }
 
 /// An account-owned saved contact with copied operating context and its complete tag set.
 ///
-/// Constructing or deserializing this record is not a save operation. Prepare
-/// optional values and validate before acceptance. Equality compares recorded
-/// values as a whole, including tags and references, without consulting catalogs.
+/// Public fields permit an unvalidated working value; the type itself performs
+/// no save or acceptance operation. For preparation and validation, see
+/// [`Self::normalize_optional_aggregates`] and [`Self::validate`]. Equality compares
+/// all recorded fields, including the tag and reference sets.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Qso {
     /// Stable account-wide contact identity, independent of tags.
@@ -197,9 +198,9 @@ pub struct Qso {
     pub own_context: OwnOperatingContext,
     /// Separately recorded contacted operator information, when known.
     pub contacted_operator: Option<OperatorInformation>,
-    /// Primary frequency/band pair, used in both directions absent a receive override.
+    /// Recorded primary frequency/band pair.
     pub primary: BandFrequency,
-    /// Whole receive-direction override; band-only values do not borrow primary frequency.
+    /// Optional separate receive pair; see [`BandFrequency::effective_receive`].
     pub receive_override: Option<BandFrequency>,
     /// Recorded mode hierarchy and labels independent of recognition.
     pub mode: Mode,
@@ -207,7 +208,7 @@ pub struct Qso {
     pub sent_report: Option<String>,
     /// Optional received signal report; report syntax is not mode-restricted here.
     pub received_report: Option<String>,
-    /// Optional recorded comment, preserving nonblank text.
+    /// Optional recorded comment text.
     pub comment: Option<String>,
     /// Complete unordered set of logbook memberships; an empty set leaves the contact untagged.
     pub tags: BTreeSet<TagId>,
@@ -312,9 +313,9 @@ impl Qso {
     /// Prepare optional locations, operators, receive override and report/comment text for saving.
     ///
     /// Empty locations/operators collapse to absence; an empty receive override
-    /// returns to primary-pair fallback. Nonblank text and explicit recorded facts
-    /// remain unchanged. Equipment/reference strings must be prepared separately
-    /// with `optional_text`; call `validate` afterward to enforce the full save boundary.
+    /// is removed. Nonblank text and explicit recorded facts remain unchanged.
+    /// Equipment/reference strings are outside this method’s normalization scope.
+    /// See also [`optional_text`] and [`Self::validate`].
     pub fn normalize_optional_aggregates(&mut self) {
         if self
             .receive_override
@@ -351,8 +352,8 @@ impl Qso {
 impl EquipmentValues {
     /// Validate copied optional equipment text before accepting it into a saved record.
     ///
-    /// Blank present strings fail validation; use `optional_text` when preparing
-    /// entry values. This does not require any particular equipment field.
+    /// Blank present strings fail validation. No particular equipment field is
+    /// required. For preparing optional text, see [`optional_text`].
     pub fn validate(&self) -> anyhow::Result<()> {
         for (name, value) in [
             ("equipment", &self.equipment_description),

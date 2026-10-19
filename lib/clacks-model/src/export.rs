@@ -19,18 +19,20 @@ pub struct ExportContext {
     pub target_group_id: Option<GroupId>,
 }
 
-/// Whether a profile uses ordinary interchange mappings or a selected group’s submission plan.
+/// The kind of reference output requested by a profile.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OutputPurpose {
-    /// Use ordinary group mappings with one output entry per contact and no reference expansion.
+    /// General-purpose interchange context.
     OrdinaryInterchange,
-    /// Use the selected group’s profile-specific mapping, partitioning and expansion plan.
+    /// Group-specific submission context.
     Targeted,
 }
 
 /// Reference-output policy, separate from full interchange formatting and publication.
 ///
-/// Common contact-field formatting and program submission validation belong to adapters.
+/// Contains only identity, purpose and contextual-field configuration. For
+/// selection and output planning, see [`select_mappings`] and
+/// [`plan_reference_export`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OutputProfile {
     /// Stable output-profile identity used in targeted group mappings.
@@ -39,7 +41,7 @@ pub struct OutputProfile {
     pub name: String,
     /// Ordinary interchange or group-targeted submission behavior.
     pub purpose: OutputPurpose,
-    /// Fields whose competing group values require explicit context selection or omission.
+    /// Names of output fields whose values depend on the selected group context.
     pub contextual_fields: BTreeSet<String>,
 }
 

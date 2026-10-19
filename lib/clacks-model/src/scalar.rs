@@ -49,7 +49,8 @@ impl From<RecordedCallsign> for String {
 /// Convert blank optional entry text to absence and preserve every character otherwise.
 ///
 /// Use when preparing native optional strings. This does not distinguish an
-/// omitted import field from an explicit clear; import staging must track that separately.
+/// omitted import field from an explicit clear; both need separate input-state
+/// representation when that distinction matters.
 pub fn optional_text(value: &str) -> Option<String> {
     (!value.trim().is_empty()).then(|| value.to_owned())
 }

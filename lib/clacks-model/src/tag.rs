@@ -7,11 +7,11 @@ use std::collections::BTreeSet;
 /// A tag’s automatic-upload contribution for one external service.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AutomaticUploadPolicy {
-    /// Grant automatic eligibility unless another tag forbids it.
+    /// An automatic-upload grant.
     Enable,
-    /// Deny automatic eligibility, overriding all grants.
+    /// An automatic-upload prohibition.
     Forbid,
-    /// Neither grant nor forbid; the default for a new tag.
+    /// A neutral contribution; the default policy value.
     #[default]
     Neither,
 }

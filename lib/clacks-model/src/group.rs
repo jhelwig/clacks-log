@@ -6,17 +6,18 @@ use std::collections::BTreeMap;
 
 /// Data-defined participation/reference behavior shared by an account.
 ///
-/// Default and future user-defined groups use the same engine. Group names do
-/// not select privileged behavior, and definition changes do not rewrite saved associations.
+/// The fields express the group’s capabilities without a built-in program-kind
+/// discriminator. Recorded associations are separate values. For rule
+/// preparation and evaluation, see [`compile_definition`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GroupDefinition {
     /// Stable account group identity.
     pub id: GroupId,
-    /// User-facing group name, not a discriminator for behavior.
+    /// User-facing group name.
     pub name: String,
     /// Identifier entry/edit rules, including group-only participation.
     pub identifier: IdentifierDefinition,
-    /// Whether participation itself prevents falling back to a lower-priority location.
+    /// Whether this group’s references carry operating-location context.
     pub bears_location_context: bool,
     /// Optional descriptive dataset binding, separate from recorded contact facts.
     pub catalog: Option<CatalogBinding>,
@@ -29,9 +30,9 @@ pub struct GroupDefinition {
 pub struct IdentifierDefinition {
     /// Whether an association needs a nonblank identifier instead of group-only participation.
     pub required: bool,
-    /// Transformations applied in order on entry or explicit edits.
+    /// Ordered text-transformation rules for explicit identifier input.
     pub normalization: Vec<TextNormalization>,
-    /// Optional whole-value regex checked after normalization.
+    /// Optional whole-value syntax regex for prepared identifiers.
     pub syntax: Option<String>,
 }
 
@@ -83,8 +84,8 @@ pub enum DefinitionError {
 
 /// Group definitions indexed by stable ID, independent of display names.
 ///
-/// Construction rejects differing definitions for one ID but does not compile
-/// their syntax or mappings; use `compile_definition` when those are needed.
+/// Display names do not determine registry identity. For construction and
+/// validation, see [`Self::new`] and [`compile_definition`].
 #[derive(Clone, Debug, Default)]
 pub struct DefinitionSet(BTreeMap<GroupId, GroupDefinition>);
 

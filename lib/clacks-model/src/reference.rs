@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 
 /// Participation in one reference group, optionally qualified by an identifier.
 ///
-/// Use in own/contacted station sets. A missing identifier supports group-only
-/// participation when its definition permits it; unknown groups remain preserved.
-/// Ordering and equality use the recorded group ID and identifier, not metadata.
+/// Use in own/contacted station sets. A missing identifier denotes group-only
+/// participation. The value contains no resolved definition or catalog metadata;
+/// ordering and equality use its recorded group ID and identifier.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ReferenceAssociation {
     /// Stable group identity used to find behavior in account-shared definitions.

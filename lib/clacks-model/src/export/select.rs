@@ -5,8 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// A reference-export context, assignment or readiness failure.
 ///
-/// Operations return these diagnostics through `anyhow::Error` alongside original
-/// record/definition failures. Downcast when structured handling is needed.
+/// Variants identify the affected output profile, group, field or contact.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ExportError {
     /// The requested output profile is unavailable.
@@ -104,7 +103,7 @@ pub struct SelectedGroupMapping {
 
 /// Selected per-contact plans plus outstanding decisions and reportable warnings.
 ///
-/// A successful selection may still contain unresolved decisions; it does not authorize publication.
+/// This value may contain unresolved decisions; it is not a publication authorization.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MappingSelection {
     /// Supported selected plans, without arbitrary competing contextual assignments.

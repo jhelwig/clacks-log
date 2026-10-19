@@ -13,7 +13,7 @@ pub struct GroupExportMappings {
     pub targeted: BTreeMap<OutputProfileId, GroupExportPlan>,
 }
 
-/// Field mappings and ordered file/entry expansion rules for one selected group.
+/// Field bindings and ordered file/entry expansion rules for one group.
 ///
 /// These rules describe in-memory output; they do not perform file publication.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,32 +26,33 @@ pub struct GroupExportPlan {
     pub entry_expansion: Vec<ExpansionRule>,
 }
 
-/// A serializable expression producing absent, scalar or collection text.
+/// A serializable text-mapping expression.
 ///
-/// Use to define mappings without scripts, network access or program-specific code.
-/// Compilation validates context, bindings, capture names and a nesting limit of 32.
+/// The syntax represents local text mappings, with no script or network
+/// operation. For validation and evaluation, see [`compile_definition`] and
+/// [`CompiledGroupDefinition::evaluate`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ValueExpression {
-    /// Fixed text; an empty string evaluates as absence.
+    /// Fixed text.
     Literal(String),
-    /// A supported recorded QSO field, requiring QSO context.
+    /// A recorded QSO field path.
     QsoField(QsoFieldPath),
     /// The single association identifier in the current lookup context.
     CurrentIdentifier,
-    /// Recorded identifier collection for this definition’s group on one station side.
+    /// A group-scoped station-side identifier collection.
     Identifiers(StationSide),
-    /// Value selected by a named partition/expansion binding, absent if not present.
+    /// A named partition/expansion binding.
     BoundIdentifier(String),
-    /// A named full-value regex capture applied to scalar or collection input.
+    /// A named full-value regex capture over another expression.
     Capture {
-        /// Input expression; absent or unmatched values remain absent or are omitted from collections.
+        /// Input expression for capture extraction.
         value: Box<ValueExpression>,
         /// Whole-value regex declared in this definition.
         pattern: String,
         /// Required named capture to return from each match.
         name: String,
     },
-    /// Join a collection into scalar text; an empty collection remains absent.
+    /// A collection-to-scalar join expression.
     Join {
         /// Expression required to produce a collection or absence.
         values: Box<ValueExpression>,
@@ -87,20 +88,20 @@ pub struct FieldBinding {
 /// The condition under which one output-field assignment is evaluated.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BindingCondition {
-    /// Evaluate regardless of binding or participation presence.
+    /// An unconditional binding.
     Always,
-    /// Evaluate only when the named row binding exists.
+    /// A presence requirement for the named row binding.
     BoundPresent(String),
-    /// Evaluate only when this group is recorded on the selected station side.
+    /// A group-participation requirement for the selected station side.
     AssociationPresent(StationSide),
 }
 
 /// An ordered contribution to the planned file partition key.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PartitionRule {
-    /// Append a required scalar expression value to the partition key.
+    /// An expression-valued partition dimension.
     ByValue(ValueExpression),
-    /// Create a separate partition for each selected-side identifier and bind its value.
+    /// A station-reference partition dimension with a named value.
     EachReference {
         /// Station side supplying this group’s partition references.
         side: StationSide,
@@ -116,7 +117,7 @@ pub struct ExpansionRule {
     pub side: StationSide,
     /// Unique name exposing the selected reference to field expressions.
     pub binding: String,
-    /// Retain one unbound row if no identifier exists; otherwise report output not ready.
+    /// Whether an empty identifier set permits one unbound output row.
     pub keep_one_if_empty: bool,
 }
 
@@ -128,11 +129,11 @@ use std::collections::BTreeSet;
 /// An evaluated mapping value that retains the distinction between absence and collections.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExpressionValue {
-    /// No value is available; a scalar field assignment is omitted.
+    /// No text value.
     Absent,
-    /// One text value suitable for a field or partition component.
+    /// One text value.
     Scalar(String),
-    /// Ordered identifier/capture values requiring explicit joining or expansion.
+    /// An ordered sequence of text values.
     Collection(Vec<String>),
 }
 
@@ -151,8 +152,9 @@ pub struct ExpressionContext<'a> {
 
 /// Validated group data with reusable, nonserialized expression support.
 ///
-/// Obtain through `compile_definition`. Use for repeated identifier preparation
-/// or expression evaluation; it does not become part of recorded QSO equality.
+/// This owned definition snapshot is paired with evaluation state rather than
+/// serialized as contact data. See [`compile_definition`], [`Self::evaluate`] and
+/// [`Self::normalize_reference`] for its lifecycle and operations.
 #[derive(Clone, Debug)]
 pub struct CompiledGroupDefinition {
     /// Definition snapshot used for evaluation and group-scoped diagnostics.
@@ -360,8 +362,12 @@ impl CompiledGroupDefinition {
     /// Evaluate a definition expression against explicit local inputs without mutating records.
     ///
     /// Use expressions belonging to this compiled definition so capture patterns
-    /// are available. Missing values yield `Absent`; incompatible contexts, shapes
-    /// or excessive nesting return `DefinitionError`. This does not select export context.
+    /// are available. QSO fields and identifier collections require QSO context;
+    /// `CurrentIdentifier` and named bindings use their corresponding context inputs.
+    /// Missing or empty scalar values yield `Absent`; failed captures are omitted
+    /// from collections, and joining an empty collection also yields `Absent`.
+    /// Incompatible contexts, shapes or excessive nesting return `DefinitionError`.
+    /// This operation does not select export context.
     pub fn evaluate(
         &self,
         expression: &ValueExpression,

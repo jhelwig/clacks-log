@@ -1,23 +1,15 @@
 //! Native recorded values and pure model operations for Clacks Log.
 //!
-//! Contacts carry station snapshots, copied equipment and complete logbook-tag
-//! sets. Recognition catalogs, reference definitions and provider observations
-//! supply interpretation without silently rewriting recorded contact facts.
+//! This library provides contact records, station snapshots, logbook tags,
+//! reference definitions, recognition catalogs and pure domain operations.
+//! It contains no persistence, networking or file-publication facilities.
 //!
-//! # Accepting records
+//! # API entry points
 //!
-//! Scalar constructors enforce their local invariants. Composite records such as
-//! [`Qso`] have public fields and require explicit preparation and validation:
-//! normalize optional entry values, then call [`Qso::validate`] before saving.
-//! Account ownership, reference existence, durable transactions and causal
-//! synchronization remain application responsibilities.
-//!
-//! # Interpreting and exporting
-//!
-//! Use [`Mode::interpret`] and [`Band::interpret`] for current catalog views, and
-//! [`select_location`] or [`select_name`] for eligible-source fallback. These do
-//! not populate recorded fields. [`plan_reference_export`] produces in-memory
-//! reference rows and required decisions, not files or a complete submission.
+//! - Contact acceptance: [`Qso::normalize_optional_aggregates`] and [`Qso::validate`].
+//! - Recognition: [`Mode::interpret`] and [`Band::interpret`].
+//! - Effective information: [`select_location`] and [`select_name`].
+//! - Reference output: [`plan_reference_export`].
 //!
 //! # Entity identity
 //!

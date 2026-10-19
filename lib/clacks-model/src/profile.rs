@@ -5,41 +5,41 @@ use serde::{Deserialize, Serialize};
 
 /// An account-shared reusable own-station snapshot with an optional equipment default.
 ///
-/// Changing a saved profile does not change current defaults or historical contacts;
-/// loading it is explicit.
+/// This is an owned profile value, not an active link to operating defaults or
+/// contact history. For explicit loading, see [`load_profile`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SavedLocationProfile {
     /// Stable profile identity, independent of its display name.
     pub id: ProfileId,
     /// User-facing profile name.
     pub name: String,
-    /// Complete own-station snapshot to replace current station defaults on load.
+    /// Complete saved own-station snapshot.
     pub station: StationSnapshot,
-    /// Optional reusable configuration to copy when loading this profile.
+    /// Optional identity of the profile’s preferred equipment configuration.
     pub default_equipment: Option<EquipmentConfigurationId>,
 }
 
-/// An account-shared named equipment setup whose values can be copied into defaults.
+/// An account-shared named equipment setup.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EquipmentConfiguration {
     /// Stable reusable equipment identity.
     pub id: EquipmentConfigurationId,
-    /// User-facing configuration name, not copied into contacts.
+    /// User-facing configuration name.
     pub name: String,
-    /// Equipment facts copied into defaults or contact context.
+    /// Equipment facts belonging to this reusable setup.
     pub values: EquipmentValues,
 }
 
-/// Client-local defaults copied into new contacts rather than synchronized as operating state.
+/// Client-local station, operator, power and equipment defaults for contact entry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CurrentOperatingValues {
     /// Current complete own-station defaults.
     pub station: StationSnapshot,
-    /// Current own operator, preserved when loading a location profile.
+    /// Current own operator information.
     pub operator: Option<OperatorInformation>,
-    /// Current positive transmit power, preserved when loading a location profile.
+    /// Current positive transmit power.
     pub transmit_power: Option<Milliwatts>,
-    /// Current copied equipment values, independent of a configuration’s future edits.
+    /// Current owned equipment values, with no live configuration reference.
     pub equipment: Option<EquipmentValues>,
 }
 
@@ -68,7 +68,8 @@ pub struct ProfileDifference {
 /// Replace the station snapshot as a whole, clearing absent values. A profile
 /// with no equipment default preserves current equipment; otherwise supply the
 /// matching configuration. Invalid station/equipment values or a missing/mismatched
-/// configuration return an error. Inputs and historical contacts are not mutated.
+/// configuration return an error. The returned defaults own their station and
+/// equipment values; input values are not mutated.
 pub fn load_profile(
     current: &CurrentOperatingValues,
     profile: &SavedLocationProfile,

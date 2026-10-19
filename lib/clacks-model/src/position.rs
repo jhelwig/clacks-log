@@ -9,8 +9,8 @@ const RADICES: [i64; 6] = [18, 10, 24, 10, 24, 10];
 
 /// A supported Maidenhead locator length: 2, 4, 6, 8, 10 or 12 characters.
 ///
-/// This permits coarse historical areas; own-station entry has an additional
-/// four-character minimum enforced by `Position::validate_operating_entry`.
+/// Two-character precision represents a coarse historical area. For own-station
+/// entry validation, see [`Position::validate_operating_entry`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "u8", into = "u8")]
 pub struct GridLength(u8);
@@ -101,7 +101,8 @@ impl Locator {
 
     /// Return the entire grid cell as exact rational degree boundaries.
     ///
-    /// Use for area-based geographic lookup; using only its center would discard ambiguity.
+    /// Use these bounds when the full area, rather than a representative point,
+    /// is the geographic evidence.
     pub fn bounds(&self) -> GridBounds {
         let (lon, lat, count) = self.indices();
         let degree = |index: i64, span: i64, origin: i64| RationalDegree {
@@ -364,7 +365,7 @@ pub enum Position {
 impl Position {
     /// Return an explicit point or a grid area’s representative center for display.
     ///
-    /// Use `lookup_geometry` for geographic lookup so an area retains its ambiguity.
+    /// For geographic queries, see [`Self::lookup_geometry`].
     pub fn display_coordinates(&self) -> Coordinates {
         match self {
             Self::GridArea(g) => g.center(),
@@ -387,8 +388,8 @@ impl Position {
 
     /// Check the four-character minimum for own-station operating-location entry.
     ///
-    /// Apply to newly entered own-station locations. Historical imports and
-    /// contacted-station data may retain valid two-character locators.
+    /// Apply this check to newly entered own-station locations, not to
+    /// historical imports or contacted-station data.
     pub fn validate_operating_entry(&self) -> Result<(), ValueError> {
         let length = self.display_locator().length().get();
         if length < 4 {

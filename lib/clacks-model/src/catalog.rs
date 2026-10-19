@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 /// A descriptive JSON value, never an authoritative recorded contact field.
 pub type MetadataValue = serde_json::Value;
-/// A catalog metadata key; definition compilation rejects blank display bindings.
+/// A metadata attribute key for selecting descriptive catalog values.
 pub type MetadataField = String;
 /// Reference datasets keyed by their own `ReferenceCatalog::id`.
 ///
@@ -37,7 +37,8 @@ pub struct MetadataDisplayBinding {
 
 /// One descriptive dataset with provenance and reference-keyed entries.
 ///
-/// Refreshing it does not edit contact associations or assert a station location.
+/// Its entries are descriptive data, separate from recorded contact associations
+/// and operating-location evidence.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReferenceCatalog {
     /// Stable dataset identity, independent of refresh/version information.

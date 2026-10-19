@@ -4,7 +4,7 @@ use super::{ModeRow, RecognitionCatalog, SubmodeRow};
 use crate::ValueError;
 use serde::{Deserialize, Serialize};
 
-/// Recorded hierarchy and labels. Recognition never rewrites this identity.
+/// Recorded parent/specialization hierarchy and supplied labels.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ModeIdentity {
     /// A parent-level label recorded without a specialization.
@@ -23,16 +23,17 @@ pub enum ModeIdentity {
 
 /// A nonblank recorded mode hierarchy whose identity survives recognition changes.
 ///
-/// Construct without a catalog, then interpret separately. Serialization and
-/// whole-record equality use the preserved hierarchy and labels.
+/// Serialization and equality contain only this preserved hierarchy and its
+/// labels, with no catalog-derived metadata. See [`Self::from_recorded_identity`]
+/// and [`Self::interpret`] for construction and recognition.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "ModeIdentity", into = "ModeIdentity")]
 pub struct Mode(ModeIdentity);
 
-/// A borrowed interpretation from the supplied catalog, never a stored mode value.
+/// Borrowed catalog rows comprising one recognized mode interpretation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RecognizedMode<'a> {
-    /// Recognized parent row; for a specialization, taken from the catalog relationship.
+    /// Parent-mode row belonging to this interpretation.
     pub mode: &'a ModeRow,
     /// Matched specialization row, absent for a parent-only identity.
     pub submode: Option<&'a SubmodeRow>,
