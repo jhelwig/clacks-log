@@ -74,9 +74,11 @@ fn interrupted_window_preserves_coverage_and_pending_conflict() {
     };
     let original = accepted(20, "old");
     let local = [ClientRecord {
+        retained: Vec::new(),
         key: q.key,
         latest: Observation::Accepted(original.clone()),
         pending: Some(PendingRecord {
+            witness: None,
             key: q.key,
             original: OriginalBasis::Accepted(original),
             working: accepted(20, "local").state,

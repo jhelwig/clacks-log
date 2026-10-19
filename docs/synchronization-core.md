@@ -22,7 +22,13 @@ explains the representation and examples.
 
 A record vector describes one record, not receipt of the account. Positions have
 no scalar ordering across timelines. Ancestry established at T2:41 does not apply
-to T2:40. Native equality and causality are separate: metadata bookkeeping alone
+to T2:40. Incomparable accepted envelopes remain in a client-local retained set, separate
+from the genuine pending original. Equal native values can prepare a context-only
+proposal; receipt removes retained alternatives only when the new version proves
+them represented. Explicit resolution retains their context for the resulting
+proposal. This set holds unresolved alternatives, not a per-edit history.
+
+Native equality and causality are separate: metadata bookkeeping alone
 does not change recorded facts or request an external upload.
 
 Composite saved rows expose fields for ordinary Rust serialization. Call the
@@ -60,11 +66,18 @@ library. These obligations cannot be established by a pure row planner:
    revised account head under the observed membership/head and touched-version
    guards. Only afterward remove redundant detail. Preserve references named by
    surviving contexts; a client preserves original values and witnesses before
-   releasing older evidence and acknowledging the newer checkpoint.
+   releasing older evidence and acknowledging the newer checkpoint. `PendingRecord.witness`
+   persists the sealed relationship with the baseline definitions it needs;
+   receipt and preparation consume that private evidence after shared detail is
+   collected. An own-version witness only applies where current context covers
+   its actual witnessed version.
 7. Recovery admission authenticates the currently returning client. Already
    server-distributed accepted state is distinct from a new proposal by its
    original author. Recheck the returned installation conditions atomically.
-   A retained installation preserves its acceptance stamp; `Reconciled` instead
+   Recovery uses `AcceptanceInput` so real native reference observations and their
+   guards are available for recovered installations and context joins. Missing
+   references remain explicit, without turning identical tagged records into a
+   field conflict. A retained installation preserves its acceptance stamp; `Reconciled` instead
    identifies a new conditional acceptance covering both approved contexts.
 
 The adapters also own authentication, account isolation in queries, persistent

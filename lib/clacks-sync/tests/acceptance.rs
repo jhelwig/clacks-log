@@ -366,3 +366,41 @@ fn stale_tag_dependency_and_invalid_group_are_diagnostic() {
             .is_some()
     );
 }
+
+#[test]
+fn server_change_cannot_relabel_an_uninterpretable_current_baseline() {
+    let (mut account, b) = AccountMetadata::initialize(id(1), id(2), id(3));
+    account.head.revision = 200;
+    let defs = [b.clone()];
+    let ev = EvidenceView {
+        lineage: &b.lineage,
+        baselines: &defs,
+    };
+    let members = MembershipSnapshot {
+        account: id(1),
+        generation: 0,
+        clients: vec![],
+    };
+    let mut a = accepted(200, "A");
+    a.stamp.baseline = id(99);
+    let current = Observation::Accepted(a.clone());
+    let change = ServerChange {
+        key: a.key,
+        state: a.state.clone(),
+        expected: VersionCondition::from_observation(&current).unwrap(),
+        dependencies: vec![],
+    };
+    assert!(
+        plan_server_acceptance(
+            &change,
+            &AcceptanceInput {
+                account: &account,
+                membership: &members,
+                current: &current,
+                references: &[]
+            },
+            &ev
+        )
+        .is_err()
+    );
+}

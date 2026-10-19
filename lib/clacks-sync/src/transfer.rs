@@ -272,6 +272,7 @@ pub fn plan_batch(
         } else {
             ClientUpdate {
                 record: ClientRecord {
+                    retained: Vec::new(),
                     key: row.key,
                     latest: Observation::Accepted(row.clone()),
                     pending: None,

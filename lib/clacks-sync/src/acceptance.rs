@@ -219,6 +219,30 @@ fn validate_input(
         }
         .into());
     }
+    if let Observation::Accepted(current) = input.current
+        && evidence
+            .baseline(key.account, current.stamp.baseline)?
+            .is_none()
+    {
+        return Err(MetadataError::Incomplete {
+            detail: format!(
+                "current record {:?} baseline {} unavailable",
+                key, current.stamp.baseline
+            ),
+        }
+        .into());
+    }
+    if let VersionCondition::Is { stamp, .. } = expected
+        && evidence.baseline(key.account, stamp.baseline)?.is_none()
+    {
+        return Err(MetadataError::Incomplete {
+            detail: format!(
+                "expected record {:?} baseline {} unavailable",
+                key, stamp.baseline
+            ),
+        }
+        .into());
+    }
     for reference in input.references {
         reference.validate()?;
         if reference.key().account != key.account {
@@ -232,7 +256,7 @@ fn validate_input(
 }
 
 /// Derive mandatory native reference identities without treating unknown groups as invalid.
-fn required_references(key: RecordKey, state: &RecordState) -> Vec<RecordKey> {
+pub(crate) fn required_references(key: RecordKey, state: &RecordState) -> Vec<RecordKey> {
     match state {
         RecordState::Live(RecordValue::Qso(q)) => q
             .tags
@@ -370,11 +394,29 @@ pub(crate) fn plan_reconciled(
         Observation::Accepted(v) => v.stamp.vector.join(&incoming.stamp.vector),
         _ => incoming.stamp.vector.clone(),
     };
+    let mut dependencies = Vec::new();
+    for key in required_references(incoming.key, state) {
+        let Some(row) = input.references.iter().find(|row| {
+            row.key() == key
+                && matches!(
+                    row,
+                    Observation::Accepted(AcceptedRecord {
+                        state: RecordState::Live(_),
+                        ..
+                    })
+                )
+        }) else {
+            return Ok(AcceptanceDecision::Rejected(
+                RejectionReason::MissingReference { key },
+            ));
+        };
+        dependencies.push(VersionCondition::from_observation(row)?);
+    }
     plan_commit(
         incoming.key,
         state,
         &expected,
-        &[],
+        &dependencies,
         &context,
         input,
         evidence,

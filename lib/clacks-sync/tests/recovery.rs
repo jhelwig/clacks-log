@@ -130,11 +130,14 @@ fn retained_server_distributed_envelope_preserves_acceptance_and_deletion() {
         envelope, journal, ..
     } = plan_recovered_install(
         &retained,
-        &current,
         None,
         id(4),
-        &fork.next_account,
-        &m,
+        &clacks_sync::acceptance::AcceptanceInput {
+            account: &fork.next_account,
+            membership: &m,
+            current: &current,
+            references: &[],
+        },
         &ev,
     )
     .unwrap()
@@ -152,11 +155,14 @@ fn retained_server_distributed_envelope_preserves_acceptance_and_deletion() {
     assert!(matches!(
         plan_recovered_install(
             &retained,
-            &current,
             None,
             id(4),
-            &fork.next_account,
-            &m,
+            &clacks_sync::acceptance::AcceptanceInput {
+                account: &fork.next_account,
+                membership: &m,
+                current: &current,
+                references: &[]
+            },
             &missing
         )
         .unwrap(),
@@ -217,11 +223,14 @@ fn equal_divergent_values_join_context_without_business_review() {
     .unwrap();
     let RecoveredDecision::Reconciled(commit) = plan_recovered_install(
         &incoming,
-        &Observation::Accepted(competing),
         None,
         id(4),
-        &account,
-        &m,
+        &clacks_sync::acceptance::AcceptanceInput {
+            account: &account,
+            membership: &m,
+            current: &Observation::Accepted(competing),
+            references: &[],
+        },
         &ev,
     )
     .unwrap() else {
@@ -236,4 +245,278 @@ fn equal_divergent_values_join_context_without_business_review() {
             .component(clacks_sync::clock::ClockActor::Server(id(2))),
         60
     );
+}
+
+#[test]
+fn sparse_certified_absence_uses_ancestry_at_the_checkpoint_cut() {
+    use clacks_sync::lineage::{BoundaryKind, TimelineBoundary};
+    let (mut account, b) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let defs = [b.clone()];
+    let mut lineage = b.lineage.clone();
+    lineage
+        .add_boundary(TimelineBoundary {
+            at: Position {
+                timeline: id(5),
+                revision: 0,
+            },
+            includes: Coverage::from_entries([(id(2), 200)]).unwrap(),
+            kind: BoundaryKind::ForkOrigin,
+        })
+        .unwrap();
+    account.head = Position {
+        timeline: id(5),
+        revision: 50,
+    };
+    account.installed = Coverage::from(account.head);
+    let ev = EvidenceView {
+        lineage: &lineage,
+        baselines: &defs,
+    };
+    let incoming = accepted(180, "old");
+    let absent = Observation::Absent {
+        key: incoming.key,
+        checkpoint: InstalledCheckpoint {
+            account: id(1),
+            baseline: id(3),
+            coverage: account.installed.clone(),
+        },
+    };
+    assert!(
+        plan_recovered_install(
+            &incoming,
+            None,
+            id(4),
+            &clacks_sync::acceptance::AcceptanceInput {
+                account: &account,
+                membership: &membership(),
+                current: &absent,
+                references: &[]
+            },
+            &ev
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn unknown_order_never_approves_differing_values_and_unavailable_is_two_way() {
+    use clacks_sync::{
+        client::{OriginalBasis, ReviewReason},
+        clock::{ClockActor, RecordVector},
+        lineage::{BoundaryKind, TimelineBoundary},
+    };
+    let (mut account, b) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let mut other = b.clone();
+    other.id = id(20);
+    let defs = [b.clone(), other];
+    let mut lineage = b.lineage.clone();
+    lineage
+        .add_boundary(TimelineBoundary {
+            at: Position {
+                timeline: id(5),
+                revision: 0,
+            },
+            includes: Coverage::from_entries([(id(2), 0)]).unwrap(),
+            kind: BoundaryKind::ForkOrigin,
+        })
+        .unwrap();
+    account.head = Position {
+        timeline: id(5),
+        revision: 50,
+    };
+    let ev = EvidenceView {
+        lineage: &lineage,
+        baselines: &defs,
+    };
+    let mut incoming = accepted(10, "incoming");
+    incoming.stamp.baseline = id(20);
+    let mut shared = accepted(5, "original");
+    shared.stamp.accepted_at.timeline = id(5);
+    shared.stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
+    let shared = Observation::Accepted(shared);
+    let original = OriginalBasis::Accepted(accepted(1, "original"));
+    let input = clacks_sync::acceptance::AcceptanceInput {
+        account: &account,
+        membership: &membership(),
+        current: &shared,
+        references: &[],
+    };
+    let RecoveredDecision::Review(review) =
+        plan_recovered_install(&incoming, Some(&original), id(4), &input, &ev).unwrap()
+    else {
+        panic!("unknown ordering review")
+    };
+    assert!(matches!(review.reason, ReviewReason::OrderingUnknown(_)));
+    incoming.stamp.baseline = id(3);
+    let missing = OriginalBasis::Unavailable {
+        key: incoming.key,
+        reason: clacks_sync::error::UnknownReason::MissingOriginal,
+    };
+    let RecoveredDecision::Review(review) =
+        plan_recovered_install(&incoming, Some(&missing), id(4), &input, &ev).unwrap()
+    else {
+        panic!("two-way review")
+    };
+    assert_eq!(review.reason, ReviewReason::MissingOriginal);
+}
+
+#[test]
+fn tagged_qso_and_equipment_profile_context_joins_have_reference_guards() {
+    use clacks_sync::{
+        clock::{ClockActor, RecordVector},
+        lineage::{BoundaryKind, TimelineBoundary},
+        record::{RecordId, RecordKey, RecordValue},
+    };
+    let (mut account, b) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let defs = [b.clone()];
+    let mut lineage = b.lineage.clone();
+    lineage
+        .add_boundary(TimelineBoundary {
+            at: Position {
+                timeline: id(5),
+                revision: 0,
+            },
+            includes: Coverage::from_entries([(id(2), 0)]).unwrap(),
+            kind: BoundaryKind::ForkOrigin,
+        })
+        .unwrap();
+    account.head = Position {
+        timeline: id(5),
+        revision: 50,
+    };
+    let ev = EvidenceView {
+        lineage: &lineage,
+        baselines: &defs,
+    };
+    let mut q = accepted(10, "same");
+    if let RecordState::Live(RecordValue::Qso(q)) = &mut q.state {
+        q.tags.insert(id(30));
+    }
+    let mut tag = accepted(10, "tag");
+    tag.key = RecordKey {
+        account: id(1),
+        id: RecordId::Tag(id(30)),
+    };
+    tag.state = RecordState::Live(RecordValue::Tag(Box::new(
+        clacks_model::tag::LogbookTag::new(id(30), "tag".into()),
+    )));
+    let mut profile = accepted(10, "profile");
+    profile.key = RecordKey {
+        account: id(1),
+        id: RecordId::Profile(id(40)),
+    };
+    profile.state = RecordState::Live(RecordValue::Profile(Box::new(
+        clacks_model::profile::SavedLocationProfile {
+            id: id(40),
+            name: "profile".into(),
+            station: support::qso(id(10)).own_station,
+            default_equipment: Some(id(50)),
+        },
+    )));
+    let mut equipment = accepted(10, "equipment");
+    equipment.key = RecordKey {
+        account: id(1),
+        id: RecordId::Equipment(id(50)),
+    };
+    equipment.state = RecordState::Live(RecordValue::Equipment(Box::new(
+        clacks_model::profile::EquipmentConfiguration {
+            id: id(50),
+            name: "rig".into(),
+            values: clacks_model::equipment::EquipmentValues {
+                equipment_description: Some("rig".into()),
+                ..Default::default()
+            },
+        },
+    )));
+    for (incoming, reference) in [(q, tag), (profile, equipment)] {
+        let mut shared = incoming.clone();
+        shared.stamp.accepted_at = Position {
+            timeline: id(5),
+            revision: 5,
+        };
+        shared.stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
+        let shared = Observation::Accepted(shared);
+        let refs = [Observation::Accepted(reference.clone())];
+        let input = clacks_sync::acceptance::AcceptanceInput {
+            account: &account,
+            membership: &membership(),
+            current: &shared,
+            references: &refs,
+        };
+        let RecoveredDecision::Reconciled(commit) =
+            plan_recovered_install(&incoming, None, id(4), &input, &ev).unwrap()
+        else {
+            panic!("equal reference-bearing values reconcile")
+        };
+        assert_eq!(commit.dependencies.len(), 1);
+        assert_eq!(commit.dependencies.first().unwrap().key(), reference.key);
+        let missing = clacks_sync::acceptance::AcceptanceInput {
+            references: &[],
+            ..input
+        };
+        let RecoveredDecision::Review(review) =
+            plan_recovered_install(&incoming, None, id(4), &missing, &ev).unwrap()
+        else {
+            panic!("missing reference review")
+        };
+        assert!(matches!(
+            review.reason,
+            clacks_sync::client::ReviewReason::MissingReference(_)
+        ));
+    }
+}
+
+#[test]
+fn explicitly_unavailable_original_uses_missing_original_review() {
+    use clacks_sync::{
+        client::{OriginalBasis, ReviewReason},
+        clock::{ClockActor, RecordVector},
+        lineage::{BoundaryKind, TimelineBoundary},
+    };
+    let (mut account, b) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let defs = [b.clone()];
+    let mut lineage = b.lineage.clone();
+    lineage
+        .add_boundary(TimelineBoundary {
+            at: Position {
+                timeline: id(5),
+                revision: 0,
+            },
+            includes: Coverage::from_entries([(id(2), 0)]).unwrap(),
+            kind: BoundaryKind::ForkOrigin,
+        })
+        .unwrap();
+    account.head = Position {
+        timeline: id(5),
+        revision: 50,
+    };
+    let ev = EvidenceView {
+        lineage: &lineage,
+        baselines: &defs,
+    };
+    let incoming = accepted(10, "incoming");
+    let mut shared = accepted(5, "shared");
+    shared.stamp.accepted_at.timeline = id(5);
+    shared.stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
+    let shared = Observation::Accepted(shared);
+    let missing = OriginalBasis::Unavailable {
+        key: incoming.key,
+        reason: clacks_sync::error::UnknownReason::MissingOriginal,
+    };
+    let RecoveredDecision::Review(review) = plan_recovered_install(
+        &incoming,
+        Some(&missing),
+        id(4),
+        &clacks_sync::acceptance::AcceptanceInput {
+            account: &account,
+            membership: &membership(),
+            current: &shared,
+            references: &[],
+        },
+        &ev,
+    )
+    .unwrap() else {
+        panic!("two-way review")
+    };
+    assert_eq!(review.reason, ReviewReason::MissingOriginal);
 }

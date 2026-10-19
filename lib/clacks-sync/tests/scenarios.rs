@@ -46,9 +46,11 @@ fn prepared_acceptance_lost_response_and_later_local_edit_compose() {
     let m = members(200);
     let a = accepted(200, "A");
     let c = ClientRecord {
+        retained: Vec::new(),
         key: a.key,
         latest: Observation::Accepted(a.clone()),
         pending: Some(PendingRecord {
+            witness: None,
             key: a.key,
             original: OriginalBasis::Accepted(a.clone()),
             working: accepted(200, "B").state,
@@ -210,7 +212,19 @@ fn partial_install_reload_completion_and_recovery_ancestry_compose() {
         envelope,
         next_account,
         ..
-    } = plan_recovered_install(&retained, &old, None, id(4), &fork.next_account, &m, &ev).unwrap()
+    } = plan_recovered_install(
+        &retained,
+        None,
+        id(4),
+        &clacks_sync::acceptance::AcceptanceInput {
+            account: &fork.next_account,
+            membership: &m,
+            current: &old,
+            references: &[],
+        },
+        &ev,
+    )
+    .unwrap()
     else {
         panic!("install")
     };

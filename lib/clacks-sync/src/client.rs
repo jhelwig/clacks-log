@@ -66,7 +66,9 @@ impl OriginalBasis {
     pub fn vector(&self) -> RecordVector {
         match self {
             Self::Accepted(v) => v.stamp.vector.clone(),
-            Self::SubsumedOwn { vector, .. } => vector.clone(),
+            Self::SubsumedOwn {
+                vector, witness, ..
+            } => vector.join(&witness.vector),
             _ => RecordVector::default(),
         }
     }
@@ -83,6 +85,8 @@ pub struct PendingRecord {
     pub working: RecordState,
     /// Frozen transmitted version, independent of subsequent edits.
     pub prepared: Option<PreparedChange>,
+    /// Self-contained original comparison evidence retained before baseline collection.
+    pub witness: Option<crate::compaction::BasisWitness>,
 }
 
 /// Client rows saved together when shared state or local work changes.
@@ -92,6 +96,8 @@ pub struct ClientRecord {
     pub key: RecordKey,
     /// Latest incorporated shared observation.
     pub latest: Observation,
+    /// Incomparable accepted envelopes awaiting context reconciliation, not edit history.
+    pub retained: Vec<AcceptedRecord>,
     /// Durable unpublished working state, when present.
     pub pending: Option<PendingRecord>,
 }
@@ -212,6 +218,8 @@ pub struct ReviewInput {
     pub shared: Observation,
     /// Explanation for requiring a choice.
     pub reason: ReviewReason,
+    /// Accepted alternatives retained independently of the genuine common original.
+    pub retained: Vec<AcceptedRecord>,
 }
 
 /// Client rows and any review input to save together in the integrating transaction.
@@ -265,6 +273,15 @@ fn validate_client(current: &ClientRecord) -> anyhow::Result<()> {
         }
         .into());
     }
+    for retained in &current.retained {
+        retained.validate()?;
+        if retained.key != current.key {
+            return Err(MetadataError::Scope {
+                detail: format!("retained accepted context differs from {:?}", current.key),
+            }
+            .into());
+        }
+    }
     if let Some(p) = &current.pending {
         if p.key != current.key || p.original.key() != current.key {
             return Err(MetadataError::Scope {
@@ -273,6 +290,9 @@ fn validate_client(current: &ClientRecord) -> anyhow::Result<()> {
             .into());
         }
         p.working.validate(current.key)?;
+        if let OriginalBasis::Accepted(original) = &p.original {
+            original.validate()?;
+        }
         if let Some(state) = p.original.state() {
             state.validate(current.key)?;
         }
@@ -287,6 +307,77 @@ fn validate_client(current: &ClientRecord) -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+/// Recover private baseline interpretation without extending a witness onto another branch.
+fn witness_evidence(
+    current: &ClientRecord,
+    evidence: &EvidenceView<'_>,
+) -> anyhow::Result<Option<(crate::lineage::Lineage, Vec<crate::account::Baseline>)>> {
+    let Some(pending) = &current.pending else {
+        return Ok(None);
+    };
+    let Some(witness) = &pending.witness else {
+        return Ok(None);
+    };
+    if witness.key != current.key
+        || witness.original != pending.original
+        || witness.checkpoint.account != current.key.account
+        || witness.lineage.account() != current.key.account
+        || !matches!(
+            witness.relation,
+            RecordRelation::Before | RecordRelation::SameVersion
+        )
+    {
+        return Err(MetadataError::Conflict {
+            detail: format!(
+                "sealed witness does not describe pending original {:?}",
+                current.key
+            ),
+        }
+        .into());
+    }
+    let mut lineage = evidence.lineage.clone();
+    for boundary in witness.lineage.boundaries() {
+        lineage.add_boundary(boundary.clone())?;
+    }
+    let baselines = evidence
+        .baselines
+        .iter()
+        .chain(&witness.baselines)
+        .cloned()
+        .collect::<Vec<_>>();
+    let view = EvidenceView {
+        lineage: &lineage,
+        baselines: &baselines,
+    };
+    if !crate::compaction::expanded(&witness.checkpoint, &view)?
+        .covers(witness.observed.accepted_at)
+    {
+        return Err(MetadataError::Incomplete {
+            detail: "sealed checkpoint does not cover its observed version".into(),
+        }
+        .into());
+    }
+    let original = match &pending.original {
+        OriginalBasis::Accepted(v) => Some(&v.stamp),
+        OriginalBasis::SubsumedOwn { witness, .. } => Some(witness),
+        _ => None,
+    };
+    if let Some(original) = original {
+        let relation =
+            crate::compare::compare_contexts(current.key, original, &witness.observed, &view)?;
+        if !matches!(
+            relation,
+            RecordRelation::Before | RecordRelation::SameVersion
+        ) {
+            return Err(MetadataError::Conflict {
+                detail: "sealed relationship has no retained interpretation".into(),
+            }
+            .into());
+        }
+    }
+    Ok(Some((lineage, baselines)))
 }
 
 /// Determine the review reason using whole-record values and retained ordering.
@@ -314,6 +405,21 @@ fn review_reason(
     {
         return Ok(Some(ReviewReason::OrderingUnknown(reason)));
     }
+    if let (OriginalBasis::SubsumedOwn { witness, .. }, Observation::Accepted(current)) =
+        (&pending.original, shared)
+    {
+        match crate::compare::compare_contexts(pending.key, witness, &current.stamp, evidence)? {
+            RecordRelation::SameVersion | RecordRelation::Before => {}
+            RecordRelation::Unknown(reason) => {
+                return Ok(Some(ReviewReason::OrderingUnknown(reason)));
+            }
+            _ => {
+                return Ok(Some(ReviewReason::OrderingUnknown(
+                    UnknownReason::CollectedContext,
+                )));
+            }
+        }
+    }
     let local = Some(&pending.working);
     Ok(
         (classify_changes(&pending.original.state(), &local, &shared_state)
@@ -332,6 +438,11 @@ pub fn receive_accepted(
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<ClientUpdate> {
     validate_client(current)?;
+    let sealed = witness_evidence(current, evidence)?;
+    let sealed_view = sealed
+        .as_ref()
+        .map(|(lineage, baselines)| EvidenceView { lineage, baselines });
+    let evidence = sealed_view.as_ref().unwrap_or(evidence);
     incoming.validate()?;
     if current.key != incoming.key {
         return Err(MetadataError::Scope {
@@ -351,6 +462,24 @@ pub fn receive_accepted(
         });
     }
     let mut next = current.clone();
+    let mut retained = Vec::new();
+    for old in &current.retained {
+        if !matches!(
+            compare_records(old, incoming, evidence)?,
+            RecordRelation::Before | RecordRelation::SameVersion
+        ) {
+            retained.push(old.clone());
+        }
+    }
+    if matches!(
+        relation,
+        Some(RecordRelation::Divergent | RecordRelation::Unknown(_))
+    ) && let Observation::Accepted(old) = &current.latest
+        && !retained.iter().any(|r| r.stamp == old.stamp)
+    {
+        retained.push(old.clone());
+    }
+    next.retained = retained;
     next.latest = Observation::Accepted(incoming.clone());
     if next.pending.is_none()
         && matches!(
@@ -361,6 +490,7 @@ pub fn receive_accepted(
         && old.state != incoming.state
     {
         next.pending = Some(PendingRecord {
+            witness: None,
             key: current.key,
             original: OriginalBasis::Unavailable {
                 key: current.key,
@@ -393,6 +523,7 @@ pub fn receive_accepted(
                     witness: incoming.stamp.clone(),
                 };
                 p.prepared = None;
+                p.witness = None;
             } else if !prepared.expected.matches(&next.latest) {
                 p.prepared = None;
             }
@@ -400,6 +531,7 @@ pub fn receive_accepted(
         let reason = review_reason(p, &next.latest, evidence)?;
         if let Some(reason) = reason {
             let review = ReviewInput {
+                retained: next.retained.clone(),
                 original: p.original.clone(),
                 local: p.working.clone(),
                 shared: next.latest.clone(),
@@ -437,65 +569,99 @@ pub fn prepare_change(
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<Preparation> {
     validate_client(current)?;
+    let sealed = witness_evidence(current, evidence)?;
+    let sealed_view = sealed
+        .as_ref()
+        .map(|(lineage, baselines)| EvidenceView { lineage, baselines });
+    let evidence = sealed_view.as_ref().unwrap_or(evidence);
     if counter.actor != actor {
         return Err(MetadataError::Scope {
             detail: format!("counter actor {} differs from {actor}", counter.actor),
         }
         .into());
     }
-    let Some(p) = &current.pending else {
-        return Ok(Preparation::Unchanged {
-            record: current.clone(),
+    let mut record = current.clone();
+    if record.pending.is_none()
+        && !record.retained.is_empty()
+        && let Observation::Accepted(shared) = &record.latest
+    {
+        record.pending = Some(PendingRecord {
+            key: record.key,
+            original: OriginalBasis::Accepted(shared.clone()),
+            working: shared.state.clone(),
+            prepared: None,
+            witness: None,
         });
+    }
+    let Some(p) = &record.pending else {
+        return Ok(Preparation::Unchanged { record });
     };
     if let Some(change) = &p.prepared {
         if change.actor != actor {
             return Ok(Preparation::Review {
-                record: current.clone(),
+                record: record.clone(),
                 input: ReviewInput {
                     original: p.original.clone(),
                     local: p.working.clone(),
-                    shared: current.latest.clone(),
+                    shared: record.latest.clone(),
                     reason: ReviewReason::ExcludedActor(change.actor),
+                    retained: record.retained.clone(),
                 },
             });
         }
         return Ok(Preparation::Retry {
-            record: current.clone(),
+            record: record.clone(),
             change: change.clone(),
         });
     }
-    if let Some(reason) = review_reason(p, &current.latest, evidence)? {
+    if let Some(reason) = review_reason(p, &record.latest, evidence)? {
         return Ok(Preparation::Review {
-            record: current.clone(),
+            record: record.clone(),
             input: ReviewInput {
                 original: p.original.clone(),
                 local: p.working.clone(),
-                shared: current.latest.clone(),
+                shared: record.latest.clone(),
                 reason,
+                retained: record.retained.clone(),
             },
         });
     }
-    let shared = match &current.latest {
+    let shared = match &record.latest {
         Observation::Accepted(v) => Some(&v.state),
         _ => None,
     };
     let pattern = classify_changes(&p.original.state(), &Some(&p.working), &shared);
-    if matches!(
-        pattern,
-        ChangePattern::Unchanged | ChangePattern::SharedOnly | ChangePattern::EqualResults
-    ) {
-        let mut record = current.clone();
+    if record.retained.is_empty()
+        && matches!(
+            pattern,
+            ChangePattern::Unchanged | ChangePattern::SharedOnly | ChangePattern::EqualResults
+        )
+    {
         record.pending = None;
         return Ok(Preparation::Unchanged { record });
     }
-    let context = match &current.latest {
-        Observation::Accepted(v) => p.original.vector().join(&v.stamp.vector),
-        _ => p.original.vector(),
-    };
+    let mut context = p.original.vector();
+    for accepted in record.retained.iter().chain(match &record.latest {
+        Observation::Accepted(v) => Some(v),
+        _ => None,
+    }) {
+        if evidence
+            .baseline(record.key.account, accepted.stamp.baseline)?
+            .is_none()
+        {
+            return Err(MetadataError::Incomplete {
+                detail: format!(
+                    "context reconciliation needs baseline {}",
+                    accepted.stamp.baseline
+                ),
+            }
+            .into());
+        }
+        context = context.join(&accepted.stamp.vector);
+    }
     let (vector, high_water) = context.increment(ClockActor::Client(actor), counter.high_water)?;
     for dep in dependencies {
-        if dep.key().account != current.key.account {
+        if dep.key().account != record.key.account {
             return Err(MetadataError::Scope {
                 detail: format!("dependency {:?} crosses account", dep.key()),
             }
@@ -503,14 +669,13 @@ pub fn prepare_change(
         }
     }
     let change = PreparedChange {
-        key: current.key,
+        key: record.key,
         state: p.working.clone(),
         vector,
         actor,
-        expected: VersionCondition::from_observation(&current.latest)?,
+        expected: VersionCondition::from_observation(&record.latest)?,
         dependencies: dependencies.to_vec(),
     };
-    let mut record = current.clone();
     if let Some(p) = &mut record.pending {
         p.prepared = Some(change.clone());
     }
@@ -555,9 +720,11 @@ pub fn resolve_review(
         }
     };
     Ok(ClientRecord {
+        retained: review.retained.clone(),
         key,
         latest: review.shared.clone(),
         pending: Some(PendingRecord {
+            witness: None,
             key,
             original,
             working: chosen,
@@ -593,6 +760,7 @@ pub fn receive_rejection(
     Ok(ClientUpdate {
         record: current.clone(),
         review: Some(ReviewInput {
+            retained: current.retained.clone(),
             original: p.original.clone(),
             local: p.working.clone(),
             shared: current.latest.clone(),

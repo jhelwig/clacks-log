@@ -153,6 +153,8 @@ must not create a recorded-fact conflict or an external upload by itself.
 | `accepted` | Latest durably incorporated accepted envelopes |
 | `pending` | Record key, original accepted values or known absence, original version/context, and current local working state |
 | `prepared` | Optional frozen outgoing value, expected accepted version/dependencies and its allocated client vector component |
+| `retained` | Incomparable accepted envelopes awaiting context reconciliation, separately from the true original |
+| `pending.witness` | Private sealed original relationship and required baseline interpretations consumed by receipt/preparation |
 | `writer_counters` | Durable high-water marks preventing reuse of prepared client versions |
 | `installed_coverage` | Complete account prefixes and baseline durably incorporated by this client |
 | `receive_progress` | Source checkpoint/range and exactly which required envelopes/metadata were durably installed for an incomplete transfer window |
@@ -212,7 +214,7 @@ check even when a causal comparison establishes that data is newer.
 A local `BasisWitness` identifies the record, original accepted position or own
 prepared version, an observed accepted version and checkpoint, the relationship
 established at that observation, and the lineage summary needed to interpret it.
-It accompanies the retained original values; it does not replace them. A witness
+It accompanies the retained original values and baseline definitions needed to interpret them; it does not replace the original. Client pending rows persist it, and comparison/preparation consume it. A witness
 of succession through one checkpoint says nothing about a future branch that
 does not cover that checkpoint.
 

@@ -29,6 +29,8 @@ pub struct BasisWitness {
     pub relation: RecordRelation,
     /// Position-dependent ancestry needed to interpret the witness.
     pub lineage: Lineage,
+    /// Baseline meanings needed by the original, observed version and checkpoint.
+    pub baselines: Vec<Baseline>,
 }
 
 /// Rows and surviving context references from one consistent compaction view.
@@ -63,7 +65,7 @@ pub struct BaselinePlan {
 }
 
 /// Expand certified checkpoint coordinates using retained ancestry and its baseline.
-fn expanded(
+pub(crate) fn expanded(
     checkpoint: &InstalledCheckpoint,
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<Coverage> {
@@ -213,6 +215,7 @@ pub fn seal_basis(
         checkpoint: checkpoint.clone(),
         relation,
         lineage: evidence.lineage.clone(),
+        baselines: evidence.baselines.iter().filter(|b| b.id==checkpoint.baseline || b.id==observed.stamp.baseline || matches!(&pending.original,OriginalBasis::Accepted(a) if a.stamp.baseline==b.id) || matches!(&pending.original,OriginalBasis::SubsumedOwn{witness,..} if witness.baseline==b.id)).cloned().collect(),
     })
 }
 

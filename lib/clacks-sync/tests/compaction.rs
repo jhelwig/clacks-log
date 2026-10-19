@@ -119,8 +119,56 @@ fn projection_removes_closed_actor_without_changing_originals_or_native_state() 
     );
     assert_eq!(projected.state, shared.state);
     assert_eq!(projected.stamp.accepted_at, shared.stamp.accepted_at);
+    let client = clacks_sync::client::ClientRecord {
+        key: shared.key,
+        latest: clacks_sync::record::Observation::Accepted(shared.clone()),
+        pending: None,
+        retained: vec![],
+    };
+    let interpretations = [b.clone(), plan.baseline.clone()];
+    let projected_view = EvidenceView {
+        lineage: &b.lineage,
+        baselines: &interpretations,
+    };
+    assert!(
+        clacks_sync::client::receive_accepted(&client, projected, &projected_view)
+            .unwrap()
+            .review
+            .is_none()
+    );
+    let source = checkpoint(950);
+    let manifest = clacks_sync::transfer::WindowManifest::new(
+        id(1),
+        source.clone(),
+        clacks_sync::transfer::WindowMode::Full,
+        vec![clacks_sync::transfer::RecordRequirement {
+            key: shared.key,
+            stamp: shared.stamp.clone(),
+            deleted: false,
+        }],
+        vec![],
+        interpretations.to_vec(),
+    )
+    .unwrap();
+    let progress = clacks_sync::transfer::WindowProgress {
+        source: source.clone(),
+        mode: clacks_sync::transfer::WindowMode::Full,
+        generation: 0,
+        installed: Default::default(),
+    };
+    assert!(
+        clacks_sync::transfer::finish_window(
+            &manifest,
+            &progress,
+            std::slice::from_ref(projected),
+            &source,
+            &projected_view
+        )
+        .is_ok()
+    );
     let original = accepted(200, "original");
     let pending = PendingRecord {
+        witness: None,
         key: original.key,
         original: OriginalBasis::Accepted(original.clone()),
         working: accepted(200, "local").state,
@@ -165,6 +213,7 @@ fn witness_cannot_certify_an_observation_beyond_its_checkpoint() {
     };
     let original = accepted(200, "original");
     let pending = PendingRecord {
+        witness: None,
         key: original.key,
         original: OriginalBasis::Accepted(original),
         working: accepted(200, "local").state,
@@ -231,4 +280,61 @@ fn initializing_members_and_changed_rows_keep_projection_conditional() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn a_sealed_pending_basis_remains_usable_after_old_baseline_collection() {
+    let (_, b) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let defs = [b.clone()];
+    let ev = EvidenceView {
+        lineage: &b.lineage,
+        baselines: &defs,
+    };
+    let original = accepted(200, "A");
+    let shared = accepted(600, "A");
+    let mut pending = PendingRecord {
+        witness: None,
+        key: original.key,
+        original: OriginalBasis::Accepted(original),
+        working: accepted(200, "B").state,
+        prepared: None,
+    };
+    let witness = seal_basis(&pending, &shared, &checkpoint(700), &ev).unwrap();
+    pending.witness = Some(witness);
+    let pending: PendingRecord =
+        serde_json::from_str(&serde_json::to_string(&pending).unwrap()).unwrap();
+    let mut new = b.clone();
+    new.id = id(20);
+    new.coverage = checkpoint(700).coverage;
+    let defs = [new];
+    let ev = EvidenceView {
+        lineage: &b.lineage,
+        baselines: &defs,
+    };
+    let mut shared = shared;
+    shared.stamp.baseline = id(20);
+    let client = clacks_sync::client::ClientRecord {
+        retained: Vec::new(),
+        key: shared.key,
+        latest: clacks_sync::record::Observation::Accepted(shared),
+        pending: Some(pending),
+    };
+    let mut future = accepted(960, "A");
+    future.stamp.baseline = id(20);
+    let update = clacks_sync::client::receive_accepted(&client, &future, &ev).unwrap();
+    assert!(update.review.is_none());
+    assert!(matches!(
+        clacks_sync::client::prepare_change(
+            &client,
+            id(4),
+            &clacks_sync::client::LocalCounter {
+                actor: id(4),
+                high_water: 0
+            },
+            &[],
+            &ev
+        )
+        .unwrap(),
+        clacks_sync::client::Preparation::Ready { .. }
+    ));
 }

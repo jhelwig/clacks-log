@@ -171,3 +171,52 @@ fn explicit_server_succession_survives_retired_component_projection() {
         RecordRelation::Before
     );
 }
+
+#[test]
+fn same_acceptance_compares_across_projection_above_common_prefix() {
+    let (_, old) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let mut new = old.clone();
+    new.id = id(20);
+    new.coverage = Coverage::from_entries([(id(2), 300)]).unwrap();
+    let defs = [old.clone(), new];
+    let ev = EvidenceView {
+        lineage: &old.lineage,
+        baselines: &defs,
+    };
+    let mut a = accepted(600, "same");
+    a.stamp.vector = a
+        .stamp
+        .vector
+        .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 3)]).unwrap());
+    let mut b = accepted(600, "same");
+    b.stamp.baseline = id(20);
+    assert_eq!(
+        compare_records(&a, &b, &ev).unwrap(),
+        RecordRelation::SameVersion
+    );
+}
+
+#[test]
+fn projection_does_not_excuse_disagreeing_positive_components() {
+    let (_, b) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let mut new = b.clone();
+    new.id = id(20);
+    new.coverage = Coverage::from_entries([(id(2), 700)]).unwrap();
+    let defs = [b.clone(), new];
+    let ev = EvidenceView {
+        lineage: &b.lineage,
+        baselines: &defs,
+    };
+    let mut old = accepted(600, "same");
+    old.stamp.vector = old
+        .stamp
+        .vector
+        .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 3)]).unwrap());
+    let mut projected = old.clone();
+    projected.stamp.baseline = id(20);
+    projected.stamp.vector = projected
+        .stamp
+        .vector
+        .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 4)]).unwrap());
+    assert!(compare_records(&old, &projected, &ev).is_err());
+}

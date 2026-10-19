@@ -13,9 +13,11 @@ use support::{accepted, id};
 fn pending() -> ClientRecord {
     let a = accepted(200, "A");
     ClientRecord {
+        retained: Vec::new(),
         key: a.key,
         latest: Observation::Accepted(a.clone()),
         pending: Some(PendingRecord {
+            witness: None,
             key: a.key,
             original: OriginalBasis::Accepted(a),
             working: accepted(200, "B").state,
@@ -214,4 +216,119 @@ fn superseded_own_version_keeps_its_values_without_fabricating_position() {
         panic!("resolved ready")
     };
     assert_eq!(change.vector.component(ClockActor::Client(id(4))), 10);
+}
+
+#[test]
+fn a_subsumed_own_witness_does_not_order_an_unrelated_branch() {
+    use clacks_sync::{
+        lineage::{BoundaryKind, Coverage, TimelineBoundary},
+        record::Position,
+    };
+    let (_, b) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let defs = [b.clone()];
+    let mut lineage = b.lineage.clone();
+    lineage
+        .add_boundary(TimelineBoundary {
+            at: Position {
+                timeline: id(5),
+                revision: 0,
+            },
+            includes: Coverage::from_entries([(id(2), 0)]).unwrap(),
+            kind: BoundaryKind::ForkOrigin,
+        })
+        .unwrap();
+    let ev = EvidenceView {
+        lineage: &lineage,
+        baselines: &defs,
+    };
+    let mut current = pending();
+    let mut other = accepted(5, "A");
+    other.stamp.accepted_at = Position {
+        timeline: id(5),
+        revision: 5,
+    };
+    other.stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
+    current.latest = Observation::Accepted(other);
+    let p = current.pending.as_mut().unwrap();
+    p.original = OriginalBasis::SubsumedOwn {
+        key: p.key,
+        state: accepted(10, "A").state,
+        vector: accepted(10, "A").stamp.vector,
+        witness: accepted(10, "A").stamp,
+    };
+    assert!(matches!(
+        prepare_change(
+            &current,
+            id(4),
+            &LocalCounter {
+                actor: id(4),
+                high_water: 0
+            },
+            &[],
+            &ev
+        )
+        .unwrap(),
+        Preparation::Review { .. }
+    ));
+}
+
+#[test]
+fn incomparable_receipt_retains_context_and_joins_equal_values_without_review() {
+    use clacks_sync::{
+        lineage::{BoundaryKind, Coverage, TimelineBoundary},
+        record::Position,
+    };
+    let (_, b) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let defs = [b.clone()];
+    let mut lineage = b.lineage.clone();
+    lineage
+        .add_boundary(TimelineBoundary {
+            at: Position {
+                timeline: id(5),
+                revision: 0,
+            },
+            includes: Coverage::from_entries([(id(2), 0)]).unwrap(),
+            kind: BoundaryKind::ForkOrigin,
+        })
+        .unwrap();
+    let ev = EvidenceView {
+        lineage: &lineage,
+        baselines: &defs,
+    };
+    let old = accepted(10, "same");
+    let mut incoming = accepted(5, "same");
+    incoming.stamp.accepted_at = Position {
+        timeline: id(5),
+        revision: 5,
+    };
+    incoming.stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
+    let current = ClientRecord {
+        key: old.key,
+        latest: Observation::Accepted(old.clone()),
+        pending: None,
+        retained: vec![],
+    };
+    let update = receive_accepted(&current, &incoming, &ev).unwrap();
+    assert!(update.review.is_none());
+    assert_eq!(update.record.retained, vec![old]);
+    let Preparation::Ready { change, .. } = prepare_change(
+        &update.record,
+        id(4),
+        &LocalCounter {
+            actor: id(4),
+            high_water: 0,
+        },
+        &[],
+        &ev,
+    )
+    .unwrap() else {
+        panic!("context reconciliation")
+    };
+    assert_eq!(change.vector.component(ClockActor::Server(id(2))), 10);
+    let mut p = pending();
+    let original = p.pending.as_ref().unwrap().original.clone();
+    p.latest = current.latest;
+    let update = receive_accepted(&p, &incoming, &ev).unwrap();
+    assert_eq!(update.record.pending.as_ref().unwrap().original, original);
+    assert!(!update.record.retained.is_empty());
 }

@@ -99,7 +99,16 @@ pub(crate) fn compare_contexts(
     let left_covered = rb.coverage.covers(left.accepted_at);
     let right_covered = lb.coverage.covers(right.accepted_at);
     if left.accepted_at == right.accepted_at {
-        if raw == VectorRelation::Equal || (lb != rb && (left_covered || right_covered)) {
+        let compatible_projection = lb != rb
+            && left
+                .vector
+                .entries()
+                .chain(right.vector.entries())
+                .all(|(actor, _)| {
+                    let (l, r) = (left.vector.component(actor), right.vector.component(actor));
+                    l == r || (matches!(actor, ClockActor::Client(_)) && (l == 0 || r == 0))
+                });
+        if raw == VectorRelation::Equal || compatible_projection {
             return Ok(RecordRelation::SameVersion);
         }
         return Err(MetadataError::Conflict {

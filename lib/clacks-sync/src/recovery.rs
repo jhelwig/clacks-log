@@ -68,6 +68,8 @@ pub enum RecoveredDecision {
         returning_actor: ClientActorId,
         /// Compared target condition.
         expected: VersionCondition,
+        /// Native reference conditions required by the recovered payload.
+        dependencies: Vec<VersionCondition>,
         /// Original accepted envelope to retain unchanged.
         envelope: AcceptedRecord,
         /// New-timeline installation activity.
@@ -177,6 +179,7 @@ fn review(
     reason: ReviewReason,
 ) -> RecoveredDecision {
     RecoveredDecision::Review(ReviewInput {
+        retained: vec![incoming.clone()],
         original: original.cloned().unwrap_or(OriginalBasis::Unavailable {
             key: incoming.key,
             reason: UnknownReason::MissingOriginal,
@@ -191,19 +194,30 @@ fn review(
 ///
 /// The server rechecks all emitted conditions and current carrier admission. The
 /// original writer's revocation does not revoke an envelope already accepted.
-#[allow(clippy::too_many_arguments)]
 pub fn plan_recovered_install(
     incoming: &AcceptedRecord,
-    current: &Observation,
     original: Option<&OriginalBasis>,
     returning_actor: ClientActorId,
-    account: &AccountMetadata,
-    membership: &MembershipSnapshot,
+    input: &AcceptanceInput<'_>,
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<RecoveredDecision> {
+    let (current, account, membership) = (input.current, input.account, input.membership);
     membership.validate(account)?;
     incoming.validate()?;
     current.validate()?;
+    let mut reference_keys = std::collections::BTreeSet::new();
+    for reference in input.references {
+        reference.validate()?;
+        if reference.key().account != account.account || !reference_keys.insert(reference.key()) {
+            return Err(MetadataError::Scope {
+                detail: format!(
+                    "duplicate/cross-account recovery reference {:?}",
+                    reference.key()
+                ),
+            }
+            .into());
+        }
+    }
     if incoming.key.account != account.account
         || current.key() != incoming.key
         || original.is_some_and(|o| o.key() != incoming.key)
@@ -232,7 +246,9 @@ pub fn plan_recovered_install(
                     .is_none()
             {
                 RecordRelation::Unknown(UnknownReason::MissingBaseline)
-            } else if checkpoint.coverage.covers(incoming.stamp.accepted_at) {
+            } else if crate::compaction::expanded(checkpoint, evidence)?
+                .covers(incoming.stamp.accepted_at)
+            {
                 return Err(MetadataError::Conflict {
                     detail: format!(
                         "certified absence contradicts retained accepted {:?}",
@@ -260,15 +276,16 @@ pub fn plan_recovered_install(
                 .map(|o| classify_changes(&o.state(), &Some(&incoming.state), &shared_state));
             let equal = shared_state == Some(&incoming.state);
             if equal
-                || matches!(
-                    pattern,
-                    Some(
-                        ChangePattern::LocalOnly
-                            | ChangePattern::SharedOnly
-                            | ChangePattern::Unchanged
-                            | ChangePattern::EqualResults
-                    )
-                )
+                || (!matches!(relation, RecordRelation::Unknown(_))
+                    && matches!(
+                        pattern,
+                        Some(
+                            ChangePattern::LocalOnly
+                                | ChangePattern::SharedOnly
+                                | ChangePattern::Unchanged
+                                | ChangePattern::EqualResults
+                        )
+                    ))
             {
                 let state = if matches!(
                     pattern,
@@ -281,27 +298,70 @@ pub fn plan_recovered_install(
                 } else {
                     &incoming.state
                 };
-                if let AcceptanceDecision::Commit(commit) = plan_reconciled(
+                match plan_reconciled(
                     incoming,
                     state,
                     &AcceptanceInput {
                         account,
                         membership,
                         current,
-                        references: &[],
+                        references: input.references,
                     },
                     evidence,
                 )? {
-                    return Ok(RecoveredDecision::Reconciled(commit));
+                    AcceptanceDecision::Commit(commit) => {
+                        return Ok(RecoveredDecision::Reconciled(commit));
+                    }
+                    AcceptanceDecision::Rejected(
+                        crate::acceptance::RejectionReason::MissingReference { key },
+                    ) => {
+                        return Ok(review(
+                            incoming,
+                            current,
+                            original,
+                            ReviewReason::MissingReference(key),
+                        ));
+                    }
+                    _ => {
+                        return Err(MetadataError::Conflict {
+                            detail: "recovery reconciliation target changed".into(),
+                        }
+                        .into());
+                    }
                 }
             }
             let reason = match relation {
                 RecordRelation::Unknown(r) => ReviewReason::OrderingUnknown(r),
-                _ if original.is_none() => ReviewReason::MissingOriginal,
+                _ if original.is_none()
+                    || matches!(original, Some(OriginalBasis::Unavailable { .. })) =>
+                {
+                    ReviewReason::MissingOriginal
+                }
                 _ => ReviewReason::BothDifferent,
             };
             return Ok(review(incoming, current, original, reason));
         }
+    }
+    let mut dependencies = Vec::new();
+    for key in crate::acceptance::required_references(incoming.key, &incoming.state) {
+        let Some(row) = input.references.iter().find(|r| {
+            r.key() == key
+                && matches!(
+                    r,
+                    Observation::Accepted(AcceptedRecord {
+                        state: crate::record::RecordState::Live(_),
+                        ..
+                    })
+                )
+        }) else {
+            return Ok(review(
+                incoming,
+                current,
+                original,
+                ReviewReason::MissingReference(key),
+            ));
+        };
+        dependencies.push(VersionCondition::from_observation(row)?);
     }
     let next_account = account.advance()?;
     let journal = JournalChange {
@@ -314,6 +374,7 @@ pub fn plan_recovered_install(
         expected_membership_generation: membership.generation,
         returning_actor,
         expected: VersionCondition::from_observation(current)?,
+        dependencies,
         envelope: incoming.clone(),
         journal,
         next_account,

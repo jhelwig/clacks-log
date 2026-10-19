@@ -259,10 +259,10 @@ selecting the first match.
 **Produces:**
 
 - `OriginalBasis::{Accepted(AcceptedRecord), NeverCreated { key, checkpoint }, SubsumedOwn { key, state, vector, witness: VersionStamp }, Unavailable { key, reason }}`.
-- `PendingRecord { key, original: OriginalBasis, working: RecordState, prepared: Option<PreparedChange> }`.
-- `ClientRecord { key, latest: Observation, pending: Option<PendingRecord> }`; `LocalCounter { actor: ClientActorId, high_water: u64 }`.
+- `PendingRecord { key, original: OriginalBasis, working: RecordState, prepared: Option<PreparedChange>, witness: Option<BasisWitness> }`.
+- `ClientRecord { key, latest: Observation, pending: Option<PendingRecord>, retained: Vec<AcceptedRecord> }`; `LocalCounter { actor: ClientActorId, high_water: u64 }`.
 - `VersionCondition::{Absent { key, checkpoint }, Is { key, stamp: VersionStamp }}` and `PreparedChange { key, state, vector, actor, expected: VersionCondition, dependencies: Vec<VersionCondition> }`.
-- `ReviewReason::{BothDifferent, MissingOriginal, OrderingUnknown(UnknownReason), MissingReference(RecordKey), ExcludedActor(ClientActorId)}`; `ReviewInput { original: OriginalBasis, local: RecordState, shared: Observation, reason: ReviewReason }`.
+- `ReviewReason::{BothDifferent, MissingOriginal, OrderingUnknown(UnknownReason), MissingReference(RecordKey), ExcludedActor(ClientActorId)}`; `ReviewInput { original: OriginalBasis, local: RecordState, shared: Observation, reason: ReviewReason, retained: Vec<AcceptedRecord> }`.
 
 ```rust
 receive_accepted(current: &ClientRecord, incoming: &AcceptedRecord, evidence: &EvidenceView<'_>)
@@ -315,7 +315,7 @@ conditional-write checks, derives context from the compared accepted state and
 adds only the server component. Initial group-definition seeding must work with
 no enrolled clients and no fabricated client identity.
 
-`AcceptanceDecision::{Commit(AcceptanceCommit), Covered(AcceptedRecord),
+`AcceptanceDecision::{Commit(Box<AcceptanceCommit>), Covered(AcceptedRecord),
 Stale(Observation), Rejected(RejectionReason)}`.
 `RejectionReason::{ActorClosed { actor: ClientActorId, closed_at: Position },
 ActorUnknown { actor: ClientActorId }, MissingReference { key: RecordKey }}`
@@ -393,13 +393,13 @@ overwritten by a previously computed client update.
 **Produces:** `MembershipUpdate { expected_head: Position, expected_generation: u64,
 next: MembershipSnapshot, next_account: AccountMetadata }`; `BasisWitness { key, original: OriginalBasis,
 observed: VersionStamp, checkpoint: InstalledCheckpoint, relation: RecordRelation,
-lineage: Lineage }` retains original native values through its original basis.
+lineage: Lineage, baselines: Vec<Baseline> }` retains original native values through its original basis.
 
 `CompactionInput<'a> { account: &'a AccountMetadata, membership: &'a MembershipSnapshot,
 records: &'a [AcceptedRecord], surviving: &'a [VersionStamp] }` comes from a
 consistent store view. `BaselinePlan { expected_head, expected_membership_generation,
 expected_records: Vec<VersionCondition>, baseline: Baseline, projected:
-Vec<AcceptedRecord>, removable_clients: BTreeSet<ClientActorId> }`.
+Vec<AcceptedRecord>, removable_clients: BTreeSet<ClientActorId>, next_account: AccountMetadata }`.
 
 ```rust
 revoke(actor: ClientActorId, account: &AccountMetadata, membership: &MembershipSnapshot)
@@ -447,9 +447,8 @@ check_history(observation: &HistoryObservation, evidence: &EvidenceView<'_>)
 plan_recovery_fork(new_timeline: TimelineId, account: &AccountMetadata,
     membership: &MembershipSnapshot, known_restored: &Coverage)
     -> anyhow::Result<RecoveryBoundaryPlan>
-plan_recovered_install(incoming: &AcceptedRecord, current: &Observation,
-    original: Option<&OriginalBasis>, returning_actor: ClientActorId,
-    account: &AccountMetadata, membership: &MembershipSnapshot, evidence: &EvidenceView<'_>)
+plan_recovered_install(incoming: &AcceptedRecord, original: Option<&OriginalBasis>,
+    returning_actor: ClientActorId, input: &AcceptanceInput<'_>, evidence: &EvidenceView<'_>)
     -> anyhow::Result<RecoveredDecision>
 plan_recovered_coverage(account: &AccountMetadata, completed: &InstalledCheckpoint,
     membership: &MembershipSnapshot, evidence: &EvidenceView<'_>)
@@ -458,8 +457,8 @@ plan_recovered_coverage(account: &AccountMetadata, completed: &InstalledCheckpoi
 
 `RecoveredDecision::{Install { expected_head: Position,
 expected_membership_generation: u64, returning_actor: ClientActorId,
-expected: VersionCondition, envelope: AcceptedRecord, journal: JournalChange,
-next_account: AccountMetadata }, Covered, Review(ReviewInput)}`. Planning runs
+expected: VersionCondition, dependencies: Vec<VersionCondition>, envelope: AcceptedRecord, journal: JournalChange,
+next_account: AccountMetadata }, Covered, Reconciled(Box<AcceptanceCommit>), Review(ReviewInput)}`. Planning runs
 on the client against the observed server rows; the server rechecks emitted
 conditions and current returning-client admission before installation. Divergence
 stays in client review; install never invents a
@@ -531,3 +530,10 @@ returns `next_account` so baseline publication advances its guarded head.
 acceptance separately from retained-envelope installation. Large acceptance
 results use boxed commit variants. Manifest immutability is enforced by the
 integrating store against its existing source/mode manifest row.
+
+The delivered client rows additionally retain incomparable accepted envelopes
+separately from the true original, and pending rows persist an optional
+`BasisWitness` with required baseline definitions. Receipt and preparation consume
+that private evidence after shared baseline collection. Recovery accepts the
+existing `AcceptanceInput` read view rather than separate account/membership
+arguments, giving it actual reference observations and conditional guards.
