@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust 1.99.1; standard collections; existing workspace Serde, thiserror and anyhow dependencies; existing typed IDs and native records. Serde is Rust's serialization framework.
 
-**Spec:** [Synchronization metadata and transitions](../specs/2026-10-18-synchronization-metadata-proposal.md), including its worked examples and hub-and-spoke corrections. The user's request to prepare this plan advances the written design to planning; the user authorized native execution on 19 October 2026.
+**Spec:** [Synchronization metadata and transitions](../../synchronization-model.md), including its worked examples and hub-and-spoke corrections. The user's request to prepare this plan advances the written design to planning; the user authorized native execution on 19 October 2026.
 
 ## Global constraints
 
@@ -476,9 +476,9 @@ rows for explicit resolution.
 - [x] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test recovery --locked --offline`; include A→server→C then C→restored server, revoked-A tail rejection, partial recovery with unrelated T2 progress, retained deletion memory and a backup before baseline 700. Include an explicit test documenting that an advertised revision already above the remembered one is **not** a universal rollback detector.
 - [x] **Step 5:** Commit with the detection domain, preserved original stamps and hub-and-spoke data path in its body.
 
-## Task 9: Composition verification, public API audit and handoff
+## Task 9: Composition verification, public API audit and integration documentation
 
-**Files:** Create `tests/scenarios.rs`, `lib/clacks-sync/README.md`, `docs/synchronization-core.md`; update `docs/handoff.md`, `docs/mvp-roadmap.md`, and the design's status/implementation links to match actual delivery. Existing native-model scope remains accurate.
+**Files:** Create `tests/scenarios.rs`, `lib/clacks-sync/README.md`, `docs/synchronization-model.md`; update the crate guides, `README.md`, `docs/mvp-roadmap.md`, and the design's status/implementation links to match actual delivery. Existing native-model scope remains accurate.
 
 **Consumes:** All prior task APIs. Adds no simulation engine or replacement algorithms.
 
@@ -509,7 +509,7 @@ is required for these library tests. If the offline cache cannot resolve an
 already-selected dependency, address that environment problem explicitly rather
 than changing the design or claiming a successful run.
 
-## Spec coverage and execution handoff
+## Spec coverage and execution integration documentation
 
 | Design section | Owning tasks |
 | --- | --- |
@@ -523,7 +523,7 @@ than changing the design or claiming a successful run.
 | Rollback/restoration examples and limits | 8–9 |
 | Production component and integration boundary | Delivery contract; 5–9 |
 
-Native execution is implemented in the [production core](../../synchronization-core.md).
+Native execution is implemented in the [production core](../../../lib/clacks-sync/README.md).
 Store and transport integration remain downstream. `BaselinePlan` additionally
 returns `next_account` so baseline publication advances its guarded head.
 `RecoveredDecision::Reconciled` represents new value-policy-approved context

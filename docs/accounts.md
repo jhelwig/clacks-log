@@ -1,6 +1,6 @@
 # Accounts and client enrollment
 
-Planning checkpoint: 17 October 2026. D62-D63 establish individual-client revocation and independent account isolation in minimum viable product (MVP). D64’s earlier statement was permissive scope language; D191 now selects automatic account provisioning on first successful OpenID Connect (OIDC) sign-in. D65 selects browser-based client authorization and a deployment-provided web user interface (UI). D190 selects configurable OIDC for web sign-in. D191 selects first-sign-in provisioning, while D231 clarifies that multiple external login identities can link to one independent Clacks account; D192 accepts manual out-of-band administrator assignment. D193 selects browser-callback desktop authorization for MVP, with device authorization as a post-MVP fallback. Exact protocol integration, assignment mechanism, and binding storage remain to be designed.
+D62-D63 establish individual-client revocation and independent account isolation in minimum viable product (MVP). D64’s earlier statement was permissive scope language; D191 now selects automatic account provisioning on first successful OpenID Connect (OIDC) sign-in. D65 selects browser-based client authorization and a deployment-provided web user interface (UI). D190 selects configurable OIDC for web sign-in. D191 selects first-sign-in provisioning, while D231 clarifies that multiple external login identities can link to one independent Clacks account; D192 accepts manual out-of-band administrator assignment. D193 selects browser-callback desktop authorization for MVP, with device authorization as a post-MVP fallback. Exact protocol integration, assignment mechanism, and binding storage remain to be designed.
 
 ## Web-interface architectural scope (D222)
 
@@ -10,9 +10,9 @@ The web interface is intended to grow beyond the MVP account, setup and diagnost
 
 One server can host multiple independent accounts in MVP. Each account's log data, profiles, enrolled clients, and external-service credentials are isolated. Apply that boundary to storage access, synchronization negotiation/streams, job execution, credential access, diagnostics, and client revocation. Guessing another account's object identifier must not authorize access. Exact enforcement mechanisms and storage layout remain unselected.
 
-An owner can revoke an individual client's server access without deleting shared radio contacts (QSOs), erasing the offline client, or affecting other clients. An enrolled client does not lose eligibility simply because it has been offline indefinitely (D60). Exact identity/credential mechanisms and reauthorization remain open.
+An owner can revoke an individual client's server access without deleting shared radio contacts (QSOs), erasing the offline client, or affecting other clients. An enrolled client does not lose eligibility simply because it has been offline indefinitely (D60). Enrollment credential mechanisms and manual reauthorization workflows remain integration work; the synchronization model defines the admission cutoff.
 
-D145 preserves a reauthorized installation’s synchronized local data and pending work without requiring Amateur Data Interchange Format (ADIF) migration or empty-log enrollment. D152 makes revocation the cutoff for automatic acceptance from the old actor; previously unsynchronized edits on a recovered installation require explicit manual reconciliation. Reauthorization alone does not automatically submit that work. Revocation need not wait for a final synchronization or cooperation from a lost device. Already accepted shared data remains shared and recoverable through other authorized clients. Exact retirement metadata, compaction, and manual recovery workflow remain open. D56 still governs joining unrelated independently populated data.
+D145 preserves a reauthorized installation’s synchronized local data and pending work without requiring Amateur Data Interchange Format (ADIF) migration or empty-log enrollment. D152 makes revocation the cutoff for automatic acceptance from the old actor; previously unsynchronized edits on a recovered installation require explicit manual reconciliation. Reauthorization alone does not automatically submit that work. Revocation need not wait for a final synchronization or cooperation from a lost device. Already accepted shared data remains shared and recoverable through other authorized clients. The [synchronization model](synchronization-model.md) defines retirement and compaction; enrollment and manual-recovery integration remain capability work. D56 still governs joining unrelated independently populated data.
 
 D143 clarifies rollback scope: restoring server authorization state from an older backup can restore the earlier client authorization state, losing a later revocation recorded only there. No independently preserved authorization store or rollback-surviving revocation guarantee is selected. The earlier recommendation to require that guarantee is withdrawn; no new review/reauthorization workflow follows from this clarification.
 
@@ -137,3 +137,18 @@ D204 extends D203 snapshots to all supported directory information, including na
 ## Operator observability and user-facing security history (D230)
 
 Full server tracing, structured logs and metrics are MVP requirements, including account-security events without secrets. These serve server operators and are separate from account-user diagnostics. A retained account-scoped security-event history view in the web interface is post-MVP. D66 upload diagnostics and D142 synchronization status remain MVP. See [server observability](observability.md); exact instrumentation, export and backend integration remain engineering work.
+
+## Account integration constraints
+
+Enforce account context across requests, existing synchronization streams, queries,
+jobs, credentials and diagnostics. Login binding uniqueness, recent-authentication
+proof, callback/session binding, per-client credential renewal and interrupted
+enrollment must preserve the accepted identity boundaries.
+
+Credential integration covers authenticated account/credential binding, rotation,
+key-version retention, protected client storage, and server credential removal
+during in-flight work. Preserve public metadata and submission history; removal
+cannot make disconnected clients forget secrets already received. Directory
+requests distinguish transient failure from rejected credentials and obsolete
+in-flight provider changes. Detailed mechanisms belong to each capability's
+specification; the scope and selected frameworks remain settled.

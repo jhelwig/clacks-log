@@ -1,15 +1,15 @@
 # Synchronization metadata and transitions
 
-**Status: engineering design implemented by the [production synchronization core](../../synchronization-core.md) for [issue #2](https://github.com/jhelwig/clacks-log/issues/2).**
-The [implementation plan](../plans/2026-10-19-synchronization-core.md) records the
-native execution tasks. Later persistence and transport integrate these components;
-the pure library does not establish actual database commit durability or a
-universal rollback detector.
+This document defines the account-scoped synchronization metadata, transitions,
+proof obligations and worked examples. The [production crate](../lib/clacks-sync/README.md)
+implements pure row transitions; its guide owns usage and transaction integration.
+Actual database commit durability and transport behavior require integration,
+and the model does not provide a universal rollback detector.
 
-## 1. Requirements carried forward
+## 1. Requirements
 
-The [decision register](../../decisions.md), [synchronization contract](../../synchronization.md)
-and [recovery requirements](../../backup-recovery.md) remain authoritative.
+The [decision register](decisions.md), [synchronization contract](synchronization.md)
+and [recovery requirements](backup-recovery.md) remain authoritative.
 
 - All synchronization traffic is between a client and the server. Clients never
   synchronize directly with one another. A client can return server-distributed
@@ -43,13 +43,13 @@ and [recovery requirements](../../backup-recovery.md) remain authoritative.
   workflow. Synchronization remains available, and unavailable clients do not
   hold publication hostage (D141).
 
-Record values and equality come from the [native model](../../native-model.md).
+Record values and equality come from the [native model](../lib/clacks-model/README.md).
 Catalog recognition changes do not become record edits. Provider evidence is
 separate from recorded QSO facts; issue #3 supplies its concrete evidence
-operations. This proposal does not force directory snapshots or immutable
+operations. This model does not force directory snapshots or immutable
 service facts through the mutable-record conflict policy.
 
-## 2. Research mechanisms and proposed composition
+## 2. Research mechanisms and selected composition
 
 A **version vector** maps writer identities to counters. Here its comparison
 domain is one record: a larger component covers that writer's earlier versions
@@ -58,13 +58,13 @@ is the known predecessor information for a version. **Coverage** below means a
 complete accepted-history prefix represented by retained state or its successors.
 A **baseline** is a durable common-history summary used to replace older detail.
 
-| Source mechanism | Use in this proposal | Boundary of the published result |
+| Source mechanism | Use in this model | Boundary of the published result |
 | --- | --- | --- |
 | Ordinary per-object version vectors, contrasted with shared predecessor vectors in [Malkhi and Terry, 2005, §§1–4](https://malkhi.com/files/WinFS-version-vectors-DISC2005.pdf) | Explicit vectors for record causality; no implicit borrowing of a changing account vector for pending work | Factoring with exceptions is an alternative representation, not a requirement |
 | Explicit made-with knowledge and transactional delivery in [WinFS, 2006, §§5.1.4–5.2.4](https://www.microsoft.com/en-us/research/wp-content/uploads/2006/06/tr-2006-78.pdf) | Preserve a version's basis; atomically install records, comparison evidence and progress; recognize already-known versions | Clacks uses its accepted-state/client-pending policy rather than WinFS's shared conflict storage |
 | Closed-writer knowledge in [Petersen et al., 1997, §4.3](https://www.csd.uwo.ca/~hlutfiyy/Perv/Papers/petersen.pdf) | Omitted writer information needs an interpretable meaning | Bayou's recursive identities and cooperative retirement are not copied; D152 supplies Clacks's admission cutoff |
 | Registered-server clock identities in [Almeida et al., 2014](https://asc.di.fct.unl.pt/~nmp/pubs/dais2014.pdf) | Distinguish who requests an update from the server's role in version creation | Does not establish rollback safety or select Clacks's clock ownership |
-| Peer-witnessed counter regression and its limits, examined in the [recovery-fit analysis](../../../references/replication-research/recovery-fit.md) | Detect contradictory history and establish an exceptional timeline before further accepted writes use that history | Not a complete detector of arbitrary writable restoration |
+| Peer-witnessed counter regression and its limits, examined in the [recovery-fit analysis](../references/replication-research/recovery-fit.md) | Detect contradictory history and establish an exceptional timeline before further accepted writes use that history | Not a complete detector of arbitrary writable restoration |
 
 The fault model is authenticated, protocol-conforming replicas with crashes,
 interruption and consistent older server backups. Metadata checks detect specific
@@ -80,8 +80,10 @@ D156, not a theorem inherited unchanged from any source.
 
 Choose explicit vectors over shared knowledge plus per-record exceptions for the
 initial implementation. Their direct comparisons are easier to inspect, and
-Clacks's expected writer population is modest. The cost is repeated metadata
-across records. Client components persist only while required by retained
+Clacks's expected writer population is modest: 20 active actors would be
+exceptionally high, 100 or more lifetime actors extremely rare, and almost
+certainly fewer than 1,000 lifetime actors per account. These are estimates, not
+caps. The cost is repeated metadata across records. Client components persist only while required by retained
 history, active admission or pending evidence; they are not an irrevocable
 lifetime list on every QSO. Timeline summaries factor accepted history when
 collecting retired components.
@@ -659,8 +661,8 @@ mutation races ahead using the invalidated server component.
 These checks are not a universal rollback detector. If a writable restored server
 reuses counters and advances past available witnesses before a contradiction is
 observed, a revision-only handshake can miss the rollback. Vector/payload
-contradictions may expose additional cases, but this proposal makes no guarantee
-that every such restoration is detected. The [existing recovery analysis](../../../references/replication-research/recovery-fit.md)
+contradictions may expose additional cases, but this model makes no guarantee
+that every such restoration is detected. The [existing recovery analysis](../references/replication-research/recovery-fit.md)
 records that limit. Timeline ancestry prevents old/new history from being
 conflated after the fork is established; it does not detect a fork by itself.
 
@@ -674,7 +676,7 @@ before preparing new causal versions.
 
 ## 9. Production boundary and validation obligations
 
-Issue #2 delivers the production metadata types and transition logic for:
+The production core supplies metadata types and transition logic for:
 
 - record comparison and context combination under the existing conflict policy;
 - preparation, incorporated-version recognition and conditional-acceptance plans;
@@ -689,8 +691,8 @@ real stores, not a substitute database. Issues #6/#14/#16 add SQLite/PostgreSQL
 transactions, WebSocket sessions and integrated recovery checks without replacing
 this logic. Issue #3 extends evidence payloads and their dedicated operations.
 
-The implementation specification must turn the following obligations into
-meaningful tests and transaction contracts:
+The implementation and its storage/transport integrations must verify these
+obligations:
 
 1. A record vector never certifies another record or an account prefix.
 2. A completed window has every required version or a retained successor.
@@ -706,5 +708,4 @@ meaningful tests and transaction contracts:
 The worked cases show the intended transitions. In particular, baseline
 projection is the application-specific part requiring careful implementation and
 validation; published vector algorithms do not prove it merely because the
-metadata contains a map of counters. The [implementation plan](../plans/2026-10-19-synchronization-core.md) specifies
-concrete interfaces and verification tasks. See the production core for implemented operations and downstream transaction obligations.
+metadata contains a map of counters. The production core guide defines implemented operations and downstream transaction obligations.

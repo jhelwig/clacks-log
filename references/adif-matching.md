@@ -215,7 +215,7 @@ saving remains governed by D112/D166, including frequency-or-band validity.
 These findings constrain the group-definition schema proposal; they do not
 select its concrete representation or expand MVP scope.
 
-The [native-model specification](../docs/superpowers/specs/2026-10-18-native-model-design.md), awaiting user review, consolidates the accepted native values, group/catalog capabilities and D255 export context. It does not select the import-side station assignment of CONTEST_ID or complete every ADIF mapping.
+The [native-model specification](../docs/native-model.md), awaiting user review, consolidates the accepted native values, group/catalog capabilities and D255 export context. It does not select the import-side station assignment of CONTEST_ID or complete every ADIF mapping.
 
 ## Accepted export modes (D212)
 

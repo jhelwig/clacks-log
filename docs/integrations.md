@@ -143,3 +143,28 @@ D204 separates all supported directory information, including names, from record
 D207 requires a snapshot to belong to the QSO’s current normalized directory lookup key before it can supply upload fallback. A key-changing callsign edit immediately stops old-snapshot use; failed lookup for the new key does not preserve old-station fallback. Retain a snapshot when the normalized key is unchanged.
 
 D209 selects snapshots automatically per QSO/normalized key by successful lookup time with deterministic tie-breaking, without user resolution. Apply the existing service-relevant-change upload policy to effective serialized service values: provider/lookup metadata changes alone do not justify resubmission; changed effective service fields do. Exact service field sets and comparison encoding remain open.
+
+## Service adapter invariants
+
+Define provider record/update identity, download cursors and page/window coverage
+so observations and their processing effects are atomic and repeat-safe. Preserve
+actual dispatched values/destinations with publication outcomes; imported statuses
+do not fabricate historical attempts or exact sent values. Deletion memory and
+version-specific rejection have separate retention obligations.
+
+Only provider information with established source and applicability participates
+in fallback. A returned copy of our own uploaded values is not relabeled as the
+other station's report because a confirmation flag is positive. In particular,
+QRZ keeps the parties' reports independent and does not disclose the other party's
+report; see [service evidence](../references/service-state-model.md#primary-evidence).
+
+Acceptance must atomically enforce external-association uniqueness and selected
+native references, including competing or in-flight attempts. Provider calls stay
+outside database transactions. Define service-relevant effective-value comparison,
+correction evidence, retry/backoff and coordinated provider limits without
+changing current-value attempts, affected-only pauses or imported-status policy.
+
+Directory adapters define portable-callsign normalization, eligible metadata,
+request correlation, obsolete-key cleanup and effective service-output comparison.
+Provider data stays separate from recorded facts; failure/not-found preserves
+existing snapshots and completed bulk updates.

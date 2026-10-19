@@ -82,5 +82,5 @@ identify exchange data beyond ordinary contact fields. The
 assistance, saved exchanges and participation/reference identity. They informed
 the accepted separation of exchanges from the simple native reference
 association; dedicated contest exchanges remain post-MVP. They do not prescribe
-native fields or expand scope. The [native-model specification](../docs/superpowers/specs/2026-10-18-native-model-design.md)
-consolidates accepted behavior and clearly labeled schema proposals for review.
+native fields or expand scope. The [native-model specification](../docs/native-model.md)
+defines the maintained native contracts and component boundaries.
