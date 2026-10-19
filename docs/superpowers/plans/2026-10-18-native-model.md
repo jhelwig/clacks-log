@@ -403,7 +403,7 @@ Refreshing them must not move a contact or create a contact edit.
 - `select_name(recorded: Option<&str>, eligible: &EligibleStationFacts<'_>) -> Option<Sourced<String>>`.
 - `directory_key_matches(current: &str, snapshot_key: &str) -> bool` compares already-normalized lookup keys; full portable-call derivation/request correlation are downstream directory work.
 
-- [ ] **Step 1:** Add `whole_location_never_patches_lower_source`, `location_reference_blocks_home_location`, `catalog_point_is_not_station_point` and `old_directory_key_cannot_supply_fallback`. A recorded state-only location blocks directory county/coordinates; a POTA-like association without a position selects recorded/unknown geographic details; with no recorded information, LoTW precedes QRZ then directory. Unknown group properties are not guessed.
+- [x] **Step 1:** Add `whole_location_never_patches_lower_source`, `location_reference_blocks_home_location`, `catalog_point_is_not_station_point` and `old_directory_key_cannot_supply_fallback`. A recorded state-only location blocks directory county/coordinates; a POTA-like association without a position selects recorded/unknown geographic details; with no recorded information, LoTW precedes QRZ then directory. Unknown group properties are not guessed.
 
 ```rust
 // location_reference_blocks_home_location
@@ -414,10 +414,10 @@ assert_eq!(chosen.value, None);
 
 Also test recorded name over provider names and empty aggregates as absence. Test the adapter composition excluding directory facts whose normalized key differs, while same-key suffix changes retain them. The selector never changes the input snapshots.
 
-- [ ] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test effective_values`; expect missing selection behavior.
-- [ ] **Step 3:** Implement the interfaces and document preconditions: callers supply current-key/eligible LoTW/QRZ/directory observations; issue #3/provider adapters establish eligibility. No direct provider query, snapshot arbitration record, lookup ID, causal metadata or submission history is invented here. Latest-successful-directory arbitration and canceled/late request processing are downstream integration obligations, not silently approximated in this selector.
-- [ ] **Step 4:** Run effective-values and groups/catalog tests. Verify all results carry truthful provenance and no selector mutates recorded information.
-- [ ] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
+- [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test effective_values`; expect missing selection behavior.
+- [x] **Step 3:** Implement the interfaces and document preconditions: callers supply current-key/eligible LoTW/QRZ/directory observations; issue #3/provider adapters establish eligibility. No direct provider query, snapshot arbitration record, lookup ID, causal metadata or submission history is invented here. Latest-successful-directory arbitration and canceled/late request processing are downstream integration obligations, not silently approximated in this selector.
+- [x] **Step 4:** Run effective-values and groups/catalog tests. Verify all results carry truthful provenance and no selector mutates recorded information.
+- [x] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
 
 ```text
 feat(model): select effective station values without overwriting facts
