@@ -10,7 +10,7 @@ counted toward delivery. The user-authorized issue #1 native-model library is
 implemented on branch `native-model` in [pull request #39](https://github.com/jhelwig/clacks-log/pull/39).
 See the [execution evidence](native-model-execution.md) for tested scope and
 remaining integration boundaries. The adversarial panel reviewed `afb001d`; the user authorized fixes for its
-three P2 findings. See the [review dispositions](adversarial-native-model-review.md).
+three P2 findings. See the [review dispositions](architecture-review.md#relation-to-current-implementation-review).
 
 Reviewed and reconciled with the agreed scope on **18 October 2026**.
 

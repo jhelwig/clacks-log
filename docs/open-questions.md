@@ -93,7 +93,7 @@ and [executed plan](superpowers/plans/2026-10-18-native-model.md) describe the l
 in PR #39. Their engineering choices are implemented plan decisions, not an
 unresolved product queue. The [execution evidence](native-model-execution.md)
 separates the initial code review, its fixes and subsequent D256 correction.
-The user reviewed the [adversarial panel findings](adversarial-native-model-review.md) and authorized fixes for all three P2 findings; their resolution is recorded there.
+The user reviewed the [adversarial panel findings](architecture-review.md#relation-to-current-implementation-review) and authorized fixes for all three P2 findings; their resolution is recorded there.
 Catalog provenance has no separate local version scheme. Optional catalog
 support does not select acquisition/update/distribution workflows. Export
 context selection is accepted under D255. Import-side assignment of an ADIF

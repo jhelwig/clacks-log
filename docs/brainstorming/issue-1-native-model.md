@@ -5,7 +5,7 @@ The issue #1 design discussion has been consolidated into the
 dated 18 October 2026. The user then requested the
 [implementation plan](../superpowers/plans/2026-10-18-native-model.md), now
 executed with [verification evidence](../native-model-execution.md). This file
-remains an index, not a parallel specification. The initial implementation review and its fixes are recorded in the evidence; the later D256 correction is now included in [PR #39](https://github.com/jhelwig/clacks-log/pull/39). The [adversarial panel review](../adversarial-native-model-review.md) records the user-authorized resolution of its three P2 findings.
+remains an index, not a parallel specification. The initial implementation review and its fixes are recorded in the evidence; the later D256 correction is now included in [PR #39](https://github.com/jhelwig/clacks-log/pull/39). The [adversarial panel review](../architecture-review.md#relation-to-current-implementation-review) records the user-authorized resolution of its three P2 findings.
 
 A radio contact is a QSO. Minimum viable product is MVP. Amateur Data
 Interchange Format is ADIF. Parks on the Air is POTA.

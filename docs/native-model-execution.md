@@ -7,7 +7,7 @@ Work is on branch `native-model` in an isolated Git worktree. The user selected
 publication as [PR #39](https://github.com/jhelwig/clacks-log/pull/39), open against
 `main`; the branch is not merged. The adversarial panel reviewed `afb001d`; the user reviewed its results and
 authorized fixes for all three P2 findings, now recorded as resolved in the
-[panel review](adversarial-native-model-review.md). This
+[panel review](architecture-review.md#relation-to-current-implementation-review). This
 checkpoint does not close issue #1 or complete a roadmap phase.
 
 ## Delivered boundary
@@ -88,7 +88,7 @@ documentation test. Formatting, Clippy, offline verification and Windows
 cross-compilation were repeated after fixes. That original fix pass was verified by regression tests
 and the complete suite, without a second reviewer. It does not independently
 review the later D256 refactor. The later adversarial panel is a separate review of `afb001d`; its
-[user-authorized fixes](adversarial-native-model-review.md) do not imply a second
+[user-authorized fixes](architecture-review.md#relation-to-current-implementation-review) do not imply a second
 independent review of the fixes themselves.
 
 The review left these planned component boundaries in place:

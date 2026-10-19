@@ -12,7 +12,7 @@ Terms: radio contact (QSO); minimum viable product (MVP); Amateur Data Interchan
 
 **Spec:** [Native contact and shared-data model](../specs/2026-10-18-native-model-design.md). The user subsequently authorized native execution of this plan. The four engineering choices in spec section 2 are the basis of this plan and remain visible in that section.
 
-**Status:** Native execution authorized and tasks implemented on 18 October 2026. Checked steps record task delivery, including documented follow-up corrections; they are not claims that a revised instruction was executed at the original commit. The initial independent review covered `9ad572b` and led to fixes at `584d99c`; D256 was implemented later at `86baeb6`. PR #39 contains the result. The user reviewed the [adversarial panel findings](../../adversarial-native-model-review.md) and authorized fixes for its three P2 findings, now resolved. See [execution evidence](../../native-model-execution.md) for actual verification results.
+**Status:** Native execution authorized and tasks implemented on 18 October 2026. Checked steps record task delivery, including documented follow-up corrections; they are not claims that a revised instruction was executed at the original commit. The initial independent review covered `9ad572b` and led to fixes at `584d99c`; D256 was implemented later at `86baeb6`. PR #39 contains the result. The user reviewed the [adversarial panel findings](../../architecture-review.md#relation-to-current-implementation-review) and authorized fixes for its three P2 findings, now resolved. See [execution evidence](../../native-model-execution.md) for actual verification results.
 
 ## Global Constraints
 

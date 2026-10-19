@@ -7,7 +7,7 @@ The behavioral requirements below are accepted. Section 2 distinguishes the
 engineering choices implemented through the user-authorized plan from earlier
 product decisions. The [execution evidence](../../native-model-execution.md)
 identifies which revisions were independently reviewed; later changes are not
-automatically covered by that review. The user reviewed the [adversarial panel findings](../../adversarial-native-model-review.md)
+automatically covered by that review. The user reviewed the [adversarial panel findings](../../architecture-review.md#relation-to-current-implementation-review)
 and authorized the three P2 fixes; their resolution is recorded there.
 
 A radio contact is a QSO. Minimum viable product is abbreviated MVP. Amateur
@@ -696,7 +696,7 @@ The user authorized native execution; the library, plan and current evidence
 are in [PR #39](https://github.com/jhelwig/clacks-log/pull/39). Issue #1 remains
 open while that delivery is reviewed and integrated. No roadmap phase is marked
 complete. The user-authorized fixes and review dispositions are recorded in the
-[adversarial panel review](../../adversarial-native-model-review.md).
+[adversarial panel review](../../architecture-review.md#relation-to-current-implementation-review).
 
 Import-side `CONTEST_ID` station assignment is not approved or implemented;
 settle it in import mapping work. Full external service history/associations

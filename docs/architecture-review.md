@@ -8,9 +8,15 @@ This file records the October 17 document-level reviews through D251. It does
 not certify the later issue #1 implementation or D256. The
 [native-model execution evidence](native-model-execution.md) records the code
 review at `9ad572b`, regression fixes at `584d99c`, and later data-driven
-recognition correction at `86baeb6`. The [adversarial native-model panel](adversarial-native-model-review.md)
-reviewed `afb001d`; the user authorized fixes for its three P2 findings, now
-resolved. AR1–AR4 retain their historical resolved status.
+recognition correction at `86baeb6`. The adversarial panel reviewed `afb001d`;
+the user-authorized fixes for all three P2 findings were committed in `a7ed604`:
+catalog label uniqueness now uses recognition’s ASCII case-insensitive comparison,
+and the product overview correctly records native-model implementation status
+and the selected single-server-application topology. The catalog regression
+failed before the fix and passes afterward; all 51 integration tests and the
+documentation test pass. These fixes were verified, not independently re-reviewed.
+The acronym finding was withdrawn following the user’s clarification in `8c0d33d`.
+AR1–AR4 retain their historical resolved status.
 
 ## Findings
 
