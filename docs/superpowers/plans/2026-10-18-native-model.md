@@ -10,9 +10,9 @@ Terms: radio contact (QSO); minimum viable product (MVP); Amateur Data Interchan
 
 **Tech Stack:** Rust **1.99.1**, edition 2024; standard library collections; Serde 1 with derive, serde_json 1, regex 1 and ulid 3. Dependencies use compatible major-version ranges and a committed Cargo.lock resolved with the pinned compiler. No application or database crate is needed for this issue.
 
-**Spec:** [Native contact and shared-data model](../specs/2026-10-18-native-model-design.md). The user subsequently authorized native execution of this plan. The four engineering choices in spec section 2 are the basis of this plan and remain visible in that section.
+**Spec:** [Native contact and shared-data model](../specs/2026-10-18-native-model-design.md). Section 2 defines the native representations used by this plan.
 
-**Status:** Native execution authorized and tasks implemented on 18 October 2026. Checked steps record task delivery, including documented follow-up corrections; they are not claims that a revised instruction was executed at the original commit. The initial independent review covered `9ad572b` and led to fixes at `584d99c`; D256 was implemented later at `86baeb6`. PR #39 contains the result. The user reviewed the [adversarial panel findings](../../architecture-review.md#relation-to-current-implementation-review) and authorized fixes for its three P2 findings, now resolved. See [execution evidence](../../native-model-execution.md) for actual verification results.
+**Status:** Library tasks are implemented. See [library scope and validation](../../native-model.md) for adapter boundaries and verification commands.
 
 ## Global Constraints
 
@@ -32,7 +32,7 @@ Terms: radio contact (QSO); minimum viable product (MVP); Amateur Data Interchan
 - Commit messages need a subject and a substantive body explaining motivation, constraints or tradeoffs that the diff cannot convey. The task messages below provide that context; update them to reflect actual implementation decisions and evidence rather than copying an inaccurate template.
 - Account authorization, durable saving, deletion retention and synchronization concurrency belong to their downstream capabilities. Pure functions here must not impersonate those guarantees.
 
-## Review Focus
+## Validation focus
 
 These five failure classes receive explicit tests in the owning tasks:
 
@@ -48,7 +48,7 @@ These five failure classes receive explicit tests in the owning tasks:
 
 The tasks form one cohesive model capability with shared interfaces, not independent server/client projects. Keep one crate initially; modules below separate responsibilities without imposing a crate per type. Later implementations may reuse these APIs without adopting a second persistent representation of the same facts.
 
-The authorized plan implemented these engineering choices:
+The library uses these representations:
 
 - Use `NonZeroU64` internally for hertz/milliwatts, `i32` for coordinate millionths and `i64` Unix seconds for contact times. Operational source timestamps use seconds plus nanoseconds, with nanoseconds less than 1,000,000,000. These are representations, not claims about clock accuracy or timestamp precision on the air.
 - Use typed ULID wrappers with string Serde representations and `BTreeSet` for tags/references. Do not use ID timestamps as revision order. Names do not merge entities.
@@ -111,7 +111,7 @@ lib/clacks-model/tests/export_rules.rs
 lib/clacks-model/tests/export_context.rs
 lib/clacks-model/tests/reference_export.rs
 lib/clacks-model/tests/compatibility.rs
-lib/clacks-model/tests/regressions.rs       independent-review regression cases
+lib/clacks-model/tests/regressions.rs       normalization and export-isolation regressions
 lib/clacks-model/tests/fixtures/definitions.json  illustrative supplied group/profile data
 lib/clacks-model/tests/fixtures/recognition-old.json  deliberately reduced recognition view
 lib/clacks-model/tests/fixtures/recorded-values.json  preserved known/unfamiliar values
@@ -250,7 +250,7 @@ assert!(Band::for_frequency(Hertz::new(1)?, full).is_none());
 Also test parent-only MFSK, unknown submode with no parent, unknown parent context, deprecated catalog labels, maximum/open-ended band ranges and every recorded range boundary. The old fixture must omit a real specialization rather than merely round-trip on one current catalog.
 
 - [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test recognition`; expect missing recognition types/lookup behavior.
-- [x] **Step 3:** Implement full catalog-driven recognition. Band ranges convert source megahertz (MHz) to integer hertz exactly; open-ended upper bounds stay open. Serialize recorded generic mode identities and band labels with ordinary Serde conversion, validating nonblank labels without consulting recognition. Interpret catalog rows separately and preserve unfamiliar values and any supplied parent context. Equality/ordering use only recorded identity. Add a catalog-only mode family, submode and band in tests and verify they become recognizable without changing code. This incorporates the D256 correction to the original type-encoded implementation.
+- [x] **Step 3:** Implement full catalog-driven recognition. Band ranges convert source megahertz (MHz) to integer hertz exactly; open-ended upper bounds stay open. Serialize recorded generic mode identities and band labels with ordinary Serde conversion, validating nonblank labels without consulting recognition. Interpret catalog rows separately and preserve unfamiliar values and any supplied parent context. Equality/ordering use only recorded identity. Add a catalog-only mode family, submode and band in tests and verify they become recognizable without changing code. Recognition follows D256; concrete catalog values are data, not Rust variants.
 
 - [x] **Step 4:** Run recognition, positions and values tests; inspect catalog counts and extraction provenance and confirm there is no placeholder coverage. Tests must run offline from committed data; builds never fetch catalogs.
 - [x] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
@@ -581,10 +581,4 @@ Expected: tests/doc tests pass, formatter/clippy/diff checks exit zero, offline 
 | 11: profiles/equipment/tags | Task 5; missing/deleted references feed downstream resolution rather than silent repair. |
 | 12: sources, equality, component boundaries | Tasks 4, 7 and 11; provider eligibility/arbitration and causal synchronization remain their capabilities. |
 | 13: acceptance cases | Named owning-task tests above and final Task 11 verification. |
-| 14: review/execution boundary | Native execution delivered the library; version-specific review evidence and PR integration remain distinct. |
-
-### Self-review and execution handoff
-
-Self-review checked the plan against all specification sections, traced the five Review Focus cases to owning tests, and corrected mapping-type dependencies, context-resolution inputs and profile-baseline coverage. The coverage map identifies integration behavior deliberately owned by later capabilities; this plan does not claim to deliver those adapters. The user selected native execution; work runs in the isolated native-model worktree. Ledger rulings and verification results are summarized in the execution evidence.
-
-Native execution was selected and completed. The initial implementation review, its regression fixes and the later data-driven recognition correction are recorded separately in the execution evidence. The adversarial panel reviewed `afb001d`; the user authorized the three P2 fixes recorded in the review dispositions. Its remaining questions do not introduce product requirements or authorize further changes.
+| 14: component boundaries | Pure library operations are distinct from persistence, synchronization and format adapters. |

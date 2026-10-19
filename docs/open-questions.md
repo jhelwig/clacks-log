@@ -1,16 +1,14 @@
 # Remaining work after planning completion
 
-Reconciled **18 October 2026** against D01–D256 in the [decision register](decisions.md) and the roadmap review. **Product and architectural planning for the agreed minimum viable product (MVP) is complete.** Account-owned contacts with logbook tags, one synchronization scope per account and unique external-record associations are part of the current [product model](product.md#contacts-logbooks-and-tags), not a separate proposal. [Architectural review](architecture-review.md) findings AR1–AR4 are resolved at the design/documentation level; implementation verification remains. The stale synchronization-scope and process-topology wording identified in the follow-up review has been corrected under existing decisions.
+Reconciled **18 October 2026** against D01–D256 in the [decision register](decisions.md). **Product and architectural planning for the agreed minimum viable product (MVP) is complete.** Account-owned contacts with logbook tags, one synchronization scope per account and unique external-record associations are part of the current [product model](product.md#contacts-logbooks-and-tags), not a separate proposal.
 
 This file retains its existing path as an index of remaining engineering work and deferred matters. Entries below are not a product-decision backlog or an approval queue. Concrete schemas, protocol messages, transaction handling, mappings, dependency configuration, data preparation and validation are implementation specification/design or verification work. Their incompleteness does not mean product planning remains open.
 
-This product-planning checkpoint alone authorized no implementation or publication. The user has since authorized native execution of issue #1; see the [execution evidence](native-model-execution.md). A demonstrated contradiction, missing requirement or material behavioral/architectural tradeoff can justify a focused decision later; ordinary engineering details do not.
-
-The initial implementation was discarded. New issue #1 work is implemented in
-[PR #39](https://github.com/jhelwig/clacks-log/pull/39), with [execution evidence](native-model-execution.md).
+The [native-model library](native-model.md) implements the pure domain contracts.
 The [MVP roadmap](mvp-roadmap.md) still has no completed phase. Other capability
-issues need their own specifications/plans before implementation; they are not
-made executable by the native-model library.
+issues need their own specifications and plans. A demonstrated contradiction,
+missing requirement or material architectural tradeoff can justify a focused
+decision; ordinary engineering details do not reopen product planning.
 
 ## Deferred product and legal work
 
@@ -89,18 +87,15 @@ See [accounts and enrollment](accounts.md). Remaining work includes:
 ### Domain data, import and export
 
 The [native-model specification](superpowers/specs/2026-10-18-native-model-design.md)
-and [executed plan](superpowers/plans/2026-10-18-native-model.md) describe the library
-in PR #39. Their engineering choices are implemented plan decisions, not an
-unresolved product queue. The [execution evidence](native-model-execution.md)
-separates the initial code review, its fixes and subsequent D256 correction.
-The user reviewed the [adversarial panel findings](architecture-review.md#relation-to-current-implementation-review) and authorized fixes for all three P2 findings; their resolution is recorded there.
+and [library overview](native-model.md) define the native records, validation,
+recognition and reference-planning boundary.
 Catalog provenance has no separate local version scheme. Optional catalog
 support does not select acquisition/update/distribution workflows. Export
 context selection is accepted under D255. Import-side assignment of an ADIF
 `CONTEST_ID` to a station remains an import mapping decision, not a new native
 reference scope.
 
-- **Native values and transformations:** the recorded-value schema, validation/equality operations and reference-planning library are implemented in PR #39. The panel’s three P2 findings are resolved; downstream persistence and format adapters are not delivered. Typed Universally Unique Lexicographically Sortable Identifier (ULID) identities follow D120; their timestamps do not supply causal ordering. Preserve generic mode hierarchy/unfamiliar labels, fully data-driven mode/band recognition under D256, full ADIF 3.1.8 baselines and ordinary Serde tooling under D174–D179/D216. Database encodings and complete deterministic ADIF adapters remain implementation work; native recorded-value serialization already exists. Native modeling does not mirror ADIF one-to-one.
+- **Native values and transformations:** the recorded-value schema, validation/equality operations and reference-planning library are implemented in the native library. Persistence and format adapters remain downstream. Typed Universally Unique Lexicographically Sortable Identifier (ULID) identities follow D120; their timestamps do not supply causal ordering. Preserve generic mode hierarchy/unfamiliar labels, fully data-driven mode/band recognition under D256, full ADIF 3.1.8 baselines and ordinary Serde tooling under D174–D179/D216. Database encodings and complete deterministic ADIF adapters remain implementation work; native recorded-value serialization already exists. Native modeling does not mirror ADIF one-to-one.
 - **Import field coverage and validation:** complete built-in mappings and their fixtures, field-specific defaults, candidate compatibility and optional-value diagnostics using the accepted catalogs, grid lengths/resolution and historical callsign-assignment rules. Do not reopen those native requirements. Import workflows are selected in D39–D43/D247/D164–D175: read-only preparation before changes, unsupported-field disclosure, reliable prefix on structural failure, partial application, unchanged-record skipping, completed changes surviving cancellation/crash, and normal re-import for recovery. D225 settles compatible incomplete identity information as possible matches requiring explicit selection even for one candidate; D226 selects a 30-minute window either side for review-only possible matches while retaining stricter confident matching. Exact compatibility tables and precision-aware boundary details remain specification work. Define staging and stale-comparison revalidation; do not reopen custom mapping tools, opaque unsupported-field preservation or dedicated import-session resumption.
 - **Export details:** define field formatting/coverage, transliteration diagnostics, consistent local snapshots, staging and destination finalization. D187 selects the ADIF text format (ADI), with the ADIF XML format (ADX) after MVP. D210/D211 export current saved local working state without a sync prerequisite and preserve the existing destination on failure/cancellation. D185 does not require lossless ADIF round trips. D212/D255 select export-context handling, ordinary one-entry-per-contact interchange, and optional POTA-compatible expansion. Complete mapping/profile definitions, grouping/naming and multi-file finalization without changing native identities or expanding unrelated event identifiers. CONTEST_ID station assignment on import remains explicitly undecided; export-context behavior is settled.
 - **Profiles, equipment and location:** copied native values, profile loading, local comparison baselines and position geometry are implemented. Durable D183 reassign/remove acceptance mechanics, profile-state presentation, explicit reload workflows and geographic lookup remain downstream. Reusable equipment fields, account sharing and snapshot lifetimes are settled. Retain grid-area versus explicit-point meaning, coordinate/grid precedence and existing manual-correction lifetime. Historical snapshots do not change with defaults or data updates.

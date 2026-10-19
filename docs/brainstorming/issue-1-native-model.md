@@ -1,11 +1,9 @@
 # Issue #1 native-model consolidation index
 
-The issue #1 design discussion has been consolidated into the
-[written native-model specification](../superpowers/specs/2026-10-18-native-model-design.md),
-dated 18 October 2026. The user then requested the
-[implementation plan](../superpowers/plans/2026-10-18-native-model.md), now
-executed with [verification evidence](../native-model-execution.md). This file
-remains an index, not a parallel specification. The initial implementation review and its fixes are recorded in the evidence; the later D256 correction is now included in [PR #39](https://github.com/jhelwig/clacks-log/pull/39). The [adversarial panel review](../architecture-review.md#relation-to-current-implementation-review) records the user-authorized resolution of its three P2 findings.
+The [native-model specification](../superpowers/specs/2026-10-18-native-model-design.md)
+defines the domain contracts. The [implementation plan](../superpowers/plans/2026-10-18-native-model.md)
+and [library overview](../native-model.md) describe structure and component boundaries.
+This file is an index, not a parallel specification.
 
 A radio contact is a QSO. Minimum viable product is MVP. Amateur Data
 Interchange Format is ADIF. Parks on the Air is POTA.
@@ -53,13 +51,11 @@ Interchange Format is ADIF. Parks on the Air is POTA.
   stable account-owned QSOs, tag memberships, tri-state service policies,
   explicit deletion choices and whole-record reconciliation.
 
-## Review and remaining boundaries
+## Component boundaries
 
-The specification labels engineering choices implemented through the authorized
-plan, including Universally Unique Lexicographically Sortable Identifier (ULID)
-selection, coordinate tie-rounding/validation order and declarative rules. They
-are not backdated as individually approved product decisions. Implementation
-and review evidence distinguishes library behavior from future adapters.
+The specification defines typed Universally Unique Lexicographically Sortable
+Identifiers (ULIDs), coordinate tie-rounding/validation order and declarative
+rules. The library overview distinguishes pure operations from future adapters.
 
 Import-side station assignment for ADIF CONTEST_ID has not been approved; it
 belongs to import mapping work. Catalog acquisition/update/distribution, complete

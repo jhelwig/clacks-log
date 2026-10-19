@@ -1,14 +1,8 @@
 # Native contact and shared-data model
 
-**Status: implemented in PR #39; adversarial panel findings resolved through user-authorized fixes, 18 October 2026.** This
-consolidates the accepted issue #1 discussion and decisions through D256. It is
-the logical specification; [execution evidence](../../native-model-execution.md) records delivered library behavior and downstream boundaries.
-The behavioral requirements below are accepted. Section 2 distinguishes the
-engineering choices implemented through the user-authorized plan from earlier
-product decisions. The [execution evidence](../../native-model-execution.md)
-identifies which revisions were independently reviewed; later changes are not
-automatically covered by that review. The user reviewed the [adversarial panel findings](../../architecture-review.md#relation-to-current-implementation-review)
-and authorized the three P2 fixes; their resolution is recorded there.
+This specification defines the native domain model and accepted issue #1
+requirements through D256. The [library overview](../../native-model.md) describes
+implemented operations, validation and downstream component boundaries.
 
 A radio contact is a QSO. Minimum viable product is abbreviated MVP. Amateur
 Data Interchange Format (ADIF) is an interchange standard; its text format is
@@ -26,15 +20,14 @@ The model must cover contacts, logbook tags, shared station snapshots, saved
 profiles, reusable equipment and data-driven participation/reference groups.
 
 The [decision register](../../decisions.md), [product requirements](../../product.md)
-and the user's explicit corrections are authoritative. This specification
-consolidates their native-model consequences. It replaces the working
-[brainstorming notes](../../brainstorming/issue-1-native-model.md) as the design
-artifact to review. In particular:
+define the native-model requirements. The
+[consolidation index](../../brainstorming/issue-1-native-model.md) links their
+major topics. In particular:
 
 - A saved contact needs **frequency or band**, not an independently populated
-  band. This corrects the earlier D112/D166 wording.
+  band.
 - Incomplete entry/import preparation does not create a saved QSO. Validate
-  before saving. This is established workflow, not a new record/draft subsystem.
+  before saving.
 - Native modeling is independent of ADIF's field layout. ADIF is neither a
   completely lossless round trip nor the native backup format.
 - There is one account synchronization scope. Tags organize account-owned QSOs;
@@ -49,11 +42,9 @@ Rust 1.99.1, standard Serde serialization, libraries in `lib/<crate-name>` and
 thin applications in `bin/<application-name>` remain selected. This document
 does not select dependency versions or create a workspace.
 
-## 2. Engineering choices implemented through the plan
+## 2. Native representations
 
-The following choices make the logical design concrete and were implemented
-through the authorized plan. They are not backdated as individually approved
-conversation decisions:
+The native library uses these representations:
 
 1. Use distinct ID types for contacts, tags, profiles, equipment configurations,
    groups, catalogs and output profiles. Use Universally Unique Lexicographically
@@ -72,8 +63,7 @@ conversation decisions:
 4. Allow equipment description and antenna description to be independently
    absent in `EquipmentValues`, using the accepted optional-text normalization.
    D72 selects these fields but does not separately settle their requiredness;
-   the optionality shown here is the implemented engineering choice, not a
-   newly inferred product prerequisite.
+   the native representation permits either description to be absent.
 
 All other concrete names below describe the logical schema. Physical layout,
 crate boundaries and transport/storage encoding can differ while preserving
@@ -688,15 +678,12 @@ interoperability, full import/export mapping fixtures, large-log performance,
 database migrations and deployed recovery are validated in their downstream
 capabilities rather than declared complete here.
 
-## 14. Handoff and review boundary
+## 14. Component boundaries
 
-This is the consolidated design underpinning the
-[implementation plan](../plans/2026-10-18-native-model.md), written at the user's request.
-The user authorized native execution; the library, plan and current evidence
-are in [PR #39](https://github.com/jhelwig/clacks-log/pull/39). Issue #1 remains
-open while that delivery is reviewed and integrated. No roadmap phase is marked
-complete. The user-authorized fixes and review dispositions are recorded in the
-[adversarial panel review](../../architecture-review.md#relation-to-current-implementation-review).
+The [implementation plan](../plans/2026-10-18-native-model.md) describes library
+structure and validation cases. The [library overview](../../native-model.md)
+identifies pure operations and downstream responsibilities. No roadmap phase is
+complete solely because the native library is available.
 
 Import-side `CONTEST_ID` station assignment is not approved or implemented;
 settle it in import mapping work. Full external service history/associations
@@ -706,5 +693,5 @@ parity preserved. Physical storage, sync protocol/recovery and concrete crate
 composition are not silently prescribed by the logical schema.
 
 The implementation plan supplies the concrete files, interfaces, task ordering
-and verification steps. The user subsequently authorized native execution.
-See the execution evidence for checks and integration status.
+and verification steps. The library overview documents adapter boundaries and
+validation commands.

@@ -32,5 +32,5 @@ station assignment remains unresolved in that adapter, not guessed by this model
 
 Run `cargo test --workspace` from the repository root. Rust 1.99.1 is pinned.
 The [recognition data provenance](data/README.md) identifies the complete selected
-baseline and its source-table discrepancy. The [execution evidence](../../docs/native-model-execution.md)
+baseline and its source-table discrepancy. The [native-model library overview](../../docs/native-model.md)
 records scope and verification.

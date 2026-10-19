@@ -1030,7 +1030,7 @@ Within an account and external-service destination, allow at most one local QSO 
 
 ### Subsequent design refinements
 
-The [native-model specification](superpowers/specs/2026-10-18-native-model-design.md) consolidates these refinements for user review. Its separately labeled engineering proposals are not additional accepted decisions.
+The [native-model specification](superpowers/specs/2026-10-18-native-model-design.md) defines the native contracts incorporating these refinements.
 
 #### D252
 
@@ -1052,7 +1052,7 @@ Preserve unrecognized group associations and their supplied values without guess
 
 User-defined reference groups must support the full behavior available to groups included by default through the same generic engine; do not encode each program as an application-specific reference kind or select privileged behavior by program name. Default groups are definitions using the same capabilities, including those needed for their location and interchange/export behavior. Retain own-station/contacted-station sets and deduplication by group ID and optional identifier, including group-only associations. This refines D127 and the location-reference presence rule under D238.
 
-Seed default group definitions into each new account as ordinary account-owned shared records and synchronize them to enrolled clients, where locally synchronized definitions support offline use. Default groups do not have a separate client-bundled interpretation path. MVP does not include user management of groups. Future user-defined groups retain full capability parity; deferring management does not permit hardcoded default-group privileges. The native-model specification presents a concrete logical schema and explicitly proposed engineering details for review; D131 does not require reference-value/park catalog lookup in MVP.
+Seed default group definitions into each new account as ordinary account-owned shared records and synchronize them to enrolled clients, where locally synchronized definitions support offline use. Default groups do not have a separate client-bundled interpretation path. MVP does not include user management of groups. Future user-defined groups retain full capability parity; deferring management does not permit hardcoded default-group privileges. The native-model specification defines the logical group schema and mapping contracts; D131 does not require reference-value/park catalog lookup in MVP.
 
 #### D255
 
