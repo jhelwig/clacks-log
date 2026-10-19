@@ -1,7 +1,9 @@
 //! Read-only recorded/provider fallback with explicit provenance and eligibility boundaries.
 
-use crate::{DefinitionSet, RecordedLocation, StationSnapshot, optional_text};
-
+use crate::contact::StationSnapshot;
+use crate::group::DefinitionSet;
+use crate::location::RecordedLocation;
+use crate::scalar::optional_text;
 /// Origin selected for an effective display/export value; not permission to edit recorded facts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InformationSource {

@@ -1,14 +1,11 @@
 //! Data-driven band and mode interpretation that preserves recorded identity.
 
-use crate::ValueError;
+use crate::error::ValueError;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, sync::OnceLock};
 
-mod band;
-mod mode;
-
-pub use band::*;
-pub use mode::*;
+pub mod band;
+pub mod mode;
 
 /// Band/mode recognition rows supplied independently of recorded contact values.
 ///

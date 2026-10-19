@@ -1,6 +1,6 @@
 //! Validated station text, physical quantities and UTC timestamps.
 
-use crate::ValueError;
+use crate::error::ValueError;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU64;
 

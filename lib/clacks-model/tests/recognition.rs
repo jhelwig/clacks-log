@@ -1,5 +1,8 @@
-use clacks_model::*;
-
+use clacks_model::error::ValueError;
+use clacks_model::recognition::RecognitionCatalog;
+use clacks_model::recognition::band::Band;
+use clacks_model::recognition::mode::{Mode, ModeIdentity, ModeInterpretation};
+use clacks_model::scalar::Hertz;
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 #[test]

@@ -1,6 +1,9 @@
 //! Account-shared reference-group behavior and explicit identifier preparation.
 
-use crate::*;
+use crate::catalog::CatalogBinding;
+use crate::export::rules::{GroupExportMappings, compile_definition};
+use crate::ids::GroupId;
+use crate::reference::ReferenceAssociation;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -8,7 +11,7 @@ use std::collections::BTreeMap;
 ///
 /// The fields express the group’s capabilities without a built-in program-kind
 /// discriminator. Recorded associations are separate values. For rule
-/// preparation and evaluation, see [`compile_definition`].
+/// preparation and evaluation, see [`crate::export::rules::compile_definition`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GroupDefinition {
     /// Stable account group identity.
@@ -85,7 +88,7 @@ pub enum DefinitionError {
 /// Group definitions indexed by stable ID, independent of display names.
 ///
 /// Display names do not determine registry identity. For construction and
-/// validation, see [`Self::new`] and [`compile_definition`].
+/// validation, see [`Self::new`] and [`crate::export::rules::compile_definition`].
 #[derive(Clone, Debug, Default)]
 pub struct DefinitionSet(BTreeMap<GroupId, GroupDefinition>);
 

@@ -5,6 +5,11 @@ implements the [native-model specification](superpowers/specs/2026-10-18-native-
 It provides pure values, records, validation and selection operations for the
 desktop and server. It performs no network access, persistence or file publication.
 
+Public items are accessed through their owning modules, such as
+`clacks_model::contact::Qso`, `clacks_model::recognition::mode::Mode` and
+`clacks_model::export::evaluate::plan_reference_export`. The crate root does
+not flatten module contents through re-exports.
+
 ## Responsibilities
 
 - Scalar validation, typed identities, exact grid-area/point calculations and preserved mode/band identities.

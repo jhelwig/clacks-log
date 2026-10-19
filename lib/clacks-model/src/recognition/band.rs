@@ -1,7 +1,8 @@
 //! Preserved band labels and optional catalog-derived interpretation.
 
-use super::{BandRow, RecognitionCatalog};
-use crate::{Hertz, ValueError};
+use crate::error::ValueError;
+use crate::recognition::{BandRow, RecognitionCatalog};
+use crate::scalar::Hertz;
 use serde::{Deserialize, Serialize};
 
 /// A recorded label whose identity is independent of current catalog recognition.

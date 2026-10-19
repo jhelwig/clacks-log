@@ -6,16 +6,16 @@
 //!
 //! # API entry points
 //!
-//! - Contact acceptance: [`Qso::normalize_optional_aggregates`] and [`Qso::validate`].
-//! - Recognition: [`Mode::interpret`] and [`Band::interpret`].
-//! - Effective information: [`select_location`] and [`select_name`].
-//! - Reference output: [`plan_reference_export`].
+//! - Contact acceptance: [`contact::Qso::normalize_optional_aggregates`] and [`contact::Qso::validate`].
+//! - Recognition: [`recognition::mode::Mode::interpret`] and [`recognition::band::Band::interpret`].
+//! - Effective information: [`effective::select_location`] and [`effective::select_name`].
+//! - Reference output: [`export::evaluate::plan_reference_export`].
 //!
 //! # Entity identity
 //!
 //! Entity IDs are distinct types so unrelated record identities cannot be mixed:
 //! ```compile_fail
-//! use clacks_model::{QsoId, TagId};
+//! use clacks_model::ids::{QsoId, TagId};
 //! fn accepts_contact(_: QsoId) {}
 //! accepts_contact(TagId::new());
 //! ```
@@ -26,46 +26,24 @@
     clippy::indexing_slicing
 )]
 
-mod error;
-mod ids;
-mod scalar;
+pub mod error;
+pub mod ids;
+pub mod scalar;
 
-pub use error::*;
-pub use ids::*;
-pub use scalar::*;
+pub mod location;
+pub mod position;
 
-mod location;
-mod position;
+pub mod recognition;
 
-pub use location::*;
-pub use position::*;
+pub mod contact;
+pub mod equipment;
+pub mod reference;
 
-mod recognition;
+pub mod profile;
+pub mod tag;
 
-pub use recognition::*;
+pub mod catalog;
+pub mod export;
+pub mod group;
 
-mod contact;
-mod equipment;
-mod reference;
-
-pub use contact::*;
-pub use equipment::*;
-pub use reference::*;
-
-mod profile;
-mod tag;
-
-pub use profile::*;
-pub use tag::*;
-
-mod catalog;
-mod export;
-mod group;
-
-pub use catalog::*;
-pub use export::*;
-pub use group::*;
-
-mod effective;
-
-pub use effective::*;
+pub mod effective;

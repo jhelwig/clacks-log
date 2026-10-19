@@ -1,6 +1,6 @@
 //! Station-side participation associations with data-defined group behavior.
 
-use crate::GroupId;
+use crate::ids::GroupId;
 use serde::{Deserialize, Serialize};
 
 /// Participation in one reference group, optionally qualified by an identifier.

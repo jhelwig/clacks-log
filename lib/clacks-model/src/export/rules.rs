@@ -1,6 +1,9 @@
 //! Declarative group mapping expressions, validation and bounded local evaluation.
 
-use crate::{OutputProfileId, StationSide};
+use crate::contact::Qso;
+use crate::group::{DefinitionError, GroupDefinition, TextNormalization};
+use crate::ids::{GroupId, OutputProfileId};
+use crate::reference::{ReferenceAssociation, StationSide};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -29,8 +32,8 @@ pub struct GroupExportPlan {
 /// A serializable text-mapping expression.
 ///
 /// The syntax represents local text mappings, with no script or network
-/// operation. For validation and evaluation, see [`compile_definition`] and
-/// [`CompiledGroupDefinition::evaluate`].
+/// operation. For validation and evaluation, see [`crate::export::rules::compile_definition`] and
+/// [`crate::export::rules::CompiledGroupDefinition::evaluate`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ValueExpression {
     /// Fixed text.
@@ -121,9 +124,6 @@ pub struct ExpansionRule {
     pub keep_one_if_empty: bool,
 }
 
-use crate::{
-    DefinitionError, GroupDefinition, GroupId, Qso, ReferenceAssociation, TextNormalization,
-};
 use std::collections::BTreeSet;
 
 /// An evaluated mapping value that retains the distinction between absence and collections.
@@ -153,7 +153,7 @@ pub struct ExpressionContext<'a> {
 /// Validated group data with reusable, nonserialized expression support.
 ///
 /// This owned definition snapshot is paired with evaluation state rather than
-/// serialized as contact data. See [`compile_definition`], [`Self::evaluate`] and
+/// serialized as contact data. See [`crate::export::rules::compile_definition`], [`Self::evaluate`] and
 /// [`Self::normalize_reference`] for its lifecycle and operations.
 #[derive(Clone, Debug)]
 pub struct CompiledGroupDefinition {

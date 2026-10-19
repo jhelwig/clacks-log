@@ -76,7 +76,7 @@ Cargo.lock                         resolved dependency graph
 rust-toolchain.toml                channel 1.99.1, minimal profile, rustfmt/clippy
 .gitignore                        /target/ plus existing entries preserved
 lib/clacks-model/Cargo.toml        package/dependency metadata, publish=false
-lib/clacks-model/src/lib.rs        explicit module declarations and re-exports
+lib/clacks-model/src/lib.rs        public owning-module declarations
 lib/clacks-model/src/error.rs      ValueError and RecordError, no catch-all string errors
 lib/clacks-model/src/ids.rs        typed entity IDs and string conversions
 lib/clacks-model/src/scalar.rs     callsign, optional text, units, timestamps
@@ -353,7 +353,7 @@ explicit and let Forbid override automatic-upload grants.
 
 ## Task 6: Add supplied group definitions and separate catalogs
 
-**Files:** Create `src/{group,catalog}.rs`, `src/export.rs`, `src/export/rules.rs` (serialized rule types only), `tests/groups_and_catalogs.rs`, `tests/fixtures/definitions.json`; modify exports and `tests/support/mod.rs`.
+**Files:** Create `src/{group,catalog}.rs`, `src/export.rs`, `src/export/rules.rs` (serialized rule types only), `tests/groups_and_catalogs.rs`, `tests/fixtures/definitions.json`; modify public module declarations and `tests/support/mod.rs`.
 
 **Interfaces:**
 
@@ -439,7 +439,7 @@ operation so it cannot invent service-observation guarantees.
 
 ## Task 8: Compile bounded mapping rules
 
-**Files:** Modify `src/export.rs`, `src/export/rules.rs`; create `tests/export_rules.rs`; expand `src/group.rs`, definition fixtures and exports.
+**Files:** Modify `src/export.rs`, `src/export/rules.rs`; create `tests/export_rules.rs`; expand `src/group.rs`, definition fixtures and public module declarations.
 
 **Interfaces:** The following serialized types are declared in Task 6; this task consumes them and produces compiled validation state.
 

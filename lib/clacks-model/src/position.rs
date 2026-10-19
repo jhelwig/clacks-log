@@ -1,6 +1,6 @@
 //! Maidenhead locator areas, explicit geographic points and exact grid geometry.
 
-use crate::ValueError;
+use crate::error::ValueError;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -10,7 +10,7 @@ const RADICES: [i64; 6] = [18, 10, 24, 10, 24, 10];
 /// A supported Maidenhead locator length: 2, 4, 6, 8, 10 or 12 characters.
 ///
 /// Two-character precision represents a coarse historical area. For own-station
-/// entry validation, see [`Position::validate_operating_entry`].
+/// entry validation, see [`crate::position::Position::validate_operating_entry`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "u8", into = "u8")]
 pub struct GridLength(u8);

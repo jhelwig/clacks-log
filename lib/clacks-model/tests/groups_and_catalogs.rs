@@ -1,7 +1,8 @@
 mod support;
 
-use clacks_model::*;
-
+use clacks_model::catalog::{CatalogFinding, CatalogSet, ReferenceCatalog, lookup_reference};
+use clacks_model::group::{DefinitionSet, interpret_reference, normalize_reference};
+use clacks_model::ids::GroupId;
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 #[test]

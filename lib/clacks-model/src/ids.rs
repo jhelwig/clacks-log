@@ -1,6 +1,6 @@
 //! Distinct stable entity IDs with string serialization; ordering is not causality.
 
-use crate::ValueError;
+use crate::error::ValueError;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 

@@ -1,5 +1,7 @@
-use clacks_model::*;
-
+use clacks_model::ids::{QsoId, TagId};
+use clacks_model::scalar::{
+    Hertz, Milliwatts, RecordedCallsign, UtcSecond, UtcTimestamp, optional_text,
+};
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 #[test]

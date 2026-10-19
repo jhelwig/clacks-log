@@ -1,6 +1,13 @@
 //! Recorded contact snapshots, band/frequency authority and save-boundary validation.
 
-use crate::*;
+use crate::equipment::EquipmentValues;
+use crate::ids::{EquipmentConfigurationId, QsoId, TagId};
+use crate::location::RecordedLocation;
+use crate::recognition::RecognitionCatalog;
+use crate::recognition::band::Band;
+use crate::recognition::mode::Mode;
+use crate::reference::ReferenceAssociation;
+use crate::scalar::{Hertz, Milliwatts, RecordedCallsign, UtcSecond, optional_text};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -200,7 +207,7 @@ pub struct Qso {
     pub contacted_operator: Option<OperatorInformation>,
     /// Recorded primary frequency/band pair.
     pub primary: BandFrequency,
-    /// Optional separate receive pair; see [`BandFrequency::effective_receive`].
+    /// Optional separate receive pair; see [`crate::contact::BandFrequency::effective_receive`].
     pub receive_override: Option<BandFrequency>,
     /// Recorded mode hierarchy and labels independent of recognition.
     pub mode: Mode,
@@ -315,7 +322,7 @@ impl Qso {
     /// Empty locations/operators collapse to absence; an empty receive override
     /// is removed. Nonblank text and explicit recorded facts remain unchanged.
     /// Equipment/reference strings are outside this method’s normalization scope.
-    /// See also [`optional_text`] and [`Self::validate`].
+    /// See also [`crate::scalar::optional_text`] and [`Self::validate`].
     pub fn normalize_optional_aggregates(&mut self) {
         if self
             .receive_override
@@ -353,7 +360,7 @@ impl EquipmentValues {
     /// Validate copied optional equipment text before accepting it into a saved record.
     ///
     /// Blank present strings fail validation. No particular equipment field is
-    /// required. For preparing optional text, see [`optional_text`].
+    /// required. For preparing optional text, see [`crate::scalar::optional_text`].
     pub fn validate(&self) -> anyhow::Result<()> {
         for (name, value) in [
             ("equipment", &self.equipment_description),

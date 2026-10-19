@@ -1,12 +1,10 @@
 //! Output context and profile selection independent of contact selection or file publication.
 
-use crate::{GroupId, OutputProfileId};
+use crate::ids::{GroupId, OutputProfileId};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-mod rules;
-
-pub use rules::*;
+pub mod rules;
 
 /// The requested output profile and optional program/contest context.
 ///
@@ -31,8 +29,8 @@ pub enum OutputPurpose {
 /// Reference-output policy, separate from full interchange formatting and publication.
 ///
 /// Contains only identity, purpose and contextual-field configuration. For
-/// selection and output planning, see [`select_mappings`] and
-/// [`plan_reference_export`].
+/// selection and output planning, see [`crate::export::select::select_mappings`] and
+/// [`crate::export::evaluate::plan_reference_export`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OutputProfile {
     /// Stable output-profile identity used in targeted group mappings.
@@ -50,10 +48,6 @@ pub struct OutputProfile {
 /// Callers must keep registry keys consistent with embedded identities.
 pub type ProfileSet = BTreeMap<OutputProfileId, OutputProfile>;
 
-mod select;
+pub mod select;
 
-pub use select::*;
-
-mod evaluate;
-
-pub use evaluate::*;
+pub mod evaluate;

@@ -1,6 +1,7 @@
 //! Logbook-tag upload policies and pure deletion classification for account-owned contacts.
 
-use crate::{Qso, QsoId, TagId};
+use crate::contact::Qso;
+use crate::ids::{QsoId, TagId};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 

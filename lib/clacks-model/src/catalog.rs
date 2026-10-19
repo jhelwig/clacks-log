@@ -1,6 +1,12 @@
 //! Descriptive reference metadata and read-only association lookup.
 
-use crate::*;
+use crate::export::rules::{
+    ExpressionContext, ExpressionValue, ValueExpression, compile_definition,
+};
+use crate::group::DefinitionSet;
+use crate::ids::CatalogId;
+use crate::reference::ReferenceAssociation;
+use crate::scalar::UtcTimestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

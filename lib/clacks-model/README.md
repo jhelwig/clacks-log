@@ -6,7 +6,9 @@ participation/reference associations. It includes supplied group/catalog schemas
 whole-source fallback selection, definition validation and an in-memory
 reference-export planner. It has no database, network, desktop or server runtime.
 
-Use the public re-exports from `clacks_model`. Constrained scalar values validate
+Import items from their owning public modules, such as
+`clacks_model::contact::Qso`, `clacks_model::recognition::mode::Mode` and
+`clacks_model::export::evaluate::plan_reference_export`. Constrained scalar values validate
 through constructors and ordinary Serde decoding. Records are ordinary structs:
 normalize optional aggregates with `Qso::normalize_optional_aggregates`, then
 call `Qso::validate` before saving; incomplete entry and import preparation stay

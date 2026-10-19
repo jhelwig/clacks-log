@@ -1,6 +1,11 @@
 mod support;
 
-use clacks_model::*;
+use clacks_model::export::rules::{
+    ExpressionContext, ExpressionValue, ValueExpression, compile_definition,
+};
+use clacks_model::group::DefinitionError;
+use clacks_model::ids::{GroupId, QsoId};
+use clacks_model::reference::StationSide;
 use std::collections::BTreeMap;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;

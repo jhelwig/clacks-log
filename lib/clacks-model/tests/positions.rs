@@ -1,5 +1,5 @@
-use clacks_model::*;
-
+use clacks_model::location::{CqZone, ItuZone, RecordedLocation};
+use clacks_model::position::{Coordinates, GridLength, Locator, LookupGeometry, Position};
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 #[test]

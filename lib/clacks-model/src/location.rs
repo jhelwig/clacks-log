@@ -1,6 +1,7 @@
 //! Recorded geographic details independent of directory and dataset metadata.
 
-use crate::{Position, ValueError};
+use crate::error::ValueError;
+use crate::position::Position;
 use serde::{Deserialize, Serialize};
 
 /// Define a bounded operating-zone number with validated deserialization.

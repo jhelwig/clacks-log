@@ -1,6 +1,15 @@
 #![allow(dead_code)]
 
-use clacks_model::*;
+use clacks_model::catalog::{CatalogEntry, CatalogSet, ReferenceCatalog, SourceInformation};
+use clacks_model::contact::{BandFrequency, OwnOperatingContext, Qso, StationSnapshot};
+use clacks_model::export::rules::ValueExpression;
+use clacks_model::export::{OutputProfile, OutputPurpose, ProfileSet};
+use clacks_model::group::DefinitionSet;
+use clacks_model::ids::{CatalogId, GroupId, OutputProfileId, QsoId};
+use clacks_model::recognition::RecognitionCatalog;
+use clacks_model::recognition::mode::{Mode, ModeIdentity, ModeInterpretation};
+use clacks_model::reference::ReferenceAssociation;
+use clacks_model::scalar::{Hertz, RecordedCallsign, UtcSecond, UtcTimestamp};
 use std::collections::BTreeSet;
 
 pub fn qso(id: QsoId) -> Qso {

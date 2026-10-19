@@ -1,7 +1,18 @@
 //! Pure reference-output planning with deterministic partitions and scoped row expansion.
 
 use super::{rules::reference_identifiers, select::evaluate_fields};
-use crate::*;
+use crate::contact::Qso;
+use crate::export::rules::{
+    CompiledGroupDefinition, ExpressionContext, ExpressionValue, PartitionRule, compile_definition,
+};
+use crate::export::select::{
+    ContextResolution, ExportDecision, ExportError, ExportWarning, SelectedGroupMapping,
+    select_mappings,
+};
+use crate::export::{ExportContext, OutputPurpose, ProfileSet};
+use crate::group::DefinitionSet;
+use crate::ids::{GroupId, QsoId};
+use crate::reference::StationSide;
 use std::collections::BTreeMap;
 
 /// In-memory reference output plus decisions and diagnostics for a selected contact snapshot.

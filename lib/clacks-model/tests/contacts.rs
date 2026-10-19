@@ -1,7 +1,12 @@
 mod support;
 
-use clacks_model::*;
-
+use clacks_model::contact::{BandFrequency, OperatorInformation, Qso};
+use clacks_model::ids::{GroupId, QsoId, TagId};
+use clacks_model::location::RecordedLocation;
+use clacks_model::recognition::RecognitionCatalog;
+use clacks_model::recognition::band::Band;
+use clacks_model::recognition::mode::{Mode, ModeIdentity};
+use clacks_model::scalar::{Hertz, RecordedCallsign, UtcSecond};
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 #[test]

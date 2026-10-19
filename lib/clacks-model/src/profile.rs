@@ -1,12 +1,15 @@
 //! Reusable station/equipment values and explicit client-local profile loading.
 
-use crate::*;
+use crate::contact::{OperatorInformation, RecordError, StationSnapshot};
+use crate::equipment::EquipmentValues;
+use crate::ids::{EquipmentConfigurationId, ProfileId};
+use crate::scalar::Milliwatts;
 use serde::{Deserialize, Serialize};
 
 /// An account-shared reusable own-station snapshot with an optional equipment default.
 ///
 /// This is an owned profile value, not an active link to operating defaults or
-/// contact history. For explicit loading, see [`load_profile`].
+/// contact history. For explicit loading, see [`crate::profile::load_profile`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SavedLocationProfile {
     /// Stable profile identity, independent of its display name.

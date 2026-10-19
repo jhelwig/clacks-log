@@ -1,6 +1,14 @@
 //! Per-contact mapping selection with explicit resolution of contextual ambiguity.
 
-use crate::*;
+use crate::contact::Qso;
+use crate::export::rules::{
+    BindingCondition, CompiledGroupDefinition, ExpressionContext, ExpressionValue, FieldBinding,
+    GroupExportPlan, compile_definition,
+};
+use crate::export::{ExportContext, OutputPurpose, ProfileSet};
+use crate::group::{DefinitionError, DefinitionSet};
+use crate::ids::{GroupId, OutputProfileId, QsoId};
+use crate::reference::StationSide;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// A reference-export context, assignment or readiness failure.

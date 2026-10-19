@@ -1,7 +1,18 @@
 mod support;
 
-use clacks_model::*;
-
+use clacks_model::contact::OperatorInformation;
+use clacks_model::equipment::EquipmentValues;
+use clacks_model::ids::{EquipmentConfigurationId, GroupId, ProfileId, QsoId, TagId};
+use clacks_model::location::RecordedLocation;
+use clacks_model::profile::{
+    CurrentOperatingValues, EquipmentConfiguration, LoadedProfileBaseline, ProfileDifference,
+    SavedLocationProfile, compare_loaded_profile, load_equipment, load_profile,
+};
+use clacks_model::scalar::{Milliwatts, RecordedCallsign};
+use clacks_model::tag::{
+    AutomaticUploadPolicy, LogbookTag, TagDeletionChoice, automatic_upload_allowed,
+    plan_tag_deletion,
+};
 fn current() -> CurrentOperatingValues {
     let q = support::qso(QsoId::from_u128(1));
     CurrentOperatingValues {

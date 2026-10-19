@@ -1,7 +1,7 @@
 //! Preserved mode hierarchies with catalog-derived recognition views.
 
-use super::{ModeRow, RecognitionCatalog, SubmodeRow};
-use crate::ValueError;
+use crate::error::ValueError;
+use crate::recognition::{ModeRow, RecognitionCatalog, SubmodeRow};
 use serde::{Deserialize, Serialize};
 
 /// Recorded parent/specialization hierarchy and supplied labels.
