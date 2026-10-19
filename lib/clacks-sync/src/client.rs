@@ -568,3 +568,38 @@ pub fn resolve_review(
         }),
     })
 }
+
+/// Preserve local and frozen values after a terminal admission/reference rejection.
+///
+/// Save the returned review alongside the unchanged pending evidence. Reauthorization
+/// does not silently change the author of the excluded proposal.
+pub fn receive_rejection(
+    current: &ClientRecord,
+    reason: &crate::acceptance::RejectionReason,
+) -> anyhow::Result<ClientUpdate> {
+    validate_client(current)?;
+    let Some(p) = &current.pending else {
+        return Err(MetadataError::Invalid {
+            detail: format!("rejection for {:?} has no pending values", current.key),
+        }
+        .into());
+    };
+    let reason = match reason {
+        crate::acceptance::RejectionReason::ActorClosed { actor, .. }
+        | crate::acceptance::RejectionReason::ActorUnknown { actor } => {
+            ReviewReason::ExcludedActor(*actor)
+        }
+        crate::acceptance::RejectionReason::MissingReference { key } => {
+            ReviewReason::MissingReference(*key)
+        }
+    };
+    Ok(ClientUpdate {
+        record: current.clone(),
+        review: Some(ReviewInput {
+            original: p.original.clone(),
+            local: p.working.clone(),
+            shared: current.latest.clone(),
+            reason,
+        }),
+    })
+}

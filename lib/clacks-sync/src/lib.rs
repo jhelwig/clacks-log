@@ -19,3 +19,6 @@ pub mod lineage;
 pub mod compare;
 
 pub mod client;
+
+pub mod acceptance;
+pub mod membership;

@@ -122,3 +122,21 @@ impl EvidenceView<'_> {
         Ok(found)
     }
 }
+
+impl AccountMetadata {
+    /// Allocate the next mutation/journal position and its complete local prefix.
+    ///
+    /// Call only as part of a conditional transaction; exhaustion never wraps.
+    pub(crate) fn advance(&self) -> Result<Self, MetadataError> {
+        let mut next = self.clone();
+        next.head.revision =
+            next.head
+                .revision
+                .checked_add(1)
+                .ok_or_else(|| MetadataError::Overflow {
+                    counter: format!("account {} timeline {}", self.account, self.head.timeline),
+                })?;
+        next.installed = next.installed.join(&Coverage::from(next.head));
+        Ok(next)
+    }
+}
