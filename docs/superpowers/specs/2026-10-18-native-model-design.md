@@ -1,14 +1,14 @@
 # Native contact and shared-data model
 
-**Status: implemented in PR #39; current snapshot prepared for adversarial review, 18 October 2026.** This
+**Status: implemented in PR #39; adversarial panel findings resolved through user-authorized fixes, 18 October 2026.** This
 consolidates the accepted issue #1 discussion and decisions through D256. It is
 the logical specification; [execution evidence](../../native-model-execution.md) records delivered library behavior and downstream boundaries.
 The behavioral requirements below are accepted. Section 2 distinguishes the
 engineering choices implemented through the user-authorized plan from earlier
 product decisions. The [execution evidence](../../native-model-execution.md)
 identifies which revisions were independently reviewed; later changes are not
-automatically covered by that review. Further changes await joint review of
-the requested adversarial panel's findings.
+automatically covered by that review. The user reviewed the [adversarial panel findings](../../adversarial-native-model-review.md)
+and authorized the three P2 fixes; their resolution is recorded there.
 
 A radio contact is a QSO. Minimum viable product is abbreviated MVP. Amateur
 Data Interchange Format (ADIF) is an interchange standard; its text format is
@@ -695,8 +695,8 @@ This is the consolidated design underpinning the
 The user authorized native execution; the library, plan and current evidence
 are in [PR #39](https://github.com/jhelwig/clacks-log/pull/39). Issue #1 remains
 open while that delivery is reviewed and integrated. No roadmap phase is marked
-complete. Review the requested adversarial panel's findings with the user before
-any further changes.
+complete. The user-authorized fixes and review dispositions are recorded in the
+[adversarial panel review](../../adversarial-native-model-review.md).
 
 Import-side `CONTEST_ID` station assignment is not approved or implemented;
 settle it in import mapping work. Full external service history/associations

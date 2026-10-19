@@ -8,9 +8,9 @@ This file records the October 17 document-level reviews through D251. It does
 not certify the later issue #1 implementation or D256. The
 [native-model execution evidence](native-model-execution.md) records the code
 review at `9ad572b`, regression fixes at `584d99c`, and later data-driven
-recognition correction at `86baeb6`. The current snapshot is prepared for the
-user-requested adversarial panel; its findings are to be reviewed before
-further changes. AR1–AR4 retain their historical resolved status.
+recognition correction at `86baeb6`. The [adversarial native-model panel](adversarial-native-model-review.md)
+reviewed `afb001d`; the user authorized fixes for its three P2 findings, now
+resolved. AR1–AR4 retain their historical resolved status.
 
 ## Findings
 

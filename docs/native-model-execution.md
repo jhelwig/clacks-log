@@ -5,8 +5,9 @@ Checkpoint: 18 October 2026. The user authorized native execution of the
 against the [native-model specification](superpowers/specs/2026-10-18-native-model-design.md).
 Work is on branch `native-model` in an isolated Git worktree. The user selected
 publication as [PR #39](https://github.com/jhelwig/clacks-log/pull/39), open against
-`main`; the branch is not merged. The current snapshot is prepared for the
-requested adversarial panel and joint review before further changes. This
+`main`; the branch is not merged. The adversarial panel reviewed `afb001d`; the user reviewed its results and
+authorized fixes for all three P2 findings, now recorded as resolved in the
+[panel review](adversarial-native-model-review.md). This
 checkpoint does not close issue #1 or complete a roadmap phase.
 
 ## Delivered boundary
@@ -26,12 +27,13 @@ provider and catalog metadata. Account authorization and durability are adapter 
 
 ## Verification
 
-Current code checkpoint: `86baeb6` (data-driven recognition). All checks used
+Current code includes the user-authorized catalog-collision fix after `86baeb6`
+(data-driven recognition). All checks used
 the pinned compiler and committed dependency lockfile:
 
-- 50 integration tests passed with `cargo +1.99.1 test --workspace --all-targets --locked`.
+- 51 integration tests passed with `cargo +1.99.1 test --workspace --all-targets --locked`.
 - One compile-fail documentation test passed with `cargo +1.99.1 test --doc --workspace --locked`.
-- The same 50 tests passed offline after dependencies were acquired.
+- All 51 integration tests and the documentation test passed offline after dependencies were acquired.
 - Formatting and Clippy (`--all-targets --locked -- -D warnings`) passed.
 - `cargo +1.99.1 check --workspace --target x86_64-pc-windows-msvc --locked` passed. This checks compilation, not a Windows runtime or installer.
 - Reviewed the dependency tree: regex 1.13.1, Serde 1.0.229, serde_json 1.0.154 and ulid 3.0.0 with their Rust/platform-randomness dependencies. No OpenSSL or application framework.
@@ -81,12 +83,13 @@ Each received a regression test that failed before the fix and passed afterward:
 
 At `584d99c`, the post-review-fix suite passed: 48 integration tests and one
 compile-fail documentation test. D256 subsequently added two regression tests,
-bringing the current total at `86baeb6` to 50 integration tests plus the
+bringing the total at `86baeb6` to 50 integration tests plus the
 documentation test. Formatting, Clippy, offline verification and Windows
 cross-compilation were repeated after fixes. That original fix pass was verified by regression tests
 and the complete suite, without a second reviewer. It does not independently
-review the later D256 refactor. The newly requested adversarial panel is a
-separate review of the current snapshot, not an approval already obtained.
+review the later D256 refactor. The later adversarial panel is a separate review of `afb001d`; its
+[user-authorized fixes](adversarial-native-model-review.md) do not imply a second
+independent review of the fixes themselves.
 
 The review left these planned component boundaries in place:
 
@@ -120,6 +123,7 @@ Two regression tests failed against the type-encoded implementation: supplied
 new mode/submode rows and supplied new band rows could not be recognized. Both
 now pass with catalog-only additions. Baseline tests inspect actual matched rows
 and metadata, and old/new recognition views preserve recorded identity/context.
-The current verification totals are 50 integration tests and one compile-fail
-documentation test. The catalog-row checks use committed extracted data; they
+The D256 checkpoint had 50 integration tests and one compile-fail documentation
+test. The panel regression adds one test, bringing current verification to
+51 integration tests and the documentation test. The catalog-row checks use committed extracted data; they
 do not independently re-download or certify the upstream specification.

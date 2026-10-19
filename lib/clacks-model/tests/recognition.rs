@@ -207,3 +207,43 @@ fn supplied_band_rows_are_not_limited_to_compiled_labels() -> TestResult {
     assert!(band.interpret(&extended).is_some());
     Ok(())
 }
+
+#[test]
+fn catalog_rejects_labels_that_collide_during_recognition() -> TestResult {
+    let valid = serde_json::json!({
+        "release": "case-collision-regression",
+        "bands": [{"code": "X", "lower_hz": 100, "upper_hz": 200}],
+        "modes": [{"code": "A", "deprecated": false}, {"code": "B", "deprecated": false}],
+        "submodes": [{"code": "X", "parent": "A", "deprecated": false}]
+    });
+    for (table, conflicting_row) in [
+        (
+            "bands",
+            serde_json::json!({"code": "x", "lower_hz": 300, "upper_hz": 400}),
+        ),
+        (
+            "modes",
+            serde_json::json!({"code": "a", "deprecated": true}),
+        ),
+        (
+            "submodes",
+            serde_json::json!({"code": "x", "parent": "B", "deprecated": true}),
+        ),
+    ] {
+        let mut data = valid.clone();
+        data[table].as_array_mut().unwrap().push(conflicting_row);
+        for reverse in [false, true] {
+            if reverse {
+                data[table].as_array_mut().unwrap().reverse();
+            }
+            assert!(
+                matches!(
+                    RecognitionCatalog::from_json(&serde_json::to_string(&data)?),
+                    Err(ValueError::InvalidRecognitionCatalog { .. })
+                ),
+                "{table} accepted ambiguous labels (reversed: {reverse})"
+            );
+        }
+    }
+    Ok(())
+}

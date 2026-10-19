@@ -54,7 +54,12 @@ impl RecognitionCatalog {
             v.submodes.iter().map(|r| r.code.as_str()).collect(),
         ] {
             if codes.iter().any(|s| s.trim().is_empty())
-                || codes.iter().copied().collect::<BTreeSet<_>>().len() != codes.len()
+                || codes
+                    .iter()
+                    .map(|code| code.to_ascii_lowercase())
+                    .collect::<BTreeSet<_>>()
+                    .len()
+                    != codes.len()
             {
                 return Err(invalid("blank or duplicate catalog labels".into()));
             }
