@@ -124,3 +124,13 @@ pub fn contest_definitions() -> DefinitionSet {
     b.export_mappings.ordinary_interchange[0].value = ValueExpression::Literal("CONTEST-B".into());
     DefinitionSet::new(defs.iter().cloned().chain([b]).collect()).unwrap()
 }
+
+pub fn legacy_view_round_trip(
+    json: &str,
+    catalog: &RecognitionCatalog,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let mut q: Qso = serde_json::from_str(json)?;
+    q.mode = Mode::from_recorded_identity(q.mode.identity(), catalog)?;
+    q.comment = Some("edited by older recognition view".into());
+    Ok(serde_json::to_string(&q)?)
+}

@@ -2,7 +2,7 @@
 
 Clacks Log is a planned amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The initial implementation attempt has been discarded; implementation is stopped pending a reviewed specification and implementation plan. Rust is the intended implementation language wherever practical. PostgreSQL is selected for server persistence, embedded SQLite for client persistence (D213), and egui for the desktop interface (D215). No application implementation or migration is underway.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The initial implementation attempt was discarded. The native-model library is now implemented on the `native-model` branch under the user-authorized issue #1 plan; whole-branch review precedes integration. Rust is the intended implementation language wherever practical. PostgreSQL is selected for server persistence, embedded SQLite for client persistence (D213), and egui for the desktop interface (D215). No desktop/server application or database migration is delivered by this library.
 
 ## Planning documents
 
@@ -10,7 +10,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Phased MVP roadmap](docs/mvp-roadmap.md)
 - [GitHub milestones and capability issues](docs/github-backlog.md)
 - [Native-model specification](docs/superpowers/specs/2026-10-18-native-model-design.md)
-- [Native-model implementation plan — awaiting review](docs/superpowers/plans/2026-10-18-native-model.md)
+- [Native-model implementation plan and progress](docs/superpowers/plans/2026-10-18-native-model.md)
 - [Product scope and operating workflows](docs/product.md)
 - [Decision register](docs/decisions.md)
 - [Architectural review](docs/architecture-review.md)
@@ -22,6 +22,15 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [TrustedQSL reference source map](references/trustedqsl/source-map.md)
 
 The current planning documents reflect the conversation through 18 October 2026 (D01–D255). Original handoffs are historical evidence, not instructions or current requirements. Later explicit decisions take precedence over earlier research and assistant proposals.
+
+## Native-model library
+
+[`lib/clacks-model`](lib/clacks-model/README.md) contains recorded values, contacts,
+profiles, equipment, tags, data-driven reference definitions, effective source
+selection and in-memory reference-export planning. Rust 1.99.1 is pinned.
+Run `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings`
+from this checkout. See the [execution evidence](docs/native-model-execution.md)
+for verified scope, platform checks and downstream boundaries.
 
 ## Project direction
 

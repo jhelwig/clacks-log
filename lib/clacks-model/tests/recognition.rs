@@ -29,7 +29,7 @@ fn every_source_row_has_typed_coverage() -> TestResult {
     let full = RecognitionCatalog::adif_318();
     assert_eq!(full.bands.len(), 33);
     assert_eq!(full.modes.len(), 91);
-    assert!(full.submodes.len() >= 188);
+    assert_eq!(full.submodes.len(), 198);
     for row in &full.modes {
         let mode = Mode::from_recorded_identity(
             ModeIdentity::Parent {

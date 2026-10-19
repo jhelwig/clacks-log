@@ -63,7 +63,7 @@ impl Locator {
 
     fn indices(&self) -> (i64, i64, i64) {
         let (mut lon, mut lat, mut count) = (0, 0, 1);
-        for (i, pair) in self.0.as_bytes().chunks_exact(2).enumerate() {
+        for (i, pair) in self.0.as_bytes().as_chunks::<2>().0.iter().enumerate() {
             let base = if i % 2 == 0 { b'A' } else { b'0' };
             lon = lon * RADICES[i] + i64::from(pair[0] - base);
             lat = lat * RADICES[i] + i64::from(pair[1] - base);

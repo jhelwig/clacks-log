@@ -4,7 +4,7 @@ Reconciled **18 October 2026** against D01–D255 in the [decision register](dec
 
 This file retains its existing path as an index of remaining engineering work and deferred matters. Entries below are not a product-decision backlog or an approval queue. Concrete schemas, protocol messages, transaction handling, mappings, dependency configuration, data preparation and validation are implementation specification/design or verification work. Their incompleteness does not mean product planning remains open.
 
-No application implementation, prototype, implementation-plan execution, migration or publication is authorized by this completion checkpoint. A demonstrated contradiction, missing requirement or material behavioral/architectural tradeoff can justify a focused decision later; ordinary engineering details do not.
+This product-planning checkpoint alone authorized no implementation or publication. The user has since authorized native execution of issue #1; see the [execution evidence](native-model-execution.md). A demonstrated contradiction, missing requirement or material behavioral/architectural tradeoff can justify a focused decision later; ordinary engineering details do not.
 
 The initial implementation has been discarded. The [MVP roadmap](mvp-roadmap.md)
 describes phases, capability milestones and dependencies. Detailed planning for a selected milestone is required before
@@ -88,8 +88,8 @@ See [accounts and enrollment](accounts.md). Remaining work includes:
 
 The [consolidated native-model specification](superpowers/specs/2026-10-18-native-model-design.md) collects accepted native behavior and explicitly labeled engineering
 proposals. At the user's request, the [implementation plan](superpowers/plans/2026-10-18-native-model.md)
-is now written for review alongside it. This is issue #1 engineering preparation,
-not another product-decision queue. No plan task has been executed.
+has now been implemented on the native-model branch. See the [execution evidence](native-model-execution.md)
+for verification and remaining integration boundaries; whole-branch review precedes integration.
 Catalog provenance has no separate local version scheme. Optional catalog
 support does not select acquisition/update/distribution workflows. Export
 context selection is accepted under D255. Import-side assignment of an ADIF

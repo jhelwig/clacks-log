@@ -10,9 +10,9 @@ Terms: radio contact (QSO); minimum viable product (MVP); Amateur Data Interchan
 
 **Tech Stack:** Rust **1.99.1**, edition 2024; standard library collections; Serde 1 with derive, serde_json 1, regex 1 and ulid 3. Dependencies use compatible major-version ranges and a committed Cargo.lock resolved with the pinned compiler. No application or database crate is needed for this issue.
 
-**Spec:** [Native contact and shared-data model](../specs/2026-10-18-native-model-design.md). The user's instruction to write this plan advances the written specification into implementation planning; it does not authorize execution. The four engineering choices in spec section 2 are the basis of this plan and remain visible in that section.
+**Spec:** [Native contact and shared-data model](../specs/2026-10-18-native-model-design.md). The user subsequently authorized native execution of this plan. The four engineering choices in spec section 2 are the basis of this plan and remain visible in that section.
 
-**Status:** Plan written for user review, 18 October 2026. No task has been executed. Checkboxes describe future work; no build or test result below is a current success claim.
+**Status:** Native execution authorized and tasks implemented on 18 October 2026. Checked steps record execution; independent whole-branch review precedes integration. See [execution evidence](../../native-model-execution.md) for actual verification results.
 
 ## Global Constraints
 
@@ -68,7 +68,7 @@ The [ADIF 3.1.8 resources section](https://www.adif.org/318/ADIF_318.htm) identi
 
 ## File structure
 
-The file tree uses repository-relative paths. In task Files blocks, `src/`, `tests/` and `data/` are relative to `lib/clacks-model/`; workspace files are at the repository root. Source files do not exist yet. Create them only during authorized execution.
+The file tree uses repository-relative paths. In task Files blocks, `src/`, `tests/` and `data/` are relative to `lib/clacks-model/`; workspace files are at the repository root. The tree below is implemented by the checked tasks.
 
 ```text
 Cargo.toml                         workspace, one library member, resolver 3
@@ -527,11 +527,11 @@ belong to the later interchange capability.
 
 **Interfaces:** Consume the public interfaces above without adding new behavior. Test-only `legacy_view_round_trip(&str, &RecognitionCatalog) -> Result<String, Box<dyn std::error::Error>>` uses the old-recognition fixture and the same preserved mode/band identities; it must not simply parse every value using the current recognition catalog. No public schema version or actor protocol is invented.
 
-- [ ] **Step 1:** Add `unrelated_edit_survives_old_recognition_round_trip`, `source_mutation_cannot_rewrite_recorded_snapshots`, `empty_optional_aggregates_are_not_location_evidence`, `whole_record_comparison_includes_disjoint_tag_edits`, and `invalid_deserialized_values_are_rejected_before_save`. Use the stored-values fixture to retain unknown submode/optional parent text and band labels exactly, change only a comment, and compare both native identities and serialized JSON values. Test that equal center coordinates do not erase area/point distinction. Tests exercise real boundaries rather than mirror a struct's field list.
-- [ ] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test compatibility`; expect any uncovered integration gap to fail before fixes. If it passes immediately because preceding tasks already implement the complete contract, record that truthfully instead of introducing a deliberate defect.
-- [ ] **Step 3:** Fix only demonstrated contract gaps, then document the implementation/library boundary, source data provenance, actual dependency graph and unimplemented downstream adapters. All comparison fixtures use immutable copied input values. Record the unresolved import CONTEST_ID ownership boundary without implementing a guessed answer. Do not mark any roadmap phase complete or close issue #1 merely because planning documents exist; evaluate its capability acceptance against actual delivered evidence.
-- [ ] **Step 4:** Run the full verification set below. Document real results and any unavailable target checks; do not report an unrun Windows check as passing. Review the changed source for item spacing as well as rustfmt output. Inspect `cargo tree` for unexpected native/system dependencies and ensure the crate can be tested offline after dependency acquisition.
-- [ ] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
+- [x] **Step 1:** Add `unrelated_edit_survives_old_recognition_round_trip`, `source_mutation_cannot_rewrite_recorded_snapshots`, `empty_optional_aggregates_are_not_location_evidence`, `whole_record_comparison_includes_disjoint_tag_edits`, and `invalid_deserialized_values_are_rejected_before_save`. Use the stored-values fixture to retain unknown submode/optional parent text and band labels exactly, change only a comment, and compare both native identities and serialized JSON values. Test that equal center coordinates do not erase area/point distinction. Tests exercise real boundaries rather than mirror a struct's field list.
+- [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test compatibility`; expect any uncovered integration gap to fail before fixes. If it passes immediately because preceding tasks already implement the complete contract, record that truthfully instead of introducing a deliberate defect.
+- [x] **Step 3:** Fix only demonstrated contract gaps, then document the implementation/library boundary, source data provenance, actual dependency graph and unimplemented downstream adapters. All comparison fixtures use immutable copied input values. Record the unresolved import CONTEST_ID ownership boundary without implementing a guessed answer. Do not mark any roadmap phase complete or close issue #1 merely because planning documents exist; evaluate its capability acceptance against actual delivered evidence.
+- [x] **Step 4:** Run the full verification set below. Document real results and any unavailable target checks; do not report an unrun Windows check as passing. Review the changed source for item spacing as well as rustfmt output. Inspect `cargo tree` for unexpected native/system dependencies and ensure the crate can be tested offline after dependency acquisition.
+- [x] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
 
 ```text
 test(model): verify preservation and cross-component native contracts
@@ -575,10 +575,10 @@ Expected: tests/doc tests pass, formatter/clippy/diff checks exit zero, offline 
 | 11: profiles/equipment/tags | Task 5; missing/deleted references feed downstream resolution rather than silent repair. |
 | 12: sources, equality, component boundaries | Tasks 4, 7 and 11; provider eligibility/arbitration and causal synchronization remain their capabilities. |
 | 13: acceptance cases | Named owning-task tests above and final Task 11 verification. |
-| 14: review/execution boundary | This plan remains reviewable and unexecuted until the user selects execution. |
+| 14: review/execution boundary | User selected native execution; evidence and independent review govern completion. |
 
 ### Self-review and execution handoff
 
-Self-review checked the plan against all specification sections, traced the five Review Focus cases to owning tests, and corrected mapping-type dependencies, context-resolution inputs and profile-baseline coverage. The coverage map identifies integration behavior deliberately owned by later capabilities; this plan does not claim to deliver those adapters. No execution method has been chosen. After user review, use the selected execution workflow in an isolated worktree; do not create one or start code while merely preparing this plan.
+Self-review checked the plan against all specification sections, traced the five Review Focus cases to owning tests, and corrected mapping-type dependencies, context-resolution inputs and profile-baseline coverage. The coverage map identifies integration behavior deliberately owned by later capabilities; this plan does not claim to deliver those adapters. The user selected native execution; work runs in the isolated native-model worktree. Ledger rulings and verification results are summarized in the execution evidence.
 
 Native execution is recommended because the tasks share a tightly coupled value/schema contract and one library; a single implementer can carry that contract through the chain with a final independent review. Subagent-driven execution remains available if the user prefers a fresh implementer/reviewer per task. In either case, read the spec and this plan together and do not infer additional product requirements during implementation.

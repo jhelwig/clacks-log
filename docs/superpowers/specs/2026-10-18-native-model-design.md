@@ -1,8 +1,8 @@
 # Native contact and shared-data model
 
-**Status: written specification; implementation plan prepared for review, 18 October 2026.** This
+**Status: implemented under the user-authorized native-execution plan, 18 October 2026; whole-branch review precedes integration.** This
 consolidates the accepted issue #1 discussion and decisions through D255. It is
-not an approved implementation plan, delivered software, or permission to code.
+the logical specification; [execution evidence](../../native-model-execution.md) records delivered library behavior and downstream boundaries.
 The behavioral requirements below are accepted. Logical field/type names and
 the engineering choices explicitly identified in section 2 are proposals for
 review in this document, rather than claims of earlier approval.
@@ -690,5 +690,5 @@ parity preserved. Physical storage, sync protocol/recovery and concrete crate
 composition are not silently prescribed by the logical schema.
 
 The implementation plan supplies the concrete files, interfaces, task ordering
-and verification steps. Its preparation does not authorize coding or plan
-execution.
+and verification steps. The user subsequently authorized native execution.
+See the execution evidence for checks and integration status.
