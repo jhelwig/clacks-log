@@ -35,7 +35,7 @@ These are compatibility findings, not behavior we must copy into the product. D2
 
 The logger should provide its own station-location management. TrustedQSL (TQSL) signing tool's configuration describes country/entity-dependent fields and allowed values; a GUI wizard is not a protocol requirement.
 
-Each QSO captures its operating location as a snapshot at logging time. Saved profiles synchronize, while current logging defaults are independent per client. Profile/default edits do not change historical signing inputs; correcting existing QSOs requires explicit editing. Profiles are optional for one-off locations, and no operating-session start/end lifecycle is required. Canonical representation and field validation remain open.
+Each QSO captures its operating location as a snapshot at logging time. Saved profiles synchronize, while current logging defaults are independent per client. Profile/default edits do not change historical signing inputs; correcting existing QSOs requires explicit editing. Profiles are optional for one-off locations, and no operating-session start/end lifecycle is required. Native station/location values and validation are defined in the [implemented model specification](superpowers/specs/2026-10-18-native-model-design.md). LoTW-specific signing-input mapping and validation remain unimplemented.
 
 ## What tqsllib supplies
 
@@ -57,7 +57,7 @@ Remaining engineering preparation includes inventorying the reference functions 
 
 Future compatibility verification should compare signing bytes and parsed records against the reference, verify signatures independently, and check actual LoTW acceptance and retained values. Gzip metadata or incidental formatting need not match byte-for-byte when protocol semantics do. Include corrections, ambiguous upload outcomes, multiple callsigns/entities, historical dates, portable locations, satellite and cross-band contacts, and invalid credentials.
 
-No Rust implementation or live end-to-end signing/upload test has been performed. The previous speculative effort estimate was withdrawn; source-level scope must support any future estimate.
+No Rust LoTW implementation or live end-to-end signing/upload test has been performed. The previous speculative effort estimate was withdrawn; source-level scope must support any future estimate.
 
 ## Pure-Rust cryptographic backend (D224)
 
@@ -69,4 +69,4 @@ Pure-Rust source paths support modern and legacy archives. Preserve archive inte
 
 Import, certificate interpretation and signing remain server-side. Shared client/browser/domain code does not inherit server cryptography dependencies. Review optional/transitive features to avoid native verification backends within the selected LoTW subsystem. Unrelated client networking choices remain separate.
 
-Exact library releases, feature compatibility and fixtures are engineering work; no application implementation, private certificate inspection or compatibility test has started. Existing historical upstream notices apply to adapted source regardless of the runtime backend.
+Exact library releases, feature compatibility and fixtures are engineering work; no Clacks LoTW implementation, private certificate inspection or LoTW compatibility test has started. Existing historical upstream notices apply to adapted source regardless of the runtime backend.

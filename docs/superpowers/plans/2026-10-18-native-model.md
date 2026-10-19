@@ -12,7 +12,7 @@ Terms: radio contact (QSO); minimum viable product (MVP); Amateur Data Interchan
 
 **Spec:** [Native contact and shared-data model](../specs/2026-10-18-native-model-design.md). The user subsequently authorized native execution of this plan. The four engineering choices in spec section 2 are the basis of this plan and remain visible in that section.
 
-**Status:** Native execution authorized and tasks implemented on 18 October 2026. Checked steps record execution; independent whole-branch review and its regression fixes are complete. See [execution evidence](../../native-model-execution.md) for actual verification results.
+**Status:** Native execution authorized and tasks implemented on 18 October 2026. Checked steps record task delivery, including documented follow-up corrections; they are not claims that a revised instruction was executed at the original commit. The initial independent review covered `9ad572b` and led to fixes at `584d99c`; D256 was implemented later at `86baeb6`. PR #39 contains the result. This checkpoint is prepared for the requested adversarial panel; discuss its findings before further changes. See [execution evidence](../../native-model-execution.md) for actual verification results.
 
 ## Global Constraints
 
@@ -48,7 +48,7 @@ These five failure classes receive explicit tests in the owning tasks:
 
 The tasks form one cohesive model capability with shared interfaces, not independent server/client projects. Keep one crate initially; modules below separate responsibilities without imposing a crate per type. Later implementations may reuse these APIs without adopting a second persistent representation of the same facts.
 
-The plan supplies these engineering decisions for review:
+The authorized plan implemented these engineering choices:
 
 - Use `NonZeroU64` internally for hertz/milliwatts, `i32` for coordinate millionths and `i64` Unix seconds for contact times. Operational source timestamps use seconds plus nanoseconds, with nanoseconds less than 1,000,000,000. These are representations, not claims about clock accuracy or timestamp precision on the air.
 - Use typed ULID wrappers with string Serde representations and `BTreeSet` for tags/references. Do not use ID timestamps as revision order. Names do not merge entities.
@@ -228,7 +228,7 @@ retaining locator length, including coarse historical areas.
 - `Mode` stores a validated `ModeIdentity`; `from_recorded_identity(ModeIdentity) -> Result<Self, ValueError>`, `identity() -> ModeIdentity`, `interpret<'a>(&self, &'a RecognitionCatalog) -> ModeInterpretation<'a>`.
 - `ModeIdentity::{Parent { label: String }, Specialization { label: String, parent: Option<String> }}` preserves the generic hierarchy. `ModeInterpretation<'a>::Known(RecognizedMode<'a>)` returns catalog metadata (`mode: &ModeRow`, `submode: Option<&SubmodeRow>`); `Other(ModeIdentity)` retains unfamiliar information. Concrete catalog values never appear as Rust variants.
 
-- [x] **Step 1:** Obtain complete 3.1.8 table facts into the data artifact, recording source/date and observed row counts. Add tests independently comparing every source row with data-driven recognition/encoding coverage, plus these exact preservation checks:
+- [x] **Step 1:** Obtain complete 3.1.8 table facts into the data artifact, recording source/date and observed row counts. Add tests covering every committed catalog row with data-driven recognition/encoding checks, plus these exact preservation checks:
 
 ```rust
 // older_recognition_cannot_rewrite_a_specialization
@@ -252,7 +252,7 @@ Also test parent-only MFSK, unknown submode with no parent, unknown parent conte
 - [x] **Step 2:** Run `cargo +1.99.1 test -p clacks-model --test recognition`; expect missing recognition types/lookup behavior.
 - [x] **Step 3:** Implement full catalog-driven recognition. Band ranges convert source megahertz (MHz) to integer hertz exactly; open-ended upper bounds stay open. Serialize recorded generic mode identities and band labels with ordinary Serde conversion, validating nonblank labels without consulting recognition. Interpret catalog rows separately and preserve unfamiliar values and any supplied parent context. Equality/ordering use only recorded identity. Add a catalog-only mode family, submode and band in tests and verify they become recognizable without changing code. This incorporates the D256 correction to the original type-encoded implementation.
 
-- [x] **Step 4:** Run recognition, positions and values tests; inspect the baseline/source parity report and confirm there is no placeholder coverage. Tests must run offline from committed data; builds never fetch catalogs.
+- [x] **Step 4:** Run recognition, positions and values tests; inspect catalog counts and extraction provenance and confirm there is no placeholder coverage. Tests must run offline from committed data; builds never fetch catalogs.
 - [x] **Step 5:** Commit with this subject and rationale, adjusted for the actual delivered change:
 
 ```text
@@ -581,10 +581,10 @@ Expected: tests/doc tests pass, formatter/clippy/diff checks exit zero, offline 
 | 11: profiles/equipment/tags | Task 5; missing/deleted references feed downstream resolution rather than silent repair. |
 | 12: sources, equality, component boundaries | Tasks 4, 7 and 11; provider eligibility/arbitration and causal synchronization remain their capabilities. |
 | 13: acceptance cases | Named owning-task tests above and final Task 11 verification. |
-| 14: review/execution boundary | User selected native execution; evidence and independent review govern completion. |
+| 14: review/execution boundary | Native execution delivered the library; version-specific review evidence and PR integration remain distinct. |
 
 ### Self-review and execution handoff
 
 Self-review checked the plan against all specification sections, traced the five Review Focus cases to owning tests, and corrected mapping-type dependencies, context-resolution inputs and profile-baseline coverage. The coverage map identifies integration behavior deliberately owned by later capabilities; this plan does not claim to deliver those adapters. The user selected native execution; work runs in the isolated native-model worktree. Ledger rulings and verification results are summarized in the execution evidence.
 
-Native execution is recommended because the tasks share a tightly coupled value/schema contract and one library; a single implementer can carry that contract through the chain with a final independent review. Subagent-driven execution remains available if the user prefers a fresh implementer/reviewer per task. In either case, read the spec and this plan together and do not infer additional product requirements during implementation.
+Native execution was selected and completed. The initial implementation review, its regression fixes and the later data-driven recognition correction are recorded separately in the execution evidence. The requested adversarial panel reviews the current snapshot. Do not infer new product requirements or automatically apply its recommendations before joint review.

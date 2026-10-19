@@ -5,7 +5,7 @@ The issue #1 design discussion has been consolidated into the
 dated 18 October 2026. The user then requested the
 [implementation plan](../superpowers/plans/2026-10-18-native-model.md), now
 executed with [verification evidence](../native-model-execution.md). This file
-remains an index, not a parallel specification. Independent whole-branch review and regression fixes are complete; integration remains a separate choice.
+remains an index, not a parallel specification. The initial implementation review and its fixes are recorded in the evidence; the later D256 correction is now included in [PR #39](https://github.com/jhelwig/clacks-log/pull/39). This checkpoint is prepared for the requested adversarial panel and joint review before further changes.
 
 A radio contact is a QSO. Minimum viable product is MVP. Amateur Data
 Interchange Format is ADIF. Parks on the Air is POTA.
@@ -55,10 +55,11 @@ Interchange Format is ADIF. Parks on the Air is POTA.
 
 ## Review and remaining boundaries
 
-The specification labels proposed engineering choices, including concrete ULID
-selection, coordinate tie-rounding/validation order and the declarative rule
-representation. These are proposed for written review rather than claimed as
-previously individually approved. Other schema names are logical notation.
+The specification labels engineering choices implemented through the authorized
+plan, including Universally Unique Lexicographically Sortable Identifier (ULID)
+selection, coordinate tie-rounding/validation order and declarative rules. They
+are not backdated as individually approved product decisions. Implementation
+and review evidence distinguishes library behavior from future adapters.
 
 Import-side station assignment for ADIF CONTEST_ID has not been approved; it
 belongs to import mapping work. Catalog acquisition/update/distribution, complete

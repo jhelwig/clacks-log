@@ -2,6 +2,16 @@
 
 Initial review **17 October 2026** covered D01–D242; the follow-up review on the same date covers the integrated documentation through **D251**. This is a review of documented architecture and requirements, not an implementation/code audit. No application implementation, live service operation, dependency build, formal replication verification or deployment test was performed. Findings distinguish contradictions in current guidance from already selected engineering validation obligations; recommendations are not newly accepted product decisions.
 
+## Relation to current implementation review
+
+This file records the October 17 document-level reviews through D251. It does
+not certify the later issue #1 implementation or D256. The
+[native-model execution evidence](native-model-execution.md) records the code
+review at `9ad572b`, regression fixes at `584d99c`, and later data-driven
+recognition correction at `86baeb6`. The current snapshot is prepared for the
+user-requested adversarial panel; its findings are to be reviewed before
+further changes. AR1–AR4 retain their historical resolved status.
+
 ## Findings
 
 ### AR1 — Resolved in design: multiple local contacts can compete for one external publication target

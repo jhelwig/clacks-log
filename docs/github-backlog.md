@@ -25,7 +25,7 @@ an issue.
 3. Deliver and verify the capability, linking the spec, plan, changes and evidence
    from the issue. Planning alone does not complete a delivery issue.
 
-All initial issues carry the `needs-spec` label. Dependencies are integration and
+At backlog creation, all issues received the `needs-spec` label; live labels and issue state are maintained in GitHub. Dependencies are integration and
 completion prerequisites; independent investigation and brainstorming can begin
 earlier. They are linked in the issue bodies. A phase is not an all-to-all blocker
 for every issue in the next phase.
@@ -46,7 +46,7 @@ No due dates, estimates or assignees have been imposed.
 
 [GitHub milestone](https://github.com/jhelwig/clacks-log/milestone/1)
 
-- [#1 — Establish the native contact and shared-data model](https://github.com/jhelwig/clacks-log/issues/1) — [specification](superpowers/specs/2026-10-18-native-model-design.md) and [implementation plan](superpowers/plans/2026-10-18-native-model.md) implemented on the native-model branch; [verification evidence](native-model-execution.md) records scope. Whole-branch review and regression fixes are complete; integration remains a separate choice; issue remains open.
+- [#1 — Establish the native contact and shared-data model](https://github.com/jhelwig/clacks-log/issues/1) — [specification](superpowers/specs/2026-10-18-native-model-design.md) and [implementation plan](superpowers/plans/2026-10-18-native-model.md) implemented on the native-model branch; [verification evidence](native-model-execution.md) records scope. The initial implementation review and regression fixes are recorded; subsequent data-driven recognition changes are included in [PR #39](https://github.com/jhelwig/clacks-log/pull/39). The issue remains open pending review/integration; the current snapshot is prepared for the requested adversarial panel.
 - [#2 — Demonstrate the synchronization and recovery model](https://github.com/jhelwig/clacks-log/issues/2)
 - [#3 — Establish service history and external-record association behavior](https://github.com/jhelwig/clacks-log/issues/3)
 - [#4 — Validate pure-Rust LoTW certificate and signing compatibility](https://github.com/jhelwig/clacks-log/issues/4)

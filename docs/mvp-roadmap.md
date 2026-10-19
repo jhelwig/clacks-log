@@ -5,8 +5,12 @@ phases and observable milestones. It describes what becomes usable, the major
 dependencies and what establishes completion. Detailed implementation plans are
 separate work, prepared for the milestone being undertaken.
 
-**Status:** No phase is complete. The initial implementation was discarded;
-implementation remains stopped. This roadmap does not resume it.
+**Status:** No phase is complete. The discarded initial implementation is not
+counted toward delivery. The user-authorized issue #1 native-model library is
+implemented on branch `native-model` in [pull request #39](https://github.com/jhelwig/clacks-log/pull/39).
+See the [execution evidence](native-model-execution.md) for tested scope and
+remaining integration boundaries. The current snapshot is prepared for an
+adversarial review; further changes await review of its findings.
 
 Reviewed and reconciled with the agreed scope on **18 October 2026**.
 
@@ -40,7 +44,7 @@ parallel preparation does not mean independent applications or deployed services
 
 ## Phase 1 — Foundations and early risks
 
-Issue #1 has a [written native-model specification for user review](superpowers/specs/2026-10-18-native-model-design.md). It does not complete the milestone or authorize implementation.
+Issue #1 has an [implemented specification](superpowers/specs/2026-10-18-native-model-design.md), [executed implementation plan](superpowers/plans/2026-10-18-native-model.md) and [verification evidence](native-model-execution.md). Its library is in PR #39 pending review/integration. The remaining synchronization, service-evidence, signing and geographic milestones keep Phase 1 open.
 
 Milestones:
 

@@ -3,9 +3,11 @@
 Checkpoint: 18 October 2026. The user authorized native execution of the
 [issue #1 implementation plan](superpowers/plans/2026-10-18-native-model.md),
 against the [native-model specification](superpowers/specs/2026-10-18-native-model-design.md).
-Work is on branch `native-model` in an isolated Git worktree. The original main
-checkout is unchanged. An independent whole-branch review and the resulting regression fixes are complete; integration remains a separate choice;
-this checkpoint does not close the GitHub capability issue or complete a roadmap phase.
+Work is on branch `native-model` in an isolated Git worktree. The user selected
+publication as [PR #39](https://github.com/jhelwig/clacks-log/pull/39), open against
+`main`; the branch is not merged. The current snapshot is prepared for the
+requested adversarial panel and joint review before further changes. This
+checkpoint does not close issue #1 or complete a roadmap phase.
 
 ## Delivered boundary
 
@@ -24,7 +26,8 @@ provider and catalog metadata. Account authorization and durability are adapter 
 
 ## Verification
 
-All checks used the pinned compiler and committed dependency lockfile:
+Current code checkpoint: `86baeb6` (data-driven recognition). All checks used
+the pinned compiler and committed dependency lockfile:
 
 - 50 integration tests passed with `cargo +1.99.1 test --workspace --all-targets --locked`.
 - One compile-fail documentation test passed with `cargo +1.99.1 test --doc --workspace --locked`.
@@ -76,11 +79,14 @@ Each received a regression test that failed before the fix and passed afterward:
   excludes unrelated groups before compiling definitions, preventing an unrelated
   malformed configuration from blocking valid output.
 
-The full post-fix suite passed: 50 integration tests and one compile-fail
+At `584d99c`, the post-review-fix suite passed: 48 integration tests and one
+compile-fail documentation test. D256 subsequently added two regression tests,
+bringing the current total at `86baeb6` to 50 integration tests plus the
 documentation test. Formatting, Clippy, offline verification and Windows
-cross-compilation were repeated after fixes. No second reviewer was dispatched;
-the native-execution workflow verifies the one fix pass with regression tests
-and the complete suite.
+cross-compilation were repeated after fixes. That original fix pass was verified by regression tests
+and the complete suite, without a second reviewer. It does not independently
+review the later D256 refactor. The newly requested adversarial panel is a
+separate review of the current snapshot, not an approval already obtained.
 
 The review left these planned component boundaries in place:
 
@@ -115,4 +121,5 @@ new mode/submode rows and supplied new band rows could not be recognized. Both
 now pass with catalog-only additions. Baseline tests inspect actual matched rows
 and metadata, and old/new recognition views preserve recorded identity/context.
 The current verification totals are 50 integration tests and one compile-fail
-documentation test.
+documentation test. The catalog-row checks use committed extracted data; they
+do not independently re-download or certify the upstream specification.

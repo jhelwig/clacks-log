@@ -494,7 +494,7 @@ Duplicate logbook display names are allowed within an account. Logbooks remain d
 
 #### D120
 
-Prefer internal unique identifiers such as ULIDs, as recommended by the user, for entities throughout the system; identity is independent of display names. Exact identifier format/library and revision representation remain open. Sortable identifier timestamps do not replace existing conflict/revision evidence or establish trusted cross-client edit order.
+Prefer internal unique identifiers such as Universally Unique Lexicographically Sortable Identifiers (ULIDs), as recommended by the user, for entities throughout the system; identity is independent of display names. Exact identifier format/library and revision representation were left open by this decision. The issue #1 native-model plan subsequently selected typed ULIDs with string serialization; causal revision representation remains separate. Sortable identifier timestamps do not replace existing conflict/revision evidence or establish trusted cross-client edit order.
 
 #### D121
 

@@ -1,11 +1,14 @@
 # Native contact and shared-data model
 
-**Status: implemented under the user-authorized native-execution plan, 18 October 2026; whole-branch review and regression fixes are complete; integration remains a separate choice.** This
+**Status: implemented in PR #39; current snapshot prepared for adversarial review, 18 October 2026.** This
 consolidates the accepted issue #1 discussion and decisions through D256. It is
 the logical specification; [execution evidence](../../native-model-execution.md) records delivered library behavior and downstream boundaries.
-The behavioral requirements below are accepted. Logical field/type names and
-the engineering choices explicitly identified in section 2 are proposals for
-review in this document, rather than claims of earlier approval.
+The behavioral requirements below are accepted. Section 2 distinguishes the
+engineering choices implemented through the user-authorized plan from earlier
+product decisions. The [execution evidence](../../native-model-execution.md)
+identifies which revisions were independently reviewed; later changes are not
+automatically covered by that review. Further changes await joint review of
+the requested adversarial panel's findings.
 
 A radio contact is a QSO. Minimum viable product is abbreviated MVP. Amateur
 Data Interchange Format (ADIF) is an interchange standard; its text format is
@@ -46,17 +49,18 @@ Rust 1.99.1, standard Serde serialization, libraries in `lib/<crate-name>` and
 thin applications in `bin/<application-name>` remain selected. This document
 does not select dependency versions or create a workspace.
 
-## 2. Engineering proposals made by this specification
+## 2. Engineering choices implemented through the plan
 
-The following choices make the logical design concrete for review. They must
-not be backdated as individually approved conversation decisions:
+The following choices make the logical design concrete and were implemented
+through the authorized plan. They are not backdated as individually approved
+conversation decisions:
 
 1. Use distinct ID types for contacts, tags, profiles, equipment configurations,
    groups, catalogs and output profiles. Use Universally Unique Lexicographically
    Sortable Identifiers (ULIDs) for newly created native entities, following the
    user's preference for identifiers of this kind. Identity never depends on
-   a display name or timestamp order. Exact Rust library and wire encoding are
-   implementation-plan work.
+   a display name or timestamp order. The plan uses the ulid library with string serialization; database and
+   synchronization encodings remain downstream.
 2. When coordinates require rounding to integer millionths of a degree, use
    nearest with exact halfway values rounded away from zero. Validate the
    supplied geographic range before rounding so rounding cannot turn an
@@ -68,8 +72,8 @@ not be backdated as individually approved conversation decisions:
 4. Allow equipment description and antenna description to be independently
    absent in `EquipmentValues`, using the accepted optional-text normalization.
    D72 selects these fields but does not separately settle their requiredness;
-   the optionality shown here is a proposal for review, not a new claimed
-   prerequisite or previously approved rule.
+   the optionality shown here is the implemented engineering choice, not a
+   newly inferred product prerequisite.
 
 All other concrete names below describe the logical schema. Physical layout,
 crate boundaries and transport/storage encoding can differ while preserving
@@ -208,7 +212,7 @@ Position
 
 RecordedLocation
   position: optional Position
-  dxcc_entity: optional geographic identifier
+  dxcc: optional geographic identifier
   primary_subdivision: optional geographic identifier
   secondary_subdivision: optional geographic identifier
   cq_zone: optional zone value
@@ -429,9 +433,9 @@ center cannot silently satisfy it.
 
 Malformed expressions, regexes, missing capture names and incompatible output
 bindings produce definition/configuration diagnostics. Unknown groups retain
-their recorded values; they are not evidence of a malformed user QSO. Exact
-regex library and expression encoding are implementation choices to review in
-the plan. Catalog collection/refresh and complete program mapping fixtures are
+their recorded values; they are not evidence of a malformed user QSO. The plan selects Rust
+regex and typed declarative-expression encoding; the model implements those
+choices. Catalog collection/refresh and complete program mapping fixtures are
 separate integration work, not new native contact fields.
 
 ## 10. Export context and mapping contracts
@@ -451,10 +455,11 @@ GroupExportPlan
   entry_expansion: list<ExpansionRule>
 ```
 
-The output profile supplies common QSO field mappings and output requirements.
-The group contributes reference mappings and, for a targeted profile, its
-group-specific plan. Field names and structure above are the proposed schema;
-the following context selection behavior is accepted under D255.
+The full interchange adapter will supply common QSO field mappings and format
+requirements. This library's `OutputProfile` contains ID, name, purpose and
+context-sensitive field names; it does not implement the complete format adapter.
+Groups contribute reference mappings and targeted partition/expansion plans.
+The schema above is implemented by the plan; context selection follows D255.
 
 ### 10.1 Ordinary ADIF
 
@@ -687,8 +692,11 @@ capabilities rather than declared complete here.
 
 This is the consolidated design underpinning the
 [implementation plan](../plans/2026-10-18-native-model.md), written at the user's request.
-Review the two together before execution. Issue #1 stays open until its implemented capability and verification
-evidence exist. No roadmap phase is marked complete by this document.
+The user authorized native execution; the library, plan and current evidence
+are in [PR #39](https://github.com/jhelwig/clacks-log/pull/39). Issue #1 remains
+open while that delivery is reviewed and integrated. No roadmap phase is marked
+complete. Review the requested adversarial panel's findings with the user before
+any further changes.
 
 Import-side `CONTEST_ID` station assignment is not approved or implemented;
 settle it in import mapping work. Full external service history/associations
