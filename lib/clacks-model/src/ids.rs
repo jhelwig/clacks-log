@@ -70,5 +70,29 @@ entity_ids!(
     /// Identity of an accepted server history.
     TimelineId,
     /// Identity of an interpretable common-history baseline.
-    BaselineId
+    BaselineId,
+    /// Stable identity of a remote collection.
+    DestinationId,
+    /// Stable identity of an imported service claim.
+    AssertionId,
+    /// Stable identity of a publication attempt.
+    AttemptId,
+    /// Stable identity of submission outcome evidence.
+    SubmissionResultId,
+    /// Stable identity of a retained provider observation.
+    ObservationId,
+    /// Stable identity of a download operation.
+    AcquisitionId,
+    /// Stable identity of an external binding.
+    AssociationId,
+    /// Stable identity of an observation decision.
+    DispositionId,
+    /// Stable identity of deleted-contact suppression.
+    SuppressionId,
+    /// Stable identity of destination download control.
+    DownloadStateId,
+    /// Stable identity of an atomic coupled operation.
+    OperationId,
+    /// Stable identity of a submitted batch.
+    SubmissionBatchId,
 );
