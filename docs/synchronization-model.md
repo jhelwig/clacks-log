@@ -45,8 +45,8 @@ and [recovery requirements](backup-recovery.md) remain authoritative.
 
 Record values and equality come from the [native model](../lib/clacks-model/README.md).
 Catalog recognition changes do not become record edits. Provider evidence is
-separate from recorded QSO facts; issue #3 supplies its concrete evidence
-operations. This model does not force directory snapshots or immutable
+separate from recorded QSO facts; the [service-evidence specification](service-evidence.md)
+defines its concrete evidence operations and transaction dependencies. This model does not force directory snapshots or immutable
 service facts through the mutable-record conflict policy.
 
 ## 2. Research mechanisms and selected composition

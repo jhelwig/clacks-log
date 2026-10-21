@@ -1,6 +1,6 @@
 # External-service state model and research
 
-Checked 12 October 2026. Documentation research only; no authenticated requests, live uploads, or provider tests were performed. This starts the external-service modeling discussion before Amateur Data Interchange Format (ADIF) history mapping. The separation of current radio contact (QSO) data, publication history, and remote observations is accepted as D32. Detailed fields, storage, matching, recovery, and import behavior remain to be designed; this is not a database schema.
+Checked 12 October 2026. Documentation research only; no authenticated requests, live uploads, or provider tests were performed. The separation of current radio contact (QSO) data, publication history and remote observations is accepted as D32. The [service-evidence specification](../docs/service-evidence.md) owns the consolidated evidence, projection, identity, recovery and retention contract. This document retains provider research and source limitations, not a database schema. ADIF means Amateur Data Interchange Format.
 
 ## Primary evidence
 
@@ -28,7 +28,7 @@ Simpler mutable flags would lose which values were submitted; a complete event-s
 
 ## Correction: delivery versus new information
 
-Repeated delivery of an already processed remote observation is a duplicate, not a new enrichment event. It must not reapply the previous enrichment, advance the QSO revision, or undo a later edit or conflict resolution merely because the local value now differs. Deduplication must distinguish remote updates to the same contact from repeated delivery of an existing update; exact observation identity and recovery mechanics remain to be designed.
+Repeated delivery of an already processed remote observation is a duplicate, not a new enrichment event. It must not reapply the previous enrichment, advance the QSO revision, or undo a later edit or conflict resolution merely because the local value now differs. Deduplication must distinguish remote updates to the same contact from repeated delivery of an existing update; the [observation procedure](../docs/service-evidence.md#7-observation-identity-equality-and-acquisition) specifies identity, coverage and recovery equality.
 
 The earlier discussion incorrectly assumed that receiving the same confirmation again could automatically recreate an enrichment edit after conflict resolution. That conflated repeated delivery with new remote information. No separate field override or repeat-overwrite policy was accepted.
 
@@ -36,26 +36,26 @@ The earlier discussion incorrectly assumed that receiving the same confirmation 
 
 ## Synchronized recovery evidence (D140)
 
-MVP sync includes recovery-relevant stored publication outcomes, remote observations, and processing decisions (matching, rejection, enrichment), with the existing context needed to interpret them. Surviving clients can return missing evidence to an older restored server through normal sync. Success for an older sent payload does not establish publication of later changes; a processed observation must not execute its enrichment again after recovery. Exact evidence encoding, retention, and consistency with recovered QSO state remain open.
+MVP sync includes recovery-relevant stored publication outcomes, remote observations, and processing decisions (matching, rejection, enrichment), with the existing context needed to interpret them. Surviving clients can return missing evidence to an older restored server through normal sync. Success for an older sent payload does not establish publication of later changes; a processed observation must not execute its enrichment again after recovery. The [dependency and transaction contract](../docs/service-evidence.md#10-recoverable-dependencies) preserves original evidence context and coupled effects; real storage integration must enforce it.
 
-## Proposed download recovery
+## Download recovery
 
-This is a design proposal derived from the accepted durability and duplicate-processing requirements; its mechanics are not yet selected.
+The [service-evidence transaction contract](../docs/service-evidence.md#11-transactions-dispatch-and-interrupted-transfer) defines accepted recovery obligations; the provider findings below constrain later adapters.
 
 - Keep download progress scoped to the destination and query stream. LoTW receipt and confirmation streams have separate progress; QRZ progress belongs to the selected logbook and filter.
 - Durably retain downloaded observations and the work needed to process them before advancing the download checkpoint. Incomplete responses or failed storage must not move the checkpoint past unretained records. Paginated runs need coverage tracking, not a checkpoint taken from the first page.
 - Process retained observations independently. Record the processing result and any resulting accepted QSO edit together, so interruption cannot leave a committed edit with no durable indication that its observation was processed. A retry of completed work has no second effect.
-- Keep unmatched or ambiguous observations pending for matching rather than dropping them or preventing unrelated contacts from being processed. Download progress can advance once this pending work is durably retained. D37 requires explicit confirmation to add an unmatched QSO locally or reject it locally; no automatic local creation or remote deletion is implied. D38 uses supplied historical station context for explicitly added QSOs and leaves missing DE fields unknown, without current-default fallback.
+- Keep unmatched or ambiguous observations pending for matching rather than dropping them or preventing unrelated contacts from being processed. Download progress can advance once this pending work is durably retained. D37 requires explicit confirmation to add an unmatched QSO locally or reject it locally; no automatic local creation or remote deletion is implied. D38 uses supplied historical station context without current-default fallback. D252 requires explicit historical assignment if our callsign is missing; optional unavailable fields remain unknown.
 
 The [QRZ API guide](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) documents MODSINCE and paging by remote log ID. A page position is not a permanent change cursor: a previously seen record can change. Exact time-boundary semantics, concurrent-change coverage, returned revision fields, and provider-specific observation identity require validation. LoTW supports inclusive since filters; deliberate overlap is compatible with duplicate-safe processing.
 
-No database, transaction layout, retention period, hashing scheme, or queue technology is selected. Checkpoint/processing coordination must meet the recovery behavior regardless of those choices.
+The evidence specification defines transaction groups, semantic retention and equality without selecting physical tables, mandatory hashing or queue technology. PostgreSQL/SQLite integration must meet those contracts in actual stores.
 
 ## Accepted imported-success scheduling (D50)
 
 A mapped positive imported upload status immediately suppresses resubmission to that service without prior verification. Retain the fact that this came from the source log; do not fabricate a Clacks Log attempt, provider response, or exact historical payload. Subsequent changes to service-relevant values make the contact pending for that service under the accepted correction rule. A confirmation flag alone does not establish our own upload status.
 
-The supplied LOG4OM export includes sent/upload flags and dates but no complete history of the exact values sent in each prior attempt. Using imported current values as a future change-comparison baseline is therefore an explicit scheduling policy, not proof that these were the historical submitted values. Exact per-service status mapping and correction comparison remain open; prior verification is not required to suppress resubmission. D51 makes missing upload status pending, like explicit unsent status, independently per service. Exact mapping of unfamiliar provider-specific status values remains open.
+The supplied LOG4OM export includes sent/upload flags and dates but no complete history of the exact values sent in each prior attempt. Using imported current values as a future change-comparison baseline is therefore an explicit scheduling policy, not proof that these were the historical submitted values. Source flag/date recognition remains adapter work; service projection comparison is specified in the evidence contract; prior verification is not required to suppress resubmission. D51 makes missing upload status pending, like explicit unsent status, independently per service. Exact mapping of unfamiliar provider-specific status values remains open.
 
 ## Accepted imports without positive upload status (D51)
 
@@ -65,14 +65,9 @@ An imported contact explicitly marked unsent or missing upload status becomes pe
 
 Mapped positive imported confirmation statuses immediately mark the QSO confirmed for that service without prerequisite verification or download. Retain supplied confirmation dates and source provenance; do not invent missing dates, fresh service observations, or the counterpart's submitted values. Missing confirmation data does not establish a positive confirmation. For updates to existing QSOs, selection of differing imported values follows D40-D42. Confirmation and our upload status remain independent under D32 and D50-D51. Exact service-specific flag/date mapping remains open.
 
-## Remaining design work
+## Adapter verification boundary
 
-- Define per-service accepted/confirmed representation, exact payload comparison, and destination selection.
-- Establish matching and proof of acceptance for corrections, including provider-normalized values.
-- Specify retries and uncertain outcomes with provider-specific recovery evidence.
-- Define observation/update identity, durable processing, and cursor recovery so duplicate delivery has no second effect and new remote updates are not lost. D237 separates provider detail updates from recorded contact edits, superseding D36 replacement behavior; duplicate downloads must not become new updates.
-- Set retention/history scope and reconcile external edits. D37 establishes explicit add/reject for unmatched downloads; D218 scopes rejection to the reviewed version, suppressing identical repeats while processing changed versions normally. Define retained disposition and provider update identity accordingly.
-- Only then determine which LOG4OM history values map usefully and which necessary information is unavailable.
+The [service-evidence specification](../docs/service-evidence.md) defines the chosen projections, baselines, observation procedure, recovery, transactions and semantic retention. Source-specific imported flag/date recognition, live provider processing/clearing and QRZ replacement targeting/ID continuity still need adapter verification. Raw diagnostic retention and retry timing belong with provider/observability integration. These limits do not reopen accepted evidence policies.
 
 ## Synchronization ownership (D248/D251)
 

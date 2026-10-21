@@ -13,7 +13,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Native-model contract](docs/native-model.md)
 - [Synchronization behavior](docs/synchronization.md) and [metadata model](docs/synchronization-model.md)
 - [Accounts and enrollment](docs/accounts.md)
-- [External services](docs/integrations.md) and [LoTW signing](docs/lotw.md)
+- [External services](docs/integrations.md), [service evidence and associations](docs/service-evidence.md), and [LoTW signing](docs/lotw.md)
 - [Backup and recovery](docs/backup-recovery.md)
 - [Server observability](docs/observability.md)
 - [Research provenance](references/README.md) and [TrustedQSL source map](references/trustedqsl/source-map.md)

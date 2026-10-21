@@ -1,6 +1,6 @@
 # Publication recovery design
 
-Planning proposal, 12 October 2026. This develops D32's publication-history boundary. D46-D49 establish current-value submission, automatic retries unless explicitly successful, pause/remedy/resume for clearly non-transient failures, and detailed diagnostics. Exact recovery mechanics remain unselected; no implementation has started.
+Provider research dated 12 October 2026, supporting D32 and D46-D49: current-value submission, automatic retries unless explicitly successful, affected-only pause/remedy/resume for clearly non-transient failures and detailed diagnostics. The [service-evidence specification](../docs/service-evidence.md) owns the consolidated attempts/results, dispatch uncertainty, comparison baselines, recovery and retention contract; this note retains provider evidence and adapter limits.
 
 ## Intended behavior
 
@@ -32,4 +32,4 @@ Pause only uploads affected by the non-transient problem. A credential failure a
 
 [LoTW query documentation](https://lotw.arrl.org/lotw-help/developer-query-qsos-qsls/) distinguishes receipt/acceptance and confirmation and supplies receipt/update timestamps. [QRZ's application programming interface (API) guide](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) returns insertion/replacement outcomes and remote record identifiers; replacement can affect confirmation. Neither source establishes a common client-selected idempotency key or one universal safe retry algorithm.
 
-Exact backoff timings, provider completion/failure evidence, user-facing queue presentation, recovery actions, and attempt retention remain open. No live provider operations have been tested.
+Backoff timing, live response/failure classification, queue presentation and raw diagnostic retention remain provider/observability integration work. Distinct semantic attempt/outcome evidence is retained without age expiry under the [evidence contract](../docs/service-evidence.md#12-retention-and-collection). No live provider operations have been tested.
