@@ -4,3 +4,5 @@ pub mod destination;
 pub mod error;
 
 pub mod adif;
+
+pub mod lotw;

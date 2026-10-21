@@ -14,3 +14,12 @@ Recognition reads these rows directly. No Rust enum or generated code enumerates
 concrete modes, submodes or bands. Supplied catalogs can add labels and parent
 relationships without recompiling the recognition implementation; those changes
 never rewrite recorded values.
+
+## LoTW normalization
+
+`lotw-11.34.json` is derived from the pinned TrustedQSL 2.8.6 configuration
+at commit `6ce824363e27da455c6cf6fd440b9c401945bfcb`. It retains complete
+mode mapping/group, band, station enumeration/dependency and signing-field data.
+The upstream [notices](../../../references/trustedqsl/upstream/LICENSE.txt)
+apply to this extracted data. Regenerate with `python3 scripts/extract-lotw-data.py`;
+`--check` verifies deterministic correspondence without changing upstream files.
