@@ -13,3 +13,6 @@ regex.workspace = true
 ulid.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
+
+time.workspace = true
+deunicode.workspace = true
