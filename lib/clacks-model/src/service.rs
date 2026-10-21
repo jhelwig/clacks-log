@@ -6,3 +6,6 @@ pub mod error;
 pub mod adif;
 
 pub mod lotw;
+
+pub mod evidence;
+pub mod qrz;
