@@ -30,3 +30,104 @@ impl SubmissionProjection {
         }
     }
 }
+
+/// Retained contact dimensions used to evaluate confirmation after later edits.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConfirmationBasis {
+    /// Historical own full callsign, unknown only for incomplete provider evidence.
+    pub own_call: Option<crate::scalar::RecordedCallsign>,
+    /// Historical worked full callsign.
+    pub worked_call: Option<crate::scalar::RecordedCallsign>,
+    /// Historical exact start when available.
+    pub start: Option<crate::scalar::UtcSecond>,
+    /// Historical primary service band.
+    pub band: Option<String>,
+    /// Historical effective receive band.
+    pub receive_band: Option<String>,
+    /// Concrete mode and available parent/group interpretation.
+    pub mode: Option<super::observation::ModeReport>,
+}
+
+/// Phase whose occurrence is supported by the retained evidence.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DispatchPhase {
+    /// Durable intent; bytes may not have been sent.
+    Intent,
+    /// Interrupted boundary leaves sending uncertain.
+    PossibleSend,
+    /// Available transport evidence establishes dispatch.
+    Dispatched,
+}
+
+/// Frozen semantic values for one real attempted dispatch, independent of later edits.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubmissionAttempt {
+    /// Stable dispatch identity.
+    pub id: crate::ids::AttemptId,
+    /// Associated account-owned contact.
+    pub qso: crate::ids::QsoId,
+    /// Actual or possible sent values and destination.
+    pub projection: SubmissionProjection,
+    /// Dispatch boundary originally recorded.
+    pub phase: DispatchPhase,
+    /// Time of retained intent/dispatch evidence.
+    pub at: crate::scalar::UtcTimestamp,
+    /// Optional request batch membership.
+    pub batch: Option<crate::ids::SubmissionBatchId>,
+}
+
+/// Scope established by a result, preserving upload versus individual processing.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ResultScope {
+    /// Upload-level outcome for exactly these submitted members.
+    UploadBatch {
+        /// Request correlation identity.
+        batch: crate::ids::SubmissionBatchId,
+        /// Attempts actually included in the request.
+        members: std::collections::BTreeSet<crate::ids::AttemptId>,
+    },
+    /// Outcome explicitly applying to one attempt.
+    IndividualAttempt(crate::ids::AttemptId),
+}
+
+/// Outcome facts; an uncertain response is not proof of rejection.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SubmissionOutcome {
+    /// Explicit success at the accompanying scope.
+    Success,
+    /// Explicit provider rejection with diagnostic detail.
+    Rejected(String),
+    /// Missing/unusable response or interrupted phase.
+    Uncertain(String),
+}
+
+/// Independent outcome evidence, including later clarification of an earlier uncertainty.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubmissionResult {
+    /// Stable identity of this outcome fact.
+    pub id: crate::ids::SubmissionResultId,
+    /// Remote collection returned by this request.
+    pub destination: DestinationId,
+    /// Actual member-level or upload-level correlation.
+    pub scope: ResultScope,
+    /// Explicit scope-qualified outcome.
+    pub outcome: SubmissionOutcome,
+    /// Phase observed by transport/provider handling.
+    pub phase: DispatchPhase,
+    /// Operational diagnostic time, not causal order.
+    pub at: crate::scalar::UtcTimestamp,
+    /// Credential-free provider/transport explanation.
+    pub diagnostic: Option<String>,
+    /// Actual returned record ID when the provider establishes one.
+    pub external: Option<crate::service::destination::ExternalRecordKey>,
+}
+
+impl ResultScope {
+    /// Enumerate the exact attempts whose values this result describes.
+    pub fn attempts(&self) -> Vec<crate::ids::AttemptId> {
+        match self {
+            Self::IndividualAttempt(id) => vec![*id],
+            Self::UploadBatch { members, .. } => members.iter().copied().collect(),
+        }
+    }
+}

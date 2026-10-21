@@ -118,14 +118,41 @@ pub fn project(
     })
 }
 
-/// Emit the supported field set and retain every conversion warning.
+/// Prepare provider output after checking the destination namespace.
 fn prepare(input: &QrzProjectionInput<'_>) -> anyhow::Result<ProjectionResult<QrzSubmission>> {
-    let q = input.qso;
-    let c = input.context;
-    if input.destination.service() != Service::Qrz
-        || c.profiles
-            .get(&c.export.output_profile_id)
-            .is_none_or(|p| p.purpose != OutputPurpose::OrdinaryInterchange)
+    if input.destination.service() != Service::Qrz {
+        return Err(ServiceError::Invalid {
+            detail: "QRZ destination required".into(),
+        }
+        .into());
+    }
+    let result = prepare_fields(input.qso, input.context, &input.eligible)?;
+    Ok(ProjectionResult {
+        value: QrzSubmission {
+            destination: input.destination.id,
+            fields: result.value,
+        },
+        warnings: result.warnings,
+    })
+}
+
+/// Project only supplied historical QSO values without directory or provider fallback.
+pub(crate) fn source_fields(
+    qso: &Qso,
+    context: &ProjectionContext<'_>,
+) -> anyhow::Result<AdifFields> {
+    Ok(prepare_fields(qso, context, &EligibleStationFacts::default())?.value)
+}
+
+/// Emit the supported field set and retain every conversion warning.
+fn prepare_fields(
+    q: &Qso,
+    c: &ProjectionContext<'_>,
+    eligible: &EligibleStationFacts<'_>,
+) -> anyhow::Result<ProjectionResult<AdifFields>> {
+    if c.profiles
+        .get(&c.export.output_profile_id)
+        .is_none_or(|p| p.purpose != OutputPurpose::OrdinaryInterchange)
     {
         return Err(ServiceError::Invalid {
             detail: "QRZ requires a QRZ destination and ordinary ADIF profile".into(),
@@ -180,7 +207,7 @@ fn prepare(input: &QrzProjectionInput<'_>) -> anyhow::Result<ProjectionResult<Qr
         q.contacted_operator
             .as_ref()
             .and_then(|o| o.recorded_name.as_deref()),
-        &input.eligible,
+        eligible,
     ) {
         fields.insert("NAME".into(), name.value);
     }
@@ -188,7 +215,7 @@ fn prepare(input: &QrzProjectionInput<'_>) -> anyhow::Result<ProjectionResult<Qr
         location(&mut fields, l, true);
     }
     if let Some(l) =
-        select_location(&q.contacted_station, &input.eligible, c.definitions).and_then(|l| l.value)
+        select_location(&q.contacted_station, eligible, c.definitions).and_then(|l| l.value)
     {
         location(&mut fields, &l, false);
     }
@@ -279,10 +306,7 @@ fn prepare(input: &QrzProjectionInput<'_>) -> anyhow::Result<ProjectionResult<Qr
         }
     }
     Ok(ProjectionResult {
-        value: QrzSubmission {
-            destination: input.destination.id,
-            fields: emitted,
-        },
+        value: emitted,
         warnings,
     })
 }
