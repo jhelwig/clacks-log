@@ -1,8 +1,8 @@
 # Service evidence and external-record associations
 
 This specification consolidates the accepted design for [issue #3](https://github.com/jhelwig/clacks-log/issues/3).
-It is ready for review before implementation planning; it does not claim that
-the described service components or their persistence integration are implemented.
+It defines the accepted engineering contract; it does not claim that the
+described service components or their persistence integration are implemented.
 The [integration contract](integrations.md), [native model](native-model.md) and
 [synchronization model](synchronization-model.md) remain applicable.
 
