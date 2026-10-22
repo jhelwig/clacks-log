@@ -101,6 +101,8 @@ pub struct SelectedObservations {
     pub current: EstablishedObservation,
     /// Retained observations supporting this calculation.
     pub supporting: Vec<ObservationId>,
+    /// Observations whose supplied fields are all undominated and established.
+    pub current_supporting: Vec<ObservationId>,
     /// Paths for which current ordering/value cannot be established.
     pub uncertain: Vec<String>,
 }
@@ -149,6 +151,8 @@ fn select<T: Clone + Eq>(
     path: &str,
     view: &ServiceView<'_>,
     uncertain: &mut Vec<String>,
+    supporting: &mut std::collections::BTreeSet<ObservationId>,
+    superseded: &mut std::collections::BTreeSet<ObservationId>,
 ) -> anyhow::Result<Reported<T>> {
     let values = values
         .into_iter()
@@ -179,22 +183,25 @@ fn select<T: Clone + Eq>(
         reachability.push((i, reached));
     }
     let mut maximal = Vec::new();
-    for ((i, reached), (_, _, value)) in reachability.iter().zip(&values) {
+    for ((i, reached), (observation, _, value)) in reachability.iter().zip(&values) {
         let covered = reached.iter().any(|j| {
             reachability
                 .iter()
                 .find(|(node, _)| node == j)
                 .is_some_and(|(_, other)| !other.contains(i))
         });
-        if !covered {
-            maximal.push(*value);
+        if covered {
+            superseded.insert(observation.id);
+        } else {
+            maximal.push((observation.id, *value));
         }
     }
     let Some(first) = maximal.first() else {
         return Ok(Reported::NotReported);
     };
-    if maximal.iter().all(|v| v == first) {
-        Ok((*first).clone())
+    if maximal.iter().all(|(_, value)| value == &first.1) {
+        supporting.extend(maximal.iter().map(|(id, _)| *id));
+        Ok(first.1.clone())
     } else {
         uncertain.push(path.into());
         Ok(Reported::NotReported)
@@ -207,6 +214,8 @@ pub fn select_observations(
 ) -> anyhow::Result<SelectedObservations> {
     let view = input.view;
     let mut reports = Vec::new();
+    let mut current_supporting = std::collections::BTreeSet::new();
+    let mut superseded = std::collections::BTreeSet::new();
     let mut uncertain = Vec::new();
     for row in view.records {
         if row.key.account != view.account {
@@ -240,6 +249,8 @@ pub fn select_observations(
                 concat!("contact.", stringify!($name)),
                 view,
                 &mut uncertain,
+                &mut current_supporting,
+                &mut superseded,
             )?;
         };
     }
@@ -252,9 +263,23 @@ pub fn select_observations(
     field!(receive_frequency, false);
     field!(mode, false);
     field!(confirmation, true);
-    facts.own_station = select_station(&reports, false, view, &mut uncertain)?;
+    facts.own_station = select_station(
+        &reports,
+        false,
+        view,
+        &mut uncertain,
+        &mut current_supporting,
+        &mut superseded,
+    )?;
     if reports.iter().any(|(o, _)| o.facts.counterpart.is_some()) {
-        facts.counterpart = Some(select_station(&reports, true, view, &mut uncertain)?);
+        facts.counterpart = Some(select_station(
+            &reports,
+            true,
+            view,
+            &mut uncertain,
+            &mut current_supporting,
+            &mut superseded,
+        )?);
     }
     let ordering = ProviderOrdering {
         qso: reports.iter().filter_map(|(o, _)| o.ordering.qso).max(),
@@ -270,6 +295,10 @@ pub fn select_observations(
             ordering,
         },
         supporting: reports.iter().map(|(o, _)| o.id).collect(),
+        current_supporting: current_supporting
+            .difference(&superseded)
+            .copied()
+            .collect(),
         uncertain,
     })
 }
@@ -280,6 +309,8 @@ fn select_station(
     counterpart: bool,
     view: &ServiceView<'_>,
     uncertain: &mut Vec<String>,
+    supporting: &mut std::collections::BTreeSet<ObservationId>,
+    superseded: &mut std::collections::BTreeSet<ObservationId>,
 ) -> anyhow::Result<StationReport> {
     let mut station = StationReport::default();
     macro_rules! item {
@@ -309,6 +340,8 @@ fn select_station(
                 ),
                 view,
                 uncertain,
+                supporting,
+                superseded,
             )?;
         };
     }

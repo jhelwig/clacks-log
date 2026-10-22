@@ -102,11 +102,14 @@ owned proposed changes. Do not expose aliases or constructors solely for tests.
   `ServiceError` derives `thiserror::Error` for malformed configuration/identity,
   unrepresentable calendar values and cross-service inputs. Conversion errors keep
   source chains. Ordinary publication readiness is `NotReady`, not an error.
-- `LotwSubmission { destination, signing_identity, contact_fields, station_fields }`
+- `LotwSubmission { mapping_provenance, destination, signing_identity,
+  contact_fields, station_fields, key }`
   contains one normalized signing input. `PublicSigningIdentity` holds own call
   and DXCC entity, with no certificate-library type. `QrzSubmission { destination,
-  fields }`. `SubmissionProjection::{Lotw(LotwSubmission), Qrz(QrzSubmission)}`.
-  Mapping/provenance metadata accompanies but is excluded from payload equality.
+  fields }`. `SubmissionProjection::{Lotw(Box<LotwSubmission>), Qrz(QrzSubmission)}`.
+  `LotwMappingProvenance { release, upstream_commit }` accompanies frozen values.
+  Structural equality includes it; `SubmissionProjection::same_payload` excludes
+  provenance when comparing publication coverage.
 - `ProjectionContext<'a>` borrows `RecognitionCatalog`, `DefinitionSet`,
   `ProfileSet`, ordinary `ExportContext`, and any per-contact `ContextResolution`.
   `QrzProjectionInput<'a>` adds QSO, destination and `EligibleStationFacts`.
@@ -601,7 +604,9 @@ commit instructions.
   then resolve effect references from produced envelopes. Return one final
   `CoupledCommit`, journals and exact member descriptor. No intermediate plan
   is a durable checkpoint. A reference produced by the same operation is satisfied
-  internally; external reads keep their original guards. Refuse cyclic support.
+  internally for both server and client changes; external reads and the emitted
+  transaction conditions keep their original guards. Preserve client author and
+  vector contributions. Refuse cyclic support.
 - [ ] Add tests for each operation group, including stale tag/target/head/membership,
   input observation changed since review, deletion during an in-flight attempt,
   record result after local correction (old values stay covered, new values pending),

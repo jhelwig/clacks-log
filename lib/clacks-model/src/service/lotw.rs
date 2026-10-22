@@ -155,9 +155,20 @@ pub struct PublicSigningIdentity {
     pub dxcc: String,
 }
 
-/// One normalized semantic signing input; signatures and mapping provenance are separate.
+/// Public source identity for the definitions used to normalize a historical submission.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LotwMappingProvenance {
+    /// TrustedQSL configuration release used for the mapping.
+    pub release: String,
+    /// Upstream source revision from which compatibility data was derived.
+    pub upstream_commit: String,
+}
+
+/// Prepared signing values and their interpretation source, without signature bytes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LotwSubmission {
+    /// Frozen mapping source; retained for interpretation rather than publication equality.
+    pub mapping_provenance: LotwMappingProvenance,
     /// Remote collection namespace.
     pub destination: crate::ids::DestinationId,
     /// Actual own identity selected for signing.
@@ -305,121 +316,9 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
             fields.insert("FREQ_RX".into(), adif::frequency(f));
         }
     }
-    let mut station = AdifFields::new();
-    let mut subdivision_zones = Vec::new();
-    if let Some(l) = &q.own_station.location {
-        if let Some(p) = &l.position {
-            station.insert("GRIDSQUARE".into(), p.display_locator().to_string());
-        }
-        if let Some(z) = l.cq_zone {
-            station.insert("CQZ".into(), z.get().to_string());
-        }
-        if let Some(z) = l.itu_zone {
-            station.insert("ITUZ".into(), z.get().to_string());
-        }
-        if let Some(applicable) = c.entity_fields.get(&input.signing.dxcc) {
-            for (value, secondary) in [
-                (&l.primary_subdivision, false),
-                (&l.secondary_subdivision, true),
-            ] {
-                if let Some(value) = value {
-                    let found = applicable
-                        .iter()
-                        .filter_map(|name| c.fields.get(name).map(|f| (name, f)))
-                        .filter(|(name, _)| {
-                            if secondary {
-                                c.secondary_fields.contains(name)
-                            } else {
-                                c.primary_fields.contains(name)
-                            }
-                        })
-                        .find_map(|(name, f)| {
-                            let parent = f.depends_on.as_ref().and_then(|n| {
-                                if n == "DXCC" {
-                                    Some(&input.signing.dxcc)
-                                } else {
-                                    station.get(n)
-                                }
-                            });
-                            let supplied = if secondary {
-                                if let Some((prefix, tail)) = value.split_once(',') {
-                                    if parent.is_some_and(|p| p.eq_ignore_ascii_case(prefix)) {
-                                        Some(tail)
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    Some(value.as_str())
-                                }
-                            } else {
-                                Some(value.as_str())
-                            };
-                            f.values
-                                .iter()
-                                .find(|v| {
-                                    v.dependency.as_ref() == parent
-                                        && supplied.is_some_and(|value| {
-                                            v.value.eq_ignore_ascii_case(value)
-                                                || v.label.eq_ignore_ascii_case(value)
-                                        })
-                                })
-                                .map(|v| (name.clone(), v.value.clone(), v.zones.clone()))
-                        });
-                    if let Some((name, value, zones)) = found {
-                        if !secondary && !zones.is_empty() {
-                            subdivision_zones = zones;
-                        }
-                        station.insert(name, value);
-                    } else {
-                        return Err(ServiceError::Invalid {
-                            detail: format!(
-                                "unsupported LoTW subdivision {value} for entity {}",
-                                input.signing.dxcc
-                            ),
-                        }
-                        .into());
-                    }
-                }
-            }
-        } else if l.primary_subdivision.is_some() || l.secondary_subdivision.is_some() {
-            return Err(ServiceError::Invalid {
-                detail: format!(
-                    "no station subdivision mapping for entity {}",
-                    input.signing.dxcc
-                ),
-            }
-            .into());
-        }
-    }
+    let mut station = location_fields(q.own_station.location.as_ref(), &input.signing.dxcc, c)?;
     if let Some(value) = own_iota(q, input.definitions)? {
         station.insert("IOTA".into(), value);
-    }
-    if let Some(l) = &q.own_station.location {
-        for (scope, zones) in [
-            (
-                "entity",
-                c.entity_zones
-                    .get(&input.signing.dxcc)
-                    .map(Vec::as_slice)
-                    .unwrap_or(&[]),
-            ),
-            ("subdivision", subdivision_zones.as_slice()),
-        ] {
-            if !zones.is_empty()
-                && !zones.iter().any(|p| {
-                    l.cq_zone.is_none_or(|z| z.get() == p.cq)
-                        && l.itu_zone.is_none_or(|z| z.get() == p.itu)
-                })
-            {
-                return Err(ServiceError::Invalid {
-                    detail: format!(
-                        "invalid CQ/ITU zone pair for LoTW {scope} {}",
-                        input.signing.dxcc
-                    ),
-                }
-                .into());
-            }
-        }
     }
     for (field, value) in &mut station {
         *value = station_value(field, value, c);
@@ -439,6 +338,10 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
         }
     }
     Ok(LotwSubmission {
+        mapping_provenance: LotwMappingProvenance {
+            release: c.release.clone(),
+            upstream_commit: c.upstream_commit.clone(),
+        },
         destination: input.destination.id,
         signing_identity: input.signing.clone(),
         contact_fields: fields,
@@ -533,4 +436,142 @@ impl<'de, V: Deserialize<'de>> serde::de::Visitor<'de> for UniqueMap<V> {
         }
         Ok(result)
     }
+}
+
+/// Prepare supported location fields without importing certificate defaults into recorded data.
+fn location_fields(
+    location: Option<&crate::location::RecordedLocation>,
+    entity: &str,
+    c: &LotwConfiguration,
+) -> anyhow::Result<AdifFields> {
+    let mut station = AdifFields::new();
+    let mut subdivision_zones = Vec::new();
+    if let Some(l) = location {
+        if let Some(p) = &l.position {
+            station.insert("GRIDSQUARE".into(), p.display_locator().to_string());
+        }
+        if let Some(z) = l.cq_zone {
+            station.insert("CQZ".into(), z.get().to_string());
+        }
+        if let Some(z) = l.itu_zone {
+            station.insert("ITUZ".into(), z.get().to_string());
+        }
+        if let Some(applicable) = c.entity_fields.get(entity) {
+            for (value, secondary) in [
+                (&l.primary_subdivision, false),
+                (&l.secondary_subdivision, true),
+            ] {
+                if let Some(value) = value {
+                    let found = applicable
+                        .iter()
+                        .filter_map(|name| c.fields.get(name).map(|f| (name, f)))
+                        .filter(|(name, _)| {
+                            if secondary {
+                                c.secondary_fields.contains(name)
+                            } else {
+                                c.primary_fields.contains(name)
+                            }
+                        })
+                        .find_map(|(name, f)| {
+                            let parent = f.depends_on.as_ref().and_then(|n| {
+                                if n == "DXCC" {
+                                    Some(entity)
+                                } else {
+                                    station.get(n).map(String::as_str)
+                                }
+                            });
+                            let supplied = if secondary {
+                                if let Some((prefix, tail)) = value.split_once(',') {
+                                    if parent.is_some_and(|p| p.eq_ignore_ascii_case(prefix)) {
+                                        Some(tail)
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    Some(value.as_str())
+                                }
+                            } else {
+                                Some(value.as_str())
+                            };
+                            f.values
+                                .iter()
+                                .find(|v| {
+                                    v.dependency.as_deref() == parent
+                                        && supplied.is_some_and(|value| {
+                                            v.value.eq_ignore_ascii_case(value)
+                                                || v.label.eq_ignore_ascii_case(value)
+                                        })
+                                })
+                                .map(|v| (name.clone(), v.value.clone(), v.zones.clone()))
+                        });
+                    if let Some((name, value, zones)) = found {
+                        if !secondary && !zones.is_empty() {
+                            subdivision_zones = zones;
+                        }
+                        station.insert(name, value);
+                    } else {
+                        return Err(ServiceError::Invalid {
+                            detail: format!(
+                                "unsupported LoTW subdivision {value} for entity {}",
+                                entity
+                            ),
+                        }
+                        .into());
+                    }
+                }
+            }
+        } else if l.primary_subdivision.is_some() || l.secondary_subdivision.is_some() {
+            return Err(ServiceError::Invalid {
+                detail: format!("no station subdivision mapping for entity {}", entity),
+            }
+            .into());
+        }
+    }
+    if let Some(l) = location {
+        for (scope, zones) in [
+            (
+                "entity",
+                c.entity_zones.get(entity).map(Vec::as_slice).unwrap_or(&[]),
+            ),
+            ("subdivision", subdivision_zones.as_slice()),
+        ] {
+            if !zones.is_empty()
+                && !zones.iter().any(|p| {
+                    l.cq_zone.is_none_or(|z| z.get() == p.cq)
+                        && l.itu_zone.is_none_or(|z| z.get() == p.itu)
+                })
+            {
+                return Err(ServiceError::Invalid {
+                    detail: format!("invalid CQ/ITU zone pair for LoTW {scope} {}", entity),
+                }
+                .into());
+            }
+        }
+    }
+    Ok(station)
+}
+
+/// Capture source-only location comparisons at the precision and vocabulary LoTW emits.
+pub(crate) fn location_baseline(
+    location: Option<&crate::location::RecordedLocation>,
+    configuration: &LotwConfiguration,
+) -> Option<crate::location::RecordedLocation> {
+    let mut location = location?.clone();
+    location.position = location
+        .position
+        .as_ref()
+        .map(|p| crate::position::Position::GridArea(p.display_locator()));
+    if let Some(entity) = &location.dxcc
+        && let Ok(fields) = location_fields(Some(&location), entity, configuration)
+    {
+        location.primary_subdivision = configuration
+            .primary_fields
+            .iter()
+            .find_map(|name| fields.get(name).cloned());
+        location.secondary_subdivision = configuration
+            .secondary_fields
+            .iter()
+            .find_map(|name| fields.get(name).cloned());
+    }
+    location.normalized()
 }

@@ -341,6 +341,13 @@ pub fn plan_operation(
                                 && matches!(c.expected(), VersionCondition::Absent { .. })),
                         "adding a contact requires an explicit new contact change"
                     );
+                    anyhow::ensure!(
+                        qso_change.as_ref().is_some_and(|c| matches!(
+                            c.state(),
+                            RecordState::Live(RecordValue::Qso(q)) if !q.tags.is_empty()
+                        )),
+                        "adding a downloaded contact requires a selected tag"
+                    );
                 }
             }
             if let Some(c) = qso_change {
@@ -617,23 +624,41 @@ pub(crate) fn plan_changes(
     let mut accepted = Vec::new();
     let mut journals = Vec::new();
     let mut external_guards = Vec::new();
+    let mut registry = super::DestinationRegistryObservation {
+        account: account.account,
+        head: account.head,
+        destinations: destinations.to_vec(),
+    };
     while !changes.is_empty() {
-        let ready = changes.iter().position(|c| {
-            let mut required = crate::acceptance::required_references(c.key(), c.state());
-            if let RecordState::Live(RecordValue::Service(s)) = c.state() {
-                required.extend(super::dependency::required_keys(account.account, s));
-                if let Some(qso) = source_qso(&s.payload) {
-                    required.push(RecordKey {
-                        account: account.account,
-                        id: RecordId::Qso(qso),
-                    });
+        let candidates: Vec<_> = changes
+            .iter()
+            .map(|c| {
+                let mut required = crate::acceptance::required_references(c.key(), c.state());
+                required.extend(c.dependencies().iter().map(VersionCondition::key));
+                if let RecordState::Live(RecordValue::Service(s)) = c.state() {
+                    required.extend(super::dependency::required_keys(account.account, s));
+                    if let Some(qso) = source_qso(&s.payload) {
+                        required.push(RecordKey {
+                            account: account.account,
+                            id: RecordId::Qso(qso),
+                        });
+                    }
+                    required.extend(s.support.required.iter().map(|r| r.reference().key));
                 }
-                required.extend(s.support.required.iter().map(|r| r.reference().key));
-            }
-            required
-                .iter()
-                .all(|key| !changes.iter().any(|other| other.key() == *key))
-        });
+                (c.key(), c.state(), required)
+            })
+            .collect();
+        let priority = super::namespace_prerequisites(&registry.destinations, &candidates);
+        let ready = candidates
+            .iter()
+            .enumerate()
+            .filter(|(_, (_, _, required))| {
+                required
+                    .iter()
+                    .all(|key| !candidates.iter().any(|(candidate, _, _)| candidate == key))
+            })
+            .min_by_key(|(_, (key, _, _))| !priority.contains(key))
+            .map(|(index, _)| index);
         let Some(index) = ready else {
             anyhow::bail!("cyclic service operation dependencies")
         };
@@ -730,6 +755,17 @@ pub(crate) fn plan_changes(
                 }
             }
         }
+        if let NativeChange::Client(change) = &mut c {
+            for dependency in &mut change.dependencies {
+                if writes.contains(&dependency.key()) {
+                    let source = prospective
+                        .iter()
+                        .find(|r| r.key() == dependency.key())
+                        .ok_or_else(|| anyhow::anyhow!("internal dependency is unavailable"))?;
+                    *dependency = VersionCondition::from_observation(source)?;
+                }
+            }
+        }
         for key in refs {
             if !writes.contains(&key)
                 && let Some(r) = reads.iter().find(|r| r.key() == key)
@@ -737,11 +773,7 @@ pub(crate) fn plan_changes(
                 conditions.push(VersionCondition::from_observation(r)?);
             }
         }
-        let registry = super::DestinationRegistryObservation {
-            account: account.account,
-            head: next_account.head,
-            destinations: destinations.to_vec(),
-        };
+        registry.head = next_account.head;
         let input = AcceptanceInput {
             destination_registry: Some(&registry),
             account: &next_account,
@@ -760,6 +792,7 @@ pub(crate) fn plan_changes(
                 next_account = commit.next_account;
                 prospective.retain(|r| r.key() != commit.accepted.key);
                 prospective.push(Observation::Accepted(commit.accepted.clone()));
+                super::retain_destination(&mut registry.destinations, &commit.accepted);
                 accepted.push(commit.accepted);
                 journals.push(commit.journal);
             }

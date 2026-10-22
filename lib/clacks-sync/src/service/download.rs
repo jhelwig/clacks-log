@@ -165,16 +165,7 @@ pub fn plan_observation(
             match compare(&selected.current, incoming)? {
                 ObservationComparison::Unchanged => return Ok(ServiceDecision::Unchanged),
                 ObservationComparison::OrderingOnly => {
-                    // Preserve an unchanged prior rejection/binding rather than reopening it.
-                    if let Some(old) = rows.iter().filter_map(super::payload).find_map(|s| {
-                        if let ServicePayload::Disposition(d) = &s.payload
-                            && selected.supporting.contains(&d.observation)
-                        {
-                            Some(d)
-                        } else {
-                            None
-                        }
-                    }) {
+                    if let Some(old) = current_disposition(&rows, &selected)? {
                         decision = old.decision;
                         association = old.association;
                     }
@@ -511,4 +502,49 @@ fn station_clear(s: &StationReport) -> bool {
         || matches!(s.cq_zone, Reported::Clear)
         || matches!(s.itu_zone, Reported::Clear)
         || matches!(s.references, Reported::Clear)
+}
+
+/// Reuse a decision only when its reviewed occurrence still represents established facts.
+fn current_disposition<'a>(
+    rows: &'a [AcceptedRecord],
+    selected: &super::combination::SelectedObservations,
+) -> anyhow::Result<Option<&'a ProcessingDisposition>> {
+    if !selected.uncertain.is_empty() {
+        return Ok(None);
+    }
+    let mut current: Option<&ProcessingDisposition> = None;
+    for record in rows.iter().filter_map(super::payload) {
+        let ServicePayload::Disposition(disposition) = &record.payload else {
+            continue;
+        };
+        if !selected
+            .current_supporting
+            .contains(&disposition.observation)
+        {
+            continue;
+        }
+        let observation = rows
+            .iter()
+            .filter_map(super::payload)
+            .find_map(|s| match &s.payload {
+                ServicePayload::Observation(o) if o.id == disposition.observation => Some(o),
+                _ => None,
+            });
+        let Some(observation) = observation else {
+            continue;
+        };
+        if !matches!(
+            compare(&selected.current, observation)?,
+            ObservationComparison::Unchanged | ObservationComparison::OrderingOnly
+        ) {
+            continue;
+        }
+        if current.is_some_and(|old| {
+            old.decision != disposition.decision || old.association != disposition.association
+        }) {
+            return Ok(None);
+        }
+        current = Some(disposition);
+    }
+    Ok(current)
 }

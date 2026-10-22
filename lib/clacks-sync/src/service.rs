@@ -310,15 +310,19 @@ pub(crate) fn check_namespace(
         }));
     };
     let mut all = registry.destinations.clone();
-    if let Some(old) = all.iter().find(|d| d.id == proposed.id) {
-        let same = match (&old.collection, &proposed.collection) {
-            (
-                clacks_model::service::destination::RemoteCollection::Lotw { account: a },
-                clacks_model::service::destination::RemoteCollection::Lotw { account: b },
-            ) => a.trim().eq_ignore_ascii_case(b.trim()),
-            (a, b) => a == b,
+    if let Some(old) = all.iter_mut().find(|d| d.id == proposed.id) {
+        use clacks_model::service::destination::RemoteCollection;
+        let namespace_update = matches!(&record.payload, ServicePayload::Destination(_));
+        let compatible = match (&old.collection, &proposed.collection) {
+            (RemoteCollection::Lotw { account: a }, RemoteCollection::Lotw { account: b }) => {
+                a.trim().eq_ignore_ascii_case(b.trim())
+            }
+            (RemoteCollection::Qrz { book_id: a }, RemoteCollection::Qrz { book_id: b }) => {
+                a == b || a.is_none() || (!namespace_update && b.is_none())
+            }
+            _ => false,
         };
-        if !same {
+        if !compatible {
             return Err(dependency::SyncServiceError::Integrity {
                 key: RecordKey {
                     account: input.account.account,
@@ -327,6 +331,9 @@ pub(crate) fn check_namespace(
                 detail: format!("destination {id} changes its retained remote collection"),
             }
             .into());
+        }
+        if namespace_update || matches!(&old.collection, RemoteCollection::Qrz { book_id: None }) {
+            *old = proposed.clone();
         }
     } else {
         all.push(proposed.clone());
@@ -340,4 +347,80 @@ pub(crate) fn check_namespace(
         }));
     }
     Ok(Ok(()))
+}
+
+/// Retain an admitted namespace refinement for later members of the same transaction.
+pub(crate) fn retain_destination(destinations: &mut Vec<Destination>, row: &AcceptedRecord) {
+    let Some(record) = payload(row) else {
+        return;
+    };
+    let proposed = match &record.payload {
+        ServicePayload::Destination(d) => Some(d),
+        _ => record.support.destination.as_ref(),
+    };
+    let Some(proposed) = proposed else {
+        return;
+    };
+    if let Some(old) = destinations.iter_mut().find(|d| d.id == proposed.id) {
+        if matches!(
+            &old.collection,
+            clacks_model::service::destination::RemoteCollection::Qrz { book_id: None }
+        ) && matches!(
+            &proposed.collection,
+            clacks_model::service::destination::RemoteCollection::Qrz { book_id: Some(_) }
+        ) {
+            *old = proposed.clone();
+        }
+    } else {
+        destinations.push(proposed.clone());
+    }
+}
+
+/// Identify candidates that establish a known namespace before unrelated members are admitted.
+///
+/// This only supplies planning priority; ordinary admission must still validate the
+/// proposed identity and all source guards before retaining it.
+fn refines_destination(destinations: &[Destination], state: &RecordState) -> bool {
+    let RecordState::Live(RecordValue::Service(record)) = state else {
+        return false;
+    };
+    let proposed = match &record.payload {
+        ServicePayload::Destination(d) => Some(d),
+        _ => record.support.destination.as_ref(),
+    };
+    proposed.is_some_and(|proposed| {
+        matches!(
+            &proposed.collection,
+            clacks_model::service::destination::RemoteCollection::Qrz { book_id: Some(_) }
+        ) && destinations.iter().any(|old| {
+            old.id == proposed.id
+                && matches!(
+                    &old.collection,
+                    clacks_model::service::destination::RemoteCollection::Qrz { book_id: None }
+                )
+        })
+    })
+}
+
+/// Prioritize namespace refinements and their pending prerequisites before unrelated candidates.
+pub(crate) fn namespace_prerequisites(
+    destinations: &[Destination],
+    candidates: &[(RecordKey, &RecordState, Vec<RecordKey>)],
+) -> std::collections::BTreeSet<RecordKey> {
+    let mut required: std::collections::BTreeSet<_> = candidates
+        .iter()
+        .filter(|(_, state, _)| refines_destination(destinations, state))
+        .map(|(key, _, _)| *key)
+        .collect();
+    loop {
+        let before = required.len();
+        for (key, _, dependencies) in candidates {
+            if required.contains(key) {
+                required.extend(dependencies.iter().copied());
+            }
+        }
+        if required.len() == before {
+            return required;
+        }
+    }
 }

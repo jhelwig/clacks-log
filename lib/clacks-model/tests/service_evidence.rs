@@ -266,3 +266,110 @@ fn batch_returned_identity_needs_explicit_member_correlation() -> anyhow::Result
     assert!(result.identified_attempt().is_err());
     Ok(())
 }
+
+#[test]
+fn imported_lotw_upload_compares_the_emitted_grid_not_the_exact_point() -> anyhow::Result<()> {
+    use clacks_model::{
+        export::ExportContext,
+        location::RecordedLocation,
+        position::{Coordinates, GridLength, Position},
+        recognition::RecognitionCatalog,
+        service::{
+            adif::ProjectionContext,
+            applicability::{PublicationCoverage, PublicationCoverageInput, publication_coverage},
+            evidence::{ImportedBaselineInput, imported_baseline},
+            lotw::LotwConfiguration,
+        },
+    };
+    let mut q = support::qso(support::id(77));
+    let defs = support::definitions();
+    let profiles = support::profiles();
+    let resolutions = Default::default();
+    let export = ExportContext {
+        output_profile_id: support::id(1),
+        target_group_id: None,
+    };
+    let config = LotwConfiguration::bundled()?;
+    let context = ProjectionContext {
+        recognition: RecognitionCatalog::adif_318()?,
+        definitions: &defs,
+        profiles: &profiles,
+        export: &export,
+        resolutions: &resolutions,
+    };
+    let location = |latitude| -> anyhow::Result<RecordedLocation> {
+        Ok(RecordedLocation {
+            position: Some(Position::ExplicitPoint {
+                coordinates: Coordinates::from_microdegrees(latitude, -122_100_000)?,
+                grid_length: GridLength::new(6)?,
+            }),
+            ..Default::default()
+        })
+    };
+    q.own_station.location = Some(location(47_100_000)?);
+    let capture = |q: &_| {
+        imported_baseline(&ImportedBaselineInput {
+            qso: q,
+            service: Service::Lotw,
+            coverage: Default::default(),
+            lotw: &config,
+            context: &context,
+        })
+    };
+    let assertion = ImportedAssertion {
+        id: AssertionId::new(),
+        qso: q.id,
+        service: Service::Lotw,
+        destination: None,
+        claim: ImportedClaim::Uploaded,
+        date: None,
+        provenance: ImportProvenance {
+            source: "file.adi".into(),
+            record: "1".into(),
+            mapping: "standard".into(),
+        },
+        baseline: capture(&q)?,
+    };
+    for (latitude, expected) in [
+        (47_100_001, PublicationCoverage::Covered),
+        (47_200_000, PublicationCoverage::Pending),
+    ] {
+        q.own_station.location = Some(location(latitude)?);
+        let current = capture(&q)?;
+        assert_eq!(
+            publication_coverage(&PublicationCoverageInput {
+                qso: q.id,
+                service: Service::Lotw,
+                destination: None,
+                current: None,
+                source_current: &current,
+                assertions: std::slice::from_ref(&assertion),
+                attempts: &[],
+                results: &[]
+            })?,
+            expected
+        );
+    }
+    q.own_station.location = Some(RecordedLocation {
+        dxcc: Some("291".into()),
+        primary_subdivision: Some("Washington".into()),
+        secondary_subdivision: Some("King".into()),
+        ..Default::default()
+    });
+    let before = capture(&q)?;
+    let location = q.own_station.location.as_mut().unwrap();
+    location.primary_subdivision = Some("WA".into());
+    location.secondary_subdivision = Some("WA,King".into());
+    assert_eq!(before, capture(&q)?);
+    let location = q.own_station.location.as_mut().unwrap();
+    location.primary_subdivision = Some("unrecognized historical subdivision".into());
+    let unrecognized = capture(&q)?;
+    assert_eq!(
+        unrecognized
+            .own_location
+            .as_ref()
+            .and_then(|l| l.primary_subdivision.as_deref()),
+        Some("unrecognized historical subdivision")
+    );
+    Ok(())
+}

@@ -56,7 +56,7 @@ pub struct ImportedBaseline {
     pub service: Service,
     /// Supplied normalized service inputs, not proof of historical sent bytes.
     pub fields: AdifFields,
-    /// Recorded LoTW station context, including fields not mappable without an entity.
+    /// Source-only LoTW station comparison values, retaining uninterpretable subdivisions.
     pub own_location: Option<RecordedLocation>,
     /// Relevant contact identity for confirmation applicability.
     pub confirmation: ConfirmationBasis,
@@ -226,7 +226,7 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
         service: input.service,
         fields,
         own_location: if input.service == Service::Lotw {
-            q.own_station.location.clone()
+            super::lotw::location_baseline(q.own_station.location.as_ref(), input.lotw)
         } else {
             None
         },

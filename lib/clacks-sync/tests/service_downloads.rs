@@ -311,6 +311,21 @@ impl ReadFixture {
             clacks_sync::service::operation::CoupledCommit,
         >,
     > {
+        self.observe_fields(a, value, ordering, confirmation, None)
+    }
+
+    fn observe_fields(
+        &mut self,
+        a: &clacks_model::service::evidence::download::AcquisitionState,
+        value: &str,
+        ordering: (Option<i64>, Option<i64>),
+        confirmation: clacks_model::service::evidence::observation::ConfirmationStatus,
+        dxcc: Option<&str>,
+    ) -> anyhow::Result<
+        clacks_sync::service::operation::ServiceDecision<
+            clacks_sync::service::operation::CoupledCommit,
+        >,
+    > {
         use clacks_model::{
             scalar::{UtcSecond, UtcTimestamp},
             service::{
@@ -362,6 +377,9 @@ impl ReadFixture {
             facts: RemoteFacts {
                 own_station: StationReport {
                     name: Reported::Value(value.into()),
+                    dxcc: dxcc
+                        .map(|value| Reported::Value(value.into()))
+                        .unwrap_or_default(),
                     ..Default::default()
                 },
                 contact: ContactReport {
@@ -652,6 +670,190 @@ fn contradictory_mixed_ordering_keeps_uncertainty_until_a_dominating_refresh() -
             .uncertain
             .iter()
             .any(|p| p == "contact.confirmation")
+    );
+    Ok(())
+}
+
+#[test]
+fn ordering_only_refresh_preserves_the_current_versions_disposition() -> anyhow::Result<()> {
+    use clacks_model::service::evidence::{ServicePayload, processing::ProcessingDecision};
+    use clacks_sync::service::operation::ServiceDecision;
+    let mut f = ReadFixture::new();
+    let a = f.start()?;
+    let ServiceDecision::Ready(c) = f.observe(&a, "A", (Some(10), None))? else {
+        panic!()
+    };
+    let old = c.accepted.iter().find_map(|r| {
+        if let Some(s) = service_payload(r) {
+            if let ServicePayload::Disposition(d) = &s.payload {
+                Some(d.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    });
+    f.install(c)?;
+    let d = old.unwrap();
+    f.reject(d)?;
+    f.close(&a, true)?;
+    for (value, timestamp, expected) in [
+        ("A", 20, ProcessingDecision::Rejected),
+        ("B", 30, ProcessingDecision::PendingReview),
+        ("B", 40, ProcessingDecision::PendingReview),
+        ("A", 50, ProcessingDecision::PendingReview),
+        ("A", 60, ProcessingDecision::PendingReview),
+    ] {
+        let acquisition = f.start()?;
+        let ServiceDecision::Ready(commit) =
+            f.observe(&acquisition, value, (Some(timestamp), None))?
+        else {
+            panic!("missing occurrence");
+        };
+        let decision = commit
+            .accepted
+            .iter()
+            .filter_map(service_payload)
+            .find_map(|s| {
+                if let ServicePayload::Disposition(d) = &s.payload {
+                    Some(d.decision)
+                } else {
+                    None
+                }
+            })
+            .unwrap();
+        assert_eq!(
+            decision, expected,
+            "wrong disposition for {value} at {timestamp}"
+        );
+        f.install(commit)?;
+        f.close(&acquisition, true)?;
+    }
+    Ok(())
+}
+
+fn service_payload(
+    r: &clacks_sync::record::AcceptedRecord,
+) -> Option<&clacks_sync::service::ServiceRecord> {
+    if let clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Service(s)) =
+        &r.state
+    {
+        Some(s)
+    } else {
+        None
+    }
+}
+
+impl ReadFixture {
+    fn reject(
+        &mut self,
+        d: clacks_model::service::evidence::processing::ProcessingDisposition,
+    ) -> anyhow::Result<()> {
+        use clacks_model::service::{
+            destination::{Destination, RemoteCollection},
+            evidence::processing::{ProcessingDecision, ProcessingDisposition},
+        };
+        use clacks_sync::{
+            account::EvidenceView,
+            membership::MembershipSnapshot,
+            service::operation::{
+                ServiceDecision, ServiceOperation, ServiceOperationInput, plan_operation,
+            },
+        };
+        let rejected = ProcessingDisposition {
+            decision: ProcessingDecision::Rejected,
+            ..d.clone()
+        };
+        let op = ServiceOperation::CompleteObservation {
+            observation: d.observation,
+            disposition: rejected,
+            association: None,
+            qso_change: None,
+            selected: None,
+        };
+        let reads = self.reads(&[]);
+        let bases = [self.baseline.clone()];
+        let ev = EvidenceView {
+            lineage: &self.baseline.lineage,
+            baselines: &bases,
+        };
+        let m = MembershipSnapshot {
+            account: self.account.account,
+            generation: 0,
+            clients: vec![],
+        };
+        let ds = [Destination {
+            id: support::id(42),
+            collection: RemoteCollection::Qrz { book_id: Some(7) },
+            description: "book".into(),
+        }];
+        let ServiceDecision::Ready(c) = plan_operation(&ServiceOperationInput {
+            id: support::id(9999),
+            account: &self.account,
+            membership: &m,
+            reads: &reads,
+            bindings: &[],
+            destinations: &ds,
+            evidence: &ev,
+            operation: &op,
+            matching: None,
+        })?
+        else {
+            panic!()
+        };
+        self.install(c)?;
+        Ok(())
+    }
+}
+
+#[test]
+fn ordering_only_partial_refresh_keeps_its_rejection_and_omitted_facts() -> anyhow::Result<()> {
+    use clacks_model::service::evidence::{
+        ServicePayload,
+        observation::{ConfirmationStatus, Reported},
+        processing::ProcessingDecision,
+    };
+    use clacks_sync::service::operation::ServiceDecision;
+    let mut f = ReadFixture::new();
+    let a = f.start()?;
+    let ServiceDecision::Ready(commit) = f.observe_fields(
+        &a,
+        "A",
+        (Some(10), None),
+        ConfirmationStatus::Confirmed,
+        Some("291"),
+    )?
+    else {
+        panic!()
+    };
+    f.install(commit)?;
+    f.close(&a, true)?;
+    let b = f.start()?;
+    let ServiceDecision::Ready(commit) = f.observe(&b, "B", (Some(20), None))? else {
+        panic!()
+    };
+    let disposition = commit
+        .accepted
+        .iter()
+        .filter_map(service_payload)
+        .find_map(|s| match &s.payload {
+            ServicePayload::Disposition(d) => Some(d.clone()),
+            _ => None,
+        })
+        .unwrap();
+    f.install(commit)?;
+    f.reject(disposition)?;
+    f.close(&b, true)?;
+    let c = f.start()?;
+    let ServiceDecision::Ready(commit) = f.observe(&c, "B", (Some(30), None))? else {
+        panic!()
+    };
+    assert!(commit.accepted.iter().filter_map(service_payload).any(|s| matches!(&s.payload, ServicePayload::Disposition(d) if d.decision == ProcessingDecision::Rejected)));
+    f.install(commit)?;
+    assert_eq!(
+        established(&f)?.current.facts.own_station.dxcc,
+        Reported::Value("291".into())
     );
     Ok(())
 }

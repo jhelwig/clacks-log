@@ -126,9 +126,12 @@ dispatches a network request.
 | QRZ | A particular remote QRZ logbook; retain provider `bookid` when known. | Provider-assigned integer `logid`. |
 
 A second configuration accessing the same collection must not create a second
-association namespace. LoTW signing certificates are eligibility/signing inputs,
-not destinations. QRZ access keys are replaceable; callsign/date coverage is a
-routing attribute, not a substitute remote book identity. Route using saved
+association namespace. A previously unknown QRZ book ID can be established under
+the same destination ID, with the account-head and registry uniqueness guards.
+An established book ID cannot be changed or cleared; historical evidence whose
+descriptor predates that discovery remains interpretable. LoTW signing
+certificates are eligibility/signing inputs, not destinations. QRZ access keys
+are replaceable; callsign/date coverage is a routing attribute, not a substitute remote book identity. Route using saved
 station callsign/date, never current client defaults. Missing or ambiguous
 routing pauses only affected uploads.
 
@@ -150,8 +153,11 @@ to DATA in this pinned configuration. MFSK denotes multiple frequency-shift
 keying, PSK phase-shift keying, SSB single sideband, and USB/LSB its upper/lower
 sidebands. Literal catalog labels are preserved in native values.
 
-Retain the mapped value and mapping provenance with attempts/keys. A later
-mapping update does not recalculate historical keys or edit native mode values.
+Retain the mapped value and mapping provenance with attempts/keys.
+`LotwSubmission.mapping_provenance` freezes the configuration release and source
+revision alongside the submission. Structural equality includes that provenance;
+`SubmissionProjection::same_payload` excludes it when checking publication coverage.
+A later mapping update does not recalculate historical keys or edit native mode values.
 Do not collapse all digital modes to DATA or substitute an award mode group for
 the concrete remote mode.
 
@@ -206,8 +212,12 @@ comes from saved QSO values.
 
 Compare values after service transformations at actual output precision.
 Use integer-derived decimal conversions, whole-second times and deterministic
-field/collection ordering. Preserve meaningful absence. Field order, encoding,
-signature bytes, redundant numeric zeroes, lookup times, synchronization
+field/collection ordering. Imported LoTW station-location comparisons use the
+emitted locator and recognized subdivision vocabulary. Exact point differences
+inside that locator do not imply a changed payload. Preserve supplied subdivision
+values when the recorded entity or compatible interpretation is unavailable;
+certificate defaults do not fill those gaps. Preserve meaningful absence. Field
+order, encoding, signature bytes, redundant numeric zeroes, lookup times, synchronization
 revisions, mapping-version changes without output changes, tags and credential
 serials are not submitted QSO-value changes. Complete callsign slash components
 remain significant; directory lookup normalization does not change upload identity.
@@ -458,7 +468,9 @@ does not manufacture an edit to recorded QSO facts.
 Rejection is scoped to the reviewed observation version. Identical repeat
 delivery remains suppressed; changed reviewed information receives normal
 processing. An observed A → B → A can therefore require new review. Stronger
-ordering metadata alone does not reopen an unchanged rejection.
+ordering metadata alone does not reopen an unchanged rejection. Reuse a
+version-specific disposition only from occurrences supporting the established
+current facts, never merely from an arbitrary historical observation.
 
 Deletion suppression is separate and survives changed observations, full
 downloads and query/filter changes. Accepted local deletion prevents further
@@ -537,7 +549,10 @@ Within the same real transaction, recheck account head/admission, compared recor
 versions, dependencies, target references and association uniqueness. Save the
 coupled records, accepted contexts, journal entries and resulting head together.
 Use per-record acceptance by default with explicit operation grouping; no
-account-wide transaction or custom write queue is prescribed.
+account-wide transaction or custom write queue is prescribed. Original source
+conditions remain transaction guards for both client and server proposals.
+References produced inside a coupled operation use its prospective accepted
+versions without changing the client's author or causal contribution.
 
 | Workflow | Atomic group |
 | --- | --- |

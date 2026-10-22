@@ -77,6 +77,19 @@ fn projection_freezes_actual_values_and_whole_receive_override() -> anyhow::Resu
         }
     };
     let original = get(&q)?;
+    let stored = serde_json::to_value(&original)?;
+    assert_eq!(
+        stored
+            .pointer("/mapping_provenance/release")
+            .and_then(serde_json::Value::as_str),
+        Some(c.release.as_str())
+    );
+    assert_eq!(
+        stored
+            .pointer("/mapping_provenance/upstream_commit")
+            .and_then(serde_json::Value::as_str),
+        Some(c.upstream_commit.as_str())
+    );
     q.comment = Some("not sent".into());
     assert_eq!(original, get(&q)?);
     q.receive_override = Some(BandFrequency::new(
@@ -218,5 +231,99 @@ fn duplicate_mapping_rows_are_configuration_errors() -> anyhow::Result<()> {
     assert!(LotwConfiguration::from_json(&duplicate).is_err());
     let colliding = json.replacen("\"mapping\":{", "\"mapping\":{\"ft4\":\"DATA\",", 1);
     assert!(LotwConfiguration::from_json(&colliding).is_err());
+    Ok(())
+}
+
+#[test]
+fn retained_mapping_provenance_survives_reload_without_requiring_a_new_upload() -> anyhow::Result<()>
+{
+    use clacks_model::{
+        ids::{AttemptId, SubmissionResultId},
+        scalar::UtcTimestamp,
+        service::{
+            applicability::{PublicationCoverage, PublicationCoverageInput, publication_coverage},
+            destination::Service,
+            evidence::{
+                ImportedBaseline,
+                submission::{
+                    ConfirmationBasis, DispatchPhase, ResultScope, SubmissionAttempt,
+                    SubmissionOutcome, SubmissionProjection, SubmissionResult,
+                },
+            },
+        },
+    };
+    let original = LotwConfiguration::bundled()?;
+    let mut updated = original.clone();
+    updated.release = "later-identical-mappings".into();
+    updated.upstream_commit = "later-source".into();
+    let qso = support::qso(support::id(1));
+    let destination = Destination {
+        id: DestinationId::new(),
+        collection: RemoteCollection::Lotw {
+            account: "w7hex".into(),
+        },
+        description: "main".into(),
+    };
+    let signing = PublicSigningIdentity {
+        callsign: qso.own_station.callsign.clone(),
+        dxcc: "291".into(),
+    };
+    let definitions = support::definitions();
+    let project = |configuration| -> anyhow::Result<SubmissionProjection> {
+        match lotw::project(&LotwProjectionInput {
+            qso: &qso,
+            destination: &destination,
+            signing: &signing,
+            configuration,
+            definitions: &definitions,
+        })? {
+            ProjectionDecision::Ready(p) => Ok(SubmissionProjection::Lotw(Box::new(p.value))),
+            result => anyhow::bail!("{result:?}"),
+        }
+    };
+    let attempt = SubmissionAttempt {
+        id: AttemptId::new(),
+        qso: qso.id,
+        projection: project(&original)?,
+        phase: DispatchPhase::Dispatched,
+        at: UtcTimestamp::new(0, 0)?,
+        batch: None,
+    };
+    let reloaded: SubmissionAttempt = serde_json::from_str(&serde_json::to_string(&attempt)?)?;
+    assert_eq!(attempt, reloaded);
+    let current = project(&updated)?;
+    assert_ne!(reloaded.projection, current);
+    let result = SubmissionResult {
+        external_attempt: None,
+        id: SubmissionResultId::new(),
+        destination: destination.id,
+        scope: ResultScope::IndividualAttempt(attempt.id),
+        outcome: SubmissionOutcome::Success,
+        phase: DispatchPhase::Dispatched,
+        at: UtcTimestamp::new(1, 0)?,
+        diagnostic: None,
+        external: None,
+    };
+    let source = ImportedBaseline {
+        native_end: None,
+        service: Service::Lotw,
+        fields: Default::default(),
+        own_location: None,
+        confirmation: ConfirmationBasis::default(),
+        coverage: Default::default(),
+    };
+    assert_eq!(
+        publication_coverage(&PublicationCoverageInput {
+            qso: qso.id,
+            service: Service::Lotw,
+            destination: Some(destination.id),
+            current: Some(&current),
+            source_current: &source,
+            assertions: &[],
+            attempts: &[reloaded],
+            results: &[result]
+        })?,
+        PublicationCoverage::Covered
+    );
     Ok(())
 }

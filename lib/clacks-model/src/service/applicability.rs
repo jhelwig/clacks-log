@@ -119,7 +119,7 @@ pub fn publication_coverage(
             }
             if attempt.qso == input.qso && attempt.projection.service() == service {
                 if let Some(current) = input.current {
-                    if attempt.projection == *current {
+                    if attempt.projection.same_payload(current) {
                         return Ok(PublicationCoverage::Covered);
                     }
                 } else {

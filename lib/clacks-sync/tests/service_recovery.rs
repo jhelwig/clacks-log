@@ -381,3 +381,176 @@ fn covered_active_association_is_not_reinstalled_after_contact_deletion() -> any
     ));
     Ok(())
 }
+
+#[test]
+fn recovery_uses_refined_qrz_namespace_for_later_members() -> anyhow::Result<()> {
+    use clacks_model::service::{
+        destination::{Destination, RemoteCollection},
+        evidence::ServicePayload,
+    };
+    use clacks_sync::{
+        account::{AccountMetadata, EvidenceView, InstalledCheckpoint},
+        lineage::Coverage,
+        membership::{ClientMembership, MembershipSnapshot},
+        record::{Observation, RecordId, RecordState, RecordValue},
+        recovery::plan_recovery_fork,
+        service::{
+            DestinationRegistryObservation, ServiceRecord, ServiceSupport, VersionReference,
+            operation::{CoupledRequirement, ServiceDecision},
+            recovery::{RecoveredOperationInput, plan_recovered_operation},
+        },
+    };
+    let (mut restored, baseline) =
+        AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
+    restored.head.revision = 160;
+    restored.installed = Coverage::from(restored.head);
+    let membership = MembershipSnapshot {
+        account: restored.account,
+        generation: 0,
+        clients: vec![ClientMembership {
+            actor: support::id(4),
+            created_at: restored.head,
+            closed_at: None,
+            acknowledged: None,
+        }],
+    };
+    let fork = plan_recovery_fork(support::id(5), &restored, &membership, &restored.installed)?;
+    let account = fork.next_account;
+    let mut lineage = baseline.lineage.clone();
+    lineage.add_boundary(fork.boundary)?;
+    let baselines = [baseline.clone()];
+    let evidence = EvidenceView {
+        lineage: &lineage,
+        baselines: &baselines,
+    };
+    let unknown = Destination {
+        id: support::id(42),
+        collection: RemoteCollection::Qrz { book_id: None },
+        description: "first".into(),
+    };
+    let first = Destination {
+        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        ..unknown.clone()
+    };
+    let second = Destination {
+        id: support::id(43),
+        collection: RemoteCollection::Qrz { book_id: Some(8) },
+        description: "second".into(),
+    };
+    let carrier = |destination: Destination, revision| {
+        let mut row = support::accepted(revision, "destination");
+        row.key.id = RecordId::Service(ServicePayload::Destination(destination.clone()).id());
+        row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload: ServicePayload::Destination(destination),
+            support: ServiceSupport::default(),
+        })));
+        row
+    };
+    let original = carrier(unknown.clone(), 150);
+    let incoming = [carrier(first, 180), carrier(second, 190)];
+    let unit = CoupledRequirement {
+        id: support::id(99),
+        members: incoming.iter().map(VersionReference::from).collect(),
+    };
+    let reads = [
+        Observation::Accepted(original),
+        Observation::Absent {
+            key: incoming.last().unwrap().key,
+            checkpoint: InstalledCheckpoint {
+                account: account.account,
+                baseline: baseline.id,
+                coverage: account.installed.clone(),
+            },
+        },
+    ];
+    let registry = DestinationRegistryObservation {
+        account: account.account,
+        head: account.head,
+        destinations: vec![unknown],
+    };
+    let mut incoming = incoming;
+    for _ in 0..2 {
+        let result = plan_recovered_operation(&RecoveredOperationInput {
+            destination_registry: &registry,
+            unit: &unit,
+            incoming: &incoming,
+            returning_actor: support::id(4),
+            account: &account,
+            membership: &membership,
+            reads: &reads,
+            bindings: &[],
+            originals: &[],
+            evidence: &evidence,
+        })?;
+        assert!(
+            matches!(result, ServiceDecision::Ready(_)),
+            "refined namespace must be visible to remaining recovered records: {result:?}"
+        );
+        incoming.reverse();
+    }
+    let qso = support::accepted(175, "recovered contact");
+    let external = clacks_model::service::destination::ExternalRecordKey {
+        destination: support::id(42),
+        record: clacks_model::service::destination::RemoteRecordId::Qrz(7),
+    };
+    let association = clacks_model::service::evidence::processing::ExternalAssociation {
+        id: support::id(101),
+        external: external.clone(),
+        qso: support::id(10),
+        state: clacks_model::service::evidence::processing::AssociationState::Active,
+    };
+    let mut binding = support::accepted(180, "binding");
+    binding.key.id = RecordId::Service(ServicePayload::Association(association.clone()).id());
+    binding.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+        payload: ServicePayload::Association(association),
+        support: ServiceSupport {
+            destination: Some(Destination {
+                id: support::id(42),
+                collection: RemoteCollection::Qrz { book_id: Some(7) },
+                description: "first".into(),
+            }),
+            required: vec![clacks_sync::service::SupportRequirement::CoveredEffect(
+                VersionReference::from(&qso),
+            )],
+            ..Default::default()
+        },
+    })));
+    let incoming = [incoming.last().unwrap().clone(), qso, binding];
+    let unit = CoupledRequirement {
+        id: support::id(102),
+        members: incoming.iter().map(VersionReference::from).collect(),
+    };
+    let reads: Vec<_> = incoming
+        .iter()
+        .map(|row| Observation::Absent {
+            key: row.key,
+            checkpoint: InstalledCheckpoint {
+                account: account.account,
+                baseline: baseline.id,
+                coverage: account.installed.clone(),
+            },
+        })
+        .collect();
+    let bindings = [clacks_sync::service::ExternalBindingObservation {
+        account: account.account,
+        external,
+        binding: None,
+    }];
+    let result = plan_recovered_operation(&RecoveredOperationInput {
+        destination_registry: &registry,
+        unit: &unit,
+        incoming: &incoming,
+        returning_actor: support::id(4),
+        account: &account,
+        membership: &membership,
+        reads: &reads,
+        bindings: &bindings,
+        originals: &[],
+        evidence: &evidence,
+    })?;
+    assert!(
+        matches!(result, ServiceDecision::Ready(_)),
+        "inline refinement prerequisites must precede unrelated namespaces: {result:?}"
+    );
+    Ok(())
+}

@@ -890,3 +890,352 @@ fn returned_external_identity_cannot_bind_an_unsubmitted_contact() -> anyhow::Re
     );
     Ok(())
 }
+
+#[test]
+fn client_import_can_reference_a_tag_created_in_the_same_operation() -> anyhow::Result<()> {
+    use clacks_model::tag::LogbookTag;
+    use clacks_sync::{
+        acceptance::ServerChange,
+        account::{EvidenceView, InstalledCheckpoint},
+        client::{PreparedChange, VersionCondition},
+        clock::{ClockActor, RecordVector},
+        membership::{ClientMembership, MembershipSnapshot},
+        record::{RecordKey, RecordState, RecordValue},
+        service::operation::*,
+    };
+    let (a, b) = AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
+    let bs = [b.clone()];
+    let ev = EvidenceView {
+        lineage: &b.lineage,
+        baselines: &bs,
+    };
+    let actor = support::id(4);
+    let m = MembershipSnapshot {
+        account: a.account,
+        generation: 0,
+        clients: vec![ClientMembership {
+            actor,
+            created_at: a.head,
+            closed_at: None,
+            acknowledged: None,
+        }],
+    };
+    let tag = LogbookTag::new(support::id(8), "Imported".into());
+    let mut q = support::qso(support::id(100));
+    q.tags.insert(tag.id);
+    let absent = |id| Observation::Absent {
+        key: RecordKey {
+            account: a.account,
+            id,
+        },
+        checkpoint: InstalledCheckpoint {
+            account: a.account,
+            baseline: b.id,
+            coverage: a.installed.clone(),
+        },
+    };
+    let qr = absent(RecordId::Qso(q.id));
+    let tr = absent(RecordId::Tag(tag.id));
+    let qc = PreparedChange {
+        key: qr.key(),
+        state: RecordState::Live(RecordValue::Qso(Box::new(q))),
+        vector: RecordVector::default()
+            .increment(ClockActor::Client(actor), 0)?
+            .0,
+        actor,
+        expected: VersionCondition::from_observation(&qr)?,
+        dependencies: vec![VersionCondition::from_observation(&tr)?],
+    };
+    let tc = ServerChange {
+        key: tr.key(),
+        state: RecordState::Live(RecordValue::Tag(Box::new(tag))),
+        expected: VersionCondition::from_observation(&tr)?,
+        dependencies: vec![],
+    };
+    let op = ServiceOperation::ApplyImport {
+        qso_change: NativeChange::Client(qc),
+        assertions: vec![],
+        selected_tag_effects: vec![NativeChange::Server(tc)],
+        association: None,
+    };
+    let original_tag_guard = VersionCondition::from_observation(&tr)?;
+    let qso_key = qr.key();
+    let result = plan_operation(&ServiceOperationInput {
+        id: support::id(500),
+        account: &a,
+        membership: &m,
+        reads: &[qr, tr],
+        bindings: &[],
+        destinations: &[],
+        evidence: &ev,
+        operation: &op,
+        matching: None,
+    })?;
+    let ServiceDecision::Ready(commit) = result else {
+        panic!("same-operation dependency should be fulfilled internally, got {result:?}");
+    };
+    assert!(commit.conditions.contains(&original_tag_guard));
+    let qso = commit
+        .accepted
+        .iter()
+        .find(|row| row.key == qso_key)
+        .unwrap();
+    assert_eq!(qso.stamp.vector.component(ClockActor::Client(actor)), 1);
+    Ok(())
+}
+
+#[test]
+fn qrz_destination_can_establish_its_previously_unknown_book_id() -> anyhow::Result<()> {
+    use clacks_model::service::{
+        destination::{Destination, RemoteCollection},
+        evidence::ServicePayload,
+    };
+    use clacks_sync::{
+        acceptance::{AcceptanceDecision, AcceptanceInput, ServerChange, plan_server_acceptance},
+        account::EvidenceView,
+        client::VersionCondition,
+        membership::MembershipSnapshot,
+        record::{RecordState, RecordValue},
+        service::{DestinationRegistryObservation, ServiceRecord, ServiceSupport},
+    };
+    let (mut account, b) =
+        AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
+    account.head.revision = 200;
+    let old = Destination {
+        id: support::id(42),
+        collection: RemoteCollection::Qrz { book_id: None },
+        description: "book".into(),
+    };
+    let new = Destination {
+        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        ..old.clone()
+    };
+    let mut row = support::accepted(200, "fixture");
+    row.key.id = RecordId::Service(ServicePayload::Destination(old.clone()).id());
+    row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+        payload: ServicePayload::Destination(old.clone()),
+        support: ServiceSupport::default(),
+    })));
+    let current = Observation::Accepted(row);
+    let bases = [b.clone()];
+    let ev = EvidenceView {
+        lineage: &b.lineage,
+        baselines: &bases,
+    };
+    let m = MembershipSnapshot {
+        account: account.account,
+        generation: 0,
+        clients: vec![],
+    };
+    let registry = DestinationRegistryObservation {
+        account: account.account,
+        head: account.head,
+        destinations: vec![old],
+    };
+    let change = ServerChange {
+        key: current.key(),
+        state: RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload: ServicePayload::Destination(new.clone()),
+            support: ServiceSupport::default(),
+        }))),
+        expected: VersionCondition::from_observation(&current)?,
+        dependencies: vec![],
+    };
+    let result = plan_server_acceptance(
+        &change,
+        &AcceptanceInput {
+            destination_registry: Some(&registry),
+            account: &account,
+            membership: &m,
+            current: &current,
+            references: &[],
+            bindings: &[],
+        },
+        &ev,
+    );
+    let AcceptanceDecision::Commit(commit) = result? else {
+        panic!("expected identity refinement");
+    };
+    let account = commit.next_account;
+    let current = Observation::Accepted(commit.accepted);
+    let registry = DestinationRegistryObservation {
+        account: account.account,
+        head: account.head,
+        destinations: vec![new.clone()],
+    };
+    for book_id in [None, Some(8)] {
+        let changed = Destination {
+            collection: RemoteCollection::Qrz { book_id },
+            ..new.clone()
+        };
+        let change = ServerChange {
+            key: current.key(),
+            state: RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+                payload: ServicePayload::Destination(changed),
+                support: ServiceSupport::default(),
+            }))),
+            expected: VersionCondition::from_observation(&current)?,
+            dependencies: vec![],
+        };
+        assert!(
+            plan_server_acceptance(
+                &change,
+                &AcceptanceInput {
+                    destination_registry: Some(&registry),
+                    account: &account,
+                    membership: &m,
+                    current: &current,
+                    references: &[],
+                    bindings: &[]
+                },
+                &ev
+            )
+            .is_err()
+        );
+    }
+    let observation = remote(&support::qso(support::id(10)));
+    let payload = ServicePayload::Observation(Box::new(observation));
+    let current = absent_service(&payload);
+    let change = ServerChange {
+        key: current.key(),
+        state: RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload,
+            support: ServiceSupport {
+                destination: registry.destinations.first().map(|d| Destination {
+                    collection: RemoteCollection::Qrz { book_id: None },
+                    ..d.clone()
+                }),
+                ..Default::default()
+            },
+        }))),
+        expected: VersionCondition::from_observation(&current)?,
+        dependencies: vec![],
+    };
+    assert!(matches!(
+        plan_server_acceptance(
+            &change,
+            &AcceptanceInput {
+                destination_registry: Some(&registry),
+                account: &account,
+                membership: &m,
+                current: &current,
+                references: &[],
+                bindings: &[]
+            },
+            &ev
+        )?,
+        AcceptanceDecision::Commit(_)
+    ));
+    Ok(())
+}
+
+#[test]
+fn adding_downloaded_contact_requires_a_selected_tag() -> anyhow::Result<()> {
+    use clacks_model::service::{
+        destination::{Destination, RemoteCollection},
+        evidence::{
+            ServicePayload,
+            processing::{ProcessingDecision, ProcessingDisposition},
+        },
+    };
+    use clacks_sync::{
+        acceptance::ServerChange,
+        account::InstalledCheckpoint,
+        client::VersionCondition,
+        record::{RecordKey, RecordState, RecordValue},
+        service::{
+            ServiceRecord, ServiceSupport,
+            operation::{NativeChange, ServiceOperation},
+        },
+    };
+    let q = support::qso(support::id(10));
+    assert!(q.tags.is_empty());
+    let obs = remote(&q);
+    let mut row = support::accepted(200, "fixture");
+    row.key.id = RecordId::Service(ServicePayload::Observation(Box::new(obs.clone())).id());
+    row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+        payload: ServicePayload::Observation(Box::new(obs.clone())),
+        support: ServiceSupport {
+            destination: Some(Destination {
+                id: support::id(42),
+                collection: RemoteCollection::Qrz { book_id: Some(7) },
+                description: "book".into(),
+            }),
+            ..Default::default()
+        },
+    })));
+    let association = ExternalAssociation {
+        id: support::id(601),
+        external: ExternalRecordKey {
+            destination: support::id(42),
+            record: RemoteRecordId::Qrz(7),
+        },
+        qso: q.id,
+        state: AssociationState::Active,
+    };
+    let disposition = ProcessingDisposition {
+        id: support::id(602),
+        observation: obs.id,
+        decision: ProcessingDecision::Added,
+        association: Some(association.id),
+    };
+    let (a, b) = AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
+    let absent = Observation::Absent {
+        key: RecordKey {
+            account: a.account,
+            id: RecordId::Qso(q.id),
+        },
+        checkpoint: InstalledCheckpoint {
+            account: a.account,
+            baseline: b.id,
+            coverage: a.installed.clone(),
+        },
+    };
+    let change = ServerChange {
+        key: absent.key(),
+        state: RecordState::Live(RecordValue::Qso(Box::new(q))),
+        expected: VersionCondition::from_observation(&absent)?,
+        dependencies: vec![],
+    };
+    let reads = [
+        absent,
+        Observation::Accepted(row),
+        absent_service(&ServicePayload::Association(association.clone())),
+        absent_service(&ServicePayload::Disposition(disposition.clone())),
+    ];
+    let bindings = [ExternalBindingObservation {
+        account: a.account,
+        external: association.external.clone(),
+        binding: None,
+    }];
+    let op = ServiceOperation::CompleteObservation {
+        observation: obs.id,
+        disposition,
+        association: Some(association),
+        qso_change: Some(NativeChange::Server(change)),
+        selected: None,
+    };
+    assert!(run_operation(&op, &reads, &bindings).is_err());
+    let mut tagged = op;
+    let tag_id = support::id(88);
+    if let ServiceOperation::CompleteObservation {
+        qso_change: Some(NativeChange::Server(change)),
+        ..
+    } = &mut tagged
+        && let RecordState::Live(RecordValue::Qso(qso)) = &mut change.state
+    {
+        qso.tags.insert(tag_id);
+    }
+    let mut tag = support::accepted(199, "tag");
+    tag.key.id = RecordId::Tag(tag_id);
+    tag.state = RecordState::Live(RecordValue::Tag(Box::new(
+        clacks_model::tag::LogbookTag::new(tag_id, "Downloaded".into()),
+    )));
+    let mut reads = reads.to_vec();
+    reads.push(Observation::Accepted(tag));
+    assert!(matches!(
+        run_operation(&tagged, &reads, &bindings)?,
+        ServiceDecision::Ready(_)
+    ));
+    Ok(())
+}

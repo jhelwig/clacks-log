@@ -95,15 +95,28 @@ pub fn plan_recovered_operation(
     let mut conditions = Vec::new();
     let mut external_guards = Vec::new();
     while !pending.is_empty() {
-        let ready = pending.iter().position(|row| {
-            let mut keys = crate::acceptance::required_references(row.key, &row.state);
-            if let Some(s) = super::payload(row) {
-                keys.extend(required_keys(input.account.account, s));
-                keys.extend(s.support.required.iter().map(|r| r.reference().key));
-            }
-            keys.iter()
-                .all(|key| !pending.iter().any(|r| r.key == *key))
-        });
+        let candidates: Vec<_> = pending
+            .iter()
+            .map(|row| {
+                let mut keys = crate::acceptance::required_references(row.key, &row.state);
+                if let Some(s) = super::payload(row) {
+                    keys.extend(required_keys(input.account.account, s));
+                    keys.extend(s.support.required.iter().map(|r| r.reference().key));
+                }
+                (row.key, &row.state, keys)
+            })
+            .collect();
+        let priority = super::namespace_prerequisites(&registry.destinations, &candidates);
+        let ready = candidates
+            .iter()
+            .enumerate()
+            .filter(|(_, (_, _, required))| {
+                required
+                    .iter()
+                    .all(|key| !candidates.iter().any(|(candidate, _, _)| candidate == key))
+            })
+            .min_by_key(|(_, (key, _, _))| !priority.contains(key))
+            .map(|(index, _)| index);
         let Some(index) = ready else {
             return Ok(ServiceDecision::Incomplete(
                 "recovered dependency cycle requires support/covering effects".into(),
@@ -152,19 +165,7 @@ pub fn plan_recovered_operation(
                 next_account = next;
                 prospective.retain(|r| r.key() != envelope.key);
                 prospective.push(Observation::Accepted(envelope.clone()));
-                if let Some(s) = super::payload(&envelope)
-                    && let Some(d) = &s.support.destination
-                    && !registry.destinations.iter().any(|old| old.id == d.id)
-                {
-                    registry.destinations.push(d.clone());
-                }
-                if let Some(s) = super::payload(&envelope)
-                    && let clacks_model::service::evidence::ServicePayload::Destination(d) =
-                        &s.payload
-                    && !registry.destinations.iter().any(|old| old.id == d.id)
-                {
-                    registry.destinations.push(d.clone());
-                }
+                super::retain_destination(&mut registry.destinations, &envelope);
                 accepted.push(envelope);
                 journals.push(*journal);
             }
@@ -178,6 +179,7 @@ pub fn plan_recovered_operation(
                 next_account = c.next_account;
                 prospective.retain(|r| r.key() != c.accepted.key);
                 prospective.push(Observation::Accepted(c.accepted.clone()));
+                super::retain_destination(&mut registry.destinations, &c.accepted);
                 accepted.push(c.accepted);
                 journals.push(c.journal);
             }

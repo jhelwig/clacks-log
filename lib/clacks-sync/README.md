@@ -124,7 +124,11 @@ unique-index guards. `service::operation::plan_operation` returns one
 and checked revisions. Recheck its original head, membership generation,
 source-version conditions and every external-index condition in the same real
 transaction. Commit all accepted rows, journal rows, unit descriptors and actual
-worker job updates atomically. An observed absent external-index entry requires
+worker job updates atomically. Client proposals retain their author/vector and
+original transaction guards while resolving same-operation dependencies against
+prospective accepted versions. Adding an unmatched downloaded contact requires a
+selected live tag; this does not prohibit untagged contacts in other workflows.
+An observed absent external-index entry requires
 protection against a competing insert, not just a missing row lock.
 
 `service::download` serializes starts through one deterministic control row per
@@ -165,7 +169,12 @@ at the compared account head. The real transaction must preserve a single stable
 namespace per remote collection, retain it after credential removal, and register
 new public descriptors atomically with acceptance. Generic acceptance and recovery
 perform the same namespace checks as coupled operations. A destination ID cannot
-be repurposed for a different remote collection. Supply the complete registry in
+be repurposed for a different remote collection. A QRZ destination may refine an
+unknown book ID to its established ID under the same namespace and guards.
+Established IDs cannot change or be cleared, and older evidence with an unknown
+book ID remains interpretable. Refinements and their pending prerequisites take
+priority over unrelated members, and each accepted refinement updates the
+operation's prospective registry. Supply the complete registry in
 `ServiceOperationInput.destinations` and `DownloadContext.destinations`; recovery
 accepts its explicit guarded registry observation.
 
@@ -179,3 +188,9 @@ not pass conditions for reinstalling their old active state.
 workers must not treat contradictory provider ordering as a manual QSO edit.
 Selection retains conflicting values from maximal mutually reachable ordering
 components. A later refresh that dominates them can establish a value again.
+
+`SelectedObservations.current_supporting` identifies occurrences whose supplied
+fields are all established and undominated, while `supporting` includes the complete
+retained input used by selection. Ordering-only refreshes reuse a disposition
+only when its reviewed occurrence represents the current facts; an older
+rejection of different content cannot suppress new review work.
