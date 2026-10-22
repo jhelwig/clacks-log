@@ -28,63 +28,89 @@ fn pending() -> ClientRecord {
 
 #[test]
 fn lost_response_keeps_later_work() {
-    let (_, b) = AccountMetadata::initialize(id(1), id(2), id(3));
-    let defs = [b.clone()];
-    let ev = EvidenceView {
-        lineage: &b.lineage,
-        baselines: &defs,
-    };
-    let Preparation::Ready {
-        mut record,
-        change,
-        counter,
-    } = prepare_change(
-        &pending(),
-        id(4),
-        &LocalCounter {
-            actor: id(4),
-            high_water: 0,
-        },
-        &[],
-        &ev,
-    )
-    .unwrap()
-    else {
-        panic!("ready")
-    };
-    assert_eq!(change.vector.component(ClockActor::Client(id(4))), 1);
-    record.pending.as_mut().unwrap().working = accepted(200, "C").state;
-    let record: ClientRecord =
-        serde_json::from_str(&serde_json::to_string(&record).unwrap()).unwrap();
-    let Preparation::Retry { change: retry, .. } =
-        prepare_change(&record, id(4), &counter, &[], &ev).unwrap()
-    else {
-        panic!("retry")
-    };
-    assert_eq!(retry, change);
-    let mut shared = accepted(201, "B");
-    shared.stamp.vector = shared
-        .stamp
-        .vector
-        .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 1)]).unwrap());
-    let update = receive_accepted(&record, &shared, &ev).unwrap();
-    assert!(update.review.is_none());
-    let p = update.record.pending.as_ref().unwrap();
-    assert_eq!(p.working, accepted(200, "C").state);
-    assert!(p.prepared.is_none());
-    let OriginalBasis::SubsumedOwn { state, witness, .. } = &p.original else {
-        panic!("witnessed own version")
-    };
-    assert_eq!(state, &accepted(200, "B").state);
-    assert_eq!(witness, &shared.stamp);
-    let mut d = accepted(202, "D");
-    d.stamp.vector = d.stamp.vector.join(&change.vector);
+    let captured = support::telemetry::capture(|| {
+        let (_, b) = AccountMetadata::initialize(id(1), id(2), id(3));
+        let defs = [b.clone()];
+        let ev = EvidenceView {
+            lineage: &b.lineage,
+            baselines: &defs,
+        };
+        let Preparation::Ready {
+            mut record,
+            change,
+            counter,
+        } = prepare_change(
+            &pending(),
+            id(4),
+            &LocalCounter {
+                actor: id(4),
+                high_water: 0,
+            },
+            &[],
+            &ev,
+        )
+        .unwrap()
+        else {
+            panic!("ready")
+        };
+        assert_eq!(change.vector.component(ClockActor::Client(id(4))), 1);
+        record.pending.as_mut().unwrap().working = accepted(200, "C").state;
+        let record: ClientRecord =
+            serde_json::from_str(&serde_json::to_string(&record).unwrap()).unwrap();
+        let Preparation::Retry { change: retry, .. } =
+            prepare_change(&record, id(4), &counter, &[], &ev).unwrap()
+        else {
+            panic!("retry")
+        };
+        assert_eq!(retry, change);
+        let mut shared = accepted(201, "B");
+        shared.stamp.vector = shared
+            .stamp
+            .vector
+            .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 1)]).unwrap());
+        let update = receive_accepted(&record, &shared, &ev).unwrap();
+        assert!(update.review.is_none());
+        let p = update.record.pending.as_ref().unwrap();
+        assert_eq!(p.working, accepted(200, "C").state);
+        assert!(p.prepared.is_none());
+        let OriginalBasis::SubsumedOwn { state, witness, .. } = &p.original else {
+            panic!("witnessed own version")
+        };
+        assert_eq!(state, &accepted(200, "B").state);
+        assert_eq!(witness, &shared.stamp);
+        let mut d = accepted(202, "D");
+        d.stamp.vector = d.stamp.vector.join(&change.vector);
+        assert!(
+            receive_accepted(&update.record, &d, &ev)
+                .unwrap()
+                .review
+                .is_some()
+        );
+    });
+    let retry = captured.event("client.retry_prepared");
     assert!(
-        receive_accepted(&update.record, &d, &ev)
-            .unwrap()
-            .review
-            .is_some()
+        captured
+            .observations
+            .spans
+            .iter()
+            .any(|span| { span.name == "sync.client.prepare" && span.id == retry.parent })
     );
+    assert_eq!(
+        captured
+            .event("client.review_required")
+            .fields
+            .get("review_reason")
+            .map(String::as_str),
+        Some("BothDifferent")
+    );
+    assert!(
+        captured
+            .observations
+            .events
+            .iter()
+            .all(|e| e.fields.get("level").is_none_or(|l| l != "ERROR"))
+    );
+    captured.result
 }
 
 #[test]
@@ -200,8 +226,28 @@ fn superseded_own_version_keeps_its_values_without_fabricating_position() {
     };
     assert_eq!(state, &accepted(200, "B").state);
     assert_eq!(witness.accepted_at.revision, 202);
-    let resolved =
-        clacks_sync::client::resolve_review(&review, accepted(200, "C").state, &ev).unwrap();
+    let captured = support::telemetry::capture_filtered(
+        || clacks_sync::client::resolve_review(&review, accepted(200, "C").state, &ev),
+        |metadata| *metadata.level() <= tracing::Level::INFO,
+    );
+    let event = captured.event("client.resolution_prepared");
+    assert_eq!(event.fields.get("level").map(String::as_str), Some("INFO"));
+    assert_eq!(
+        captured
+            .span("sync.client.resolve")
+            .fields
+            .get("level")
+            .map(String::as_str),
+        Some("INFO")
+    );
+    let key = review.shared.key();
+    assert_eq!(
+        event.fields.get("account_id"),
+        Some(&key.account.to_string())
+    );
+    assert_eq!(event.fields.get("record_id"), Some(&key.id.to_string()));
+    assert_eq!(event.parent, captured.span("sync.client.resolve").id);
+    let resolved = captured.result.unwrap();
     let Preparation::Ready { change, .. } = prepare_change(
         &resolved,
         id(4),

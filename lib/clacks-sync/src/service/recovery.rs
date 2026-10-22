@@ -44,11 +44,25 @@ pub struct RecoveredOperationInput<'a> {
 ///
 /// Incomplete/review outcomes require retaining the supplied input for retry. This
 /// operation does not dispatch a request or certify an old complete prefix.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.service.recovery.plan",
+    level = "info",
+    fields(
+        account_id = %input.account.account,
+        operation_id = %input.unit.id,
+        actor_id = %input.returning_actor,
+    ),
+)]
 pub fn plan_recovered_operation(
     input: &RecoveredOperationInput<'_>,
 ) -> anyhow::Result<ServiceDecision<CoupledCommit>> {
     input.membership.validate(input.account)?;
     if crate::acceptance::admission(input.returning_actor, input.membership).is_some() {
+        tracing::debug!(
+            event = "service.recovery.review_required",
+            review_reason = ?crate::client::ReviewReason::ExcludedActor(input.returning_actor)
+        );
         return Ok(ServiceDecision::Review(
             "returning client is not currently authorized".into(),
         ));
@@ -118,12 +132,22 @@ pub fn plan_recovered_operation(
             .min_by_key(|(_, (key, _, _))| !priority.contains(key))
             .map(|(index, _)| index);
         let Some(index) = ready else {
+            tracing::debug!(
+                event = "service.recovery.incomplete",
+                reason = "dependency_cycle",
+                pending_record_count = pending.len()
+            );
             return Ok(ServiceDecision::Incomplete(
                 "recovered dependency cycle requires support/covering effects".into(),
             ));
         };
         let row = pending.remove(index);
         let Some(current) = prospective.iter().find(|r| r.key() == row.key).cloned() else {
+            tracing::debug!(
+                event = "service.recovery.incomplete",
+                reason = "missing_target_read",
+                record_id = %row.key.id,
+            );
             return Ok(ServiceDecision::Incomplete(format!(
                 "explicit target read missing: {:?}",
                 row.key
@@ -191,6 +215,11 @@ pub fn plan_recovered_operation(
                 )));
             }
             RecoveredDecision::DeferredService { detail } => {
+                tracing::debug!(
+                    event = "service.recovery.incomplete",
+                    reason = "deferred_service",
+                    record_id = %row.key.id,
+                );
                 return Ok(ServiceDecision::Incomplete(detail));
             }
         }
@@ -199,6 +228,11 @@ pub fn plan_recovered_operation(
         let Some(Observation::Accepted(actual)) =
             prospective.iter().find(|r| r.key() == member.key)
         else {
+            tracing::debug!(
+                event = "service.recovery.incomplete",
+                reason = "missing_unit_member",
+                record_id = %member.key.id,
+            );
             return Ok(ServiceDecision::Incomplete(format!(
                 "unit member missing {:?}",
                 member.key
@@ -214,6 +248,12 @@ pub fn plan_recovered_operation(
             relation,
             crate::compare::RecordRelation::SameVersion | crate::compare::RecordRelation::After
         ) {
+            tracing::debug!(
+                event = "service.recovery.incomplete",
+                reason = "unit_member_not_covered",
+                record_id = %member.key.id,
+                ?relation,
+            );
             return Ok(ServiceDecision::Incomplete(format!(
                 "unit member not covered {:?}",
                 member.key
@@ -232,6 +272,7 @@ pub fn plan_recovered_operation(
         }
     }
     if accepted.is_empty() {
+        tracing::debug!(event = "service.recovery.covered");
         return Ok(ServiceDecision::Unchanged);
     }
     // The original unit describes covered effects, not newly allocated installation positions.
@@ -239,7 +280,7 @@ pub fn plan_recovered_operation(
         id: input.unit.id,
         members: input.unit.members.clone(),
     };
-    Ok(ServiceDecision::Ready(CoupledCommit {
+    let plan = CoupledCommit {
         expected_head: input.account.head,
         expected_membership_generation: input.membership.generation,
         conditions,
@@ -249,5 +290,12 @@ pub fn plan_recovered_operation(
         journals,
         unit,
         job_updates: vec![],
-    }))
+    };
+
+    tracing::info!(
+        event = "service.recovery.planned",
+        proposed_record_count = plan.accepted.len(),
+        unit_member_count = plan.unit.members.len(),
+    );
+    Ok(ServiceDecision::Ready(plan))
 }

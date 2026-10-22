@@ -101,12 +101,21 @@ fn location(fields: &mut AdifFields, l: &RecordedLocation, own: bool) {
 }
 
 /// Prepare QRZ values without file expansion or changing recorded facts.
+#[tracing::instrument(
+    skip_all,
+    name = "model.qrz.project",
+    level = "debug",
+    fields(
+        qso_id = %input.qso.id,
+        destination_id = %input.destination.id,
+    ),
+)]
 pub fn project(
     input: &QrzProjectionInput<'_>,
 ) -> anyhow::Result<ProjectionDecision<QrzSubmission>> {
     input.qso.validate()?;
     let result = prepare(input);
-    Ok(match result {
+    let decision = match result {
         Ok(v) => ProjectionDecision::Ready(v),
         Err(e) => ProjectionDecision::NotReady(vec![ReadinessIssue {
             field: format!(
@@ -115,12 +124,30 @@ pub fn project(
             ),
             reason: e.to_string(),
         }]),
-    })
+    };
+    let (readiness, warning_count, readiness_issue_count) = match &decision {
+        ProjectionDecision::Ready(result) => ("ready", result.warnings.len(), 0),
+        ProjectionDecision::NotReady(issues) => ("not_ready", 0, issues.len()),
+    };
+    metrics::counter!("clacks_service_projection_readiness_total", "service" => "qrz", "readiness" => readiness).increment(1);
+    tracing::debug!(
+        event = "projection.prepared",
+        qso_id = %input.qso.id,
+        destination_id = %input.destination.id,
+        readiness,
+        warning_count,
+        readiness_issue_count,
+    );
+    Ok(decision)
 }
 
 /// Prepare provider output after checking the destination namespace.
 fn prepare(input: &QrzProjectionInput<'_>) -> anyhow::Result<ProjectionResult<QrzSubmission>> {
     if input.destination.service() != Service::Qrz {
+        tracing::debug!(
+            event = "projection.conversion_unavailable",
+            reason = "wrong_destination_service"
+        );
         return Err(ServiceError::Invalid {
             detail: "QRZ destination required".into(),
         }
@@ -155,6 +182,10 @@ fn prepare_fields(
         .get(&c.export.output_profile_id)
         .is_none_or(|p| p.purpose != OutputPurpose::OrdinaryInterchange)
     {
+        tracing::debug!(
+            event = "projection.conversion_unavailable",
+            reason = "ordinary_profile_required"
+        );
         return Err(ServiceError::Invalid {
             detail: "QRZ requires a QRZ destination and ordinary ADIF profile".into(),
         }
@@ -253,6 +284,10 @@ fn prepare_fields(
         c.resolutions,
     )?;
     if !refs.decisions.is_empty() {
+        tracing::debug!(
+            event = "projection.conversion_unavailable",
+            reason = "reference_selection_required"
+        );
         return Err(ServiceError::Invalid {
             detail: format!("unresolved QRZ reference choices: {:?}", refs.decisions),
         }
@@ -290,12 +325,20 @@ fn prepare_fields(
                         .insert(field.clone(), value.clone())
                         .is_some_and(|old| old != value)
                     {
+                        tracing::debug!(
+                            event = "projection.conversion_unavailable",
+                            reason = "conflicting_reference_field"
+                        );
                         return Err(ServiceError::Invalid {
                             detail: format!("QRZ conflicting mapped field {field}"),
                         }
                         .into());
                     }
                 } else {
+                    tracing::debug!(
+                        event = "projection.reference_omitted",
+                        reason = "unsupported_service_field"
+                    );
                     warnings.push(ProjectionWarning {
                         field,
                         detail: "unsupported service reference field omitted".into(),
@@ -307,6 +350,13 @@ fn prepare_fields(
     let mut emitted = AdifFields::new();
     for (field, value) in fields {
         let text = adif::text(&field, &value);
+        if !text.warnings.is_empty() {
+            tracing::debug!(
+                event = "projection.text_converted",
+                %field,
+                omitted = text.value.is_none(),
+            );
+        }
         warnings.extend(text.warnings);
         if let Some(value) = text.value {
             emitted.insert(field, value);
@@ -316,6 +366,10 @@ fn prepare_fields(
         if !emitted.contains_key(name)
             && (require_submission_time || !matches!(name, "QSO_DATE" | "TIME_ON"))
         {
+            tracing::debug!(
+                event = "projection.conversion_unavailable",
+                reason = "required_field_unrepresentable"
+            );
             return Err(ServiceError::Invalid {
                 detail: format!("QRZ required field {name} cannot be represented"),
             }

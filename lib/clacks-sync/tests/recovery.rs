@@ -52,7 +52,22 @@ fn rollback_fork_only_covers_completed_old_windows() {
         .unwrap(),
         HistoryCheck::Regression { .. }
     ));
-    let fork = plan_recovery_fork(id(5), &a, &m, &a.installed).unwrap();
+    let captured = support::telemetry::capture_filtered(
+        || plan_recovery_fork(id(5), &a, &m, &a.installed),
+        |metadata| *metadata.level() <= tracing::Level::INFO,
+    );
+    let span = captured.span("sync.recovery.fork.plan");
+    assert_eq!(span.fields.get("level").map(String::as_str), Some("INFO"));
+    assert_eq!(span.fields.get("account_id"), Some(&a.account.to_string()));
+    assert_eq!(
+        span.fields.get("new_timeline_id"),
+        Some(&id::<clacks_model::ids::TimelineId>(5).to_string())
+    );
+    assert_eq!(
+        span.fields.get("restored_revision").map(String::as_str),
+        Some("160")
+    );
+    let fork = captured.result.unwrap();
     lineage.add_boundary(fork.boundary).unwrap();
     let mut restored = fork.next_account;
     restored.head.revision = 40;
@@ -308,66 +323,76 @@ fn sparse_certified_absence_uses_ancestry_at_the_checkpoint_cut() {
 
 #[test]
 fn unknown_order_never_approves_differing_values_and_unavailable_is_two_way() {
-    use clacks_sync::{
-        client::{OriginalBasis, ReviewReason},
-        clock::{ClockActor, RecordVector},
-        lineage::{BoundaryKind, TimelineBoundary},
-    };
-    let (mut account, b) = AccountMetadata::initialize(id(1), id(2), id(3));
-    let mut other = b.clone();
-    other.id = id(20);
-    let defs = [b.clone(), other];
-    let mut lineage = b.lineage.clone();
-    lineage
-        .add_boundary(TimelineBoundary {
-            at: Position {
-                timeline: id(5),
-                revision: 0,
-            },
-            includes: Coverage::from_entries([(id(2), 0)]).unwrap(),
-            kind: BoundaryKind::ForkOrigin,
-        })
-        .unwrap();
-    account.head = Position {
-        timeline: id(5),
-        revision: 50,
-    };
-    let ev = EvidenceView {
-        lineage: &lineage,
-        baselines: &defs,
-    };
-    let mut incoming = accepted(10, "incoming");
-    incoming.stamp.baseline = id(20);
-    let mut shared = accepted(5, "original");
-    shared.stamp.accepted_at.timeline = id(5);
-    shared.stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
-    let shared = Observation::Accepted(shared);
-    let original = OriginalBasis::Accepted(accepted(1, "original"));
-    let input = clacks_sync::acceptance::AcceptanceInput {
-        destination_registry: None,
-        bindings: &[],
-        account: &account,
-        membership: &membership(),
-        current: &shared,
-        references: &[],
-    };
-    let RecoveredDecision::Review(review) =
-        plan_recovered_install(&incoming, Some(&original), id(4), &input, &ev).unwrap()
-    else {
-        panic!("unknown ordering review")
-    };
-    assert!(matches!(review.reason, ReviewReason::OrderingUnknown(_)));
-    incoming.stamp.baseline = id(3);
-    let missing = OriginalBasis::Unavailable {
-        key: incoming.key,
-        reason: clacks_sync::error::UnknownReason::MissingOriginal,
-    };
-    let RecoveredDecision::Review(review) =
-        plan_recovered_install(&incoming, Some(&missing), id(4), &input, &ev).unwrap()
-    else {
-        panic!("two-way review")
-    };
-    assert_eq!(review.reason, ReviewReason::MissingOriginal);
+    let mut returned_reason = None;
+    let captured = support::telemetry::capture(|| {
+        use clacks_sync::{
+            client::{OriginalBasis, ReviewReason},
+            clock::{ClockActor, RecordVector},
+            lineage::{BoundaryKind, TimelineBoundary},
+        };
+        let (mut account, b) = AccountMetadata::initialize(id(1), id(2), id(3));
+        let mut other = b.clone();
+        other.id = id(20);
+        let defs = [b.clone(), other];
+        let mut lineage = b.lineage.clone();
+        lineage
+            .add_boundary(TimelineBoundary {
+                at: Position {
+                    timeline: id(5),
+                    revision: 0,
+                },
+                includes: Coverage::from_entries([(id(2), 0)]).unwrap(),
+                kind: BoundaryKind::ForkOrigin,
+            })
+            .unwrap();
+        account.head = Position {
+            timeline: id(5),
+            revision: 50,
+        };
+        let ev = EvidenceView {
+            lineage: &lineage,
+            baselines: &defs,
+        };
+        let mut incoming = accepted(10, "incoming");
+        incoming.stamp.baseline = id(20);
+        let mut shared = accepted(5, "original");
+        shared.stamp.accepted_at.timeline = id(5);
+        shared.stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
+        let shared = Observation::Accepted(shared);
+        let original = OriginalBasis::Accepted(accepted(1, "original"));
+        let input = clacks_sync::acceptance::AcceptanceInput {
+            destination_registry: None,
+            bindings: &[],
+            account: &account,
+            membership: &membership(),
+            current: &shared,
+            references: &[],
+        };
+        let RecoveredDecision::Review(review) =
+            plan_recovered_install(&incoming, Some(&original), id(4), &input, &ev).unwrap()
+        else {
+            panic!("unknown ordering review")
+        };
+        assert!(matches!(review.reason, ReviewReason::OrderingUnknown(_)));
+        returned_reason = Some(review.reason.clone());
+        incoming.stamp.baseline = id(3);
+        let missing = OriginalBasis::Unavailable {
+            key: incoming.key,
+            reason: clacks_sync::error::UnknownReason::MissingOriginal,
+        };
+        let RecoveredDecision::Review(review) =
+            plan_recovered_install(&incoming, Some(&missing), id(4), &input, &ev).unwrap()
+        else {
+            panic!("two-way review")
+        };
+        assert_eq!(review.reason, ReviewReason::MissingOriginal);
+    });
+    let event = captured.event("recovery.review_required");
+    assert_eq!(
+        event.fields.get("review_reason"),
+        Some(&format!("{:?}", returned_reason.unwrap()))
+    );
+    captured.result
 }
 
 #[test]

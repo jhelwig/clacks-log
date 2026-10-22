@@ -81,6 +81,15 @@ pub struct MembershipUpdate {
 /// Close automatic admission without expiring other clients or deleting accepted data.
 ///
 /// Save the returned account and membership rows in one conditional transaction.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.membership.revoke.plan",
+    level = "debug",
+    fields(
+        account_id = %account.account,
+        actor_id = %actor,
+    ),
+)]
 pub fn revoke(
     actor: ClientActorId,
     account: &AccountMetadata,

@@ -44,6 +44,17 @@ pub struct BindingChange {
 }
 
 /// Validate a binding choice without treating an omitted index read as absence.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.association.binding.plan",
+    level = "debug",
+    fields(
+        account_id = %input.account,
+        qso_id = %input.association.qso,
+        association_id = %input.association.id,
+        destination_id = %input.association.external.destination,
+    ),
+)]
 pub fn plan_binding(input: &BindingInput<'_>) -> anyhow::Result<ServiceDecision<BindingChange>> {
     let a = input.association;
     anyhow::ensure!(
@@ -62,6 +73,13 @@ pub fn plan_binding(input: &BindingInput<'_>) -> anyhow::Result<ServiceDecision<
             || b.qso != a.qso
             || (b.state != AssociationState::Active && a.state == AssociationState::Active))
     {
+        tracing::debug!(
+            event = "association.binding_conflict",
+            existing_association_id = %b.association,
+            existing_qso_id = %b.qso,
+            existing_state = ?b.state,
+            requested_state = ?a.state,
+        );
         return Ok(ServiceDecision::Review(
             "external record already has a different or historical binding".into(),
         ));
@@ -83,6 +101,7 @@ pub fn plan_binding(input: &BindingInput<'_>) -> anyhow::Result<ServiceDecision<
         )
     ) || a.state == AssociationState::Superseded;
     if !valid {
+        tracing::debug!(event = "association.target_incompatible", requested_state = ?a.state);
         return Ok(ServiceDecision::Incomplete(
             "binding target state unavailable or incompatible".into(),
         ));
@@ -131,6 +150,15 @@ pub struct CandidateSet {
 }
 
 /// Classify actual saved contacts; this never creates a contact or chooses ambiguous matches.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.association.candidates.calculate",
+    level = "debug",
+    fields(
+        account_id = %input.account,
+        observation_id = %input.observation.id,
+    ),
+)]
 pub fn classify_candidates(input: &CandidateInput<'_>) -> anyhow::Result<CandidateSet> {
     let mut out = CandidateSet::default();
     for row in input.account_qsos {

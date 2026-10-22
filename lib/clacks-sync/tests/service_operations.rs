@@ -307,15 +307,24 @@ fn occupied_historical_binding_never_automatically_reactivates() -> anyhow::Resu
                 stamp: row.stamp.clone(),
             }),
         };
-        assert!(matches!(
+        let captured = support::telemetry::capture(|| {
             plan_binding(&BindingInput {
                 account: row.key.account,
                 association: &a,
                 index: &index,
-                target: &Observation::Accepted(row.clone())
-            })?,
-            ServiceDecision::Review(_)
-        ));
+                target: &Observation::Accepted(row.clone()),
+            })
+        });
+        assert!(matches!(captured.result, Ok(ServiceDecision::Review(_))));
+        let conflict = captured.event("association.binding_conflict");
+        assert_eq!(
+            conflict.fields.get("existing_association_id"),
+            Some(&id.to_string())
+        );
+        assert_eq!(
+            conflict.fields.get("existing_state"),
+            Some(&format!("{state:?}"))
+        );
     }
     let foreign = ExternalBindingObservation {
         account: support::id(99),
@@ -336,116 +345,131 @@ fn occupied_historical_binding_never_automatically_reactivates() -> anyhow::Resu
 
 #[test]
 fn result_after_contact_deletion_retains_frozen_attempt_and_job_outcome() -> anyhow::Result<()> {
-    use clacks_model::{
-        scalar::UtcTimestamp,
-        service::{
-            destination::{Destination, RemoteCollection},
-            evidence::{ServicePayload, ServiceRecordId, submission::*},
-            qrz::QrzSubmission,
-        },
-    };
-    use clacks_sync::{
-        account::{EvidenceView, InstalledCheckpoint},
-        membership::MembershipSnapshot,
-        record::{RecordKey, RecordState, RecordValue},
-        service::{ServiceRecord, ServiceSupport, operation::*},
-    };
-    let (mut account, base) =
-        AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
-    account.head.revision = 200;
-    let bases = [base.clone()];
-    let evidence = EvidenceView {
-        lineage: &base.lineage,
-        baselines: &bases,
-    };
-    let membership = MembershipSnapshot {
-        account: account.account,
-        generation: 0,
-        clients: vec![],
-    };
-    let destination = Destination {
-        id: support::id(42),
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
-        description: "book".into(),
-    };
-    let attempt = SubmissionAttempt {
-        id: support::id(510),
-        qso: support::id(10),
-        projection: SubmissionProjection::Qrz(QrzSubmission {
+    let captured = support::telemetry::capture(|| {
+        use clacks_model::{
+            scalar::UtcTimestamp,
+            service::{
+                destination::{Destination, RemoteCollection},
+                evidence::{ServicePayload, ServiceRecordId, submission::*},
+                qrz::QrzSubmission,
+            },
+        };
+        use clacks_sync::{
+            account::{EvidenceView, InstalledCheckpoint},
+            membership::MembershipSnapshot,
+            record::{RecordKey, RecordState, RecordValue},
+            service::{ServiceRecord, ServiceSupport, operation::*},
+        };
+        let (mut account, base) =
+            AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
+        account.head.revision = 200;
+        let bases = [base.clone()];
+        let evidence = EvidenceView {
+            lineage: &base.lineage,
+            baselines: &bases,
+        };
+        let membership = MembershipSnapshot {
+            account: account.account,
+            generation: 0,
+            clients: vec![],
+        };
+        let destination = Destination {
+            id: support::id(42),
+            collection: RemoteCollection::Qrz { book_id: Some(7) },
+            description: "book".into(),
+        };
+        let attempt = SubmissionAttempt {
+            id: support::id(510),
+            qso: support::id(10),
+            projection: SubmissionProjection::Qrz(QrzSubmission {
+                destination: destination.id,
+                fields: [("COMMENT".into(), "old frozen value".into())]
+                    .into_iter()
+                    .collect(),
+            }),
+            phase: DispatchPhase::Intent,
+            at: UtcTimestamp::new(0, 0)?,
+            batch: None,
+        };
+        let mut a = support::accepted(199, "fixture");
+        a.key.id = RecordId::Service(ServiceRecordId::Attempt(attempt.id));
+        a.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload: ServicePayload::Attempt(attempt.clone()),
+            support: ServiceSupport {
+                destination: Some(destination.clone()),
+                ..Default::default()
+            },
+        })));
+        let result = SubmissionResult {
+            external_attempt: None,
+            id: support::id(511),
             destination: destination.id,
-            fields: [("COMMENT".into(), "old frozen value".into())]
-                .into_iter()
-                .collect(),
-        }),
-        phase: DispatchPhase::Intent,
-        at: UtcTimestamp::new(0, 0)?,
-        batch: None,
-    };
-    let mut a = support::accepted(199, "fixture");
-    a.key.id = RecordId::Service(ServiceRecordId::Attempt(attempt.id));
-    a.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload: ServicePayload::Attempt(attempt.clone()),
-        support: ServiceSupport {
-            destination: Some(destination.clone()),
-            ..Default::default()
-        },
-    })));
-    let result = SubmissionResult {
-        external_attempt: None,
-        id: support::id(511),
-        destination: destination.id,
-        scope: ResultScope::IndividualAttempt(attempt.id),
-        outcome: SubmissionOutcome::Uncertain("response lost".into()),
-        phase: DispatchPhase::PossibleSend,
-        at: UtcTimestamp::new(1, 0)?,
-        diagnostic: None,
-        external: None,
-    };
-    let mut deleted = support::accepted(200, "fixture");
-    deleted.state = RecordState::Deleted;
-    let reads = [
-        Observation::Accepted(deleted),
-        Observation::Accepted(a),
-        Observation::Absent {
-            key: RecordKey {
-                account: account.account,
-                id: RecordId::Service(ServiceRecordId::Result(result.id)),
+            scope: ResultScope::IndividualAttempt(attempt.id),
+            outcome: SubmissionOutcome::Uncertain("response lost".into()),
+            phase: DispatchPhase::PossibleSend,
+            at: UtcTimestamp::new(1, 0)?,
+            diagnostic: Some("CANARY-PROVIDER-DIAGNOSTIC".into()),
+            external: None,
+        };
+        let mut deleted = support::accepted(200, "fixture");
+        deleted.state = RecordState::Deleted;
+        let reads = [
+            Observation::Accepted(deleted),
+            Observation::Accepted(a),
+            Observation::Absent {
+                key: RecordKey {
+                    account: account.account,
+                    id: RecordId::Service(ServiceRecordId::Result(result.id)),
+                },
+                checkpoint: InstalledCheckpoint {
+                    account: account.account,
+                    baseline: base.id,
+                    coverage: account.installed.clone(),
+                },
             },
-            checkpoint: InstalledCheckpoint {
-                account: account.account,
-                baseline: base.id,
-                coverage: account.installed.clone(),
-            },
-        },
-    ];
-    let operation = ServiceOperation::RecordSubmissionResult {
-        result: result.clone(),
-        batch_members: vec![attempt.id],
-        association: None,
-    };
-    let ServiceDecision::Ready(commit) = plan_operation(&ServiceOperationInput {
-        id: support::id(512),
-        account: &account,
-        membership: &membership,
-        reads: &reads,
-        bindings: &[],
-        destinations: &[destination],
-        evidence: &evidence,
-        operation: &operation,
-        matching: None,
-    })?
-    else {
-        panic!()
-    };
-    assert_eq!(commit.accepted.len(), 1);
-    assert_eq!(commit.job_updates[0].outcome, result.outcome);
-    assert!(
-        commit
-            .accepted
-            .iter()
-            .all(|r| !matches!(r.state, RecordState::Live(RecordValue::Qso(_))))
+        ];
+        let operation = ServiceOperation::RecordSubmissionResult {
+            result: result.clone(),
+            batch_members: vec![attempt.id],
+            association: None,
+        };
+        let ServiceDecision::Ready(commit) = plan_operation(&ServiceOperationInput {
+            id: support::id(512),
+            account: &account,
+            membership: &membership,
+            reads: &reads,
+            bindings: &[],
+            destinations: &[destination],
+            evidence: &evidence,
+            operation: &operation,
+            matching: None,
+        })?
+        else {
+            panic!()
+        };
+        assert_eq!(commit.accepted.len(), 1);
+        assert_eq!(commit.job_updates[0].outcome, result.outcome);
+        assert!(
+            commit
+                .accepted
+                .iter()
+                .all(|r| !matches!(r.state, RecordState::Live(RecordValue::Qso(_))))
+        );
+        Ok(())
+    });
+    assert_eq!(
+        captured
+            .event("service.operation.planned")
+            .fields
+            .get("operation_kind")
+            .map(String::as_str),
+        Some("record_submission_result")
     );
-    Ok(())
+    assert!(
+        !format!("{:?}{:?}", captured.observations, captured.metrics)
+            .contains("CANARY-PROVIDER-DIAGNOSTIC")
+    );
+    captured.result
 }
 
 #[test]
@@ -680,7 +704,83 @@ fn completed_review_commits_binding_and_effect_with_exact_observation() -> anyho
         qso_change: None,
         selected: None,
     };
-    let ServiceDecision::Ready(commit) = run_operation(&op, &reads, &bindings)? else {
+    let missing_source = support::telemetry::capture(|| run_operation(&op, &[], &bindings));
+    assert!(matches!(
+        &missing_source.result,
+        Ok(ServiceDecision::Incomplete(_))
+    ));
+    let event = missing_source.event("service.operation.incomplete");
+    assert_eq!(
+        event.fields.get("reason").map(String::as_str),
+        Some("reviewed_observation_missing")
+    );
+    assert_eq!(
+        event.fields.get("observation_id"),
+        Some(&obs.id.to_string())
+    );
+    assert!(
+        missing_source
+            .metrics
+            .iter()
+            .all(|m| m.name != "clacks_service_operation_proposals_total")
+    );
+
+    let no_candidates: Vec<_> = reads
+        .iter()
+        .filter(|r| r.key().id != RecordId::Qso(qso))
+        .cloned()
+        .collect();
+    let needs_selection =
+        support::telemetry::capture(|| run_operation(&op, &no_candidates, &bindings));
+    assert!(matches!(
+        &needs_selection.result,
+        Ok(ServiceDecision::Review(_))
+    ));
+    let event = needs_selection.event("service.operation.review_required");
+    assert_eq!(
+        event.fields.get("reason").map(String::as_str),
+        Some("candidate_selection_required")
+    );
+    assert_eq!(event.fields.get("qso_id"), Some(&qso.to_string()));
+    assert_eq!(
+        event
+            .fields
+            .get("confident_candidate_count")
+            .map(String::as_str),
+        Some("0")
+    );
+    assert_eq!(
+        event
+            .fields
+            .get("possible_candidate_count")
+            .map(String::as_str),
+        Some("0")
+    );
+    let span = needs_selection.span("sync.service.operation.plan");
+    assert_eq!(event.parent, span.id);
+    assert_eq!(
+        span.fields.get("account_id"),
+        Some(&support::id::<clacks_model::ids::AccountId>(1).to_string())
+    );
+    assert_eq!(
+        span.fields.get("operation_id"),
+        Some(&support::id::<clacks_model::ids::OperationId>(700).to_string())
+    );
+    assert!(
+        needs_selection
+            .metrics
+            .iter()
+            .all(|m| m.name != "clacks_service_operation_proposals_total")
+    );
+
+    let ready = support::telemetry::capture(|| run_operation(&op, &reads, &bindings));
+    assert!(ready.observations.events.iter().all(|e| {
+        e.fields.get("event").is_none_or(|name| {
+            name != "service.operation.incomplete" && name != "service.operation.review_required"
+        })
+    }));
+    ready.event_count("service.operation.planned", "proposed_record", 2.);
+    let ServiceDecision::Ready(commit) = ready.result? else {
         panic!("not ready")
     };
     assert_eq!(commit.accepted.len(), 2);

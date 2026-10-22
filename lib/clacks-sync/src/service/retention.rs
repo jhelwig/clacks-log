@@ -29,6 +29,11 @@ pub struct RetentionRequirements {
 ///
 /// Supply the complete relevant retained row/unit view. This does not select a
 /// time-based expiry, discard distinct attempts, or choose a common sync boundary.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.retention.requirements.calculate",
+    level = "debug"
+)]
 pub fn requirements(
     records: &[AcceptedRecord],
     units: &[CoupledRequirement],
@@ -129,6 +134,11 @@ pub fn requirements(
     result
         .removable_staging
         .retain(|key| !result.semantic_keys.contains(key));
+    tracing::debug!(
+        event = "service.retention.calculated",
+        required_record_count = result.semantic_keys.len(),
+        removable_staging_count = result.removable_staging.len()
+    );
     Ok(result)
 }
 

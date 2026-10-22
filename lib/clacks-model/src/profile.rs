@@ -73,6 +73,14 @@ pub struct ProfileDifference {
 /// matching configuration. Invalid station/equipment values or a missing/mismatched
 /// configuration return an error. The returned defaults own their station and
 /// equipment values; input values are not mutated.
+#[tracing::instrument(
+    skip_all,
+    name = "model.profile.load",
+    level = "debug",
+    fields(
+        profile_id = %profile.id,
+    ),
+)]
 pub fn load_profile(
     current: &CurrentOperatingValues,
     profile: &SavedLocationProfile,
@@ -92,6 +100,10 @@ pub fn load_profile(
         }
         equipment.values.validate()?;
         loaded.equipment = Some(equipment.values.clone());
+        tracing::debug!(
+            event = "profile.equipment_selected",
+            equipment_id = %equipment.id,
+        );
     }
     Ok(loaded)
 }

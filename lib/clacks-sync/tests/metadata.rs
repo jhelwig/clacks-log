@@ -108,3 +108,20 @@ fn scopes_roles_and_deletions_remain_distinct() {
     );
     assert!(serde_json::from_str::<RecordVector>(r#"[[{"Client":"00000000000000000000000001"},1],[{"Client":"00000000000000000000000001"},2]]"#).is_err());
 }
+
+#[test]
+fn record_ids_display_their_native_identifier() {
+    use clacks_model::service::evidence::ServiceRecordId;
+    let expected = id::<clacks_model::ids::QsoId>(7).to_string();
+    for record in [
+        RecordId::Qso(id(7)),
+        RecordId::Tag(id(7)),
+        RecordId::Profile(id(7)),
+        RecordId::Equipment(id(7)),
+        RecordId::Group(id(7)),
+        RecordId::OutputProfile(id(7)),
+        RecordId::Service(ServiceRecordId::Attempt(id(7))),
+    ] {
+        assert_eq!(record.to_string(), expected);
+    }
+}

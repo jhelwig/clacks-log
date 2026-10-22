@@ -49,3 +49,23 @@ fn identity_round_trips_without_display_name_identity() -> TestResult {
     assert_eq!(support::id::<TagId>(123).to_string(), a.to_string());
     Ok(())
 }
+
+#[test]
+fn service_record_ids_display_their_native_identifier() {
+    use clacks_model::service::evidence::ServiceRecordId;
+    let expected = support::id::<QsoId>(7).to_string();
+    for id in [
+        ServiceRecordId::Download(support::id(7)),
+        ServiceRecordId::Acquisition(support::id(7)),
+        ServiceRecordId::Destination(support::id(7)),
+        ServiceRecordId::Assertion(support::id(7)),
+        ServiceRecordId::Attempt(support::id(7)),
+        ServiceRecordId::Result(support::id(7)),
+        ServiceRecordId::Observation(support::id(7)),
+        ServiceRecordId::Association(support::id(7)),
+        ServiceRecordId::Disposition(support::id(7)),
+        ServiceRecordId::Suppression(support::id(7)),
+    ] {
+        assert_eq!(id.to_string(), expected);
+    }
+}

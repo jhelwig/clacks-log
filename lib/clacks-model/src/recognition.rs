@@ -75,6 +75,7 @@ impl RecognitionCatalog {
     /// Reject malformed JSON, blank or ASCII-case-colliding labels, invalid ranges
     /// and missing exact parent references with `ValueError::InvalidRecognitionCatalog`.
     /// This does not validate provenance, prohibit overlapping ranges or rewrite labels.
+    #[tracing::instrument(skip_all, name = "model.recognition.load", level = "debug")]
     pub fn from_json(json: &str) -> Result<Self, ValueError> {
         let invalid = |reason: String| ValueError::InvalidRecognitionCatalog { reason };
         let v: Self = serde_json::from_str(json).map_err(|e| invalid(e.to_string()))?;

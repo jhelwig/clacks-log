@@ -46,9 +46,23 @@ fn oldest_authorized_ack_bounds_collection_until_revocation() {
             })
             .collect(),
     };
+    let captured = support::telemetry::capture(|| common_coverage(&checkpoint(950), &m, &ev));
+    assert_eq!(captured.result.unwrap(), checkpoint(300).coverage);
+    let limiting = captured
+        .observations
+        .events
+        .iter()
+        .find(|e| {
+            e.fields.get("actor_id")
+                == Some(&id::<clacks_model::ids::ClientActorId>(12).to_string())
+        })
+        .unwrap();
     assert_eq!(
-        common_coverage(&checkpoint(950), &m, &ev).unwrap(),
-        checkpoint(300).coverage
+        limiting
+            .fields
+            .get("acknowledged_revision")
+            .map(String::as_str),
+        Some("300")
     );
     let update = revoke(id(12), &a, &m).unwrap();
     assert_eq!(
@@ -205,6 +219,58 @@ fn projection_removes_closed_actor_without_changing_originals_or_native_state() 
     )
     .unwrap();
     assert!(!pinned.removable_clients.contains(&id(4)));
+    let mut unavailable = shared.stamp.clone();
+    unavailable.baseline = id(99);
+    let captured = support::telemetry::capture(|| {
+        plan_baseline(
+            id(22),
+            &CompactionInput {
+                account: &a,
+                membership: &m,
+                records: &records,
+                surviving: &[unavailable],
+            },
+            &ev,
+        )
+    });
+    assert!(
+        captured
+            .result
+            .as_ref()
+            .unwrap()
+            .removable_clients
+            .is_empty()
+    );
+    assert_eq!(
+        captured
+            .event("compaction.collection_blocked")
+            .fields
+            .get("reason")
+            .map(String::as_str),
+        Some("surviving_baseline_unavailable")
+    );
+    let mut unavailable = shared.clone();
+    unavailable.stamp.baseline = id(99);
+    let captured = support::telemetry::capture(|| {
+        plan_baseline(
+            id(23),
+            &CompactionInput {
+                account: &a,
+                membership: &m,
+                records: &[unavailable],
+                surviving: &[],
+            },
+            &ev,
+        )
+    });
+    assert!(captured.result.as_ref().unwrap().projected.is_empty());
+    assert_eq!(
+        captured
+            .event("compaction.projection_blocked")
+            .fields
+            .get("record_id"),
+        Some(&shared.key.id.to_string())
+    );
 }
 
 #[test]

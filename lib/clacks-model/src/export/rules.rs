@@ -531,6 +531,14 @@ pub(crate) fn reference_identifiers(qso: &Qso, group: GroupId, side: StationSide
 /// clone, including when excessive expression depth is rejected. Dynamic
 /// assignment conflicts remain evaluation errors.
 /// No catalog download, native-record mutation or account provisioning occurs.
+#[tracing::instrument(
+    skip_all,
+    name = "model.reference_definition.compile",
+    level = "trace",
+    fields(
+        group_id = %definition.id,
+    ),
+)]
 pub fn compile_definition(
     definition: &GroupDefinition,
 ) -> Result<CompiledGroupDefinition<'_>, DefinitionError> {

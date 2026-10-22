@@ -1,4 +1,7 @@
 #![allow(dead_code)]
+
+pub mod telemetry;
+
 use clacks_model::contact::{BandFrequency, OwnOperatingContext, Qso, StationSnapshot};
 use clacks_model::ids::QsoId;
 use clacks_model::recognition::RecognitionCatalog;

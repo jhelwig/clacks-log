@@ -101,6 +101,14 @@ pub(crate) fn required_keys(account: AccountId, record: &ServiceRecord) -> Vec<R
 }
 
 /// Check semantic references, explicit effect coverage and public namespace interpretation.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.evidence.dependencies.check",
+    level = "trace",
+    fields(
+        account_id = %view.account,
+    ),
+)]
 pub fn check(record: &ServiceRecord, view: &ServiceView<'_>) -> anyhow::Result<DependencyStatus> {
     record.validate(view.account)?;
     if view.evidence.lineage.account() != view.account {
@@ -283,6 +291,15 @@ pub fn check(record: &ServiceRecord, view: &ServiceView<'_>) -> anyhow::Result<D
     Ok(if missing.is_empty() {
         DependencyStatus::Complete
     } else {
+        if let Some(first) = missing.first() {
+            tracing::debug!(
+                event = "evidence.dependencies_missing",
+                first_missing_record_id = %first.key.id,
+                account_id = %view.account,
+                record_id = %record.payload.id(),
+                missing_dependency_count = missing.len(),
+            );
+        }
         DependencyStatus::Incomplete(missing)
     })
 }
@@ -297,6 +314,11 @@ pub(crate) fn admission(
         return Ok(Ok(Vec::new()));
     };
     if let Err(reason) = super::check_namespace(record, input)? {
+        tracing::debug!(
+            event = "acceptance.rejected",
+            reason = "service_namespace",
+            record_id = %record.payload.id(),
+        );
         return Ok(Err(reason));
     }
     let rows = input
@@ -318,6 +340,11 @@ pub(crate) fn admission(
         evidence,
     };
     if let DependencyStatus::Incomplete(missing) = check(record, &view)? {
+        tracing::debug!(
+            event = "acceptance.rejected",
+            reason = "service_support",
+            record_id = %record.payload.id(),
+        );
         return Ok(Err(RejectionReason::ServiceCondition {
             detail: format!("incomplete service support: {missing:?}"),
         }));
@@ -336,6 +363,11 @@ pub(crate) fn admission(
         .filter(|b| b.account == input.account.account && &b.external == external)
         .collect::<Vec<_>>();
     let Some(read) = matches.first().filter(|_| matches.len() == 1) else {
+        tracing::debug!(
+            event = "acceptance.rejected",
+            reason = "binding_read_required",
+            binding_read_count = matches.len()
+        );
         return Ok(Err(RejectionReason::ServiceCondition {
             detail: format!(
                 "external binding {external:?} requires one explicit index observation"
@@ -349,6 +381,12 @@ pub(crate) fn admission(
                 || (b.state != AssociationState::Active && a.state == AssociationState::Active)
         })
     {
+        tracing::debug!(
+            event = "acceptance.rejected",
+            reason = "binding_occupied",
+            association_id = %a.id,
+            qso_id = %a.qso,
+        );
         return Ok(Err(RejectionReason::ServiceCondition {
             detail: format!(
                 "external record {external:?} is occupied; explicit resolution required"

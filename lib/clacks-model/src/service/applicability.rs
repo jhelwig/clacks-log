@@ -59,6 +59,14 @@ pub struct PublicationCoverageInput<'a> {
 }
 
 /// Compare current output with actual successes and trusted imported baselines.
+#[tracing::instrument(
+    skip_all,
+    name = "model.publication.coverage",
+    level = "debug",
+    fields(
+        qso_id = %input.qso,
+    ),
+)]
 pub fn publication_coverage(
     input: &PublicationCoverageInput<'_>,
 ) -> anyhow::Result<PublicationCoverage> {
@@ -74,6 +82,7 @@ pub fn publication_coverage(
         "QSO {} has incompatible publication comparison service/destination",
         input.qso
     );
+
     for assertion in input.assertions.iter().filter(|a| {
         a.qso == input.qso
             && a.service == service
@@ -98,6 +107,13 @@ pub fn publication_coverage(
             }
         };
         if same {
+            tracing::debug!(
+                event = "publication.coverage_decided",
+                ?service,
+                destination_id = destination.map(tracing::field::display),
+                coverage = ?PublicationCoverage::Covered,
+                assertion_id = %assertion.id,
+            );
             return Ok(PublicationCoverage::Covered);
         }
     }
@@ -107,6 +123,12 @@ pub fn publication_coverage(
     }) {
         for id in result.scope.attempts() {
             let Some(attempt) = input.attempts.iter().find(|a| a.id == id) else {
+                tracing::debug!(
+                    event = "publication.support_missing",
+                    reason = "attempt_unavailable",
+                    result_id = %result.id,
+                    attempt_id = %id,
+                );
                 missing = true;
                 continue;
             };
@@ -114,25 +136,53 @@ pub fn publication_coverage(
                 &result.scope
                 && attempt.batch != Some(*batch)
             {
+                tracing::debug!(
+                    event = "publication.support_missing",
+                    reason = "batch_mismatch",
+                    result_id = %result.id,
+                    attempt_id = %attempt.id,
+                );
                 missing = true;
                 continue;
             }
             if attempt.qso == input.qso && attempt.projection.service() == service {
                 if let Some(current) = input.current {
                     if attempt.projection.same_payload(current) {
+                        tracing::debug!(
+                            event = "publication.coverage_decided",
+                            ?service,
+                            destination_id = destination.map(tracing::field::display),
+                            coverage = ?PublicationCoverage::Covered,
+                            result_id = %result.id,
+                            attempt_id = %attempt.id,
+                        );
                         return Ok(PublicationCoverage::Covered);
                     }
                 } else {
+                    tracing::debug!(
+                        event = "publication.support_missing",
+                        reason = "current_projection_unavailable",
+                        result_id = %result.id,
+                        attempt_id = %attempt.id,
+                    );
                     missing = true;
                 }
             }
         }
     }
-    Ok(if missing {
+    let coverage = if missing {
         PublicationCoverage::NotEstablished
     } else {
         PublicationCoverage::Pending
-    })
+    };
+    tracing::debug!(
+        event = "publication.coverage_decided",
+        ?service,
+        destination_id = destination.map(tracing::field::display),
+        ?coverage,
+        missing_support = missing,
+    );
+    Ok(coverage)
 }
 
 /// Selected confirmation evidence and the current comparison basis.

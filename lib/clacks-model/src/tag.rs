@@ -102,6 +102,15 @@ pub struct TagDeletionPlan {
 /// Use the result for deletion preview and application; delete the tag itself in
 /// every choice. The caller owns stale-state revalidation, transactions, actual
 /// deletion markers and external-record retention.
+#[tracing::instrument(
+    skip_all,
+    name = "model.tag.deletion.plan",
+    level = "debug",
+    fields(
+        tag_id = %tag,
+        deletion_choice = ?choice,
+    ),
+)]
 pub fn plan_tag_deletion(tag: TagId, choice: TagDeletionChoice, qsos: &[Qso]) -> TagDeletionPlan {
     let affected: BTreeSet<_> = qsos
         .iter()
@@ -118,10 +127,20 @@ pub fn plan_tag_deletion(tag: TagId, choice: TagDeletionChoice, qsos: &[Qso]) ->
         TagDeletionChoice::DeleteAll => affected.clone(),
         TagDeletionChoice::DeleteUnique => affected.difference(&shared).copied().collect(),
     };
-    TagDeletionPlan {
+    let plan = TagDeletionPlan {
         remove_membership: affected.difference(&mark_deleted).copied().collect(),
         affected,
         mark_deleted,
         also_tagged_elsewhere: shared.len(),
-    }
+    };
+    tracing::debug!(
+        event = "tag.deletion.planned",
+        tag_id = %tag,
+        input_count = qsos.len(),
+        affected_count = plan.affected.len(),
+        proposed_delete_count = plan.mark_deleted.len(),
+        remove_membership_count = plan.remove_membership.len(),
+        shared_count = plan.also_tagged_elsewhere,
+    );
+    plan
 }

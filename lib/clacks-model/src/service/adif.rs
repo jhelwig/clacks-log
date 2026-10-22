@@ -35,6 +35,10 @@ pub struct ProjectionContext<'a> {
 pub fn contact_time(value: UtcSecond) -> anyhow::Result<(String, String)> {
     let t = time::OffsetDateTime::from_unix_timestamp(value.unix_seconds())?;
     if !(1..=9999).contains(&t.year()) {
+        tracing::debug!(
+            event = "projection.conversion_unavailable",
+            reason = "year_unrepresentable"
+        );
         return Err(ServiceError::Invalid {
             detail: format!("ADIF year {} is outside 1..=9999", t.year()),
         }

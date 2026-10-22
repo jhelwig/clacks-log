@@ -41,6 +41,12 @@ compatibility and geographic-data preparation begin early, while offline logging
 and synchronization are developed. Integration must respect their dependencies;
 parallel preparation does not mean independent applications or deployed services.
 
+Production observability is a continuous requirement for every phase, including
+the libraries delivered before application startup and telemetry export exist.
+Each capability includes relevant tracing, structured events, metrics and their
+verification under the [observability contract](observability.md). Later phases
+connect and validate those components in real deployments.
+
 ## Phase 1 — Foundations and early risks
 
 The [native-model contract](native-model.md) and [synchronization model](synchronization-model.md)
