@@ -58,8 +58,15 @@ pub struct RecoveryBoundaryPlan {
 /// Client-side recovery outcome with explicit server transaction guards.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RecoveredDecision {
+    /// Service input remains staged until support/order/index conditions can be established.
+    DeferredService {
+        /// Missing dependency or unsafe binding diagnostic; never a manual QSO edit conflict.
+        detail: String,
+    },
     /// Install an already accepted version, retaining its original acceptance.
     Install {
+        /// Namespace-index conditions required alongside the original envelope.
+        external_guards: Vec<crate::service::ExternalBindingGuard>,
         /// Required current account head.
         expected_head: Position,
         /// Required admission epoch.
@@ -73,7 +80,7 @@ pub enum RecoveredDecision {
         /// Original accepted envelope to retain unchanged.
         envelope: AcceptedRecord,
         /// New-timeline installation activity.
-        journal: JournalChange,
+        journal: Box<JournalChange>,
         /// Account head to save atomically with the envelope and journal.
         next_account: AccountMetadata,
     },
@@ -205,6 +212,9 @@ pub fn plan_recovered_install(
     membership.validate(account)?;
     incoming.validate()?;
     current.validate()?;
+    if let Observation::Accepted(old) = current {
+        crate::service::check_integrity(incoming.key, &old.state, &incoming.state)?;
+    }
     let mut reference_keys = std::collections::BTreeSet::new();
     for reference in input.references {
         reference.validate()?;
@@ -235,6 +245,15 @@ pub fn plan_recovered_install(
             ReviewReason::ExcludedActor(returning_actor),
         ));
     }
+    let external_guards =
+        match crate::service::dependency::admission(&incoming.state, input, evidence)? {
+            Ok(guards) => guards,
+            Err(reason) => {
+                return Ok(RecoveredDecision::DeferredService {
+                    detail: format!("{reason:?}"),
+                });
+            }
+        };
     let relation = match current {
         Observation::Accepted(old) => compare_records(incoming, old, evidence)?,
         Observation::Absent { checkpoint, .. } => {
@@ -268,6 +287,26 @@ pub fn plan_recovered_install(
         }
         RecordRelation::After => {}
         RecordRelation::Divergent | RecordRelation::Unknown(_) => {
+            if crate::service::payload(incoming).is_some_and(|s| s.payload.immutable())
+                && matches!(relation, RecordRelation::Unknown(_))
+            {
+                return Ok(RecoveredDecision::DeferredService {
+                    detail: format!("original service context cannot be interpreted: {relation:?}"),
+                });
+            }
+            if crate::service::payload(incoming).is_some_and(|s| {
+                !matches!(
+                    s.payload,
+                    clacks_model::service::evidence::ServicePayload::Association(_)
+                )
+            }) && matches!(current,Observation::Accepted(old) if old.state!=incoming.state)
+            {
+                return Ok(RecoveredDecision::DeferredService {
+                    detail: format!(
+                        "service state has unordered alternatives; retain evidence and refresh: {relation:?}"
+                    ),
+                });
+            }
             let shared_state = match current {
                 Observation::Accepted(v) => Some(&v.state),
                 _ => None,
@@ -371,13 +410,14 @@ pub fn plan_recovered_install(
         stamp: incoming.stamp.clone(),
     };
     Ok(RecoveredDecision::Install {
+        external_guards,
         expected_head: account.head,
         expected_membership_generation: membership.generation,
         returning_actor,
         expected: VersionCondition::from_observation(current)?,
         dependencies,
         envelope: incoming.clone(),
-        journal,
+        journal: Box::new(journal),
         next_account,
     })
 }

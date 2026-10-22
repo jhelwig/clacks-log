@@ -605,7 +605,8 @@ pub(crate) fn plan_changes(
             .find(|r| r.key() == c.key())
             .ok_or_else(|| anyhow::anyhow!("operation source observation disappeared"))?
             .clone();
-        if let Observation::Accepted(old) = &current
+        if matches!(c, NativeChange::Server(_))
+            && let Observation::Accepted(old) = &current
             && old.state == *c.state()
         {
             continue;

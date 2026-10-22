@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 mod support;
 use clacks_sync::{
     account::{AccountMetadata, EvidenceView, InstalledCheckpoint},
@@ -148,6 +149,7 @@ fn projection_removes_closed_actor_without_changing_originals_or_native_state() 
         }],
         vec![],
         interpretations.to_vec(),
+        vec![],
     )
     .unwrap();
     let progress = clacks_sync::transfer::WindowProgress {
@@ -155,6 +157,8 @@ fn projection_removes_closed_actor_without_changing_originals_or_native_state() 
         mode: clacks_sync::transfer::WindowMode::Full,
         generation: 0,
         installed: Default::default(),
+        staged: Vec::new(),
+        completed_units: BTreeSet::new(),
     };
     assert!(
         clacks_sync::transfer::finish_window(

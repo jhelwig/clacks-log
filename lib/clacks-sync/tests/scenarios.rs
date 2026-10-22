@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 mod support;
 use clacks_sync::{
     acceptance::{AcceptanceDecision, AcceptanceInput, plan_acceptance},
@@ -248,6 +249,7 @@ fn partial_install_reload_completion_and_recovery_ancestry_compose() {
         }],
         vec![],
         defs.to_vec(),
+        vec![],
     )
     .unwrap();
     let progress = WindowProgress {
@@ -255,6 +257,8 @@ fn partial_install_reload_completion_and_recovery_ancestry_compose() {
         mode: WindowMode::Full,
         generation: 0,
         installed: Default::default(),
+        staged: Vec::new(),
+        completed_units: BTreeSet::new(),
     };
     let previous = InstalledCheckpoint {
         account: id(1),
@@ -266,6 +270,8 @@ fn partial_install_reload_completion_and_recovery_ancestry_compose() {
     let progress = WindowProgress {
         generation: batch.next_generation,
         installed: batch.installed_keys.into_iter().collect(),
+        staged: Vec::new(),
+        completed_units: BTreeSet::new(),
         ..progress
     };
     let progress: WindowProgress =
