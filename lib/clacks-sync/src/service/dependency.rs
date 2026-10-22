@@ -66,6 +66,14 @@ pub(crate) fn required_keys(account: AccountId, record: &ServiceRecord) -> Vec<R
         id: RecordId::Service(id),
     };
     match &record.payload {
+        ServicePayload::Imported(v) => vec![RecordKey {
+            account,
+            id: RecordId::Qso(v.qso),
+        }],
+        ServicePayload::Attempt(v) => vec![RecordKey {
+            account,
+            id: RecordId::Qso(v.qso),
+        }],
         ServicePayload::Result(v) => v
             .scope
             .attempts()
@@ -138,16 +146,14 @@ pub fn check(record: &ServiceRecord, view: &ServiceView<'_>) -> anyhow::Result<D
             if let ServicePayload::Result(r) = &record.payload
                 && let Some(s) = super::payload(row)
                 && let ServicePayload::Attempt(a) = &s.payload
+                && (a.projection.destination() != r.destination
+                    || matches!(&r.scope,ResultScope::UploadBatch {batch,..} if a.batch!=Some(*batch)))
             {
-                if a.projection.destination() != r.destination
-                    || matches!(&r.scope,ResultScope::UploadBatch {batch,..} if a.batch!=Some(*batch))
-                {
-                    return Err(SyncServiceError::Integrity {
-                        key,
-                        detail: format!("result {} has mismatched attempt/batch destination", r.id),
-                    }
-                    .into());
+                return Err(SyncServiceError::Integrity {
+                    key,
+                    detail: format!("result {} has mismatched attempt/batch destination", r.id),
                 }
+                .into());
             }
         }
     }
@@ -332,10 +338,11 @@ pub(crate) fn admission(
         }));
     };
     if let Some(a) = association
-        && read
-            .binding
-            .as_ref()
-            .is_some_and(|b| b.association != a.id || b.qso != a.qso)
+        && read.binding.as_ref().is_some_and(|b| {
+            b.association != a.id
+                || b.qso != a.qso
+                || (b.state != AssociationState::Active && a.state == AssociationState::Active)
+        })
     {
         return Ok(Err(RejectionReason::ServiceCondition {
             detail: format!(

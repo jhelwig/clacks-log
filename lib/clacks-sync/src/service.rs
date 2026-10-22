@@ -1,7 +1,9 @@
 //! Account-scoped service carriers, retained support and real-store binding guards.
 
+pub mod association;
 pub mod combination;
 pub mod dependency;
+pub mod operation;
 
 use crate::{
     account::EvidenceView,
