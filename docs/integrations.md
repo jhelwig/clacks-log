@@ -12,13 +12,12 @@ Downloads of our submission/acceptance history and downloads of counterpart subm
 
 ## Accepted model foundation
 
-[Service evidence and external-record associations](service-evidence.md) defines the evidence records, destinations/keys, submission projections, confirmation applicability, observation equality, recovery dependencies, transaction groups and MVP retention. It consolidates the accepted issue #3 design for review before implementation planning. [Service research](../references/service-state-model.md) retains provider findings. Source-specific import flag/date recognition and live adapter behavior remain downstream work; matching and association policies are specified below.
+[Service evidence and external-record associations](service-evidence.md) defines the evidence records, destinations/keys, submission projections, confirmation applicability, observation equality, recovery dependencies, transaction groups and MVP retention. [Service research](../references/service-state-model.md) retains provider findings. Source-specific import flag/date recognition and live adapter behavior remain downstream work; matching and association policies are specified below.
 
-Issue #3 delivers production evidence and association components implementing
-these contracts. Imports, synchronization and provider jobs integrate and extend
-those components; an isolated demonstration or schema-only exercise is not the
-deliverable. Persistence integration must enforce the required atomicity and
-uniqueness in the actual stores.
+The production evidence and association components implement these contracts.
+Imports, synchronization and provider jobs integrate and extend those components.
+Persistence integration must enforce the required atomicity and uniqueness in
+the actual stores.
 
 ## Synchronization ownership (D248)
 
