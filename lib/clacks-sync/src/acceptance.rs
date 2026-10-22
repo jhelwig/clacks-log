@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 
 /// Consistent rows loaded within the real acceptance transaction.
 pub struct AcceptanceInput<'a> {
+    /// Unique external binding reads from the same real transaction.
+    pub bindings: &'a [crate::service::ExternalBindingObservation],
     /// Current account head and epoch.
     pub account: &'a AccountMetadata,
     /// Current admission state.
@@ -40,6 +42,8 @@ pub struct JournalChange {
 /// New rows and conditions that an adapter must commit atomically.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AcceptanceCommit {
+    /// External unique-index conditions, including observed absence.
+    pub external_guards: Vec<crate::service::ExternalBindingGuard>,
     /// Head required to remain current.
     pub expected_head: Position,
     /// Admission epoch required to remain current.
@@ -74,6 +78,11 @@ pub struct ServerChange {
 /// Normal admission/reference failure requiring caller action.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RejectionReason {
+    /// Required service support or unique binding needs remedy/review.
+    ServiceCondition {
+        /// Identifying dependency/namespace condition.
+        detail: String,
+    },
     /// The actor's automatic admission lifetime ended.
     ActorClosed {
         /// Excluded actor.
@@ -201,6 +210,9 @@ fn validate_input(
     input.membership.validate(input.account)?;
     input.current.validate()?;
     state.validate(key)?;
+    if let Observation::Accepted(old) = input.current {
+        crate::service::check_integrity(key, &old.state, state)?;
+    }
     if key.account != input.account.account || key != input.current.key() || key != expected.key() {
         return Err(MetadataError::Scope {
             detail: format!("acceptance target/condition differs from {key:?}"),
@@ -288,6 +300,10 @@ fn plan_commit(
     input: &AcceptanceInput<'_>,
     _evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<AcceptanceDecision> {
+    let external_guards = match crate::service::dependency::admission(state, input, _evidence)? {
+        Ok(guards) => guards,
+        Err(reason) => return Ok(AcceptanceDecision::Rejected(reason)),
+    };
     if !expected.matches(input.current) {
         return Ok(AcceptanceDecision::Stale(input.current.clone()));
     }
@@ -361,6 +377,7 @@ fn plan_commit(
         stamp: accepted.stamp.clone(),
     };
     Ok(AcceptanceDecision::Commit(Box::new(AcceptanceCommit {
+        external_guards,
         expected_head: input.account.head,
         expected_membership_generation: input.membership.generation,
         expected: expected.clone(),

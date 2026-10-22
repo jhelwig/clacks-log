@@ -302,6 +302,7 @@ pub fn plan_recovered_install(
                     incoming,
                     state,
                     &AcceptanceInput {
+                        bindings: input.bindings,
                         account,
                         membership,
                         current,

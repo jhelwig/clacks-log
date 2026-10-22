@@ -450,6 +450,9 @@ pub fn receive_accepted(
         }
         .into());
     }
+    if let Observation::Accepted(old) = &current.latest {
+        crate::service::check_integrity(current.key, &old.state, &incoming.state)?;
+    }
     let relation = if let Observation::Accepted(old) = &current.latest {
         Some(compare_records(incoming, old, evidence)?)
     } else {
@@ -749,6 +752,12 @@ pub fn receive_rejection(
         .into());
     };
     let reason = match reason {
+        crate::acceptance::RejectionReason::ServiceCondition { .. } => {
+            return Ok(ClientUpdate {
+                record: current.clone(),
+                review: None,
+            });
+        }
         crate::acceptance::RejectionReason::ActorClosed { actor, .. }
         | crate::acceptance::RejectionReason::ActorUnknown { actor } => {
             ReviewReason::ExcludedActor(*actor)
