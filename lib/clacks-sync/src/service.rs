@@ -3,6 +3,7 @@
 pub mod association;
 pub mod combination;
 pub mod dependency;
+pub mod download;
 pub mod operation;
 
 use crate::{

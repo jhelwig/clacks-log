@@ -2,6 +2,7 @@
 
 pub mod submission;
 
+pub mod download;
 pub mod observation;
 pub mod processing;
 
@@ -214,6 +215,10 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
 /// Stable kind-qualified service identity used by the account record domain.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ServiceRecordId {
+    /// Destination-wide maintained download coordination.
+    Download(crate::ids::DownloadStateId),
+    /// One recoverable query execution.
+    Acquisition(crate::ids::AcquisitionId),
     /// Public collection descriptor.
     Destination(DestinationId),
     /// Imported positive claim.
@@ -235,6 +240,10 @@ pub enum ServiceRecordId {
 /// Service domain values without synchronization clock/version dependencies.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ServicePayload {
+    /// Destination-wide download coordination.
+    Download(download::DownloadControl),
+    /// Query execution and completed-input coverage.
+    Acquisition(download::AcquisitionState),
     /// Public destination namespace.
     Destination(Destination),
     /// Imported assertion and its self-contained baseline.
@@ -257,6 +266,8 @@ impl ServicePayload {
     /// Identify the domain record without display names or payload hashes.
     pub fn id(&self) -> ServiceRecordId {
         match self {
+            Self::Download(v) => ServiceRecordId::Download(v.id),
+            Self::Acquisition(v) => ServiceRecordId::Acquisition(v.id),
             Self::Destination(v) => ServiceRecordId::Destination(v.id),
             Self::Imported(v) => ServiceRecordId::Assertion(v.id),
             Self::Attempt(v) => ServiceRecordId::Attempt(v.id),
@@ -279,6 +290,8 @@ impl ServicePayload {
     /// Return known destination dependencies without requiring live access configuration.
     pub fn destination(&self) -> Option<DestinationId> {
         match self {
+            Self::Download(v) => Some(v.destination),
+            Self::Acquisition(v) => Some(v.query.destination),
             Self::Destination(v) => Some(v.id),
             Self::Imported(v) => v.destination,
             Self::Attempt(v) => Some(v.projection.destination()),
@@ -293,6 +306,18 @@ impl ServicePayload {
     /// Validate structural domain invariants before accepting deserialized evidence.
     pub fn validate(&self) -> anyhow::Result<()> {
         match self {
+            Self::Download(v) => v.validate()?,
+            Self::Acquisition(v) => {
+                anyhow::ensure!(
+                    matches!(v.phase, download::AcquisitionPhase::Active)
+                        == v.finished_at.is_none(),
+                    "acquisition phase/close time mismatch"
+                );
+                anyhow::ensure!(
+                    !v.complete || matches!(v.phase, download::AcquisitionPhase::Completed),
+                    "incomplete request claims full coverage"
+                );
+            }
             Self::Destination(v) => {
                 super::destination::validate_destinations(std::slice::from_ref(v))?
             }

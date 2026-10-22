@@ -584,6 +584,13 @@ pub(crate) fn plan_changes(
             let mut required = crate::acceptance::required_references(c.key(), c.state());
             if let RecordState::Live(RecordValue::Service(s)) = c.state() {
                 required.extend(super::dependency::required_keys(account.account, s));
+                if let Some(qso) = source_qso(&s.payload) {
+                    required.push(RecordKey {
+                        account: account.account,
+                        id: RecordId::Qso(qso),
+                    });
+                }
+                required.extend(s.support.required.iter().map(|r| r.reference().key));
             }
             required
                 .iter()
@@ -607,6 +614,7 @@ pub(crate) fn plan_changes(
         if let NativeChange::Server(change) = &mut c {
             if let RecordState::Live(RecordValue::Service(s)) = &mut change.state {
                 refs.extend(super::dependency::required_keys(account.account, s));
+                refs.extend(s.support.required.iter().map(|r| r.reference().key));
                 for key in &refs {
                     if let Some(Observation::Accepted(row)) =
                         prospective.iter().find(|r| r.key() == *key)
@@ -660,6 +668,14 @@ pub(crate) fn plan_changes(
                         refs.push(qkey);
                     }
                 }
+            }
+            if let RecordState::Live(RecordValue::Service(s)) = &change.state
+                && let Some(qso) = source_qso(&s.payload)
+            {
+                refs.push(RecordKey {
+                    account: account.account,
+                    id: RecordId::Qso(qso),
+                });
             }
             for key in refs.iter().copied() {
                 if let Some(r) = prospective.iter().find(|r| r.key() == key) {
@@ -723,4 +739,13 @@ pub(crate) fn plan_changes(
         unit,
         job_updates,
     }))
+}
+
+/// Identify a fresh source-contact guard without making frozen evidence depend on its old body.
+fn source_qso(payload: &ServicePayload) -> Option<QsoId> {
+    match payload {
+        ServicePayload::Imported(a) => Some(a.qso),
+        ServicePayload::Attempt(a) => Some(a.qso),
+        _ => None,
+    }
 }

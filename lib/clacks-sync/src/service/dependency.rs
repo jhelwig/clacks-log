@@ -66,14 +66,16 @@ pub(crate) fn required_keys(account: AccountId, record: &ServiceRecord) -> Vec<R
         id: RecordId::Service(id),
     };
     match &record.payload {
-        ServicePayload::Imported(v) => vec![RecordKey {
-            account,
-            id: RecordId::Qso(v.qso),
-        }],
-        ServicePayload::Attempt(v) => vec![RecordKey {
-            account,
-            id: RecordId::Qso(v.qso),
-        }],
+        ServicePayload::Download(v) => v
+            .active
+            .into_iter()
+            .map(|id| key(ServiceRecordId::Acquisition(id)))
+            .collect(),
+        ServicePayload::Acquisition(v) => v
+            .retained_inputs
+            .iter()
+            .map(|id| key(ServiceRecordId::Observation(*id)))
+            .collect(),
         ServicePayload::Result(v) => v
             .scope
             .attempts()
