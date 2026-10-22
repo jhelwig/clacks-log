@@ -99,3 +99,44 @@ also requires the target standard library. Windows compilation does not test
 the runtime or installer. Tests cover preservation across differing recognition
 views, case-colliding catalog rejection, coordinate boundaries, copied profiles,
 whole-record equality and context-scoped reference expansion.
+
+## Service projections and retained evidence
+
+`service::destination` separates remote LoTW accounts and QRZ logbooks from live
+certificates/API keys. `service::evidence` represents imported claims, frozen
+attempts, scoped outcomes, observations, associations, dispositions, deletion
+suppression and download coordination. Imported positive upload and confirmation
+claims have independent baselines; missing upload status remains pending.
+
+`service::adif` performs exact whole-hertz/milliwatt, UTC-second and coordinate
+conversions and best-effort text transliteration with warnings. `service::lotw`
+uses the pinned TrustedQSL configuration for normalization; `LotwSubmission` is
+the common input for coverage comparisons and future signing. It retains
+`LotwMappingProvenance` (configuration release and source revision).
+`SubmissionProjection::same_payload` compares submitted values without that
+metadata; structural equality includes provenance for immutable-evidence checks.
+The signer consumes those frozen values rather than mapping modes a second time. It does
+not depend on the synchronization crate. `service::qrz` prepares its ordinary
+ADIF field set using eligible source fallback and existing context mappings.
+`service::applicability` evaluates publication coverage and conservative
+confirmation applicability separately.
+
+These operations do not fetch remote records, issue QRZ replacement requests,
+import private keys or prove LoTW acceptance. Actual adapters must validate their
+wire responses, authenticate namespaces and preserve the public/frozen inputs
+needed by [the service contract](../../docs/service-evidence.md).
+
+Publication coverage accepts service, optional destination and optional prepared
+submission separately. Trusted unchanged imported claims do not require routing,
+credentials or signing readiness. Source baselines retain exact native times even
+when interchange dates cannot be emitted. Uninterpreted band-only labels remain
+comparison evidence alongside exact frequency fallbacks. LoTW source-only location
+baselines compare the emitted locator and recognized subdivision values, retaining
+uninterpretable supplied values without borrowing certificate defaults. The native
+QSO retains its original position and location information.
+
+A returned remote ID has member-level meaning only when its result scope identifies
+one attempt or `SubmissionResult.external_attempt` explicitly correlates a batch
+member. A batch success alone cannot attach its returned ID to an arbitrary QSO.
+LoTW station normalization applies source-defined entity/subdivision dependencies,
+field input flags and CQ/ITU zone-pair restrictions before sharing values with signing.

@@ -60,6 +60,7 @@ fn interrupted_window_preserves_coverage_and_pending_conflict() {
             .collect(),
         vec![],
         defs.to_vec(),
+        vec![],
     )
     .unwrap();
     let mut progress = WindowProgress {
@@ -67,6 +68,8 @@ fn interrupted_window_preserves_coverage_and_pending_conflict() {
         mode: WindowMode::Full,
         generation: 0,
         installed: BTreeSet::new(),
+        staged: Vec::new(),
+        completed_units: BTreeSet::new(),
     };
     let previous = InstalledCheckpoint {
         coverage: Coverage::from_entries([(id(2), 40)]).unwrap(),
@@ -153,6 +156,7 @@ fn tombstones_scope_baselines_and_replaced_windows_are_checked() {
         vec![r.clone(), r.clone()],
         vec![],
         defs.to_vec(),
+        vec![],
     )
     .unwrap();
     assert_eq!(manifest.records.len(), 1);
@@ -161,6 +165,8 @@ fn tombstones_scope_baselines_and_replaced_windows_are_checked() {
         mode: WindowMode::Full,
         generation: 0,
         installed: BTreeSet::new(),
+        staged: Vec::new(),
+        completed_units: BTreeSet::new(),
     };
     assert!(finish_window(&manifest, &progress, &[], &source, &ev).is_err());
     assert!(finish_window(&manifest, &progress, &[accepted(60, "live")], &source, &ev).is_err());
@@ -186,7 +192,8 @@ fn tombstones_scope_baselines_and_replaced_windows_are_checked() {
             WindowMode::Full,
             vec![bad],
             vec![],
-            defs.to_vec()
+            defs.to_vec(),
+            vec![],
         )
         .is_err()
     );
@@ -201,6 +208,7 @@ fn tombstones_scope_baselines_and_replaced_windows_are_checked() {
         vec![r],
         vec![],
         defs.to_vec(),
+        vec![],
     )
     .unwrap();
     assert!(plan_batch(&replacement, &progress, &[deleted], &[], &ev).is_err());

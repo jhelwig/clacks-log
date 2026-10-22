@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 mod support;
 use clacks_sync::{
     acceptance::{AcceptanceDecision, AcceptanceInput, plan_acceptance},
@@ -79,6 +80,8 @@ fn prepared_acceptance_lost_response_and_later_local_edit_compose() {
     let AcceptanceDecision::Commit(commit) = plan_acceptance(
         &change,
         &AcceptanceInput {
+            destination_registry: None,
+            bindings: &[],
             account: &account,
             membership: &m,
             current: &old,
@@ -109,6 +112,8 @@ fn prepared_acceptance_lost_response_and_later_local_edit_compose() {
         plan_acceptance(
             &change,
             &AcceptanceInput {
+                destination_registry: None,
+                bindings: &[],
                 account: &commit.next_account,
                 membership: &m,
                 current: &Observation::Accepted(commit.accepted),
@@ -217,6 +222,8 @@ fn partial_install_reload_completion_and_recovery_ancestry_compose() {
         None,
         id(4),
         &clacks_sync::acceptance::AcceptanceInput {
+            destination_registry: None,
+            bindings: &[],
             account: &fork.next_account,
             membership: &m,
             current: &old,
@@ -245,6 +252,7 @@ fn partial_install_reload_completion_and_recovery_ancestry_compose() {
         }],
         vec![],
         defs.to_vec(),
+        vec![],
     )
     .unwrap();
     let progress = WindowProgress {
@@ -252,6 +260,8 @@ fn partial_install_reload_completion_and_recovery_ancestry_compose() {
         mode: WindowMode::Full,
         generation: 0,
         installed: Default::default(),
+        staged: Vec::new(),
+        completed_units: BTreeSet::new(),
     };
     let previous = InstalledCheckpoint {
         account: id(1),
@@ -263,6 +273,8 @@ fn partial_install_reload_completion_and_recovery_ancestry_compose() {
     let progress = WindowProgress {
         generation: batch.next_generation,
         installed: batch.installed_keys.into_iter().collect(),
+        staged: Vec::new(),
+        completed_units: BTreeSet::new(),
         ..progress
     };
     let progress: WindowProgress =

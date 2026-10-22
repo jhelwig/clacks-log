@@ -20,6 +20,8 @@ use serde::{Deserialize, Serialize};
 /// Stable kind-qualified identity; deletion does not release it for reuse.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum RecordId {
+    /// Synchronized service evidence or maintained service state.
+    Service(clacks_model::service::evidence::ServiceRecordId),
     /// Contact identity.
     Qso(QsoId),
     /// Logbook tag identity.
@@ -46,6 +48,8 @@ pub struct RecordKey {
 /// Native synchronized payload without a duplicate synchronization schema.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RecordValue {
+    /// Service domain payload and its accepted support.
+    Service(Box<crate::service::ServiceRecord>),
     /// Recorded contact.
     Qso(Box<Qso>),
     /// Logbook tag.
@@ -64,6 +68,7 @@ impl RecordValue {
     /// Identify the native entity without using display names or serialized text.
     pub fn id(&self) -> RecordId {
         match self {
+            Self::Service(v) => RecordId::Service(v.payload.id()),
             Self::Qso(v) => RecordId::Qso(v.id),
             Self::Tag(v) => RecordId::Tag(v.id),
             Self::Profile(v) => RecordId::Profile(v.id),
@@ -84,6 +89,19 @@ pub enum RecordState {
 }
 
 impl RecordState {
+    /// Compare record values for whole-record edit policy, ignoring equivalent support-clock representation.
+    ///
+    /// This compares semantic support identities, not their causal validity. Use
+    /// baseline-aware record comparison to establish ordering or projection equivalence.
+    pub fn same_values(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Live(RecordValue::Service(a)), Self::Live(RecordValue::Service(b))) => {
+                a.payload == b.payload
+                    && crate::service::same_support_values(&a.support, &b.support)
+            }
+            _ => self == other,
+        }
+    }
     /// Enforce native save invariants and embedded identity before accepting a state.
     pub fn validate(&self, key: RecordKey) -> anyhow::Result<()> {
         if let Self::Live(v) = self {
@@ -94,6 +112,7 @@ impl RecordState {
                 .into());
             }
             match v {
+                RecordValue::Service(v) => v.validate(key.account)?,
                 RecordValue::Qso(v) => v.validate()?,
                 RecordValue::Profile(v) => v.station.validate()?,
                 RecordValue::Equipment(v) => v.values.validate()?,

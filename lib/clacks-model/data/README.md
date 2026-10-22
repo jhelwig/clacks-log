@@ -14,3 +14,19 @@ Recognition reads these rows directly. No Rust enum or generated code enumerates
 concrete modes, submodes or bands. Supplied catalogs can add labels and parent
 relationships without recompiling the recognition implementation; those changes
 never rewrite recorded values.
+
+## LoTW normalization
+
+`lotw-11.34.json` is derived from the pinned TrustedQSL 2.8.6 configuration
+at commit `6ce824363e27da455c6cf6fd440b9c401945bfcb`. It retains complete
+mode mapping/group, band, station enumeration/dependency and signing-field data.
+The upstream [notices](../../../references/trustedqsl/upstream/LICENSE.txt)
+apply to this extracted data. Regenerate with `python3 scripts/extract-lotw-data.py`;
+`--check` verifies deterministic correspondence without changing upstream files.
+
+LoTW extraction also retains field input flags, entity/subdivision zone pairs and
+the primary-subdivision field list from `sasMapping` in the pinned `location.cpp`.
+Secondary administrative bindings are the service contract's `US_COUNTY` and
+`JA_CITY_GUN_KU`; park-selection fields are not administrative subdivisions.
+Input uppercase flags and entity/subdivision zone constraints apply before
+shared signing values are emitted. The extraction check covers these derived rows.

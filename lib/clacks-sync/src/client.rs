@@ -3,7 +3,7 @@
 use crate::{
     account::{EvidenceView, InstalledCheckpoint},
     clock::{ClockActor, RecordVector},
-    compare::{ChangePattern, RecordRelation, classify_changes, compare_records},
+    compare::{ChangePattern, RecordRelation, classify_record_changes, compare_records},
     error::{MetadataError, UnknownReason},
     record::{AcceptedRecord, Observation, RecordKey, RecordState, VersionStamp},
 };
@@ -393,7 +393,7 @@ fn review_reason(
             return Ok(Some(ReviewReason::OrderingUnknown(*reason)));
         }
     };
-    if shared_state == Some(&pending.working) {
+    if shared_state.is_some_and(|s| s.same_values(&pending.working)) {
         return Ok(None);
     }
     if let OriginalBasis::Unavailable { .. } = &pending.original {
@@ -422,7 +422,7 @@ fn review_reason(
     }
     let local = Some(&pending.working);
     Ok(
-        (classify_changes(&pending.original.state(), &local, &shared_state)
+        (classify_record_changes(pending.original.state(), local, shared_state)
             == ChangePattern::BothDifferent)
             .then_some(ReviewReason::BothDifferent),
     )
@@ -449,6 +449,9 @@ pub fn receive_accepted(
             detail: format!("incoming key differs from {:?}", current.key),
         }
         .into());
+    }
+    if let Observation::Accepted(old) = &current.latest {
+        crate::service::check_integrity(current.key, &old.state, &incoming.state)?;
     }
     let relation = if let Observation::Accepted(old) = &current.latest {
         Some(compare_records(incoming, old, evidence)?)
@@ -487,7 +490,7 @@ pub fn receive_accepted(
             Some(RecordRelation::Divergent | RecordRelation::Unknown(_))
         )
         && let Observation::Accepted(old) = &current.latest
-        && old.state != incoming.state
+        && !old.state.same_values(&incoming.state)
     {
         next.pending = Some(PendingRecord {
             witness: None,
@@ -543,7 +546,7 @@ pub fn receive_accepted(
             });
         }
         let original = p.original.state();
-        let pattern = classify_changes(&original, &Some(&p.working), &Some(&incoming.state));
+        let pattern = classify_record_changes(original, Some(&p.working), Some(&incoming.state));
         if matches!(
             pattern,
             ChangePattern::Unchanged | ChangePattern::SharedOnly | ChangePattern::EqualResults
@@ -630,7 +633,7 @@ pub fn prepare_change(
         Observation::Accepted(v) => Some(&v.state),
         _ => None,
     };
-    let pattern = classify_changes(&p.original.state(), &Some(&p.working), &shared);
+    let pattern = classify_record_changes(p.original.state(), Some(&p.working), shared);
     if record.retained.is_empty()
         && matches!(
             pattern,
@@ -749,6 +752,12 @@ pub fn receive_rejection(
         .into());
     };
     let reason = match reason {
+        crate::acceptance::RejectionReason::ServiceCondition { .. } => {
+            return Ok(ClientUpdate {
+                record: current.clone(),
+                review: None,
+            });
+        }
         crate::acceptance::RejectionReason::ActorClosed { actor, .. }
         | crate::acceptance::RejectionReason::ActorUnknown { actor } => {
             ReviewReason::ExcludedActor(*actor)

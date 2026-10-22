@@ -68,7 +68,24 @@ pub fn compare_records(
         }
         .into());
     }
-    if left.stamp.accepted_at == right.stamp.accepted_at && left.state != right.state {
+    if left.stamp.accepted_at == right.stamp.accepted_at
+        && let (Some(a), Some(b)) = (
+            crate::service::payload(left),
+            crate::service::payload(right),
+        )
+    {
+        match crate::service::compare_support(a, b, left.key, evidence)? {
+            RecordRelation::SameVersion => {}
+            RecordRelation::Unknown(reason) => return Ok(RecordRelation::Unknown(reason)),
+            _ => {
+                return Err(MetadataError::Conflict {
+                    detail: format!("different service facts/support at {:?}", left.key),
+                }
+                .into());
+            }
+        }
+    }
+    if left.stamp.accepted_at == right.stamp.accepted_at && !left.state.same_values(&right.state) {
         return Err(MetadataError::Conflict {
             detail: format!(
                 "record {:?} has different values at {:?}",
@@ -173,5 +190,32 @@ pub(crate) fn compare_contexts(
             PositionRelation::Unknown(reason) => Ok(RecordRelation::Unknown(reason)),
             _ => Ok(RecordRelation::Divergent),
         },
+    }
+}
+
+/// Apply whole-record attribution to semantic values rather than support-clock encoding.
+pub(crate) fn classify_record_changes(
+    original: Option<&crate::record::RecordState>,
+    local: Option<&crate::record::RecordState>,
+    shared: Option<&crate::record::RecordState>,
+) -> ChangePattern {
+    let equal =
+        |a: Option<&crate::record::RecordState>, b: Option<&crate::record::RecordState>| match (
+            a, b,
+        ) {
+            (Some(a), Some(b)) => a.same_values(b),
+            (None, None) => true,
+            _ => false,
+        };
+    match (
+        equal(original, local),
+        equal(original, shared),
+        equal(local, shared),
+    ) {
+        (true, true, _) => ChangePattern::Unchanged,
+        (false, true, _) => ChangePattern::LocalOnly,
+        (true, false, _) => ChangePattern::SharedOnly,
+        (false, false, true) => ChangePattern::EqualResults,
+        (false, false, false) => ChangePattern::BothDifferent,
     }
 }

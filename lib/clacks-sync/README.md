@@ -82,8 +82,9 @@ library. These obligations cannot be established by a pure row planner:
 
 The adapters also own authentication, account isolation in queries, persistent
 uniqueness, enrollment, journal retention, concrete schema/protocol negotiation
-and atomic coupled workflow operations. Service evidence arrives in issue #3;
-this library does not force provider facts through recorded-QSO conflict policy.
+and atomic persistence of coupled workflow operations. The service modules below
+provide their guarded transition plans without treating provider contradictions
+as competing recorded-QSO edits.
 
 ## Verification and limits
 
@@ -109,3 +110,87 @@ writable copies of a desktop identity remain outside this library's guarantees.
 Use Rust 1.99.1 and the committed lockfile. Run the [workspace verification
 commands](../../README.md#development) from the repository root. Windows target
 checks establish compilation, not Windows runtime or database durability.
+
+## Service processing and retention
+
+`service::dependency::check` checks durable semantic support separately from
+write conditions. `service::combination` validates immutable identity and selects
+provider fields using their own timestamp scope and original acquisition context.
+Response arrival time does not establish freshness.
+
+`service::association` classifies candidates across an account and constructs
+unique-index guards. `service::operation::plan_operation` returns one
+`CoupledCommit` for related native/evidence changes, using ordinary acceptance
+and checked revisions. Recheck its original head, membership generation,
+source-version conditions and every external-index condition in the same real
+transaction. Commit all accepted rows, journal rows, unit descriptors and actual
+worker job updates atomically. Client proposals retain their author/vector and
+original transaction guards while resolving same-operation dependencies against
+prospective accepted versions. Adding an unmatched downloaded contact requires a
+selected live tag; this does not prohibit untagged contacts in other workflows.
+An observed absent external-index entry requires
+protection against a competing insert, not just a missing row lock.
+
+`service::download` serializes starts through one deterministic control row per
+destination and scopes progress to stream, filters and selected fields. The worker
+must supply complete parsed-response accounting, retain every input or its
+unchanged represented equivalent with processing state, and advance watermarks
+only after all requested pages/windows succeed. A page cursor is not a permanent
+change watermark. Close failures explicitly; late results keep their original
+request identity and cannot take a later request's control/progress.
+
+Transfer adapters persist the immutable manifest once and call
+`WindowManifest::validate_replacement` if that identity already exists. Persist
+`InstallBatch.staged` and `completed_units` with its progress generation, alongside
+accepted/client updates and installed keys. Staging does not acknowledge a full
+prefix. A complete unit may span transport messages; its effects install together.
+A later accepted successor/deletion can represent an old effect without restoring
+its old body. Preserve client pending originals and working values on receipt.
+
+`service::recovery::plan_recovered_operation` authenticates the returning carrier
+separately from original authors and retains original acceptance stamps. Keep
+incomplete input staged for retry, restore required interpretation, and use
+existing client review for maintained binding conflicts. Recovery does not
+schedule or dispatch a service request.
+
+Before collection, obtain `service::retention::requirements` from the complete
+relevant row/unit view and enforce `validate_collection` alongside interpretation
+checks. Distinct semantic facts have no time-based expiry. Only unneeded closed
+acquisition coordination is removable. `compaction::plan_baseline` projects
+embedded service support as well as envelope context when its meaning is
+established; unresolved interpretations remain required. Include surviving unit,
+window and other external contexts in `CompactionInput.surviving` until equivalent
+summaries cover them. Preserve old baselines when a valid replacement is absent.
+Acknowledgment permits redundant sync-history collection, not deletion of
+submission/confirmation history or deletion memory.
+
+All new service destinations require a complete `DestinationRegistryObservation`
+at the compared account head. The real transaction must preserve a single stable
+namespace per remote collection, retain it after credential removal, and register
+new public descriptors atomically with acceptance. Generic acceptance and recovery
+perform the same namespace checks as coupled operations. A destination ID cannot
+be repurposed for a different remote collection. A QRZ destination may refine an
+unknown book ID to its established ID under the same namespace and guards.
+Established IDs cannot change or be cleared, and older evidence with an unknown
+book ID remains interpretable. Refinements and their pending prerequisites take
+priority over unrelated members, and each accepted refinement updates the
+operation's prospective registry. Supply the complete registry in
+`ServiceOperationInput.destinations` and `DownloadContext.destinations`; recovery
+accepts its explicit guarded registry observation.
+
+`RecordState::same_values` is the whole-record value-policy comparison. Structural
+`Eq` also compares clock representation. Baseline-aware record comparison proves
+that projected support contexts remain equivalent, so metadata projection does
+not create a recorded edit or manual conflict. Covered historical bindings need
+not pass conditions for reinstalling their old active state.
+
+`SelectedObservations.uncertain` identifies fields needing provider refresh;
+workers must not treat contradictory provider ordering as a manual QSO edit.
+Selection retains conflicting values from maximal mutually reachable ordering
+components. A later refresh that dominates them can establish a value again.
+
+`SelectedObservations.current_supporting` identifies occurrences whose supplied
+fields are all established and undominated, while `supporting` includes the complete
+retained input used by selection. Ordering-only refreshes reuse a disposition
+only when its reviewed occurrence represents the current facts; an older
+rejection of different content cannot suppress new review work.

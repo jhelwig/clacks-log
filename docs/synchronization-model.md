@@ -45,8 +45,8 @@ and [recovery requirements](backup-recovery.md) remain authoritative.
 
 Record values and equality come from the [native model](../lib/clacks-model/README.md).
 Catalog recognition changes do not become record edits. Provider evidence is
-separate from recorded QSO facts; issue #3 supplies its concrete evidence
-operations. This model does not force directory snapshots or immutable
+separate from recorded QSO facts; the [service-evidence specification](service-evidence.md)
+defines its concrete evidence operations and transaction dependencies. This model does not force directory snapshots or immutable
 service facts through the mutable-record conflict policy.
 
 ## 2. Research mechanisms and selected composition
@@ -709,3 +709,19 @@ The worked cases show the intended transitions. In particular, baseline
 projection is the application-specific part requiring careful implementation and
 validation; published vector algorithms do not prove it merely because the
 metadata contains a map of counters. The production core guide defines implemented operations and downstream transaction obligations.
+
+### Service evidence within the account scope
+
+`RecordId::Service` and `RecordValue::Service` carry the model's service payloads
+with retained support, original acquisition context and public destination
+interpretation. They use the same record vectors, timelines, accepted envelopes,
+journals and membership boundaries as native records. Immutable fact identity is
+checked before causal shortcuts. Provider field selection is separate from the
+whole-record manual-edit policy.
+
+Related effects use `service::operation::CoupledRequirement` descriptors in
+complete transfer manifests. Durable window progress retains staged inputs and
+completed units under its existing generation guard. Staged receipt is not
+installed account coverage. The [crate guide](../lib/clacks-sync/README.md#service-processing-and-retention)
+explains storage conditions, dependency closure, equivalent effect coverage,
+recovery and collection; it does not introduce another acknowledgment protocol.

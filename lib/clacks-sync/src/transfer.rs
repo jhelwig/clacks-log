@@ -1,5 +1,6 @@
 //! Immutable complete windows, bounded installation and conditional checkpoint updates.
 
+use crate::service::operation::CoupledRequirement;
 use crate::{
     account::{Baseline, EvidenceView, InstalledCheckpoint},
     client::{ClientRecord, ClientUpdate, receive_accepted},
@@ -8,7 +9,7 @@ use crate::{
     lineage::{Coverage, TimelineBoundary},
     record::{AcceptedRecord, Observation, RecordKey, RecordState, VersionStamp},
 };
-use clacks_model::ids::AccountId;
+use clacks_model::ids::{AccountId, OperationId};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -53,6 +54,8 @@ pub struct WindowManifest {
     pub boundaries: Vec<TimelineBoundary>,
     /// Baseline interpretations to install before completion.
     pub baselines: Vec<Baseline>,
+    /// Atomic units whose effects must be represented together.
+    pub units: Vec<CoupledRequirement>,
 }
 
 impl WindowManifest {
@@ -64,6 +67,7 @@ impl WindowManifest {
         records: Vec<RecordRequirement>,
         boundaries: Vec<TimelineBoundary>,
         baselines: Vec<Baseline>,
+        units: Vec<CoupledRequirement>,
     ) -> anyhow::Result<Self> {
         if source.account != account {
             return Err(MetadataError::Scope {
@@ -106,6 +110,22 @@ impl WindowManifest {
                 .into());
             }
         }
+        let mut unit_ids = BTreeSet::new();
+        for unit in &units {
+            if unit.members.is_empty() || !unit_ids.insert(unit.id) {
+                anyhow::bail!("empty or duplicate atomic unit {}", unit.id);
+            }
+            let mut member_keys = BTreeSet::new();
+            for member in &unit.members {
+                anyhow::ensure!(
+                    member.key.account == account
+                        && unique.contains_key(&member.key)
+                        && member_keys.insert(member.key),
+                    "invalid or undeclared atomic member {:?}",
+                    member.key
+                );
+            }
+        }
         Ok(Self {
             account,
             source,
@@ -113,7 +133,24 @@ impl WindowManifest {
             records: unique.into_values().collect(),
             boundaries,
             baselines,
+            units,
         })
+    }
+
+    /// Reject replacement of an already stored manifest under the same source/mode identity.
+    ///
+    /// Call when persisting a source manifest that already exists. Atomic-unit descriptors
+    /// are part of its immutable contents even when native record requirements agree.
+    pub fn validate_replacement(&self, proposed: &Self) -> anyhow::Result<()> {
+        self.validate()?;
+        proposed.validate()?;
+        if self.source == proposed.source && self.mode == proposed.mode {
+            anyhow::ensure!(
+                self == proposed,
+                "immutable source manifest contents changed"
+            );
+        }
+        Ok(())
     }
 
     /// Recheck deserialized composite rows before using them in a transition.
@@ -125,6 +162,7 @@ impl WindowManifest {
             self.records.clone(),
             self.boundaries.clone(),
             self.baselines.clone(),
+            self.units.clone(),
         )?;
         Ok(())
     }
@@ -141,6 +179,10 @@ pub struct WindowProgress {
     pub generation: u64,
     /// Requirement keys durably installed so far.
     pub installed: BTreeSet<RecordKey>,
+    /// Durably received inputs that cannot yet be applied as complete units.
+    pub staged: Vec<AcceptedRecord>,
+    /// Atomic-unit IDs whose accepted effects are durably represented.
+    pub completed_units: BTreeSet<OperationId>,
 }
 
 /// Bounded row updates to save atomically with appended progress keys.
@@ -160,6 +202,10 @@ pub struct InstallBatch {
     pub installed_keys: Vec<RecordKey>,
     /// Progress revision after this transaction.
     pub next_generation: u64,
+    /// Complete replacement for durable staged inputs in this generation.
+    pub staged: Vec<AcceptedRecord>,
+    /// Complete replacement for represented unit IDs in this generation.
+    pub completed_units: BTreeSet<OperationId>,
 }
 
 /// Conditional checkpoint row update; this is not proof of a durable commit.
@@ -193,6 +239,21 @@ fn validate_progress(manifest: &WindowManifest, progress: &WindowProgress) -> an
             detail: "progress credits an undeclared key".into(),
         }
         .into());
+    }
+    anyhow::ensure!(
+        progress
+            .completed_units
+            .iter()
+            .all(|id| manifest.units.iter().any(|u| u.id == *id)),
+        "progress credits undeclared atomic unit"
+    );
+    let mut staged = BTreeSet::new();
+    for row in &progress.staged {
+        row.validate()?;
+        anyhow::ensure!(
+            staged.insert(row.key) && manifest.records.iter().any(|r| r.key == row.key),
+            "duplicate or undeclared staged row"
+        );
     }
     Ok(())
 }
@@ -235,10 +296,174 @@ pub fn plan_batch(
             .ok_or_else(|| MetadataError::Overflow {
                 counter: "window progress".into(),
             })?;
+    let mut candidates = progress.staged.clone();
+    for row in incoming {
+        let required = manifest
+            .records
+            .iter()
+            .find(|r| r.key == row.key)
+            .ok_or_else(|| anyhow::anyhow!("undeclared incoming key {:?}", row.key))?;
+        let exact_staging = required.stamp == row.stamp
+            && required.deleted == matches!(row.state, RecordState::Deleted)
+            && (crate::service::payload(row).is_some()
+                || manifest
+                    .units
+                    .iter()
+                    .any(|u| u.members.iter().any(|m| m.key == row.key)));
+        anyhow::ensure!(
+            exact_staging || satisfies(required, row, evidence)?,
+            "incoming version does not satisfy source requirement {:?}",
+            row.key
+        );
+        if let Some(old) = candidates.iter().find(|r| r.key == row.key) {
+            crate::service::check_integrity(row.key, &old.state, &row.state)?;
+            anyhow::ensure!(old == row, "staged variants differ for {:?}", row.key);
+        } else {
+            candidates.push(row.clone());
+        }
+    }
+    for row in &candidates {
+        if let Some(existing) = local.iter().find(|r| r.key == row.key)
+            && let Observation::Accepted(old) = &existing.latest
+        {
+            crate::service::check_integrity(row.key, &old.state, &row.state)?;
+        }
+    }
+    let mut available = candidates.clone();
+    for old in local.iter().filter_map(|r| {
+        if let Observation::Accepted(v) = &r.latest {
+            Some(v)
+        } else {
+            None
+        }
+    }) {
+        if let Some(index) = available.iter().position(|r| r.key == old.key) {
+            let incoming = available
+                .get(index)
+                .ok_or_else(|| anyhow::anyhow!("selected row missing"))?;
+            if matches!(
+                compare_contexts(old.key, &incoming.stamp, &old.stamp, evidence)?,
+                RecordRelation::Before | RecordRelation::SameVersion
+            ) {
+                available.remove(index);
+                available.push(old.clone());
+            }
+        } else {
+            available.push(old.clone());
+        }
+    }
+    let view = crate::service::ServiceView {
+        account: manifest.account,
+        records: &available,
+        bindings: &[],
+        evidence,
+    };
+    let mut blocked = BTreeSet::new();
+    for row in &candidates {
+        if evidence
+            .baseline(manifest.account, row.stamp.baseline)?
+            .is_none()
+        {
+            blocked.insert(row.key);
+        }
+        let represented = available.iter().find(|r| r.key == row.key).unwrap_or(row);
+        if let Some(s) = crate::service::payload(represented)
+            && matches!(
+                crate::service::dependency::check(s, &view)?,
+                crate::service::dependency::DependencyStatus::Incomplete(_)
+            )
+        {
+            blocked.insert(row.key);
+        }
+    }
+    loop {
+        let before = blocked.len();
+        for unit in &manifest.units {
+            let mut complete = true;
+            for member in &unit.members {
+                let required = RecordRequirement {
+                    key: member.key,
+                    stamp: member.stamp.clone(),
+                    deleted: member.deleted,
+                };
+                let Some(actual) = available.iter().find(|r| r.key == member.key) else {
+                    complete = false;
+                    continue;
+                };
+                if blocked.contains(&member.key) || !satisfies(&required, actual, evidence)? {
+                    complete = false;
+                }
+            }
+            if !complete {
+                for member in &unit.members {
+                    let relation = available
+                        .iter()
+                        .find(|r| r.key == member.key)
+                        .map(|r| compare_contexts(member.key, &member.stamp, &r.stamp, evidence))
+                        .transpose()?;
+                    let durable = local
+                        .iter()
+                        .filter_map(|r| {
+                            if let Observation::Accepted(v) = &r.latest {
+                                Some(v)
+                            } else {
+                                None
+                            }
+                        })
+                        .find(|r| r.key == member.key)
+                        .map(|r| {
+                            satisfies(
+                                &RecordRequirement {
+                                    key: member.key,
+                                    stamp: member.stamp.clone(),
+                                    deleted: member.deleted,
+                                },
+                                r,
+                                evidence,
+                            )
+                        })
+                        .transpose()?
+                        .unwrap_or(false);
+                    if !durable && !matches!(relation, Some(RecordRelation::Before)) {
+                        blocked.insert(member.key);
+                    }
+                }
+            }
+        }
+        for row in &candidates {
+            if let Some(s) = crate::service::payload(row) {
+                let deps = crate::service::dependency::required_keys(manifest.account, s)
+                    .into_iter()
+                    .chain(s.support.required.iter().map(|r| r.reference().key));
+                if deps.into_iter().any(|key| blocked.contains(&key)) {
+                    blocked.insert(row.key);
+                }
+            }
+        }
+        if blocked.len() == before {
+            break;
+        }
+    }
+    let staged = candidates
+        .iter()
+        .filter(|r| blocked.contains(&r.key))
+        .cloned()
+        .collect();
+    let mut completed_units = progress.completed_units.clone();
+    for unit in &manifest.units {
+        if unit.members.iter().all(|r| !blocked.contains(&r.key)) {
+            completed_units.insert(unit.id);
+        }
+    }
+    let ready = candidates
+        .iter()
+        .filter(|r| !blocked.contains(&r.key))
+        .cloned()
+        .collect::<Vec<_>>();
     let mut accepted = Vec::new();
     let mut client_updates = Vec::new();
     let mut keys = BTreeSet::new();
-    for row in incoming {
+    for row in &ready {
         let required = manifest
             .records
             .iter()
@@ -303,6 +528,8 @@ pub fn plan_batch(
         client_updates,
         installed_keys: keys.into_iter().collect(),
         next_generation,
+        staged,
+        completed_units,
     })
 }
 
@@ -376,6 +603,32 @@ pub fn finish_window(
                 ),
             }
             .into());
+        }
+    }
+    anyhow::ensure!(
+        progress.staged.is_empty(),
+        "window still has staged atomic inputs"
+    );
+    for unit in &manifest.units {
+        anyhow::ensure!(
+            progress.completed_units.contains(&unit.id),
+            "atomic unit {} not committed",
+            unit.id
+        );
+        for member in &unit.members {
+            let required = RecordRequirement {
+                key: member.key,
+                stamp: member.stamp.clone(),
+                deleted: member.deleted,
+            };
+            let actual = installed
+                .iter()
+                .find(|r| r.key == member.key)
+                .ok_or_else(|| anyhow::anyhow!("atomic member missing"))?;
+            anyhow::ensure!(
+                satisfies(&required, actual, evidence)?,
+                "atomic member not represented"
+            );
         }
     }
     Ok(CheckpointUpdate {

@@ -2,7 +2,7 @@
 
 Clacks Log is a planned amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. Applications, persistence, database migrations and service integrations remain downstream capabilities.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The libraries also provide service projections, retained evidence and guarded processing/recovery operations. Applications, persistence, database migrations and live provider adapters remain downstream capabilities.
 
 ## Documentation
 
@@ -13,7 +13,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Native-model contract](docs/native-model.md)
 - [Synchronization behavior](docs/synchronization.md) and [metadata model](docs/synchronization-model.md)
 - [Accounts and enrollment](docs/accounts.md)
-- [External services](docs/integrations.md) and [LoTW signing](docs/lotw.md)
+- [External services](docs/integrations.md), [service evidence and associations](docs/service-evidence.md), and [LoTW signing](docs/lotw.md)
 - [Backup and recovery](docs/backup-recovery.md)
 - [Server observability](docs/observability.md)
 - [Research provenance](references/README.md) and [TrustedQSL source map](references/trustedqsl/source-map.md)
