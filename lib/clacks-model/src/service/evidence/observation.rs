@@ -16,20 +16,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 /// Reported information; omission is not an assertion of absence.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Reported<T> {
     /// This read supplied no replacement information.
+    #[default]
     NotReported,
     /// An explicit provider value, including a negative status.
     Value(T),
     /// Explicit removal, usable only with established provider semantics.
     Clear,
-}
-
-impl<T> Default for Reported<T> {
-    fn default() -> Self {
-        Self::NotReported
-    }
 }
 
 /// Provider-reported confirmation, independent of upload outcome.

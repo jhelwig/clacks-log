@@ -44,6 +44,10 @@ pub struct ConfirmationBasis {
     pub band: Option<String>,
     /// Historical effective receive band.
     pub receive_band: Option<String>,
+    /// Exact source frequency retained when no service band is recognizable.
+    pub frequency: Option<crate::scalar::Hertz>,
+    /// Exact receive source frequency when receive band cannot be interpreted.
+    pub receive_frequency: Option<crate::scalar::Hertz>,
     /// Concrete mode and available parent/group interpretation.
     pub mode: Option<super::observation::ModeReport>,
 }

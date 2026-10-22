@@ -334,39 +334,8 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
             .into());
         }
     }
-    let groups = q
-        .own_station
-        .references
-        .iter()
-        .map(|r| r.group_id)
-        .collect::<BTreeSet<_>>();
-    for id in groups {
-        if let Some(def) = input.definitions.get(id) {
-            let compiled = crate::export::rules::compile_definition(def)?;
-            let bindings = BTreeMap::new();
-            let context = crate::export::rules::ExpressionContext {
-                qso: Some(q),
-                current_identifier: None,
-                bindings: &bindings,
-            };
-            for (name, value) in crate::export::select::evaluate_fields(
-                &compiled,
-                &def.export_mappings.ordinary_interchange,
-                &context,
-            )? {
-                if name == "MY_IOTA" {
-                    if station
-                        .insert("IOTA".into(), value.clone())
-                        .is_some_and(|old| old != value)
-                    {
-                        return Err(ServiceError::Invalid {
-                            detail: "multiple own IOTA signing values".into(),
-                        }
-                        .into());
-                    }
-                }
-            }
-        }
+    if let Some(value) = own_iota(q, input.definitions)? {
+        station.insert("IOTA".into(), value);
     }
     for (field, value) in &station {
         if let Some(meta) = c.fields.get(field)
@@ -389,4 +358,43 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
         station_fields: station,
         key,
     })
+}
+
+/// Evaluate explicitly mapped own IOTA for both imported baselines and real signing inputs.
+pub(crate) fn own_iota(q: &Qso, definitions: &DefinitionSet) -> anyhow::Result<Option<String>> {
+    let mut station = AdifFields::new();
+    let groups = q
+        .own_station
+        .references
+        .iter()
+        .map(|r| r.group_id)
+        .collect::<BTreeSet<_>>();
+    for id in groups {
+        if let Some(def) = definitions.get(id) {
+            let compiled = crate::export::rules::compile_definition(def)?;
+            let bindings = BTreeMap::new();
+            let context = crate::export::rules::ExpressionContext {
+                qso: Some(q),
+                current_identifier: None,
+                bindings: &bindings,
+            };
+            for (name, value) in crate::export::select::evaluate_fields(
+                &compiled,
+                &def.export_mappings.ordinary_interchange,
+                &context,
+            )? {
+                if name == "MY_IOTA"
+                    && station
+                        .insert("IOTA".into(), value.clone())
+                        .is_some_and(|old| old != value)
+                {
+                    return Err(ServiceError::Invalid {
+                        detail: "multiple own IOTA signing values".into(),
+                    }
+                    .into());
+                }
+            }
+        }
+    }
+    Ok(station.remove("IOTA"))
 }

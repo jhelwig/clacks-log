@@ -9,3 +9,5 @@ pub mod lotw;
 
 pub mod evidence;
 pub mod qrz;
+
+pub mod applicability;

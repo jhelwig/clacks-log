@@ -90,3 +90,65 @@ fn source_baseline_ignores_unsubmitted_lotw_values() -> anyhow::Result<()> {
     assert!(!a.fields.contains_key("MY_DXCC"));
     Ok(())
 }
+
+#[test]
+fn explicitly_mapped_own_iota_is_part_of_imported_lotw_baseline() -> anyhow::Result<()> {
+    use clacks_model::{
+        export::{
+            ExportContext,
+            rules::{BindingCondition, FieldBinding, ValueExpression},
+        },
+        group::DefinitionSet,
+        ids::{GroupId, OutputProfileId},
+        recognition::RecognitionCatalog,
+        reference::{ReferenceAssociation, StationSide},
+        service::{
+            adif::ProjectionContext,
+            evidence::{ImportedBaselineInput, imported_baseline},
+            lotw::LotwConfiguration,
+        },
+    };
+    let original = support::definitions();
+    let mut def = original.get(support::id::<GroupId>(1)).unwrap().clone();
+    def.identifier.syntax = None;
+    def.export_mappings.ordinary_interchange = vec![FieldBinding {
+        field: "MY_IOTA".into(),
+        value: ValueExpression::Join {
+            values: Box::new(ValueExpression::Identifiers(StationSide::Own)),
+            separator: ",".into(),
+        },
+        when: BindingCondition::AssociationPresent(StationSide::Own),
+    }];
+    let defs = DefinitionSet::new(vec![def])?;
+    let profiles = support::profiles();
+    let resolutions = Default::default();
+    let export = ExportContext {
+        output_profile_id: support::id::<OutputProfileId>(1),
+        target_group_id: None,
+    };
+    let config = LotwConfiguration::bundled()?;
+    let context = ProjectionContext {
+        recognition: RecognitionCatalog::adif_318()?,
+        definitions: &defs,
+        profiles: &profiles,
+        export: &export,
+        resolutions: &resolutions,
+    };
+    let mut q = support::qso(support::id(4));
+    q.own_station.references.insert(ReferenceAssociation {
+        group_id: support::id(1),
+        identifier: Some("NA-001".into()),
+    });
+    let baseline = imported_baseline(&ImportedBaselineInput {
+        qso: &q,
+        service: Service::Lotw,
+        coverage: Default::default(),
+        lotw: &config,
+        context: &context,
+    })?;
+    assert_eq!(
+        baseline.fields.get("MY_IOTA").map(String::as_str),
+        Some("NA-001")
+    );
+    Ok(())
+}

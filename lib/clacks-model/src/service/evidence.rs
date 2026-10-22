@@ -129,10 +129,20 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
                 values.insert("FREQ_RX".into(), super::adif::frequency(f));
             }
         }
+        if let Some(iota) = super::lotw::own_iota(q, input.context.definitions)? {
+            values.insert("MY_IOTA".into(), iota);
+        }
         values
     };
     let mode = if input.service == Service::Lotw {
-        super::lotw::normalize_mode(&q.mode, input.lotw).ok()
+        super::lotw::normalize_mode(&q.mode, input.lotw)
+            .ok()
+            .or_else(|| {
+                fields
+                    .get("SUBMODE")
+                    .or_else(|| fields.get("MODE"))
+                    .cloned()
+            })
     } else {
         fields.get("MODE").cloned()
     };
@@ -153,6 +163,8 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
         start: Some(q.start),
         band: band.clone(),
         receive_band,
+        frequency: q.primary.frequency(),
+        receive_frequency: rx.frequency(),
         mode: mode.as_ref().map(|m| ModeReport {
             concrete: m.clone(),
             parent: fields.get("MODE").cloned(),
@@ -232,7 +244,7 @@ pub enum ServicePayload {
     /// Scope-qualified result for existing attempts.
     Result(SubmissionResult),
     /// Remote report, possibly unmatched or incompletely identified.
-    Observation(RemoteObservation),
+    Observation(Box<RemoteObservation>),
     /// Mutable unique binding.
     Association(ExternalAssociation),
     /// Processing decision or durable incoming review work.
@@ -305,17 +317,16 @@ impl ServicePayload {
                     start.bounds()?;
                 }
             }
-            Self::Result(v) => {
-                if v.scope.attempts().is_empty()
+            Self::Result(v)
+                if (v.scope.attempts().is_empty()
                     || v.external
                         .as_ref()
-                        .is_some_and(|k| k.destination != v.destination)
-                {
-                    return Err(ServiceError::Invalid {
-                        detail: format!("result {} lacks members or crosses destination", v.id),
-                    }
-                    .into());
+                        .is_some_and(|k| k.destination != v.destination)) =>
+            {
+                return Err(ServiceError::Invalid {
+                    detail: format!("result {} lacks members or crosses destination", v.id),
                 }
+                .into());
             }
             _ => {}
         }

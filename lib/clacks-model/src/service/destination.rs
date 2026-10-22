@@ -96,13 +96,13 @@ pub struct ExternalRecordKey {
 pub fn validate_destinations(destinations: &[Destination]) -> anyhow::Result<()> {
     let mut unique = BTreeMap::new();
     for d in destinations {
-        if let Some(old) = unique.insert(d.id, d) {
-            if old != d {
-                return Err(ServiceError::Invalid {
-                    detail: format!("destination {} has conflicting descriptions", d.id),
-                }
-                .into());
+        if let Some(old) = unique.insert(d.id, d)
+            && old != d
+        {
+            return Err(ServiceError::Invalid {
+                detail: format!("destination {} has conflicting descriptions", d.id),
             }
+            .into());
         }
         match &d.collection {
             RemoteCollection::Lotw { account } if account.trim().is_empty() => {

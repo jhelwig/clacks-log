@@ -67,9 +67,9 @@ fn location(fields: &mut AdifFields, l: &RecordedLocation, own: bool) {
         let grid = p.display_locator().to_string();
         let base: String = grid.chars().take(8).collect();
         let ext: String = grid.chars().skip(8).collect();
-        fields.insert(key("GRIDSQUARE"), base.into());
+        fields.insert(key("GRIDSQUARE"), base);
         if !ext.is_empty() {
-            fields.insert(key("GRIDSQUARE_EXT"), ext.into());
+            fields.insert(key("GRIDSQUARE_EXT"), ext);
         }
         if let Position::ExplicitPoint { .. } = p {
             let (lat, lon) = adif::coordinates(p.display_coordinates());
