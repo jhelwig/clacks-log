@@ -168,3 +168,13 @@ Directory adapters define portable-callsign normalization, eligible metadata,
 request correlation, obsolete-key cleanup and effective service-output comparison.
 Provider data stays separate from recorded facts; failure/not-found preserves
 existing snapshots and completed bulk updates.
+
+## Pure service component boundary
+
+The model library's `service` modules own domain evidence, shared LoTW/QRZ
+submission projections and applicability. The synchronization library's `service`
+modules own dependency/combination rules, guarded coupled operations, download
+coordination, accepted-evidence recovery and semantic-retention requirements.
+[The synchronization crate guide](../lib/clacks-sync/README.md#service-processing-and-retention)
+defines the actual adapter obligations. Worker/provider calls remain outside real
+database transactions; returned plans do not prove persistence or external success.

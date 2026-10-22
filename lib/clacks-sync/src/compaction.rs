@@ -267,6 +267,12 @@ pub fn plan_baseline(
         }
         removable.retain(|actor| surviving.vector.component(ClockActor::Client(*actor)) == 0);
     }
+    let service_retention = crate::service::retention::requirements(input.records, &[])?;
+    for stamp in &service_retention.interpretation {
+        if !projectable(stamp, &coverage, evidence, input.account.account)? {
+            removable.retain(|actor| stamp.vector.component(ClockActor::Client(*actor)) == 0);
+        }
+    }
     let mut projected = Vec::new();
     let mut expected_records = Vec::new();
     let mut identities = BTreeSet::new();
@@ -317,6 +323,35 @@ pub fn plan_baseline(
                 |(actor, _)| !matches!(actor,ClockActor::Client(c) if removable.contains(c)),
             ))?;
         next.stamp.baseline = id;
+        if let crate::record::RecordState::Live(crate::record::RecordValue::Service(service)) =
+            &mut next.state
+        {
+            for requirement in &mut service.support.required {
+                let stamp = match requirement {
+                    crate::service::SupportRequirement::ExactFact(r)
+                    | crate::service::SupportRequirement::CoveredEffect(r) => &mut r.stamp,
+                };
+                project_support(
+                    stamp,
+                    id,
+                    &coverage,
+                    &removable,
+                    evidence,
+                    input.account.account,
+                )?;
+            }
+            if let Some(stamp) = &mut service.support.acquisition {
+                project_support(
+                    stamp,
+                    id,
+                    &coverage,
+                    &removable,
+                    evidence,
+                    input.account.account,
+                )?;
+            }
+            crate::service::check_integrity(record.key, &record.state, &next.state)?;
+        }
         expected_records.push(VersionCondition::Is {
             key: record.key,
             stamp: record.stamp.clone(),
@@ -334,4 +369,41 @@ pub fn plan_baseline(
         removable_clients: removable,
         next_account,
     })
+}
+
+/// Establish whether retained interpretation permits a context's equivalent baseline projection.
+fn projectable(
+    stamp: &VersionStamp,
+    coverage: &Coverage,
+    evidence: &EvidenceView<'_>,
+    account: clacks_model::ids::AccountId,
+) -> anyhow::Result<bool> {
+    Ok(evidence.baseline(account, stamp.baseline)?.is_some()
+        && coverage.entries().all(|(timeline, revision)| {
+            !matches!(
+                evidence
+                    .lineage
+                    .compare(Position { timeline, revision }, stamp.accepted_at),
+                PositionRelation::Unknown(_) | PositionRelation::Divergent
+            )
+        }))
+}
+
+/// Project an embedded fact/effect context without changing its original accepted position.
+fn project_support(
+    stamp: &mut VersionStamp,
+    id: BaselineId,
+    coverage: &Coverage,
+    removable: &BTreeSet<ClientActorId>,
+    evidence: &EvidenceView<'_>,
+    account: clacks_model::ids::AccountId,
+) -> anyhow::Result<()> {
+    if projectable(stamp, coverage, evidence, account)? {
+        stamp.vector =
+            RecordVector::from_entries(stamp.vector.entries().filter(
+                |(actor, _)| !matches!(actor,ClockActor::Client(c) if removable.contains(c)),
+            ))?;
+        stamp.baseline = id;
+    }
+    Ok(())
 }

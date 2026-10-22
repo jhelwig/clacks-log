@@ -6,6 +6,7 @@ pub mod dependency;
 pub mod download;
 pub mod operation;
 pub mod recovery;
+pub mod retention;
 
 use crate::{
     account::EvidenceView,

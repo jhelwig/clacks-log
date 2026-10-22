@@ -99,3 +99,26 @@ also requires the target standard library. Windows compilation does not test
 the runtime or installer. Tests cover preservation across differing recognition
 views, case-colliding catalog rejection, coordinate boundaries, copied profiles,
 whole-record equality and context-scoped reference expansion.
+
+## Service projections and retained evidence
+
+`service::destination` separates remote LoTW accounts and QRZ logbooks from live
+certificates/API keys. `service::evidence` represents imported claims, frozen
+attempts, scoped outcomes, observations, associations, dispositions, deletion
+suppression and download coordination. Imported positive upload and confirmation
+claims have independent baselines; missing upload status remains pending.
+
+`service::adif` performs exact whole-hertz/milliwatt, UTC-second and coordinate
+conversions and best-effort text transliteration with warnings. `service::lotw`
+uses the pinned TrustedQSL configuration for normalization; `LotwSubmission` is
+the common semantic input for coverage comparisons and future signing. The signer
+consumes those frozen values rather than mapping modes a second time. It does
+not depend on the synchronization crate. `service::qrz` prepares its ordinary
+ADIF field set using eligible source fallback and existing context mappings.
+`service::applicability` evaluates publication coverage and conservative
+confirmation applicability separately.
+
+These operations do not fetch remote records, issue QRZ replacement requests,
+import private keys or prove LoTW acceptance. Actual adapters must validate their
+wire responses, authenticate namespaces and preserve the public/frozen inputs
+needed by [the service contract](../../docs/service-evidence.md).

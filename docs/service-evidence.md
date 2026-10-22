@@ -1,8 +1,9 @@
 # Service evidence and external-record associations
 
 This specification consolidates the accepted design for [issue #3](https://github.com/jhelwig/clacks-log/issues/3).
-It defines the accepted engineering contract; it does not claim that the
-described service components or their persistence integration are implemented.
+It defines the pure domain and conditional-transition contract implemented in
+`clacks-model::service` and `clacks-sync::service`. Real provider calls, signing,
+worker scheduling and persistence integration remain separate capabilities.
 The [integration contract](integrations.md), [native model](native-model.md) and
 [synchronization model](synchronization-model.md) remain applicable.
 

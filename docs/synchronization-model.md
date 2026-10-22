@@ -709,3 +709,19 @@ The worked cases show the intended transitions. In particular, baseline
 projection is the application-specific part requiring careful implementation and
 validation; published vector algorithms do not prove it merely because the
 metadata contains a map of counters. The production core guide defines implemented operations and downstream transaction obligations.
+
+### Service evidence within the account scope
+
+`RecordId::Service` and `RecordValue::Service` carry the model's service payloads
+with retained support, original acquisition context and public destination
+interpretation. They use the same record vectors, timelines, accepted envelopes,
+journals and membership boundaries as native records. Immutable fact identity is
+checked before causal shortcuts. Provider field selection is separate from the
+whole-record manual-edit policy.
+
+Related effects use `service::operation::CoupledRequirement` descriptors in
+complete transfer manifests. Durable window progress retains staged inputs and
+completed units under its existing generation guard. Staged receipt is not
+installed account coverage. The [crate guide](../lib/clacks-sync/README.md#service-processing-and-retention)
+explains storage conditions, dependency closure, equivalent effect coverage,
+recovery and collection; it does not introduce another acknowledgment protocol.

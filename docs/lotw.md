@@ -63,7 +63,7 @@ Remaining engineering preparation includes inventorying the reference functions 
 
 Future compatibility verification should compare signing bytes and parsed records against the reference, verify signatures independently, and check actual LoTW acceptance and retained values. Gzip metadata or incidental formatting need not match byte-for-byte when protocol semantics do. Include corrections, ambiguous upload outcomes, multiple callsigns/entities, historical dates, portable locations, satellite and cross-band contacts, and invalid credentials.
 
-No Rust LoTW implementation or live end-to-end signing/upload test has been performed. The previous speculative effort estimate was withdrawn; source-level scope must support any future estimate.
+The model library implements source-derived LoTW normalization and shared semantic submission values. Certificate cryptography, signing/serialization and live end-to-end upload verification remain unimplemented. The previous speculative effort estimate was withdrawn; source-level scope must support any future estimate.
 
 ## Pure-Rust cryptographic backend (D224)
 
@@ -75,4 +75,19 @@ Pure-Rust source paths support modern and legacy archives. Preserve archive inte
 
 Import, certificate interpretation and signing remain server-side. Shared client/browser/domain code does not inherit server cryptography dependencies. Review optional/transitive features to avoid native verification backends within the selected LoTW subsystem. Unrelated client networking choices remain separate.
 
-Exact library releases, feature compatibility and fixtures are engineering work; no Clacks LoTW implementation, private certificate inspection or LoTW compatibility test has started. Existing historical upstream notices apply to adapted source regardless of the runtime backend.
+Exact cryptographic library releases, feature compatibility and certificate fixtures remain engineering work; private certificate inspection, signature-byte compatibility and authenticated LoTW acceptance have not been verified. Existing historical upstream notices apply to adapted source regardless of the runtime backend.
+
+## Shared normalized signing input
+
+`clacks-model::service::lotw::project` prepares `LotwSubmission` from native QSO
+values, the public signing identity, reference mappings and pinned configuration
+11.34. Source-derived configuration data includes mode mappings/groups, band
+ranges, station-field dependencies and entity-specific subdivision enumerations.
+The deterministic extraction check verifies the committed derived data against
+the vendored source. This does not replace signature/wire compatibility testing.
+
+The future signer consumes the frozen contact/station fields and signing identity
+in `LotwSubmission`; it must not normalize the mode a second time. Both signing
+and publication coverage depend on the model library, while synchronization
+carries evidence and accepted contexts without becoming a cryptographic
+dependency. Certificates/private keys are absent from these shared types.
