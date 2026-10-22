@@ -126,7 +126,7 @@ fn prepare(input: &QrzProjectionInput<'_>) -> anyhow::Result<ProjectionResult<Qr
         }
         .into());
     }
-    let result = prepare_fields(input.qso, input.context, &input.eligible)?;
+    let result = prepare_fields(input.qso, input.context, &input.eligible, true)?;
     Ok(ProjectionResult {
         value: QrzSubmission {
             destination: input.destination.id,
@@ -141,7 +141,7 @@ pub(crate) fn source_fields(
     qso: &Qso,
     context: &ProjectionContext<'_>,
 ) -> anyhow::Result<AdifFields> {
-    Ok(prepare_fields(qso, context, &EligibleStationFacts::default())?.value)
+    Ok(prepare_fields(qso, context, &EligibleStationFacts::default(), false)?.value)
 }
 
 /// Emit the supported field set and retain every conversion warning.
@@ -149,6 +149,7 @@ fn prepare_fields(
     q: &Qso,
     c: &ProjectionContext<'_>,
     eligible: &EligibleStationFacts<'_>,
+    require_submission_time: bool,
 ) -> anyhow::Result<ProjectionResult<AdifFields>> {
     if c.profiles
         .get(&c.export.output_profile_id)
@@ -159,7 +160,12 @@ fn prepare_fields(
         }
         .into());
     }
-    let (date, time) = adif::contact_time(q.start)?;
+    let converted_time = adif::contact_time(q.start);
+    let converted_time = if require_submission_time {
+        Some(converted_time?)
+    } else {
+        converted_time.ok()
+    };
     let mut fields = adif::mode(&q.mode, c.recognition);
     fields.extend([
         (
@@ -167,9 +173,11 @@ fn prepare_fields(
             q.own_station.callsign.as_str().into(),
         ),
         ("CALL".into(), q.contacted_station.callsign.as_str().into()),
-        ("QSO_DATE".into(), date),
-        ("TIME_ON".into(), time),
     ]);
+    if let Some((date, time)) = converted_time {
+        fields.insert("QSO_DATE".into(), date);
+        fields.insert("TIME_ON".into(), time);
+    }
     pair(&mut fields, &q.primary, false);
     if let Some(rx) = &q.receive_override
         && rx != &q.primary
@@ -177,9 +185,16 @@ fn prepare_fields(
         pair(&mut fields, rx, true);
     }
     if let Some(end) = q.end {
-        let (date, time) = adif::contact_time(end)?;
-        fields.insert("QSO_DATE_OFF".into(), date);
-        fields.insert("TIME_OFF".into(), time);
+        let converted = adif::contact_time(end);
+        let converted = if require_submission_time {
+            Some(converted?)
+        } else {
+            converted.ok()
+        };
+        if let Some((date, time)) = converted {
+            fields.insert("QSO_DATE_OFF".into(), date);
+            fields.insert("TIME_OFF".into(), time);
+        }
     }
     for (name, value) in [
         ("RST_SENT", &q.sent_report),
@@ -298,7 +313,9 @@ fn prepare_fields(
         }
     }
     for name in ["STATION_CALLSIGN", "CALL", "QSO_DATE", "TIME_ON"] {
-        if !emitted.contains_key(name) {
+        if !emitted.contains_key(name)
+            && (require_submission_time || !matches!(name, "QSO_DATE" | "TIME_ON"))
+        {
             return Err(ServiceError::Invalid {
                 detail: format!("QRZ required field {name} cannot be represented"),
             }

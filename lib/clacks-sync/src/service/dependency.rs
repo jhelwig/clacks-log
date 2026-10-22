@@ -296,6 +296,9 @@ pub(crate) fn admission(
     let RecordState::Live(RecordValue::Service(record)) = state else {
         return Ok(Ok(Vec::new()));
     };
+    if let Err(reason) = super::check_namespace(record, input)? {
+        return Ok(Err(reason));
+    }
     let rows = input
         .references
         .iter()

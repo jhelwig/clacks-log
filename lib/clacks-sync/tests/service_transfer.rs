@@ -262,3 +262,111 @@ fn completed_disposition_waits_for_observation_binding_and_contact_effects() -> 
     assert!(manifest.validate_replacement(&changed).is_err());
     Ok(())
 }
+
+#[test]
+fn old_binding_unit_is_covered_by_accepted_deletion_without_reactivation() -> anyhow::Result<()> {
+    use clacks_model::service::{
+        destination::{Destination, ExternalRecordKey, RemoteCollection, RemoteRecordId},
+        evidence::{
+            ServicePayload,
+            processing::{AssociationState, ExternalAssociation},
+        },
+    };
+    use clacks_sync::{
+        client::ClientRecord,
+        record::Observation,
+        service::{ServiceRecord, ServiceSupport},
+    };
+    let old_q = support::accepted(190, "old");
+    let RecordId::Qso(qso) = old_q.key.id else {
+        panic!()
+    };
+    let destination = Destination {
+        id: support::id(42),
+        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        description: "book".into(),
+    };
+    let payload = ServicePayload::Association(ExternalAssociation {
+        id: support::id(101),
+        external: ExternalRecordKey {
+            destination: destination.id,
+            record: RemoteRecordId::Qrz(7),
+        },
+        qso,
+        state: AssociationState::Active,
+    });
+    let mut old_a = old_q.clone();
+    old_a.key.id = RecordId::Service(payload.id());
+    old_a.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+        payload,
+        support: ServiceSupport {
+            destination: Some(destination),
+            ..Default::default()
+        },
+    })));
+    let mut deleted_q = support::accepted(200, "deleted");
+    deleted_q.state = RecordState::Deleted;
+    let mut deleted_a = old_a.clone();
+    deleted_a.stamp = deleted_q.stamp.clone();
+    if let RecordState::Live(RecordValue::Service(s)) = &mut deleted_a.state
+        && let ServicePayload::Association(a) = &mut s.payload
+    {
+        a.state = AssociationState::DeletedQso;
+    }
+    let (_, b) = AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
+    let bases = [b.clone()];
+    let ev = EvidenceView {
+        lineage: &b.lineage,
+        baselines: &bases,
+    };
+    let source = InstalledCheckpoint {
+        account: old_q.key.account,
+        baseline: b.id,
+        coverage: Coverage::from(old_q.stamp.accepted_at),
+    };
+    let unit = CoupledRequirement {
+        id: support::id(102),
+        members: [&old_q, &old_a]
+            .into_iter()
+            .map(VersionReference::from)
+            .collect(),
+    };
+    let manifest = WindowManifest::new(
+        source.account,
+        source.clone(),
+        WindowMode::Full,
+        [&old_q, &old_a]
+            .into_iter()
+            .map(|r| RecordRequirement {
+                key: r.key,
+                stamp: r.stamp.clone(),
+                deleted: false,
+            })
+            .collect(),
+        vec![],
+        bases.to_vec(),
+        vec![unit],
+    )?;
+    let progress = WindowProgress {
+        source,
+        mode: WindowMode::Full,
+        generation: 0,
+        installed: Default::default(),
+        staged: vec![],
+        completed_units: Default::default(),
+    };
+    let local: Vec<_> = [deleted_q, deleted_a.clone()]
+        .into_iter()
+        .map(|r| ClientRecord {
+            key: r.key,
+            latest: Observation::Accepted(r),
+            retained: vec![],
+            pending: None,
+        })
+        .collect();
+    let batch = plan_batch(&manifest, &progress, &[old_a], &local, &ev)?;
+    assert!(batch.staged.is_empty());
+    assert_eq!(batch.completed_units.len(), 1);
+    assert_eq!(batch.accepted, vec![deleted_a]);
+    Ok(())
+}

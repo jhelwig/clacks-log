@@ -122,3 +122,15 @@ These operations do not fetch remote records, issue QRZ replacement requests,
 import private keys or prove LoTW acceptance. Actual adapters must validate their
 wire responses, authenticate namespaces and preserve the public/frozen inputs
 needed by [the service contract](../../docs/service-evidence.md).
+
+Publication coverage accepts service, optional destination and optional prepared
+submission separately. Trusted unchanged imported claims do not require routing,
+credentials or signing readiness. Source baselines retain exact native times even
+when interchange dates cannot be emitted. Uninterpreted band-only labels remain
+comparison evidence alongside exact frequency fallbacks.
+
+A returned remote ID has member-level meaning only when its result scope identifies
+one attempt or `SubmissionResult.external_attempt` explicitly correlates a batch
+member. A batch success alone cannot attach its returned ID to an arbitrary QSO.
+LoTW station normalization applies source-defined entity/subdivision dependencies,
+field input flags and CQ/ITU zone-pair restrictions before sharing values with signing.

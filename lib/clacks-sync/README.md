@@ -159,3 +159,23 @@ window and other external contexts in `CompactionInput.surviving` until equivale
 summaries cover them. Preserve old baselines when a valid replacement is absent.
 Acknowledgment permits redundant sync-history collection, not deletion of
 submission/confirmation history or deletion memory.
+
+All new service destinations require a complete `DestinationRegistryObservation`
+at the compared account head. The real transaction must preserve a single stable
+namespace per remote collection, retain it after credential removal, and register
+new public descriptors atomically with acceptance. Generic acceptance and recovery
+perform the same namespace checks as coupled operations. A destination ID cannot
+be repurposed for a different remote collection. Supply the complete registry in
+`ServiceOperationInput.destinations` and `DownloadContext.destinations`; recovery
+accepts its explicit guarded registry observation.
+
+`RecordState::same_values` is the whole-record value-policy comparison. Structural
+`Eq` also compares clock representation. Baseline-aware record comparison proves
+that projected support contexts remain equivalent, so metadata projection does
+not create a recorded edit or manual conflict. Covered historical bindings need
+not pass conditions for reinstalling their old active state.
+
+`SelectedObservations.uncertain` identifies fields needing provider refresh;
+workers must not treat contradictory provider ordering as a manual QSO edit.
+Selection retains conflicting values from maximal mutually reachable ordering
+components. A later refresh that dominates them can establish a value again.

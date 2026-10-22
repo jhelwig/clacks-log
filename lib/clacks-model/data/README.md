@@ -23,3 +23,10 @@ mode mapping/group, band, station enumeration/dependency and signing-field data.
 The upstream [notices](../../../references/trustedqsl/upstream/LICENSE.txt)
 apply to this extracted data. Regenerate with `python3 scripts/extract-lotw-data.py`;
 `--check` verifies deterministic correspondence without changing upstream files.
+
+LoTW extraction also retains field input flags, entity/subdivision zone pairs and
+the primary-subdivision field list from `sasMapping` in the pinned `location.cpp`.
+Secondary administrative bindings are the service contract's `US_COUNTY` and
+`JA_CITY_GUN_KU`; park-selection fields are not administrative subdivisions.
+Input uppercase flags and entity/subdivision zone constraints apply before
+shared signing values are emitted. The extraction check covers these derived rows.

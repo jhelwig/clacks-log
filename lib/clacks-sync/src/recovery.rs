@@ -7,7 +7,7 @@ use crate::{
     },
     account::{AccountMetadata, EvidenceView, InstalledCheckpoint},
     client::{OriginalBasis, ReviewInput, ReviewReason, VersionCondition},
-    compare::{ChangePattern, RecordRelation, classify_changes, compare_records},
+    compare::{ChangePattern, RecordRelation, classify_record_changes, compare_records},
     error::{MetadataError, UnknownReason},
     lineage::{BoundaryKind, Coverage, TimelineBoundary},
     membership::MembershipSnapshot,
@@ -245,15 +245,6 @@ pub fn plan_recovered_install(
             ReviewReason::ExcludedActor(returning_actor),
         ));
     }
-    let external_guards =
-        match crate::service::dependency::admission(&incoming.state, input, evidence)? {
-            Ok(guards) => guards,
-            Err(reason) => {
-                return Ok(RecoveredDecision::DeferredService {
-                    detail: format!("{reason:?}"),
-                });
-            }
-        };
     let relation = match current {
         Observation::Accepted(old) => compare_records(incoming, old, evidence)?,
         Observation::Absent { checkpoint, .. } => {
@@ -299,7 +290,7 @@ pub fn plan_recovered_install(
                     s.payload,
                     clacks_model::service::evidence::ServicePayload::Association(_)
                 )
-            }) && matches!(current,Observation::Accepted(old) if old.state!=incoming.state)
+            }) && matches!(current,Observation::Accepted(old) if !old.state.same_values(&incoming.state))
             {
                 return Ok(RecoveredDecision::DeferredService {
                     detail: format!(
@@ -312,8 +303,8 @@ pub fn plan_recovered_install(
                 _ => None,
             };
             let pattern = original
-                .map(|o| classify_changes(&o.state(), &Some(&incoming.state), &shared_state));
-            let equal = shared_state == Some(&incoming.state);
+                .map(|o| classify_record_changes(o.state(), Some(&incoming.state), shared_state));
+            let equal = shared_state.is_some_and(|s| s.same_values(&incoming.state));
             if equal
                 || (!matches!(relation, RecordRelation::Unknown(_))
                     && matches!(
@@ -341,6 +332,7 @@ pub fn plan_recovered_install(
                     incoming,
                     state,
                     &AcceptanceInput {
+                        destination_registry: input.destination_registry,
                         bindings: input.bindings,
                         account,
                         membership,
@@ -382,6 +374,15 @@ pub fn plan_recovered_install(
             return Ok(review(incoming, current, original, reason));
         }
     }
+    let external_guards =
+        match crate::service::dependency::admission(&incoming.state, input, evidence)? {
+            Ok(guards) => guards,
+            Err(reason) => {
+                return Ok(RecoveredDecision::DeferredService {
+                    detail: format!("{reason:?}"),
+                });
+            }
+        };
     let mut dependencies = Vec::new();
     for key in crate::acceptance::required_references(incoming.key, &incoming.state) {
         let Some(row) = input.references.iter().find(|r| {

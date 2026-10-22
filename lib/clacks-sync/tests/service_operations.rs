@@ -123,6 +123,7 @@ fn import_qso_and_claim_form_one_guarded_operation() -> anyhow::Result<()> {
             mapping: "standard".into(),
         },
         baseline: ImportedBaseline {
+            native_end: None,
             service: Service::Lotw,
             fields: Default::default(),
             own_location: None,
@@ -390,6 +391,7 @@ fn result_after_contact_deletion_retains_frozen_attempt_and_job_outcome() -> any
         },
     })));
     let result = SubmissionResult {
+        external_attempt: None,
         id: support::id(511),
         destination: destination.id,
         scope: ResultScope::IndividualAttempt(attempt.id),
@@ -486,7 +488,7 @@ fn generic_binding_admission_rejects_historical_reactivation() -> anyhow::Result
     old.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
         payload: ServicePayload::Association(a.clone()),
         support: ServiceSupport {
-            destination: Some(destination),
+            destination: Some(destination.clone()),
             ..Default::default()
         },
     })));
@@ -526,10 +528,16 @@ fn generic_binding_admission_rejects_historical_reactivation() -> anyhow::Result
         expected: VersionCondition::from_observation(&current)?,
         dependencies: vec![],
     };
+    let registry = clacks_sync::service::DestinationRegistryObservation {
+        account: account.account,
+        head: account.head,
+        destinations: vec![destination],
+    };
     assert!(matches!(
         plan_server_acceptance(
             &change,
             &AcceptanceInput {
+                destination_registry: Some(&registry),
                 account: &account,
                 membership: &membership,
                 current: &current,
@@ -789,5 +797,96 @@ fn contact_deletion_is_coupled_to_all_known_bindings_and_suppression() -> anyhow
         suppression.clear();
     }
     assert!(run_operation(&incomplete, &reads, &[binding]).is_err());
+    Ok(())
+}
+
+#[test]
+fn returned_external_identity_cannot_bind_an_unsubmitted_contact() -> anyhow::Result<()> {
+    use clacks_model::{
+        scalar::UtcTimestamp,
+        service::{
+            destination::{Destination, RemoteCollection},
+            evidence::{ServicePayload, submission::*},
+            qrz::QrzSubmission,
+        },
+    };
+    use clacks_sync::{
+        record::{RecordState, RecordValue},
+        service::{ServiceRecord, ServiceSupport, operation::ServiceOperation},
+    };
+    let destination = Destination {
+        id: support::id(42),
+        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        description: "book".into(),
+    };
+    let attempt = SubmissionAttempt {
+        id: support::id(901),
+        qso: support::id(10),
+        projection: SubmissionProjection::Qrz(QrzSubmission {
+            destination: destination.id,
+            fields: Default::default(),
+        }),
+        phase: DispatchPhase::Dispatched,
+        at: UtcTimestamp::new(0, 0)?,
+        batch: None,
+    };
+    let external = ExternalRecordKey {
+        destination: destination.id,
+        record: RemoteRecordId::Qrz(7),
+    };
+    let result = SubmissionResult {
+        external_attempt: None,
+        id: support::id(902),
+        destination: destination.id,
+        scope: ResultScope::IndividualAttempt(attempt.id),
+        outcome: SubmissionOutcome::Success,
+        phase: DispatchPhase::Dispatched,
+        at: UtcTimestamp::new(1, 0)?,
+        diagnostic: None,
+        external: Some(external.clone()),
+    };
+    let association = ExternalAssociation {
+        id: support::id(903),
+        external: external.clone(),
+        qso: support::id(99),
+        state: AssociationState::Active,
+    };
+    let mut target = support::accepted(200, "fixture");
+    target.key.id = RecordId::Qso(association.qso);
+    if let RecordState::Live(RecordValue::Qso(q)) = &mut target.state {
+        q.id = association.qso;
+    }
+    let mut a = support::accepted(199, "fixture");
+    a.key.id = RecordId::Service(ServicePayload::Attempt(attempt.clone()).id());
+    a.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+        payload: ServicePayload::Attempt(attempt.clone()),
+        support: ServiceSupport {
+            destination: Some(destination),
+            ..Default::default()
+        },
+    })));
+    let reads = [
+        Observation::Accepted(a),
+        Observation::Accepted(target),
+        absent_service(&ServicePayload::Result(result.clone())),
+        absent_service(&ServicePayload::Association(association.clone())),
+    ];
+    let op = ServiceOperation::RecordSubmissionResult {
+        result,
+        batch_members: vec![attempt.id],
+        association: Some(association),
+    };
+    assert!(
+        run_operation(
+            &op,
+            &reads,
+            &[ExternalBindingObservation {
+                account: support::id(1),
+                external,
+                binding: None
+            }]
+        )
+        .is_err()
+    );
     Ok(())
 }

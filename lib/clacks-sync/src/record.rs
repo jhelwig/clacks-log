@@ -89,6 +89,19 @@ pub enum RecordState {
 }
 
 impl RecordState {
+    /// Compare record values for whole-record edit policy, ignoring equivalent support-clock representation.
+    ///
+    /// This compares semantic support identities, not their causal validity. Use
+    /// baseline-aware record comparison to establish ordering or projection equivalence.
+    pub fn same_values(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Live(RecordValue::Service(a)), Self::Live(RecordValue::Service(b))) => {
+                a.payload == b.payload
+                    && crate::service::same_support_values(&a.support, &b.support)
+            }
+            _ => self == other,
+        }
+    }
     /// Enforce native save invariants and embedded identity before accepting a state.
     pub fn validate(&self, key: RecordKey) -> anyhow::Result<()> {
         if let Self::Live(v) = self {

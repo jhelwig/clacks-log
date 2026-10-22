@@ -786,3 +786,24 @@ server acceptance and actual award qualification remain explicit interoperabilit
 boundaries. They do not block implementation of honest evidence/uncertainty and
 safe refusal. Backoff, raw-diagnostic retention and actual provider worker/storage
 integration remain downstream work, not additional product decisions for #3.
+
+## Library integration details
+
+The production entry points are described in the
+[model guide](../lib/clacks-model/README.md#service-projections-and-retained-evidence)
+and [synchronization guide](../lib/clacks-sync/README.md#service-processing-and-retention).
+Publication coverage can be evaluated for a service before a destination or
+signing-ready projection exists. A source baseline retains native time and
+uninterpreted band evidence when interchange conversion is unavailable.
+
+Acceptance/recovery require a complete remote-destination registry read under
+the existing account-head guard. The real adapter registers namespace descriptors
+atomically and retains remote identity after credential removal. Result-associated
+bindings must identify the actual submitted member; ambiguous upload-level
+scope does not establish member-level returned identity.
+
+Clock projection preserves the original accepted position and logical support
+identity. Structural serialization differences are distinct from whole-record
+value changes. Provider ordering contradictions retain explicit uncertainty;
+workers refresh affected fields instead of asking users to reconcile provider
+facts as manually recorded QSO edits.

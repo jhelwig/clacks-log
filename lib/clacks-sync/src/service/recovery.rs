@@ -18,6 +18,8 @@ use std::collections::BTreeSet;
 
 /// Accepted unit and its complete interpretation/effect support from one authenticated client.
 pub struct RecoveredOperationInput<'a> {
+    /// Complete destination registry observed at the restored account head.
+    pub destination_registry: &'a super::DestinationRegistryObservation,
     /// Original unit descriptor, never regenerated from local wall time.
     pub unit: &'a CoupledRequirement,
     /// Original accepted envelopes, including any accompanying supporting facts.
@@ -79,6 +81,12 @@ pub fn plan_recovered_operation(
             .all(|r| r.key.account == input.account.account),
         "unit crosses account"
     );
+    anyhow::ensure!(
+        input.destination_registry.account == input.account.account
+            && input.destination_registry.head == input.account.head,
+        "recovery destination registry account/head differs"
+    );
+    let mut registry = input.destination_registry.clone();
     let mut pending = input.incoming.to_vec();
     let mut prospective = input.reads.to_vec();
     let mut next_account = input.account.clone();
@@ -111,7 +119,9 @@ pub fn plan_recovered_operation(
         if let Some(original) = input.reads.iter().find(|r| r.key() == row.key) {
             conditions.push(VersionCondition::from_observation(original)?);
         }
+        registry.head = next_account.head;
         let source = AcceptanceInput {
+            destination_registry: Some(&registry),
             account: &next_account,
             membership: input.membership,
             current: &current,
@@ -142,6 +152,19 @@ pub fn plan_recovered_operation(
                 next_account = next;
                 prospective.retain(|r| r.key() != envelope.key);
                 prospective.push(Observation::Accepted(envelope.clone()));
+                if let Some(s) = super::payload(&envelope)
+                    && let Some(d) = &s.support.destination
+                    && !registry.destinations.iter().any(|old| old.id == d.id)
+                {
+                    registry.destinations.push(d.clone());
+                }
+                if let Some(s) = super::payload(&envelope)
+                    && let clacks_model::service::evidence::ServicePayload::Destination(d) =
+                        &s.payload
+                    && !registry.destinations.iter().any(|old| old.id == d.id)
+                {
+                    registry.destinations.push(d.clone());
+                }
                 accepted.push(envelope);
                 journals.push(*journal);
             }

@@ -19,6 +19,7 @@ fn recovered_same_id_mutation_is_checked_before_covered_shortcut() -> anyhow::Re
         description: "book".into(),
     };
     let result = SubmissionResult {
+        external_attempt: None,
         id: support::id(101),
         destination: destination.id,
         scope: ResultScope::IndividualAttempt(support::id(102)),
@@ -64,6 +65,7 @@ fn recovered_same_id_mutation_is_checked_before_covered_shortcut() -> anyhow::Re
             None,
             support::id(9),
             &AcceptanceInput {
+                destination_registry: None,
                 account: &account,
                 membership: &membership,
                 current: &current,
@@ -147,6 +149,7 @@ fn restored_server_recovers_original_success_without_covering_a_new_projection()
         batch: None,
     };
     let result = SubmissionResult {
+        external_attempt: None,
         id: support::id(102),
         destination: destination.id,
         scope: ResultScope::IndividualAttempt(attempt.id),
@@ -190,7 +193,13 @@ fn restored_server_recovers_original_success_without_covering_a_new_projection()
             checkpoint: checkpoint.clone(),
         })
         .collect();
+    let registry = clacks_sync::service::DestinationRegistryObservation {
+        account: account.account,
+        head: account.head,
+        destinations: vec![destination.clone()],
+    };
     let input = RecoveredOperationInput {
+        destination_registry: &registry,
         unit: &unit,
         incoming: &incoming,
         returning_actor: support::id(4),
@@ -215,7 +224,12 @@ fn restored_server_recovers_original_success_without_covering_a_new_projection()
         .cloned()
         .map(Observation::Accepted)
         .collect();
+    let retry_registry = clacks_sync::service::DestinationRegistryObservation {
+        head: commit.next_account.head,
+        ..registry.clone()
+    };
     let retry = RecoveredOperationInput {
+        destination_registry: &retry_registry,
         reads: &reads,
         account: &commit.next_account,
         ..input
@@ -229,6 +243,7 @@ fn restored_server_recovers_original_success_without_covering_a_new_projection()
         fields: [("COMMENT".into(), "P2".into())].into_iter().collect(),
     });
     let baseline = ImportedBaseline {
+        native_end: None,
         service: Service::Qrz,
         fields: Default::default(),
         own_location: None,
@@ -238,7 +253,9 @@ fn restored_server_recovers_original_success_without_covering_a_new_projection()
     assert_eq!(
         publication_coverage(&PublicationCoverageInput {
             qso: attempt.qso,
-            current: &changed,
+            current: Some(&changed),
+            service: changed.service(),
+            destination: Some(changed.destination()),
             source_current: &baseline,
             assertions: &[],
             attempts: &[attempt],
@@ -254,6 +271,113 @@ fn restored_server_recovers_original_success_without_covering_a_new_projection()
             ..retry
         })?,
         ServiceDecision::Review(_)
+    ));
+    Ok(())
+}
+
+#[test]
+fn covered_active_association_is_not_reinstalled_after_contact_deletion() -> anyhow::Result<()> {
+    use clacks_model::service::{
+        destination::{Destination, ExternalRecordKey, RemoteCollection, RemoteRecordId},
+        evidence::{
+            ServicePayload,
+            processing::{AssociationState, ExternalAssociation},
+        },
+    };
+    use clacks_sync::{
+        acceptance::AcceptanceInput,
+        account::{AccountMetadata, EvidenceView},
+        membership::{ClientMembership, MembershipSnapshot},
+        record::{Observation, RecordId, RecordState, RecordValue},
+        recovery::{RecoveredDecision, plan_recovered_install},
+        service::{
+            BindingVersion, DestinationRegistryObservation, ExternalBindingObservation,
+            ServiceRecord, ServiceSupport,
+        },
+    };
+    let (mut account, b) =
+        AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
+    account.head.revision = 200;
+    let bases = [b.clone()];
+    let ev = EvidenceView {
+        lineage: &b.lineage,
+        baselines: &bases,
+    };
+    let membership = MembershipSnapshot {
+        account: account.account,
+        generation: 0,
+        clients: vec![ClientMembership {
+            actor: support::id(4),
+            created_at: account.head,
+            closed_at: None,
+            acknowledged: None,
+        }],
+    };
+    let destination = Destination {
+        id: support::id(42),
+        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        description: "book".into(),
+    };
+    let a = ExternalAssociation {
+        id: support::id(101),
+        external: ExternalRecordKey {
+            destination: destination.id,
+            record: RemoteRecordId::Qrz(7),
+        },
+        qso: support::id(10),
+        state: AssociationState::Active,
+    };
+    let mut old = support::accepted(190, "fixture");
+    old.key.id = RecordId::Service(ServicePayload::Association(a.clone()).id());
+    old.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+        payload: ServicePayload::Association(a.clone()),
+        support: ServiceSupport {
+            destination: Some(destination.clone()),
+            ..Default::default()
+        },
+    })));
+    let mut new = old.clone();
+    new.stamp = support::accepted(200, "fixture").stamp;
+    if let RecordState::Live(RecordValue::Service(s)) = &mut new.state
+        && let ServicePayload::Association(a) = &mut s.payload
+    {
+        a.state = AssociationState::DeletedQso;
+    }
+    let mut deleted = support::accepted(200, "fixture");
+    deleted.state = RecordState::Deleted;
+    let bindings = [ExternalBindingObservation {
+        account: account.account,
+        external: a.external.clone(),
+        binding: Some(BindingVersion {
+            association: a.id,
+            qso: a.qso,
+            state: AssociationState::DeletedQso,
+            stamp: new.stamp.clone(),
+        }),
+    }];
+    let registry = DestinationRegistryObservation {
+        account: account.account,
+        head: account.head,
+        destinations: vec![destination],
+    };
+    let current = Observation::Accepted(new);
+    let refs = [Observation::Accepted(deleted)];
+    assert!(matches!(
+        plan_recovered_install(
+            &old,
+            None,
+            support::id(4),
+            &AcceptanceInput {
+                destination_registry: Some(&registry),
+                account: &account,
+                membership: &membership,
+                current: &current,
+                references: &refs,
+                bindings: &bindings
+            },
+            &ev
+        )?,
+        RecoveredDecision::Covered
     ));
     Ok(())
 }

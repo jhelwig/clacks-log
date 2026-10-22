@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 
 /// Consistent rows loaded within the real acceptance transaction.
 pub struct AcceptanceInput<'a> {
+    /// Complete namespace registry from the same real account transaction; required for service destinations.
+    pub destination_registry: Option<&'a crate::service::DestinationRegistryObservation>,
     /// Unique external binding reads from the same real transaction.
     pub bindings: &'a [crate::service::ExternalBindingObservation],
     /// Current account head and epoch.
@@ -368,7 +370,7 @@ fn plan_commit(
         },
     )?;
     let native_changed = match input.current {
-        Observation::Accepted(old) => old.state != *state,
+        Observation::Accepted(old) => !old.state.same_values(state),
         _ => true,
     };
     let journal = JournalChange {

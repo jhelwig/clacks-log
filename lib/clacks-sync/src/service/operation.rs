@@ -235,7 +235,7 @@ pub fn plan_operation(
             );
             for a in assertions {
                 anyhow::ensure!(a.qso == qso, "import assertion targets another contact");
-                payloads.push(ServicePayload::Imported(a.clone()));
+                payloads.push(ServicePayload::Imported(Box::new(a.clone())));
             }
             changes.extend(selected_tag_effects.iter().cloned());
             changes.push(qso_change.clone());
@@ -443,6 +443,44 @@ pub fn plan_operation(
                     result.external.as_ref() == Some(&a.external),
                     "binding not established by returned identity"
                 );
+                let Some(member) = result.identified_attempt()? else {
+                    return Ok(ServiceDecision::Review(format!(
+                        "result {} external identity lacks member-level correlation",
+                        result.id
+                    )));
+                };
+                let Some(attempt) = input
+                    .reads
+                    .iter()
+                    .filter_map(|r| {
+                        if let Observation::Accepted(row) = r {
+                            super::payload(row)
+                        } else {
+                            None
+                        }
+                    })
+                    .find_map(|s| {
+                        if let ServicePayload::Attempt(v) = &s.payload
+                            && v.id == member
+                        {
+                            Some(v)
+                        } else {
+                            None
+                        }
+                    })
+                else {
+                    return Ok(ServiceDecision::Incomplete(format!(
+                        "result {} attempt {member} is missing",
+                        result.id
+                    )));
+                };
+                anyhow::ensure!(
+                    attempt.qso == a.qso && attempt.projection.destination() == result.destination,
+                    "result {} attempt {member} belongs to QSO {}, not binding QSO {}",
+                    result.id,
+                    attempt.qso,
+                    a.qso
+                );
                 payloads.push(ServicePayload::Association(a.clone()));
             }
         }
@@ -616,6 +654,9 @@ pub(crate) fn plan_changes(
             if let RecordState::Live(RecordValue::Service(s)) = &mut change.state {
                 refs.extend(super::dependency::required_keys(account.account, s));
                 refs.extend(s.support.required.iter().map(|r| r.reference().key));
+                if let ServicePayload::Association(a) = &s.payload {
+                    refs.extend(prospective.iter().filter_map(|r|if let Observation::Accepted(row)=r && let Some(source)=super::payload(row) && source.support.operation==Some(id) && matches!(&source.payload,ServicePayload::Result(result) if result.external.as_ref()==Some(&a.external)){Some(row.key)}else{None}));
+                }
                 for key in &refs {
                     if let Some(Observation::Accepted(row)) =
                         prospective.iter().find(|r| r.key() == *key)
@@ -623,7 +664,10 @@ pub(crate) fn plan_changes(
                         let req = if matches!(
                             key.id,
                             RecordId::Service(
-                                ServiceRecordId::Attempt(_) | ServiceRecordId::Observation(_)
+                                ServiceRecordId::Attempt(_)
+                                    | ServiceRecordId::Observation(_)
+                                    | ServiceRecordId::Result(_)
+                                    | ServiceRecordId::Assertion(_)
                             )
                         ) {
                             SupportRequirement::ExactFact(VersionReference::from(row))
@@ -693,7 +737,13 @@ pub(crate) fn plan_changes(
                 conditions.push(VersionCondition::from_observation(r)?);
             }
         }
+        let registry = super::DestinationRegistryObservation {
+            account: account.account,
+            head: next_account.head,
+            destinations: destinations.to_vec(),
+        };
         let input = AcceptanceInput {
+            destination_registry: Some(&registry),
             account: &next_account,
             membership,
             current: &current,

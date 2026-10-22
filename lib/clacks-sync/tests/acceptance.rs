@@ -51,6 +51,7 @@ fn accepts_once_with_atomic_conditions_and_rejects_closed_actor() {
     let AcceptanceDecision::Commit(commit) = plan_acceptance(
         &change,
         &AcceptanceInput {
+            destination_registry: None,
             bindings: &[],
             account: &account,
             membership: &members,
@@ -79,6 +80,7 @@ fn accepts_once_with_atomic_conditions_and_rejects_closed_actor() {
         plan_acceptance(
             &change,
             &AcceptanceInput {
+                destination_registry: None,
                 bindings: &[],
                 account: &commit.next_account,
                 membership: &members,
@@ -98,6 +100,7 @@ fn accepts_once_with_atomic_conditions_and_rejects_closed_actor() {
         plan_acceptance(
             &change,
             &AcceptanceInput {
+                destination_registry: None,
                 bindings: &[],
                 account: &account,
                 membership: &members,
@@ -148,6 +151,7 @@ fn empty_account_seeds_groups_without_a_client_actor() {
     let AcceptanceDecision::Commit(commit) = plan_server_acceptance(
         &change,
         &AcceptanceInput {
+            destination_registry: None,
             bindings: &[],
             account: &account,
             membership: &members,
@@ -195,6 +199,7 @@ fn missing_tag_rejects_without_changing_local_values() {
         plan_server_acceptance(
             &change,
             &AcceptanceInput {
+                destination_registry: None,
                 bindings: &[],
                 account: &account,
                 membership: &members,
@@ -234,6 +239,7 @@ fn context_only_acceptance_is_not_a_native_change_and_guards_epochs() {
     let AcceptanceDecision::Commit(commit) = plan_server_acceptance(
         &change,
         &AcceptanceInput {
+            destination_registry: None,
             bindings: &[],
             account: &account,
             membership: &members,
@@ -250,6 +256,7 @@ fn context_only_acceptance_is_not_a_native_change_and_guards_epochs() {
     let AcceptanceDecision::Commit(later) = plan_server_acceptance(
         &change,
         &AcceptanceInput {
+            destination_registry: None,
             bindings: &[],
             account: &account,
             membership: &members,
@@ -267,6 +274,7 @@ fn context_only_acceptance_is_not_a_native_change_and_guards_epochs() {
         plan_server_acceptance(
             &change,
             &AcceptanceInput {
+                destination_registry: None,
                 bindings: &[],
                 account: &account,
                 membership: &members,
@@ -326,6 +334,7 @@ fn stale_tag_dependency_and_invalid_group_are_diagnostic() {
         plan_server_acceptance(
             &change,
             &AcceptanceInput {
+                destination_registry: None,
                 bindings: &[],
                 account: &account,
                 membership: &members,
@@ -362,6 +371,7 @@ fn stale_tag_dependency_and_invalid_group_are_diagnostic() {
     let err = plan_server_acceptance(
         &change,
         &AcceptanceInput {
+            destination_registry: None,
             bindings: &[],
             account: &account,
             membership: &members,
@@ -404,6 +414,7 @@ fn server_change_cannot_relabel_an_uninterpretable_current_baseline() {
         plan_server_acceptance(
             &change,
             &AcceptanceInput {
+                destination_registry: None,
                 bindings: &[],
                 account: &account,
                 membership: &members,

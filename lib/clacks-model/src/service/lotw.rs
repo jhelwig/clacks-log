@@ -25,6 +25,18 @@ pub struct LotwBand {
     pub upper_hz: u64,
 }
 
+/// Pinned TrustedQSL input flag requiring uppercase station text.
+const UPPERCASE_INPUT: u32 = 1;
+
+/// One allowed ITU/CQ zone pairing from the pinned entity/subdivision data.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ZonePair {
+    /// International Telecommunication Union zone number.
+    pub itu: u8,
+    /// CQ zone number paired with this ITU zone.
+    pub cq: u8,
+}
+
 /// One station-field enumeration, optionally dependent on another field.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StationValue {
@@ -34,11 +46,15 @@ pub struct StationValue {
     pub value: String,
     /// Alternate human-readable supplied label.
     pub label: String,
+    /// Optional narrower zone restrictions for this subdivision.
+    pub zones: Vec<ZonePair>,
 }
 
 /// Configuration-defined station validation metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StationField {
+    /// Upstream input flags, including mask 1 for uppercasing.
+    pub flags: u32,
     /// Maximum supported characters; zero means unspecified.
     pub length: usize,
     /// Optional parent field identity.
@@ -55,6 +71,7 @@ pub struct LotwConfiguration {
     /// Source Git identity.
     pub upstream_commit: String,
     /// Uppercase combined/bare input labels to concrete modes.
+    #[serde(deserialize_with = "unique_map")]
     pub mapping: BTreeMap<String, String>,
     /// Concrete modes and their award groups.
     pub modes: BTreeMap<String, String>,
@@ -62,6 +79,12 @@ pub struct LotwConfiguration {
     pub bands: Vec<LotwBand>,
     /// Station field validation definitions.
     pub fields: BTreeMap<String, StationField>,
+    /// Source-defined primary administrative fields.
+    pub primary_fields: Vec<String>,
+    /// Supported secondary administrative field bindings.
+    pub secondary_fields: Vec<String>,
+    /// Entity-level allowed ITU/CQ pairs.
+    pub entity_zones: BTreeMap<String, Vec<ZonePair>>,
     /// Applicable fields indexed by entity identifier.
     pub entity_fields: BTreeMap<String, Vec<String>>,
     /// Fields emitted by the pinned signing specification.
@@ -75,6 +98,12 @@ impl LotwConfiguration {
         if c.release.is_empty()
             || c.bands.is_empty()
             || c.mapping.is_empty()
+            || c.mapping
+                .keys()
+                .map(|k| k.to_uppercase())
+                .collect::<BTreeSet<_>>()
+                .len()
+                != c.mapping.len()
             || c.mapping
                 .iter()
                 .any(|(k, v)| k.trim().is_empty() || !c.modes.contains_key(v))
@@ -277,6 +306,7 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
         }
     }
     let mut station = AdifFields::new();
+    let mut subdivision_zones = Vec::new();
     if let Some(l) = &q.own_station.location {
         if let Some(p) = &l.position {
             station.insert("GRIDSQUARE".into(), p.display_locator().to_string());
@@ -296,22 +326,49 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
                     let found = applicable
                         .iter()
                         .filter_map(|name| c.fields.get(name).map(|f| (name, f)))
-                        .filter(|(_, f)| f.depends_on.is_some() == secondary)
+                        .filter(|(name, _)| {
+                            if secondary {
+                                c.secondary_fields.contains(name)
+                            } else {
+                                c.primary_fields.contains(name)
+                            }
+                        })
                         .find_map(|(name, f)| {
-                            let parent = f.depends_on.as_ref().and_then(|n| station.get(n));
+                            let parent = f.depends_on.as_ref().and_then(|n| {
+                                if n == "DXCC" {
+                                    Some(&input.signing.dxcc)
+                                } else {
+                                    station.get(n)
+                                }
+                            });
+                            let supplied = if secondary {
+                                if let Some((prefix, tail)) = value.split_once(',') {
+                                    if parent.is_some_and(|p| p.eq_ignore_ascii_case(prefix)) {
+                                        Some(tail)
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    Some(value.as_str())
+                                }
+                            } else {
+                                Some(value.as_str())
+                            };
                             f.values
                                 .iter()
                                 .find(|v| {
                                     v.dependency.as_ref() == parent
-                                        && (v.value.eq_ignore_ascii_case(value)
-                                            || v.label.eq_ignore_ascii_case(value)
-                                            || value.split_once(',').is_some_and(|(_, tail)| {
-                                                v.value.eq_ignore_ascii_case(tail)
-                                            }))
+                                        && supplied.is_some_and(|value| {
+                                            v.value.eq_ignore_ascii_case(value)
+                                                || v.label.eq_ignore_ascii_case(value)
+                                        })
                                 })
-                                .map(|v| (name.clone(), v.value.clone()))
+                                .map(|v| (name.clone(), v.value.clone(), v.zones.clone()))
                         });
-                    if let Some((name, value)) = found {
+                    if let Some((name, value, zones)) = found {
+                        if !secondary && !zones.is_empty() {
+                            subdivision_zones = zones;
+                        }
                         station.insert(name, value);
                     } else {
                         return Err(ServiceError::Invalid {
@@ -336,6 +393,36 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
     }
     if let Some(value) = own_iota(q, input.definitions)? {
         station.insert("IOTA".into(), value);
+    }
+    if let Some(l) = &q.own_station.location {
+        for (scope, zones) in [
+            (
+                "entity",
+                c.entity_zones
+                    .get(&input.signing.dxcc)
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[]),
+            ),
+            ("subdivision", subdivision_zones.as_slice()),
+        ] {
+            if !zones.is_empty()
+                && !zones.iter().any(|p| {
+                    l.cq_zone.is_none_or(|z| z.get() == p.cq)
+                        && l.itu_zone.is_none_or(|z| z.get() == p.itu)
+                })
+            {
+                return Err(ServiceError::Invalid {
+                    detail: format!(
+                        "invalid CQ/ITU zone pair for LoTW {scope} {}",
+                        input.signing.dxcc
+                    ),
+                }
+                .into());
+            }
+        }
+    }
+    for (field, value) in &mut station {
+        *value = station_value(field, value, c);
     }
     for (field, value) in &station {
         if let Some(meta) = c.fields.get(field)
@@ -397,4 +484,53 @@ pub(crate) fn own_iota(q: &Qso, definitions: &DefinitionSet) -> anyhow::Result<O
         }
     }
     Ok(station.remove("IOTA"))
+}
+
+/// Apply the pinned field's input transformation for shared source/signing comparisons.
+pub(crate) fn station_value(field: &str, value: &str, configuration: &LotwConfiguration) -> String {
+    if configuration
+        .fields
+        .get(field)
+        .is_some_and(|meta| meta.flags & UPPERCASE_INPUT != 0)
+    {
+        value.to_ascii_uppercase()
+    } else {
+        value.to_owned()
+    }
+}
+
+/// Deserialize map rows without silently replacing a duplicate normalization key.
+fn unique_map<'de, D, V>(deserializer: D) -> Result<BTreeMap<String, V>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    V: Deserialize<'de>,
+{
+    deserializer.deserialize_map(UniqueMap(std::marker::PhantomData))
+}
+
+/// Value-type marker for a normalization map with unique source keys.
+struct UniqueMap<V>(
+    /// Deserialized value type, without storing an extra runtime value.
+    std::marker::PhantomData<V>,
+);
+
+impl<'de, V: Deserialize<'de>> serde::de::Visitor<'de> for UniqueMap<V> {
+    type Value = BTreeMap<String, V>;
+    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("normalization map with unique keys")
+    }
+    fn visit_map<A: serde::de::MapAccess<'de>>(
+        self,
+        mut access: A,
+    ) -> Result<Self::Value, A::Error> {
+        let mut result = BTreeMap::new();
+        while let Some((key, value)) = access.next_entry::<String, V>()? {
+            if result.insert(key.clone(), value).is_some() {
+                return Err(serde::de::Error::custom(format!(
+                    "duplicate normalization key {key}"
+                )));
+            }
+        }
+        Ok(result)
+    }
 }

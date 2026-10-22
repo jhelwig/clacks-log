@@ -12,6 +12,8 @@ use clacks_model::{
 
 fn basis() -> ConfirmationBasis {
     ConfirmationBasis {
+        uninterpreted_band: None,
+        uninterpreted_receive_band: None,
         own_call: Some(RecordedCallsign::new("W7HEX").unwrap()),
         worked_call: Some(RecordedCallsign::new("K1ABC").unwrap()),
         start: Some(UtcSecond::from_unix_seconds(43200)),
@@ -114,6 +116,7 @@ fn imported_upload_and_confirmation_are_independent_and_baseline_specific() -> a
     let destination = DestinationId::new();
     let fields = std::collections::BTreeMap::from([("MY_GRIDSQUARE".into(), "FN31".into())]);
     let baseline = ImportedBaseline {
+        native_end: None,
         service: Service::Qrz,
         fields: fields.clone(),
         own_location: None,
@@ -140,7 +143,9 @@ fn imported_upload_and_confirmation_are_independent_and_baseline_specific() -> a
     }];
     let input = PublicationCoverageInput {
         qso,
-        current: &current,
+        current: Some(&current),
+        service: current.service(),
+        destination: Some(current.destination()),
         source_current: &baseline,
         assertions: &claims,
         attempts: &[],
@@ -159,9 +164,52 @@ fn imported_upload_and_confirmation_are_independent_and_baseline_specific() -> a
         fields: [("MY_GRIDSQUARE".into(), "FN32".into())].into(),
     });
     let input = PublicationCoverageInput {
-        current: &edited,
+        current: Some(&edited),
         ..input
     };
     assert_eq!(publication_coverage(&input)?, PublicationCoverage::Pending);
+    Ok(())
+}
+
+#[test]
+fn service_level_imported_upload_is_trusted_without_routing_or_projection() -> anyhow::Result<()> {
+    use clacks_model::{
+        ids::{AssertionId, QsoId},
+        service::evidence::{ImportProvenance, ImportedAssertion, ImportedBaseline, ImportedClaim},
+    };
+    let qso = QsoId::new();
+    let baseline = ImportedBaseline {
+        native_end: None,
+        service: Service::Lotw,
+        fields: Default::default(),
+        own_location: None,
+        confirmation: basis(),
+        coverage: Default::default(),
+    };
+    let assertion = ImportedAssertion {
+        id: AssertionId::new(),
+        qso,
+        service: Service::Lotw,
+        destination: None,
+        claim: ImportedClaim::Uploaded,
+        date: None,
+        provenance: ImportProvenance {
+            source: "file".into(),
+            record: "1".into(),
+            mapping: "standard".into(),
+        },
+        baseline: baseline.clone(),
+    };
+    let input = PublicationCoverageInput {
+        service: Service::Lotw,
+        destination: None,
+        qso,
+        current: None,
+        source_current: &baseline,
+        assertions: &[assertion],
+        attempts: &[],
+        results: &[],
+    };
+    assert_eq!(publication_coverage(&input)?, PublicationCoverage::Covered);
     Ok(())
 }

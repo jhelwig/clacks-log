@@ -366,7 +366,8 @@ pub fn plan_batch(
         {
             blocked.insert(row.key);
         }
-        if let Some(s) = crate::service::payload(row)
+        let represented = available.iter().find(|r| r.key == row.key).unwrap_or(row);
+        if let Some(s) = crate::service::payload(represented)
             && matches!(
                 crate::service::dependency::check(s, &view)?,
                 crate::service::dependency::DependencyStatus::Incomplete(_)

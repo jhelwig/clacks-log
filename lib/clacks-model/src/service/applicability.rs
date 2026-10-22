@@ -42,8 +42,12 @@ pub enum ConfirmationApplicability {
 pub struct PublicationCoverageInput<'a> {
     /// Contact being evaluated.
     pub qso: QsoId,
-    /// Fully prepared current service output.
-    pub current: &'a SubmissionProjection,
+    /// Service evaluated independently of routing or signing readiness.
+    pub service: Service,
+    /// Selected remote destination when known; no invented default is needed for imported claims.
+    pub destination: Option<crate::ids::DestinationId>,
+    /// Prepared current output when conversion/signing context is available.
+    pub current: Option<&'a SubmissionProjection>,
     /// Current source-only values under the same import comparison rules.
     pub source_current: &'a ImportedBaseline,
     /// Recognized imported claims in this account.
@@ -58,20 +62,38 @@ pub struct PublicationCoverageInput<'a> {
 pub fn publication_coverage(
     input: &PublicationCoverageInput<'_>,
 ) -> anyhow::Result<PublicationCoverage> {
-    let destination = input.current.destination();
-    let service = input.current.service();
+    let destination = input
+        .destination
+        .or_else(|| input.current.map(SubmissionProjection::destination));
+    let service = input.service;
+    anyhow::ensure!(
+        input.source_current.service == service
+            && input.current.is_none_or(
+                |p| p.service() == service && destination.is_none_or(|d| d == p.destination())
+            ),
+        "QSO {} has incompatible publication comparison service/destination",
+        input.qso
+    );
     for assertion in input.assertions.iter().filter(|a| {
         a.qso == input.qso
             && a.service == service
             && a.claim == ImportedClaim::Uploaded
-            && a.destination.is_none_or(|d| d == destination)
+            && a.destination
+                .is_none_or(|d| destination.is_none_or(|selected| d == selected))
     }) {
         let same = if service == Service::Lotw {
             assertion.baseline.fields == input.source_current.fields
                 && assertion.baseline.own_location == input.source_current.own_location
+                && assertion.baseline.confirmation.start == input.source_current.confirmation.start
         } else {
             match input.current {
-                SubmissionProjection::Qrz(v) => assertion.baseline.fields == v.fields,
+                Some(SubmissionProjection::Qrz(v)) => assertion.baseline.fields == v.fields,
+                None => {
+                    assertion.baseline.fields == input.source_current.fields
+                        && assertion.baseline.confirmation.start
+                            == input.source_current.confirmation.start
+                        && assertion.baseline.native_end == input.source_current.native_end
+                }
                 _ => false,
             }
         };
@@ -80,11 +102,9 @@ pub fn publication_coverage(
         }
     }
     let mut missing = false;
-    for result in input
-        .results
-        .iter()
-        .filter(|r| r.destination == destination && r.outcome == SubmissionOutcome::Success)
-    {
+    for result in input.results.iter().filter(|r| {
+        destination.is_none_or(|d| r.destination == d) && r.outcome == SubmissionOutcome::Success
+    }) {
         for id in result.scope.attempts() {
             let Some(attempt) = input.attempts.iter().find(|a| a.id == id) else {
                 missing = true;
@@ -97,8 +117,14 @@ pub fn publication_coverage(
                 missing = true;
                 continue;
             }
-            if attempt.qso == input.qso && attempt.projection == *input.current {
-                return Ok(PublicationCoverage::Covered);
+            if attempt.qso == input.qso && attempt.projection.service() == service {
+                if let Some(current) = input.current {
+                    if attempt.projection == *current {
+                        return Ok(PublicationCoverage::Covered);
+                    }
+                } else {
+                    missing = true;
+                }
             }
         }
     }
@@ -151,6 +177,12 @@ pub fn confirmation_applicability(
     }
     if a.band != b.band || (input.service == Service::Lotw && a.receive_band != b.receive_band) {
         return Ok(ConfirmationApplicability::HistoricalOnly);
+    }
+    if a.uninterpreted_band != b.uninterpreted_band
+        || (input.service == Service::Lotw
+            && a.uninterpreted_receive_band != b.uninterpreted_receive_band)
+    {
+        return Ok(ConfirmationApplicability::NotEstablished);
     }
     if a.band.is_none() && a.frequency != b.frequency
         || (input.service == Service::Lotw

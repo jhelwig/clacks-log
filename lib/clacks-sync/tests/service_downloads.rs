@@ -605,3 +605,53 @@ fn late_response_uses_original_start_context_after_explicit_failure() -> anyhow:
     assert_eq!(f.control().active, Some(new.id));
     Ok(())
 }
+
+#[test]
+fn contradictory_mixed_ordering_keeps_uncertainty_until_a_dominating_refresh() -> anyhow::Result<()>
+{
+    use clacks_model::service::evidence::observation::{ConfirmationStatus, Reported};
+    use clacks_sync::service::operation::ServiceDecision;
+    let mut f = ReadFixture::new();
+    for (value, time, status) in [
+        ("A", Some(3), ConfirmationStatus::Confirmed),
+        ("B", None, ConfirmationStatus::Unconfirmed),
+        ("C", Some(1), ConfirmationStatus::Confirmed),
+    ] {
+        let a = f.start()?;
+        let ServiceDecision::Ready(c) = f.observe_report(&a, value, (None, time), status)? else {
+            panic!()
+        };
+        f.install(c)?;
+        f.close(&a, true)?;
+    }
+    let selected = established(&f)?;
+    assert_eq!(
+        selected.current.facts.contact.confirmation,
+        Reported::NotReported
+    );
+    assert!(
+        selected
+            .uncertain
+            .iter()
+            .any(|p| p == "contact.confirmation")
+    );
+    let a = f.start()?;
+    let ServiceDecision::Ready(c) =
+        f.observe_report(&a, "D", (None, Some(4)), ConfirmationStatus::Confirmed)?
+    else {
+        panic!()
+    };
+    f.install(c)?;
+    let selected = established(&f)?;
+    assert_eq!(
+        selected.current.facts.contact.confirmation,
+        Reported::Value(ConfirmationStatus::Confirmed)
+    );
+    assert!(
+        !selected
+            .uncertain
+            .iter()
+            .any(|p| p == "contact.confirmation")
+    );
+    Ok(())
+}

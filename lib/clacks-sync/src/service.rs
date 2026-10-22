@@ -204,3 +204,140 @@ pub(crate) fn check_integrity(
     }
     Ok(())
 }
+
+/// Compare retained support identities independently of equivalent clock representations.
+pub(crate) fn same_support_values(a: &ServiceSupport, b: &ServiceSupport) -> bool {
+    a.operation == b.operation
+        && a.destination == b.destination
+        && a.acquisition.as_ref().map(|s| s.accepted_at)
+            == b.acquisition.as_ref().map(|s| s.accepted_at)
+        && a.required.len() == b.required.len()
+        && a.required.iter().all(|r| {
+            b.required.iter().any(|s| {
+                std::mem::discriminant(r) == std::mem::discriminant(s)
+                    && r.reference().key == s.reference().key
+                    && r.reference().stamp.accepted_at == s.reference().stamp.accepted_at
+                    && r.reference().deleted == s.reference().deleted
+            })
+        })
+}
+
+/// Establish equivalent embedded projections, reporting unavailable interpretation separately.
+pub(crate) fn compare_support(
+    a: &ServiceRecord,
+    b: &ServiceRecord,
+    key: RecordKey,
+    evidence: &EvidenceView<'_>,
+) -> anyhow::Result<crate::compare::RecordRelation> {
+    use crate::compare::{RecordRelation, compare_contexts};
+    if a == b {
+        return Ok(RecordRelation::SameVersion);
+    }
+    if a.payload != b.payload || !same_support_values(&a.support, &b.support) {
+        return Ok(RecordRelation::Divergent);
+    }
+    for r in &a.support.required {
+        let Some(s) = b.support.required.iter().find(|s| {
+            std::mem::discriminant(r) == std::mem::discriminant(*s)
+                && r.reference().key == s.reference().key
+                && r.reference().stamp.accepted_at == s.reference().stamp.accepted_at
+        }) else {
+            return Ok(RecordRelation::Divergent);
+        };
+        if r.reference().stamp == s.reference().stamp {
+            continue;
+        }
+        let relation = compare_contexts(
+            r.reference().key,
+            &r.reference().stamp,
+            &s.reference().stamp,
+            evidence,
+        )?;
+        if relation != RecordRelation::SameVersion {
+            return Ok(relation);
+        }
+    }
+    if let (Some(a), Some(b)) = (&a.support.acquisition, &b.support.acquisition) {
+        if a == b {
+            return Ok(RecordRelation::SameVersion);
+        }
+        return compare_contexts(key, a, b, evidence);
+    }
+    Ok(RecordRelation::SameVersion)
+}
+
+/// Complete remote-collection registry read under the account-head transaction guard.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DestinationRegistryObservation {
+    /// Owning account, isolated from other accounts' provider collections.
+    pub account: AccountId,
+    /// Account head at which the complete registry was observed.
+    pub head: crate::record::Position,
+    /// All retained public namespace descriptors, including credential-removed destinations.
+    pub destinations: Vec<Destination>,
+}
+
+/// Check collective namespace identity before admitting any newly installed service evidence.
+pub(crate) fn check_namespace(
+    record: &ServiceRecord,
+    input: &crate::acceptance::AcceptanceInput<'_>,
+) -> anyhow::Result<Result<(), crate::acceptance::RejectionReason>> {
+    let Some(id) = record.payload.destination() else {
+        return Ok(Ok(()));
+    };
+    let Some(registry) = input.destination_registry else {
+        return Ok(Err(crate::acceptance::RejectionReason::ServiceCondition {
+            detail: format!(
+                "account {} destination {id} requires a complete destination-registry observation",
+                input.account.account
+            ),
+        }));
+    };
+    anyhow::ensure!(
+        registry.account == input.account.account && registry.head == input.account.head,
+        "destination registry account/head changed"
+    );
+    clacks_model::service::destination::validate_destinations(&registry.destinations)?;
+    let proposed = if let ServicePayload::Destination(d) = &record.payload {
+        Some(d)
+    } else {
+        record.support.destination.as_ref()
+    }
+    .or_else(|| registry.destinations.iter().find(|d| d.id == id));
+    let Some(proposed) = proposed else {
+        return Ok(Err(crate::acceptance::RejectionReason::ServiceCondition {
+            detail: format!("destination {id} lacks its public namespace descriptor"),
+        }));
+    };
+    let mut all = registry.destinations.clone();
+    if let Some(old) = all.iter().find(|d| d.id == proposed.id) {
+        let same = match (&old.collection, &proposed.collection) {
+            (
+                clacks_model::service::destination::RemoteCollection::Lotw { account: a },
+                clacks_model::service::destination::RemoteCollection::Lotw { account: b },
+            ) => a.trim().eq_ignore_ascii_case(b.trim()),
+            (a, b) => a == b,
+        };
+        if !same {
+            return Err(dependency::SyncServiceError::Integrity {
+                key: RecordKey {
+                    account: input.account.account,
+                    id: crate::record::RecordId::Service(record.payload.id()),
+                },
+                detail: format!("destination {id} changes its retained remote collection"),
+            }
+            .into());
+        }
+    } else {
+        all.push(proposed.clone());
+    }
+    if let Err(error) = clacks_model::service::destination::validate_destinations(&all) {
+        return Ok(Err(crate::acceptance::RejectionReason::ServiceCondition {
+            detail: format!(
+                "account {} destination {id} namespace collision: {error}",
+                input.account.account
+            ),
+        }));
+    }
+    Ok(Ok(()))
+}

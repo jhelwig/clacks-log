@@ -34,6 +34,12 @@ impl SubmissionProjection {
 /// Retained contact dimensions used to evaluate confirmation after later edits.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConfirmationBasis {
+    /// Original band-only label when service interpretation is unavailable.
+    #[serde(default)]
+    pub uninterpreted_band: Option<String>,
+    /// Original effective receive label when service interpretation is unavailable.
+    #[serde(default)]
+    pub uninterpreted_receive_band: Option<String>,
     /// Historical own full callsign, unknown only for incomplete provider evidence.
     pub own_call: Option<crate::scalar::RecordedCallsign>,
     /// Historical worked full callsign.
@@ -108,6 +114,9 @@ pub enum SubmissionOutcome {
 /// Independent outcome evidence, including later clarification of an earlier uncertainty.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubmissionResult {
+    /// Actual member whose returned external identity is established, when batch scope alone is ambiguous.
+    #[serde(default)]
+    pub external_attempt: Option<crate::ids::AttemptId>,
     /// Stable identity of this outcome fact.
     pub id: crate::ids::SubmissionResultId,
     /// Remote collection returned by this request.
@@ -133,5 +142,28 @@ impl ResultScope {
             Self::IndividualAttempt(id) => vec![*id],
             Self::UploadBatch { members, .. } => members.iter().copied().collect(),
         }
+    }
+}
+
+impl SubmissionResult {
+    /// Identify the request member whose remote ID was returned, without guessing across a batch.
+    ///
+    /// A single-member scope is unambiguous. A larger batch needs explicit member
+    /// correlation; absent correlation leaves the remote ID unassociated.
+    pub fn identified_attempt(&self) -> anyhow::Result<Option<crate::ids::AttemptId>> {
+        let members = self.scope.attempts();
+        if let Some(id) = self.external_attempt {
+            anyhow::ensure!(
+                self.external.is_some() && members.contains(&id),
+                "result {} external identity has invalid member correlation {id}",
+                self.id
+            );
+            return Ok(Some(id));
+        }
+        Ok(if self.external.is_some() && members.len() == 1 {
+            members.first().copied()
+        } else {
+            None
+        })
     }
 }

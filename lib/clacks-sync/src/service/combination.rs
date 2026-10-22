@@ -154,16 +154,38 @@ fn select<T: Clone + Eq>(
         .into_iter()
         .filter(|(_, _, v)| !matches!(v, Reported::NotReported))
         .collect::<Vec<_>>();
-    let mut maximal = Vec::new();
-    for (i, (a, sa, value)) in values.iter().enumerate() {
-        let mut covered = false;
+    let mut edges = Vec::new();
+    for (i, (a, sa, _)) in values.iter().enumerate() {
         for (j, (b, sb, _)) in values.iter().enumerate() {
             if i != j && order(a, sa, b, sb, confirmation, view)? == Some(std::cmp::Ordering::Less)
             {
-                covered = true;
-                break;
+                edges.push((i, j));
             }
         }
+    }
+    // Conflicting order can form a cycle. Keep every value in each maximal
+    // mutually reachable component instead of silently discarding that component.
+    let mut reachability = Vec::new();
+    for (i, _) in values.iter().enumerate() {
+        let mut reached = std::collections::BTreeSet::from([i]);
+        let mut pending = vec![i];
+        while let Some(node) = pending.pop() {
+            for (_, target) in edges.iter().filter(|(source, _)| *source == node) {
+                if reached.insert(*target) {
+                    pending.push(*target);
+                }
+            }
+        }
+        reachability.push((i, reached));
+    }
+    let mut maximal = Vec::new();
+    for ((i, reached), (_, _, value)) in reachability.iter().zip(&values) {
+        let covered = reached.iter().any(|j| {
+            reachability
+                .iter()
+                .find(|(node, _)| node == j)
+                .is_some_and(|(_, other)| !other.contains(i))
+        });
         if !covered {
             maximal.push(*value);
         }

@@ -80,6 +80,7 @@ fn prepared_acceptance_lost_response_and_later_local_edit_compose() {
     let AcceptanceDecision::Commit(commit) = plan_acceptance(
         &change,
         &AcceptanceInput {
+            destination_registry: None,
             bindings: &[],
             account: &account,
             membership: &m,
@@ -111,6 +112,7 @@ fn prepared_acceptance_lost_response_and_later_local_edit_compose() {
         plan_acceptance(
             &change,
             &AcceptanceInput {
+                destination_registry: None,
                 bindings: &[],
                 account: &commit.next_account,
                 membership: &m,
@@ -220,6 +222,7 @@ fn partial_install_reload_completion_and_recovery_ancestry_compose() {
         None,
         id(4),
         &clacks_sync::acceptance::AcceptanceInput {
+            destination_registry: None,
             bindings: &[],
             account: &fork.next_account,
             membership: &m,

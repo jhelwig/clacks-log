@@ -49,6 +49,9 @@ pub struct ImportProvenance {
 /// Frozen source-only comparison baseline; never retroactively enriched by live fallback.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImportedBaseline {
+    /// Exact source end time retained even when interchange conversion is unavailable.
+    #[serde(default)]
+    pub native_end: Option<crate::scalar::UtcSecond>,
     /// Provider whose semantic values this baseline covers.
     pub service: Service,
     /// Supplied normalized service inputs, not proof of historical sent bytes.
@@ -103,7 +106,7 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
     let mut fields = if input.service == Service::Qrz {
         super::qrz::source_fields(q, input.context)?
     } else {
-        let (date, time) = super::adif::contact_time(q.start)?;
+        let converted_time = super::adif::contact_time(q.start).ok();
         let mut values = super::adif::mode(&q.mode, input.context.recognition);
         values.extend([
             (
@@ -111,9 +114,11 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
                 q.own_station.callsign.as_str().into(),
             ),
             ("CALL".into(), q.contacted_station.callsign.as_str().into()),
-            ("QSO_DATE".into(), date),
-            ("TIME_ON".into(), time),
         ]);
+        if let Some((date, time)) = converted_time {
+            values.insert("QSO_DATE".into(), date);
+            values.insert("TIME_ON".into(), time);
+        }
         if let Some(f) = q.primary.frequency() {
             values.insert("FREQ".into(), super::adif::frequency(f));
         }
@@ -131,7 +136,10 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
             }
         }
         if let Some(iota) = super::lotw::own_iota(q, input.context.definitions)? {
-            values.insert("MY_IOTA".into(), iota);
+            values.insert(
+                "MY_IOTA".into(),
+                super::lotw::station_value("IOTA", &iota, input.lotw),
+            );
         }
         values
     };
@@ -159,6 +167,16 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
         rx.band().map(|b| b.label().to_ascii_uppercase())
     };
     let basis = ConfirmationBasis {
+        uninterpreted_band: if band.is_none() {
+            q.primary.band().map(|b| b.label().to_owned())
+        } else {
+            None
+        },
+        uninterpreted_receive_band: if receive_band.is_none() {
+            rx.band().map(|b| b.label().to_owned())
+        } else {
+            None
+        },
         own_call: Some(q.own_station.callsign.clone()),
         worked_call: Some(q.contacted_station.callsign.clone()),
         start: Some(q.start),
@@ -200,6 +218,11 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
         }
     }
     Ok(ImportedBaseline {
+        native_end: if input.service == Service::Qrz {
+            q.end
+        } else {
+            None
+        },
         service: input.service,
         fields,
         own_location: if input.service == Service::Lotw {
@@ -247,7 +270,7 @@ pub enum ServicePayload {
     /// Public destination namespace.
     Destination(Destination),
     /// Imported assertion and its self-contained baseline.
-    Imported(ImportedAssertion),
+    Imported(Box<ImportedAssertion>),
     /// Actual or possible dispatch with frozen values.
     Attempt(SubmissionAttempt),
     /// Scope-qualified result for existing attempts.
@@ -305,6 +328,9 @@ impl ServicePayload {
 
     /// Validate structural domain invariants before accepting deserialized evidence.
     pub fn validate(&self) -> anyhow::Result<()> {
+        if let Self::Result(result) = self {
+            result.identified_attempt()?;
+        }
         match self {
             Self::Download(v) => v.validate()?,
             Self::Acquisition(v) => {

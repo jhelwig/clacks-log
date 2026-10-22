@@ -133,6 +133,7 @@ fn retained_server_distributed_envelope_preserves_acceptance_and_deletion() {
         None,
         id(4),
         &clacks_sync::acceptance::AcceptanceInput {
+            destination_registry: None,
             bindings: &[],
             account: &fork.next_account,
             membership: &m,
@@ -159,6 +160,7 @@ fn retained_server_distributed_envelope_preserves_acceptance_and_deletion() {
             None,
             id(4),
             &clacks_sync::acceptance::AcceptanceInput {
+                destination_registry: None,
                 bindings: &[],
                 account: &fork.next_account,
                 membership: &m,
@@ -228,6 +230,7 @@ fn equal_divergent_values_join_context_without_business_review() {
         None,
         id(4),
         &clacks_sync::acceptance::AcceptanceInput {
+            destination_registry: None,
             bindings: &[],
             account: &account,
             membership: &m,
@@ -290,6 +293,7 @@ fn sparse_certified_absence_uses_ancestry_at_the_checkpoint_cut() {
             None,
             id(4),
             &clacks_sync::acceptance::AcceptanceInput {
+                destination_registry: None,
                 bindings: &[],
                 account: &account,
                 membership: &membership(),
@@ -340,6 +344,7 @@ fn unknown_order_never_approves_differing_values_and_unavailable_is_two_way() {
     let shared = Observation::Accepted(shared);
     let original = OriginalBasis::Accepted(accepted(1, "original"));
     let input = clacks_sync::acceptance::AcceptanceInput {
+        destination_registry: None,
         bindings: &[],
         account: &account,
         membership: &membership(),
@@ -443,6 +448,7 @@ fn tagged_qso_and_equipment_profile_context_joins_have_reference_guards() {
         let shared = Observation::Accepted(shared);
         let refs = [Observation::Accepted(reference.clone())];
         let input = clacks_sync::acceptance::AcceptanceInput {
+            destination_registry: None,
             bindings: &[],
             account: &account,
             membership: &membership(),
@@ -457,6 +463,7 @@ fn tagged_qso_and_equipment_profile_context_joins_have_reference_guards() {
         assert_eq!(commit.dependencies.len(), 1);
         assert_eq!(commit.dependencies.first().unwrap().key(), reference.key);
         let missing = clacks_sync::acceptance::AcceptanceInput {
+            destination_registry: None,
             bindings: &[],
             references: &[],
             ..input
@@ -515,6 +522,7 @@ fn explicitly_unavailable_original_uses_missing_original_review() {
         Some(&missing),
         id(4),
         &clacks_sync::acceptance::AcceptanceInput {
+            destination_registry: None,
             bindings: &[],
             account: &account,
             membership: &membership(),
