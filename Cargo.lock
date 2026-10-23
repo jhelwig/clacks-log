@@ -184,10 +184,12 @@ name = "clacks-lotw"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "clacks-model",
  "der 0.8.2",
  "p12-keystore",
  "pkcs12",
+ "rand 0.8.8",
  "rsa",
  "serde",
  "serde_json",
