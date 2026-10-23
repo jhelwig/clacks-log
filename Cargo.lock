@@ -189,6 +189,7 @@ dependencies = [
  "p12-keystore",
  "pkcs12",
  "rsa",
+ "serde",
  "serde_json",
  "sha1 0.10.7",
  "thiserror",

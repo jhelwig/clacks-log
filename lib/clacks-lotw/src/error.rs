@@ -35,3 +35,36 @@ pub enum ImportError {
     #[error("RSA key exceeds the supported 4096-bit size")]
     KeyTooLarge,
 }
+
+/// Prepared values or definitions cannot be represented by the signing protocol.
+#[derive(Debug, thiserror::Error)]
+pub enum SigningError {
+    /// A signature definition is malformed, incompatible or unsupported.
+    #[error("invalid signature definition: {reason}")]
+    Definition {
+        /// Public configuration context explaining the failure.
+        reason: String,
+    },
+    /// A prepared field is absent or cannot be encoded without changing meaning.
+    #[error("invalid signing field {field}: {reason}")]
+    Field {
+        /// Protocol field name, without its supplied value.
+        field: String,
+        /// Explanation that excludes supplied QSO or secret values.
+        reason: &'static str,
+    },
+    /// Retained identity and prepared fields do not describe the same submission.
+    #[error("prepared submission, external key and signing credential disagree")]
+    IdentityMismatch,
+    /// No contact exists to construct a signed batch.
+    #[error("cannot construct an empty signed batch")]
+    EmptyBatch,
+    /// Local eligibility checks excluded an explicitly supplied item.
+    #[error("batch item {index} is ineligible: {issues:?}")]
+    Ineligible {
+        /// Zero-based item position in the supplied batch.
+        index: usize,
+        /// All local eligibility failures for this item.
+        issues: Vec<crate::certificate::eligibility::EligibilityIssue>,
+    },
+}
