@@ -14,11 +14,12 @@ GAbbI is TrustedQSL’s signed record format, containing linked certificate, sta
 
 | Responsibility | Reference location | Port boundary |
 | --- | --- | --- |
-| Certificate import | `src/openssl_cert.cpp`: `tqsl_importPKCS12File`, internal Public-Key Cryptography Standards #12 (PKCS#12) import logic | Parse exports and match identities/keys; replace file writes with explicit credential objects and managed storage. |
+| Certificate import | `src/openssl_cert.cpp`: `tqsl_importPKCS12File`, internal Public-Key Cryptography Standards #12 (PKCS#12) import logic | Decode TQSL exports, check archive integrity and match certificate/private keys. Replace file writes with explicit credential objects; leave issuer-chain acceptance to LoTW. |
+| Certificate trust | `src/openssl_cert.cpp`: `tqsl_handle_root_cert`, `tqsl_handle_ca_cert`, `tqsl_handle_user_cert`; `apps/loadcertwiz.cpp`: `notifyImport` | Reference behavior only: TQSL installs archive roots and verifies chains against its local store. Clacks does not port this trust-store/chain-acceptance policy. |
 | Certificate eligibility | `src/openssl_cert.cpp`: `tqsl_selectCertificates`, `tqsl_filter_cert_list`, `tqsl_isCertificateExpired`, `tqsl_isCertificateSuperceded` | Preserve protocol eligibility; design explicit status and selection results. |
 | Import duplication and age checks | `src/openssl_cert.cpp`: `tqsl_store_cert`, `tqsl_replace_key` | Study identity/key matching; do not copy filesystem transactions, nonzero duplicate-result conventions, or callsign-only replacement assumptions blindly. |
 | Station input and validation | `src/location.cpp`; `src/config.xml` field/page definitions | Extract validation and protocol mappings independently of the location-capture user interface (UI) sequence. |
-| Signing definition selection | `src/location.cpp`: `make_sign_data`; `src/config.xml`: `sigspecs` | Preserve supported signing definitions and normalization. |
+| Signing definition selection | `src/location.cpp`: `make_sign_data`; `src/config.xml`: `sigspecs` | Source-derived ordered definitions, selecting the highest nondeprecated supported version; pinned selection is LoTW 2.0. Keep model normalization separate. |
 | Signing primitive | `src/openssl_cert.cpp`: `tqsl_signDataBlock` | Implement compatible signing using an established crypto library and explicit key access. |
 | GAbbI records | `src/location.cpp`: `tqsl_getGABBItCERT`, `tqsl_getGABBItSTATION`, `tqsl_getGABBItCONTACTData` | Preserve certificate/station/contact references and signature serialization. |
 | Amateur Data Interchange Format (ADIF) field serialization | `src/adif.cpp` | Identify formatting needed for GAbbI; a general-purpose import parser is a separate scope question. |
@@ -34,7 +35,8 @@ This is an initial map, not a complete dependency inventory or implementation pl
 - [ARRL confirmation and acceptance queries](https://lotw.arrl.org/lotw-help/developer-query-qsos-qsls/)
 - [GAbbI specification](https://www.rickmurphy.net/trustedqsl.org/Trusted_GAbbI.pdf), dated 2002; historical specification, not the sole source for current behavior.
 - [Certificate management](https://lotw.arrl.org/lotw-help/managing-callsign-certificates/)
-- [Rust OpenSSL PKCS#12 application programming interface (API)](https://docs.rs/openssl/latest/openssl/pkcs12/struct.Pkcs12.html), one potential dependency, not selected.
+- [Selected pure-Rust dependencies and trust boundary](../lotw-cryptography.md).
+- [Signing, wire and certificate compatibility details](../lotw-cryptography.md#signature-and-wire-compatibility).
 
 ## Licensing
 
