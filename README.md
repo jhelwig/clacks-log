@@ -13,7 +13,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Native-model contract](docs/native-model.md)
 - [Synchronization behavior](docs/synchronization.md) and [metadata model](docs/synchronization-model.md)
 - [Accounts and enrollment](docs/accounts.md)
-- [External services](docs/integrations.md), [service evidence and associations](docs/service-evidence.md), and [LoTW signing](docs/lotw.md)
+- [External services](docs/integrations.md), [service evidence and associations](docs/service-evidence.md), [LoTW workflow](docs/lotw.md) and [certificate/signing specification](docs/lotw-signing.md)
 - [Backup and recovery](docs/backup-recovery.md)
 - [Production observability](docs/observability.md)
 - [Research provenance](references/README.md) and [TrustedQSL source map](references/trustedqsl/source-map.md)
@@ -73,7 +73,30 @@ license and notice checks.
 
 ## Development
 
-Use the pinned Rust 1.99.1 compiler and committed lockfile:
+Use the pinned Rust 1.99.1 compiler and committed lockfile. Project-owned
+maintenance tooling and non-trivial fixture generation are Rust too; Python is
+not used, including for uncommitted fixture authoring.
+
+The [maintenance tool](lib/clacks-reference-data/README.md) checks or regenerates both
+derived LoTW datasets without executing reference sources:
+
+```sh
+cargo +1.99.1 run --bin clacks-lotw-data --locked --offline -- --help
+cargo +1.99.1 run --bin clacks-lotw-data --locked --offline -- --check
+cargo +1.99.1 run --bin clacks-lotw-data --locked --offline -- --write
+```
+
+Reconstruct and verify all synthetic LoTW fixtures using the locked Rust tools:
+
+```sh
+cargo +1.99.1 run --release --bin clacks-lotw-fixtures --locked --offline -- --check
+```
+
+Use `--help` for usage and `--write` to regenerate. The
+[fixture recipes](lib/clacks-lotw/tests/fixtures/README.md) document public test
+inputs and how the expectations are checked independently of production code.
+
+Verify the workspace:
 
 ```sh
 cargo +1.99.1 fmt --all --check
@@ -83,6 +106,11 @@ cargo +1.99.1 clippy --workspace --all-targets --locked --offline -- -D warnings
 cargo +1.99.1 check --workspace --all-targets --target x86_64-pc-windows-msvc --locked --offline
 RUSTDOCFLAGS='-D warnings' cargo +1.99.1 doc --workspace --no-deps --document-private-items --locked --offline
 ```
+
+The server-side [LoTW library](lib/clacks-lotw/README.md) provides checked
+certificate import and signed batch construction without native cryptography.
+Its tests use independently constructed static inputs; supplied TQSL sources
+remain reference-only.
 
 Offline checks require cached dependencies and the selected target standard
 library. Windows target checks do not exercise the runtime or installer.

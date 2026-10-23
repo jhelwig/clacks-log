@@ -661,6 +661,15 @@ original QSO. It owns protocol field order, certificate references and signature
 bytes, validating that the certificate/key/specification can sign the prepared
 values and failing rather than silently changing semantic values.
 
+The [LoTW batch serializer](lotw-signing.md#7-batch-writing-and-dispatch-integration) writes
+prepared submissions and explicitly selected credentials through `std::io::Write`.
+Its output-local certificate/station references are not evidence identities;
+serialization alone establishes neither dispatch nor external acceptance.
+Complete and finalize the staged signed batch, including any compression, before
+network dispatch. Failed construction discards the incomplete artifact without
+silently changing its membership; the provider integration owns the subsequent
+durable dispatch transitions.
+
 Certificate parsing supplies ordinary typed public information; certificate
 library types/private keys do not enter `clacks-model`. The model does not
 depend on synchronization or signing, and synchronization does not depend on

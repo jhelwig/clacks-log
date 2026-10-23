@@ -56,7 +56,14 @@ The [projected dependency compatibility review](licensing.md#projected-dependenc
 
 ## LoTW cryptographic backend
 
-[Pure-Rust versus OpenSSL comparison](lotw-cryptography.md), checked 17 October 2026, compares archive/certificate/signature compatibility, pure-Rust candidates, signing-path security evidence, and developer/container/patching costs. D224 selects pure Rust and rejects OpenSSL’s native cost tradeoff. The report now recommends the modular p12-keystore/certificate-parser/blinded-RustCrypto composition as an engineering starting point, with exact versions/features and signing-path assessment remaining. The source findings establish pure-Rust modern/legacy import paths and distinguish the unresolved RSA advisory from proof of an exploitable LoTW signing operation. No application build, private export access or compatibility test was performed.
+[Cryptographic dependency and compatibility findings](lotw-cryptography.md), checked
+22 October 2026, records the selected archive/parser/blinded-RustCrypto composition,
+exact dependency versions, the narrower local checks that leave certificate-chain
+acceptance to LoTW, and pinned-source signing/metadata behavior. The
+[certificate/signing specification](../docs/lotw-signing.md) consolidates the #4
+contract. The unresolved RSA advisory, password limitations, transitive dependency
+assessment and independent fixture requirements remain explicit. Source inspection
+does not establish a combined build, runtime interoperability or live acceptance.
 
 ## Contributor agreement research
 
