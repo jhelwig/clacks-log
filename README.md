@@ -11,6 +11,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [GitHub issues](https://github.com/jhelwig/clacks-log/issues) and [milestones](https://github.com/jhelwig/clacks-log/milestones)
 - [Decision register](docs/decisions.md)
 - [Native-model contract](docs/native-model.md)
+- [Geographic-pipeline specification](docs/geographic-pipeline.md) and [implementation plan](docs/superpowers/plans/2026-10-23-geographic-pipeline.md)
 - [Synchronization behavior](docs/synchronization.md) and [metadata model](docs/synchronization-model.md)
 - [Accounts and enrollment](docs/accounts.md)
 - [External services](docs/integrations.md), [service evidence and associations](docs/service-evidence.md), [LoTW workflow](docs/lotw.md) and [certificate/signing specification](docs/lotw-signing.md)
@@ -18,7 +19,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Production observability](docs/observability.md)
 - [Research provenance](references/README.md) and [TrustedQSL source map](references/trustedqsl/source-map.md)
 
-Product and architecture requirements are settled through D256. Engineering
+Product and architecture requirements are settled through D268. Engineering
 specifications and implementation plans are prepared for the capability being
 undertaken. GitHub owns delivery status; the roadmap describes phase outcomes
 and dependencies. Historical source material is evidence, not operative guidance.
@@ -34,7 +35,7 @@ and dependencies. Historical source material is evidence, not operative guidance
 | Identity | Configurable OpenID Connect (OIDC), independent internal accounts, multiple login bindings and individually revocable clients |
 | Secrets | Per-account encryption keys protected by a deployment wrapping key; directory credentials reach protected client storage, LoTW signing keys stay server-side |
 | LoTW | Source-guided Rust port with pure-Rust certificate import, interpretation and signing |
-| Geographic data | Census U.S. states/counties, HA8TKS CQ/International Telecommunication Union (ITU) zones, Natural Earth plus explicit DX Century Club (DXCC) mapping |
+| Geographic data | Census U.S. states/counties, HA8TKS CQ/International Telecommunication Union (ITU) zones, Natural Earth plus explicit DX Century Club (DXCC) mapping; Rust ingestion and `geo`, with indexed FlatGeobuf layers |
 
 ## Native-model library
 

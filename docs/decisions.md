@@ -1,6 +1,6 @@
 # Decision register
 
-This register records explicit decisions from the planning conversation through 18 October 2026 (D01–D256). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
+This register records explicit decisions from the planning conversation through 23 October 2026 (D01–D268). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
 
 ## Accepted decisions
 
@@ -1063,6 +1063,78 @@ Export context consists of an output profile and an optional target group, separ
 #### D256
 
 Mode, submode and band recognition must be data-driven. Keep the parent-only versus specialization-with-optional-parent structure and recorded labels independent of recognition. Concrete families, specialization names, deprecation and band definitions/ranges belong to catalog data, not Rust enum variants or generated code mappings. Adding valid catalog rows must extend recognition without a source-code change. Preserve the existing recorded values, serialization, equality and ordering when catalogs differ or change. Interpretation may expose catalog metadata without rewriting recorded context. This supersedes D177's type-encoded known-family representation while retaining D174–D176/D178 preservation and interchange-boundary behavior.
+
+### Decision D257
+
+#### D257
+
+Use indexed FlatGeobuf layers with `geo` geometry operations and Rust source-ingestion tooling for offline geographic data. Package compatible layers with a versioned manifest recording source pins/digests, redistribution notices, transformations, mappings, corrections and coverage limits. The producer and reader/query components must be production components that later offline assistance integrates and extends. Retain D239's source selection and D184's point versus whole-grid-area semantics. Spatial indexes select candidates; geometry predicates establish actual coverage, including holes, overlaps and uncovered portions. No JavaScript execution, Python tooling or runtime geographic database service is required. D258/D259 supply the subsequent regional coordinate handling and documented approximation; this decision does not certify a shipping dataset. See [the geographic research](../references/location-lookup.md).
+
+### Decision D258
+
+#### D258
+
+Use `proj4rs` for producer-side execution of the identified geographic coordinate transformations: the mainland, Aleutian and Hawaiian three-parameter operations and the Puerto Rico/U.S. Virgin Islands grid operation documented in [the coordinate investigation](../references/geographic-coordinate-operations.md), within their established applicability. Use explicit parameters and pinned correction data rather than generic datum-name defaults or silent fallback. Preserve D257's Rust ingestion, `geo` and FlatGeobuf direction. Numerical/real-grid validation and source-specific applicability remain delivery obligations. This does not establish a transformation for Pacific territories or outlying/offshore areas whose source metadata or applicable operation remains unresolved.
+
+### Decision D259
+
+#### D259
+
+Use a documented no-shift approximation for remaining Pacific-territory, outlying-island and offshore Census components without an established applicable transformation under D258. Preserve their supplied longitude/latitude numerically in the common artifact convention, retaining original source declarations and explicit approximation provenance. Record that accuracy is unestablished: modern-frame differences plausibly have metre-scale effects, but this is not a measured bound on these inputs or their boundaries. Do not infer legacy island datums or apply historical corrections merely from geography. Retain ordinary point/whole-grid lookup and manual-correction behavior; this choice does not alter recorded positions, invent missing geometry, add uncertainty buffers or require source-producer clarification before proceeding. The approximation is an explicitly assigned operation for these components, not a fallback for failed supported transformations, missing correction grids, malformed inputs or unexpected source-coordinate declarations. See [the coordinate investigation](../references/geographic-coordinate-operations.md).
+
+### Decision D260
+
+#### D260
+
+For geographic lookup, an explicit point exactly on a shared boundary returns the adjoining distinct geographic values as ambiguous. For a grid-area query, a region contributes a candidate only when the intersection includes area; an edge-only or corner-only touch does not introduce ambiguity. Any area in multiple distinct geographic values is ambiguous, regardless of relative overlap size; do not choose the largest overlap. Retain D184's independent field resolution and the requirement that uncovered portions prevent confident autofill. Evaluate ambiguity by geographic value, not by the number of source features or date-line fragments representing that value. These rules concern topology against the compiled reference geometry, not a guarantee about real-world boundary accuracy; D259's approximation and manual-correction rules remain unchanged.
+
+### Decision D261
+
+#### D261
+
+Geographic-data publication permits explicit, reviewed omissions with their affected areas and reasons recorded. Unexpected parsing, transformation, topology or mapping failures stop publication and preserve the existing artifact; do not silently drop failed inputs and publish the rest. A newly defective zone must be corrected or explicitly excluded before publication. Validate against each bundle's declared coverage: representative artifacts satisfy #5's initial scope, while #23 extends the same pipeline to the required coverage. This does not make complete worldwide coverage a release requirement, permit undisclosed reductions of declared coverage, or classify D259's accepted approximation as a failed transformation.
+
+### Decision D262
+
+#### D262
+
+Compile DXCC mappings, overrides and exclusions into the delivered geographic features during artifact production. Retain authored rules and their source/provenance as build inputs; runtime readers query the compiled features without interpreting source-specific mapping precedence. A reviewed exclusion removes the affected area from the parent entity's geometry; without a supported replacement it remains uncovered rather than inheriting a known-wrong parent. Supported replacement geometry becomes the appropriate entity's feature in the produced bundle. This does not invent missing exclusion/replacement geometry or claim that the DXCC crosswalk is already complete. Preserve D260's boundary/coverage behavior and D261's publication validation policy.
+
+### Decision D263
+
+#### D263
+
+Store reviewed geometry corrections as complete replacement geometries in ordinary GeoJSON, accompanied by the expected source revision, feature identity, correction rationale and supporting references. The producer verifies the expected source before applying a replacement; upstream changes require review rather than silently replaying a correction against different input. Do not introduce a custom vertex-edit patch language. Replacements still require review for intended geographic meaning and validation through the production pipeline; valid topology alone does not establish correctness. Retain D262's compilation of mapping exceptions into artifacts and D261's publication safeguards.
+
+### Decision D264
+
+#### D264
+
+Issue #5's acceptance set covers adjacent U.S. counties and state boundaries; Connecticut county-boundary source selection using its eight actual counties rather than planning regions; every selected coordinate-transformation path, no-shift components and date-line crossings; at least one reviewed replacement of real defective zone geometry, with other included defects corrected or explicitly excluded; ordinary DXCC mappings, a sourced exclusion/replacement case and an honestly reported coverage gap; point and complete-grid queries covering shared boundaries, edge/corner touches, holes, overlaps and partial coverage; and publication failures that preserve an existing artifact. Real-source cases pass through ingestion, compilation, FlatGeobuf output and the production reader. Independently authored small geometries may supplement exact boundary tests, without replacing real-source evidence or introducing a disposable pipeline. This exercises the selected mechanisms without moving #23's expanded-coverage obligation into #5.
+
+### Decision D265
+
+#### D265
+
+Use `lib/clacks-geography` for artifact contracts, validation, indexed reading and point/grid-area queries; `lib/clacks-geography-builder` for source acquisition, ingestion, transformations, corrections, mapping compilation and publication; and `bin/clacks-geography-build` as a thin, documented command-line entry point delegating to the builder library. The builder depends on the reader library and validates generated artifacts through its production query interface. Desktop integration depends on the reader library without source-ingestion/download/transformation dependencies in its normal dependency graph. Prefer this explicit split to a single library separated by build/runtime feature combinations; do not introduce an additional shared abstraction crate. This selects a layout, not authorization to implement before the specification and plan are agreed.
+
+### Decision D266
+
+#### D266
+
+The production geographic lookup contract returns distinct candidate values and complete/partial/no coverage independently for each field. One candidate with complete coverage is eligible for autofill; multiple candidates with complete coverage are ambiguous; candidates with partial coverage may be presented but do not permit autofill; no candidates with no coverage means unknown. Coverage concerns the requested point or whole grid area under D260, not the fraction of the world included in a bundle. Resolve fields independently so county ambiguity does not block a fully covered, unique state result. Artifact corruption and read failures remain errors rather than unknown-location results. Identify the bundle used on the lookup result for provenance without changing recorded QSO information. D267 refines candidate contents; concrete contracts are proposed in the geographic-pipeline specification.
+
+### Decision D267
+
+#### D267
+
+Geographic lookup candidates carry source identity for provenance, a display label and an explicitly mapped recordable value as separate information. The producer supplies these mappings; applications must not infer recordable values by stripping label suffixes or guessing abbreviations. For example, King County's Census identity, display label "King County, Washington" and recordable value `WA,King` serve different purposes. Use values compatible with existing recorded geographic fields and adapters without introducing a universal source-ID encoding into QSO records. This defines lookup-generated values, not normalization of existing imported/manual text. Preserve existing text and snapshot/update rules; changed labels or mappings in a later dataset do not rewrite saved records. Distinct candidate values and coverage retain D266's meaning when multiple source features contribute to the same value.
+
+### Decision D268
+
+#### D268
+
+Use one explicit geographic bundle-schema version, separate from the data-release identity. The schema governs manifest structure, layer properties and their interpretation. New data releases using a supported schema do not inherently require an application upgrade; incompatible encoding or interpretation changes require a new schema version. Readers reject unsupported schemas explicitly before lookup rather than guessing compatibility from application release numbers or using per-layer capability negotiation. Verify the manifest's layer identities and checksums so mixed or damaged bundles produce errors. Preserve D134's independent data-release boundary and D266's distinction between reader failures and unknown geographic results. A standalone updater remains outside MVP scope.
 
 ## Intentions with details still open
 

@@ -75,7 +75,9 @@ Milestones:
 - Implement the production geographic-data preparation pipeline and artifact
   format using the selected sources, with verified provenance and redistribution
   rights. Validate representative derived artifacts through that pipeline; later
-  geographic assistance extends its coverage and consumes its artifacts.
+  geographic assistance extends its coverage and consumes its artifacts. The
+  [geographic-pipeline specification](geographic-pipeline.md) consolidates the
+  agreed behavior and proposed engineering contracts for this capability.
 
 Completion means production foundations implement the accepted behavior with
 meaningful failure and compatibility verification. Phase 1 need not deliver all
