@@ -1,0 +1,254 @@
+{
+  "release": "11.34",
+  "upstream_commit": "6ce824363e27da455c6cf6fd440b9c401945bfcb",
+  "definitions": [
+    {
+      "name": "LOTW",
+      "version": "2.0",
+      "deprecated": false,
+      "station": [
+        {
+          "name": "AU_STATE",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "CA_PROVINCE",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "CA_US_PARK",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "CN_PROVINCE",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "CQZ",
+          "required": false,
+          "method": "int"
+        },
+        {
+          "name": "DX_US_PARK",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "FI_KUNTA",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "GRIDSQUARE",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "IOTA",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "ITUZ",
+          "required": false,
+          "method": "int"
+        },
+        {
+          "name": "JA_CITY_GUN_KU",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "JA_PREFECTURE",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "RU_OBLAST",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "US_COUNTY",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "US_PARK",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "US_STATE",
+          "required": false,
+          "method": null
+        }
+      ],
+      "contact": [
+        {
+          "name": "BAND",
+          "required": true,
+          "method": null
+        },
+        {
+          "name": "BAND_RX",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "CALL",
+          "required": true,
+          "method": null
+        },
+        {
+          "name": "FREQ",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "FREQ_RX",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "MODE",
+          "required": true,
+          "method": null
+        },
+        {
+          "name": "PROP_MODE",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "QSO_DATE",
+          "required": true,
+          "method": null
+        },
+        {
+          "name": "QSO_TIME",
+          "required": true,
+          "method": null
+        },
+        {
+          "name": "SAT_NAME",
+          "required": false,
+          "method": null
+        }
+      ]
+    },
+    {
+      "name": "LOTW",
+      "version": "1.0",
+      "deprecated": false,
+      "station": [
+        {
+          "name": "CA_PROVINCE",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "CA_US_PARK",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "CQZ",
+          "required": false,
+          "method": "int"
+        },
+        {
+          "name": "DX_US_PARK",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "GRIDSQUARE",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "IOTA",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "ITUZ",
+          "required": false,
+          "method": "int"
+        },
+        {
+          "name": "US_COUNTY",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "US_PARK",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "US_STATE",
+          "required": false,
+          "method": null
+        }
+      ],
+      "contact": [
+        {
+          "name": "BAND",
+          "required": true,
+          "method": null
+        },
+        {
+          "name": "BAND_RX",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "CALL",
+          "required": true,
+          "method": null
+        },
+        {
+          "name": "FREQ",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "FREQ_RX",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "MODE",
+          "required": true,
+          "method": null
+        },
+        {
+          "name": "PROP_MODE",
+          "required": false,
+          "method": null
+        },
+        {
+          "name": "QSO_DATE",
+          "required": true,
+          "method": null
+        },
+        {
+          "name": "QSO_TIME",
+          "required": true,
+          "method": null
+        },
+        {
+          "name": "SAT_NAME",
+          "required": false,
+          "method": null
+        }
+      ]
+    }
+  ]
+}

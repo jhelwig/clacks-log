@@ -21,7 +21,7 @@ never rewrite recorded values.
 at commit `6ce824363e27da455c6cf6fd440b9c401945bfcb`. It retains complete
 mode mapping/group, band, station enumeration/dependency and signing-field data.
 The upstream [notices](../../../references/trustedqsl/upstream/LICENSE.txt)
-apply to this extracted data. Regenerate with `python3 scripts/extract-lotw-data.py`;
+apply to this extracted data. Regenerate with `cargo run --bin clacks-lotw-data -- --write`;
 `--check` verifies deterministic correspondence without changing upstream files.
 
 LoTW extraction also retains field input flags, entity/subdivision zone pairs and

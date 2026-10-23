@@ -98,6 +98,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "base64"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+
+[[package]]
 name = "base64ct"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -192,6 +198,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "clacks-lotw-data"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clacks-reference-data",
+]
+
+[[package]]
+name = "clacks-lotw-fixtures"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clacks-reference-data",
+]
+
+[[package]]
 name = "clacks-model"
 version = "0.1.0"
 dependencies = [
@@ -207,6 +229,35 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "ulid",
+]
+
+[[package]]
+name = "clacks-reference-data"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "cbc",
+ "der 0.8.2",
+ "des",
+ "hex",
+ "hmac",
+ "num-bigint",
+ "pkcs12",
+ "pkcs5",
+ "rand 0.8.8",
+ "rand_chacha 0.3.1",
+ "rc2",
+ "regex",
+ "roxmltree",
+ "rsa",
+ "serde",
+ "serde_json",
+ "sha1 0.10.7",
+ "sha1 0.11.0",
+ "sha2 0.10.9",
+ "sha2 0.11.1",
+ "tracing",
 ]
 
 [[package]]
@@ -787,7 +838,7 @@ dependencies = [
  "rand 0.10.3",
  "rc2",
  "sha1 0.11.0",
- "sha2",
+ "sha2 0.11.1",
  "thiserror",
  "x509-parser",
 ]
@@ -864,7 +915,7 @@ dependencies = [
  "der 0.8.2",
  "pbkdf2",
  "scrypt",
- "sha2",
+ "sha2 0.11.1",
  "spki 0.8.1",
 ]
 
@@ -956,6 +1007,7 @@ version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e058c7de0b26af77780c769414d6257830bb240f3c38477dbc2c16e5f54d6d4c"
 dependencies = [
+ "libc",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
 ]
@@ -1082,6 +1134,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
+name = "roxmltree"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1964b10c76125c36f8afe190065a4bf9a87bf324842c05701330bba9f1cacbb"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "rsa"
 version = "0.9.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1135,7 +1196,7 @@ dependencies = [
  "cfg-if",
  "pbkdf2",
  "salsa20",
- "sha2",
+ "sha2 0.11.1",
 ]
 
 [[package]]
@@ -1201,6 +1262,17 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.3.1",
  "digest 0.11.3",
+]
+
+[[package]]
+name = "sha2"
+version = "0.10.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.2.17",
+ "digest 0.10.7",
 ]
 
 [[package]]
