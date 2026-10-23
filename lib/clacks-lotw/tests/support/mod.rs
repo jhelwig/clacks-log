@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+pub mod telemetry;
+
 use std::path::Path;
 
 pub fn fixture(name: &str) -> Vec<u8> {

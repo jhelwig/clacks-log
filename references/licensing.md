@@ -38,7 +38,7 @@ During distribution work, preserve the standard license text and establish suffi
 
 ## Projected dependency compatibility
 
-Checked 17 October 2026. **No incompatibility has been identified in the selected direct components.** This is a planning-level assessment: the repository has no application Cargo manifest or lockfile, exact dependency versions/features are not chosen, and no complete transitive dependency or packaged-runtime audit is possible yet. Compatibility findings below are interpretations of the cited permissions, not an upstream certification of this combination.
+Checked 17 October 2026. **No incompatibility has been identified in the selected direct components.** This table covers projected application components. The workspace now has library manifests and a lockfile; the concrete LoTW dependency assessment below supplements it. A complete packaged-runtime audit still depends on the application and distribution artifacts. Compatibility findings below are interpretations of the cited permissions, not an upstream certification of this combination.
 
 | Component and selection status | License evidence | Assessment for Elastic License 2.0 |
 | --- | --- | --- |
@@ -66,8 +66,46 @@ If the Rust port adapts those portions, carry forward the applicable terms and a
 
 Retain upstream license grants on third-party portions; scope Clacks's own license accordingly. The [MIT text](https://raw.githubusercontent.com/emilk/egui/main/LICENSE-MIT) and [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) allow this style of application distribution subject to their conditions. Do not claim that Clacks's hosting restriction revokes independent upstream permissions on extracted third-party libraries.
 
-This review supports the Elastic License 2.0 selection under D221. When actual versions/features are selected, review the resolved dependency graph, native libraries, embedded assets and distribution packages. Drivers, networking/authentication, credential storage, cryptographic parsing and geographic data remain selection work; they are not approved by association with permissive direct dependencies. No implementation, dependency installation or final release-license clearance was performed.
+This review supports the Elastic License 2.0 selection under D221. When actual versions/features are selected, review the resolved dependency graph, native libraries, embedded assets and distribution packages. Drivers, networking/authentication, credential storage, cryptographic parsing and geographic data remain selection work; they are not approved by association with permissive direct dependencies. The projected application components still require their own resolved dependency and distribution checks; the library inventory below does not constitute final release-license clearance.
+
+## Repository maintenance dependencies
+
+The Rust-only repository maintenance command uses `roxmltree` 0.21.1 under
+MIT OR Apache-2.0. It is confined to `clacks-reference-data`/`clacks-lotw-data` and is not a
+dependency of the model, synchronization or signing libraries. Preserve its
+applicable notices when distributing the maintenance tool.
+
+The separate `clacks-lotw-fixtures` command enables `clacks-reference-data`'s
+optional `fixtures` feature. It adds Rust-only construction dependencies including
+`rand_chacha` 0.3.1, `num-bigint` 0.4.8, `sha2` 0.10.9/0.11.1, `hmac` 0.13.0,
+`pkcs5` 0.8.1, `cbc` 0.2.1, `des` 0.9.0, `rc2` 0.9.0 and `hex` 0.4.3,
+alongside the Rust cryptography families listed below. Their Cargo metadata
+provides MIT/Apache-2.0 options. Keep their applicable notices if distributing
+the fixture tool. This feature is not a dependency of application libraries.
+The RSA advisory assessment below still applies; fixture keys are public test
+inputs and cannot be used for real credentials.
 
 ## Contributor rights
 
 The [actual agreement comparison](contributor-agreements.md) preserves findings on published forms. D234 leaves substantive contributor-agreement adaptation and legal drafting/review to a qualified lawyer. [Findings and questions for counsel](jetbrains-cla-review.md) accompany the existing hosting/licensing requirements. No contributor agreement or original-license-continuity policy is selected. Elastic's short policy notice is not a substitute for its unreviewed agreement text. D221 remains unchanged.
+
+## Locked LoTW library dependencies
+
+The `clacks-lotw` graph in the committed lockfile uses `p12-keystore` 0.4.1
+with `pbes1`, `x509-parser` 0.18.1 without verification, `rsa` 0.9.10,
+`sha1` 0.10.7 with `oid`, `base64` 0.22.1 and `rand` 0.8.8. Archive decoding
+also resolves `cms` 0.3.0-pre.1, `pkcs12` 0.2.0-pre.0, `der` 0.8.2,
+`pkcs8` 0.11.0, `digest` 0.11.3 and `sha1` 0.11.0. RSA retains `der` 0.7.10,
+`pkcs8` 0.10.2 and `digest` 0.10.7. These families exchange encoded bytes;
+the prereleases and parallel families are intentional maintenance costs.
+
+Cargo metadata for third-party packages in the resolved LoTW graph (including
+test and target-specific packages) declares permissive MIT, Apache-2.0, BSD, Unicode-3.0, Unlicense or Zlib
+options. `r-efi` offers MIT/Apache-2.0 alternatives to LGPL; use a permissive
+option. No linked OpenSSL, TQSL, C++ or other native cryptographic implementation
+is present. Operating-system randomness uses platform APIs. Retain each selected
+license and applicable notices when packaging; metadata inspection is not a
+complete binary/asset distribution audit. Existing TrustedQSL and historical
+OpenSSL/SSLeay notices remain in the reference tree and must not be discarded.
+The Rust implementation follows protocol behavior rather than copying the
+historical OpenSSL application routines.

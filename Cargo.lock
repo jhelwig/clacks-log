@@ -197,6 +197,7 @@ dependencies = [
  "thiserror",
  "time",
  "tracing",
+ "tracing-subscriber",
  "x509-parser",
 ]
 

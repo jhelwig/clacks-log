@@ -25,3 +25,4 @@ base64.workspace = true
 rand.workspace = true
 
 [dev-dependencies]
+tracing-subscriber.workspace = true
