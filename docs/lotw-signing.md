@@ -1,11 +1,11 @@
 # LoTW certificate import and signed batches
 
-This specification consolidates the design for
-[issue #4](https://github.com/jhelwig/clacks-log/issues/4). It defines production
-components to be implemented in `lib/clacks-lotw`, not a compatibility prototype.
+This specification defines the production certificate and signing components in
+`lib/clacks-lotw` for [issue #4](https://github.com/jhelwig/clacks-log/issues/4).
 The [LoTW workflow](lotw.md), [service-evidence contract](service-evidence.md) and
 [observability contract](observability.md) remain applicable. This specification
-does not claim the implementation or interoperability checks already exist.
+defines the library contract; the [crate guide](../lib/clacks-lotw/README.md)
+documents usage and tested compatibility.
 
 Logbook of The World is abbreviated LoTW. TrustedQSL (TQSL) is its reference
 signing application and library. Amateur Data Interchange Format is ADIF; GAbbI
