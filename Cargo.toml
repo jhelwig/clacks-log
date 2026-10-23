@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "lib/clacks-geography",
     "lib/clacks-model",
     "lib/clacks-sync",
     "lib/clacks-lotw",
@@ -17,11 +18,18 @@ license = "Elastic-2.0"
 publish = false
 
 [workspace.dependencies]
+clacks-geography = { path = "lib/clacks-geography" }
+geo = { version = "=0.33.1", default-features = false }
+clipper2-rust = { version = "=1.2.0", default-features = false }
+geo-types = { version = "0.7.19", features = ["serde"] }
+flatgeobuf = { version = "=6.0.1", default-features = false }
+geozero = { version = "=0.15.1", default-features = false, features = ["with-geo"] }
+tempfile = "3"
 clacks-reference-data = { path = "lib/clacks-reference-data" }
 roxmltree = "0.21.1"
 clacks-model = { path = "lib/clacks-model" }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["float_roundtrip"] }
 regex = "1"
 ulid = "3"
 thiserror = "2"
