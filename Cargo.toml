@@ -20,3 +20,8 @@ anyhow = "1"
 
 time = { version = "0.3", features = ["formatting"] }
 deunicode = "1"
+
+tracing = { version = "0.1.44", default-features = false, features = ["std", "attributes"] }
+metrics = "0.24.6"
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["std", "registry"] }
+metrics-util = { version = "0.20.4", default-features = false, features = ["debugging"] }

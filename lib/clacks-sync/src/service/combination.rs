@@ -203,12 +203,26 @@ fn select<T: Clone + Eq>(
         supporting.extend(maximal.iter().map(|(id, _)| *id));
         Ok(first.1.clone())
     } else {
+        tracing::debug!(
+            event = "observation.field_uncertain",
+            field = path,
+            conflicting_observation_count = maximal.len(),
+        );
         uncertain.push(path.into());
         Ok(Reported::NotReported)
     }
 }
 
 /// Derive current fields without collapsing independent provider timestamp scopes or hiding uncertainty.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.observations.select",
+    level = "debug",
+    fields(
+        account_id = %input.view.account,
+        destination_id = %input.external.destination,
+    ),
+)]
 pub fn select_observations(
     input: &ObservationSelectionInput<'_>,
 ) -> anyhow::Result<SelectedObservations> {

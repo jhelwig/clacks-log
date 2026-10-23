@@ -11,64 +11,86 @@ use clacks_sync::{
 
 #[test]
 fn split_atomic_unit_stages_without_partial_install_and_survives_reload() -> anyhow::Result<()> {
-    let (_, b) = AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
-    let bases = [b.clone()];
-    let ev = EvidenceView {
-        lineage: &b.lineage,
-        baselines: &bases,
-    };
-    let q = support::accepted(60, "fixture");
-    let mut tag = q.clone();
-    tag.key.id = RecordId::Tag(support::id(11));
-    tag.state = RecordState::Live(RecordValue::Tag(Box::new(
-        clacks_model::tag::LogbookTag::new(support::id(11), "tag".into()),
-    )));
-    let source = InstalledCheckpoint {
-        account: support::id(1),
-        baseline: b.id,
-        coverage: Coverage::from(q.stamp.accepted_at),
-    };
-    let unit = CoupledRequirement {
-        id: support::id(100),
-        members: vec![VersionReference::from(&q), VersionReference::from(&tag)],
-    };
-    let manifest = WindowManifest::new(
-        source.account,
-        source.clone(),
-        WindowMode::Full,
-        [&q, &tag]
-            .into_iter()
-            .map(|r| RecordRequirement {
-                key: r.key,
-                stamp: r.stamp.clone(),
-                deleted: false,
-            })
-            .collect(),
-        vec![],
-        bases.to_vec(),
-        vec![unit],
-    )?;
-    let mut progress = WindowProgress {
-        source: source.clone(),
-        mode: WindowMode::Full,
-        generation: 0,
-        installed: Default::default(),
-        staged: vec![],
-        completed_units: Default::default(),
-    };
-    let first = plan_batch(&manifest, &progress, std::slice::from_ref(&q), &[], &ev)?;
-    assert!(first.accepted.is_empty());
-    assert_eq!(first.staged.len(), 1);
-    assert!(first.completed_units.is_empty());
-    progress.staged = first.staged;
-    progress.generation = first.next_generation;
-    progress = serde_json::from_str(&serde_json::to_string(&progress)?)?;
-    assert!(finish_window(&manifest, &progress, &[], &source, &ev).is_err());
-    let second = plan_batch(&manifest, &progress, &[tag], &[], &ev)?;
-    assert_eq!(second.accepted.len(), 2);
-    assert!(second.staged.is_empty());
-    assert_eq!(second.completed_units.len(), 1);
-    Ok(())
+    let captured = support::telemetry::capture(|| {
+        let (_, b) = AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
+        let bases = [b.clone()];
+        let ev = EvidenceView {
+            lineage: &b.lineage,
+            baselines: &bases,
+        };
+        let q = support::accepted(60, "fixture");
+        let mut tag = q.clone();
+        tag.key.id = RecordId::Tag(support::id(11));
+        tag.state = RecordState::Live(RecordValue::Tag(Box::new(
+            clacks_model::tag::LogbookTag::new(support::id(11), "tag".into()),
+        )));
+        let source = InstalledCheckpoint {
+            account: support::id(1),
+            baseline: b.id,
+            coverage: Coverage::from(q.stamp.accepted_at),
+        };
+        let unit = CoupledRequirement {
+            id: support::id(100),
+            members: vec![VersionReference::from(&q), VersionReference::from(&tag)],
+        };
+        let manifest = WindowManifest::new(
+            source.account,
+            source.clone(),
+            WindowMode::Full,
+            [&q, &tag]
+                .into_iter()
+                .map(|r| RecordRequirement {
+                    key: r.key,
+                    stamp: r.stamp.clone(),
+                    deleted: false,
+                })
+                .collect(),
+            vec![],
+            bases.to_vec(),
+            vec![unit],
+        )?;
+        let mut progress = WindowProgress {
+            source: source.clone(),
+            mode: WindowMode::Full,
+            generation: 0,
+            installed: Default::default(),
+            staged: vec![],
+            completed_units: Default::default(),
+        };
+        let first = plan_batch(&manifest, &progress, std::slice::from_ref(&q), &[], &ev)?;
+        assert!(first.accepted.is_empty());
+        assert_eq!(first.staged.len(), 1);
+        assert!(first.completed_units.is_empty());
+        progress.staged = first.staged;
+        progress.generation = first.next_generation;
+        progress = serde_json::from_str(&serde_json::to_string(&progress)?)?;
+        assert!(finish_window(&manifest, &progress, &[], &source, &ev).is_err());
+        let second = plan_batch(&manifest, &progress, &[tag], &[], &ev)?;
+        assert_eq!(second.accepted.len(), 2);
+        assert!(second.staged.is_empty());
+        assert_eq!(second.completed_units.len(), 1);
+        Ok(())
+    });
+    let rows: Vec<_> = captured
+        .observations
+        .events
+        .iter()
+        .filter(|s| {
+            s.fields
+                .get("event")
+                .is_some_and(|v| v == "transfer.batch.planned")
+        })
+        .map(|s| {
+            (
+                s.fields.get("readiness").unwrap().as_str(),
+                s.fields.get("proposed_record_count").unwrap().as_str(),
+                s.fields.get("staged_record_count").unwrap().as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(rows, vec![("staged", "0", "1"), ("ready", "2", "0")]);
+
+    captured.result
 }
 
 #[test]

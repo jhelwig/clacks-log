@@ -1,76 +1,81 @@
 mod support;
 #[test]
 fn equal_attempts_remain_distinct_and_closed_poll_staging_can_be_collected() -> anyhow::Result<()> {
-    use clacks_model::{
-        scalar::UtcTimestamp,
-        service::{
-            destination::{Destination, RemoteCollection},
-            evidence::{
-                ServicePayload,
-                download::{AcquisitionPhase, AcquisitionState},
-                observation::{QueryIdentity, QueryStream},
-                submission::*,
+    let captured = support::telemetry::capture(|| {
+        use clacks_model::{
+            scalar::UtcTimestamp,
+            service::{
+                destination::{Destination, RemoteCollection},
+                evidence::{
+                    ServicePayload,
+                    download::{AcquisitionPhase, AcquisitionState},
+                    observation::{QueryIdentity, QueryStream},
+                    submission::*,
+                },
+                qrz::QrzSubmission,
             },
-            qrz::QrzSubmission,
-        },
-    };
-    use clacks_sync::{
-        record::{RecordId, RecordState, RecordValue},
-        service::{ServiceRecord, ServiceSupport, retention::requirements},
-    };
-    let destination = Destination {
-        id: support::id(42),
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
-        description: "book".into(),
-    };
-    let attempt = SubmissionAttempt {
-        id: support::id(101),
-        qso: support::id(10),
-        projection: SubmissionProjection::Qrz(QrzSubmission {
-            destination: destination.id,
-            fields: Default::default(),
-        }),
-        phase: DispatchPhase::Intent,
-        at: UtcTimestamp::new(0, 0)?,
-        batch: None,
-    };
-    let mut second = attempt.clone();
-    second.id = support::id(102);
-    let carrier = |payload: ServicePayload| {
-        let mut row = support::accepted(200, "fixture");
-        row.key.id = RecordId::Service(payload.id());
-        row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-            payload,
-            support: ServiceSupport {
-                destination: Some(destination.clone()),
-                ..Default::default()
+        };
+        use clacks_sync::{
+            record::{RecordId, RecordState, RecordValue},
+            service::{ServiceRecord, ServiceSupport, retention::requirements},
+        };
+        let destination = Destination {
+            id: support::id(42),
+            collection: RemoteCollection::Qrz { book_id: Some(7) },
+            description: "book".into(),
+        };
+        let attempt = SubmissionAttempt {
+            id: support::id(101),
+            qso: support::id(10),
+            projection: SubmissionProjection::Qrz(QrzSubmission {
+                destination: destination.id,
+                fields: Default::default(),
+            }),
+            phase: DispatchPhase::Intent,
+            at: UtcTimestamp::new(0, 0)?,
+            batch: None,
+        };
+        let mut second = attempt.clone();
+        second.id = support::id(102);
+        let carrier = |payload: ServicePayload| {
+            let mut row = support::accepted(200, "fixture");
+            row.key.id = RecordId::Service(payload.id());
+            row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+                payload,
+                support: ServiceSupport {
+                    destination: Some(destination.clone()),
+                    ..Default::default()
+                },
+            })));
+            row
+        };
+        let a = carrier(ServicePayload::Attempt(attempt));
+        let b = carrier(ServicePayload::Attempt(second));
+        let poll = carrier(ServicePayload::Acquisition(AcquisitionState {
+            id: support::id(103),
+            query: QueryIdentity {
+                destination: destination.id,
+                stream: QueryStream::Qrz,
+                selected_fields: Default::default(),
+                own_call: None,
+                since: None,
             },
-        })));
-        row
-    };
-    let a = carrier(ServicePayload::Attempt(attempt));
-    let b = carrier(ServicePayload::Attempt(second));
-    let poll = carrier(ServicePayload::Acquisition(AcquisitionState {
-        id: support::id(103),
-        query: QueryIdentity {
-            destination: destination.id,
-            stream: QueryStream::Qrz,
-            selected_fields: Default::default(),
-            own_call: None,
-            since: None,
-        },
-        phase: AcquisitionPhase::Completed,
-        started_at: UtcTimestamp::new(0, 0)?,
-        finished_at: Some(UtcTimestamp::new(1, 0)?),
-        complete: true,
-        retained_inputs: Default::default(),
-    }));
-    let r = requirements(&[a.clone(), b.clone(), poll.clone()], &[])?;
-    assert!(r.semantic_keys.contains(&a.key));
-    assert!(r.semantic_keys.contains(&b.key));
-    assert!(r.removable_staging.contains(&poll.key));
-    assert!(!r.removable_staging.contains(&a.key));
-    Ok(())
+            phase: AcquisitionPhase::Completed,
+            started_at: UtcTimestamp::new(0, 0)?,
+            finished_at: Some(UtcTimestamp::new(1, 0)?),
+            complete: true,
+            retained_inputs: Default::default(),
+        }));
+        let r = requirements(&[a.clone(), b.clone(), poll.clone()], &[])?;
+        assert!(r.semantic_keys.contains(&a.key));
+        assert!(r.semantic_keys.contains(&b.key));
+        assert!(r.removable_staging.contains(&poll.key));
+        assert!(!r.removable_staging.contains(&a.key));
+        Ok(())
+    });
+    captured.event_count("service.retention.calculated", "required_record", 2.);
+    captured.event_count("service.retention.calculated", "removable_staging", 1.);
+    captured.result
 }
 
 #[test]

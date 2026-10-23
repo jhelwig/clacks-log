@@ -432,6 +432,15 @@ fn review_reason(
 ///
 /// Persist the returned accepted/pending rows together. A review is client-owned;
 /// it does not prevent unrelated shared records from being installed.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.client.receive",
+    level = "debug",
+    fields(
+        account_id = %current.key.account,
+        record_id = %current.key.id,
+    ),
+)]
 pub fn receive_accepted(
     current: &ClientRecord,
     incoming: &AcceptedRecord,
@@ -533,6 +542,12 @@ pub fn receive_accepted(
         }
         let reason = review_reason(p, &next.latest, evidence)?;
         if let Some(reason) = reason {
+            tracing::debug!(
+                event = "client.review_required",
+                account_id = %current.key.account,
+                record_id = %current.key.id,
+                review_reason = ?reason,
+            );
             let review = ReviewInput {
                 retained: next.retained.clone(),
                 original: p.original.clone(),
@@ -564,6 +579,16 @@ pub fn receive_accepted(
 ///
 /// Save a ready counter and row set atomically before sending. The supplied counter
 /// belongs to this record and actor; counter exhaustion returns a concrete error.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.client.prepare",
+    level = "debug",
+    fields(
+        account_id = %current.key.account,
+        record_id = %current.key.id,
+        actor_id = %actor,
+    ),
+)]
 pub fn prepare_change(
     current: &ClientRecord,
     actor: ClientActorId,
@@ -601,6 +626,12 @@ pub fn prepare_change(
     };
     if let Some(change) = &p.prepared {
         if change.actor != actor {
+            tracing::debug!(
+                event = "client.review_required",
+                account_id = %current.key.account,
+                record_id = %current.key.id,
+                review_reason = ?ReviewReason::ExcludedActor(change.actor),
+            );
             return Ok(Preparation::Review {
                 record: record.clone(),
                 input: ReviewInput {
@@ -612,12 +643,23 @@ pub fn prepare_change(
                 },
             });
         }
+        tracing::debug!(
+            event = "client.retry_prepared",
+            account_id = %current.key.account,
+            record_id = %current.key.id,
+        );
         return Ok(Preparation::Retry {
             record: record.clone(),
             change: change.clone(),
         });
     }
     if let Some(reason) = review_reason(p, &record.latest, evidence)? {
+        tracing::debug!(
+            event = "client.review_required",
+            account_id = %current.key.account,
+            record_id = %current.key.id,
+            review_reason = ?reason,
+        );
         return Ok(Preparation::Review {
             record: record.clone(),
             input: ReviewInput {
@@ -692,6 +734,14 @@ pub fn prepare_change(
 /// Validate an explicit user-selected result against the compared shared version.
 ///
 /// This creates local pending values; it does not publish or silently restore references.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.client.resolve",
+    level = "info",
+    fields(
+        review_reason = ?review.reason,
+    ),
+)]
 pub fn resolve_review(
     review: &ReviewInput,
     chosen: RecordState,
@@ -722,6 +772,12 @@ pub fn resolve_review(
             .into());
         }
     };
+    tracing::info!(
+        event = "client.resolution_prepared",
+        account_id = %key.account,
+        record_id = %key.id,
+        review_reason = ?review.reason,
+    );
     Ok(ClientRecord {
         retained: review.retained.clone(),
         key,
@@ -766,6 +822,12 @@ pub fn receive_rejection(
             ReviewReason::MissingReference(*key)
         }
     };
+    tracing::debug!(
+        event = "client.review_required",
+        account_id = %current.key.account,
+        record_id = %current.key.id,
+        review_reason = ?reason,
+    );
     Ok(ClientUpdate {
         record: current.clone(),
         review: Some(ReviewInput {

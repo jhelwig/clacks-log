@@ -23,7 +23,7 @@ use crate::{
 use observation::{ModeReport, RemoteIdentity, RemoteObservation};
 use processing::{DeletionSuppression, ExternalAssociation, ProcessingDisposition};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, fmt};
 use submission::{ConfirmationBasis, SubmissionAttempt, SubmissionResult};
 
 /// Recognized positive status supplied by an import; absence does not create a claim.
@@ -258,6 +258,24 @@ pub enum ServiceRecordId {
     Disposition(DispositionId),
     /// Known deletion suppression.
     Suppression(SuppressionId),
+}
+
+/// Format the contained native identifier in its canonical text form.
+impl fmt::Display for ServiceRecordId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Download(id) => fmt::Display::fmt(id, f),
+            Self::Acquisition(id) => fmt::Display::fmt(id, f),
+            Self::Destination(id) => fmt::Display::fmt(id, f),
+            Self::Assertion(id) => fmt::Display::fmt(id, f),
+            Self::Attempt(id) => fmt::Display::fmt(id, f),
+            Self::Result(id) => fmt::Display::fmt(id, f),
+            Self::Observation(id) => fmt::Display::fmt(id, f),
+            Self::Association(id) => fmt::Display::fmt(id, f),
+            Self::Disposition(id) => fmt::Display::fmt(id, f),
+            Self::Suppression(id) => fmt::Display::fmt(id, f),
+        }
+    }
 }
 
 /// Service domain values without synchronization clock/version dependencies.

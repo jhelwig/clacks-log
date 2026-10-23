@@ -172,6 +172,7 @@ fn targeted_entries(
 /// Inspect returned decisions and warnings before publication. This operation
 /// does not fetch providers, take a storage snapshot, create files, validate a
 /// complete program submission, or replace destinations on failure/cancellation.
+#[tracing::instrument(skip_all, name = "model.reference_export.plan", level = "debug")]
 pub fn plan_reference_export(
     qsos: &[Qso],
     context: &ExportContext,
@@ -285,5 +286,25 @@ pub fn plan_reference_export(
             entries,
         })
         .collect();
+    let output_entry_count = plan
+        .files
+        .iter()
+        .map(|file| file.entries.len())
+        .sum::<usize>();
+    let readiness = if plan.decisions.is_empty() {
+        "ready"
+    } else {
+        "review"
+    };
+    tracing::debug!(
+        event = "reference_export.planned",
+        readiness,
+        input_count = qsos.len(),
+        source_contact_count = plan.source_contact_count,
+        output_entry_count,
+        partition_count = plan.files.len(),
+        decision_count = plan.decisions.len(),
+        warning_count = plan.warnings.len(),
+    );
     Ok(plan)
 }

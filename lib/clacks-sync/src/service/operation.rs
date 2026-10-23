@@ -214,6 +214,15 @@ pub struct CoupledCommit {
 }
 
 /// Plan related native mutations and evidence without sending bytes or committing intermediate rows.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.service.operation.plan",
+    level = "debug",
+    fields(
+        account_id = %input.account.account,
+        operation_id = %input.id,
+    ),
+)]
 pub fn plan_operation(
     input: &ServiceOperationInput<'_>,
 ) -> anyhow::Result<ServiceDecision<CoupledCommit>> {
@@ -261,6 +270,11 @@ pub fn plan_operation(
             };
             let Some(Observation::Accepted(source)) = input.reads.iter().find(|r| r.key() == key)
             else {
+                tracing::debug!(
+                    event = "service.operation.incomplete",
+                    reason = "reviewed_observation_missing",
+                    observation_id = %observation,
+                );
                 return Ok(ServiceDecision::Incomplete(
                     "reviewed observation missing".into(),
                 ));
@@ -276,6 +290,11 @@ pub fn plan_operation(
                 ProcessingDecision::Added | ProcessingDecision::Associated
             ) {
                 let Some(a) = association else {
+                    tracing::debug!(
+                        event = "service.operation.incomplete",
+                        reason = "binding_missing",
+                        observation_id = %observation,
+                    );
                     return Ok(ServiceDecision::Incomplete(
                         "completed decision requires a binding".into(),
                     ));
@@ -292,6 +311,11 @@ pub fn plan_operation(
                         "binding differs from observation identity"
                     );
                 } else {
+                    tracing::debug!(
+                        event = "service.operation.review_required",
+                        reason = "external_identity_incomplete",
+                        observation_id = %observation,
+                    );
                     return Ok(ServiceDecision::Review(
                         "external identity incomplete".into(),
                     ));
@@ -306,6 +330,11 @@ pub fn plan_operation(
                     });
                     if !established {
                         let Some(context) = &input.matching else {
+                            tracing::debug!(
+                                event = "service.operation.incomplete",
+                                reason = "matching_interpretation_missing",
+                                observation_id = %observation,
+                            );
                             return Ok(ServiceDecision::Incomplete(
                                 "matching interpretation missing".into(),
                             ));
@@ -328,6 +357,14 @@ pub fn plan_operation(
                             candidates.confident.len() == 1 && candidates.confident.contains(&a.qso)
                         };
                         if !valid {
+                            tracing::debug!(
+                                event = "service.operation.review_required",
+                                reason = "candidate_selection_required",
+                                observation_id = %observation,
+                                qso_id = %a.qso,
+                                confident_candidate_count = candidates.confident.len(),
+                                possible_candidate_count = candidates.possible.len(),
+                            );
                             return Ok(ServiceDecision::Review(
                                 "explicit selection of a compatible candidate required".into(),
                             ));
@@ -421,6 +458,12 @@ pub fn plan_operation(
                         })
                     )
             }) {
+                tracing::debug!(
+                    event = "service.operation.incomplete",
+                    reason = "submission_contact_not_live",
+                    qso_id = %attempt.qso,
+                    attempt_id = %attempt.id,
+                );
                 return Ok(ServiceDecision::Incomplete(
                     "submission contact not live".into(),
                 ));
@@ -451,6 +494,11 @@ pub fn plan_operation(
                     "binding not established by returned identity"
                 );
                 let Some(member) = result.identified_attempt()? else {
+                    tracing::debug!(
+                        event = "service.operation.review_required",
+                        reason = "result_member_correlation_missing",
+                        result_id = %result.id,
+                    );
                     return Ok(ServiceDecision::Review(format!(
                         "result {} external identity lacks member-level correlation",
                         result.id
@@ -476,6 +524,12 @@ pub fn plan_operation(
                         }
                     })
                 else {
+                    tracing::debug!(
+                        event = "service.operation.incomplete",
+                        reason = "result_attempt_missing",
+                        result_id = %result.id,
+                        attempt_id = %member,
+                    );
                     return Ok(ServiceDecision::Incomplete(format!(
                         "result {} attempt {member} is missing",
                         result.id
@@ -492,7 +546,7 @@ pub fn plan_operation(
             }
         }
     }
-    plan_changes(
+    let decision = plan_changes(
         input.id,
         input.account,
         input.membership,
@@ -503,7 +557,24 @@ pub fn plan_operation(
         changes,
         payloads,
         job_updates,
-    )
+    )?;
+    if let ServiceDecision::Ready(plan) = &decision {
+        let kind = match input.operation {
+            ServiceOperation::ApplyImport { .. } => "apply_import",
+            ServiceOperation::CompleteObservation { .. } => "complete_observation",
+            ServiceOperation::DeleteQso { .. } => "delete_qso",
+            ServiceOperation::PrepareSubmission { .. } => "prepare_submission",
+            ServiceOperation::RecordSubmissionResult { .. } => "record_submission_result",
+        };
+
+        tracing::debug!(
+            event = "service.operation.planned",
+            operation_kind = kind,
+            proposed_record_count = plan.accepted.len(),
+            job_update_count = plan.job_updates.len()
+        );
+    }
+    Ok(decision)
 }
 
 /// Resolve a contact change identity without accepting a different native kind.
@@ -561,6 +632,11 @@ pub(crate) fn plan_changes(
             id: RecordId::Service(payload.id()),
         };
         let Some(source) = reads.iter().find(|r| r.key() == key) else {
+            tracing::debug!(
+                event = "service.operation.incomplete",
+                reason = "payload_source_missing",
+                record_id = %key.id,
+            );
             return Ok(ServiceDecision::Incomplete(format!(
                 "explicit source observation required for {key:?}"
             )));
@@ -597,6 +673,11 @@ pub(crate) fn plan_changes(
             "duplicate or cross-account operation write"
         );
         let Some(source) = reads.iter().find(|r| r.key() == c.key()) else {
+            tracing::debug!(
+                event = "service.operation.incomplete",
+                reason = "change_source_missing",
+                record_id = %c.key().id,
+            );
             return Ok(ServiceDecision::Incomplete(format!(
                 "source read missing for {:?}",
                 c.key()
@@ -608,6 +689,11 @@ pub(crate) fn plan_changes(
         conditions.push(c.expected().clone());
         for guard in c.dependencies() {
             let Some(r) = reads.iter().find(|r| r.key() == guard.key()) else {
+                tracing::debug!(
+                    event = "service.operation.incomplete",
+                    reason = "guard_source_missing",
+                    record_id = %guard.key().id,
+                );
                 return Ok(ServiceDecision::Incomplete(format!(
                     "source guard missing for {:?}",
                     guard.key()
@@ -799,6 +885,21 @@ pub(crate) fn plan_changes(
             AcceptanceDecision::Covered(_) => {}
             AcceptanceDecision::Stale(r) => return Ok(ServiceDecision::Stale(r)),
             AcceptanceDecision::Rejected(r) => {
+                let reason = match &r {
+                    crate::acceptance::RejectionReason::ServiceCondition { .. } => {
+                        "service_condition"
+                    }
+                    crate::acceptance::RejectionReason::ActorClosed { .. } => "actor_closed",
+                    crate::acceptance::RejectionReason::ActorUnknown { .. } => "actor_unknown",
+                    crate::acceptance::RejectionReason::MissingReference { .. } => {
+                        "missing_reference"
+                    }
+                };
+                tracing::debug!(
+                    event = "service.operation.review_required",
+                    reason,
+                    record_id = %c.key().id,
+                );
                 return Ok(ServiceDecision::Review(format!(
                     "operation admission rejected: {r:?}"
                 )));

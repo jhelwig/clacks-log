@@ -95,6 +95,14 @@ pub enum RecoveredDecision {
 }
 
 /// Detect a witnessed same-history regression without claiming detection of every restore.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.recovery.history.check",
+    level = "debug",
+    fields(
+        account_id = %observation.account,
+    ),
+)]
 pub fn check_history(
     observation: &HistoryObservation,
     evidence: &EvidenceView<'_>,
@@ -105,14 +113,22 @@ pub fn check_history(
         }
         .into());
     }
-    if observation
-        .remembered
-        .entries()
-        .any(|(timeline, revision)| {
-            timeline == observation.advertised.timeline
-                && revision > observation.advertised.revision
-        })
+    if let Some((_, remembered_revision)) =
+        observation
+            .remembered
+            .entries()
+            .find(|(timeline, revision)| {
+                *timeline == observation.advertised.timeline
+                    && *revision > observation.advertised.revision
+            })
     {
+        tracing::warn!(
+            event = "history.regression_detected",
+            account_id = %observation.account,
+            timeline_id = %observation.advertised.timeline,
+            advertised_revision = observation.advertised.revision,
+            remembered_revision,
+        );
         return Ok(HistoryCheck::Regression {
             advertised: observation.advertised,
             remembered: observation.remembered.clone(),
@@ -123,6 +139,13 @@ pub fn check_history(
         .coverage_at(observation.advertised)
         .is_err()
     {
+        tracing::debug!(
+            event = "history.ordering_unknown",
+            timeline_id = %observation.advertised.timeline,
+            advertised_revision = observation.advertised.revision,
+            account_id = %observation.account,
+            unknown_reason = ?UnknownReason::MissingLineage,
+        );
         return Ok(HistoryCheck::Unknown(UnknownReason::MissingLineage));
     }
     Ok(HistoryCheck::NoContradiction)
@@ -131,6 +154,17 @@ pub fn check_history(
 /// Establish a fresh exceptional timeline rooted only in actually restored state.
 ///
 /// Ordinary starts retain their timeline and do not call this transition.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.recovery.fork.plan",
+    level = "info",
+    fields(
+        new_timeline_id = %new_timeline,
+        restored_timeline_id = %account.head.timeline,
+        restored_revision = account.head.revision,
+        account_id = %account.account,
+    ),
+)]
 pub fn plan_recovery_fork(
     new_timeline: TimelineId,
     account: &AccountMetadata,
@@ -185,6 +219,12 @@ fn review(
     original: Option<&OriginalBasis>,
     reason: ReviewReason,
 ) -> RecoveredDecision {
+    tracing::debug!(
+        event = "recovery.review_required",
+        account_id = %incoming.key.account,
+        record_id = %incoming.key.id,
+        review_reason = ?reason,
+    );
     RecoveredDecision::Review(ReviewInput {
         retained: vec![incoming.clone()],
         original: original.cloned().unwrap_or(OriginalBasis::Unavailable {
@@ -201,6 +241,16 @@ fn review(
 ///
 /// The server rechecks all emitted conditions and current carrier admission. The
 /// original writer's revocation does not revoke an envelope already accepted.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.recovery.record.plan",
+    level = "debug",
+    fields(
+        account_id = %incoming.key.account,
+        record_id = %incoming.key.id,
+        actor_id = %returning_actor,
+    ),
+)]
 pub fn plan_recovered_install(
     incoming: &AcceptedRecord,
     original: Option<&OriginalBasis>,

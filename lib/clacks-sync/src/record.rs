@@ -16,6 +16,7 @@ use clacks_model::{
     tag::LogbookTag,
 };
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Stable kind-qualified identity; deletion does not release it for reuse.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -34,6 +35,21 @@ pub enum RecordId {
     Group(GroupId),
     /// Export context identity.
     OutputProfile(OutputProfileId),
+}
+
+/// Format the contained native identifier in its canonical text form.
+impl fmt::Display for RecordId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Service(id) => fmt::Display::fmt(id, f),
+            Self::Qso(id) => fmt::Display::fmt(id, f),
+            Self::Tag(id) => fmt::Display::fmt(id, f),
+            Self::Profile(id) => fmt::Display::fmt(id, f),
+            Self::Equipment(id) => fmt::Display::fmt(id, f),
+            Self::Group(id) => fmt::Display::fmt(id, f),
+            Self::OutputProfile(id) => fmt::Display::fmt(id, f),
+        }
+    }
 }
 
 /// A native identity qualified by its owning account.

@@ -194,3 +194,38 @@ fields are all established and undominated, while `supporting` includes the comp
 retained input used by selection. Ordering-only refreshes reuse a disposition
 only when its reviewed occurrence represents the current facts; an older
 rejection of different content cannot suppress new review work.
+
+## Observability
+
+The [production observability contract](../../docs/observability.md) applies to
+this library. Meaningful operations use `#[tracing::instrument(skip_all, ...)]`
+with explicit safe input fields and default module-path targets. Standard
+subscribers/exporters supplied by application composition own lifecycle
+presentation, context and span timing. Instrumentation preserves normal function
+bodies, early returns and error propagation.
+
+`record::RecordId` implements `Display` using the contained native ID's canonical text.
+No telemetry-specific wrapper is needed. Annotation fields use constants or
+simple input/field access; derived context is reported where domain code resolves it.
+
+Local events and metrics report domain decisions and actual produced plans:
+readiness, proposed/staged work, retry/review reasons and relevant quantities.
+They do not report generic function completion or duplicate span timing. Metric
+families have their own coherent bounded dimensions; IDs remain trace fields. The
+model counts projection-readiness decisions; sync counts acceptance decisions
+and ready/staged transfer plans. These include repeated or tentative calculations.
+Shared export planning, compaction and coupled service planning report useful
+quantities through events, without successful-call-only counters.
+A propagated error produces no fabricated plan/proposal result. Error handling
+and overall workflow success/error/latency measurements belong to their owning
+runtime boundary; span timing does not automatically populate metric histograms.
+
+Filtering cannot gate domain work or metrics, and domain events do not mutate
+caller spans. The library installs no subscriber, recorder or exporter. Returned
+values, concrete errors and synchronized records are independent of configuration.
+
+Significant recovery and explicit conflict-resolution operations use `info`;
+witnessed server-history regression uses `warn`. Routine planning detail remains
+`debug` or `trace`. These levels describe the significance of the attempted
+operation or reported decision, without asserting a durable commit. See the
+[level-selection policy](../../docs/observability.md#level-selection-policy).

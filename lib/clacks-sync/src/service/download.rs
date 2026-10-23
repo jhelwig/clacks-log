@@ -63,6 +63,17 @@ pub struct DownloadStartInput<'a> {
 }
 
 /// Plan a serialized request start; the actual provider call occurs after commit.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.download.start.plan",
+    level = "debug",
+    fields(
+        account_id = %input.context.account.account,
+        operation_id = %input.context.id,
+        destination_id = %input.control.destination,
+        acquisition_id = %input.id,
+    ),
+)]
 pub fn plan_start(
     input: &DownloadStartInput<'_>,
 ) -> anyhow::Result<ServiceDecision<CoupledCommit>> {
@@ -110,6 +121,18 @@ pub struct ObservationInput<'a> {
 }
 
 /// Retain meaningful new provider evidence without turning recovery/replays into fresh reads.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.download.observation.plan",
+    level = "debug",
+    fields(
+        account_id = %input.context.account.account,
+        operation_id = %input.context.id,
+        destination_id = %input.observation.destination,
+        acquisition_id = %input.acquisition.id,
+        observation_id = %input.observation.id,
+    ),
+)]
 pub fn plan_observation(
     input: &ObservationInput<'_>,
 ) -> anyhow::Result<ServiceDecision<CoupledCommit>> {
@@ -268,6 +291,17 @@ pub struct DownloadProgressInput<'a> {
 }
 
 /// Close a request with durable input accounting before advancing its exact stream watermark.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.download.progress.plan",
+    level = "debug",
+    fields(
+        account_id = %input.context.account.account,
+        operation_id = %input.context.id,
+        destination_id = %input.control.destination,
+        acquisition_id = %input.acquisition.id,
+    ),
+)]
 pub fn plan_progress(
     input: &DownloadProgressInput<'_>,
 ) -> anyhow::Result<ServiceDecision<CoupledCommit>> {
@@ -385,7 +419,7 @@ pub fn plan_progress(
         ))?,
         dependencies: vec![],
     });
-    plan_changes(
+    let plan = plan_changes(
         ctx.id,
         ctx.account,
         ctx.membership,
@@ -396,7 +430,18 @@ pub fn plan_progress(
         vec![change],
         vec![ServicePayload::Download(control)],
         vec![],
-    )
+    );
+    if matches!(&plan, Ok(ServiceDecision::Ready(_))) {
+        tracing::debug!(
+            event = "download.closure.planned",
+            account_id = %ctx.account.account,
+            operation_id = %ctx.id,
+            acquisition_id = %input.acquisition.id,
+            destination_id = %input.control.destination,
+            acquisition_outcome = if complete { "complete" } else { "failed" },
+        );
+    }
+    plan
 }
 
 /// Build ordinary coupled acceptance with all original source guards.

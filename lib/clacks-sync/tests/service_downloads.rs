@@ -526,7 +526,18 @@ fn semantic_repeat_and_return_after_change_survive_reload() -> anyhow::Result<()
 fn failed_acquisition_releases_control_without_completed_progress() -> anyhow::Result<()> {
     let mut f = ReadFixture::new();
     let a = f.start()?;
-    f.close(&a, false)?;
+    let captured = support::telemetry::capture(|| f.close(&a, false));
+    assert!(captured.result.is_ok());
+    assert_eq!(
+        captured
+            .event("download.closure.planned")
+            .fields
+            .get("acquisition_outcome")
+            .map(String::as_str),
+        Some("failed")
+    );
+
+    captured.result?;
     assert!(f.control().active.is_none());
     assert!(f.control().progress.is_empty());
     let next = f.start()?;
@@ -631,9 +642,9 @@ fn contradictory_mixed_ordering_keeps_uncertainty_until_a_dominating_refresh() -
     use clacks_sync::service::operation::ServiceDecision;
     let mut f = ReadFixture::new();
     for (value, time, status) in [
-        ("A", Some(3), ConfirmationStatus::Confirmed),
-        ("B", None, ConfirmationStatus::Unconfirmed),
-        ("C", Some(1), ConfirmationStatus::Confirmed),
+        ("CANARY-A", Some(3), ConfirmationStatus::Confirmed),
+        ("CANARY-B", None, ConfirmationStatus::Unconfirmed),
+        ("CANARY-C", Some(1), ConfirmationStatus::Confirmed),
     ] {
         let a = f.start()?;
         let ServiceDecision::Ready(c) = f.observe_report(&a, value, (None, time), status)? else {
@@ -642,7 +653,22 @@ fn contradictory_mixed_ordering_keeps_uncertainty_until_a_dominating_refresh() -
         f.install(c)?;
         f.close(&a, true)?;
     }
-    let selected = established(&f)?;
+    let captured = support::telemetry::capture(|| established(&f));
+    assert!(!format!("{:?}", captured.observations).contains("CANARY"));
+    let event = captured.event("observation.field_uncertain");
+    assert_eq!(
+        event.fields.get("field").map(String::as_str),
+        Some("contact.confirmation")
+    );
+    assert_eq!(
+        event
+            .fields
+            .get("conflicting_observation_count")
+            .map(String::as_str),
+        Some("3")
+    );
+    assert_eq!(event.parent, captured.span("sync.observations.select").id);
+    let selected = captured.result?;
     assert_eq!(
         selected.current.facts.contact.confirmation,
         Reported::NotReported
@@ -660,7 +686,13 @@ fn contradictory_mixed_ordering_keeps_uncertainty_until_a_dominating_refresh() -
         panic!()
     };
     f.install(c)?;
-    let selected = established(&f)?;
+    let captured = support::telemetry::capture(|| established(&f));
+    assert!(captured.observations.events.iter().all(|e| {
+        e.fields
+            .get("event")
+            .is_none_or(|v| v != "observation.field_uncertain")
+    }));
+    let selected = captured.result?;
     assert_eq!(
         selected.current.facts.contact.confirmation,
         Reported::Value(ConfirmationStatus::Confirmed)

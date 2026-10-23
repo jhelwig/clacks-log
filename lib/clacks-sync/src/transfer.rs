@@ -281,6 +281,14 @@ fn satisfies(
 ///
 /// Atomic installation includes accepted values, client comparison evidence and
 /// progress keys. A local conflict is retained without blocking shared receipt.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.transfer.batch.plan",
+    level = "debug",
+    fields(
+        account_id = %manifest.account,
+    ),
+)]
 pub fn plan_batch(
     manifest: &WindowManifest,
     progress: &WindowProgress,
@@ -520,7 +528,7 @@ pub fn plan_batch(
         accepted.push(chosen.clone());
         client_updates.push(update);
     }
-    Ok(InstallBatch {
+    let plan = InstallBatch {
         source: manifest.source.clone(),
         mode: manifest.mode.clone(),
         expected_generation: progress.generation,
@@ -530,13 +538,36 @@ pub fn plan_batch(
         next_generation,
         staged,
         completed_units,
-    })
+    };
+    let readiness = if plan.staged.is_empty() {
+        "ready"
+    } else {
+        "staged"
+    };
+    metrics::counter!("clacks_sync_transfer_batch_plans_total", "result" => readiness).increment(1);
+    tracing::debug!(
+        event = "transfer.batch.planned",
+        readiness,
+        input_count = incoming.len(),
+        proposed_record_count = plan.accepted.len(),
+        staged_record_count = plan.staged.len(),
+        proposed_install_key_count = plan.installed_keys.len()
+    );
+    Ok(plan)
 }
 
 /// Verify complete installed rows and interpretation before proposing checkpoint advance.
 ///
 /// Supply committed rows from one actual read/write transaction. Only a subsequent
 /// reloaded committed checkpoint may be acknowledged to another participant.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.transfer.window.finish",
+    level = "debug",
+    fields(
+        account_id = %manifest.account,
+    ),
+)]
 pub fn finish_window(
     manifest: &WindowManifest,
     progress: &WindowProgress,

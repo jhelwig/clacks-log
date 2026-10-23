@@ -16,3 +16,10 @@ anyhow.workspace = true
 
 time.workspace = true
 deunicode.workspace = true
+
+tracing.workspace = true
+metrics.workspace = true
+
+[dev-dependencies]
+tracing-subscriber.workspace = true
+metrics-util.workspace = true

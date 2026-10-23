@@ -93,6 +93,7 @@ pub struct LotwConfiguration {
 
 impl LotwConfiguration {
     /// Load a supplied configuration and reject unsupported mappings/ranges.
+    #[tracing::instrument(skip_all, name = "model.lotw_configuration.load", level = "debug")]
     pub fn from_json(json: &str) -> anyhow::Result<Self> {
         let c: Self = serde_json::from_str(json)?;
         if c.release.is_empty()
@@ -138,6 +139,10 @@ impl LotwConfiguration {
             })
         };
         found.map(|b| b.label.clone()).ok_or_else(|| {
+            tracing::debug!(
+                event = "projection.conversion_unavailable",
+                reason = "unmapped_band"
+            );
             ServiceError::Invalid {
                 detail: format!("LoTW band unavailable for {pair:?}"),
             }
@@ -226,6 +231,10 @@ pub fn normalize_mode(mode: &Mode, config: &LotwConfiguration) -> anyhow::Result
         .cloned()
         .unwrap_or(parent);
     if !config.modes.contains_key(&result) {
+        tracing::debug!(
+            event = "projection.conversion_unavailable",
+            reason = "unmapped_mode"
+        );
         return Err(ServiceError::Invalid {
             detail: format!("unsupported LoTW mode {result}"),
         }
@@ -235,12 +244,21 @@ pub fn normalize_mode(mode: &Mode, config: &LotwConfiguration) -> anyhow::Result
 }
 
 /// Project a complete QSO, returning service readiness instead of altering native data.
+#[tracing::instrument(
+    skip_all,
+    name = "model.lotw.project",
+    level = "debug",
+    fields(
+        qso_id = %input.qso.id,
+        destination_id = %input.destination.id,
+    ),
+)]
 pub fn project(
     input: &LotwProjectionInput<'_>,
 ) -> anyhow::Result<ProjectionDecision<LotwSubmission>> {
     input.qso.validate()?;
     let result = prepare(input);
-    Ok(match result {
+    let decision = match result {
         Ok(value) => ProjectionDecision::Ready(ProjectionResult {
             value,
             warnings: Vec::new(),
@@ -252,7 +270,21 @@ pub fn project(
             ),
             reason: e.to_string(),
         }]),
-    })
+    };
+    let (readiness, warning_count, readiness_issue_count) = match &decision {
+        ProjectionDecision::Ready(result) => ("ready", result.warnings.len(), 0),
+        ProjectionDecision::NotReady(issues) => ("not_ready", 0, issues.len()),
+    };
+    metrics::counter!("clacks_service_projection_readiness_total", "service" => "lotw", "readiness" => readiness).increment(1);
+    tracing::debug!(
+        event = "projection.prepared",
+        qso_id = %input.qso.id,
+        destination_id = %input.destination.id,
+        readiness,
+        warning_count,
+        readiness_issue_count,
+    );
+    Ok(decision)
 }
 
 /// Build fields after native validation; conversion errors become contextual readiness.
@@ -263,6 +295,10 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
         || input.signing.callsign != q.own_station.callsign
         || input.signing.dxcc.trim().is_empty()
     {
+        tracing::debug!(
+            event = "projection.conversion_unavailable",
+            reason = "destination_or_signing_identity_mismatch"
+        );
         return Err(ServiceError::Invalid {
             detail: "LoTW destination or public signing identity mismatch".into(),
         }
@@ -275,6 +311,10 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
         .and_then(|l| l.dxcc.as_ref())
         && entity != &input.signing.dxcc
     {
+        tracing::debug!(
+            event = "projection.conversion_unavailable",
+            reason = "signing_entity_mismatch"
+        );
         return Err(ServiceError::Invalid {
             detail: format!(
                 "recorded entity {entity} differs from certificate {}",
@@ -328,6 +368,10 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
             && meta.length > 0
             && value.chars().count() > meta.length
         {
+            tracing::debug!(
+                event = "projection.conversion_unavailable",
+                reason = "station_field_too_long"
+            );
             return Err(ServiceError::Invalid {
                 detail: format!(
                     "LoTW station field {field} exceeds {} characters",
@@ -378,6 +422,10 @@ pub(crate) fn own_iota(q: &Qso, definitions: &DefinitionSet) -> anyhow::Result<O
                         .insert("IOTA".into(), value.clone())
                         .is_some_and(|old| old != value)
                 {
+                    tracing::debug!(
+                        event = "projection.conversion_unavailable",
+                        reason = "ambiguous_own_iota"
+                    );
                     return Err(ServiceError::Invalid {
                         detail: "multiple own IOTA signing values".into(),
                     }
@@ -510,6 +558,10 @@ fn location_fields(
                         }
                         station.insert(name, value);
                     } else {
+                        tracing::debug!(
+                            event = "projection.conversion_unavailable",
+                            reason = "unsupported_subdivision"
+                        );
                         return Err(ServiceError::Invalid {
                             detail: format!(
                                 "unsupported LoTW subdivision {value} for entity {}",
@@ -521,6 +573,10 @@ fn location_fields(
                 }
             }
         } else if l.primary_subdivision.is_some() || l.secondary_subdivision.is_some() {
+            tracing::debug!(
+                event = "projection.conversion_unavailable",
+                reason = "missing_subdivision_mapping"
+            );
             return Err(ServiceError::Invalid {
                 detail: format!("no station subdivision mapping for entity {}", entity),
             }
@@ -541,6 +597,10 @@ fn location_fields(
                         && l.itu_zone.is_none_or(|z| z.get() == p.itu)
                 })
             {
+                tracing::debug!(
+                    event = "projection.conversion_unavailable",
+                    reason = "zone_pair_mismatch"
+                );
                 return Err(ServiceError::Invalid {
                     detail: format!("invalid CQ/ITU zone pair for LoTW {scope} {}", entity),
                 }

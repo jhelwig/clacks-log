@@ -123,14 +123,38 @@ pub(crate) fn admission(
     membership: &MembershipSnapshot,
 ) -> Option<RejectionReason> {
     match membership.clients.iter().find(|c| c.actor == actor) {
-        None => Some(RejectionReason::ActorUnknown { actor }),
-        Some(c) => c
-            .closed_at
-            .map(|closed_at| RejectionReason::ActorClosed { actor, closed_at }),
+        None => {
+            tracing::debug!(
+                event = "actor.admission_denied",
+                reason = "actor_unknown",
+                actor_id = %actor,
+            );
+            Some(RejectionReason::ActorUnknown { actor })
+        }
+        Some(c) => c.closed_at.map(|closed_at| {
+            tracing::debug!(
+                event = "actor.admission_denied",
+                reason = "actor_closed",
+                actor_id = %actor,
+                closed_timeline_id = %closed_at.timeline,
+                closed_revision = closed_at.revision,
+            );
+            RejectionReason::ActorClosed { actor, closed_at }
+        }),
     }
 }
 
 /// Plan a new client version; retries already covered by context never mutate again.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.acceptance.client.plan",
+    level = "debug",
+    fields(
+        account_id = %change.key.account,
+        record_id = %change.key.id,
+        actor_id = %change.actor,
+    ),
+)]
 pub fn plan_acceptance(
     change: &PreparedChange,
     input: &AcceptanceInput<'_>,
@@ -138,6 +162,12 @@ pub fn plan_acceptance(
 ) -> anyhow::Result<AcceptanceDecision> {
     input.membership.validate(input.account)?;
     if let Some(reason) = admission(change.actor, input.membership) {
+        metrics::counter!("clacks_sync_acceptance_plans_total", "origin" => "client", "decision" => "rejected").increment(1);
+        tracing::debug!(
+            event = "acceptance.decided",
+            origin = "client",
+            decision = "rejected"
+        );
         return Ok(AcceptanceDecision::Rejected(reason));
     }
     validate_input(change.key, &change.state, &change.expected, input, evidence)?;
@@ -152,6 +182,12 @@ pub fn plan_acceptance(
     if let Observation::Accepted(current) = input.current
         && current.stamp.vector.component(own) >= count
     {
+        metrics::counter!("clacks_sync_acceptance_plans_total", "origin" => "client", "decision" => "covered").increment(1);
+        tracing::debug!(
+            event = "acceptance.decided",
+            origin = "client",
+            decision = "covered"
+        );
         return Ok(AcceptanceDecision::Covered(current.clone()));
     }
     if let VersionCondition::Is { stamp, .. } = &change.expected
@@ -168,7 +204,7 @@ pub fn plan_acceptance(
         }
         .into());
     }
-    plan_commit(
+    let decision = plan_commit(
         change.key,
         &change.state,
         &change.expected,
@@ -176,10 +212,32 @@ pub fn plan_acceptance(
         &change.vector,
         input,
         evidence,
-    )
+    )?;
+    let decision_kind = match &decision {
+        AcceptanceDecision::Commit(_) => "proposed",
+        AcceptanceDecision::Covered(_) => "covered",
+        AcceptanceDecision::Stale(_) => "stale",
+        AcceptanceDecision::Rejected(_) => "rejected",
+    };
+    metrics::counter!("clacks_sync_acceptance_plans_total", "origin" => "client", "decision" => decision_kind).increment(1);
+    tracing::debug!(
+        event = "acceptance.decided",
+        origin = "client",
+        decision = decision_kind
+    );
+    Ok(decision)
 }
 
 /// Plan internal server-origin values without inventing a client enrollment or dot.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.acceptance.server.plan",
+    level = "debug",
+    fields(
+        account_id = %change.key.account,
+        record_id = %change.key.id,
+    ),
+)]
 pub fn plan_server_acceptance(
     change: &ServerChange,
     input: &AcceptanceInput<'_>,
@@ -190,7 +248,7 @@ pub fn plan_server_acceptance(
         Observation::Accepted(v) => v.stamp.vector.clone(),
         _ => RecordVector::default(),
     };
-    plan_commit(
+    let decision = plan_commit(
         change.key,
         &change.state,
         &change.expected,
@@ -198,7 +256,20 @@ pub fn plan_server_acceptance(
         &context,
         input,
         evidence,
-    )
+    )?;
+    let decision_kind = match &decision {
+        AcceptanceDecision::Commit(_) => "proposed",
+        AcceptanceDecision::Covered(_) => "covered",
+        AcceptanceDecision::Stale(_) => "stale",
+        AcceptanceDecision::Rejected(_) => "rejected",
+    };
+    metrics::counter!("clacks_sync_acceptance_plans_total", "origin" => "server", "decision" => decision_kind).increment(1);
+    tracing::debug!(
+        event = "acceptance.decided",
+        origin = "server",
+        decision = decision_kind
+    );
+    Ok(decision)
 }
 
 /// Validate the shared domains and retained interpretation of a conditional change.
@@ -321,6 +392,11 @@ fn plan_commit(
             Some(row) if dep.matches(row) => {}
             Some(row) => return Ok(AcceptanceDecision::Stale(row.clone())),
             None => {
+                tracing::debug!(
+                    event = "acceptance.rejected",
+                    reason = "missing_reference",
+                    missing_record_id = %dep.key().id,
+                );
                 return Ok(AcceptanceDecision::Rejected(
                     RejectionReason::MissingReference { key: dep.key() },
                 ));
@@ -343,6 +419,11 @@ fn plan_commit(
                 .iter()
                 .any(|d| d.key() == required && matches!(d, VersionCondition::Is { .. }))
         {
+            tracing::debug!(
+                event = "acceptance.rejected",
+                reason = "missing_reference",
+                missing_record_id = %required.id,
+            );
             return Ok(AcceptanceDecision::Rejected(
                 RejectionReason::MissingReference { key: required },
             ));

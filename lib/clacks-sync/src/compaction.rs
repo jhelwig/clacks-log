@@ -89,6 +89,14 @@ pub(crate) fn expanded(
 ///
 /// Inactivity never removes a participant. An initializing client without a durable
 /// acknowledgment limits advancement to the already installed common baseline.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.compaction.coverage.calculate",
+    level = "debug",
+    fields(
+        account_id = %server.account,
+    ),
+)]
 pub fn common_coverage(
     server: &InstalledCheckpoint,
     membership: &MembershipSnapshot,
@@ -132,9 +140,25 @@ pub fn common_coverage(
         let entries: BTreeMap<_, _> = covered.entries().collect();
         common.retain(|id, n| {
             if let Some(other) = entries.get(id) {
+                if other < n {
+                    tracing::debug!(
+                        event = "compaction.acknowledgement_limits_coverage",
+                        actor_id = %client.actor,
+                        timeline_id = %id,
+                        previous_revision = *n,
+                        acknowledged_revision = *other,
+                        has_acknowledgement = client.acknowledged.is_some(),
+                    );
+                }
                 *n = (*n).min(*other);
                 true
             } else {
+                tracing::debug!(
+                    event = "compaction.acknowledgement_excludes_timeline",
+                    actor_id = %client.actor,
+                    timeline_id = %id,
+                    has_acknowledgement = client.acknowledged.is_some(),
+                );
                 false
             }
         });
@@ -145,6 +169,15 @@ pub fn common_coverage(
 /// Retain original values and a proven relationship before releasing older detail.
 ///
 /// Missing or divergent evidence rejects sealing; preserve the old context instead.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.compaction.basis.plan",
+    level = "debug",
+    fields(
+        account_id = %pending.key.account,
+        record_id = %pending.key.id,
+    ),
+)]
 pub fn seal_basis(
     pending: &PendingRecord,
     observed: &AcceptedRecord,
@@ -223,6 +256,14 @@ pub fn seal_basis(
 ///
 /// Commit the baseline, account head and projected rows under all returned guards
 /// before physical cleanup. Missing proof retains metadata; no payload is collected.
+#[tracing::instrument(
+    skip_all,
+    name = "sync.compaction.baseline.plan",
+    level = "debug",
+    fields(
+        account_id = %input.account.account,
+    ),
+)]
 pub fn plan_baseline(
     id: BaselineId,
     input: &CompactionInput<'_>,
@@ -262,15 +303,42 @@ pub fn plan_baseline(
             .baseline(input.account.account, surviving.baseline)?
             .is_none()
         {
+            tracing::debug!(
+                event = "compaction.collection_blocked",
+                reason = "surviving_baseline_unavailable",
+                baseline_id = %surviving.baseline,
+            );
             removable.clear();
             break;
         }
-        removable.retain(|actor| surviving.vector.component(ClockActor::Client(*actor)) == 0);
+        removable.retain(|actor| {
+            let retained = surviving.vector.component(ClockActor::Client(*actor)) != 0;
+            if retained {
+                tracing::debug!(
+                    event = "compaction.collection_blocked",
+                    reason = "surviving_context_references_actor",
+                    actor_id = %actor,
+                    baseline_id = %surviving.baseline,
+                );
+            }
+            !retained
+        });
     }
     let service_retention = crate::service::retention::requirements(input.records, &[])?;
     for stamp in &service_retention.interpretation {
         if !projectable(stamp, &coverage, evidence, input.account.account)? {
-            removable.retain(|actor| stamp.vector.component(ClockActor::Client(*actor)) == 0);
+            removable.retain(|actor| {
+                let retained = stamp.vector.component(ClockActor::Client(*actor)) != 0;
+                if retained {
+                    tracing::debug!(
+                        event = "compaction.collection_blocked",
+                        reason = "service_support_not_projectable",
+                        actor_id = %actor,
+                        baseline_id = %stamp.baseline,
+                    );
+                }
+                !retained
+            });
         }
     }
     let mut projected = Vec::new();
@@ -297,6 +365,13 @@ pub fn plan_baseline(
             )
         });
         if interpretation.is_none() || !represents_prefix {
+            tracing::debug!(
+                event = "compaction.projection_blocked",
+                record_id = %record.key.id,
+                baseline_id = %record.stamp.baseline,
+                baseline_available = interpretation.is_some(),
+                represents_prefix,
+            );
             for (actor, _) in record.stamp.vector.entries() {
                 if let ClockActor::Client(actor) = actor {
                     removable.remove(&actor);
@@ -360,7 +435,7 @@ pub fn plan_baseline(
     }
     let mut next_account = input.account.advance()?;
     next_account.baseline = id;
-    Ok(BaselinePlan {
+    let plan = BaselinePlan {
         expected_head: input.account.head,
         expected_membership_generation: input.membership.generation,
         expected_records,
@@ -368,7 +443,15 @@ pub fn plan_baseline(
         projected,
         removable_clients: removable,
         next_account,
-    })
+    };
+
+    tracing::debug!(
+        event = "compaction.baseline.planned",
+        input_count = input.records.len(),
+        projected_record_count = plan.projected.len(),
+        removable_client_count = plan.removable_clients.len()
+    );
+    Ok(plan)
 }
 
 /// Establish whether retained interpretation permits a context's equivalent baseline projection.
