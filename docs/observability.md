@@ -335,3 +335,9 @@ Metric emission and domain work are independent of span/event filtering.
 Libraries have no live queue/resource gauges. Application composition owns
 histogram buckets, aggregation, collection/export and async/network propagation.
 Library telemetry introduces no automatic desktop diagnostic upload.
+
+## References
+
+- [Tracing annotations](https://docs.rs/tracing/0.1.44/tracing/attr.instrument.html) provide operation scope and explicit input-field selection.
+- [Standard formatter span events](https://docs.rs/tracing-subscriber/0.3.23/tracing_subscriber/fmt/format/struct.FmtSpan.html) provide lifecycle presentation without custom producer machinery.
+- [Prometheus metric naming](https://prometheus.io/docs/practices/naming/) and [instrumentation guidance](https://prometheus.io/docs/practices/instrumentation/) inform metric quantities, ownership and bounded dimensions.
