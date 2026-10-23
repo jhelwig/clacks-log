@@ -3,6 +3,8 @@
 mod archive;
 mod metadata;
 
+pub mod eligibility;
+
 use clacks_model::service::lotw::PublicSigningIdentity;
 use time::{Date, OffsetDateTime};
 
