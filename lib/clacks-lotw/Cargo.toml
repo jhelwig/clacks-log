@@ -1,0 +1,18 @@
+[package]
+name = "clacks-lotw"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+clacks-model.workspace = true
+x509-parser.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

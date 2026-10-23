@@ -1,5 +1,5 @@
 [workspace]
-members = ["lib/clacks-model", "lib/clacks-sync"]
+members = ["lib/clacks-model", "lib/clacks-sync", "lib/clacks-lotw"]
 resolver = "3"
 
 [workspace.package]
@@ -25,3 +25,5 @@ tracing = { version = "0.1.44", default-features = false, features = ["std", "at
 metrics = "0.24.6"
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["std", "registry"] }
 metrics-util = { version = "0.20.4", default-features = false, features = ["debugging"] }
+
+x509-parser = { version = "=0.18.1", default-features = false }
