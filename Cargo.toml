@@ -1,6 +1,8 @@
 [workspace]
 members = [
     "lib/clacks-geography",
+    "lib/clacks-geography-builder",
+    "bin/clacks-geography-build",
     "lib/clacks-model",
     "lib/clacks-sync",
     "lib/clacks-lotw",
@@ -19,9 +21,18 @@ publish = false
 
 [workspace.dependencies]
 clacks-geography = { path = "lib/clacks-geography" }
+clacks-geography-builder = { path = "lib/clacks-geography-builder" }
+shapefile = { version = "=0.9.0", features = ["geo-types"] }
+geojson = { version = "0.24", features = ["geo-types"] }
+proj4rs = { version = "=0.2.1", default-features = false, features = ["tiff"] }
+tiff = "0.11"
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+clap = { version = "4", features = ["derive"] }
+ctrlc = "3"
 geo = { version = "=0.33.1", default-features = false }
-clipper2-rust = { version = "=1.2.0", default-features = false }
 geo-types = { version = "0.7.19", features = ["serde"] }
+clipper2-rust = { version = "=1.2.0", default-features = false }
 flatgeobuf = { version = "=6.0.1", default-features = false }
 geozero = { version = "=0.15.1", default-features = false, features = ["with-geo"] }
 tempfile = "3"

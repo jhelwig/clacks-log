@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "release_id": "representative-2026-10-23",
+  "producer_revision": "a05f4ba19b9bc7cef781ecf29babf704f59b3a3a",
+  "sources": [
+    {
+      "id": "states", "kind": "shapefile", "publisher": "U.S. Census Bureau", "upstream_version": "2026",
+      "citation_urls": ["https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf"],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/STATE/tl_2026_us_state.zip",
+      "archive_sha256": "2e17ea40dff3e00163eec87a26efa0b0ff7e8fe364a191bf1a7754dcb49ea326",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8", "notice_paths": ["notices/census.txt"],
+      "archive_members": ["tl_2026_us_state.cpg","tl_2026_us_state.dbf","tl_2026_us_state.prj","tl_2026_us_state.shp","tl_2026_us_state.shp.ea.iso.xml","tl_2026_us_state.shp.iso.xml","tl_2026_us_state.shx"],
+      "limits": {"download_bytes": 536870912, "member_bytes": 1073741824, "expanded_bytes": 2147483648, "members": 128}
+    },
+    {
+      "id": "counties", "kind": "shapefile", "publisher": "U.S. Census Bureau", "upstream_version": "2026",
+      "citation_urls": ["https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf"],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/COUNTY/tl_2026_us_county.zip",
+      "archive_sha256": "b527c9ba7aeb8f17ef118f026eae5e5a938aa1d00b873bc32342d0dce59321c0",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8", "notice_paths": ["notices/census.txt"],
+      "archive_members": ["tl_2026_us_county.cpg","tl_2026_us_county.dbf","tl_2026_us_county.prj","tl_2026_us_county.shp","tl_2026_us_county.shp.ea.iso.xml","tl_2026_us_county.shp.iso.xml","tl_2026_us_county.shx"],
+      "limits": {"download_bytes": 536870912, "member_bytes": 1073741824, "expanded_bytes": 2147483648, "members": 128}
+    },
+    {
+      "id": "ct-counties", "kind": "shapefile", "publisher": "U.S. Census Bureau", "upstream_version": "2021",
+      "citation_urls": ["https://www.census.gov/geographies/mapping-files/2023/geo/tiger-line-file.html"],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2021/COUNTY/tl_2021_us_county.zip",
+      "archive_sha256": "26890ff92275ff1392cd205c7021ba510b7f63f2ff985ca327b9f5fd5e9ecc90",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8", "notice_paths": ["notices/census.txt"],
+      "archive_members": ["tl_2021_us_county.cpg","tl_2021_us_county.dbf","tl_2021_us_county.prj","tl_2021_us_county.shp","tl_2021_us_county.shp.ea.iso.xml","tl_2021_us_county.shp.iso.xml","tl_2021_us_county.shx"],
+      "limits": {"download_bytes": 536870912, "member_bytes": 1073741824, "expanded_bytes": 2147483648, "members": 128}
+    },
+    {
+      "id": "cq", "kind": {"zones":{"assignment":"cqZones","expected_features":40,"open_rings":[]}},
+      "publisher": "HA8TKS", "upstream_version": "c86428d396f05540a96becf29729c70d3343f862",
+      "citation_urls": ["https://github.com/ha8tks/Leaflet.CQzones/tree/c86428d396f05540a96becf29729c70d3343f862", "https://www.cqww.com/cq_waz_list.htm"],
+      "download_url": "https://raw.githubusercontent.com/ha8tks/Leaflet.CQzones/c86428d396f05540a96becf29729c70d3343f862/src/L.CQzones.js",
+      "archive_sha256": "3b4281435cb2e5fc5a3504a6f9251a88d7dce2b01af31e80e764067605fd404b",
+      "expected_coordinate_declaration": "GeoJSON longitude/latitude; WGS84 format interpretation, survey lineage/accuracy unestablished",
+      "text_encoding": "UTF-8", "notice_paths": ["notices/ha8tks.txt"], "archive_members": [],
+      "limits": {"download_bytes": 10485760,"member_bytes":10485760,"expanded_bytes":10485760,"members":1}
+    },
+    {
+      "id": "itu", "kind": {"zones":{"assignment":"ituZones","expected_features":90,"open_rings":["2","4","14","15","38"]}},
+      "publisher": "HA8TKS", "upstream_version": "cc727e8d969a4171bc0fc13fe7ebd97ad1887029",
+      "citation_urls": ["https://github.com/ha8tks/Leaflet.ITUzones/tree/cc727e8d969a4171bc0fc13fe7ebd97ad1887029"],
+      "download_url": "https://raw.githubusercontent.com/ha8tks/Leaflet.ITUzones/cc727e8d969a4171bc0fc13fe7ebd97ad1887029/src/L.ITUzones.js",
+      "archive_sha256": "e95e6779aaa38d13cf5a09940e1276647b0cc79b49c26ac001528474997d9c8f",
+      "expected_coordinate_declaration": "GeoJSON longitude/latitude; WGS84 format interpretation, survey lineage/accuracy unestablished",
+      "text_encoding": "UTF-8", "notice_paths": ["notices/ha8tks.txt"], "archive_members": [],
+      "limits": {"download_bytes":10485760,"member_bytes":10485760,"expanded_bytes":10485760,"members":1}
+    },
+    {
+      "id": "subunits", "kind": "shapefile", "publisher": "Natural Earth", "upstream_version": "5.1.1",
+      "citation_urls": ["https://www.naturalearthdata.com/about/terms-of-use/", "https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-details/"],
+      "download_url": "https://naturalearth.s3.amazonaws.com/5.1.1/10m_cultural/ne_10m_admin_0_map_subunits.zip",
+      "archive_sha256": "c2fd677e0ef254d7d6d37c92f9779a0ff69c2ab66f503dbe2a6f0cf4bbd8a199",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.0174532925199433]]",
+      "text_encoding": "UTF-8", "notice_paths": ["notices/natural-earth.txt"],
+      "archive_members": ["ne_10m_admin_0_map_subunits.README.html","ne_10m_admin_0_map_subunits.VERSION.txt","ne_10m_admin_0_map_subunits.cpg","ne_10m_admin_0_map_subunits.dbf","ne_10m_admin_0_map_subunits.prj","ne_10m_admin_0_map_subunits.shp","ne_10m_admin_0_map_subunits.shx"],
+      "limits": {"download_bytes":536870912,"member_bytes":1073741824,"expanded_bytes":2147483648,"members":128}
+    },
+    {
+      "id": "minor-islands", "kind": "shapefile", "publisher": "Natural Earth", "upstream_version": "4.1.0",
+      "citation_urls": ["https://www.naturalearthdata.com/about/terms-of-use/", "https://www.naturalearthdata.com/downloads/10m-physical-vectors/10m-minor-islands/"],
+      "download_url": "https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_minor_islands.zip",
+      "archive_sha256": "47c0b3ce26df7b4dbabdbb251023918cb2f5c83462a426288f1f253da7284db2",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8", "notice_paths": ["notices/natural-earth.txt"],
+      "archive_members": ["ne_10m_minor_islands.README.html","ne_10m_minor_islands.VERSION.txt","ne_10m_minor_islands.cpg","ne_10m_minor_islands.dbf","ne_10m_minor_islands.prj","ne_10m_minor_islands.shp","ne_10m_minor_islands.shx"],
+      "limits": {"download_bytes":536870912,"member_bytes":1073741824,"expanded_bytes":2147483648,"members":128}
+    },
+    {
+      "id": "aleutian-faces", "kind": "shapefile", "publisher": "U.S. Census Bureau", "upstream_version": "2026",
+      "citation_urls": ["https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_02016_faces.zip",
+      "archive_sha256": "59da8e5dcaec3f66eace1100aceb00d5ea0649930bd107037e1b75668349c5f1",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8", "notice_paths": ["notices/census.txt"],"attribute_domains":{"LWFLAG":["G","I","L","P","S"]},
+      "archive_members": ["tl_2026_02016_faces.cpg","tl_2026_02016_faces.dbf","tl_2026_02016_faces.prj","tl_2026_02016_faces.shp","tl_2026_02016_faces.shp.ea.iso.xml","tl_2026_02016_faces.shp.iso.xml","tl_2026_02016_faces.shx"],
+      "limits": {"download_bytes":536870912,"member_bytes":1073741824,"expanded_bytes":2147483648,"members":128}
+    },
+    {
+      "id": "san-juan-faces", "kind": "shapefile", "publisher": "U.S. Census Bureau", "upstream_version": "2026",
+      "citation_urls": ["https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72127_faces.zip",
+      "archive_sha256": "9b259c5b02d1280254f3145ea945c6040d217cdee1cf39007f72f035595496b6",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8", "notice_paths": ["notices/census.txt"],"attribute_domains":{"LWFLAG":["G","I","L","P","S"]},
+      "archive_members": ["tl_2026_72127_faces.cpg","tl_2026_72127_faces.dbf","tl_2026_72127_faces.prj","tl_2026_72127_faces.shp","tl_2026_72127_faces.shp.ea.iso.xml","tl_2026_72127_faces.shp.iso.xml","tl_2026_72127_faces.shx"],
+      "limits": {"download_bytes":536870912,"member_bytes":1073741824,"expanded_bytes":2147483648,"members":128}
+    },
+    {
+      "id": "st-thomas-faces", "kind": "shapefile", "publisher": "U.S. Census Bureau", "upstream_version": "2026",
+      "citation_urls": ["https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_78030_faces.zip",
+      "archive_sha256": "c91c4cd3097b26c39efb8fcef1eebdfd6dcc0783f82630e2b23b5b74cdacfec3",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8", "notice_paths": ["notices/census.txt"],"attribute_domains":{"LWFLAG":["G","I","L","P","S"]},
+      "archive_members": ["tl_2026_78030_faces.cpg","tl_2026_78030_faces.dbf","tl_2026_78030_faces.prj","tl_2026_78030_faces.shp","tl_2026_78030_faces.shp.ea.iso.xml","tl_2026_78030_faces.shp.iso.xml","tl_2026_78030_faces.shx"],
+      "limits": {"download_bytes":536870912,"member_bytes":1073741824,"expanded_bytes":2147483648,"members":128}
+    },
+    {
+      "id":"caribbean-grid","kind":"grid","publisher":"NOAA / PROJ-data","upstream_version":"cdab44864a36a9f3c3e90a36637c5d8a86e624c6",
+      "citation_urls":["https://cdn.proj.org/us_noaa_pvhpgn.tif","https://github.com/OSGeo/PROJ-data/tree/cdab44864a36a9f3c3e90a36637c5d8a86e624c6"],
+      "download_url":"https://cdn.proj.org/us_noaa_pvhpgn.tif","archive_sha256":"a6db010f956526a011ba719c45fe32e5aff987eeb1cb03f2b8338208a77c619d",
+      "expected_coordinate_declaration":"EPSG:4269 to EPSG:4152 correction grid; angular offsets in arc-seconds, positive east; HARN approximated as WGS84 under EPSG:1731",
+      "text_encoding":"UTF-8","archive_members":[],"notice_paths":["notices/noaa.txt"],
+      "limits":{"download_bytes":33554432,"member_bytes":33554432,"expanded_bytes":33554432,"members":1}
+    }
+  ],
+  "selections": [
+    {"source_id":"states","identity_fields":["GEOID"],"properties":{"STATEFP":["02","09","15","41","53","60","66","69","72","78"]},"expected_count":10},
+    {"source_id":"counties","identity_fields":["GEOID"],"properties":{"GEOID":["53033","53053","53061","53011","41051","02020","02016","15003","72127","78030"]},"expected_count":10},
+    {"source_id":"ct-counties","identity_fields":["GEOID"],"properties":{"STATEFP":["09"]},"expected_count":8},
+    {"source_id":"cq","identity_fields":["name"],"properties":{},"expected_count":40},
+    {"source_id":"itu","identity_fields":["name"],"properties":{"name":["1","2","6","8","27","45","56","59","60","61","62"]},"expected_count":11},
+    {"source_id":"subunits","identity_fields":["SU_A3"],"properties":{"SU_A3":["USB","USK","USH","ENG","SCT","GRC"]},"expected_count":6},
+    {"source_id":"minor-islands","identity_fields":[],"properties":{},"feature_sha256":"00479e3060c7cc9d302488eebe38d54a0cc88aed23cda68bbd3cd23617597934","expected_count":1},
+    {"source_id":"aleutian-faces","identity_fields":["TFID"],"properties":{"LWFLAG":["L"]},"expected_count":534},
+    {"source_id":"san-juan-faces","identity_fields":["TFID"],"properties":{"LWFLAG":["L"]},"expected_count":5963},
+    {"source_id":"st-thomas-faces","identity_fields":["TFID"],"properties":{"LWFLAG":["L"]},"expected_count":1352}
+  ],
+  "operations": [], "corrections": [], "mappings": [], "exceptions": [],
+  "omissions": [
+    {"id":"itu-outside-representative-scope","field":"itu_zone","source_identities":[{"source_id":"itu","feature_id":"4"},{"source_id":"itu","feature_id":"14"},{"source_id":"itu","feature_id":"15"},{"source_id":"itu","feature_id":"31"},{"source_id":"itu","feature_id":"42"}],"reason":"This representative release selects only ITU 1, 2, 6, 8, 27, 45, 56, 59, 60, 61, 62. All other ITU records remain unpublished, including the named known-defective polygons. ITU 2 requires its separately guarded complete replacement before publication. Unsupported polar caps are not inferred.","citations":["https://github.com/ha8tks/Leaflet.ITUzones/tree/cc727e8d969a4171bc0fc13fe7ebd97ad1887029"]},
+    {"id":"unmapped-minor-island","field":"dxcc","source_identities":[{"source_id":"minor-islands","feature_id":"sha256:00479e3060c7cc9d302488eebe38d54a0cc88aed23cda68bbd3cd23617597934"}],"reason":"Representative original minor-island geometry has no source-defined unique key or supported DXCC correspondence. Its revision-bound geometry/attribute digest identifies the selected input. It remains unclassified; proximity is not a mapping rule.","citations":["https://www.naturalearthdata.com/downloads/10m-physical-vectors/10m-minor-islands/"]}
+  ],
+  "acceptance_cases": [],
+  "notices": {
+    "notices/census.txt":"Source: U.S. Census Bureau, 2026 and 2021 TIGER/Line Shapefiles. Modified for Clacks Log. TIGER/Line is a Census Bureau trademark. No Census endorsement is implied. Reproduction and attribution basis: https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf sections 1.1–1.2. Connecticut county geometry uses the 2021 eight counties rather than 2026 planning regions. Coordinate transformations and documented approximations are Clacks processing, not Census accuracy guarantees.\n",
+    "notices/ha8tks.txt":"MIT License\n\nCopyright (c) 2019 ha8tks\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n\nClacks modifications: source linework converted to reviewed polygon artifacts; documented closures, date-line handling and guarded replacements. No upstream survey-accuracy claim is made.\n",
+    "notices/natural-earth.txt":"Made with Natural Earth. Map subunits 5.1.1 and minor islands 4.1.0. Natural Earth places its raster/vector data in the public domain, including modification and commercial redistribution: https://www.naturalearthdata.com/about/terms-of-use/. Generalized cartographic geometry is not an award-eligibility determination. Clacks authors the factual DXCC correspondence and explicit omissions/exclusions.\n",
+    "notices/noaa.txt":"Coordinate correction grid us_noaa_pvhpgn.tif, NOAA National Geodetic Survey / PROJ-data. The original grid metadata states public domain. Source and metadata: https://cdn.proj.org/us_noaa_pvhpgn.tif and https://github.com/OSGeo/PROJ-data/tree/cdab44864a36a9f3c3e90a36637c5d8a86e624c6. EPSG:1731 uses the NAD83-to-HARN grid and approximates HARN as WGS84; stated operation accuracy is separate from Census boundary accuracy.\n"
+  },
+  "scope":"Representative real-source production-path validation; selected U.S. administrative areas, CQ/ITU zones and DXCC subunits. Complete national/world coverage is not claimed.",
+  "limitations":["Census is not survey-grade boundary data.","Natural Earth is generalized cartography with incomplete small-island/polar coverage.","HA8TKS zone linework has unestablished survey lineage and requires reviewed corrections.","No-shift assignments have unestablished accuracy."]
+}

@@ -1,0 +1,11 @@
+[package]
+name = "clacks-geography-build"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+clacks-geography-builder.workspace = true
+anyhow.workspace = true
