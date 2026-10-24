@@ -1170,3 +1170,9 @@ Keep each prescribed geographic coordinate operation exact at boundaries between
 #### D270
 
 Use an automatically managed default desktop workspace in the platform's per-user application-data directory, creating it on first use and reopening it on later launches. Provide a path override for development and troubleshooting. This supplies the runtime workspace-discovery behavior left open by the client-store specification. Preserve independent offline use, the local-only versus enrolled account distinction and existing open-failure preservation; do not silently replace an existing workspace after an opening error. Concrete directory conventions, override syntax and startup implementation remain engineering work for issue #46.
+
+### Decision D271
+
+#### D271
+
+Use an application-owned multi-thread Tokio runtime for the desktop alongside egui's main-thread event loop. Background tasks progress independently of UI rendering. Deliver results through standard nonblocking channel integration and request egui repaint when needed, leaving UI state on its owning thread. Reuse the existing asynchronous store APIs, SQLx pool and transaction semantics. Application composition owns the runtime lifetime; do not introduce a separate database execution queue or async framework. Concrete runtime tuning and shutdown coordination remain engineering work for issue #46.

@@ -26,6 +26,18 @@ An existing workspace that fails to open must not be silently replaced or
 recreated. Platform directory discovery and application startup compose the
 existing client store; they do not introduce a second persistence mechanism.
 
+## Desktop asynchronous runtime (D271)
+
+The desktop application owns one multi-thread Tokio runtime alongside egui's
+main-thread event loop. Asynchronous storage operations and later background
+work run on that runtime. The UI receives results without blocking its event
+loop, using standard channel facilities and egui repaint requests. UI state
+remains owned by the UI thread. Store operations use the existing SQLx pool and
+transaction contracts; this does not introduce a custom database write queue.
+Runtime ownership and shutdown belong to application composition in the library,
+with a thin executable entry point. Concrete task/result types, runtime tuning
+and shutdown coordination remain engineering work for issue #46.
+
 ## Contacts, logbooks and tags
 
 The account owns each radio contact (QSO). A Clacks logbook is a tag-defined view of those contacts, not a container that owns separate copies. A QSO can have zero, one or multiple tags; its complete tag set is part of its logical record (D243). Each tag has a stable ID, name and service settings. Names may be duplicated, with enough interface context to distinguish tags; matching names never merge identities (D119/D120). The physical database representation remains engineering work.
