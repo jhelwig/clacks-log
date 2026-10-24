@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM lineage\nWHERE NOT EXISTS (SELECT 1 FROM current_lineage c WHERE c.lineage_id = lineage.lineage_id)\nAND NOT EXISTS (SELECT 1 FROM baseline b WHERE b.lineage_id = lineage.lineage_id)\nAND NOT EXISTS (SELECT 1 FROM basis_witness w WHERE w.lineage_id = lineage.lineage_id)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "409e0606be4c8c810bfb12ee1daafd7dcf5f931f4c508f2d755766d24547840c"
+}

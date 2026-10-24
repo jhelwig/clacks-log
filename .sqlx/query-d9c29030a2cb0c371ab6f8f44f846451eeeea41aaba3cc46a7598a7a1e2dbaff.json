@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM operating_value\nWHERE NOT EXISTS (SELECT 1 FROM operating_state s WHERE s.current_values = operating_value.operating_id OR s.loaded_values = operating_value.operating_id)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "d9c29030a2cb0c371ab6f8f44f846451eeeea41aaba3cc46a7598a7a1e2dbaff"
+}

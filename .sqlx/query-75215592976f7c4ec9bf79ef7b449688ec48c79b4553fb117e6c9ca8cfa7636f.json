@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM equipment_snapshot\nWHERE NOT EXISTS (SELECT 1 FROM qso_payload q WHERE q.equipment_id = equipment_snapshot.equipment_id)\nAND NOT EXISTS (SELECT 1 FROM equipment_payload e WHERE e.snapshot_id = equipment_snapshot.equipment_id)\nAND NOT EXISTS (SELECT 1 FROM operating_value o WHERE o.equipment_id = equipment_snapshot.equipment_id)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "75215592976f7c4ec9bf79ef7b449688ec48c79b4553fb117e6c9ca8cfa7636f"
+}

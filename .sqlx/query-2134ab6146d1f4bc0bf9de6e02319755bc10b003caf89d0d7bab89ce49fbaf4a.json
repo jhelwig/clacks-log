@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM station_snapshot\nWHERE NOT EXISTS (SELECT 1 FROM qso_payload q WHERE q.own_station = station_snapshot.station_id OR q.contacted_station = station_snapshot.station_id)\nAND NOT EXISTS (SELECT 1 FROM profile_payload p WHERE p.station_id = station_snapshot.station_id)\nAND NOT EXISTS (SELECT 1 FROM operating_value o WHERE o.station_id = station_snapshot.station_id)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "2134ab6146d1f4bc0bf9de6e02319755bc10b003caf89d0d7bab89ce49fbaf4a"
+}

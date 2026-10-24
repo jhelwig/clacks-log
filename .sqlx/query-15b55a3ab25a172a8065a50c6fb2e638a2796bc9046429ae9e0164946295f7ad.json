@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM record_observation\nWHERE NOT EXISTS (SELECT 1 FROM client_record c WHERE c.latest_observation = record_observation.observation_id)\nAND NOT EXISTS (SELECT 1 FROM local_review r WHERE r.shared_observation = record_observation.observation_id)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "15b55a3ab25a172a8065a50c6fb2e638a2796bc9046429ae9e0164946295f7ad"
+}

@@ -49,6 +49,9 @@ pub async fn remember(store: &ClientStore, manifest: &WindowManifest) -> anyhow:
         "window belongs to another account"
     );
     let mut transaction = store.write().await?;
+    if let Some(checkpoint) = lineage::current_checkpoint(&mut transaction, store.account).await? {
+        crate::retention::seal_pending(&mut transaction, &checkpoint).await?;
+    }
     transfer::remember(&mut transaction, manifest).await?;
     // A source baseline is real server-supplied interpretation, not a synthesized root.
     if let Some(baseline) = manifest
@@ -60,7 +63,7 @@ pub async fn remember(store: &ClientStore, manifest: &WindowManifest) -> anyhow:
         for boundary in &manifest.boundaries {
             lineage.add_boundary(boundary.clone())?;
         }
-        lineage::set_lineage(&mut transaction, &lineage).await?;
+        crate::retention::merge_lineage(&mut transaction, &lineage).await?;
     }
     transaction.commit().await?;
     Ok(())

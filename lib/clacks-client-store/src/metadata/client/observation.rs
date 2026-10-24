@@ -37,11 +37,30 @@ pub(crate) async fn insert_envelope(
     value: &AcceptedRecord,
 ) -> anyhow::Result<i64> {
     value.validate()?;
-    let payload = crate::payload::insert(connection, value.key, &value.state).await?;
-    let stamp = clock::insert_stamp(connection, value.key, &value.stamp).await?;
     let account = value.key.account.to_string();
     let kind = crate::payload::kind(value.key.id);
     let id = value.key.id.to_string();
+    let timeline = value.stamp.accepted_at.timeline.to_string();
+    let revision = i64::try_from(value.stamp.accepted_at.revision)?;
+    let baseline = value.stamp.baseline.to_string();
+    for candidate in sqlx::query_file!(
+        "sql/client/envelope_candidates.sql",
+        account,
+        kind,
+        id,
+        timeline,
+        revision,
+        baseline
+    )
+    .fetch_all(&mut *connection)
+    .await?
+    {
+        if load_envelope(connection, value.key, candidate.envelope_id).await? == *value {
+            return Ok(candidate.envelope_id);
+        }
+    }
+    let payload = crate::payload::insert(connection, value.key, &value.state).await?;
+    let stamp = clock::insert_stamp(connection, value.key, &value.stamp).await?;
     Ok(sqlx::query_file!(
         "sql/client/envelope_insert.sql",
         account,
