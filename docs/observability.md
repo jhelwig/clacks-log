@@ -341,3 +341,25 @@ Library telemetry introduces no automatic desktop diagnostic upload.
 - [Tracing annotations](https://docs.rs/tracing/0.1.44/tracing/attr.instrument.html) provide operation scope and explicit input-field selection.
 - [Standard formatter span events](https://docs.rs/tracing-subscriber/0.3.23/tracing_subscriber/fmt/format/struct.FmtSpan.html) provide lifecycle presentation without custom producer machinery.
 - [Prometheus metric naming](https://prometheus.io/docs/practices/naming/) and [instrumentation guidance](https://prometheus.io/docs/practices/instrumentation/) inform metric quantities, ownership and bounded dimensions.
+
+## Durable client storage
+
+Client-store operations use default module targets and significant operation spans
+for saves, profile loads and explicit resolution. Routine preparation, receipt,
+window batches, reads and local cleanup use `debug` context. Committed `record.saved`,
+`profile.loaded`, `tag.deleted`, `record.resolved`, `schema.upgraded` and `sync.window.completed` events
+report actual transaction milestones at `info`, with account/native IDs and relevant
+counts or typed reasons. Core planning events still describe proposals.
+
+`clacks_client_qso_mutations_total{change=create|update|delete}` counts changed
+local QSO values only after commit. Stale, unchanged and failed transactions do
+not increment it. Tag deletion counts its actual committed QSO effects.
+`clacks_client_sync_records_installed_total` counts changed incorporated accepted
+observations after a committed batch; replaying an identical envelope does not
+increment it. These are separate quantities from synchronization planning counts.
+Neither metric has account, record, path, payload or arbitrary-error labels.
+
+The store disables SQL statement/bound-value logging. No recorded call, name,
+comment, provider report, secret reference, certificate/private key or workspace
+path is included in its telemetry. Runtime error boundaries decide deliberate
+logging and operator diagnostics; the library propagates concrete causes.

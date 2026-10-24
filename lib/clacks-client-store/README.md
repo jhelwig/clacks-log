@@ -1,9 +1,9 @@
 # Local account store
 
 `clacks-client-store` owns one SQLite database per local account workspace.
-Opening and enrollment metadata use real SQLx transactions. The
+Native values, saved roles, operating defaults and transfer windows use real SQLx transactions. The
 [storage contract](../../docs/client-store.md) defines the payload and
-synchronization workflows being integrated with this boundary.
+synchronization workflows implemented by this library.
 
 `store::ClientStore::create` exclusively creates a local-only workspace;
 `open` requires an existing workspace and the expected account ID. Startup
@@ -32,6 +32,11 @@ Crate-internal types in `src/rows/` group the relational schema by record family
 Queries and mappers import those named rows/field groups directly. Shared physical
 representations, such as position fields and destination rows, have one definition;
 native domain values remain the library's public interface.
+
+Client metadata separates shared observations, original comparison evidence and
+frozen proposals in `src/metadata/client/`. Group mappings separate definitions,
+export plans and expression chains in `src/payload/definitions/`. Transfer
+acceptance tests are grouped by scenario under `tests/transfers/`.
 
 Fixed statements live in `sql/` and use `query_file!` or `query_file_as!`.
 The workspace `.sqlx/` directory is generated metadata, not hand-authored schema.
@@ -74,3 +79,48 @@ comparison roles. `observe_account` stores an authenticated coordinator's suppli
 account/membership view under an exact prior-value check; authentication and recovery
 policy remain with that coordinator. Observed server head and membership are separate
 from the client's completed installed checkpoint. No record response advances receipt.
+
+## Transactional workflows
+
+- `save` preserves the original basis and any already-frozen proposal while
+  changing working values. Exact expected rows guard editor saves and tag changes.
+  Tag deletion rechecks the complete preview before committing all effects together.
+- `operating` owns current values and full loaded-profile copies. Loading is
+  explicit; later synchronized profile/equipment edits do not change these copies.
+- `synchronization::prepare` persists reservations and frozen values before returning
+  them. `receive`, `reject` and `resolve` save actual core-produced role/review updates.
+- `transfer` remembers immutable manifests, stages incomplete coupled units,
+  installs complete batches and their unique external ownership together, and
+  reloads the completed checkpoint after commit. A first receipt requires a full window.
+  Dependency loading follows incoming, staged and local accepted versions, including
+  support already stored outside the window. Without an embedded destination
+  description, it supplies the stored destination to the native dependency checks.
+- `retention` installs received interpretation while sealing covered pending bases.
+  Insufficient coverage keeps original evidence; collection removes unreachable local
+  structures while retaining immutable service facts, required support and deletion memory.
+- `read::snapshot` establishes one read transaction for history, review, operating
+  values, record roles and receipt/account diagnostics. Keep it only for a bounded
+  operation; it can retain WAL pages until closed or dropped. History filters use
+  bound values and one working payload per QSO; review includes pending deletions.
+
+Desktop entry/import/export and WebSocket integration extend these production
+operations. They supply verified enrollment, authenticated source metadata and
+actual accepted envelopes. They do not replace this store with a separate repository
+or run server acceptance locally. Directory snapshot persistence will be added
+with its native carrier rather than a generic serialized placeholder.
+
+SQLx's standard acquisition check discards a connection whose transaction tracking
+remains active after queued rollback work drains. This covers SQLite's automatic
+rollback on storage-full errors while preserving the original concrete error.
+
+## Verification
+
+```sh
+SQLX_OFFLINE=true cargo test -p clacks-client-store --all-targets --locked --offline
+SQLX_OFFLINE=true cargo clippy -p clacks-client-store --all-targets --locked --offline -- -D warnings
+```
+
+Interruption tests spawn the Rust test binary itself, terminate it at real save,
+preparation and transfer boundaries, then reopen the file. No test harness binary,
+Python tooling, external storage service or compiled TQSL implementation is required.
+The repository workflow runs these tests natively on Windows and Linux.

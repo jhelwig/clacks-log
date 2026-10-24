@@ -48,8 +48,9 @@ The native library uses these representations:
    groups, catalogs and output profiles. Use Universally Unique Lexicographically
    Sortable Identifiers (ULIDs) for newly created native entities, following the
    user's preference for identifiers of this kind. Identity never depends on
-   a display name or timestamp order. The implementation uses the ulid library with string serialization; database and
-   synchronization encodings remain downstream.
+   a display name or timestamp order. Native IDs use the ulid library's string
+   serialization. Synchronization encoding follows its owning contract; SQLite
+   encoding follows the [client-store contract](client-store.md).
 2. When coordinates require rounding to integer millionths of a degree, use
    nearest with exact halfway values rounded away from zero. Validate the
    supplied geographic range before rounding so rounding cannot turn an

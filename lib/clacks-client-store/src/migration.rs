@@ -115,3 +115,7 @@ pub(crate) async fn apply(connection: &mut SqliteConnection, previous: i64) -> a
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "migration_tests.rs"]
+mod tests;

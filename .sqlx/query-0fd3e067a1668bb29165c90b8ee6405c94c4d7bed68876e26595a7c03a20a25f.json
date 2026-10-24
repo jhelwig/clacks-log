@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE qso_payload SET comment = '   '\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "0fd3e067a1668bb29165c90b8ee6405c94c4d7bed68876e26595a7c03a20a25f"
+}

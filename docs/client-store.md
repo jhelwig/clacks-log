@@ -3,8 +3,8 @@
 This consolidated specification defines the production client store for
 [issue #6](https://github.com/jhelwig/clacks-log/issues/6). It covers relational
 representation, saved-state lifetimes, transaction boundaries, schema upgrades
-and verification. It is not an implementation plan or a claim that the store
-has been implemented. The [native model](native-model.md), [synchronization model](synchronization-model.md),
+and verification. The [store guide](../lib/clacks-client-store/README.md) describes
+the production APIs and developer commands. The [native model](native-model.md), [synchronization model](synchronization-model.md),
 [core integration obligations](../lib/clacks-sync/README.md#real-transaction-obligations)
 and [service-evidence contract](service-evidence.md) remain authoritative.
 
@@ -111,10 +111,9 @@ recorded labels.
 Use ordinary integer predicates, sorting and aggregation for frequency and
 transmit power, with positive-value checks on every such column, including
 operating defaults and retained service evidence. Do not split these quantities
-into high/low columns or encode them as strings. The current native quantity
-types permit all positive `u64` values; the implementation must align their
-validation with the signed 64-bit maximum so every valid native quantity is
-directly representable. Reject out-of-range input rather than truncating,
+into high/low columns or encode them as strings. Native quantity validation uses
+the signed 64-bit maximum, so every valid native quantity is directly
+representable. Reject out-of-range input rather than truncating,
 wrapping or converting to floating point. This changes neither whole-hertz nor
 one-milliwatt resolution. SQL arithmetic and aggregates retain SQLite's ordinary
 overflow behavior; no arbitrary-precision arithmetic is implied.
@@ -134,14 +133,14 @@ selects the book; `STATUS` can return its `bookid`. Record IDs occur in
 inclusive `AFTERLOGID` threshold, and its documented paging procedure advances
 to the greatest returned ID plus one. Record IDs therefore have a numeric paging
 use, although that does not require comparisons or arithmetic in client SQL.
-Do not infer a provider limit from current Rust `u64` fields or sample ID sizes.
+Do not infer a provider limit from sample ID sizes.
 
 Store QRZ book and record IDs as decimal strings. Handle pagination comparisons,
 selection of the greatest returned record ID and addition of one in Rust, not
 SQL. Preserve the numeric identity exactly without conversion through SQLite
-`INTEGER` or floating point. The existing native `u64` fields need corresponding
-lossless decimal-identity representations during implementation; storage as text
-must not merely hide a still-assumed upstream 64-bit limit. Canonicalization
+`INTEGER` or floating point. Native `QrzBookId` and `QrzRecordId` use validated,
+unbounded decimal identities; the book ID remains positive while a record ID may
+be zero. Canonicalization
 makes different leading-zero spellings of the same integer share one identity;
 it does not change destination qualification or record association semantics.
 
@@ -152,8 +151,7 @@ catalog metadata is descriptive input, not a reason to serialize QSO payloads.
 
 ### 2.3. Integration with existing native types
 
-The implementation must align existing types with these selected representations,
-rather than only checking ranges at the last database bind:
+Native types use these selected representations before database binding:
 
 - Frequency and transmit-power validation enforce the positive signed 64-bit
   range while retaining whole-hertz/one-milliwatt units and existing semantics.
@@ -162,7 +160,7 @@ rather than only checking ranges at the last database bind:
   A Rust `u64` field may remain a representation choice; it does not permit values
   outside the selected domain. Validate externally supplied/public-field composite
   values before using them, and make increment at the signed maximum fail.
-- QRZ book and record identifiers become validated decimal identities in native
+- QRZ book and record identifiers are validated decimal identities in native
   destination/remote-record values, including historical service descriptors.
   Equality uses canonical decimal text. Pagination uses numeric comparisons and
   increment in Rust with no signed/unsigned 64-bit truncation. Existing domain
@@ -240,22 +238,22 @@ fallback and current catalog interpretation never rewrite them.
 
 | Table/family | Columns and relationships |
 | --- | --- |
-| `qso_value` | `P`, start/end seconds, own/contacted station child keys, primary frequency integer and band, receive-override presence/frequency integer/band, mode kind/label/parent, sent/received reports, comment, own operator columns, contacted operator columns, transmit-power integer, copied equipment child key. Required primary frequency-or-band and end >= start checks. Receive absence means no override; a band-only override has no frequency. |
-| `station_value` | Owned child key, `P`, required recorded callsign, optional location child key. Used by QSO sides, saved profiles and copied local operating values. |
-| `location_value` | Owned child key, `P`, position kind, area locator or explicit latitude/longitude/grid length, DXCC entity text, primary/secondary subdivisions, CQ/ITU zones. DXCC is DX Century Club; ITU is International Telecommunication Union. Explicit points retain locator precision, not a second independently authoritative locator. |
+| `qso_payload` | `P`, start/end seconds, own/contacted station child keys, primary frequency integer and band, receive-override presence/frequency integer/band, mode kind/label/parent, sent/received reports, comment, own operator columns, contacted operator columns, transmit-power integer, copied equipment child key. Required primary frequency-or-band and end >= start checks. Receive absence means no override; a band-only override has no frequency. |
+| `station_snapshot` | Account-qualified station key, required recorded callsign, optional location row keyed by that station. Used by QSO sides, saved profiles and copied local operating values. |
+| `recorded_location` | Station key, account, position kind, area locator or explicit latitude/longitude/grid length, DXCC entity text, primary/secondary subdivisions, CQ/ITU zones. DXCC is DX Century Club; ITU is International Telecommunication Union. Explicit points retain locator precision, not a second independently authoritative locator. |
 | `station_reference` | Station child key, group ID, nullable identifier. Unordered set; unique `(station, group, identifier)` for present identifiers and a separate partial unique index on `(station, group)` for null identifiers. SQLite null uniqueness alone cannot enforce deduplicated group-only participation. |
 | `qso_tag` | `(P, tag_id)`. Unordered unique membership set, including the empty set. No separate synchronized membership identity. |
-| `tag_value` | `P`, name, per-service `Enable`/`Forbid`/`Neither` policies. Names not unique; new tags use Neither. |
-| `profile_value` | `P`, name, station child key, nullable default equipment ID. Callsign required by the station. |
-| `equipment_value` | `P`, name, copied-equipment child key. |
-| `equipment_snapshot` | Owned child key, `P`, optional equipment description, antenna description, notes. No configuration display name in QSO copies. |
-| `group_value` | `P`, name, identifier-required flag, syntax, location-context flag, optional catalog binding key. |
+| `tag_payload` | `P`, name, per-service `Enable`/`Forbid`/`Neither` policies. Names not unique; new tags use Neither. |
+| `profile_payload` | `P`, name, station child key, nullable default equipment ID. Callsign required by the station. |
+| `equipment_payload` | `P`, name, copied-equipment child key. |
+| `equipment_snapshot` | Account-qualified equipment key, optional equipment description, antenna description, notes. No configuration display name in QSO copies. |
+| `group_payload` | `P`, name, identifier-required flag, syntax, location-context flag, optional catalog binding key. |
 | `group_normalization` | `(P, ordinal)`, native text transformation. Preserve sequence order. |
-| `catalog_binding`, `catalog_detail` | Owned binding, dataset ID, lookup-expression key, display-name metadata field; ordered detail labels/metadata fields. Descriptive catalog entries themselves remain separate from recorded associations. |
-| `output_profile_value`, `output_context_field` | `P`, name, purpose variant; unordered contextual field set. |
+| Catalog columns on `group_payload`, `catalog_display_detail` | Owned binding, dataset ID, lookup-expression key, display-name metadata field; ordered detail labels/metadata fields. Descriptive catalog entries themselves remain separate from recorded associations. |
+| `output_profile_payload`, `output_context_field` | `P`, name, purpose variant; unordered contextual field set. |
 | `export_plan` | Owned plan key, group `P`, ordinary/targeted discriminator, nullable output-profile ID. One ordinary plan; at most one targeted plan per profile. |
 | `export_field`, `export_partition`, `export_expansion` | Owned plan key and ordinal; field name/expression/condition; partition variant/expression or side/binding; expansion side/binding/keep-one flag. |
-| `value_expression` | Owned expression key, group `P`, native variant, literal/path/side/binding/pattern/capture/separator fields as applicable; child expression key for Capture/Join. This is the existing bounded mapping expression tree, not a generic record-property store. Reject cycles, orphan roots and variant mismatches. |
+| `export_expression` | Owned expression key, group `P`, native variant, literal/path/side/binding/pattern/capture/separator fields as applicable; child expression key for Capture/Join. This is the existing bounded mapping expression tree, not a generic record-property store. Reject cycles, orphan roots and variant mismatches. |
 
 Position kind/null checks distinguish no position, grid area and explicit point.
 Store all supplied locator lengths through twelve characters; own-location entry
@@ -278,7 +276,7 @@ interpretations distinct when their meanings differ.
 | `record_vector`, `vector_component` | Vector ID qualified by record; unique `(vector, actor_role, actor_id)` with positive integer counter. Server timeline and client actor roles remain distinct. |
 | `coverage`, `coverage_entry` | Coverage ID; unique timeline/revision pair per timeline, preserving explicit zero coverage. |
 | `checkpoint`, `installed_checkpoint` | Immutable account/baseline/coverage object; singleton current installed checkpoint reference. Use the core's expected checkpoint and progress conditions; no additional local generation or maximum-observed-record shortcut. |
-| `lineage`, `timeline_boundary`, `boundary_coverage` | Lineage ID/account/root timeline, boundary at timeline/revision, kind and included coverage. Preserve the position at which ancestry became known. |
+| `lineage`, `timeline_boundary`, `current_lineage` | Lineage ID/account/root timeline, boundary at timeline/revision, kind and included coverage. Preserve the position at which ancestry became known. |
 | `baseline` | Account/native baseline ID, coverage, complete lineage snapshot, membership generation. Conflicting contents under one baseline ID fail; do not upsert over them. |
 | `membership_snapshot`, `client_membership` | Account/generation, actor, created/closed positions, optional acknowledged checkpoint. Closed actor metadata is evidence, not permission to accept new work. |
 | `basis_witness`, `witness_baseline` | Record key, original basis, observed stamp, checkpoint, relation, lineage snapshot, ordered retained baseline references. Preserve actual original/observed contexts; never relabel to a newer checkpoint. |
@@ -605,9 +603,9 @@ Use SQLx SQLite/macros/migrate support and a standard Tokio runtime integration.
 Prefer bundled SQLite for reproducible Windows/Linux capabilities, including
 STRICT tables. SQLite itself is a C library; this selection does not introduce
 OpenSSL, Python, TQSL execution or an external client database service. Confirm
-actual selected versions, native compiler packaging, minimum Rust support and
-license notices on Windows and Linux before the implementation plan freezes
-them. Documentation capability checks are not proof of a successful build.
+selected versions, native compiler packaging, minimum Rust support and
+license notices through native Windows and Linux verification.
+Documentation capability checks are not proof of a successful build.
 No server SQLx binding is selected by this client choice.
 
 Follow [the observability contract](observability.md). Significant store opening,
@@ -624,7 +622,13 @@ manual span timer or redundant operation/component fields.
 Measure committed local QSO mutations by create/update/delete action only after
 commit; installing shared values is a different quantity and is not a local save.
 Measure installed sync records and staged input at their actual commit boundaries,
-not at plan production. Runtime boundaries own workflow latency and failure
+not at plan production. `clacks_client_sync_records_staged_total` counts envelopes
+newly added to a window's durable staging set, with no labels. Reprocessing or
+retransmitting an unchanged staged envelope does not increment it; completing
+the unit does not decrement it. A failed transaction contributes nothing. The
+counter measures committed staging transitions, not the current staging backlog
+or unique records across windows.
+Runtime boundaries own workflow latency and failure
 metrics. Use separate coherent families and bounded action/outcome/error-class
 labels, never account IDs or SQL text. Durable rows/checkpoints are authoritative;
 telemetry can be lost after commit and is not an exactly-once accounting ledger.
@@ -634,7 +638,7 @@ lower-level spans are filtered.
 
 ## 11. Acceptance and verification
 
-Required verification for the later implementation:
+Required verification for the store:
 
 1. Round-trip every native payload variant, all original/observation variants,
    complete vectors/coverage/lineage/witnesses, unknown labels, optional aggregates,
@@ -693,7 +697,7 @@ this specification rather than replace the existing native/synchronization core.
 
 The small-pool/timeout defaults, STRICT tables and bundled-SQLite direction are
 engineering choices for this specification, not new product requirements.
-Their compatibility and operation must be verified during implementation.
+Their compatibility and operation require native platform verification.
 The concrete stale-save precondition can use existing values/version references
 and standard UI state-management facilities; additional generation counters are
 not a specification requirement. Existing synchronization generations and counter

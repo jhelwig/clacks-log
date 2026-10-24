@@ -352,11 +352,13 @@ dependencies = [
  "clacks-model",
  "clacks-sync",
  "metrics",
+ "metrics-util",
  "sqlx",
  "tempfile",
  "thiserror",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "ulid",
 ]
 

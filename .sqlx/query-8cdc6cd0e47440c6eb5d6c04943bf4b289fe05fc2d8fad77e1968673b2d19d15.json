@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DROP TABLE IF EXISTS workspace_schema\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "8cdc6cd0e47440c6eb5d6c04943bf4b289fe05fc2d8fad77e1968673b2d19d15"
+}
