@@ -1,6 +1,6 @@
 # Decision register
 
-This register records explicit decisions from the planning conversation through 23 October 2026 (D01–D268). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
+This register records explicit decisions from the planning conversation through 23 October 2026 (D01–D269). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
 
 ## Accepted decisions
 
@@ -1158,3 +1158,9 @@ Retain imported upload and confirmation history when reasonable. Exact mapping a
 ## Planning discipline
 
 When a decision changes, update the current design documents and this register together. Record substantive supersession explicitly. Do not turn an assistant suggestion, an attachment's instruction, or incumbent behavior into an accepted requirement.
+
+### Decision D269
+
+#### D269
+
+Keep each prescribed geographic coordinate operation exact at boundaries between different operations, including adjacent no-shift areas. Report the resulting seams, including gaps or overlaps, rather than adjusting the no-shift boundary, blending operations or snapping geometry to force agreement. Shared-edge consistency applies within the same operation. The pinned San Juan land-mask example exhibits approximately 1.02 m displacement between the grid-shifted boundary and its no-shift counterpart; this is distinct from the segment-subdivision computational tolerance.

@@ -19,7 +19,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Production observability](docs/observability.md)
 - [Research provenance](references/README.md) and [TrustedQSL source map](references/trustedqsl/source-map.md)
 
-Product and architecture requirements are settled through D268. Engineering
+Product and architecture requirements are settled through D269. Engineering
 specifications and implementation plans are prepared for the capability being
 undertaken. GitHub owns delivery status; the roadmap describes phase outcomes
 and dependencies. Historical source material is evidence, not operative guidance.
@@ -35,7 +35,7 @@ and dependencies. Historical source material is evidence, not operative guidance
 | Identity | Configurable OpenID Connect (OIDC), independent internal accounts, multiple login bindings and individually revocable clients |
 | Secrets | Per-account encryption keys protected by a deployment wrapping key; directory credentials reach protected client storage, LoTW signing keys stay server-side |
 | LoTW | Source-guided Rust port with pure-Rust certificate import, interpretation and signing |
-| Geographic data | Census U.S. states/counties, HA8TKS CQ/International Telecommunication Union (ITU) zones, Natural Earth plus explicit DX Century Club (DXCC) mapping; Rust ingestion and `geo`, with indexed FlatGeobuf layers |
+| Geographic data | Census U.S. states/counties, HA8TKS CQ/International Telecommunication Union (ITU) zones, Natural Earth plus explicit DX Century Club (DXCC) mapping; Rust ingestion and `geo`, indexed FlatGeobuf layers, and Rust-only high-precision area coverage |
 
 ## Native-model library
 
@@ -49,6 +49,10 @@ selection and in-memory reference-export planning. See its crate guide for usage
 conditional transitions for offline edits, acceptance, complete transfer windows,
 retirement and timeline recovery. The [integration contract](lib/clacks-sync/README.md)
 defines real-store transaction obligations and recovery limits.
+
+## Geographic pipeline
+
+[`lib/clacks-geography`](lib/clacks-geography/README.md) validates immutable data bundles and queries native points or entire locator areas. [`lib/clacks-geography-builder`](lib/clacks-geography-builder/README.md) and its thin CLI acquire pinned sources, compile reviewed geometry/mappings, run acceptance cases and atomically select releases. The representative [recipe](references/geography/README.md) exercises the production path; expanded coverage and application autofill belong to issue #23.
 
 ## Project direction
 

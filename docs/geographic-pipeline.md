@@ -1,9 +1,8 @@
 # Geographic data production and lookup
 
-Specification for [issue #5](https://github.com/jhelwig/clacks-log/issues/5),
-prepared for review. D239 and D257–D268 supply the accepted direction. This
-document consolidates those decisions and proposes the concrete engineering
-contracts below; it is not an implementation plan or a claim of delivered data.
+Specification for [issue #5](https://github.com/jhelwig/clacks-log/issues/5).
+D239 and D257–D269 supply the accepted direction. This document defines the
+production and integration contracts; it is not a claim of complete geographic coverage.
 The [product contract](product.md), [native model](native-model.md) and
 [observability contract](observability.md) remain applicable.
 The [implementation plan](superpowers/plans/2026-10-23-geographic-pipeline.md)
@@ -44,7 +43,7 @@ lifetime. Geographic lookup never changes the supplied position.
 | Choice | Selected approach and tradeoff |
 | --- | --- |
 | Artifact | Indexed FlatGeobuf layers plus a manifest/notices. Established Rust reading/writing fits immutable layers; multiple files require one coherent release. GeoPackage offers single-file relational packaging, but its Rust implementation is younger and adds SQLite-binding coordination. |
-| Geometry | `geo` planar validation, relationships and boolean operations. Preserve source coordinate-space edge semantics; date-line handling is explicit. Native geographic stacks add build/data dependencies without fixing missing source evidence. |
+| Geometry | `geo` planar predicates, sweep-based validation, unions and longitude-strip clipping; `clipper2-rust` for checked assignment/mapping overlays and shared-lattice area-coverage difference. Preserve source coordinate-space edge semantics; date-line handling is explicit. Native geographic stacks add build/data dependencies without fixing missing source evidence. |
 | Coordinates | `proj4rs` for identified regional operations; documented no-shift approximation for the remaining components. No inferred legacy island datum or survey-accuracy claim. |
 | Exceptions | Compile authored DXCC mappings/exclusions/replacements before publication. Readers query resulting features rather than interpret source-specific rule precedence. |
 | Repairs | Complete reviewed replacement geometries in ordinary GeoJSON, with source guards and rationale. Larger diffs are accepted instead of a custom vertex-edit language. |
@@ -62,7 +61,7 @@ later desktop/web composition -> clacks-geography + clacks-model
 
 | Workspace component | Owning modules and responsibilities |
 | --- | --- |
-| `lib/clacks-geography` | `artifact`: manifest/value/provenance contracts, validation and read-only bundle access. `lookup`: point/area queries and typed results. Internal geometry helpers implement shared representation rules. |
+| `lib/clacks-geography` | `artifact`: manifest/value/provenance contracts, validation and read-only bundle access. `lookup`: point/area queries and typed results. `geometry` supplies shared topology validation for normalized and longitude-unwrapped producer geometry. |
 | `lib/clacks-geography-builder` | `source`: acquisition/cache and source decoding. `compile`: coordinate operations, corrections and mapping compilation. `publish`: staging, reader-based validation and publication. `application`: command parsing, diagnostics and telemetry composition. |
 | `bin/clacks-geography-build` | Thin main delegating to the builder's application entry point. |
 
@@ -108,7 +107,9 @@ Sources:
   are not counties. Preserve source identifiers and Census attribution.
 - HA8TKS CQ and ITU repositories at the researched commits. Extract the one
   expected JSON feature collection from the pinned JavaScript assignment using
-  bounded, string-aware extraction and JSON parsing. Verify feature identities
+  bounded, string-aware extraction and JSON parsing. The pinned assignments use
+  trailing separators: remove those only outside quoted strings before strict
+  JSON decoding. Verify feature identities
   and counts; reject an unexpected wrapper. Never execute JavaScript. Preserve
   the author's MIT license (named for the Massachusetts Institute of Technology)
   and modification notices.
@@ -123,7 +124,7 @@ contracts; geographic libraries must not depend on the signing crate.
 
 ## 4. Build recipe, corrections and mappings
 
-The following is the proposed concrete schema. Identifiers in these records are
+The following is the concrete recipe schema. Identifiers in these records are
 recipe-local references, not new account/QSO identities or promised permanent
 identifiers across arbitrary source changes.
 
@@ -216,8 +217,10 @@ errors could be much larger. Boundary-source error is independent of these shift
 The recipe assigns operations to source components/regions explicitly, using
 regions expressed in the original source coordinate system with that declaration
 retained; do not encode a NAD83 assignment region as WGS84 GeoJSON. A polygon
-crossing assignments is split consistently before applying operations; shared
-vertices receive the same operation. Do not choose an operation from the first
+crossing assignments is split consistently before applying operations. Shared edges within the same operation
+use identical deterministic transformations. Across different operations, retain each
+operation exactly and report the resulting seams, including gaps or overlaps (D269).
+Do not adjust the no-shift boundary, blend operations or snap geometry to force agreement. Do not choose an operation from the first
 overlapping bounding box. Include the eight older Connecticut counties in the
 mainland assignment. Keep datum-assignment regions separate from DXCC boundaries.
 
@@ -286,6 +289,17 @@ that erases a known test sliver is not grounds to silently relax D260; use a
 more suitable local coordinate window/library facility or report failure. The
 implementation plan must record the actual library precision limits and tests.
 
+Assignment partition intersections/differences and mapping subtraction use a
+shared binary lattice, capped at 2^48 units/degree and 10^17 coordinate magnitude.
+Original vertices and source intersection coordinates are restored after clipping;
+unresolved nodes, changed turns or ambiguous intersection correspondence fail the
+build. Shared partition coordinates therefore remain comparable for seam reporting.
+Before projection, each operation's selected features are noded at common exact
+collinear endpoints, so differing source segmentation cannot introduce a seam
+within that operation. Added nodes consume the existing feature vertex budget.
+The engine still applies each distinct coordinate operation independently under
+D269; retaining source boundary correspondence does not blend transformed results.
+
 ## 6. Bundle schema version 1
 
 Engineering choice: a bundle is an immutable directory. An optional outer
@@ -334,7 +348,8 @@ Each FlatGeobuf feature has fixed string properties `part_id`, `value_key` and
 layer/release; they are not recorded QSO identities. Store indexed, finite,
 two-dimensional `MultiPolygon` geometry. Header coordinate metadata and actual
 axis order must agree with the explicit artifact convention. Validate roles,
-columns, references, counts, bounds and geometry; require the spatial index for
+columns, references, counts, bounds and geometry; require the standard 16-way
+spatial index for
 nonempty layers. Empty layers have verified zero features and no tree to query;
 return no candidates without constructing an empty index search.
 
@@ -522,20 +537,20 @@ licenses/notices and actual representative coverage in crate documentation when
 implemented. Preserve measured limitations instead of claiming this specification
 establishes compatibility, complete crosswalks or source accuracy.
 
-## 11. Engineering calls and remaining authorship
+## 11. Engineering boundaries
 
-This draft chooses concrete manifest indirection, scoped value keys, immutable
+The pipeline uses manifest indirection, scoped value keys, immutable
 directory/pointer publication, offline build versus explicit fetch commands,
 `f64` geometry and the stated numerical subdivision criterion. These are
-engineering proposals for review, not additional previously agreed product
-requirements. The implementation plan may refine private module/type names and
-bounded execution/resource limits without changing caller-visible contracts.
+engineering choices within the accepted product requirements. Private module/type
+names and bounded resource limits may evolve without changing caller-visible contracts.
 
-Before implementation is considered ready to execute, the plan must name the
-representative source features, reviewed ITU repair, sourced DXCC exception,
-actual parameter/grid cases, operation-assignment geometry and authoritative
-expected results. The full geographic crosswalk and complete coverage remain
-delivery work; do not invent missing boundary evidence to make a test pass.
+The [representative recipe](../references/geography/representative.json) names
+source selections, guarded replacements, explicit mappings, operation masks and
+independently justified acceptance cases. Its [data documentation](../references/geography/README.md)
+records coverage and authorship. Full geographic crosswalks and expanded coverage
+belong to issue #23; unsupported areas remain explicit omissions.
 
-Review the specification and implementation plan before execution. Writing these
-documents does not mark issue #5 complete.
+Provenance records retain human-readable descriptions and structured `definition`
+parameters separately. These describe resolved production rules; the reader does
+not execute them.

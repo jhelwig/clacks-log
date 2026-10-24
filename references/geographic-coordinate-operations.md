@@ -5,18 +5,18 @@ D257 selects Rust ingestion, `geo` and indexed FlatGeobuf artifacts. D258 select
 `proj4rs` for the identified transformations within their applicability. D259
 selects a documented no-shift approximation for the remaining areas. This document
 distinguishes those choices from accuracy limitations and does not certify a
-shipping dataset. No transformations
-have been executed or production dependencies installed for this investigation.
+shipping dataset. The Rust producer and its independent numerical tests implement
+the identified operations; the representative recipe defines their included scope.
 
 The [geographic-pipeline specification](../docs/geographic-pipeline.md) owns the
-consolidated production design prepared for review. This investigation retains
+consolidated production contract. This investigation retains
 source declarations, operation parameters, applicability and accuracy evidence;
-it does not replace that specification or establish executed compatibility.
+it does not replace that specification or establish accuracy outside the recorded scope.
 
 ## Coordinate convention and inspected sources
 
 Use World Geodetic System 1984 (WGS84) longitude/latitude in decimal degrees as
-the proposed common artifact convention. Explicitly identify longitude-first
+the common artifact convention. Explicitly identify longitude-first
 axis order. Source geometry need not be rounded to native input resolution.
 A datum defines the reference frame for positions; a realization is a particular
 implementation of that frame, and an epoch identifies the time to which
@@ -78,7 +78,7 @@ geography outside the main-islands operation. Onshore operations do not validate
 offshore administrative polygons. These candidates are not a complete regional
 partition already authored. Check component extents and metadata before claiming
 coverage; explicitly assign D259's approximation to remaining components rather
-than silently extending these operations. Transform shared borders consistently and validate seams. Choosing
+than silently extending these operations. Transform shared borders consistently within each operation. Across different operations, preserve the exact operation and report gaps or overlaps rather than adjusting boundaries (D269). Choosing
 different local grids for adjacent mainland states can introduce avoidable seams.
 
 For EPSG:1731, the published [`us_noaa_pvhpgn.tif`](https://cdn.proj.org/us_noaa_pvhpgn.tif)
@@ -114,8 +114,7 @@ or grid parameters. Generic `+datum=NAD83` selects a zero-shift approximation,
 not the Aleutian, Hawaiian or Caribbean operation. Its angular interface uses
 radians. Constrain grid lookup to pinned data; reject missing/out-of-area grids
 and failed/non-finite results. Do not add optional-grid or zero-shift fallbacks.
-Grid support is documented as experimental; source inspection is not an executed
-integration result.
+Grid support is documented upstream as experimental. The pinned grid is covered by independent Rust TIFF node/bilinear arithmetic and explicit out-of-grid/checksum regressions; this does not establish compatibility with other grid conventions or dynamic datum operations.
 
 There is no demonstrated need for native PROJ for these identified operations.
 Its broader database cannot supply missing Census realization/epoch evidence.
