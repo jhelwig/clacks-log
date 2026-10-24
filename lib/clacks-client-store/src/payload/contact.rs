@@ -39,7 +39,7 @@ fn operator(
 }
 
 /// Store an owned equipment copy without a live configuration reference.
-pub(super) async fn insert_equipment(
+pub(crate) async fn insert_equipment(
     connection: &mut SqliteConnection,
     account: AccountId,
     value: &EquipmentValues,
@@ -58,7 +58,7 @@ pub(super) async fn insert_equipment(
 }
 
 /// Restore copied equipment fields without consulting reusable configuration records.
-pub(super) async fn load_equipment(
+pub(crate) async fn load_equipment(
     connection: &mut SqliteConnection,
     account: AccountId,
     equipment: i64,
@@ -76,7 +76,7 @@ pub(super) async fn load_equipment(
 }
 
 /// Store a station snapshot and its recorded location and unordered reference set.
-pub(super) async fn insert_station(
+pub(crate) async fn insert_station(
     connection: &mut SqliteConnection,
     account: AccountId,
     station: &StationSnapshot,
@@ -133,7 +133,7 @@ pub(super) async fn insert_station(
 }
 
 /// Restore a station's exact recorded position form and reference associations.
-pub(super) async fn load_station(
+pub(crate) async fn load_station(
     connection: &mut SqliteConnection,
     account: AccountId,
     station: i64,

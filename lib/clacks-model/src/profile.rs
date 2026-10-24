@@ -46,6 +46,20 @@ pub struct CurrentOperatingValues {
     pub equipment: Option<EquipmentValues>,
 }
 
+impl CurrentOperatingValues {
+    /// Check complete station, operator and copied equipment defaults before saving them locally.
+    pub fn validate(&self) -> anyhow::Result<()> {
+        self.station.validate()?;
+        if let Some(operator) = &self.operator {
+            operator.validate()?;
+        }
+        if let Some(equipment) = &self.equipment {
+            equipment.validate()?;
+        }
+        Ok(())
+    }
+}
+
 /// Copied profile and local values used to detect changes since an explicit load.
 ///
 /// Capture it after loading; it is not a live reference to the saved profile.

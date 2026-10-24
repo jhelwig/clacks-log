@@ -1,6 +1,6 @@
 //! Immutable relational values shared by accepted and unpublished roles.
 
-mod contact;
+pub(crate) mod contact;
 mod definitions;
 mod service;
 mod shared;

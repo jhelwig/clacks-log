@@ -173,6 +173,19 @@ pub struct OperatorInformation {
 }
 
 impl OperatorInformation {
+    /// Check that a present operator snapshot contains a callsign or nonblank recorded name.
+    ///
+    /// Use before saving a complete optional operator value; this does not normalize text.
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.callsign.is_none() && self.recorded_name.is_none() {
+            return Err(RecordError::EmptyOptionalAggregate {
+                field: "operator information".into(),
+            }
+            .into());
+        }
+        validate_optional_text(self.recorded_name.as_deref(), "operator name")
+    }
+
     /// Normalize optional operator text and collapse an all-absent operator to `None`.
     ///
     /// Use before saving prepared entry data; a callsign or nonblank name alone
@@ -305,13 +318,7 @@ impl Qso {
             .into_iter()
             .flatten()
         {
-            if operator.callsign.is_none() && operator.recorded_name.is_none() {
-                return Err(RecordError::EmptyOptionalAggregate {
-                    field: "operator information".into(),
-                }
-                .into());
-            }
-            validate_optional_text(operator.recorded_name.as_deref(), "operator name")?;
+            operator.validate()?;
         }
         if let Some(e) = &self.own_context.equipment {
             e.validate()?;

@@ -2,6 +2,8 @@
 
 pub mod error;
 pub mod identity;
+pub mod operating;
+
 mod metadata;
 mod migration;
 mod payload;

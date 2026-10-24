@@ -273,6 +273,20 @@ pub enum Preparation {
 }
 
 impl ClientRecord {
+    /// Borrow saved local working values, using incorporated values when no unpublished work exists.
+    ///
+    /// Pending deletions remain `Some(RecordState::Deleted)`. `None` means that
+    /// this row has no saved native value; inspect the shared observation for its evidence.
+    pub fn working_state(&self) -> Option<&RecordState> {
+        match &self.pending {
+            Some(pending) => Some(&pending.working),
+            None => match &self.latest {
+                Observation::Accepted(value) => Some(&value.state),
+                Observation::Absent { .. } | Observation::Unavailable { .. } => None,
+            },
+        }
+    }
+
     /// Check native values, record scope and retained comparison structure before persistence or reconciliation.
     pub fn validate(&self) -> anyhow::Result<()> {
         self.latest.validate()?;
