@@ -39,6 +39,11 @@ impl TelemetryGuard {
         self.file_failure.clone()
     }
 
+    /// Share the standard writer loss counter with the native diagnostic view.
+    pub fn loss_counter(&self) -> ErrorCounter {
+        self.loss.clone()
+    }
+
     /// Borrow actionable startup degradation information without credential values.
     pub fn diagnostics(&self) -> &[String] {
         &self.diagnostics

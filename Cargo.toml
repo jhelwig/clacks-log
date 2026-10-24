@@ -11,6 +11,7 @@ members = [
     "lib/clacks-reference-data",
     "bin/clacks-lotw-data",
     "bin/clacks-account-data",
+    "bin/clacks-log",
 
     "bin/clacks-lotw-fixtures",
 ]
@@ -24,6 +25,7 @@ license = "Elastic-2.0"
 publish = false
 
 [workspace.dependencies]
+eframe = { version = "=0.37.0", default-features = false, features = ["accesskit", "clipboard", "default_fonts", "links", "system_fonts", "wgpu", "wayland", "x11"] }
 clacks-desktop = { path = "lib/clacks-desktop" }
 toml = { version = "=0.9.8", features = ["parse", "serde"] }
 directories = "=6.0.0"

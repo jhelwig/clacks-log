@@ -113,7 +113,9 @@ pub(crate) async fn preflight(
 /// to report a successful schema upgrade from the actual migration history.
 #[tracing::instrument(skip_all, name = "client_store.schema.migrate", level = "debug")]
 pub(crate) async fn apply(connection: &mut SqliteConnection, previous: i64) -> anyhow::Result<()> {
-    MIGRATIONS.run(&mut *connection).await?;
+    // SQLx exposes this direct-connection path to avoid its generic Acquire
+    // lifetime limitation when the surrounding operation is spawned as Send.
+    MIGRATIONS.run_direct(None, connection, false).await?;
     let current = sqlx::query_file!("sql/opening/migration_version.sql")
         .fetch_one(connection)
         .await?

@@ -3,5 +3,19 @@
 mod application;
 mod config;
 mod instance;
+mod session;
 mod telemetry;
+mod ui;
 mod workspace;
+
+/// Run the native desktop on the calling main thread using startup configuration.
+///
+/// Secondary launches activate the existing owner and return. Startup, native
+/// window and cleanup failures are returned for local command-line diagnostics.
+pub fn run() -> anyhow::Result<()> {
+    use clap::Parser;
+    let arguments = config::Cli::parse();
+    let environment = config::Environment::capture()?;
+    let configuration = config::resolve(arguments, &environment)?;
+    application::run(configuration)
+}

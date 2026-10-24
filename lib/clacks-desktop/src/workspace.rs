@@ -6,6 +6,61 @@ mod tests;
 use directories::ProjectDirs;
 use std::path::{Path, PathBuf};
 
+/// Initialized account resources, including the reads needed before presenting readiness.
+pub(crate) struct OpenedWorkspace {
+    /// Pool retained for all local workflows until graceful shutdown.
+    pub store: clacks_client_store::store::ClientStore,
+    /// Non-secret account and enrollment state.
+    pub identity: clacks_client_store::identity::WorkspaceStatus,
+    /// Persisted current entry defaults, independent of saved profiles.
+    pub operating: clacks_client_store::operating::OperatingState,
+}
+
+/// Open an existing workspace or initialize a missing file with account defaults.
+///
+/// Existing invalid or partially initialized files are preserved. Read failures
+/// close the pool before returning; callers may retry without retaining resources.
+#[tracing::instrument(skip_all, name = "desktop.workspace.open")]
+pub(crate) async fn open(paths: &WorkspacePaths) -> anyhow::Result<OpenedWorkspace> {
+    use clacks_client_store::{
+        identity, operating,
+        store::{ClientStore, StoreSettings},
+    };
+    let store = match tokio::fs::metadata(&paths.database).await {
+        Ok(_) => ClientStore::open_discovered(&paths.database, StoreSettings::default()).await?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let definitions = clacks_model::defaults::account_definitions()?;
+            ClientStore::create_with_definitions(
+                &paths.database,
+                clacks_model::ids::AccountId::new(),
+                &definitions,
+                StoreSettings::default(),
+            )
+            .await?
+        }
+        Err(error) => return Err(error.into()),
+    };
+    let identity = match identity::status(&store).await {
+        Ok(identity) => identity,
+        Err(error) => {
+            store.close().await?;
+            return Err(error);
+        }
+    };
+    let operating = match operating::load(&store).await {
+        Ok(operating) => operating,
+        Err(error) => {
+            store.close().await?;
+            return Err(error);
+        }
+    };
+    Ok(OpenedWorkspace {
+        store,
+        identity,
+        operating,
+    })
+}
+
 /// OS-conventional roots, separate from any selected workspace override.
 pub(crate) struct AppDirectories {
     /// Per-user application configuration location.

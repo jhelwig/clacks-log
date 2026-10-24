@@ -79,3 +79,76 @@ fn symlink_workspace_aliases_have_one_canonical_directory() -> anyhow::Result<()
     );
     Ok(())
 }
+
+#[tokio::test]
+async fn first_open_then_reopen_uses_same_account() -> anyhow::Result<()> {
+    let directory = tempfile::tempdir()?;
+    let paths = WorkspacePaths {
+        directory: directory.path().into(),
+        database: directory.path().join("workspace.sqlite"),
+        lock_file: directory.path().join("instance.lock"),
+        log_directory: directory.path().join("logs"),
+    };
+    let first = super::open(&paths).await?;
+    assert!(!first.identity.enrolled);
+    assert_eq!(first.operating, Default::default());
+    let account = first.identity.account;
+    first.store.close().await?;
+    let next = super::open(&paths).await?;
+    assert_eq!(next.identity.account, account);
+    next.store.close().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn existing_invalid_database_is_preserved() -> anyhow::Result<()> {
+    let directory = tempfile::tempdir()?;
+    let paths = WorkspacePaths {
+        directory: directory.path().into(),
+        database: directory.path().join("workspace.sqlite"),
+        lock_file: directory.path().join("instance.lock"),
+        log_directory: directory.path().join("logs"),
+    };
+    std::fs::write(&paths.database, b"not a workspace")?;
+    assert!(super::open(&paths).await.is_err());
+    assert_eq!(std::fs::read(&paths.database)?, b"not a workspace");
+    Ok(())
+}
+
+#[tokio::test]
+async fn ready_requires_initial_reads() -> anyhow::Result<()> {
+    use clacks_client_store::operating::{self, OperatingSaveOutcome, OperatingState};
+    use clacks_model::{
+        contact::StationSnapshot, profile::CurrentOperatingValues, scalar::RecordedCallsign,
+    };
+    let directory = tempfile::tempdir()?;
+    let paths = WorkspacePaths {
+        directory: directory.path().into(),
+        database: directory.path().join("workspace.sqlite"),
+        lock_file: directory.path().join("instance.lock"),
+        log_directory: directory.path().join("logs"),
+    };
+    let initial = super::open(&paths).await?;
+    let next = OperatingState {
+        current: Some(CurrentOperatingValues {
+            station: StationSnapshot {
+                callsign: RecordedCallsign::new("W7HEX/P")?,
+                location: None,
+                references: Default::default(),
+            },
+            operator: None,
+            transmit_power: None,
+            equipment: None,
+        }),
+        loaded: None,
+    };
+    assert!(matches!(
+        operating::save(&initial.store, &initial.operating, &next).await?,
+        OperatingSaveOutcome::Saved(_)
+    ));
+    initial.store.close().await?;
+    let ready = super::open(&paths).await?;
+    assert_eq!(ready.operating, next);
+    ready.store.close().await?;
+    Ok(())
+}
