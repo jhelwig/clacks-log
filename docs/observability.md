@@ -194,6 +194,11 @@ automatically. This selects desktop export without selecting a mandatory
 collector, observability vendor or separate Clacks service. Exact transport,
 adapter versions/features and configuration remain desktop specification work.
 
+Desktop startup and diagnostic configuration follows D277 in the
+[product contract](product.md#desktop-startup-configuration-d277), including
+OS-conventional configuration-file discovery and the command-line file-path
+override.
+
 ## Library producer contract
 
 `clacks-model` and `clacks-sync` emit through `tracing` 0.1 and `metrics` 0.24.

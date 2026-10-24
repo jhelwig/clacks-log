@@ -26,6 +26,20 @@ An existing workspace that fails to open must not be silently replaced or
 recreated. Platform directory discovery and application startup compose the
 existing client store; they do not introduce a second persistence mechanism.
 
+## Desktop startup configuration (D277)
+
+Use an optional local `config.toml` file for desktop startup and diagnostic
+settings. Discover its default location through the operating system's
+application-configuration conventions. Provide a command-line configuration-file
+path override, separately from the workspace-path override. A missing default
+file uses built-in defaults, so normal launch requires no configuration file.
+
+Resolve explicitly supplied command-line settings before standard logging and
+OpenTelemetry environment settings, then file values, then built-in defaults.
+Keep saved station profiles, operating defaults and account data under their
+existing storage contracts. Exact file schema, platform paths and option
+spellings remain engineering work for issue #46.
+
 ## Desktop process ownership (D276)
 
 Run one desktop process per workspace. A subsequent launch targeting that
