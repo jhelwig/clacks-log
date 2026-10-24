@@ -14,7 +14,7 @@ fn observation() -> RemoteObservation {
         destination: d,
         identity: RemoteIdentity::Complete(ExternalRecordKey {
             destination: d,
-            record: RemoteRecordId::Qrz(7),
+            record: RemoteRecordId::Qrz("7".parse().unwrap()),
         }),
         facts: RemoteFacts::default(),
         ordering: ProviderOrdering::default(),

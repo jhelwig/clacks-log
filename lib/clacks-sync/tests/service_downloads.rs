@@ -80,7 +80,9 @@ fn starts_compete_on_destination_control_guard() -> anyhow::Result<()> {
     ];
     let destinations = [Destination {
         id: support::id(42),
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("7".parse().unwrap()),
+        },
         description: "book".into(),
     }];
     let context = DownloadContext {
@@ -236,7 +238,9 @@ impl ReadFixture {
         };
         let destinations = [Destination {
             id: control.destination,
-            collection: RemoteCollection::Qrz { book_id: Some(7) },
+            collection: RemoteCollection::Qrz {
+                book_id: Some("7".parse().unwrap()),
+            },
             description: "book".into(),
         }];
         let context = DownloadContext {
@@ -355,7 +359,9 @@ impl ReadFixture {
         };
         let destinations = [Destination {
             id: a.query.destination,
-            collection: RemoteCollection::Qrz { book_id: Some(7) },
+            collection: RemoteCollection::Qrz {
+                book_id: Some("7".parse().unwrap()),
+            },
             description: "book".into(),
         }];
         let context = DownloadContext {
@@ -372,7 +378,7 @@ impl ReadFixture {
             destination: a.query.destination,
             identity: RemoteIdentity::Complete(ExternalRecordKey {
                 destination: a.query.destination,
-                record: RemoteRecordId::Qrz(7),
+                record: RemoteRecordId::Qrz("7".parse().unwrap()),
             }),
             facts: RemoteFacts {
                 own_station: StationReport {
@@ -437,7 +443,9 @@ impl ReadFixture {
         };
         let destinations = [Destination {
             id: control.destination,
-            collection: RemoteCollection::Qrz { book_id: Some(7) },
+            collection: RemoteCollection::Qrz {
+                book_id: Some("7".parse().unwrap()),
+            },
             description: "book".into(),
         }];
         let context = DownloadContext {
@@ -570,7 +578,7 @@ fn established(
     select_observations(&ObservationSelectionInput {
         external: &ExternalRecordKey {
             destination: support::id(42),
-            record: RemoteRecordId::Qrz(7),
+            record: RemoteRecordId::Qrz("7".parse().unwrap()),
         },
         view: &view,
     })
@@ -817,7 +825,9 @@ impl ReadFixture {
         };
         let ds = [Destination {
             id: support::id(42),
-            collection: RemoteCollection::Qrz { book_id: Some(7) },
+            collection: RemoteCollection::Qrz {
+                book_id: Some("7".parse().unwrap()),
+            },
             description: "book".into(),
         }];
         let ServiceDecision::Ready(c) = plan_operation(&ServiceOperationInput {

@@ -17,7 +17,9 @@ fn ordinary_projection_preserves_specialization_and_changes_only_payload() -> an
     let q = support::qso(support::id::<QsoId>(1));
     let d = Destination {
         id: DestinationId::new(),
-        collection: RemoteCollection::Qrz { book_id: Some(42) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("42".parse().unwrap()),
+        },
         description: "main".into(),
     };
     let defs = support::definitions();
@@ -95,7 +97,9 @@ fn station_location_equipment_reports_and_text_are_projected() -> anyhow::Result
     q.comment = Some("hello".into());
     let d = Destination {
         id: DestinationId::new(),
-        collection: RemoteCollection::Qrz { book_id: Some(42) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("42".parse().unwrap()),
+        },
         description: "main".into(),
     };
     let defs = support::definitions();

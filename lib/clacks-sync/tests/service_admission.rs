@@ -86,7 +86,9 @@ fn immutable_content_is_checked_even_when_context_covers_old_version() -> anyhow
 fn outcome_without_attempt_is_incomplete_not_success() -> anyhow::Result<()> {
     let destination = clacks_model::service::destination::Destination {
         id: support::id(1),
-        collection: clacks_model::service::destination::RemoteCollection::Qrz { book_id: Some(42) },
+        collection: clacks_model::service::destination::RemoteCollection::Qrz {
+            book_id: Some("42".parse().unwrap()),
+        },
         description: "book".into(),
     };
     let result = SubmissionResult {
@@ -212,7 +214,9 @@ fn common_admission_rejects_a_second_namespace_for_the_same_remote_collection() 
     };
     let old = Destination {
         id: support::id(41),
-        collection: RemoteCollection::Qrz { book_id: Some(42) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("42".parse().unwrap()),
+        },
         description: "first".into(),
     };
     let new = Destination {

@@ -15,7 +15,9 @@ fn collection_never_uses_acknowledgment_as_permission_to_drop_semantic_facts() -
     };
     let destination = Destination {
         id: support::id(42),
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("7".parse().unwrap()),
+        },
         description: "book".into(),
     };
     let payload = ServicePayload::Suppression(DeletionSuppression {
@@ -23,7 +25,7 @@ fn collection_never_uses_acknowledgment_as_permission_to_drop_semantic_facts() -
         qso: support::id(10),
         external: clacks_model::service::destination::ExternalRecordKey {
             destination: destination.id,
-            record: clacks_model::service::destination::RemoteRecordId::Qrz(7),
+            record: clacks_model::service::destination::RemoteRecordId::Qrz("7".parse().unwrap()),
         },
     });
     let mut row = support::accepted(200, "fixture");

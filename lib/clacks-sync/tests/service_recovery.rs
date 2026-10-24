@@ -15,7 +15,9 @@ fn recovered_same_id_mutation_is_checked_before_covered_shortcut() -> anyhow::Re
     };
     let destination = Destination {
         id: support::id(42),
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("7".parse().unwrap()),
+        },
         description: "book".into(),
     };
     let result = SubmissionResult {
@@ -136,7 +138,9 @@ fn restored_server_recovers_original_success_without_covering_a_new_projection()
         };
         let destination = Destination {
             id: support::id(42),
-            collection: RemoteCollection::Qrz { book_id: Some(7) },
+            collection: RemoteCollection::Qrz {
+                book_id: Some("7".parse().unwrap()),
+            },
             description: "book".into(),
         };
         let old = SubmissionProjection::Qrz(QrzSubmission {
@@ -403,14 +407,16 @@ fn covered_active_association_is_not_reinstalled_after_contact_deletion() -> any
     };
     let destination = Destination {
         id: support::id(42),
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("7".parse().unwrap()),
+        },
         description: "book".into(),
     };
     let a = ExternalAssociation {
         id: support::id(101),
         external: ExternalRecordKey {
             destination: destination.id,
-            record: RemoteRecordId::Qrz(7),
+            record: RemoteRecordId::Qrz("7".parse().unwrap()),
         },
         qso: support::id(10),
         state: AssociationState::Active,
@@ -517,12 +523,16 @@ fn recovery_uses_refined_qrz_namespace_for_later_members() -> anyhow::Result<()>
         description: "first".into(),
     };
     let first = Destination {
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("7".parse().unwrap()),
+        },
         ..unknown.clone()
     };
     let second = Destination {
         id: support::id(43),
-        collection: RemoteCollection::Qrz { book_id: Some(8) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("8".parse().unwrap()),
+        },
         description: "second".into(),
     };
     let carrier = |destination: Destination, revision| {
@@ -579,7 +589,7 @@ fn recovery_uses_refined_qrz_namespace_for_later_members() -> anyhow::Result<()>
     let qso = support::accepted(175, "recovered contact");
     let external = clacks_model::service::destination::ExternalRecordKey {
         destination: support::id(42),
-        record: clacks_model::service::destination::RemoteRecordId::Qrz(7),
+        record: clacks_model::service::destination::RemoteRecordId::Qrz("7".parse().unwrap()),
     };
     let association = clacks_model::service::evidence::processing::ExternalAssociation {
         id: support::id(101),
@@ -594,7 +604,9 @@ fn recovery_uses_refined_qrz_namespace_for_later_members() -> anyhow::Result<()>
         support: ServiceSupport {
             destination: Some(Destination {
                 id: support::id(42),
-                collection: RemoteCollection::Qrz { book_id: Some(7) },
+                collection: RemoteCollection::Qrz {
+                    book_id: Some("7".parse().unwrap()),
+                },
                 description: "first".into(),
             }),
             required: vec![clacks_sync::service::SupportRequirement::CoveredEffect(

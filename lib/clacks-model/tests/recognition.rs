@@ -125,7 +125,7 @@ fn unfamiliar_context_and_deprecated_labels_survive() -> TestResult {
     let mut open = full.clone();
     open.bands.last_mut().unwrap().upper_hz = None;
     assert_eq!(
-        Band::for_frequency(Hertz::new(u64::MAX)?, &open)
+        Band::for_frequency(Hertz::new(i64::MAX as u64)?, &open)
             .unwrap()
             .label(),
         "submm"

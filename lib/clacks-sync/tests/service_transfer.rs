@@ -166,11 +166,13 @@ fn completed_disposition_waits_for_observation_binding_and_contact_effects() -> 
     };
     let external = ExternalRecordKey {
         destination: support::id(42),
-        record: RemoteRecordId::Qrz(7),
+        record: RemoteRecordId::Qrz("7".parse().unwrap()),
     };
     let destination = Destination {
         id: external.destination,
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("7".parse().unwrap()),
+        },
         description: "book".into(),
     };
     let obs = RemoteObservation {
@@ -305,14 +307,16 @@ fn old_binding_unit_is_covered_by_accepted_deletion_without_reactivation() -> an
     };
     let destination = Destination {
         id: support::id(42),
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("7".parse().unwrap()),
+        },
         description: "book".into(),
     };
     let payload = ServicePayload::Association(ExternalAssociation {
         id: support::id(101),
         external: ExternalRecordKey {
             destination: destination.id,
-            record: RemoteRecordId::Qrz(7),
+            record: RemoteRecordId::Qrz("7".parse().unwrap()),
         },
         qso,
         state: AssociationState::Active,
