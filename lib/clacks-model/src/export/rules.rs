@@ -102,7 +102,10 @@ pub enum BindingCondition {
 /// An ordered contribution to the planned file partition key.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PartitionRule {
-    /// An expression-valued partition dimension.
+    /// An expression-valued partition dimension, with absence grouped separately.
+    ///
+    /// Absent optional values contribute an empty logical key component; they do
+    /// not invent field content or require an otherwise optional QSO value.
     ByValue(ValueExpression),
     /// A station-reference partition dimension with a named value.
     EachReference {

@@ -2,6 +2,8 @@
 
 mod lotw;
 
+pub mod accounts;
+
 #[cfg(feature = "fixtures")]
 pub mod fixtures;
 

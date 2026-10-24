@@ -9,6 +9,8 @@ members = [
     "lib/clacks-lotw",
     "lib/clacks-reference-data",
     "bin/clacks-lotw-data",
+    "bin/clacks-account-data",
+
     "bin/clacks-lotw-fixtures",
 ]
 resolver = "3"

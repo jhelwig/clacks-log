@@ -457,6 +457,10 @@ GroupExportPlan
 The full interchange adapter will supply common QSO field mappings and format
 requirements. This library's `OutputProfile` contains ID, name, purpose and
 context-sensitive field names; it does not implement the complete format adapter.
+Expression-valued partition dimensions retain absence as a distinct unknown
+component, without adding an output field or requiring optional QSO information.
+Required station-reference partitions still reject missing references.
+
 Groups contribute reference mappings and targeted partition/expansion plans.
 The library implements the schema above; context selection follows D255.
 

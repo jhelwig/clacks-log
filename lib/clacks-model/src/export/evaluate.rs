@@ -126,6 +126,7 @@ fn targeted_entries(
                     };
                     match definition.evaluate(expression, &context)? {
                         ExpressionValue::Scalar(value) => row.key.push(value),
+                        ExpressionValue::Absent => row.key.push(String::new()),
                         _ => return Err(not_ready(qso, "required file-partition value missing")),
                     }
                 }

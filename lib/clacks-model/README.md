@@ -81,7 +81,7 @@ limited to participating groups allowed by the export context.
 | Import parsing, omitted-versus-cleared fields, historical assignment and canonicalization warnings | Native values are not import instructions. |
 | Complete output mappings, effective provider fields, submission validation, activation-location partitions and capture readiness | Generic reference planning does not certify program submission acceptance. |
 | Consistent export reads, destination replacement and cancellation | An in-memory partition is not a published file; storage-backed publication must enforce export safeguards. |
-| Production group seeding and catalog acquisition/refresh | Account provisioning and data-distribution adapters supply these inputs. |
+| Production group seeding and catalog acquisition/refresh | Account provisioning installs `defaults::account_definitions()`; catalog acquisition/refresh remains with data-distribution adapters. |
 | Entry workflows, persistent current defaults, Windows runtime and large-log performance | Model tests and cross-compilation do not establish application readiness or scale. |
 
 Import-side station assignment of `CONTEST_ID` remains an import-mapping concern.
@@ -169,3 +169,10 @@ runtime boundary; span timing does not automatically populate metric histograms.
 Filtering cannot gate domain work or metrics, and domain events do not mutate
 caller spans. The library installs no subscriber, recorder or exporter. Returned
 values, concrete errors and synchronized records are independent of configuration.
+
+## Initial account data
+
+`defaults::account_definitions()` loads the validated production reference groups
+and output profiles described in [the data notes](data/README.md#initial-account-definitions).
+Account provisioning owns their installation; reopening an account must preserve
+its saved definitions. The loader performs no account creation or networking.

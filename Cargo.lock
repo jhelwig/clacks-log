@@ -345,6 +345,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "clacks-account-data"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clacks-reference-data",
+]
+
+[[package]]
 name = "clacks-client-store"
 version = "0.1.0"
 dependencies = [
@@ -486,6 +494,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "cbc",
+ "clacks-model",
  "der 0.8.2",
  "des",
  "hex",
