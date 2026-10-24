@@ -69,6 +69,20 @@ pub struct BandFrequency {
 }
 
 impl BandFrequency {
+    /// Restore a recorded pair without reclassifying it against a recognition catalog.
+    ///
+    /// Use for durable native values whose labels must survive catalog changes.
+    /// At least one component is required; entry and import frequency authority
+    /// belongs to [`Self::new`].
+    pub fn from_recorded_pair(
+        frequency: Option<Hertz>,
+        band: Option<Band>,
+    ) -> anyhow::Result<Self> {
+        let value = Self { frequency, band };
+        value.validate()?;
+        Ok(value)
+    }
+
     /// Create a primary pair or receive override from entry/import values.
     ///
     /// At least one value is required. A supplied frequency takes precedence over

@@ -1,0 +1,2 @@
+INSERT INTO qso_payload (payload_id, account, record_id, start, end, own_station, contacted_station, own_operator_call, own_operator_name, contacted_operator_call, contacted_operator_name, power, equipment_id, frequency, band, receive_frequency, receive_band, mode_kind, mode_label, mode_parent, sent_report, received_report, comment)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

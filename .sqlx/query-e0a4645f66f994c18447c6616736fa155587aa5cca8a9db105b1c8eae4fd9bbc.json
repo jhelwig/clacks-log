@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO equipment_snapshot (account, equipment_description, antenna_description, notes) VALUES (?, ?, ?, ?) RETURNING equipment_id AS \"equipment_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "equipment_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "equipment_snapshot",
+            "name": "equipment_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e0a4645f66f994c18447c6616736fa155587aa5cca8a9db105b1c8eae4fd9bbc"
+}

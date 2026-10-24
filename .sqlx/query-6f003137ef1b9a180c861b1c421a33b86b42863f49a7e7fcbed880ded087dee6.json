@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO qso_tag (payload_id, account, tag_id) VALUES (?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "6f003137ef1b9a180c861b1c421a33b86b42863f49a7e7fcbed880ded087dee6"
+}
