@@ -19,6 +19,14 @@ the launch directory; file-relative paths use the configuration file's directory
 The workspace contains `workspace.sqlite`, SQLite sidecars, `instance.lock` and
 (default) `logs/`. Never remove a live instance lock file.
 
+| OS | Default configuration | Default workspace |
+| --- | --- | --- |
+| Windows | `%APPDATA%\Clacks Log\config\config.toml` | `%LOCALAPPDATA%\Clacks Log\data\workspace` |
+| macOS | `~/Library/Application Support/Clacks-Log/config.toml` | `~/Library/Application Support/Clacks-Log/workspace` |
+| Linux | `~/.config/clackslog/config.toml` | `~/.local/share/clackslog/workspace` |
+
+Linux respects absolute `XDG_CONFIG_HOME` and `XDG_DATA_HOME` overrides.
+
 A missing database is exclusively created with a fresh native account and the
 production default group/output-profile definitions. Existing accounts are
 opened without reseeding. Invalid or incomplete files are preserved and reported;
@@ -120,8 +128,50 @@ blocking Rustls HTTP client, independently of the application Tokio runtime.
 tracing and OpenTelemetry libraries use their upstream permissive licenses.
 Transitive platform/graphics and TLS assets retain their upstream notices;
 there is no OpenSSL/native-TLS or TQSL execution dependency.
+The default embedded fonts retain the upstream `epaint_default_fonts/fonts/`
+notices: Ubuntu Font Licence, SIL Open Font License, Hack's combined MIT/Bitstream
+Vera terms and icon-font MIT notices. Distribution must include these notices;
+the application license does not replace font licenses. Rustls's selected crypto
+backends include ring and AWS-LC with their permissive native-code notices.
+
+The resolved Linux windowing/font features use dynamically loaded system
+libraries. Headless CI checks do not need a display or additional GUI development
+packages; native Linux running still requires the relevant desktop/graphics
+libraries and drivers. Windows native builds use the normal Microsoft C/C++ build
+tools for bundled SQLite and transitive TLS code. Merely installing the Rust MSVC
+target on another OS does not supply those headers/libraries.
+wgpu's default Direct3D shader-compiler selection can fall back to the system
+FXC compiler; this configuration does not require shipping `dxcompiler.dll`.
+Native acceptance must still establish the actual adapter/backend works.
 
 Headless private tests exercise real SQLite work, subprocess ownership and a
 bounded Rust HTTP/protobuf receiver. They do not replace native Windows graphics,
 input, activation and delayed-close acceptance. Installer qualification belongs
 to issue #35.
+
+## Native Windows acceptance
+
+Use a Windows Rust/MSVC development environment and the pinned checkout. These
+checks require a visible desktop; headless CI is separate evidence.
+
+1. Run `cargo build --bin clacks-log --locked`. In PowerShell start
+   `target\debug\clacks-log.exe --workspace "$env:TEMP\clacks-native-46" --log-filter info`.
+   Verify the window renders, tab/keyboard and pointer controls work, and a
+   standalone account reaches Ready. Record the account ID and OS/GPU/backend.
+2. Minimize it and run the same command again. Verify the second process exits
+   and the original window restores. Start another override workspace and verify
+   both can run independently. Close both normally, then reopen the first and
+   verify the same account ID. Inspect its JSON logs for readiness, shutdown and
+   work-drained milestones.
+3. Run `cargo test -p clacks-desktop native_delayed_shutdown --locked -- --ignored --nocapture --test-threads=1`.
+   This private Windows-only harness uses the production UI/session and a paused
+   open, prints a retained temporary workspace path, and has no shipped delay
+   flag. Close while opening; after five seconds choose Continue Waiting. Cleanup
+   completes twenty seconds after the close request. Repeat for Force Quit;
+   immediate test-process exit 1 is expected. Reopen each printed workspace with
+   the production executable and verify the database remains usable. Remove the
+   test directories when finished.
+
+Record observed results with the change's review evidence. These steps remain
+required before declaring issue #46 delivered; compilation does not establish
+native rendering or input behavior.

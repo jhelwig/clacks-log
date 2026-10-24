@@ -3,6 +3,7 @@
 mod collector;
 mod operations;
 mod output;
+mod session;
 
 use super::*;
 use crate::{
@@ -86,6 +87,7 @@ fn child_entry() -> anyhow::Result<()> {
             | "unavailable"
             | "secrets"
             | "slow"
+            | "session"
             | "partial"
             | "headers-file"
             | "headers-env"
@@ -134,11 +136,16 @@ fn child_entry() -> anyhow::Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
-    let account = runtime.block_on(operations::save_contact(&paths))?;
-    let shutdown = telemetry.shutdown();
-    if !matches!(case.as_str(), "unavailable" | "secrets" | "slow") {
-        shutdown?;
-    }
+    let account = if case == "session" {
+        session::complete(&runtime, &paths, telemetry)?
+    } else {
+        let account = runtime.block_on(operations::save_contact(&paths))?;
+        let shutdown = telemetry.shutdown();
+        if !matches!(case.as_str(), "unavailable" | "secrets" | "slow") {
+            shutdown?;
+        }
+        account
+    };
     assert!(paths.database.exists());
     if case != "unwritable" {
         let contents = std::fs::read_dir(&paths.log_directory)?
@@ -174,6 +181,9 @@ fn child_entry() -> anyhow::Result<()> {
             for request in requests.iter() {
                 assert_eq!(request.authorization.as_deref(), Some("Bearer abc%2Fdef"));
             }
+        }
+        if case == "session" {
+            session::assert_wire(&requests)?;
         }
         if case == "enabled" {
             assert_signals(&requests)?;
@@ -266,6 +276,11 @@ fn constructor_diagnostics_exclude_sdk_payloads() {
     );
     assert!(!message.contains("SECRET_SENTINEL"));
     assert!(message.contains("initialization failed"));
+}
+
+#[test]
+fn session_reports_startup_once_and_drains_before_telemetry_shutdown() -> anyhow::Result<()> {
+    child_case("session")
 }
 
 #[test]

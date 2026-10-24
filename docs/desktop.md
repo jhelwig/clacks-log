@@ -2,8 +2,8 @@
 
 This specification defines the production desktop foundation for
 [issue #46](https://github.com/jhelwig/clacks-log/issues/46), carrying forward
-D270–D279 and the selected egui architecture. It is a specification for delivery,
-not a claim that the desktop has been implemented. The [product contract](product.md),
+D270–D279 and the selected egui architecture. The [desktop guide](../lib/clacks-desktop/README.md)
+documents runtime usage and validation. The [product contract](product.md),
 [client store](client-store.md), [native model](native-model.md) and
 [observability contract](observability.md) remain authoritative for their domains.
 The [implementation plan](superpowers/plans/2026-10-24-desktop-foundation.md)

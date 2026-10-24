@@ -51,3 +51,6 @@ libc.workspace = true
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading", "Win32_Storage_FileSystem"] }
 widestring.workspace = true
+
+[target.'cfg(windows)'.dev-dependencies]
+winit.workspace = true
