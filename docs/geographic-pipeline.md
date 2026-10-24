@@ -5,8 +5,11 @@ D239 and D257–D269 supply the accepted direction. This document defines the
 production and integration contracts; it is not a claim of complete geographic coverage.
 The [product contract](product.md), [native model](native-model.md) and
 [observability contract](observability.md) remain applicable.
-The [implementation plan](superpowers/plans/2026-10-23-geographic-pipeline.md)
-defines task sequencing, concrete interfaces and representative acceptance cases.
+The [reader guide](../lib/clacks-geography/README.md) and
+[producer guide](../lib/clacks-geography-builder/README.md) document concrete
+interfaces, commands and numerical limits. The
+[representative recipe](../references/geography/representative.json) carries
+the pinned inputs and acceptance cases.
 
 DX Century Club is abbreviated DXCC; International Telecommunication Union is
 ITU. CQ refers to CQ magazine's operating zones. Geographic JavaScript Object
@@ -280,14 +283,15 @@ largest-overlap rule is introduced.
 
 Engineering numerical acceptance: transformations subdivide nonlinear segments
 until quarter/midpoint deviation from the output segment is at most 0.01 m,
-with bounded recursion and failure if the criterion cannot be met. This is a
-computational approximation budget, not source accuracy. Preserve straight
+with maximum subdivision depth 24 and a shared budget of one million vertices
+per source feature. Failure to meet the criterion within these limits stops the
+build. This is a computational approximation budget, not source accuracy. Preserve straight
 source-coordinate edges when no nonlinear operation applies. Test the chosen
 overlay engine at global/date-line extents and two- through twelve-character
 grid sizes, including narrow representable known overlaps/gaps. A library operation
 that erases a known test sliver is not grounds to silently relax D260; use a
 more suitable local coordinate window/library facility or report failure. The
-implementation plan must record the actual library precision limits and tests.
+library guides document the numerical limits and verification cases.
 
 Assignment partition intersections/differences and mapping subtraction use a
 shared binary lattice, capped at 2^48 units/degree and 10^17 coordinate magnitude.
