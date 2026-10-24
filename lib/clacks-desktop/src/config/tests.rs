@@ -20,7 +20,7 @@ fn absent_default_config_uses_managed_paths_and_bounded_defaults() -> anyhow::Re
     let env = environment(directory.path().to_path_buf());
     let config = resolve(Cli::try_parse_from(["clacks-log"])?, &env)?;
     assert!(!config.telemetry.enabled);
-    assert_eq!(config.logs.filter, "info");
+    assert_eq!(config.logs.filter.to_string(), "info");
     assert_eq!(config.logs.retained_files, 7);
     assert_eq!(config.logs.buffered_lines, 8192);
     assert!(!config.logs.console);
@@ -69,7 +69,7 @@ fn command_environment_file_precedence_and_explicit_false_are_preserved() -> any
         ])?,
         &env,
     )?;
-    assert_eq!(config.logs.filter, "trace");
+    assert_eq!(config.logs.filter.to_string(), "trace");
     assert!(!config.logs.console);
     assert!(config.telemetry.enabled);
     assert_eq!(config.workspace, directory.path().join("account"));

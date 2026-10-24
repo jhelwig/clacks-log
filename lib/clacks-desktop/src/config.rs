@@ -115,7 +115,7 @@ pub(crate) struct LogConfig {
     /// Actual directory for local diagnostic files.
     pub directory: PathBuf,
     /// Tracing filter applied at runtime.
-    pub filter: String,
+    pub filter: tracing_subscriber::EnvFilter,
     /// Optional console output alongside local files.
     pub console: bool,
     /// Maximum matching files retained by daily rotation.
@@ -181,14 +181,15 @@ pub(crate) fn resolve(cli: Cli, environment: &Environment) -> anyhow::Result<Des
                     .map(|path| relative_to(path, file_base))
             })
             .unwrap_or_else(|| workspace.join("logs")),
-        filter: if let Some(value) = &cli.log_filter {
+        filter: tracing_subscriber::EnvFilter::try_new(if let Some(value) = &cli.log_filter {
             value.clone()
         } else {
             environment
                 .value("RUST_LOG")?
                 .or(file.logs.filter.clone())
                 .unwrap_or_else(|| "info".into())
-        },
+        })
+        .map_err(|_| anyhow::anyhow!("invalid log filter"))?,
         console: cli.console.or(file.logs.console).unwrap_or(false),
         retained_files: cli
             .log_retained_files
@@ -203,8 +204,6 @@ pub(crate) fn resolve(cli: Cli, environment: &Environment) -> anyhow::Result<Des
         logs.retained_files > 0 && logs.buffered_lines > 0,
         "log retention and writer capacity must be positive"
     );
-    tracing_subscriber::EnvFilter::try_new(&logs.filter)
-        .map_err(|_| anyhow::anyhow!("invalid log filter"))?;
     let telemetry = telemetry::resolve(&cli, environment, &file.telemetry)?;
     Ok(DesktopConfig {
         workspace,

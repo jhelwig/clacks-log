@@ -177,6 +177,17 @@ through real desktop operations. Use standard tracing/appender/metrics adapters
 and exporters, preserving this document's instrumentation and level policies.
 No custom telemetry or span-lifecycle framework is introduced.
 
+Desktop composition caps OpenTelemetry SDK and HTTP transport diagnostics at
+`warn`, even with a more verbose user filter: their debug diagnostics can contain
+endpoint query strings or response bodies. Collector-provided `error_message`
+events are suppressed at every output level as well. These backend targets are excluded
+from the log-export bridge to avoid feedback. Safe SDK warnings remain in local
+output. Operational sink failures degrade diagnostics rather than prevent local
+storage; invalid supplied configuration is still a startup error.
+Runtime file I/O failures set a persistent UI diagnostic and move the standard
+writer's output to stderr; queue saturation remains a separate dropped-line count.
+The narrow I/O adapter neither formats events nor owns rotation, queues or workers.
+
 ## Library producer contract
 
 `clacks-model` and `clacks-sync` emit through `tracing` 0.1 and `metrics` 0.24.
