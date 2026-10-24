@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE contact_report SET frequency = 0 WHERE payload_id = ?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "9c10129cae255f3ff46acb3294d89d157a00c4c7a55a8fed72174aa3a77cffc8"
+}

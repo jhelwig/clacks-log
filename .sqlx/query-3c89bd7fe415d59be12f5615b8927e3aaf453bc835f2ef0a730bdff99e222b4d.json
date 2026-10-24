@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT station_id, operator_call, operator_name, power, equipment_id FROM operating_value WHERE operating_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "station_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "operating_value",
+            "name": "station_id"
+          }
+        }
+      },
+      {
+        "name": "operator_call",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operating_value",
+            "name": "operator_call"
+          }
+        }
+      },
+      {
+        "name": "operator_name",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operating_value",
+            "name": "operator_name"
+          }
+        }
+      },
+      {
+        "name": "power",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "operating_value",
+            "name": "power"
+          }
+        }
+      },
+      {
+        "name": "equipment_id",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "operating_value",
+            "name": "equipment_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "3c89bd7fe415d59be12f5615b8927e3aaf453bc835f2ef0a730bdff99e222b4d"
+}

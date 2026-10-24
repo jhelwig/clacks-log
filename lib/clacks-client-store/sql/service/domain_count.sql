@@ -1,0 +1,10 @@
+SELECT (SELECT count(*) FROM service_destination WHERE payload_id = ?1)
+     + (SELECT count(*) FROM service_assertion WHERE payload_id = ?1)
+     + (SELECT count(*) FROM service_attempt WHERE payload_id = ?1)
+     + (SELECT count(*) FROM service_result WHERE payload_id = ?1)
+     + (SELECT count(*) FROM service_observation WHERE payload_id = ?1)
+     + (SELECT count(*) FROM service_association WHERE payload_id = ?1)
+     + (SELECT count(*) FROM service_disposition WHERE payload_id = ?1)
+     + (SELECT count(*) FROM service_suppression WHERE payload_id = ?1)
+     + (SELECT count(*) FROM service_download WHERE payload_id = ?1)
+     + (SELECT count(*) FROM service_acquisition WHERE payload_id = ?1) AS "roots!: i64"

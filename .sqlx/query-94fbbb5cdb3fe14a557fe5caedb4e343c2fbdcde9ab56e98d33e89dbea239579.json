@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO service_download (payload_id, account, destination_id, active_id) VALUES (?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "94fbbb5cdb3fe14a557fe5caedb4e343c2fbdcde9ab56e98d33e89dbea239579"
+}

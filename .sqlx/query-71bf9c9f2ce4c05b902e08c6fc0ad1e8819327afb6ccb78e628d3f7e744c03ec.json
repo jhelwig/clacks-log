@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT observation_id FROM acquisition_input WHERE payload_id = ? ORDER BY observation_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "observation_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "acquisition_input",
+            "name": "observation_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "71bf9c9f2ce4c05b902e08c6fc0ad1e8819327afb6ccb78e628d3f7e744c03ec"
+}

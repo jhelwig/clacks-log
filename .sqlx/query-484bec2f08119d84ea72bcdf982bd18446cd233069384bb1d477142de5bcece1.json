@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO timeline_boundary (lineage_id, account, ordinal, timeline_id, revision, kind, coverage_id) VALUES (?, ?, ?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "484bec2f08119d84ea72bcdf982bd18446cd233069384bb1d477142de5bcece1"
+}

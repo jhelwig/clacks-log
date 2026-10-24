@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT equipment_description, antenna_description, notes FROM equipment_snapshot WHERE equipment_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "equipment_description",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "equipment_snapshot",
+            "name": "equipment_description"
+          }
+        }
+      },
+      {
+        "name": "antenna_description",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "equipment_snapshot",
+            "name": "antenna_description"
+          }
+        }
+      },
+      {
+        "name": "notes",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "equipment_snapshot",
+            "name": "notes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "596b063a8e21205598b772b5228cccc10713a37244d3e47c94a776880f85990b"
+}

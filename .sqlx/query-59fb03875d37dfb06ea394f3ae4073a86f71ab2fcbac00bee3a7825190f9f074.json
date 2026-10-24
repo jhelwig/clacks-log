@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO client_record (account, kind, record_id, latest_observation, pending_id) VALUES (?, ?, ?, ?, ?)\nON CONFLICT (account, kind, record_id) DO UPDATE SET latest_observation = excluded.latest_observation, pending_id = excluded.pending_id\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "59fb03875d37dfb06ea394f3ae4073a86f71ab2fcbac00bee3a7825190f9f074"
+}

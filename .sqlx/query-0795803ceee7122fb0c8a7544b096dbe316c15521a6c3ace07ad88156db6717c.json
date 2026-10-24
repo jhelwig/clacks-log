@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO local_counter (account, kind, record_id, actor_id, high_water) VALUES (?, ?, ?, ?, ?)\nON CONFLICT (account, kind, record_id, actor_id) DO UPDATE SET high_water = excluded.high_water WHERE excluded.high_water >= high_water\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "0795803ceee7122fb0c8a7544b096dbe316c15521a6c3ace07ad88156db6717c"
+}

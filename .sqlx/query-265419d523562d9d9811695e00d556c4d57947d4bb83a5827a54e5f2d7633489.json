@@ -1,0 +1,98 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT variant, envelope_id, checkpoint_id, payload_id, vector_id, stamp_id, unknown_reason FROM original_basis WHERE original_id = ? AND account = ? AND kind = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "variant",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "original_basis",
+            "name": "variant"
+          }
+        }
+      },
+      {
+        "name": "envelope_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "original_basis",
+            "name": "envelope_id"
+          }
+        }
+      },
+      {
+        "name": "checkpoint_id",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "original_basis",
+            "name": "checkpoint_id"
+          }
+        }
+      },
+      {
+        "name": "payload_id",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "original_basis",
+            "name": "payload_id"
+          }
+        }
+      },
+      {
+        "name": "vector_id",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "original_basis",
+            "name": "vector_id"
+          }
+        }
+      },
+      {
+        "name": "stamp_id",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "original_basis",
+            "name": "stamp_id"
+          }
+        }
+      },
+      {
+        "name": "unknown_reason",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "original_basis",
+            "name": "unknown_reason"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "265419d523562d9d9811695e00d556c4d57947d4bb83a5827a54e5f2d7633489"
+}

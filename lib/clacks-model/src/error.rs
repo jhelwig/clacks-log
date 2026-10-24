@@ -58,6 +58,14 @@ pub enum ValueError {
         /// Measurement unit used in the diagnostic.
         unit: String,
     },
+    /// A physical quantity exceeds the signed 64-bit storage and domain limit.
+    #[error("{unit} exceeds 9,223,372,036,854,775,807: {value}")]
+    QuantityOutOfRange {
+        /// Measurement unit identifying the invalid value.
+        unit: String,
+        /// Rejected whole-unit measurement.
+        value: u64,
+    },
     /// Text cannot be parsed as a native entity identity.
     #[error("invalid ID: {value}")]
     InvalidId {

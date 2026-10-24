@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO reported_reference (report_id, account, group_id, identifier) VALUES (?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "8c45fa29fae98cc390bb7e6f15c07f164a23be18a64f914340244be900f5669b"
+}

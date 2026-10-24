@@ -1,0 +1,134 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT position_kind, locator, latitude, longitude, grid_length, dxcc, primary_subdivision, secondary_subdivision, cq_zone, itu_zone FROM recorded_location WHERE station_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "position_kind",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "recorded_location",
+            "name": "position_kind"
+          }
+        }
+      },
+      {
+        "name": "locator",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "recorded_location",
+            "name": "locator"
+          }
+        }
+      },
+      {
+        "name": "latitude",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "recorded_location",
+            "name": "latitude"
+          }
+        }
+      },
+      {
+        "name": "longitude",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "recorded_location",
+            "name": "longitude"
+          }
+        }
+      },
+      {
+        "name": "grid_length",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "recorded_location",
+            "name": "grid_length"
+          }
+        }
+      },
+      {
+        "name": "dxcc",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "recorded_location",
+            "name": "dxcc"
+          }
+        }
+      },
+      {
+        "name": "primary_subdivision",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "recorded_location",
+            "name": "primary_subdivision"
+          }
+        }
+      },
+      {
+        "name": "secondary_subdivision",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "recorded_location",
+            "name": "secondary_subdivision"
+          }
+        }
+      },
+      {
+        "name": "cq_zone",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "recorded_location",
+            "name": "cq_zone"
+          }
+        }
+      },
+      {
+        "name": "itu_zone",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "recorded_location",
+            "name": "itu_zone"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "fbd4a6572fb3664938624d3fff6ae35700524800acc440abd872135c7581c1af"
+}

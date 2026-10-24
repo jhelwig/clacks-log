@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO baseline (account, baseline_id, coverage_id, lineage_id, membership_generation) VALUES (?, ?, ?, ?, ?) RETURNING baseline_row AS \"baseline_row!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "baseline_row!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "baseline",
+            "name": "baseline_row"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "963f1118f534e99364d5467956a5745047cedd6761eb7a68f5c760b0c9b25b2a"
+}

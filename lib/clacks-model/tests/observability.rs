@@ -341,7 +341,9 @@ fn qrz_conversion_warnings_and_loaded_definitions_have_bounded_reporting() -> an
     };
     let destination = Destination {
         id: support::id(1),
-        collection: RemoteCollection::Qrz { book_id: Some(42) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("42".parse().unwrap()),
+        },
         description: "CANARY-DESCRIPTION".into(),
     };
     let captured = capture(|| {

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO service_acquisition (payload_id, account, query_id, phase, failure, started_seconds, started_nanos, finished_seconds, finished_nanos, complete) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 10
+    },
+    "nullable": []
+  },
+  "hash": "798e31905d8160021b107f9a04fe9e7f5e11944a954147763a120c6e418318c9"
+}

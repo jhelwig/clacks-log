@@ -36,6 +36,8 @@ pub struct MembershipSnapshot {
 impl MembershipSnapshot {
     /// Validate account, epoch, unique identities and acknowledgment scope.
     pub fn validate(&self, account: &AccountMetadata) -> Result<(), MetadataError> {
+        account.validate()?;
+        crate::error::validate_counter(self.generation, "membership generation")?;
         if self.account != account.account || self.generation != account.membership_generation {
             return Err(MetadataError::Scope {
                 detail: format!(
@@ -46,6 +48,13 @@ impl MembershipSnapshot {
         }
         let mut ids = BTreeSet::new();
         for client in &self.clients {
+            client.created_at.validate()?;
+            if let Some(acknowledged) = &client.acknowledged {
+                acknowledged.validate()?;
+            }
+            if let Some(closed) = client.closed_at {
+                closed.validate()?;
+            }
             if !ids.insert(client.actor) {
                 return Err(MetadataError::Conflict {
                     detail: format!("duplicate membership {}", client.actor),
@@ -114,12 +123,7 @@ pub fn revoke(
     }
     let mut next_account = account.advance()?;
     next_account.membership_generation =
-        membership
-            .generation
-            .checked_add(1)
-            .ok_or_else(|| MetadataError::Overflow {
-                counter: "membership generation".into(),
-            })?;
+        crate::error::next_counter(membership.generation, "membership generation")?;
     client.closed_at = Some(next_account.head);
     next.generation = next_account.membership_generation;
     Ok(MembershipUpdate {

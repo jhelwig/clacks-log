@@ -151,6 +151,13 @@ pub struct Position {
     pub revision: u64,
 }
 
+impl Position {
+    /// Check this timeline position's revision before comparison or persistence.
+    pub fn validate(&self) -> Result<(), MetadataError> {
+        crate::error::validate_counter(self.revision, "timeline revision")
+    }
+}
+
 /// Accepted record context interpreted under a retained baseline.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VersionStamp {
@@ -160,6 +167,31 @@ pub struct VersionStamp {
     pub baseline: BaselineId,
     /// Explicit residual record-local counters.
     pub vector: RecordVector,
+}
+
+impl VersionStamp {
+    /// Require a positive accepted position and its matching server component within the counter domain.
+    pub fn validate(&self) -> Result<(), MetadataError> {
+        self.accepted_at.validate()?;
+        if self.accepted_at.revision == 0 {
+            return Err(MetadataError::Invalid {
+                detail: "accepted revision must be positive".into(),
+            });
+        }
+        if self
+            .vector
+            .component(ClockActor::Server(self.accepted_at.timeline))
+            != self.accepted_at.revision
+        {
+            return Err(MetadataError::Invalid {
+                detail: format!(
+                    "accepted context lacks matching server component {:?}",
+                    self.accepted_at
+                ),
+            });
+        }
+        Ok(())
+    }
 }
 
 /// Saved accepted value and its causal identity.
@@ -183,16 +215,8 @@ impl AcceptedRecord {
 
     /// Validate a deserialized envelope before a synchronization transition uses it.
     pub fn validate(&self) -> anyhow::Result<()> {
+        self.stamp.validate()?;
         self.state.validate(self.key)?;
-        let p = self.stamp.accepted_at;
-        if p.revision == 0
-            || self.stamp.vector.component(ClockActor::Server(p.timeline)) != p.revision
-        {
-            return Err(MetadataError::Invalid {
-                detail: format!("record {:?} lacks acceptance component {p:?}", self.key),
-            }
-            .into());
-        }
         Ok(())
     }
 }
@@ -240,7 +264,8 @@ impl Observation {
                 }
                 .into())
             }
-            _ => Ok(()),
+            Self::Absent { checkpoint, .. } => Ok(checkpoint.validate()?),
+            Self::Unavailable { .. } => Ok(()),
         }
     }
 }

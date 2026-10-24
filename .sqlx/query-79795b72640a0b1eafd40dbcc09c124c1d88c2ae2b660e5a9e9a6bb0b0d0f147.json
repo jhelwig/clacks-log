@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT actor_kind, actor_id, counter FROM vector_component WHERE vector_id = ? ORDER BY actor_kind, actor_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "actor_kind",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "vector_component",
+            "name": "actor_kind"
+          }
+        }
+      },
+      {
+        "name": "actor_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "vector_component",
+            "name": "actor_id"
+          }
+        }
+      },
+      {
+        "name": "counter",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "vector_component",
+            "name": "counter"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "79795b72640a0b1eafd40dbcc09c124c1d88c2ae2b660e5a9e9a6bb0b0d0f147"
+}

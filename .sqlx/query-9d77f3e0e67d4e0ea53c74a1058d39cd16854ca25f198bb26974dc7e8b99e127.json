@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT attempt_id FROM result_member WHERE payload_id = ? ORDER BY attempt_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "attempt_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "result_member",
+            "name": "attempt_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9d77f3e0e67d4e0ea53c74a1058d39cd16854ca25f198bb26974dc7e8b99e127"
+}

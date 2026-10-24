@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO service_suppression (payload_id, account, external_id, qso_id) VALUES (?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "9ecaf6bf0608e0c4c3fb6f6ec54acabe3ed5a82052d13a6719bdc4b85ba31777"
+}

@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT generation FROM window_progress WHERE window_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "generation",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "window_progress",
+            "name": "generation"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ca7ef770bacf1f3b54b037017876459ebe15b5cad62cd8e35746ddd4a6ccb6d1"
+}

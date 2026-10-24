@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT original_id, observed_stamp, checkpoint_id, relation, lineage_id FROM basis_witness WHERE witness_id = ? AND account = ? AND kind = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "original_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "basis_witness",
+            "name": "original_id"
+          }
+        }
+      },
+      {
+        "name": "observed_stamp",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "basis_witness",
+            "name": "observed_stamp"
+          }
+        }
+      },
+      {
+        "name": "checkpoint_id",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "basis_witness",
+            "name": "checkpoint_id"
+          }
+        }
+      },
+      {
+        "name": "relation",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "basis_witness",
+            "name": "relation"
+          }
+        }
+      },
+      {
+        "name": "lineage_id",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "basis_witness",
+            "name": "lineage_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e4a050be1b215fb4e8477f8b77d196d2d49eb86c2d181601d803f5d34d488c9f"
+}

@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT observation_id, decision, association_id FROM service_disposition WHERE payload_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "observation_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_disposition",
+            "name": "observation_id"
+          }
+        }
+      },
+      {
+        "name": "decision",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_disposition",
+            "name": "decision"
+          }
+        }
+      },
+      {
+        "name": "association_id",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_disposition",
+            "name": "association_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "19cb34d78617907bcec7e227914ec73b6cba70284b47b9dd83db742a7295a1d6"
+}

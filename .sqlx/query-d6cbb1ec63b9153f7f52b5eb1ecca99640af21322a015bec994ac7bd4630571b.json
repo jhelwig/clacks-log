@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO group_normalization (payload_id, ordinal, transformation) VALUES (?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "d6cbb1ec63b9153f7f52b5eb1ecca99640af21322a015bec994ac7bd4630571b"
+}

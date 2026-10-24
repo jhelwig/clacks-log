@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO payload (account, kind, record_id, deleted) VALUES (?, ?, ?, ?) RETURNING payload_id AS \"payload_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "payload_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "payload",
+            "name": "payload_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ad5e9c1d0c1bcac86058592344d7b4fd4cd48e0ee404c422558d8a9721ec2459"
+}

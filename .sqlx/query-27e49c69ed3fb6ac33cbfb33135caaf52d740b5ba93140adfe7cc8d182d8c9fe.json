@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT baseline_id, coverage_id, lineage_id, membership_generation FROM baseline WHERE baseline_row = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "baseline_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "baseline",
+            "name": "baseline_id"
+          }
+        }
+      },
+      {
+        "name": "coverage_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "baseline",
+            "name": "coverage_id"
+          }
+        }
+      },
+      {
+        "name": "lineage_id",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "baseline",
+            "name": "lineage_id"
+          }
+        }
+      },
+      {
+        "name": "membership_generation",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "baseline",
+            "name": "membership_generation"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "27e49c69ed3fb6ac33cbfb33135caaf52d740b5ba93140adfe7cc8d182d8c9fe"
+}

@@ -23,6 +23,23 @@ pub struct Baseline {
     pub membership_generation: u64,
 }
 
+impl Baseline {
+    /// Validate the account scope and admission generation of a retained interpretation.
+    pub fn validate(&self) -> Result<(), MetadataError> {
+        self.coverage.validate()?;
+        crate::error::validate_counter(
+            self.membership_generation,
+            "baseline membership generation",
+        )?;
+        if self.lineage.account() != self.account {
+            return Err(MetadataError::Scope {
+                detail: "baseline lineage crosses account".into(),
+            });
+        }
+        Ok(())
+    }
+}
+
 /// Complete installed state; reload after commit before sending acknowledgment.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstalledCheckpoint {
@@ -32,6 +49,13 @@ pub struct InstalledCheckpoint {
     pub baseline: BaselineId,
     /// Fully represented prefixes.
     pub coverage: Coverage,
+}
+
+impl InstalledCheckpoint {
+    /// Check that complete-prefix coordinates fit the synchronization counter domain.
+    pub fn validate(&self) -> Result<(), MetadataError> {
+        self.coverage.validate()
+    }
 }
 
 /// Current server synchronization head and admission epoch.
@@ -50,6 +74,13 @@ pub struct AccountMetadata {
 }
 
 impl AccountMetadata {
+    /// Validate externally supplied head and membership counters before a transition uses them.
+    pub fn validate(&self) -> Result<(), MetadataError> {
+        self.head.validate()?;
+        self.installed.validate()?;
+        crate::error::validate_counter(self.membership_generation, "account membership generation")
+    }
+
     /// Initialize empty history; native seed records use ordinary server acceptance.
     pub fn initialize(
         account: AccountId,
@@ -107,6 +138,7 @@ impl EvidenceView<'_> {
         }
         let mut found = None;
         for b in self.baselines.iter().filter(|b| b.id == id) {
+            b.validate()?;
             if b.account != account || b.lineage.account() != account {
                 return Err(MetadataError::Scope {
                     detail: format!("baseline {id} belongs to another account"),
@@ -129,13 +161,11 @@ impl AccountMetadata {
     /// Call only as part of a conditional transaction; exhaustion never wraps.
     pub(crate) fn advance(&self) -> Result<Self, MetadataError> {
         let mut next = self.clone();
-        next.head.revision =
-            next.head
-                .revision
-                .checked_add(1)
-                .ok_or_else(|| MetadataError::Overflow {
-                    counter: format!("account {} timeline {}", self.account, self.head.timeline),
-                })?;
+        self.validate()?;
+        next.head.revision = crate::error::next_counter(
+            self.head.revision,
+            &format!("account {} timeline {}", self.account, self.head.timeline),
+        )?;
         next.installed = next.installed.join(&Coverage::from(next.head));
         Ok(next)
     }

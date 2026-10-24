@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT EXISTS (SELECT 1 FROM record_identity) AS populated\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "populated",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a4de430a023ec184acc71c45bb8f68cda4d5e8d0040daa599b66fca026049855"
+}

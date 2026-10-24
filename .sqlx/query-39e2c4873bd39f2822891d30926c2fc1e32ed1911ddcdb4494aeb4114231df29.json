@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ordinal, baseline_row FROM witness_baseline WHERE witness_id = ? ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "ordinal",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "witness_baseline",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "name": "baseline_row",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "witness_baseline",
+            "name": "baseline_row"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "39e2c4873bd39f2822891d30926c2fc1e32ed1911ddcdb4494aeb4114231df29"
+}

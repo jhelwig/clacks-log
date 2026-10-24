@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "lib/clacks-client-store",
     "lib/clacks-geography",
     "lib/clacks-geography-builder",
     "bin/clacks-geography-build",
@@ -20,6 +21,10 @@ license = "Elastic-2.0"
 publish = false
 
 [workspace.dependencies]
+clacks-client-store = { path = "lib/clacks-client-store" }
+clacks-sync = { path = "lib/clacks-sync" }
+sqlx = { version = "=0.9.0", default-features = false, features = ["runtime-tokio", "sqlite-bundled", "macros", "migrate"] }
+tokio = { version = "=1.54.1", default-features = false, features = ["rt", "sync", "time"] }
 clacks-geography = { path = "lib/clacks-geography" }
 clacks-geography-builder = { path = "lib/clacks-geography-builder" }
 shapefile = { version = "=0.9.0", features = ["geo-types"] }

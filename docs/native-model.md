@@ -48,8 +48,9 @@ The native library uses these representations:
    groups, catalogs and output profiles. Use Universally Unique Lexicographically
    Sortable Identifiers (ULIDs) for newly created native entities, following the
    user's preference for identifiers of this kind. Identity never depends on
-   a display name or timestamp order. The implementation uses the ulid library with string serialization; database and
-   synchronization encodings remain downstream.
+   a display name or timestamp order. Native IDs use the ulid library's string
+   serialization. Synchronization encoding follows its owning contract; SQLite
+   encoding follows the [client-store contract](client-store.md).
 2. When coordinates require rounding to integer millionths of a degree, use
    nearest with exact halfway values rounded away from zero. Validate the
    supplied geographic range before rounding so rounding cannot turn an
@@ -160,8 +161,8 @@ Existing-contact updates cannot clear either required callsign.
 | --- | --- |
 | Recorded callsign | Trim surrounding whitespace and uppercase. Preserve prefixes, suffixes and slash components. |
 | Contact time | Full UTC timestamp at whole-second resolution; no separate timestamp-precision metadata. |
-| Exact frequency | Positive integer hertz; whole-hertz resolution. |
-| Transmit power | Positive integer milliwatts; absence means unknown. Display/export can express watts. |
+| Exact frequency | Positive integer hertz through the signed 64-bit maximum; whole-hertz resolution. |
+| Transmit power | Positive integer milliwatts through the signed 64-bit maximum; absence means unknown. Display/export can express watts. |
 | Latitude/longitude | Signed integer millionths of a degree; six decimal places of degree resolution. |
 | Maidenhead locator | Supported length 2, 4, 6, 8, 10 or 12, retaining the supplied/selected length. |
 | Ordinary optional text | Empty/whitespace-only becomes absent; otherwise preserve supplied text, including case, accents and spacing. |

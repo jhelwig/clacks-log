@@ -1,0 +1,110 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT query_id, phase, failure, started_seconds, started_nanos, finished_seconds, finished_nanos, complete FROM service_acquisition WHERE payload_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "query_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_acquisition",
+            "name": "query_id"
+          }
+        }
+      },
+      {
+        "name": "phase",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_acquisition",
+            "name": "phase"
+          }
+        }
+      },
+      {
+        "name": "failure",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_acquisition",
+            "name": "failure"
+          }
+        }
+      },
+      {
+        "name": "started_seconds",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_acquisition",
+            "name": "started_seconds"
+          }
+        }
+      },
+      {
+        "name": "started_nanos",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_acquisition",
+            "name": "started_nanos"
+          }
+        }
+      },
+      {
+        "name": "finished_seconds",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_acquisition",
+            "name": "finished_seconds"
+          }
+        }
+      },
+      {
+        "name": "finished_nanos",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_acquisition",
+            "name": "finished_nanos"
+          }
+        }
+      },
+      {
+        "name": "complete",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_acquisition",
+            "name": "complete"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "b504be3cd2eb1c198a345a202055d958130561dfef2c495da01661f99a1cfe72"
+}

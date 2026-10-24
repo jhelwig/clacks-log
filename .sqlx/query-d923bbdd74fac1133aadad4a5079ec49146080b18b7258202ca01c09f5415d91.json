@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO coverage (account) VALUES (?) RETURNING coverage_id AS \"coverage_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "coverage_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "coverage",
+            "name": "coverage_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d923bbdd74fac1133aadad4a5079ec49146080b18b7258202ca01c09f5415d91"
+}

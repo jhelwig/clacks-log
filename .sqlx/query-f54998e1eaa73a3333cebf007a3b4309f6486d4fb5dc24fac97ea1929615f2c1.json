@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO service_attempt (payload_id, account, qso_id, projection_id, phase, at_seconds, at_nanos, batch_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 8
+    },
+    "nullable": []
+  },
+  "hash": "f54998e1eaa73a3333cebf007a3b4309f6486d4fb5dc24fac97ea1929615f2c1"
+}

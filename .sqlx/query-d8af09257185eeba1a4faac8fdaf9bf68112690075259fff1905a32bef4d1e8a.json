@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT timeline_id, revision FROM coverage_entry WHERE coverage_id = ? ORDER BY timeline_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "timeline_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "coverage_entry",
+            "name": "timeline_id"
+          }
+        }
+      },
+      {
+        "name": "revision",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "coverage_entry",
+            "name": "revision"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d8af09257185eeba1a4faac8fdaf9bf68112690075259fff1905a32bef4d1e8a"
+}

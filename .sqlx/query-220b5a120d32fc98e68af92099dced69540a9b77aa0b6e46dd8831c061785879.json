@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO current_external_binding (account,external_id,association_id,envelope_id,payload_id)\nSELECT c.account,s.external_id,c.record_id,o.envelope_id,a.payload_id\nFROM client_record c JOIN record_observation o ON o.observation_id = c.latest_observation\nJOIN accepted_record a ON a.envelope_id = o.envelope_id\nJOIN service_association s ON s.payload_id = a.payload_id\nWHERE c.account = ? AND c.kind = 'association' AND c.record_id = ?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "220b5a120d32fc98e68af92099dced69540a9b77aa0b6e46dd8831c061785879"
+}

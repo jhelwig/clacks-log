@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT payload_id, vector_id, actor_id, condition_id FROM prepared_change WHERE prepared_id = ? AND account = ? AND kind = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "payload_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "prepared_change",
+            "name": "payload_id"
+          }
+        }
+      },
+      {
+        "name": "vector_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "prepared_change",
+            "name": "vector_id"
+          }
+        }
+      },
+      {
+        "name": "actor_id",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "prepared_change",
+            "name": "actor_id"
+          }
+        }
+      },
+      {
+        "name": "condition_id",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "prepared_change",
+            "name": "condition_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f1dbd203efd6a065bdde759370503f5de1dbcaeb09004eb5d8eb0973643b1dc4"
+}

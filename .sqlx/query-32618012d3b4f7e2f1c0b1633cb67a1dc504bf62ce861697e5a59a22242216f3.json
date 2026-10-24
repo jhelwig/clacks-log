@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ordinal, timeline_id, revision, kind, coverage_id FROM timeline_boundary WHERE lineage_id = ? AND account = ? ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "ordinal",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "timeline_boundary",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "name": "timeline_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "timeline_boundary",
+            "name": "timeline_id"
+          }
+        }
+      },
+      {
+        "name": "revision",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "timeline_boundary",
+            "name": "revision"
+          }
+        }
+      },
+      {
+        "name": "kind",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "timeline_boundary",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "coverage_id",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "timeline_boundary",
+            "name": "coverage_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "32618012d3b4f7e2f1c0b1633cb67a1dc504bf62ce861697e5a59a22242216f3"
+}

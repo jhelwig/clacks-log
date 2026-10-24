@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO service_disposition (payload_id, account, observation_id, decision, association_id) VALUES (?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "9240f9ea06c3e808061efee30698f50b59ff2d308965ab7dfd6678bd36a1324d"
+}

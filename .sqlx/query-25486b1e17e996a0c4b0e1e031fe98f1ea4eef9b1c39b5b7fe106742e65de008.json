@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT callsign FROM station_snapshot WHERE station_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "callsign",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "station_snapshot",
+            "name": "callsign"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "25486b1e17e996a0c4b0e1e031fe98f1ea4eef9b1c39b5b7fe106742e65de008"
+}

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT group_id, identifier FROM station_reference WHERE station_id = ? AND account = ? ORDER BY group_id, identifier\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "group_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "station_reference",
+            "name": "group_id"
+          }
+        }
+      },
+      {
+        "name": "identifier",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "station_reference",
+            "name": "identifier"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "42c0caf8c60748e698d73a71c899c22c6febd1bbc5ef1107911c8c74c33cb076"
+}

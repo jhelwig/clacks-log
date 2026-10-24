@@ -256,7 +256,7 @@ fn batch_returned_identity_needs_explicit_member_correlation() -> anyhow::Result
         diagnostic: None,
         external: Some(ExternalRecordKey {
             destination,
-            record: RemoteRecordId::Qrz(7),
+            record: RemoteRecordId::Qrz("7".parse().unwrap()),
         }),
     };
     assert_eq!(result.identified_attempt()?, None);

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM retained_accepted WHERE account = ? AND kind = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "f0ccdb61b94b040a8e556e32ead60771fa87b0e35417bccccdcfef984bf72502"
+}

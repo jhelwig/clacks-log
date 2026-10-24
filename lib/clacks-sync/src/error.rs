@@ -3,6 +3,27 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// Reject counters outside the domain shared by native transitions and durable stores.
+pub(crate) fn validate_counter(value: u64, name: &str) -> Result<(), MetadataError> {
+    if value > i64::MAX as u64 {
+        return Err(MetadataError::Invalid {
+            detail: format!("{name} exceeds signed 64-bit maximum: {value}"),
+        });
+    }
+    Ok(())
+}
+
+/// Allocate a successor without wrapping or exceeding the durable counter domain.
+pub(crate) fn next_counter(value: u64, name: &str) -> Result<u64, MetadataError> {
+    validate_counter(value, name)?;
+    value
+        .checked_add(1)
+        .filter(|next| *next <= i64::MAX as u64)
+        .ok_or_else(|| MetadataError::Overflow {
+            counter: name.into(),
+        })
+}
+
 /// Reason an ordering comparison cannot establish a relationship.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UnknownReason {

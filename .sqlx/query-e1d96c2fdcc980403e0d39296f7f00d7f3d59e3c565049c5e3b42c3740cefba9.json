@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO prepared_change (account, kind, record_id, payload_id, vector_id, actor_id, condition_id) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING prepared_id AS \"prepared_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "prepared_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "prepared_change",
+            "name": "prepared_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e1d96c2fdcc980403e0d39296f7f00d7f3d59e3c565049c5e3b42c3740cefba9"
+}

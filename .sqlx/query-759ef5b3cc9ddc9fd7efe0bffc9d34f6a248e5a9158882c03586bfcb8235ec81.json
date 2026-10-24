@@ -1,0 +1,98 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ordinal, requirement, account, kind, record_id, stamp_id, deleted FROM support_requirement WHERE payload_id = ? ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "ordinal",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "support_requirement",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "name": "requirement",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "support_requirement",
+            "name": "requirement"
+          }
+        }
+      },
+      {
+        "name": "account",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "support_requirement",
+            "name": "account"
+          }
+        }
+      },
+      {
+        "name": "kind",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "support_requirement",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "record_id",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "support_requirement",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "name": "stamp_id",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "support_requirement",
+            "name": "stamp_id"
+          }
+        }
+      },
+      {
+        "name": "deleted",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "support_requirement",
+            "name": "deleted"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "759ef5b3cc9ddc9fd7efe0bffc9d34f6a248e5a9158882c03586bfcb8235ec81"
+}

@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO transfer_window (account, source_checkpoint, mode, after_coverage) VALUES (?, ?, ?, ?) RETURNING window_id AS \"window_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "window_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "transfer_window",
+            "name": "window_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c5b5820b780d7b80eb4093c56104d689f8693a955097b1304e0e3ed39f1d8084"
+}

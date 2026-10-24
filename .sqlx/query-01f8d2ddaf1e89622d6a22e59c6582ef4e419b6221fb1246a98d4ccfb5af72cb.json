@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT head_timeline, head_revision, baseline_id, coverage_id, membership_generation FROM account_metadata WHERE account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "head_timeline",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "account_metadata",
+            "name": "head_timeline"
+          }
+        }
+      },
+      {
+        "name": "head_revision",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "account_metadata",
+            "name": "head_revision"
+          }
+        }
+      },
+      {
+        "name": "baseline_id",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "account_metadata",
+            "name": "baseline_id"
+          }
+        }
+      },
+      {
+        "name": "coverage_id",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "account_metadata",
+            "name": "coverage_id"
+          }
+        }
+      },
+      {
+        "name": "membership_generation",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "account_metadata",
+            "name": "membership_generation"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "01f8d2ddaf1e89622d6a22e59c6582ef4e419b6221fb1246a98d4ccfb5af72cb"
+}

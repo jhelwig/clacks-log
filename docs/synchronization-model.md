@@ -710,6 +710,17 @@ projection is the application-specific part requiring careful implementation and
 validation; published vector algorithms do not prove it merely because the
 metadata contains a map of counters. The production core guide defines implemented operations and downstream transaction obligations.
 
+### Client storage integration
+
+The [client-store specification](client-store.md) defines relational persistence
+and real SQLite transaction boundaries for these transitions. Clacks-controlled
+counters, revisions and generations use the nonnegative signed 64-bit range, with
+their existing zero/nonzero rules and checked exhaustion. This range applies to
+native validation as well as storage; Rust `u64` fields do not require retaining
+the full unsigned range. Client stale-save protection must not prescribe extra
+local generation counters; existing membership and transfer-progress generations
+retain their defined synchronization purposes.
+
 ### Service evidence within the account scope
 
 `RecordId::Service` and `RecordValue::Service` carry the model's service payloads

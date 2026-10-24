@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT descriptor_id FROM service_destination WHERE payload_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "descriptor_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_destination",
+            "name": "descriptor_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "16ac0533445639bc5a3620f22e4b2c700d39771586c946e5ba0563c7238bf44f"
+}

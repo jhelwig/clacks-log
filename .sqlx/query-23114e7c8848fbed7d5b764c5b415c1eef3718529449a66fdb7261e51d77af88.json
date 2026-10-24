@@ -1,0 +1,266 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT own_call_state, own_call, worked_call_state, worked_call, start_state, start_kind, start, band_state, band, receive_band_state, receive_band, frequency_state, frequency, receive_frequency_state, receive_frequency, mode_state, mode, mode_parent, mode_group, confirmation_state, confirmation FROM contact_report WHERE report_id = ? AND payload_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "own_call_state",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "own_call_state"
+          }
+        }
+      },
+      {
+        "name": "own_call",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "own_call"
+          }
+        }
+      },
+      {
+        "name": "worked_call_state",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "worked_call_state"
+          }
+        }
+      },
+      {
+        "name": "worked_call",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "worked_call"
+          }
+        }
+      },
+      {
+        "name": "start_state",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "start_state"
+          }
+        }
+      },
+      {
+        "name": "start_kind",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "start_kind"
+          }
+        }
+      },
+      {
+        "name": "start",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "start"
+          }
+        }
+      },
+      {
+        "name": "band_state",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "band_state"
+          }
+        }
+      },
+      {
+        "name": "band",
+        "ordinal": 8,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "band"
+          }
+        }
+      },
+      {
+        "name": "receive_band_state",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "receive_band_state"
+          }
+        }
+      },
+      {
+        "name": "receive_band",
+        "ordinal": 10,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "receive_band"
+          }
+        }
+      },
+      {
+        "name": "frequency_state",
+        "ordinal": 11,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "frequency_state"
+          }
+        }
+      },
+      {
+        "name": "frequency",
+        "ordinal": 12,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "frequency"
+          }
+        }
+      },
+      {
+        "name": "receive_frequency_state",
+        "ordinal": 13,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "receive_frequency_state"
+          }
+        }
+      },
+      {
+        "name": "receive_frequency",
+        "ordinal": 14,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "receive_frequency"
+          }
+        }
+      },
+      {
+        "name": "mode_state",
+        "ordinal": 15,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "mode_state"
+          }
+        }
+      },
+      {
+        "name": "mode",
+        "ordinal": 16,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "mode"
+          }
+        }
+      },
+      {
+        "name": "mode_parent",
+        "ordinal": 17,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "mode_parent"
+          }
+        }
+      },
+      {
+        "name": "mode_group",
+        "ordinal": 18,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "mode_group"
+          }
+        }
+      },
+      {
+        "name": "confirmation_state",
+        "ordinal": 19,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "confirmation_state"
+          }
+        }
+      },
+      {
+        "name": "confirmation",
+        "ordinal": 20,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "confirmation"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "23114e7c8848fbed7d5b764c5b415c1eef3718529449a66fdb7261e51d77af88"
+}

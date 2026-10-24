@@ -159,7 +159,7 @@ fn service_operations_preserve_input_scope_and_missing_record_identity() -> anyh
         let destination = Destination {
             id: support::id(n),
             collection: RemoteCollection::Qrz {
-                book_id: Some(n as u64),
+                book_id: Some(n.to_string().parse().unwrap()),
             },
             description: "not telemetry".into(),
         };
@@ -194,7 +194,7 @@ fn service_operations_preserve_input_scope_and_missing_record_identity() -> anyh
         );
         let external = ExternalRecordKey {
             destination: destination.id,
-            record: RemoteRecordId::Qrz(7),
+            record: RemoteRecordId::Qrz("7".parse().unwrap()),
         };
         let index = ExternalBindingObservation {
             account: account.account,

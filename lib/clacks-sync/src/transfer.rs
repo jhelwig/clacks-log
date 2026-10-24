@@ -69,6 +69,10 @@ impl WindowManifest {
         baselines: Vec<Baseline>,
         units: Vec<CoupledRequirement>,
     ) -> anyhow::Result<Self> {
+        source.validate()?;
+        if let WindowMode::Incremental { after } = &mode {
+            after.validate()?;
+        }
         if source.account != account {
             return Err(MetadataError::Scope {
                 detail: format!(
@@ -80,6 +84,7 @@ impl WindowManifest {
         }
         let mut unique = BTreeMap::new();
         for record in records {
+            record.stamp.validate()?;
             if record.key.account != account {
                 return Err(MetadataError::Scope {
                     detail: format!("manifest record {:?} crosses account", record.key),
@@ -103,12 +108,17 @@ impl WindowManifest {
             }
         }
         for b in &baselines {
+            b.validate()?;
             if b.account != account || b.lineage.account() != account {
                 return Err(MetadataError::Scope {
                     detail: format!("manifest baseline {} crosses account", b.id),
                 }
                 .into());
             }
+        }
+        for boundary in &boundaries {
+            boundary.at.validate()?;
+            boundary.includes.validate()?;
         }
         let mut unit_ids = BTreeSet::new();
         for unit in &units {
@@ -117,6 +127,7 @@ impl WindowManifest {
             }
             let mut member_keys = BTreeSet::new();
             for member in &unit.members {
+                member.stamp.validate()?;
                 anyhow::ensure!(
                     member.key.account == account
                         && unique.contains_key(&member.key)
@@ -223,6 +234,7 @@ pub struct CheckpointUpdate {
 
 /// Verify the progress row belongs to this immutable window.
 fn validate_progress(manifest: &WindowManifest, progress: &WindowProgress) -> anyhow::Result<()> {
+    crate::error::validate_counter(progress.generation, "window progress")?;
     manifest.validate()?;
     if manifest.source != progress.source || manifest.mode != progress.mode {
         return Err(MetadataError::Conflict {
@@ -297,13 +309,7 @@ pub fn plan_batch(
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<InstallBatch> {
     validate_progress(manifest, progress)?;
-    let next_generation =
-        progress
-            .generation
-            .checked_add(1)
-            .ok_or_else(|| MetadataError::Overflow {
-                counter: "window progress".into(),
-            })?;
+    let next_generation = crate::error::next_counter(progress.generation, "window progress")?;
     let mut candidates = progress.staged.clone();
     for row in incoming {
         let required = manifest
@@ -575,8 +581,62 @@ pub fn finish_window(
     previous: &InstalledCheckpoint,
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<CheckpointUpdate> {
+    previous.validate()?;
+    if previous.account != manifest.account {
+        anyhow::bail!("window completion account mismatch");
+    }
+    if let WindowMode::Incremental { after } = &manifest.mode
+        && after.entries().any(|(timeline, revision)| {
+            !previous
+                .coverage
+                .covers(crate::record::Position { timeline, revision })
+        })
+    {
+        return Err(MetadataError::Incomplete {
+            detail: "incremental starting prefixes are not installed".into(),
+        }
+        .into());
+    }
+    verify_complete(manifest, progress, installed, evidence)?;
+    Ok(CheckpointUpdate {
+        expected: previous.clone(),
+        next: InstalledCheckpoint {
+            account: manifest.account,
+            baseline: manifest.source.baseline,
+            coverage: previous.coverage.join(&manifest.source.coverage),
+        },
+        completed_source: manifest.source.clone(),
+        expected_progress_generation: progress.generation,
+    })
+}
+
+/// Verify a first complete full view without inventing an earlier installed checkpoint.
+///
+/// Storage adapters must check that no completed receipt exists and commit this
+/// verified result with the window progress before acknowledging it.
+pub fn finish_initial_window(
+    manifest: &WindowManifest,
+    progress: &WindowProgress,
+    installed: &[AcceptedRecord],
+    evidence: &EvidenceView<'_>,
+) -> anyhow::Result<InstalledCheckpoint> {
+    anyhow::ensure!(
+        matches!(manifest.mode, WindowMode::Full),
+        "initial installation requires a full window"
+    );
+    verify_complete(manifest, progress, installed, evidence)?;
+    Ok(manifest.source.clone())
+}
+
+/// Check required values, complete units and installed interpretation for either completion path.
+fn verify_complete(
+    manifest: &WindowManifest,
+    progress: &WindowProgress,
+    installed: &[AcceptedRecord],
+    evidence: &EvidenceView<'_>,
+) -> anyhow::Result<()> {
     validate_progress(manifest, progress)?;
-    if previous.account != manifest.account || evidence.lineage.account() != manifest.account {
+    if evidence.lineage.account() != manifest.account {
         return Err(MetadataError::Scope {
             detail: "window completion account mismatch".into(),
         }
@@ -606,18 +666,6 @@ pub fn finish_window(
             }
             .into());
         }
-    }
-    if let WindowMode::Incremental { after } = &manifest.mode
-        && after.entries().any(|(timeline, revision)| {
-            !previous
-                .coverage
-                .covers(crate::record::Position { timeline, revision })
-        })
-    {
-        return Err(MetadataError::Incomplete {
-            detail: "incremental starting prefixes are not installed".into(),
-        }
-        .into());
     }
     for requirement in &manifest.records {
         let actual = installed
@@ -662,14 +710,5 @@ pub fn finish_window(
             );
         }
     }
-    Ok(CheckpointUpdate {
-        expected: previous.clone(),
-        next: InstalledCheckpoint {
-            account: manifest.account,
-            baseline: manifest.source.baseline,
-            coverage: previous.coverage.join(&manifest.source.coverage),
-        },
-        completed_source: manifest.source.clone(),
-        expected_progress_generation: progress.generation,
-    })
+    Ok(())
 }

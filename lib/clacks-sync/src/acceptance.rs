@@ -161,6 +161,10 @@ pub fn plan_acceptance(
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<AcceptanceDecision> {
     input.membership.validate(input.account)?;
+    change.expected.validate()?;
+    for dependency in &change.dependencies {
+        dependency.validate()?;
+    }
     if let Some(reason) = admission(change.actor, input.membership) {
         metrics::counter!("clacks_sync_acceptance_plans_total", "origin" => "client", "decision" => "rejected").increment(1);
         tracing::debug!(
@@ -243,6 +247,9 @@ pub fn plan_server_acceptance(
     input: &AcceptanceInput<'_>,
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<AcceptanceDecision> {
+    for dependency in &change.dependencies {
+        dependency.validate()?;
+    }
     validate_input(change.key, &change.state, &change.expected, input, evidence)?;
     let context = match input.current {
         Observation::Accepted(v) => v.stamp.vector.clone(),
@@ -282,6 +289,7 @@ fn validate_input(
 ) -> anyhow::Result<()> {
     input.membership.validate(input.account)?;
     input.current.validate()?;
+    expected.validate()?;
     state.validate(key)?;
     if let Observation::Accepted(old) = input.current {
         crate::service::check_integrity(key, &old.state, state)?;
@@ -340,8 +348,11 @@ fn validate_input(
     Ok(())
 }
 
-/// Derive mandatory native reference identities without treating unknown groups as invalid.
-pub(crate) fn required_references(key: RecordKey, state: &RecordState) -> Vec<RecordKey> {
+/// Identify native references that must be live when publishing this state.
+///
+/// Storage adapters use these keys to read compared shared observations in the
+/// same transaction as preparation. Unknown group associations are not prerequisites.
+pub fn required_references(key: RecordKey, state: &RecordState) -> Vec<RecordKey> {
     match state {
         RecordState::Live(RecordValue::Qso(q)) => q
             .tags

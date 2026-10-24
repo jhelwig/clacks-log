@@ -8,3 +8,6 @@ references/trustedqsl/upstream/** -text
 lib/**/tests/fixtures/** -text
 lib/**/data/*.json -text
 references/geography/*.json -text
+
+# SQLx checksums and checked query inputs must not vary across platforms.
+*.sql text eol=lf

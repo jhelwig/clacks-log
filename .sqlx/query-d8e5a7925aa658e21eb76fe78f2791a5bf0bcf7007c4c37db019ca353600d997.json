@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT source_checkpoint, mode, after_coverage FROM transfer_window WHERE window_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "source_checkpoint",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "transfer_window",
+            "name": "source_checkpoint"
+          }
+        }
+      },
+      {
+        "name": "mode",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "transfer_window",
+            "name": "mode"
+          }
+        }
+      },
+      {
+        "name": "after_coverage",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "transfer_window",
+            "name": "after_coverage"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "d8e5a7925aa658e21eb76fe78f2791a5bf0bcf7007c4c37db019ca353600d997"
+}

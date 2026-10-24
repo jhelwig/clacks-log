@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT field FROM query_field WHERE query_id = ? ORDER BY field\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "field",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "query_field",
+            "name": "field"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "eb37b7227d4e0eae2c04003e87819af528645dbfeca20d720f96933c1568a69b"
+}

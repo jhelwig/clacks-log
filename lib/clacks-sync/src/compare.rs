@@ -105,6 +105,8 @@ pub(crate) fn compare_contexts(
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<RecordRelation> {
     let lb = evidence.baseline(key.account, left.baseline)?;
+    left.validate()?;
+    right.validate()?;
     let rb = evidence.baseline(key.account, right.baseline)?;
     let (Some(lb), Some(rb)) = (lb, rb) else {
         return Ok(RecordRelation::Unknown(UnknownReason::MissingBaseline));

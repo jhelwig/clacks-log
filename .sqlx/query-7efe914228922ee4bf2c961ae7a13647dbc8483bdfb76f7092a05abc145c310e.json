@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT name, lotw_policy, qrz_policy FROM tag_payload WHERE payload_id = ? AND account = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "name",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tag_payload",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "lotw_policy",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tag_payload",
+            "name": "lotw_policy"
+          }
+        }
+      },
+      {
+        "name": "qrz_policy",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tag_payload",
+            "name": "qrz_policy"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "7efe914228922ee4bf2c961ae7a13647dbc8483bdfb76f7092a05abc145c310e"
+}

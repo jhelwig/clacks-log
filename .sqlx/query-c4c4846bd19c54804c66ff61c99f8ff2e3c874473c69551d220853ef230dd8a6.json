@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT baseline_row AS \"baseline_row!: i64\" FROM baseline WHERE account = ? ORDER BY baseline_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "baseline_row!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "baseline",
+            "name": "baseline_row"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c4c4846bd19c54804c66ff61c99f8ff2e3c874473c69551d220853ef230dd8a6"
+}

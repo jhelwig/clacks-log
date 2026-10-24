@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO original_basis (account, kind, record_id, variant, envelope_id, checkpoint_id, payload_id, vector_id, stamp_id, unknown_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING original_id AS \"original_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "original_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "original_basis",
+            "name": "original_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 10
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "4251bfc10297aa62321d5761cf347f430a4b6f2edaa88552217e3f575eb91e06"
+}

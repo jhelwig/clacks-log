@@ -69,6 +69,7 @@ pub(crate) fn expanded(
     checkpoint: &InstalledCheckpoint,
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<Coverage> {
+    checkpoint.validate()?;
     let baseline = evidence
         .baseline(checkpoint.account, checkpoint.baseline)?
         .ok_or_else(|| MetadataError::Incomplete {
@@ -102,6 +103,8 @@ pub fn common_coverage(
     membership: &MembershipSnapshot,
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<Coverage> {
+    server.validate()?;
+    crate::error::validate_counter(membership.generation, "membership generation")?;
     if membership.account != server.account {
         return Err(MetadataError::Scope {
             detail: "common coverage membership crosses account".into(),
@@ -116,6 +119,10 @@ pub fn common_coverage(
     let mut common: BTreeMap<_, _> = expanded(server, evidence)?.entries().collect();
     let mut unique = BTreeSet::new();
     for client in &membership.clients {
+        client.created_at.validate()?;
+        if let Some(closed) = client.closed_at {
+            closed.validate()?;
+        }
         if !unique.insert(client.actor) {
             return Err(MetadataError::Conflict {
                 detail: format!("duplicate client {}", client.actor),

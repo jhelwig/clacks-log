@@ -69,3 +69,18 @@ fn service_record_ids_display_their_native_identifier() {
         assert_eq!(id.to_string(), expected);
     }
 }
+
+#[test]
+fn quantities_fit_sqlite_integer() -> TestResult {
+    for value in [1, 9_223_372_036_854_775_807] {
+        assert_eq!(Hertz::new(value)?.get(), value);
+        assert_eq!(Milliwatts::new(value)?.get(), value);
+    }
+    for value in [0, 9_223_372_036_854_775_808, u64::MAX] {
+        assert!(Hertz::new(value).is_err(), "accepted frequency {value}");
+        assert!(Milliwatts::new(value).is_err(), "accepted power {value}");
+        assert!(serde_json::from_str::<Hertz>(&value.to_string()).is_err());
+        assert!(serde_json::from_str::<Milliwatts>(&value.to_string()).is_err());
+    }
+    Ok(())
+}

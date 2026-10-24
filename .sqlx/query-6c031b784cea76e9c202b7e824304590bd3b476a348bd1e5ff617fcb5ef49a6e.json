@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO station_reference (station_id, account, group_id, identifier) VALUES (?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "6c031b784cea76e9c202b7e824304590bd3b476a348bd1e5ff617fcb5ef49a6e"
+}

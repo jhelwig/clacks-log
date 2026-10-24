@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT latest_observation, pending_id FROM client_record WHERE account = ? AND kind = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "latest_observation",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "client_record",
+            "name": "latest_observation"
+          }
+        }
+      },
+      {
+        "name": "pending_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "client_record",
+            "name": "pending_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "d392f0e14abeec96acf8931e8aaf7ac70b2197763bc20163edeb9382400700fc"
+}

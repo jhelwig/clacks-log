@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT name, snapshot_id FROM equipment_payload WHERE payload_id = ? AND account = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "name",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "equipment_payload",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "snapshot_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "equipment_payload",
+            "name": "snapshot_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "21b5fef1da7d7ae0ede6d60ba9d775c8938e9618436330ab4c1d51a6ee3a7f7a"
+}

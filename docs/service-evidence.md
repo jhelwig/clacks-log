@@ -125,6 +125,14 @@ dispatches a network request.
 | LoTW | Configured remote LoTW account, independent of login/certificate replacement. | Full own station call, full worked call, UTC start date/time to the second, primary band, effective receive band and actual concrete mapped LoTW mode. |
 | QRZ | A particular remote QRZ logbook; retain provider `bookid` when known. | Provider-assigned integer `logid`. |
 
+Represent QRZ book and record IDs as validated canonical decimal strings, in
+native identities and SQLite text columns. QRZ's [published API guide](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html)
+specifies integer identities without a bit-width guarantee. Handle numeric
+pagination comparisons and increment in Rust, not through SQL casts or lexical
+text ordering. The [client-store specification](client-store.md#22-value-encodings)
+defines the storage and native integration requirements; this does not change
+destination qualification or association uniqueness.
+
 A second configuration accessing the same collection must not create a second
 association namespace. A previously unknown QRZ book ID can be established under
 the same destination ID, with the account-head and registry uniqueness guards.

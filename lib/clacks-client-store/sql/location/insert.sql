@@ -1,0 +1,2 @@
+INSERT INTO recorded_location (station_id, account, position_kind, locator, latitude, longitude, grid_length, dxcc, primary_subdivision, secondary_subdivision, cq_zone, itu_zone)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

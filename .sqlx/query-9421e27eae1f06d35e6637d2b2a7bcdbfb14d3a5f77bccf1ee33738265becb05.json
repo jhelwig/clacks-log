@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO export_expression (payload_id, kind, text, side, child, pattern, capture_name) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING expression_id AS \"expression_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "expression_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "export_expression",
+            "name": "expression_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "9421e27eae1f06d35e6637d2b2a7bcdbfb14d3a5f77bccf1ee33738265becb05"
+}

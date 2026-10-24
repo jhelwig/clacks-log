@@ -1,0 +1,1 @@
+SELECT name_state, name, position_state, position_kind, locator, latitude, longitude, grid_length, dxcc_state, dxcc, primary_state, primary_subdivision, secondary_state, secondary_subdivision, cq_state, cq_zone, itu_state, itu_zone, references_state FROM station_report WHERE report_id = ? AND payload_id = ?

@@ -1,0 +1,146 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT qso_id, service, destination_id, claim, date, source, source_record, mapping, native_end, fields_map, has_location FROM service_assertion WHERE payload_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "qso_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_assertion",
+            "name": "qso_id"
+          }
+        }
+      },
+      {
+        "name": "service",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_assertion",
+            "name": "service"
+          }
+        }
+      },
+      {
+        "name": "destination_id",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_assertion",
+            "name": "destination_id"
+          }
+        }
+      },
+      {
+        "name": "claim",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_assertion",
+            "name": "claim"
+          }
+        }
+      },
+      {
+        "name": "date",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_assertion",
+            "name": "date"
+          }
+        }
+      },
+      {
+        "name": "source",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_assertion",
+            "name": "source"
+          }
+        }
+      },
+      {
+        "name": "source_record",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_assertion",
+            "name": "source_record"
+          }
+        }
+      },
+      {
+        "name": "mapping",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_assertion",
+            "name": "mapping"
+          }
+        }
+      },
+      {
+        "name": "native_end",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_assertion",
+            "name": "native_end"
+          }
+        }
+      },
+      {
+        "name": "fields_map",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_assertion",
+            "name": "fields_map"
+          }
+        }
+      },
+      {
+        "name": "has_location",
+        "ordinal": 10,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_assertion",
+            "name": "has_location"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "c676abf30dfd6ceccbac4b825a1b2fdc45bb81da428aa4e0c074d20e6e5c48ec"
+}

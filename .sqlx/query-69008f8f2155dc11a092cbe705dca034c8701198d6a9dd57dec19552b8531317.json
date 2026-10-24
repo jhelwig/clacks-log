@@ -1,0 +1,158 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT uninterpreted_band, uninterpreted_receive_band, own_call, worked_call, start, band, receive_band, frequency, receive_frequency, mode, mode_parent, mode_group FROM confirmation_basis WHERE payload_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "uninterpreted_band",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "confirmation_basis",
+            "name": "uninterpreted_band"
+          }
+        }
+      },
+      {
+        "name": "uninterpreted_receive_band",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "confirmation_basis",
+            "name": "uninterpreted_receive_band"
+          }
+        }
+      },
+      {
+        "name": "own_call",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "confirmation_basis",
+            "name": "own_call"
+          }
+        }
+      },
+      {
+        "name": "worked_call",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "confirmation_basis",
+            "name": "worked_call"
+          }
+        }
+      },
+      {
+        "name": "start",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "confirmation_basis",
+            "name": "start"
+          }
+        }
+      },
+      {
+        "name": "band",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "confirmation_basis",
+            "name": "band"
+          }
+        }
+      },
+      {
+        "name": "receive_band",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "confirmation_basis",
+            "name": "receive_band"
+          }
+        }
+      },
+      {
+        "name": "frequency",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "confirmation_basis",
+            "name": "frequency"
+          }
+        }
+      },
+      {
+        "name": "receive_frequency",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "confirmation_basis",
+            "name": "receive_frequency"
+          }
+        }
+      },
+      {
+        "name": "mode",
+        "ordinal": 9,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "confirmation_basis",
+            "name": "mode"
+          }
+        }
+      },
+      {
+        "name": "mode_parent",
+        "ordinal": 10,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "confirmation_basis",
+            "name": "mode_parent"
+          }
+        }
+      },
+      {
+        "name": "mode_group",
+        "ordinal": 11,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "confirmation_basis",
+            "name": "mode_group"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "69008f8f2155dc11a092cbe705dca034c8701198d6a9dd57dec19552b8531317"
+}

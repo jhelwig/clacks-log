@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO version_condition (account, kind, record_id, variant, stamp_id, checkpoint_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING condition_id AS \"condition_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "condition_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "version_condition",
+            "name": "condition_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b543a312036d51e6b93d4f28789448bc4d6fd2bef829f9c27781534e19602568"
+}

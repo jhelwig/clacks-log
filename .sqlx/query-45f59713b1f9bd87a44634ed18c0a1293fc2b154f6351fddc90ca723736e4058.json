@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO qso_payload (payload_id, account, record_id, start, end, own_station, contacted_station, own_operator_call, own_operator_name, contacted_operator_call, contacted_operator_name, power, equipment_id, frequency, band, receive_frequency, receive_band, mode_kind, mode_label, mode_parent, sent_report, received_report, comment)\nVALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 23
+    },
+    "nullable": []
+  },
+  "hash": "45f59713b1f9bd87a44634ed18c0a1293fc2b154f6351fddc90ca723736e4058"
+}

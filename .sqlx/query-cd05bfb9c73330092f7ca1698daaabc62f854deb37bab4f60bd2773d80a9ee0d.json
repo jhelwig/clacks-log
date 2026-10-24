@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO operating_value (account, station_id, operator_call, operator_name, power, equipment_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING operating_id AS \"operating_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "operating_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "operating_value",
+            "name": "operating_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "cd05bfb9c73330092f7ca1698daaabc62f854deb37bab4f60bd2773d80a9ee0d"
+}

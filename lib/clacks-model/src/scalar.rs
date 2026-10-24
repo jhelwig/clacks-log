@@ -62,14 +62,21 @@ macro_rules! quantity {
             Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
         )]
         #[serde(try_from = "u64", into = "u64")]
-        #[doc = concat!("A positive whole-number quantity measured in ", $unit, ". Zero is invalid.")]
+            #[doc = concat!("A positive whole-number quantity measured in ", $unit, ", no greater than the signed 64-bit maximum.")]
         pub struct $name(NonZeroU64);
 
         impl $name {
             /// Validate a whole-unit measurement before recording it.
             ///
-            /// Returns `ValueError::ZeroQuantity` for zero; no scaling or rounding is performed.
+            /// Returns `ValueError::ZeroQuantity` for zero or `ValueError::QuantityOutOfRange`
+            /// above the signed 64-bit maximum. No scaling or rounding is performed.
             pub fn new(value: u64) -> Result<Self, ValueError> {
+                if value > i64::MAX as u64 {
+                    return Err(ValueError::QuantityOutOfRange {
+                        unit: $unit.into(),
+                        value,
+                    });
+                }
                 NonZeroU64::new(value)
                     .map(Self)
                     .ok_or(ValueError::ZeroQuantity { unit: $unit.into() })
@@ -137,6 +144,16 @@ pub struct UtcTimestamp {
 }
 
 impl UtcTimestamp {
+    /// Return whole Unix seconds for lossless operational timestamp persistence.
+    pub fn unix_seconds(self) -> i64 {
+        self.seconds
+    }
+
+    /// Return the nonnegative fractional nanoseconds within this timestamp's second.
+    pub fn subsecond_nanoseconds(self) -> u32 {
+        self.nanoseconds
+    }
+
     /// Create an operational timestamp from Unix seconds and a nonnegative fraction.
     ///
     /// Nanoseconds must be less than 1,000,000,000; excess values return

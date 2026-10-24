@@ -29,7 +29,7 @@ fn simultaneous_binding_plans_carry_identical_absence_guard() -> anyhow::Result<
     }
     let key = ExternalRecordKey {
         destination: support::id(42),
-        record: RemoteRecordId::Qrz(7),
+        record: RemoteRecordId::Qrz("7".parse().unwrap()),
     };
     let index = ExternalBindingObservation {
         account: a.key.account,
@@ -191,7 +191,7 @@ fn remote(
         destination: support::id(42),
         identity: RemoteIdentity::Complete(ExternalRecordKey {
             destination: support::id(42),
-            record: RemoteRecordId::Qrz(7),
+            record: RemoteRecordId::Qrz("7".parse().unwrap()),
         }),
         facts: RemoteFacts {
             contact: ContactReport {
@@ -284,7 +284,7 @@ fn occupied_historical_binding_never_automatically_reactivates() -> anyhow::Resu
     };
     let key = ExternalRecordKey {
         destination: support::id(42),
-        record: RemoteRecordId::Qrz(7),
+        record: RemoteRecordId::Qrz("7".parse().unwrap()),
     };
     let a = ExternalAssociation {
         id: support::id(11),
@@ -375,7 +375,9 @@ fn result_after_contact_deletion_retains_frozen_attempt_and_job_outcome() -> any
         };
         let destination = Destination {
             id: support::id(42),
-            collection: RemoteCollection::Qrz { book_id: Some(7) },
+            collection: RemoteCollection::Qrz {
+                book_id: Some("7".parse().unwrap()),
+            },
             description: "book".into(),
         };
         let attempt = SubmissionAttempt {
@@ -492,14 +494,16 @@ fn generic_binding_admission_rejects_historical_reactivation() -> anyhow::Result
     };
     let destination = Destination {
         id: support::id(42),
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("7".parse().unwrap()),
+        },
         description: "book".into(),
     };
     let a = ExternalAssociation {
         id: support::id(11),
         external: ExternalRecordKey {
             destination: destination.id,
-            record: RemoteRecordId::Qrz(7),
+            record: RemoteRecordId::Qrz("7".parse().unwrap()),
         },
         qso,
         state: AssociationState::Superseded,
@@ -627,7 +631,9 @@ fn run_operation(
         bindings,
         destinations: &[Destination {
             id: support::id(42),
-            collection: RemoteCollection::Qrz { book_id: Some(7) },
+            collection: RemoteCollection::Qrz {
+                book_id: Some("7".parse().unwrap()),
+            },
             description: "book".into(),
         }],
         evidence: &evidence,
@@ -664,7 +670,9 @@ fn completed_review_commits_binding_and_effect_with_exact_observation() -> anyho
         support: ServiceSupport {
             destination: Some(Destination {
                 id: support::id(42),
-                collection: RemoteCollection::Qrz { book_id: Some(7) },
+                collection: RemoteCollection::Qrz {
+                    book_id: Some("7".parse().unwrap()),
+                },
                 description: "book".into(),
             }),
             ..Default::default()
@@ -672,7 +680,7 @@ fn completed_review_commits_binding_and_effect_with_exact_observation() -> anyho
     })));
     let key = ExternalRecordKey {
         destination: support::id(42),
-        record: RemoteRecordId::Qrz(7),
+        record: RemoteRecordId::Qrz("7".parse().unwrap()),
     };
     let association = ExternalAssociation {
         id: support::id(601),
@@ -832,7 +840,7 @@ fn contact_deletion_is_coupled_to_all_known_bindings_and_suppression() -> anyhow
     };
     let external = ExternalRecordKey {
         destination: support::id(42),
-        record: RemoteRecordId::Qrz(7),
+        record: RemoteRecordId::Qrz("7".parse().unwrap()),
     };
     let mut association = ExternalAssociation {
         id: support::id(801),
@@ -847,7 +855,9 @@ fn contact_deletion_is_coupled_to_all_known_bindings_and_suppression() -> anyhow
         support: ServiceSupport {
             destination: Some(Destination {
                 id: support::id(42),
-                collection: RemoteCollection::Qrz { book_id: Some(7) },
+                collection: RemoteCollection::Qrz {
+                    book_id: Some("7".parse().unwrap()),
+                },
                 description: "book".into(),
             }),
             ..Default::default()
@@ -916,7 +926,9 @@ fn returned_external_identity_cannot_bind_an_unsubmitted_contact() -> anyhow::Re
     };
     let destination = Destination {
         id: support::id(42),
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("7".parse().unwrap()),
+        },
         description: "book".into(),
     };
     let attempt = SubmissionAttempt {
@@ -932,7 +944,7 @@ fn returned_external_identity_cannot_bind_an_unsubmitted_contact() -> anyhow::Re
     };
     let external = ExternalRecordKey {
         destination: destination.id,
-        record: RemoteRecordId::Qrz(7),
+        record: RemoteRecordId::Qrz("7".parse().unwrap()),
     };
     let result = SubmissionResult {
         external_attempt: None,
@@ -1107,7 +1119,9 @@ fn qrz_destination_can_establish_its_previously_unknown_book_id() -> anyhow::Res
         description: "book".into(),
     };
     let new = Destination {
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("7".parse().unwrap()),
+        },
         ..old.clone()
     };
     let mut row = support::accepted(200, "fixture");
@@ -1163,7 +1177,7 @@ fn qrz_destination_can_establish_its_previously_unknown_book_id() -> anyhow::Res
         head: account.head,
         destinations: vec![new.clone()],
     };
-    for book_id in [None, Some(8)] {
+    for book_id in [None, Some("8".parse()?)] {
         let changed = Destination {
             collection: RemoteCollection::Qrz { book_id },
             ..new.clone()
@@ -1258,7 +1272,9 @@ fn adding_downloaded_contact_requires_a_selected_tag() -> anyhow::Result<()> {
         support: ServiceSupport {
             destination: Some(Destination {
                 id: support::id(42),
-                collection: RemoteCollection::Qrz { book_id: Some(7) },
+                collection: RemoteCollection::Qrz {
+                    book_id: Some("7".parse().unwrap()),
+                },
                 description: "book".into(),
             }),
             ..Default::default()
@@ -1268,7 +1284,7 @@ fn adding_downloaded_contact_requires_a_selected_tag() -> anyhow::Result<()> {
         id: support::id(601),
         external: ExternalRecordKey {
             destination: support::id(42),
-            record: RemoteRecordId::Qrz(7),
+            record: RemoteRecordId::Qrz("7".parse().unwrap()),
         },
         qso: q.id,
         state: AssociationState::Active,

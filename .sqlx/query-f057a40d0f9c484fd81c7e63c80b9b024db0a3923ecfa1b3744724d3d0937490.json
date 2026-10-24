@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT (SELECT count(*) FROM service_destination WHERE payload_id = ?1)\n     + (SELECT count(*) FROM service_assertion WHERE payload_id = ?1)\n     + (SELECT count(*) FROM service_attempt WHERE payload_id = ?1)\n     + (SELECT count(*) FROM service_result WHERE payload_id = ?1)\n     + (SELECT count(*) FROM service_observation WHERE payload_id = ?1)\n     + (SELECT count(*) FROM service_association WHERE payload_id = ?1)\n     + (SELECT count(*) FROM service_disposition WHERE payload_id = ?1)\n     + (SELECT count(*) FROM service_suppression WHERE payload_id = ?1)\n     + (SELECT count(*) FROM service_download WHERE payload_id = ?1)\n     + (SELECT count(*) FROM service_acquisition WHERE payload_id = ?1) AS \"roots!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "roots!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f057a40d0f9c484fd81c7e63c80b9b024db0a3923ecfa1b3744724d3d0937490"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO current_lineage (account, lineage_id) VALUES (?, ?) ON CONFLICT (account) DO UPDATE SET lineage_id = excluded.lineage_id\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "bc74ce6761a72f131917c2e3af921834f46c3b21af47681649c63518ac201975"
+}

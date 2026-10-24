@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT q.record_id FROM local_qso q WHERE q.account = ? AND EXISTS (SELECT 1 FROM qso_tag t WHERE t.payload_id = q.payload_id AND t.tag_id = ?) ORDER BY q.record_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "record_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "record_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bd2da36298cb5a604b277ffc9e05aab06ef2869071814505217ee2635ba97a74"
+}

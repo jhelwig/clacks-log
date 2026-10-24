@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - '.gitattributes'
+      - '.sqlx/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
@@ -15,6 +16,7 @@ on:
   pull_request:
     paths:
       - '.gitattributes'
+      - '.sqlx/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
@@ -36,12 +38,25 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      SQLX_OFFLINE: 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Resolve repository Rust toolchain
         run: rustup show active-toolchain
       - name: Fetch locked Rust dependencies
         run: cargo fetch --locked
+      - name: Install pinned SQLx metadata tooling
+        run: cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features sqlite
+      - name: Verify checked SQL metadata against production migrations
+        shell: bash
+        env:
+          SQLX_OFFLINE: 'false'
+          DATABASE_URL: sqlite://clacks-query-check.sqlite
+        run: |
+          cargo sqlx database create
+          cargo sqlx migrate run --source lib/clacks-client-store/migrations
+          cargo sqlx prepare --check --workspace -- --all-targets
       - name: Check formatting
         run: cargo fmt --all --check
       - name: Test workspace and native filesystem behavior

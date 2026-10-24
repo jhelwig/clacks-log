@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ordinal, expression_id, side, binding FROM export_partition WHERE plan_id = ? AND payload_id = ? ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "ordinal",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "export_partition",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "name": "expression_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "export_partition",
+            "name": "expression_id"
+          }
+        }
+      },
+      {
+        "name": "side",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_partition",
+            "name": "side"
+          }
+        }
+      },
+      {
+        "name": "binding",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_partition",
+            "name": "binding"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "4cee5ddc1585573dde75094356d95c354bba80c69576f3c27f9704c3c19fe7c5"
+}

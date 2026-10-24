@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM window_staged WHERE window_id = ?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "750cf6da2e0a73db76012254b4e38477c44639a07d5405bf48126ac7605a9ec7"
+}

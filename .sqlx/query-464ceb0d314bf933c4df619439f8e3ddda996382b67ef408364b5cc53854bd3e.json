@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO membership_snapshot (account, generation) VALUES (?, ?) ON CONFLICT (account) DO UPDATE SET generation = excluded.generation\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "464ceb0d314bf933c4df619439f8e3ddda996382b67ef408364b5cc53854bd3e"
+}

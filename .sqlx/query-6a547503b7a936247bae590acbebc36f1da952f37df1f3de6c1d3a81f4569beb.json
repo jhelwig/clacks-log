@@ -1,0 +1,254 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT start, end, own_station, contacted_station, own_operator_call, own_operator_name, contacted_operator_call, contacted_operator_name, power, equipment_id, frequency, band, receive_frequency, receive_band, mode_kind, mode_label, mode_parent, sent_report, received_report, comment FROM qso_payload WHERE payload_id = ? AND account = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "start",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "start"
+          }
+        }
+      },
+      {
+        "name": "end",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "end"
+          }
+        }
+      },
+      {
+        "name": "own_station",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "own_station"
+          }
+        }
+      },
+      {
+        "name": "contacted_station",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "contacted_station"
+          }
+        }
+      },
+      {
+        "name": "own_operator_call",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "own_operator_call"
+          }
+        }
+      },
+      {
+        "name": "own_operator_name",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "own_operator_name"
+          }
+        }
+      },
+      {
+        "name": "contacted_operator_call",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "contacted_operator_call"
+          }
+        }
+      },
+      {
+        "name": "contacted_operator_name",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "contacted_operator_name"
+          }
+        }
+      },
+      {
+        "name": "power",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "power"
+          }
+        }
+      },
+      {
+        "name": "equipment_id",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "equipment_id"
+          }
+        }
+      },
+      {
+        "name": "frequency",
+        "ordinal": 10,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "frequency"
+          }
+        }
+      },
+      {
+        "name": "band",
+        "ordinal": 11,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "band"
+          }
+        }
+      },
+      {
+        "name": "receive_frequency",
+        "ordinal": 12,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "receive_frequency"
+          }
+        }
+      },
+      {
+        "name": "receive_band",
+        "ordinal": 13,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "receive_band"
+          }
+        }
+      },
+      {
+        "name": "mode_kind",
+        "ordinal": 14,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "mode_kind"
+          }
+        }
+      },
+      {
+        "name": "mode_label",
+        "ordinal": 15,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "mode_label"
+          }
+        }
+      },
+      {
+        "name": "mode_parent",
+        "ordinal": 16,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "mode_parent"
+          }
+        }
+      },
+      {
+        "name": "sent_report",
+        "ordinal": 17,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "sent_report"
+          }
+        }
+      },
+      {
+        "name": "received_report",
+        "ordinal": 18,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "received_report"
+          }
+        }
+      },
+      {
+        "name": "comment",
+        "ordinal": 19,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "comment"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "6a547503b7a936247bae590acbebc36f1da952f37df1f3de6c1d3a81f4569beb"
+}

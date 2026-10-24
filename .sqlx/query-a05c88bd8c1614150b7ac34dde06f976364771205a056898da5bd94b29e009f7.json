@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT name, station_id, equipment_id FROM profile_payload WHERE payload_id = ? AND account = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "name",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "profile_payload",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "station_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "profile_payload",
+            "name": "station_id"
+          }
+        }
+      },
+      {
+        "name": "equipment_id",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "profile_payload",
+            "name": "equipment_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "a05c88bd8c1614150b7ac34dde06f976364771205a056898da5bd94b29e009f7"
+}

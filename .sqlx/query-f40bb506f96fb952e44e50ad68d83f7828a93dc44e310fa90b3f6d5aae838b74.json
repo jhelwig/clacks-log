@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO station_snapshot (account, callsign) VALUES (?, ?) RETURNING station_id AS \"station_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "station_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_snapshot",
+            "name": "station_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f40bb506f96fb952e44e50ad68d83f7828a93dc44e310fa90b3f6d5aae838b74"
+}

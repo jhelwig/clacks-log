@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT external_id, qso_id, state FROM service_association WHERE payload_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "external_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_association",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "name": "qso_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_association",
+            "name": "qso_id"
+          }
+        }
+      },
+      {
+        "name": "state",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_association",
+            "name": "state"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "73d07a7bc66e16ed136df3fbdf6bb05556f646bb3caebafc9cdf2170cbda4740"
+}

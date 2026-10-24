@@ -21,7 +21,9 @@ fn equal_attempts_remain_distinct_and_closed_poll_staging_can_be_collected() -> 
         };
         let destination = Destination {
             id: support::id(42),
-            collection: RemoteCollection::Qrz { book_id: Some(7) },
+            collection: RemoteCollection::Qrz {
+                book_id: Some("7".parse().unwrap()),
+            },
             description: "book".into(),
         };
         let attempt = SubmissionAttempt {
@@ -125,7 +127,9 @@ fn compaction_projects_embedded_contexts_without_changing_evidence_identity() ->
     )])?);
     let destination = Destination {
         id: support::id(42),
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("7".parse().unwrap()),
+        },
         description: "book".into(),
     };
     let payload = ServicePayload::Acquisition(AcquisitionState {
@@ -203,7 +207,9 @@ fn compacted_service_support_is_equivalent_during_receipt_both_directions() -> a
     };
     let destination = Destination {
         id: support::id(42),
-        collection: RemoteCollection::Qrz { book_id: Some(7) },
+        collection: RemoteCollection::Qrz {
+            book_id: Some("7".parse().unwrap()),
+        },
         description: "book".into(),
     };
     let payload = ServicePayload::Acquisition(AcquisitionState {

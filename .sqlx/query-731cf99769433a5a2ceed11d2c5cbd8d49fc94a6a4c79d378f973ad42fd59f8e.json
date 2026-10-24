@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO acquisition_input (payload_id, account, observation_id) VALUES (?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "731cf99769433a5a2ceed11d2c5cbd8d49fc94a6a4c79d378f973ad42fd59f8e"
+}

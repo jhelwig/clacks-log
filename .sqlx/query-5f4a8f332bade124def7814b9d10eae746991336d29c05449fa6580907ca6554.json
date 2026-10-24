@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ordinal, query_id, watermark FROM stream_progress WHERE payload_id = ? ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "ordinal",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "stream_progress",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "name": "query_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "stream_progress",
+            "name": "query_id"
+          }
+        }
+      },
+      {
+        "name": "watermark",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "stream_progress",
+            "name": "watermark"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "5f4a8f332bade124def7814b9d10eae746991336d29c05449fa6580907ca6554"
+}

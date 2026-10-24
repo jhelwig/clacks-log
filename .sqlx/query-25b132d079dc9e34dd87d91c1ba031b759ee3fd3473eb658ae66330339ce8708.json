@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO pending_record (account, kind, record_id, original_id, working_payload, prepared_id, witness_id) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING pending_id AS \"pending_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "pending_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "pending_record",
+            "name": "pending_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "25b132d079dc9e34dd87d91c1ba031b759ee3fd3473eb658ae66330339ce8708"
+}

@@ -87,6 +87,12 @@ impl ServiceRecord {
     /// Validate carrier structure and account isolation without claiming its support is installed.
     pub fn validate(&self, account: AccountId) -> anyhow::Result<()> {
         self.payload.validate()?;
+        if let Some(acquisition) = &self.support.acquisition {
+            acquisition.validate()?;
+        }
+        for requirement in &self.support.required {
+            requirement.reference().stamp.validate()?;
+        }
         if self
             .support
             .required
