@@ -164,6 +164,21 @@ by this contract. Desktop diagnostics and any telemetry export must respect the
 existing offline-operation and credential-handling requirements; this requirement
 does not introduce automatic upload of desktop diagnostics to a hosted service.
 
+## Desktop default log output (D274)
+
+The desktop writes local rotating JSON logs by default, with `info` as the
+normal level under the level-selection policy above. Include the existing
+structured event fields and span context. Provide configurable filtering and
+optional console output for development and troubleshooting. Configure a
+retained-file limit and bounded off-thread writing through standard
+`tracing-subscriber` and `tracing-appender` facilities, preserving the existing
+overflow, failure-independence and graceful-shutdown requirements. Do not add a
+custom logging or span-lifecycle framework.
+
+This selects the default local logs, not the trace/metric export protocols or
+collector. No collector is required for normal offline operation. Concrete
+rotation, retention and buffering settings remain desktop specification work.
+
 ## Library producer contract
 
 `clacks-model` and `clacks-sync` emit through `tracing` 0.1 and `metrics` 0.24.

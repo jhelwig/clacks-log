@@ -62,6 +62,19 @@ components in egui and preserve the Windows MVP and eventual macOS/Linux
 architecture. Exact compatible versions, platform backend features and native
 rendering verification remain engineering work for issue #46.
 
+## Desktop diagnostic logs (D274)
+
+Write local rotating structured JSON logs by default. Use `info` as the normal
+level under the [observability level policy](observability.md#level-selection-policy),
+retain tracing fields and span context, and provide configurable filtering for
+troubleshooting. Apply rotation and a retained-file limit with a bounded,
+off-thread writer. Console output is optional for development and troubleshooting.
+Use standard tracing formatting and appender facilities directly. Trace and
+metric export destinations are separate from the default local log output; the
+desktop does not require a telemetry collector for ordinary offline operation.
+Concrete rotation, retention, buffering and configuration details remain
+engineering work for issue #46.
+
 ## Contacts, logbooks and tags
 
 The account owns each radio contact (QSO). A Clacks logbook is a tag-defined view of those contacts, not a container that owns separate copies. A QSO can have zero, one or multiple tags; its complete tag set is part of its logical record (D243). Each tag has a stable ID, name and service settings. Names may be duplicated, with enough interface context to distinguish tags; matching names never merge identities (D119/D120). The physical database representation remains engineering work.

@@ -1188,3 +1188,9 @@ Use graceful desktop shutdown with an explicit force-quit option when shutdown i
 #### D273
 
 Use wgpu as the initial desktop renderer through eframe, refining D215's previously open renderer choice. Keep the interface in ordinary egui components and retain the Windows MVP and eventual macOS/Linux architecture. Eframe defaults to wgpu; its supported native platform backends fit that direction. Glow remains an evaluated alternative with a documented binary-size advantage, not the selected initial renderer. Exact compatible dependency versions, enabled backend features and actual native rendering verification remain engineering work for issue #46. See [eframe features](https://docs.rs/eframe/latest/eframe/#feature-flags) and [wgpu platform support](https://github.com/gfx-rs/wgpu#supported-platforms).
+
+### Decision D274
+
+#### D274
+
+Use local rotating structured JSON logs as the desktop default, with `info` as the normal level following the existing observability policy. Retain tracing fields and span context; use rotation, a retained-file limit and a bounded off-thread writer. Provide optional console output and configurable filtering for development and troubleshooting. Use standard tracing formatting/appender facilities directly. The application remains usable offline without a collector. Trace and metric export destinations remain separate engineering choices for issue #46, along with exact rotation, retention, buffering and configuration details.
