@@ -11,6 +11,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [GitHub issues](https://github.com/jhelwig/clacks-log/issues) and [milestones](https://github.com/jhelwig/clacks-log/milestones)
 - [Decision register](docs/decisions.md)
 - [Native-model contract](docs/native-model.md)
+- [Durable offline client storage](docs/client-store.md)
 - [Geographic-pipeline specification](docs/geographic-pipeline.md)
 - [Synchronization behavior](docs/synchronization.md) and [metadata model](docs/synchronization-model.md)
 - [Accounts and enrollment](docs/accounts.md)
