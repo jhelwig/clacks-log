@@ -156,10 +156,10 @@ test collectors and fixtures in tests; no public production API exists solely
 to support telemetry tests.
 
 The current-library producer interfaces and instrumentation schema are defined
-below. Runtime metric buckets,
-propagation/export protocols, sampling defaults, collection/visualization backends,
+below. D274/D275 select desktop log output and optional export. Runtime metric
+buckets, propagation rules, sampling defaults, collection/visualization backends,
 access controls, retention and deployment configuration still require engineering
-specification. No vendor or additional application service topology is selected
+specification; server export protocols remain open. No vendor or additional application service topology is selected
 by this contract. Desktop diagnostics and any telemetry export must respect the
 existing offline-operation and credential-handling requirements; this requirement
 does not introduce automatic upload of desktop diagnostics to a hosted service.
@@ -175,9 +175,24 @@ retained-file limit and bounded off-thread writing through standard
 overflow, failure-independence and graceful-shutdown requirements. Do not add a
 custom logging or span-lifecycle framework.
 
-This selects the default local logs, not the trace/metric export protocols or
-collector. No collector is required for normal offline operation. Concrete
-rotation, retention and buffering settings remain desktop specification work.
+D275 selects optional export alongside these default local logs. No collector
+is required for normal offline operation. Concrete rotation, retention and
+buffering settings remain desktop specification work.
+
+## Desktop optional telemetry export (D275)
+
+Desktop traces, metrics and logs support opt-in export through the OpenTelemetry
+Protocol (OTLP) to explicitly configured destinations. Local rotating logs remain
+the default and continue when export is enabled. Reuse the existing `tracing` and
+`metrics` instrumentation through existing adapters and standard OpenTelemetry
+exporters. Do not introduce custom telemetry producers or an exporter framework.
+
+Preserve the bounded-buffering, deliberate data selection, failure-independence
+and graceful-shutdown requirements above. Collector unavailability does not
+prevent ordinary logging or storage, and no hosted collector is enabled
+automatically. This selects desktop export without selecting a mandatory
+collector, observability vendor or separate Clacks service. Exact transport,
+adapter versions/features and configuration remain desktop specification work.
 
 ## Library producer contract
 

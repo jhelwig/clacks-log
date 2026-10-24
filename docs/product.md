@@ -69,11 +69,24 @@ level under the [observability level policy](observability.md#level-selection-po
 retain tracing fields and span context, and provide configurable filtering for
 troubleshooting. Apply rotation and a retained-file limit with a bounded,
 off-thread writer. Console output is optional for development and troubleshooting.
-Use standard tracing formatting and appender facilities directly. Trace and
-metric export destinations are separate from the default local log output; the
-desktop does not require a telemetry collector for ordinary offline operation.
+Use standard tracing formatting and appender facilities directly. D275 defines
+optional export in addition to local logs. The desktop does not require a
+telemetry collector for ordinary offline operation.
 Concrete rotation, retention, buffering and configuration details remain
 engineering work for issue #46.
+
+## Desktop optional telemetry export (D275)
+
+Support opt-in export of desktop traces, metrics and logs using the
+OpenTelemetry Protocol (OTLP) to explicitly configured destinations. Retain
+local rotating logs as the default under D274, including when export is enabled.
+Use existing Rust adapters for the `tracing` and `metrics` producers and standard
+OpenTelemetry exporters; preserve bounded buffering, failure independence and
+graceful-shutdown behavior under the observability contract. Collector outages
+do not prevent logging or storage. Normal offline operation requires no
+collector, and no hosted destination is enabled automatically. Exact transport,
+adapter versions, feature selection and configuration remain engineering work
+for issue #46.
 
 ## Contacts, logbooks and tags
 

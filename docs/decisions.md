@@ -1194,3 +1194,9 @@ Use wgpu as the initial desktop renderer through eframe, refining D215's previou
 #### D274
 
 Use local rotating structured JSON logs as the desktop default, with `info` as the normal level following the existing observability policy. Retain tracing fields and span context; use rotation, a retained-file limit and a bounded off-thread writer. Provide optional console output and configurable filtering for development and troubleshooting. Use standard tracing formatting/appender facilities directly. The application remains usable offline without a collector. Trace and metric export destinations remain separate engineering choices for issue #46, along with exact rotation, retention, buffering and configuration details.
+
+### Decision D275
+
+#### D275
+
+Support opt-in OpenTelemetry Protocol (OTLP) export for desktop traces, metrics and logs to explicitly configured destinations. Retain D274's local rotating logs as the default and continue them when export is enabled. Use existing adapters for the current `tracing`/`metrics` producers and standard OpenTelemetry exporters, preserving bounded buffering, failure independence and graceful shutdown. Collector outages do not block ordinary logging or storage. Normal offline operation requires no collector, and no hosted destination is enabled automatically. Exact transport, compatible adapter versions/features and configuration remain engineering work for issue #46; this does not select server export protocols or a mandatory collector/vendor.
