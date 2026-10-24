@@ -1,0 +1,86 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ordinal, field, expression_id, condition, binding, side FROM export_field WHERE plan_id = ? AND payload_id = ? ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "ordinal",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "export_field",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "name": "field",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_field",
+            "name": "field"
+          }
+        }
+      },
+      {
+        "name": "expression_id",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "export_field",
+            "name": "expression_id"
+          }
+        }
+      },
+      {
+        "name": "condition",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_field",
+            "name": "condition"
+          }
+        }
+      },
+      {
+        "name": "binding",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_field",
+            "name": "binding"
+          }
+        }
+      },
+      {
+        "name": "side",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_field",
+            "name": "side"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "730b964d0f25b7d3a41d1d662ea31d805c009ddc4c5d6131f86b88d6a810d55f"
+}

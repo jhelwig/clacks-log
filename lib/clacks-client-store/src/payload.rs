@@ -1,6 +1,8 @@
 //! Immutable relational values shared by accepted and unpublished roles.
 
 mod contact;
+mod definitions;
+mod shared;
 
 use clacks_model::service::evidence::ServiceRecordId;
 use clacks_sync::record::{RecordId, RecordKey, RecordState, RecordValue};
@@ -70,7 +72,10 @@ pub(crate) async fn insert(
         RecordState::Live(RecordValue::Qso(qso)) => {
             contact::insert(connection, key.account, row.payload_id, qso).await?
         }
-        _ => anyhow::bail!("payload mapping is not yet implemented for {discriminator}"),
+        RecordState::Live(RecordValue::Group(group)) => {
+            definitions::insert(connection, key.account, row.payload_id, group).await?
+        }
+        RecordState::Live(value) => shared::insert(connection, key, row.payload_id, value).await?,
     }
     Ok(row.payload_id)
 }
@@ -90,19 +95,24 @@ pub(crate) async fn load(
             && row.record_id == key.id.to_string(),
         "payload identity differs from requested record"
     );
+    let roots = sqlx::query_file!("sql/payload/root_count.sql", payload)
+        .fetch_one(&mut *connection)
+        .await?
+        .roots;
     let state = if row.deleted != 0 {
         anyhow::ensure!(row.deleted == 1, "invalid payload deletion discriminator");
-        let root = sqlx::query_file!("sql/contact/root_exists.sql", payload)
-            .fetch_one(&mut *connection)
-            .await?;
-        anyhow::ensure!(root.present == 0, "deleted payload has a live contact root");
+        anyhow::ensure!(roots == 0, "deleted payload has a live root");
         RecordState::Deleted
     } else {
+        anyhow::ensure!(roots == 1, "live payload must have exactly one native root");
         match key.id {
             RecordId::Qso(id) => RecordState::Live(RecordValue::Qso(Box::new(
                 contact::load(connection, key.account, payload, id).await?,
             ))),
-            _ => anyhow::bail!("payload mapping is not yet implemented for {}", row.kind),
+            RecordId::Group(id) => RecordState::Live(RecordValue::Group(Box::new(
+                definitions::load(connection, key.account, payload, id).await?,
+            ))),
+            _ => RecordState::Live(shared::load(connection, key, payload).await?),
         }
     };
     state.validate(key)?;
@@ -127,6 +137,91 @@ mod tests {
         T::Err: std::fmt::Debug,
     {
         ulid::Ulid::from(n).to_string().parse().unwrap()
+    }
+
+    #[tokio::test]
+    async fn shared_payloads_round_trip() -> anyhow::Result<()> {
+        use clacks_model::{
+            equipment::EquipmentValues,
+            export::{OutputProfile, OutputPurpose},
+            profile::{EquipmentConfiguration, SavedLocationProfile},
+            tag::{AutomaticUploadPolicies, AutomaticUploadPolicy, LogbookTag},
+        };
+        let dir = tempfile::tempdir()?;
+        let store = ClientStore::create(
+            &dir.path().join("workspace.sqlite"),
+            id(1),
+            StoreSettings::default(),
+        )
+        .await?;
+        let mut tx = store.write().await?;
+        for value in [
+            RecordValue::Tag(Box::new(LogbookTag::new(id(20), "Same name".into()))),
+            RecordValue::Tag(Box::new(LogbookTag {
+                id: id(23),
+                name: "Same name".into(),
+                automatic_upload: AutomaticUploadPolicies {
+                    lotw: AutomaticUploadPolicy::Enable,
+                    qrz: AutomaticUploadPolicy::Forbid,
+                },
+            })),
+            RecordValue::Tag(Box::new(LogbookTag {
+                id: id(24),
+                name: "Same name".into(),
+                automatic_upload: AutomaticUploadPolicies {
+                    lotw: AutomaticUploadPolicy::Forbid,
+                    qrz: AutomaticUploadPolicy::Enable,
+                },
+            })),
+            RecordValue::Equipment(Box::new(EquipmentConfiguration {
+                id: id(21),
+                name: "Same name".into(),
+                values: EquipmentValues::default(),
+            })),
+            RecordValue::OutputProfile(Box::new(OutputProfile {
+                id: id(22),
+                name: "Same name".into(),
+                purpose: OutputPurpose::Targeted,
+                contextual_fields: ["CONTEST_ID".into()].into(),
+            })),
+            RecordValue::OutputProfile(Box::new(OutputProfile {
+                id: id(25),
+                name: "Same name".into(),
+                purpose: OutputPurpose::OrdinaryInterchange,
+                contextual_fields: Default::default(),
+            })),
+            RecordValue::Profile(Box::new(SavedLocationProfile {
+                id: id(26),
+                name: "Same name".into(),
+                station: StationSnapshot {
+                    callsign: RecordedCallsign::new("W7HEX")?,
+                    location: None,
+                    references: Default::default(),
+                },
+                default_equipment: Some(id(99)),
+            })),
+            RecordValue::Profile(Box::new(SavedLocationProfile {
+                id: id(27),
+                name: "Same name".into(),
+                station: StationSnapshot {
+                    callsign: RecordedCallsign::new("W7HEX/P")?,
+                    location: None,
+                    references: Default::default(),
+                },
+                default_equipment: None,
+            })),
+        ] {
+            let key = RecordKey {
+                account: id(1),
+                id: value.id(),
+            };
+            let state = RecordState::Live(value);
+            let payload = super::insert(&mut tx, key, &state).await?;
+            assert_eq!(super::load(&mut tx, key, payload).await?, state);
+        }
+        tx.rollback().await?;
+        store.close().await?;
+        Ok(())
     }
 
     #[tokio::test]

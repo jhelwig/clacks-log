@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO export_plan (payload_id, account, profile_id) VALUES (?, ?, ?) RETURNING plan_id AS \"plan_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "plan_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "export_plan",
+            "name": "plan_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "85f7df27a4a6a614ec44428d0cb3b084485bce590019cac12f5b0213e4967b18"
+}

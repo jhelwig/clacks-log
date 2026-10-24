@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE export_expression SET child = expression_id\nWHERE expression_id = (SELECT expression_id FROM export_expression WHERE payload_id = ? AND kind = 'capture' ORDER BY expression_id DESC LIMIT 1)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "fe1efeb857947759607c1d255b22874abbf5465e9899bd31d5eaaa5f8a832091"
+}

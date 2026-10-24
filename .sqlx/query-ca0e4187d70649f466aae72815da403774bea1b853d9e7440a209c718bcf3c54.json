@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO equipment_payload (payload_id, account, record_id, name, snapshot_id) VALUES (?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "ca0e4187d70649f466aae72815da403774bea1b853d9e7440a209c718bcf3c54"
+}

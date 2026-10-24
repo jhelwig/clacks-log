@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT plan_id AS \"plan_id!: i64\", profile_id FROM export_plan WHERE payload_id = ? ORDER BY profile_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "plan_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "export_plan",
+            "name": "plan_id"
+          }
+        }
+      },
+      {
+        "name": "profile_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_plan",
+            "name": "profile_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "c8ac4105e4f98c1c5e004e1da2623cb335d425fdceebe7582daeed203103ec33"
+}

@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT field FROM output_context_field WHERE payload_id = ? ORDER BY field\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "field",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "output_context_field",
+            "name": "field"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "16ffcdb092dd38a2ff5032d3d23e56e542d4c3663312fc7ec91d118ea89f810c"
+}

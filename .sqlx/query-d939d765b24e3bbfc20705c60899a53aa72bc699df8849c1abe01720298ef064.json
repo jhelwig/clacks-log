@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO group_payload (payload_id, account, record_id, name, identifier_required, syntax, bears_location, catalog_id, catalog_display, catalog_lookup) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 10
+    },
+    "nullable": []
+  },
+  "hash": "d939d765b24e3bbfc20705c60899a53aa72bc699df8849c1abe01720298ef064"
+}

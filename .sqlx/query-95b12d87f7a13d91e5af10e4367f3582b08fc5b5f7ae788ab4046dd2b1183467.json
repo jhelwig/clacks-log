@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ordinal, side, binding, keep_empty FROM export_expansion WHERE plan_id = ? ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "ordinal",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "export_expansion",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "name": "side",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_expansion",
+            "name": "side"
+          }
+        }
+      },
+      {
+        "name": "binding",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_expansion",
+            "name": "binding"
+          }
+        }
+      },
+      {
+        "name": "keep_empty",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "export_expansion",
+            "name": "keep_empty"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "95b12d87f7a13d91e5af10e4367f3582b08fc5b5f7ae788ab4046dd2b1183467"
+}

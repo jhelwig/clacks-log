@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO export_expression (payload_id, kind, text) VALUES (?, 'literal', 'unreferenced')\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "48ba6c32b01578b44072154d5580356f000df8ace0adbeca9942932f7d8d1a63"
+}

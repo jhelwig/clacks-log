@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO catalog_display_detail (payload_id, ordinal, label, field) VALUES (?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "1062339ddcadafe99691ec7e11571fa1ebb7ca99066d3c88b40ada182389f93f"
+}

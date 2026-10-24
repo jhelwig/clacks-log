@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ordinal, transformation FROM group_normalization WHERE payload_id = ? ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "ordinal",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "group_normalization",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "name": "transformation",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "group_normalization",
+            "name": "transformation"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "5306c41ae78747310c7582a655e1babb7bb0cfeb8debfce75d7ed4b56db62183"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO export_partition (plan_id, payload_id, ordinal, expression_id, side, binding) VALUES (?, ?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "fab898d64da495b75a045fdfe6f972eeff68ca410b5dde8f0caf943c1c6f72a9"
+}
