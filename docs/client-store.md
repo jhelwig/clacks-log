@@ -687,13 +687,14 @@ Required verification for the store:
     real Windows and Linux CI must pass. Rust-only fixtures/process tooling,
     reference-only TQSL and existing native/sync regression tests remain required.
 
-## 12. Implementation-plan boundary
+## 12. Implementation boundaries
 
 The table families, native representations, transaction obligations and acceptance
-cases above define the capability. The [implementation plan](superpowers/plans/2026-10-23-client-storage.md) supplies exact SQL
-definitions and query filenames, Rust signatures/module layout, migration order,
-dependency versions/features and test execution order. Those choices must preserve
-this specification rather than replace the existing native/synchronization core.
+cases above define the capability. The production schema and query files live in
+`lib/clacks-client-store/migrations/` and `lib/clacks-client-store/sql/`; the
+[store guide](../lib/clacks-client-store/README.md) describes the APIs, integration
+boundaries and verification commands. Changes to those implementations must
+preserve this specification and the existing native/synchronization contracts.
 
 The small-pool/timeout defaults, STRICT tables and bundled-SQLite direction are
 engineering choices for this specification, not new product requirements.
@@ -705,8 +706,7 @@ reservations remain required for their original purposes.
 
 Implementation does not add a user-facing SQL console, account-switcher UI,
 automatic schema downgrade, built-in backup/restore command or temporary store
-that later capabilities replace. Issue #6 remains open until the production store
-and its required verification are delivered.
+that later capabilities replace.
 
 ## Primary implementation references
 
