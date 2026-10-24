@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO retained_accepted (account, kind, record_id, ordinal, envelope_id) VALUES (?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "8d2b3c9feb25c86e3fdbc04df32e3d10a833a1f8caff7ae7e7937a91a9fa5285"
+}

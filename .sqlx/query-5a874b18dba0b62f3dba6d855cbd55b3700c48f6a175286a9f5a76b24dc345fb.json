@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT checkpoint_id FROM installed_checkpoint WHERE account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "checkpoint_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "installed_checkpoint",
+            "name": "checkpoint_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5a874b18dba0b62f3dba6d855cbd55b3700c48f6a175286a9f5a76b24dc345fb"
+}

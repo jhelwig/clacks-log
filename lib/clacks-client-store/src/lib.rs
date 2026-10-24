@@ -6,4 +6,5 @@ mod metadata;
 mod migration;
 mod payload;
 mod rows;
+pub mod save;
 pub mod store;

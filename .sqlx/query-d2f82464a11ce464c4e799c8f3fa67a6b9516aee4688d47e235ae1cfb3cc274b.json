@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT initial_timeline FROM lineage WHERE lineage_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "initial_timeline",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "lineage",
+            "name": "initial_timeline"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d2f82464a11ce464c4e799c8f3fa67a6b9516aee4688d47e235ae1cfb3cc274b"
+}

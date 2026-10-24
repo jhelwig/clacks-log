@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO prepared_dependency (prepared_id, ordinal, condition_id) VALUES (?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "9744e460d458468517247194202fedabcdfe7dd1b3684fd58a89a2b0cd460988"
+}

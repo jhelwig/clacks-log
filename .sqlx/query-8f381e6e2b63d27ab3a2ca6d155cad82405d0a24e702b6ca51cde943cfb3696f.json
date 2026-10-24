@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO window_progress (window_id, generation) VALUES (?, 0)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "8f381e6e2b63d27ab3a2ca6d155cad82405d0a24e702b6ca51cde943cfb3696f"
+}

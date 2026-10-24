@@ -149,6 +149,11 @@ impl Lineage {
         self.account
     }
 
+    /// Return the initial root timeline for durable restoration of this ancestry snapshot.
+    pub fn initial_timeline(&self) -> TimelineId {
+        self.initial
+    }
+
     /// Read retained intervals for durable baseline interpretation.
     pub fn boundaries(&self) -> &[TimelineBoundary] {
         &self.boundaries

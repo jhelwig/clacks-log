@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO lineage (account, initial_timeline) VALUES (?, ?) RETURNING lineage_id AS \"lineage_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "lineage_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "lineage",
+            "name": "lineage_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "0531ca25c609fb72313c609e0e1459e7a28ec7d3ff61e172b25025d1e4bb080c"
+}

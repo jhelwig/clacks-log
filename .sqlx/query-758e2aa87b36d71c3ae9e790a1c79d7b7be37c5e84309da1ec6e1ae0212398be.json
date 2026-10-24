@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO accepted_record (account, kind, record_id, payload_id, stamp_id) VALUES (?, ?, ?, ?, ?) RETURNING envelope_id AS \"envelope_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "envelope_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "accepted_record",
+            "name": "envelope_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "758e2aa87b36d71c3ae9e790a1c79d7b7be37c5e84309da1ec6e1ae0212398be"
+}

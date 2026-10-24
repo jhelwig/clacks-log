@@ -1,0 +1,1 @@
+INSERT INTO original_basis (account, kind, record_id, variant, envelope_id, checkpoint_id, payload_id, vector_id, stamp_id, unknown_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING original_id AS "original_id!: i64"

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO installed_checkpoint (singleton, account, checkpoint_id) VALUES (1, ?, ?) ON CONFLICT (singleton) DO UPDATE SET checkpoint_id = excluded.checkpoint_id WHERE account = excluded.account\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "fe1178bfe28098baf029ac15a97d591644a3fb6addd07ccd2c197670f58fda40"
+}

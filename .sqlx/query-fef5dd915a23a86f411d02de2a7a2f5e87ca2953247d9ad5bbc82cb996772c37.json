@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT w.window_id AS \"window_id!: i64\" FROM transfer_window w JOIN checkpoint c ON c.checkpoint_id = w.source_checkpoint WHERE w.account = ? AND c.baseline_id = ? AND w.mode = ? ORDER BY w.window_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "window_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "transfer_window",
+            "name": "window_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fef5dd915a23a86f411d02de2a7a2f5e87ca2953247d9ad5bbc82cb996772c37"
+}

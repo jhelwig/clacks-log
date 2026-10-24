@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ordinal, envelope_id FROM retained_accepted WHERE account = ? AND kind = ? AND record_id = ? ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "ordinal",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "retained_accepted",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "name": "envelope_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "retained_accepted",
+            "name": "envelope_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d8bddab60018d99bf0b9bb3b628fe86b70c1c3ca20bcc98bb426ffe6e990158b"
+}

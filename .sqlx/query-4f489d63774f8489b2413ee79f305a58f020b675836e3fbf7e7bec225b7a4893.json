@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT payload_id, stamp_id FROM accepted_record WHERE envelope_id = ? AND account = ? AND kind = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "payload_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "accepted_record",
+            "name": "payload_id"
+          }
+        }
+      },
+      {
+        "name": "stamp_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "accepted_record",
+            "name": "stamp_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "4f489d63774f8489b2413ee79f305a58f020b675836e3fbf7e7bec225b7a4893"
+}

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ordinal, operation_id FROM window_unit WHERE window_id = ? ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "ordinal",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "window_unit",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "name": "operation_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "window_unit",
+            "name": "operation_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "462967aff4e672b5d5fc35d9c0ad55dbd3a2ebd723b6d3f614ae6e972a825184"
+}

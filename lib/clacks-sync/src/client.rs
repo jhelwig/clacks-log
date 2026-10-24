@@ -272,56 +272,87 @@ pub enum Preparation {
     },
 }
 
-/// Validate account/key consistency and native values in a client row set.
-fn validate_client(current: &ClientRecord) -> anyhow::Result<()> {
-    current.latest.validate()?;
-    if current.latest.key() != current.key {
-        return Err(MetadataError::Scope {
-            detail: format!("client latest key differs from {:?}", current.key),
-        }
-        .into());
-    }
-    for retained in &current.retained {
-        retained.validate()?;
-        if retained.key != current.key {
+impl ClientRecord {
+    /// Check native values, record scope and retained comparison structure before persistence or reconciliation.
+    pub fn validate(&self) -> anyhow::Result<()> {
+        self.latest.validate()?;
+        if self.latest.key() != self.key {
             return Err(MetadataError::Scope {
-                detail: format!("retained accepted context differs from {:?}", current.key),
+                detail: format!("client latest key differs from {:?}", self.key),
             }
             .into());
         }
-    }
-    if let Some(p) = &current.pending {
-        if p.key != current.key || p.original.key() != current.key {
-            return Err(MetadataError::Scope {
-                detail: format!("pending/original key differs from {:?}", current.key),
-            }
-            .into());
-        }
-        p.working.validate(current.key)?;
-        match &p.original {
-            OriginalBasis::Accepted(original) => original.validate()?,
-            OriginalBasis::NeverCreated { checkpoint, .. } => checkpoint.validate()?,
-            OriginalBasis::SubsumedOwn { witness, .. } => witness.validate()?,
-            OriginalBasis::Unavailable { .. } => {}
-        }
-        if let Some(state) = p.original.state() {
-            state.validate(current.key)?;
-        }
-        if let Some(prepared) = &p.prepared {
-            if prepared.key != p.key || prepared.expected.key() != p.key {
+        for retained in &self.retained {
+            retained.validate()?;
+            if retained.key != self.key {
                 return Err(MetadataError::Scope {
-                    detail: format!("prepared key differs from {:?}", p.key),
+                    detail: format!("retained accepted context differs from {:?}", self.key),
                 }
                 .into());
             }
-            prepared.state.validate(p.key)?;
-            prepared.expected.validate()?;
-            for dependency in &prepared.dependencies {
-                dependency.validate()?;
+        }
+        if let Some(p) = &self.pending {
+            if p.key != self.key || p.original.key() != self.key {
+                return Err(MetadataError::Scope {
+                    detail: format!("pending/original key differs from {:?}", self.key),
+                }
+                .into());
+            }
+            p.working.validate(self.key)?;
+            match &p.original {
+                OriginalBasis::Accepted(original) => original.validate()?,
+                OriginalBasis::NeverCreated { checkpoint, .. } => checkpoint.validate()?,
+                OriginalBasis::SubsumedOwn { witness, .. } => witness.validate()?,
+                OriginalBasis::Unavailable { .. } => {}
+            }
+            if let Some(state) = p.original.state() {
+                state.validate(self.key)?;
+            }
+            if let Some(prepared) = &p.prepared {
+                if prepared.key != p.key || prepared.expected.key() != p.key {
+                    return Err(MetadataError::Scope {
+                        detail: format!("prepared key differs from {:?}", p.key),
+                    }
+                    .into());
+                }
+                prepared.state.validate(p.key)?;
+                prepared.expected.validate()?;
+                for dependency in &prepared.dependencies {
+                    dependency.validate()?;
+                }
+            }
+            if let Some(witness) = &p.witness {
+                witness.observed.validate()?;
+                witness.checkpoint.validate()?;
+                anyhow::ensure!(
+                    witness.key == self.key
+                        && witness.original == p.original
+                        && witness.checkpoint.account == self.key.account
+                        && witness.lineage.account() == self.key.account
+                        && matches!(
+                            witness.relation,
+                            RecordRelation::Before | RecordRelation::SameVersion
+                        ),
+                    MetadataError::Conflict {
+                        detail: format!(
+                            "sealed witness does not describe pending original {:?}",
+                            self.key
+                        )
+                    }
+                );
+                for baseline in &witness.baselines {
+                    baseline.validate()?;
+                    anyhow::ensure!(
+                        baseline.account == self.key.account,
+                        MetadataError::Scope {
+                            detail: "witness baseline crosses account".into()
+                        }
+                    );
+                }
             }
         }
+        Ok(())
     }
-    Ok(())
 }
 
 /// Recover private baseline interpretation without extending a witness onto another branch.
@@ -335,25 +366,6 @@ fn witness_evidence(
     let Some(witness) = &pending.witness else {
         return Ok(None);
     };
-    witness.observed.validate()?;
-    witness.checkpoint.validate()?;
-    if witness.key != current.key
-        || witness.original != pending.original
-        || witness.checkpoint.account != current.key.account
-        || witness.lineage.account() != current.key.account
-        || !matches!(
-            witness.relation,
-            RecordRelation::Before | RecordRelation::SameVersion
-        )
-    {
-        return Err(MetadataError::Conflict {
-            detail: format!(
-                "sealed witness does not describe pending original {:?}",
-                current.key
-            ),
-        }
-        .into());
-    }
     let mut lineage = evidence.lineage.clone();
     for boundary in witness.lineage.boundaries() {
         lineage.add_boundary(boundary.clone())?;
@@ -463,7 +475,7 @@ pub fn receive_accepted(
     incoming: &AcceptedRecord,
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<ClientUpdate> {
-    validate_client(current)?;
+    current.validate()?;
     let sealed = witness_evidence(current, evidence)?;
     let sealed_view = sealed
         .as_ref()
@@ -617,7 +629,7 @@ pub fn prepare_change(
     for dependency in dependencies {
         dependency.validate()?;
     }
-    validate_client(current)?;
+    current.validate()?;
     let sealed = witness_evidence(current, evidence)?;
     let sealed_view = sealed
         .as_ref()
@@ -821,7 +833,7 @@ pub fn receive_rejection(
     current: &ClientRecord,
     reason: &crate::acceptance::RejectionReason,
 ) -> anyhow::Result<ClientUpdate> {
-    validate_client(current)?;
+    current.validate()?;
     let Some(p) = &current.pending else {
         return Err(MetadataError::Invalid {
             detail: format!("rejection for {:?} has no pending values", current.key),

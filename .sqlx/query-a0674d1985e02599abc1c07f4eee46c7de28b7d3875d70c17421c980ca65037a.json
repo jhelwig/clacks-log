@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO record_observation (account, kind, record_id, variant, envelope_id, checkpoint_id, unknown_reason) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING observation_id AS \"observation_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "observation_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "record_observation",
+            "name": "observation_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a0674d1985e02599abc1c07f4eee46c7de28b7d3875d70c17421c980ca65037a"
+}

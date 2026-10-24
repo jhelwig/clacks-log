@@ -31,8 +31,12 @@ proposal. This set holds unresolved alternatives, not a per-edit history.
 Native equality and causality are separate: metadata bookkeeping alone
 does not change recorded facts or request an external upload.
 
-Composite saved rows expose fields for ordinary Rust serialization. Call the
-transition operation before accepting deserialized rows. Native errors remain
+Composite saved rows expose fields for ordinary Rust serialization.
+`ClientRecord::validate` checks restored native values, record keys, frozen
+conditions and retained witness structure. Causal comparison still requires
+the actual retained interpretation and the relevant transition operation.
+`Lineage::initial_timeline` and `boundaries` expose the complete snapshot for
+durable restoration without inferring its root from current heads. Native errors remain
 concrete causes through `anyhow::Error`; metadata diagnostics use `thiserror`.
 Expected review, retry, stale-state and admission outcomes are result data.
 

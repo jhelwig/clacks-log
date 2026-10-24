@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ordinal, kind, record_id, stamp_id, deleted FROM window_requirement WHERE window_id = ? AND account = ? ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "ordinal",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "window_requirement",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "name": "kind",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "window_requirement",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "record_id",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "window_requirement",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "name": "stamp_id",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "window_requirement",
+            "name": "stamp_id"
+          }
+        }
+      },
+      {
+        "name": "deleted",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "window_requirement",
+            "name": "deleted"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "9ff543cccd493cf997df3d5cdcd975a676f16301b05807385009c861907cd1e0"
+}

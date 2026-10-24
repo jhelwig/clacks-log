@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO basis_witness (account, kind, record_id, original_id, observed_stamp, checkpoint_id, relation, lineage_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING witness_id AS \"witness_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "witness_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "basis_witness",
+            "name": "witness_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 8
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "99954ef7da1eda60d5f543855b581f4a8a242cbbd2ed02570aac57f2ba2d2eec"
+}

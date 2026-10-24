@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO witness_baseline (witness_id, ordinal, baseline_row) VALUES (?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "accbe50fc2a0461a2b00d2470d1927cb07bf0cbdcd1c805d7f0f141e0d727efe"
+}

@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT original_id, working_payload, prepared_id, witness_id FROM pending_record WHERE pending_id = ? AND account = ? AND kind = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "original_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "pending_record",
+            "name": "original_id"
+          }
+        }
+      },
+      {
+        "name": "working_payload",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "pending_record",
+            "name": "working_payload"
+          }
+        }
+      },
+      {
+        "name": "prepared_id",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "pending_record",
+            "name": "prepared_id"
+          }
+        }
+      },
+      {
+        "name": "witness_id",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "pending_record",
+            "name": "witness_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "ba0ffc9518f081997acafff8ae323d9967288a4cc57f54c4ac6e0d552886a8c8"
+}

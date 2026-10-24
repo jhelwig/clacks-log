@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT lineage_id FROM current_lineage WHERE account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "lineage_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "current_lineage",
+            "name": "lineage_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "32173f4661c6c6fb9d25f17ba1af8c0e35bdb7c540ea5b25ab7c37bc632c6d55"
+}

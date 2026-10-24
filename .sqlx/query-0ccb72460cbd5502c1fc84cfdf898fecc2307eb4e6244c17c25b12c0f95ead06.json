@@ -1,0 +1,86 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT account, kind, record_id, variant, stamp_id, checkpoint_id FROM version_condition WHERE condition_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "account",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "version_condition",
+            "name": "account"
+          }
+        }
+      },
+      {
+        "name": "kind",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "version_condition",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "record_id",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "version_condition",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "name": "variant",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "version_condition",
+            "name": "variant"
+          }
+        }
+      },
+      {
+        "name": "stamp_id",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "version_condition",
+            "name": "stamp_id"
+          }
+        }
+      },
+      {
+        "name": "checkpoint_id",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "version_condition",
+            "name": "checkpoint_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "0ccb72460cbd5502c1fc84cfdf898fecc2307eb4e6244c17c25b12c0f95ead06"
+}

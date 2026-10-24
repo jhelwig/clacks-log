@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO coverage_entry (coverage_id, timeline_id, revision) VALUES (?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "b035c57aab44888ce1c1178f2a3f276fec5040fcfda955eea1aacca06fcff440"
+}

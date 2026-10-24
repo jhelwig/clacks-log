@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT high_water FROM local_counter WHERE account = ? AND kind = ? AND record_id = ? AND actor_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "high_water",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "local_counter",
+            "name": "high_water"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "982706f4b01f08e732703d51085f9d17f295d26c5aaf73034b0fb711a718d661"
+}

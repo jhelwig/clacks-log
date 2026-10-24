@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO window_completed_unit (window_id, operation_id) VALUES (?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "0a60ed4257a6c338ad9471d414271693626f8e281e8458b22716abfbfee7db0e"
+}

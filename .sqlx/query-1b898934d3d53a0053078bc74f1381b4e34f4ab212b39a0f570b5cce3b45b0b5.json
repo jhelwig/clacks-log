@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO checkpoint (account, baseline_id, coverage_id) VALUES (?, ?, ?) RETURNING checkpoint_id AS \"checkpoint_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "checkpoint_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "checkpoint",
+            "name": "checkpoint_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1b898934d3d53a0053078bc74f1381b4e34f4ab212b39a0f570b5cce3b45b0b5"
+}

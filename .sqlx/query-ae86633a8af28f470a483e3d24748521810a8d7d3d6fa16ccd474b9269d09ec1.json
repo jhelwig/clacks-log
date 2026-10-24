@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT variant, envelope_id, checkpoint_id, unknown_reason FROM record_observation WHERE observation_id = ? AND account = ? AND kind = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "variant",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "record_observation",
+            "name": "variant"
+          }
+        }
+      },
+      {
+        "name": "envelope_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "record_observation",
+            "name": "envelope_id"
+          }
+        }
+      },
+      {
+        "name": "checkpoint_id",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "record_observation",
+            "name": "checkpoint_id"
+          }
+        }
+      },
+      {
+        "name": "unknown_reason",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "record_observation",
+            "name": "unknown_reason"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "ae86633a8af28f470a483e3d24748521810a8d7d3d6fa16ccd474b9269d09ec1"
+}

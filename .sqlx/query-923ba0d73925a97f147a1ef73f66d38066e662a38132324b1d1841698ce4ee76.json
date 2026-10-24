@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT baseline_id, coverage_id FROM checkpoint WHERE checkpoint_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "baseline_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "checkpoint",
+            "name": "baseline_id"
+          }
+        }
+      },
+      {
+        "name": "coverage_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "checkpoint",
+            "name": "coverage_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "923ba0d73925a97f147a1ef73f66d38066e662a38132324b1d1841698ce4ee76"
+}

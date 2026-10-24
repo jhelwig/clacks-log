@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT operation_id FROM window_completed_unit WHERE window_id = ? ORDER BY operation_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "operation_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "window_completed_unit",
+            "name": "operation_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "905795a85e8e9056300203f272f19f627809b4cd09d1ffe86f5d35e0a433f5ae"
+}
