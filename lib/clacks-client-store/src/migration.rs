@@ -25,15 +25,23 @@ pub(crate) fn creation_path(path: &Path) -> anyhow::Result<PathBuf> {
     Ok(parent.canonicalize()?.join(name))
 }
 
+/// Successful read-only opening context, used before applying migrations.
+pub(crate) struct Preflight {
+    /// Native account discovered from the existing database.
+    pub(crate) account: AccountId,
+    /// Latest previously applied migration for truthful upgrade reporting.
+    pub(crate) previous: i64,
+}
+
 /// Check existing history and account in one read-only snapshot before permitting writes.
 ///
-/// Returns the latest applied migration version for startup reporting. Missing,
+/// Returns discovered account context and the applied migration version. Missing,
 /// incompatible or modified history and mismatched accounts reject the open.
 pub(crate) async fn preflight(
     path: &Path,
-    account: AccountId,
+    expected: Option<AccountId>,
     settings: &StoreSettings,
-) -> anyhow::Result<i64> {
+) -> anyhow::Result<Preflight> {
     let mut connection = options(path, settings).read_only(true).connect().await?;
     let mut transaction = connection.begin().await?;
     let supported = MIGRATIONS
@@ -82,7 +90,9 @@ pub(crate) async fn preflight(
             detail: "account row is missing".into(),
         })?
         .account;
-    if actual != account {
+    if let Some(account) = expected
+        && actual != account
+    {
         return Err(StoreError::WrongAccount {
             expected: account,
             actual,
@@ -91,7 +101,10 @@ pub(crate) async fn preflight(
     }
     transaction.commit().await?;
     connection.close().await?;
-    Ok(latest)
+    Ok(Preflight {
+        account: actual,
+        previous: latest,
+    })
 }
 
 /// Apply standard SQLx migrations without wrapping their individual commits in an outer transaction.

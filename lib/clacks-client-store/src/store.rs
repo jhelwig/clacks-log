@@ -1,12 +1,14 @@
 //! Opening and connection policy for one account's local database.
 
-use crate::migration;
 use clacks_model::ids::AccountId;
 use sqlx::{
     ConnectOptions, Connection, Sqlite, SqlitePool, Transaction,
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous},
 };
 use std::{path::Path, time::Duration};
+
+mod creation;
+mod opening;
 
 /// Bounded connection and contention settings for a desktop workspace.
 #[derive(Clone, Debug)]
@@ -47,59 +49,11 @@ pub(crate) fn options(path: &Path, settings: &StoreSettings) -> SqliteConnectOpt
 }
 
 impl ClientStore {
-    /// Exclusively create a new local-only workspace without overwriting any existing file.
-    #[tracing::instrument(skip_all, name = "client_store.create", fields(account_id = %account))]
-    pub async fn create(
-        path: &Path,
-        account: AccountId,
-        settings: StoreSettings,
-    ) -> anyhow::Result<Self> {
-        anyhow::ensure!(
-            settings.max_connections > 0,
-            "maximum connections must be positive"
-        );
-        let path = migration::creation_path(path)?;
-        let _file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&path)?;
-        let mut connection = options(&path, &settings)
-            .foreign_keys(true)
-            .synchronous(SqliteSynchronous::Full)
-            .connect()
-            .await?;
-        migration::apply(&mut connection, 0).await?;
-        let account_text = account.to_string();
-        sqlx::query_file!("sql/workspace/create.sql", account_text)
-            .execute(&mut connection)
-            .await?;
-        connection.close().await?;
-        let store = Self::connect(&path, account, &settings).await?;
-        tracing::info!(event = "workspace.created", account_id = %account);
-        Ok(store)
-    }
-
-    /// Open an existing workspace after read-only identity, account and compatibility checks.
-    #[tracing::instrument(skip_all, name = "client_store.open", fields(account_id = %account))]
-    pub async fn open(
-        path: &Path,
-        account: AccountId,
-        settings: StoreSettings,
-    ) -> anyhow::Result<Self> {
-        anyhow::ensure!(
-            settings.max_connections > 0,
-            "maximum connections must be positive"
-        );
-        let path = path.canonicalize()?;
-        let previous = migration::preflight(&path, account, &settings).await?;
-        let mut connection = options(&path, &settings)
-            .foreign_keys(true)
-            .synchronous(SqliteSynchronous::Full)
-            .connect()
-            .await?;
-        migration::apply(&mut connection, previous).await?;
-        connection.close().await?;
-        Self::connect(&path, account, &settings).await
+    /// Read the native account qualification used by this store's operations.
+    ///
+    /// Use this when constructing record keys after opening a discovered workspace.
+    pub fn account_id(&self) -> AccountId {
+        self.account
     }
 
     /// Build the normal pool only after startup safety checks and migrations succeed.

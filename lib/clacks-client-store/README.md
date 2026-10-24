@@ -6,7 +6,14 @@ Native values, saved roles, operating defaults and transfer windows use real SQL
 synchronization workflows implemented by this library.
 
 `store::ClientStore::create` exclusively creates a local-only workspace;
-`open` requires an existing workspace and the expected account ID. Startup
+`open` requires an existing workspace and the expected account ID.
+`open_discovered` uses the stored account when only the local path is known,
+sharing the same read-only preflight. `account_id()` supplies record qualification
+after discovery; `identity::status` returns non-secret enrollment presentation.
+`create_with_definitions` installs supplied groups/output profiles and the new
+account row in one transaction after schema creation. It leaves no initialized
+account on failure, preserves the exclusively created file, and never reseeds an
+existing workspace. Raw `create` remains the empty provisioning path. Startup
 inspects migration history and account in one read-only snapshot
 through a read-only connection before enabling WAL or running migrations.
 Unsupported newer schemas and wrong accounts are rejected without changing

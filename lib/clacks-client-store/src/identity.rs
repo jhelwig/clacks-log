@@ -119,3 +119,38 @@ pub async fn bind(
     tracing::info!(event = "workspace.enrollment.bound", account_id = %store.account);
     Ok(())
 }
+
+/// Non-secret native workspace identity for local application presentation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WorkspaceStatus {
+    /// Account qualifying all records in the workspace.
+    pub account: AccountId,
+    /// Whether the workspace has a complete installed enrollment binding.
+    pub enrolled: bool,
+}
+
+/// Read non-secret workspace status without exposing protected credential references.
+///
+/// Use during application startup or after changing enrollment. This does not
+/// contact a server or establish whether any connection is currently available.
+pub async fn status(store: &ClientStore) -> anyhow::Result<WorkspaceStatus> {
+    let mut transaction = store.pool.begin().await?;
+    let identity = load(&mut transaction)
+        .await?
+        .ok_or_else(|| StoreError::InvalidDatabase {
+            detail: "account row is missing".into(),
+        })?;
+    anyhow::ensure!(
+        identity.account == store.account,
+        StoreError::WrongAccount {
+            expected: store.account,
+            actual: identity.account
+        }
+    );
+    let result = WorkspaceStatus {
+        account: identity.account,
+        enrolled: identity.binding.is_some(),
+    };
+    transaction.commit().await?;
+    Ok(result)
+}
