@@ -1182,3 +1182,9 @@ Use an application-owned multi-thread Tokio runtime for the desktop alongside eg
 #### D272
 
 Use graceful desktop shutdown with an explicit force-quit option when shutdown is delayed. Stop admitting new work, cancel background operations at supported safe boundaries and let already-started local save transactions finish before closing the store, flushing telemetry and shutting down the runtime. Keep the window responsive and let the operator continue waiting or explicitly force quit rather than applying an automatic forced-exit deadline. Do not require synchronization completion before exit. Preserve D82's close-stops-client behavior, D113's nonpersistent unfinished drafts and existing durable pending-work/transaction recovery guarantees. Force quit may interrupt unfinished work. Concrete delayed-shutdown timing and coordination remain engineering work for issue #46.
+
+### Decision D273
+
+#### D273
+
+Use wgpu as the initial desktop renderer through eframe, refining D215's previously open renderer choice. Keep the interface in ordinary egui components and retain the Windows MVP and eventual macOS/Linux architecture. Eframe defaults to wgpu; its supported native platform backends fit that direction. Glow remains an evaluated alternative with a documented binary-size advantage, not the selected initial renderer. Exact compatible dependency versions, enabled backend features and actual native rendering verification remain engineering work for issue #46. See [eframe features](https://docs.rs/eframe/latest/eframe/#feature-flags) and [wgpu platform support](https://github.com/gfx-rs/wgpu#supported-platforms).

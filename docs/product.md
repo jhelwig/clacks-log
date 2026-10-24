@@ -55,6 +55,13 @@ A forced exit does not guarantee completion of unfinished work; existing atomic
 transaction and restart-recovery guarantees still apply. Exact delayed-shutdown
 threshold and coordination mechanisms remain engineering work for issue #46.
 
+## Desktop rendering (D273)
+
+Use wgpu through eframe for the initial desktop renderer. Keep interface
+components in egui and preserve the Windows MVP and eventual macOS/Linux
+architecture. Exact compatible versions, platform backend features and native
+rendering verification remain engineering work for issue #46.
+
 ## Contacts, logbooks and tags
 
 The account owns each radio contact (QSO). A Clacks logbook is a tag-defined view of those contacts, not a container that owns separate copies. A QSO can have zero, one or multiple tags; its complete tag set is part of its logical record (D243). Each tag has a stable ID, name and service settings. Names may be duplicated, with enough interface context to distinguish tags; matching names never merge identities (D119/D120). The physical database representation remains engineering work.
