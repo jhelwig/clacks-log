@@ -3,6 +3,8 @@
 pub mod error;
 pub mod identity;
 pub mod operating;
+pub mod read;
+
 pub mod retention;
 
 mod metadata;
