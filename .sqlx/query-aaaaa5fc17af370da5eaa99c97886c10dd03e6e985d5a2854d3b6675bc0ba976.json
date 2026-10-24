@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "PRAGMA foreign_keys\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "foreign_keys",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "aaaaa5fc17af370da5eaa99c97886c10dd03e6e985d5a2854d3b6675bc0ba976"
+}

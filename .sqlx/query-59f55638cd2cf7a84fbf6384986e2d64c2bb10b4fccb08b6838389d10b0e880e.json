@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "PRAGMA wal_autocheckpoint\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "wal_autocheckpoint",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "59f55638cd2cf7a84fbf6384986e2d64c2bb10b4fccb08b6838389d10b0e880e"
+}

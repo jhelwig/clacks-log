@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "PRAGMA synchronous\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "synchronous",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e19b6107452af9d18c2c8473ae88f5cb479c2ff6060173e2eb0987cad3897f0d"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO store_account (singleton, account) VALUES (1, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "b4e3ca2514f51de6ce997a4aa88f1e84a66c01b63d39776c860852c5e9f224c3"
+}

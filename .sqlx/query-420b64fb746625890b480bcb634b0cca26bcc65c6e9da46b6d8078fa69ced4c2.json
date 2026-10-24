@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT account, server, actor, credential_reference FROM store_account WHERE singleton = 1\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "account",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "store_account",
+            "name": "account"
+          }
+        }
+      },
+      {
+        "name": "server",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "store_account",
+            "name": "server"
+          }
+        }
+      },
+      {
+        "name": "actor",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "store_account",
+            "name": "actor"
+          }
+        }
+      },
+      {
+        "name": "credential_reference",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "store_account",
+            "name": "credential_reference"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "420b64fb746625890b480bcb634b0cca26bcc65c6e9da46b6d8078fa69ced4c2"
+}
