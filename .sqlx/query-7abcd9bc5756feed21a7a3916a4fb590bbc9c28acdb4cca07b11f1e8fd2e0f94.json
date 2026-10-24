@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT group_id, identifier FROM reported_reference WHERE report_id = ? AND account = ? ORDER BY group_id, identifier\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "group_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "reported_reference",
+            "name": "group_id"
+          }
+        }
+      },
+      {
+        "name": "identifier",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "reported_reference",
+            "name": "identifier"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "7abcd9bc5756feed21a7a3916a4fb590bbc9c28acdb4cca07b11f1e8fd2e0f94"
+}

@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT (SELECT count(*) FROM qso_payload WHERE payload_id = ?1)\n     + (SELECT count(*) FROM tag_payload WHERE payload_id = ?1)\n     + (SELECT count(*) FROM profile_payload WHERE payload_id = ?1)\n     + (SELECT count(*) FROM equipment_payload WHERE payload_id = ?1)\n     + (SELECT count(*) FROM output_profile_payload WHERE payload_id = ?1)\n     + (SELECT count(*) FROM group_payload WHERE payload_id = ?1)\n     + (SELECT count(*) FROM service_support WHERE payload_id = ?1) AS \"roots!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "roots!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "74c1b2dccdf0feff9a5013a3742381a0707993eafe839e72e839056463d2adbd"
+}

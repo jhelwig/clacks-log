@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO stream_progress (payload_id, ordinal, query_id, watermark) VALUES (?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "674b4f7e866d265a590e7868f16929e7097812411868eca9d15174731907587b"
+}

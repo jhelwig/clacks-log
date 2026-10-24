@@ -1,0 +1,146 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT destination_id, scope, batch_id, outcome, outcome_detail, phase, at_seconds, at_nanos, diagnostic, external_id, external_attempt FROM service_result WHERE payload_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "destination_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_result",
+            "name": "destination_id"
+          }
+        }
+      },
+      {
+        "name": "scope",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_result",
+            "name": "scope"
+          }
+        }
+      },
+      {
+        "name": "batch_id",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_result",
+            "name": "batch_id"
+          }
+        }
+      },
+      {
+        "name": "outcome",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_result",
+            "name": "outcome"
+          }
+        }
+      },
+      {
+        "name": "outcome_detail",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_result",
+            "name": "outcome_detail"
+          }
+        }
+      },
+      {
+        "name": "phase",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_result",
+            "name": "phase"
+          }
+        }
+      },
+      {
+        "name": "at_seconds",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_result",
+            "name": "at_seconds"
+          }
+        }
+      },
+      {
+        "name": "at_nanos",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_result",
+            "name": "at_nanos"
+          }
+        }
+      },
+      {
+        "name": "diagnostic",
+        "ordinal": 8,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_result",
+            "name": "diagnostic"
+          }
+        }
+      },
+      {
+        "name": "external_id",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_result",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "name": "external_attempt",
+        "ordinal": 10,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_result",
+            "name": "external_attempt"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "b56dcd678a317f24b5abd1a99bba6693885c0c4b12da439c7931ac0cdab821d8"
+}

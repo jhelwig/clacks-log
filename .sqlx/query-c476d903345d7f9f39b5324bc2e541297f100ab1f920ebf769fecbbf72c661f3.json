@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO station_report (payload_id, name_state, name, position_state, position_kind, locator, latitude, longitude, grid_length, dxcc_state, dxcc, primary_state, primary_subdivision, secondary_state, secondary_subdivision, cq_state, cq_zone, itu_state, itu_zone, references_state)\nVALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING report_id AS \"report_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "report_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "report_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 20
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c476d903345d7f9f39b5324bc2e541297f100ab1f920ebf769fecbbf72c661f3"
+}

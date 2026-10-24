@@ -1,0 +1,122 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT destination_id, service, mapping_release, mapping_commit, signing_call, signing_dxcc, external_id, contact_map, station_map FROM submission_projection WHERE projection_id = ? AND payload_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "destination_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "submission_projection",
+            "name": "destination_id"
+          }
+        }
+      },
+      {
+        "name": "service",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "submission_projection",
+            "name": "service"
+          }
+        }
+      },
+      {
+        "name": "mapping_release",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "submission_projection",
+            "name": "mapping_release"
+          }
+        }
+      },
+      {
+        "name": "mapping_commit",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "submission_projection",
+            "name": "mapping_commit"
+          }
+        }
+      },
+      {
+        "name": "signing_call",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "submission_projection",
+            "name": "signing_call"
+          }
+        }
+      },
+      {
+        "name": "signing_dxcc",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "submission_projection",
+            "name": "signing_dxcc"
+          }
+        }
+      },
+      {
+        "name": "external_id",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "submission_projection",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "name": "contact_map",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "submission_projection",
+            "name": "contact_map"
+          }
+        }
+      },
+      {
+        "name": "station_map",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "submission_projection",
+            "name": "station_map"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "bc9aff01a803ef2d6c93230db637524d6505a7a43fe8a30a37d32b7a2a18b387"
+}

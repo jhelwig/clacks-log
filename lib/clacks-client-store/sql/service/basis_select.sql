@@ -1,0 +1,1 @@
+SELECT uninterpreted_band, uninterpreted_receive_band, own_call, worked_call, start, band, receive_band, frequency, receive_frequency, mode, mode_parent, mode_group FROM confirmation_basis WHERE payload_id = ?

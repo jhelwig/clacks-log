@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO confirmation_basis (payload_id, uninterpreted_band, uninterpreted_receive_band, own_call, worked_call, start, band, receive_band, frequency, receive_frequency, mode, mode_parent, mode_group) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 13
+    },
+    "nullable": []
+  },
+  "hash": "f6c6ec7c93ff3e93de2f1a30e446485d39564c6b0010fd3f28d987d94b31566c"
+}

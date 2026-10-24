@@ -2,6 +2,7 @@
 
 mod contact;
 mod definitions;
+mod service;
 mod shared;
 
 use clacks_model::service::evidence::ServiceRecordId;
@@ -30,6 +31,29 @@ pub(crate) fn kind(id: RecordId) -> &'static str {
             ServiceRecordId::Acquisition(_) => "acquisition",
         },
     }
+}
+
+/// Decode a stored native identity while retaining its kind and service subtype.
+pub(crate) fn record_id(kind: &str, value: &str) -> anyhow::Result<RecordId> {
+    Ok(match kind {
+        "qso" => RecordId::Qso(value.parse()?),
+        "tag" => RecordId::Tag(value.parse()?),
+        "profile" => RecordId::Profile(value.parse()?),
+        "equipment" => RecordId::Equipment(value.parse()?),
+        "group" => RecordId::Group(value.parse()?),
+        "output_profile" => RecordId::OutputProfile(value.parse()?),
+        "destination" => RecordId::Service(ServiceRecordId::Destination(value.parse()?)),
+        "imported" => RecordId::Service(ServiceRecordId::Assertion(value.parse()?)),
+        "attempt" => RecordId::Service(ServiceRecordId::Attempt(value.parse()?)),
+        "result" => RecordId::Service(ServiceRecordId::Result(value.parse()?)),
+        "observation" => RecordId::Service(ServiceRecordId::Observation(value.parse()?)),
+        "association" => RecordId::Service(ServiceRecordId::Association(value.parse()?)),
+        "disposition" => RecordId::Service(ServiceRecordId::Disposition(value.parse()?)),
+        "suppression" => RecordId::Service(ServiceRecordId::Suppression(value.parse()?)),
+        "download" => RecordId::Service(ServiceRecordId::Download(value.parse()?)),
+        "acquisition" => RecordId::Service(ServiceRecordId::Acquisition(value.parse()?)),
+        _ => anyhow::bail!("unknown stored native record kind"),
+    })
 }
 
 /// Ensure a structurally referenced identity without claiming its live existence.
@@ -75,6 +99,9 @@ pub(crate) async fn insert(
         RecordState::Live(RecordValue::Group(group)) => {
             definitions::insert(connection, key.account, row.payload_id, group).await?
         }
+        RecordState::Live(RecordValue::Service(value)) => {
+            service::insert(connection, key, row.payload_id, value).await?
+        }
         RecordState::Live(value) => shared::insert(connection, key, row.payload_id, value).await?,
     }
     Ok(row.payload_id)
@@ -111,6 +138,9 @@ pub(crate) async fn load(
             ))),
             RecordId::Group(id) => RecordState::Live(RecordValue::Group(Box::new(
                 definitions::load(connection, key.account, payload, id).await?,
+            ))),
+            RecordId::Service(_) => RecordState::Live(RecordValue::Service(Box::new(
+                service::load(connection, key, payload).await?,
             ))),
             _ => RecordState::Live(shared::load(connection, key, payload).await?),
         }
@@ -219,6 +249,43 @@ mod tests {
             let payload = super::insert(&mut tx, key, &state).await?;
             assert_eq!(super::load(&mut tx, key, payload).await?, state);
         }
+        tx.rollback().await?;
+        store.close().await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn service_destination_round_trip() -> anyhow::Result<()> {
+        use clacks_model::service::{
+            destination::{Destination, RemoteCollection},
+            evidence::ServicePayload,
+        };
+        use clacks_sync::service::{ServiceRecord, ServiceSupport};
+        let dir = tempfile::tempdir()?;
+        let store = ClientStore::create(
+            &dir.path().join("workspace.sqlite"),
+            id(1),
+            StoreSettings::default(),
+        )
+        .await?;
+        let value = RecordValue::Service(Box::new(ServiceRecord {
+            payload: ServicePayload::Destination(Destination {
+                id: id(100),
+                collection: RemoteCollection::Qrz {
+                    book_id: Some("18446744073709551616000".parse()?),
+                },
+                description: "Historical namespace".into(),
+            }),
+            support: ServiceSupport::default(),
+        }));
+        let key = RecordKey {
+            account: id(1),
+            id: value.id(),
+        };
+        let state = RecordState::Live(value);
+        let mut tx = store.write().await?;
+        let root = super::insert(&mut tx, key, &state).await?;
+        assert_eq!(super::load(&mut tx, key, root).await?, state);
         tx.rollback().await?;
         store.close().await?;
         Ok(())

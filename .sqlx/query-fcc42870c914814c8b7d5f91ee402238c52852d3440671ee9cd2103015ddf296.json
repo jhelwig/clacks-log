@@ -1,0 +1,242 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT name_state, name, position_state, position_kind, locator, latitude, longitude, grid_length, dxcc_state, dxcc, primary_state, primary_subdivision, secondary_state, secondary_subdivision, cq_state, cq_zone, itu_state, itu_zone, references_state FROM station_report WHERE report_id = ? AND payload_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "name_state",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "name_state"
+          }
+        }
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "position_state",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "position_state"
+          }
+        }
+      },
+      {
+        "name": "position_kind",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "position_kind"
+          }
+        }
+      },
+      {
+        "name": "locator",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "locator"
+          }
+        }
+      },
+      {
+        "name": "latitude",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "latitude"
+          }
+        }
+      },
+      {
+        "name": "longitude",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "longitude"
+          }
+        }
+      },
+      {
+        "name": "grid_length",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "grid_length"
+          }
+        }
+      },
+      {
+        "name": "dxcc_state",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "dxcc_state"
+          }
+        }
+      },
+      {
+        "name": "dxcc",
+        "ordinal": 9,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "dxcc"
+          }
+        }
+      },
+      {
+        "name": "primary_state",
+        "ordinal": 10,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "primary_state"
+          }
+        }
+      },
+      {
+        "name": "primary_subdivision",
+        "ordinal": 11,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "primary_subdivision"
+          }
+        }
+      },
+      {
+        "name": "secondary_state",
+        "ordinal": 12,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "secondary_state"
+          }
+        }
+      },
+      {
+        "name": "secondary_subdivision",
+        "ordinal": 13,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "secondary_subdivision"
+          }
+        }
+      },
+      {
+        "name": "cq_state",
+        "ordinal": 14,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "cq_state"
+          }
+        }
+      },
+      {
+        "name": "cq_zone",
+        "ordinal": 15,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "cq_zone"
+          }
+        }
+      },
+      {
+        "name": "itu_state",
+        "ordinal": 16,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "itu_state"
+          }
+        }
+      },
+      {
+        "name": "itu_zone",
+        "ordinal": 17,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "itu_zone"
+          }
+        }
+      },
+      {
+        "name": "references_state",
+        "ordinal": 18,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "station_report",
+            "name": "references_state"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "fcc42870c914814c8b7d5f91ee402238c52852d3440671ee9cd2103015ddf296"
+}

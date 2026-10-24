@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT destination_id, collection, lotw_account, qrz_book, description FROM destination_descriptor WHERE descriptor_id = ? AND payload_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "destination_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "destination_descriptor",
+            "name": "destination_id"
+          }
+        }
+      },
+      {
+        "name": "collection",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "destination_descriptor",
+            "name": "collection"
+          }
+        }
+      },
+      {
+        "name": "lotw_account",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "destination_descriptor",
+            "name": "lotw_account"
+          }
+        }
+      },
+      {
+        "name": "qrz_book",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "destination_descriptor",
+            "name": "qrz_book"
+          }
+        }
+      },
+      {
+        "name": "description",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "destination_descriptor",
+            "name": "description"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "ed81d2d6366637882d7b5c7149849be177a3e8a5f877562e14f8df2bd05140af"
+}

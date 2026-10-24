@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO version_stamp (account, kind, record_id, timeline_id, revision, baseline_id, vector_id) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING stamp_id AS \"stamp_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "stamp_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "version_stamp",
+            "name": "stamp_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "36dae7f815e194bfa45d0291290f8bd894d0934b4c246849578b8a2b5078e2ff"
+}

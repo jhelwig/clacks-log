@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO destination_descriptor (payload_id, account, destination_id, collection, lotw_account, qrz_book, description) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING descriptor_id AS \"descriptor_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "descriptor_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "destination_descriptor",
+            "name": "descriptor_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "968ccdbb51c8365ef2b6accf2cd89ed29936f979b81754352ef177b2263950f8"
+}

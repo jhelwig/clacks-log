@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO record_vector (account, kind, record_id) VALUES (?, ?, ?) RETURNING vector_id AS \"vector_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "vector_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "record_vector",
+            "name": "vector_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "00e55e08dc7286535fdc20ac290c8dd6d9961e754876c391909bdc5e2adbd691"
+}

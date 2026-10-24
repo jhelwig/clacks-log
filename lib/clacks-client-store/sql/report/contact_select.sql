@@ -1,0 +1,1 @@
+SELECT own_call_state, own_call, worked_call_state, worked_call, start_state, start_kind, start, band_state, band, receive_band_state, receive_band, frequency_state, frequency, receive_frequency_state, receive_frequency, mode_state, mode, mode_parent, mode_group, confirmation_state, confirmation FROM contact_report WHERE report_id = ? AND payload_id = ?

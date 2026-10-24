@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT timeline_id, revision, baseline_id, vector_id FROM version_stamp WHERE stamp_id = ? AND account = ? AND kind = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "timeline_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "version_stamp",
+            "name": "timeline_id"
+          }
+        }
+      },
+      {
+        "name": "revision",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "version_stamp",
+            "name": "revision"
+          }
+        }
+      },
+      {
+        "name": "baseline_id",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "version_stamp",
+            "name": "baseline_id"
+          }
+        }
+      },
+      {
+        "name": "vector_id",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "version_stamp",
+            "name": "vector_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "8ae4b5f21c97aa19b01b683ec5f41f0a2abd5ba9116e0c133cbae0027b10b28f"
+}

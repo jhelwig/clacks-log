@@ -1,0 +1,1 @@
+INSERT INTO imported_location (payload_id, position_kind, locator, latitude, longitude, grid_length, dxcc, primary_subdivision, secondary_subdivision, cq_zone, itu_zone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

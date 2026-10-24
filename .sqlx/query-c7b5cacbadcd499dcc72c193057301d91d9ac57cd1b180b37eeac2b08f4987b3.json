@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT external_id, qso_id FROM service_suppression WHERE payload_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "external_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_suppression",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "name": "qso_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_suppression",
+            "name": "qso_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "c7b5cacbadcd499dcc72c193057301d91d9ac57cd1b180b37eeac2b08f4987b3"
+}

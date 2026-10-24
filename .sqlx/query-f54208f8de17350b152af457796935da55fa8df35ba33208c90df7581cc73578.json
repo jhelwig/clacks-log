@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO result_member (payload_id, account, attempt_id) VALUES (?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "f54208f8de17350b152af457796935da55fa8df35ba33208c90df7581cc73578"
+}

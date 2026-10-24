@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT operation_id, acquisition_stamp, descriptor_id FROM service_support WHERE payload_id = ? AND account = ? AND kind = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "operation_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_support",
+            "name": "operation_id"
+          }
+        }
+      },
+      {
+        "name": "acquisition_stamp",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_support",
+            "name": "acquisition_stamp"
+          }
+        }
+      },
+      {
+        "name": "descriptor_id",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_support",
+            "name": "descriptor_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "58c168f9c267bdb3049f3b6783d26e34d11868df572b6c85910cc347744c11c9"
+}

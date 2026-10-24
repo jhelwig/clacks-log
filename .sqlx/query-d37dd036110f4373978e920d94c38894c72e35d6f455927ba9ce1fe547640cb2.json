@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO contact_report (payload_id, own_call_state, own_call, worked_call_state, worked_call, start_state, start_kind, start, band_state, band, receive_band_state, receive_band, frequency_state, frequency, receive_frequency_state, receive_frequency, mode_state, mode, mode_parent, mode_group, confirmation_state, confirmation)\nVALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING report_id AS \"report_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "report_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contact_report",
+            "name": "report_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 22
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d37dd036110f4373978e920d94c38894c72e35d6f455927ba9ce1fe547640cb2"
+}

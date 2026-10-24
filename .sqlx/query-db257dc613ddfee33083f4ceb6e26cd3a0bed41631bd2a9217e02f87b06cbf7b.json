@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO external_key (account, destination_id, service, qrz_id, own_call, worked_call, start, band, receive_band, mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 10
+    },
+    "nullable": []
+  },
+  "hash": "db257dc613ddfee33083f4ceb6e26cd3a0bed41631bd2a9217e02f87b06cbf7b"
+}

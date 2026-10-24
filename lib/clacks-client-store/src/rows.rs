@@ -2,4 +2,5 @@
 
 pub(crate) mod contact;
 pub(crate) mod definitions;
+pub(crate) mod service;
 pub(crate) mod workspace;

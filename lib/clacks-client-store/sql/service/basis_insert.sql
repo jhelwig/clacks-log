@@ -1,0 +1,1 @@
+INSERT INTO confirmation_basis (payload_id, uninterpreted_band, uninterpreted_receive_band, own_call, worked_call, start, band, receive_band, frequency, receive_frequency, mode, mode_parent, mode_group) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

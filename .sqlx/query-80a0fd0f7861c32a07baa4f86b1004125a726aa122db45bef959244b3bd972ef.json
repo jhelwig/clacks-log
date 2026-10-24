@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO service_association (payload_id, account, external_id, qso_id, state) VALUES (?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "80a0fd0f7861c32a07baa4f86b1004125a726aa122db45bef959244b3bd972ef"
+}

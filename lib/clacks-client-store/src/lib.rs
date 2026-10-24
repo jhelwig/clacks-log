@@ -2,6 +2,7 @@
 
 pub mod error;
 pub mod identity;
+mod metadata;
 mod migration;
 mod payload;
 mod rows;

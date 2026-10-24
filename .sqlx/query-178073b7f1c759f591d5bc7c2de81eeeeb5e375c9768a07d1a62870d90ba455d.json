@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT destination_id, active_id FROM service_download WHERE payload_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "destination_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_download",
+            "name": "destination_id"
+          }
+        }
+      },
+      {
+        "name": "active_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_download",
+            "name": "active_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "178073b7f1c759f591d5bc7c2de81eeeeb5e375c9768a07d1a62870d90ba455d"
+}
