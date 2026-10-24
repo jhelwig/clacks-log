@@ -184,6 +184,11 @@ pub async fn receive(
     let row = current(&mut transaction, incoming.key).await?;
     let update = clacks_sync::client::receive_accepted(&row, incoming, &context.view())?;
     store_update(&mut transaction, &row, &update).await?;
+    metadata::binding::remove(&mut transaction, incoming.key).await?;
+    metadata::binding::insert(&mut transaction, incoming.key).await?;
+    if matches!(incoming.key.id, clacks_sync::record::RecordId::Service(_)) {
+        metadata::binding::validate_namespaces(&mut transaction, store.account).await?;
+    }
     transaction.commit().await?;
     Ok(update)
 }

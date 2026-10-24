@@ -582,8 +582,61 @@ pub fn finish_window(
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<CheckpointUpdate> {
     previous.validate()?;
+    if previous.account != manifest.account {
+        anyhow::bail!("window completion account mismatch");
+    }
+    if let WindowMode::Incremental { after } = &manifest.mode
+        && after.entries().any(|(timeline, revision)| {
+            !previous
+                .coverage
+                .covers(crate::record::Position { timeline, revision })
+        })
+    {
+        return Err(MetadataError::Incomplete {
+            detail: "incremental starting prefixes are not installed".into(),
+        }
+        .into());
+    }
+    verify_complete(manifest, progress, installed, evidence)?;
+    Ok(CheckpointUpdate {
+        expected: previous.clone(),
+        next: InstalledCheckpoint {
+            account: manifest.account,
+            baseline: manifest.source.baseline,
+            coverage: previous.coverage.join(&manifest.source.coverage),
+        },
+        completed_source: manifest.source.clone(),
+        expected_progress_generation: progress.generation,
+    })
+}
+
+/// Verify a first complete full view without inventing an earlier installed checkpoint.
+///
+/// Storage adapters must check that no completed receipt exists and commit this
+/// verified result with the window progress before acknowledging it.
+pub fn finish_initial_window(
+    manifest: &WindowManifest,
+    progress: &WindowProgress,
+    installed: &[AcceptedRecord],
+    evidence: &EvidenceView<'_>,
+) -> anyhow::Result<InstalledCheckpoint> {
+    anyhow::ensure!(
+        matches!(manifest.mode, WindowMode::Full),
+        "initial installation requires a full window"
+    );
+    verify_complete(manifest, progress, installed, evidence)?;
+    Ok(manifest.source.clone())
+}
+
+/// Check required values, complete units and installed interpretation for either completion path.
+fn verify_complete(
+    manifest: &WindowManifest,
+    progress: &WindowProgress,
+    installed: &[AcceptedRecord],
+    evidence: &EvidenceView<'_>,
+) -> anyhow::Result<()> {
     validate_progress(manifest, progress)?;
-    if previous.account != manifest.account || evidence.lineage.account() != manifest.account {
+    if evidence.lineage.account() != manifest.account {
         return Err(MetadataError::Scope {
             detail: "window completion account mismatch".into(),
         }
@@ -613,18 +666,6 @@ pub fn finish_window(
             }
             .into());
         }
-    }
-    if let WindowMode::Incremental { after } = &manifest.mode
-        && after.entries().any(|(timeline, revision)| {
-            !previous
-                .coverage
-                .covers(crate::record::Position { timeline, revision })
-        })
-    {
-        return Err(MetadataError::Incomplete {
-            detail: "incremental starting prefixes are not installed".into(),
-        }
-        .into());
     }
     for requirement in &manifest.records {
         let actual = installed
@@ -669,14 +710,5 @@ pub fn finish_window(
             );
         }
     }
-    Ok(CheckpointUpdate {
-        expected: previous.clone(),
-        next: InstalledCheckpoint {
-            account: manifest.account,
-            baseline: manifest.source.baseline,
-            coverage: previous.coverage.join(&manifest.source.coverage),
-        },
-        completed_source: manifest.source.clone(),
-        expected_progress_generation: progress.generation,
-    })
+    Ok(())
 }

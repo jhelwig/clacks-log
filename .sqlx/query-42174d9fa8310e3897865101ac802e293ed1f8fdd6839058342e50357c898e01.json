@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM current_external_binding WHERE account = ? AND association_id = ?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "42174d9fa8310e3897865101ac802e293ed1f8fdd6839058342e50357c898e01"
+}

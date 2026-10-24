@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT DISTINCT d.destination_id,d.collection,d.lotw_account,d.qrz_book,d.description\nFROM client_record c JOIN record_observation o ON o.observation_id = c.latest_observation\nJOIN accepted_record a ON a.envelope_id = o.envelope_id\nJOIN destination_descriptor d ON d.payload_id = a.payload_id\nWHERE c.account = ?\nORDER BY d.destination_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "destination_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "destination_descriptor",
+            "name": "destination_id"
+          }
+        }
+      },
+      {
+        "name": "collection",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "destination_descriptor",
+            "name": "collection"
+          }
+        }
+      },
+      {
+        "name": "lotw_account",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "destination_descriptor",
+            "name": "lotw_account"
+          }
+        }
+      },
+      {
+        "name": "qrz_book",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "destination_descriptor",
+            "name": "qrz_book"
+          }
+        }
+      },
+      {
+        "name": "description",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "destination_descriptor",
+            "name": "description"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "e2c0c5892e2a1710bc6a409914e4e137a2b8ea9dc4492b5c833b02853c0b1590"
+}

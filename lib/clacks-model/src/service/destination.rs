@@ -257,3 +257,40 @@ pub fn validate_destinations(destinations: &[Destination]) -> anyhow::Result<()>
     }
     Ok(())
 }
+
+/// Check retained public namespace snapshots without treating historical unknowns as edits.
+///
+/// Repeated snapshots may carry different descriptions, and a known QRZ book
+/// interprets an earlier unknown book for the same destination. Contradictory
+/// established collections or namespaces that cannot be distinguished fail.
+/// No supplied snapshot is rewritten.
+pub fn validate_destination_snapshots(snapshots: &[Destination]) -> anyhow::Result<()> {
+    let mut known: BTreeMap<DestinationId, &Destination> = BTreeMap::new();
+    for snapshot in snapshots {
+        if let Some(previous) = known.get(&snapshot.id) {
+            let compatible = match (&previous.collection, &snapshot.collection) {
+                (RemoteCollection::Lotw { account: a }, RemoteCollection::Lotw { account: b }) => {
+                    a.trim().eq_ignore_ascii_case(b.trim())
+                }
+                (RemoteCollection::Qrz { book_id: a }, RemoteCollection::Qrz { book_id: b }) => {
+                    a.is_none() || b.is_none() || a == b
+                }
+                _ => false,
+            };
+            if !compatible {
+                return Err(ServiceError::Invalid {
+                    detail: format!(
+                        "destination {} has contradictory retained collections",
+                        snapshot.id
+                    ),
+                }
+                .into());
+            }
+            if !matches!(previous.collection, RemoteCollection::Qrz { book_id: None }) {
+                continue;
+            }
+        }
+        known.insert(snapshot.id, snapshot);
+    }
+    validate_destinations(&known.into_values().cloned().collect::<Vec<_>>())
+}

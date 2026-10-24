@@ -59,8 +59,11 @@ pub enum DependencyStatus {
     Incomplete(Vec<MissingDependency>),
 }
 
-/// Derive mandatory semantic references even when caller-provided support omits them.
-pub(crate) fn required_keys(account: AccountId, record: &ServiceRecord) -> Vec<RecordKey> {
+/// Identify mandatory semantic records needed to interpret a service value.
+///
+/// Storage and transport adapters load these keys alongside explicit support
+/// requirements. A missing key remains incomplete evidence, not an implied value.
+pub fn required_keys(account: AccountId, record: &ServiceRecord) -> Vec<RecordKey> {
     let key = |id| RecordKey {
         account,
         id: RecordId::Service(id),

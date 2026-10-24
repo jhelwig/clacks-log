@@ -65,3 +65,27 @@ pub fn qso_key(value: QsoId) -> RecordKey {
         id: RecordId::Qso(value),
     }
 }
+
+/// Build a validated accepted envelope for a supplied server cut in focused transfer fixtures.
+pub fn accepted(revision: u64, state: RecordState) -> clacks_sync::record::AcceptedRecord {
+    use clacks_sync::{
+        clock::{ClockActor, RecordVector},
+        record::{AcceptedRecord, Position, VersionStamp},
+    };
+    let RecordState::Live(value) = &state else {
+        panic!("fixture requires a live value")
+    };
+    AcceptedRecord::new(
+        key(value),
+        state,
+        VersionStamp {
+            accepted_at: Position {
+                timeline: id(2),
+                revision,
+            },
+            baseline: id(3),
+            vector: RecordVector::from_entries([(ClockActor::Server(id(2)), revision)]).unwrap(),
+        },
+    )
+    .unwrap()
+}
