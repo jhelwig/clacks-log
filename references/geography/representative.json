@@ -1,141 +1,3739 @@
 {
   "schema_version": 1,
   "release_id": "representative-2026-10-23",
-  "producer_revision": "a05f4ba19b9bc7cef781ecf29babf704f59b3a3a",
+  "producer_revision": "083e1cfd7c57634ab368fa1bb7fab9d2fcee182a",
   "sources": [
     {
-      "id": "states", "kind": "shapefile", "publisher": "U.S. Census Bureau", "upstream_version": "2026",
-      "citation_urls": ["https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf"],
+      "id": "states",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf"
+      ],
       "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/STATE/tl_2026_us_state.zip",
       "archive_sha256": "2e17ea40dff3e00163eec87a26efa0b0ff7e8fe364a191bf1a7754dcb49ea326",
       "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
-      "text_encoding": "UTF-8", "notice_paths": ["notices/census.txt"],
-      "archive_members": ["tl_2026_us_state.cpg","tl_2026_us_state.dbf","tl_2026_us_state.prj","tl_2026_us_state.shp","tl_2026_us_state.shp.ea.iso.xml","tl_2026_us_state.shp.iso.xml","tl_2026_us_state.shx"],
-      "limits": {"download_bytes": 536870912, "member_bytes": 1073741824, "expanded_bytes": 2147483648, "members": 128}
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_us_state.cpg",
+        "tl_2026_us_state.dbf",
+        "tl_2026_us_state.prj",
+        "tl_2026_us_state.shp",
+        "tl_2026_us_state.shp.ea.iso.xml",
+        "tl_2026_us_state.shp.iso.xml",
+        "tl_2026_us_state.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {},
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
     },
     {
-      "id": "counties", "kind": "shapefile", "publisher": "U.S. Census Bureau", "upstream_version": "2026",
-      "citation_urls": ["https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf"],
+      "id": "counties",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf"
+      ],
       "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/COUNTY/tl_2026_us_county.zip",
       "archive_sha256": "b527c9ba7aeb8f17ef118f026eae5e5a938aa1d00b873bc32342d0dce59321c0",
       "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
-      "text_encoding": "UTF-8", "notice_paths": ["notices/census.txt"],
-      "archive_members": ["tl_2026_us_county.cpg","tl_2026_us_county.dbf","tl_2026_us_county.prj","tl_2026_us_county.shp","tl_2026_us_county.shp.ea.iso.xml","tl_2026_us_county.shp.iso.xml","tl_2026_us_county.shx"],
-      "limits": {"download_bytes": 536870912, "member_bytes": 1073741824, "expanded_bytes": 2147483648, "members": 128}
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_us_county.cpg",
+        "tl_2026_us_county.dbf",
+        "tl_2026_us_county.prj",
+        "tl_2026_us_county.shp",
+        "tl_2026_us_county.shp.ea.iso.xml",
+        "tl_2026_us_county.shp.iso.xml",
+        "tl_2026_us_county.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {},
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
     },
     {
-      "id": "ct-counties", "kind": "shapefile", "publisher": "U.S. Census Bureau", "upstream_version": "2021",
-      "citation_urls": ["https://www.census.gov/geographies/mapping-files/2023/geo/tiger-line-file.html"],
+      "id": "ct-counties",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2021",
+      "citation_urls": [
+        "https://www.census.gov/geographies/mapping-files/2023/geo/tiger-line-file.html"
+      ],
       "download_url": "https://www2.census.gov/geo/tiger/TIGER2021/COUNTY/tl_2021_us_county.zip",
       "archive_sha256": "26890ff92275ff1392cd205c7021ba510b7f63f2ff985ca327b9f5fd5e9ecc90",
       "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
-      "text_encoding": "UTF-8", "notice_paths": ["notices/census.txt"],
-      "archive_members": ["tl_2021_us_county.cpg","tl_2021_us_county.dbf","tl_2021_us_county.prj","tl_2021_us_county.shp","tl_2021_us_county.shp.ea.iso.xml","tl_2021_us_county.shp.iso.xml","tl_2021_us_county.shx"],
-      "limits": {"download_bytes": 536870912, "member_bytes": 1073741824, "expanded_bytes": 2147483648, "members": 128}
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2021_us_county.cpg",
+        "tl_2021_us_county.dbf",
+        "tl_2021_us_county.prj",
+        "tl_2021_us_county.shp",
+        "tl_2021_us_county.shp.ea.iso.xml",
+        "tl_2021_us_county.shp.iso.xml",
+        "tl_2021_us_county.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {},
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
     },
     {
-      "id": "cq", "kind": {"zones":{"assignment":"cqZones","expected_features":40,"open_rings":[]}},
-      "publisher": "HA8TKS", "upstream_version": "c86428d396f05540a96becf29729c70d3343f862",
-      "citation_urls": ["https://github.com/ha8tks/Leaflet.CQzones/tree/c86428d396f05540a96becf29729c70d3343f862", "https://www.cqww.com/cq_waz_list.htm"],
+      "id": "cq",
+      "publisher": "HA8TKS",
+      "upstream_version": "c86428d396f05540a96becf29729c70d3343f862",
+      "citation_urls": [
+        "https://github.com/ha8tks/Leaflet.CQzones/tree/c86428d396f05540a96becf29729c70d3343f862",
+        "https://www.cqww.com/cq_waz_list.htm"
+      ],
       "download_url": "https://raw.githubusercontent.com/ha8tks/Leaflet.CQzones/c86428d396f05540a96becf29729c70d3343f862/src/L.CQzones.js",
       "archive_sha256": "3b4281435cb2e5fc5a3504a6f9251a88d7dce2b01af31e80e764067605fd404b",
       "expected_coordinate_declaration": "GeoJSON longitude/latitude; WGS84 format interpretation, survey lineage/accuracy unestablished",
-      "text_encoding": "UTF-8", "notice_paths": ["notices/ha8tks.txt"], "archive_members": [],
-      "limits": {"download_bytes": 10485760,"member_bytes":10485760,"expanded_bytes":10485760,"members":1}
+      "text_encoding": "UTF-8",
+      "archive_members": [],
+      "notice_paths": [
+        "notices/ha8tks.txt"
+      ],
+      "attribute_domains": {},
+      "kind": {
+        "zones": {
+          "assignment": "cqZones",
+          "expected_features": 40,
+          "open_rings": []
+        }
+      },
+      "limits": {
+        "download_bytes": 10485760,
+        "member_bytes": 10485760,
+        "expanded_bytes": 10485760,
+        "members": 1
+      }
     },
     {
-      "id": "itu", "kind": {"zones":{"assignment":"ituZones","expected_features":90,"open_rings":["2","4","14","15","38"]}},
-      "publisher": "HA8TKS", "upstream_version": "cc727e8d969a4171bc0fc13fe7ebd97ad1887029",
-      "citation_urls": ["https://github.com/ha8tks/Leaflet.ITUzones/tree/cc727e8d969a4171bc0fc13fe7ebd97ad1887029"],
+      "id": "itu",
+      "publisher": "HA8TKS",
+      "upstream_version": "cc727e8d969a4171bc0fc13fe7ebd97ad1887029",
+      "citation_urls": [
+        "https://github.com/ha8tks/Leaflet.ITUzones/tree/cc727e8d969a4171bc0fc13fe7ebd97ad1887029"
+      ],
       "download_url": "https://raw.githubusercontent.com/ha8tks/Leaflet.ITUzones/cc727e8d969a4171bc0fc13fe7ebd97ad1887029/src/L.ITUzones.js",
       "archive_sha256": "e95e6779aaa38d13cf5a09940e1276647b0cc79b49c26ac001528474997d9c8f",
       "expected_coordinate_declaration": "GeoJSON longitude/latitude; WGS84 format interpretation, survey lineage/accuracy unestablished",
-      "text_encoding": "UTF-8", "notice_paths": ["notices/ha8tks.txt"], "archive_members": [],
-      "limits": {"download_bytes":10485760,"member_bytes":10485760,"expanded_bytes":10485760,"members":1}
+      "text_encoding": "UTF-8",
+      "archive_members": [],
+      "notice_paths": [
+        "notices/ha8tks.txt"
+      ],
+      "attribute_domains": {},
+      "kind": {
+        "zones": {
+          "assignment": "ituZones",
+          "expected_features": 90,
+          "open_rings": [
+            "14",
+            "15",
+            "2",
+            "38",
+            "4"
+          ]
+        }
+      },
+      "limits": {
+        "download_bytes": 10485760,
+        "member_bytes": 10485760,
+        "expanded_bytes": 10485760,
+        "members": 1
+      }
     },
     {
-      "id": "subunits", "kind": "shapefile", "publisher": "Natural Earth", "upstream_version": "5.1.1",
-      "citation_urls": ["https://www.naturalearthdata.com/about/terms-of-use/", "https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-details/"],
+      "id": "subunits",
+      "publisher": "Natural Earth",
+      "upstream_version": "5.1.1",
+      "citation_urls": [
+        "https://www.naturalearthdata.com/about/terms-of-use/",
+        "https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-details/"
+      ],
       "download_url": "https://naturalearth.s3.amazonaws.com/5.1.1/10m_cultural/ne_10m_admin_0_map_subunits.zip",
       "archive_sha256": "c2fd677e0ef254d7d6d37c92f9779a0ff69c2ab66f503dbe2a6f0cf4bbd8a199",
       "expected_coordinate_declaration": "GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.0174532925199433]]",
-      "text_encoding": "UTF-8", "notice_paths": ["notices/natural-earth.txt"],
-      "archive_members": ["ne_10m_admin_0_map_subunits.README.html","ne_10m_admin_0_map_subunits.VERSION.txt","ne_10m_admin_0_map_subunits.cpg","ne_10m_admin_0_map_subunits.dbf","ne_10m_admin_0_map_subunits.prj","ne_10m_admin_0_map_subunits.shp","ne_10m_admin_0_map_subunits.shx"],
-      "limits": {"download_bytes":536870912,"member_bytes":1073741824,"expanded_bytes":2147483648,"members":128}
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "ne_10m_admin_0_map_subunits.README.html",
+        "ne_10m_admin_0_map_subunits.VERSION.txt",
+        "ne_10m_admin_0_map_subunits.cpg",
+        "ne_10m_admin_0_map_subunits.dbf",
+        "ne_10m_admin_0_map_subunits.prj",
+        "ne_10m_admin_0_map_subunits.shp",
+        "ne_10m_admin_0_map_subunits.shx"
+      ],
+      "notice_paths": [
+        "notices/natural-earth.txt"
+      ],
+      "attribute_domains": {},
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
     },
     {
-      "id": "minor-islands", "kind": "shapefile", "publisher": "Natural Earth", "upstream_version": "4.1.0",
-      "citation_urls": ["https://www.naturalearthdata.com/about/terms-of-use/", "https://www.naturalearthdata.com/downloads/10m-physical-vectors/10m-minor-islands/"],
+      "id": "minor-islands",
+      "publisher": "Natural Earth",
+      "upstream_version": "4.1.0",
+      "citation_urls": [
+        "https://www.naturalearthdata.com/about/terms-of-use/",
+        "https://www.naturalearthdata.com/downloads/10m-physical-vectors/10m-minor-islands/"
+      ],
       "download_url": "https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_minor_islands.zip",
       "archive_sha256": "47c0b3ce26df7b4dbabdbb251023918cb2f5c83462a426288f1f253da7284db2",
       "expected_coordinate_declaration": "GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.017453292519943295]]",
-      "text_encoding": "UTF-8", "notice_paths": ["notices/natural-earth.txt"],
-      "archive_members": ["ne_10m_minor_islands.README.html","ne_10m_minor_islands.VERSION.txt","ne_10m_minor_islands.cpg","ne_10m_minor_islands.dbf","ne_10m_minor_islands.prj","ne_10m_minor_islands.shp","ne_10m_minor_islands.shx"],
-      "limits": {"download_bytes":536870912,"member_bytes":1073741824,"expanded_bytes":2147483648,"members":128}
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "ne_10m_minor_islands.README.html",
+        "ne_10m_minor_islands.VERSION.txt",
+        "ne_10m_minor_islands.cpg",
+        "ne_10m_minor_islands.dbf",
+        "ne_10m_minor_islands.prj",
+        "ne_10m_minor_islands.shp",
+        "ne_10m_minor_islands.shx"
+      ],
+      "notice_paths": [
+        "notices/natural-earth.txt"
+      ],
+      "attribute_domains": {},
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
     },
     {
-      "id": "aleutian-faces", "kind": "shapefile", "publisher": "U.S. Census Bureau", "upstream_version": "2026",
-      "citation_urls": ["https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"],
+      "id": "aleutian-faces",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
       "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_02016_faces.zip",
       "archive_sha256": "59da8e5dcaec3f66eace1100aceb00d5ea0649930bd107037e1b75668349c5f1",
       "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
-      "text_encoding": "UTF-8", "notice_paths": ["notices/census.txt"],"attribute_domains":{"LWFLAG":["G","I","L","P","S"]},
-      "archive_members": ["tl_2026_02016_faces.cpg","tl_2026_02016_faces.dbf","tl_2026_02016_faces.prj","tl_2026_02016_faces.shp","tl_2026_02016_faces.shp.ea.iso.xml","tl_2026_02016_faces.shp.iso.xml","tl_2026_02016_faces.shx"],
-      "limits": {"download_bytes":536870912,"member_bytes":1073741824,"expanded_bytes":2147483648,"members":128}
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_02016_faces.cpg",
+        "tl_2026_02016_faces.dbf",
+        "tl_2026_02016_faces.prj",
+        "tl_2026_02016_faces.shp",
+        "tl_2026_02016_faces.shp.ea.iso.xml",
+        "tl_2026_02016_faces.shp.iso.xml",
+        "tl_2026_02016_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
     },
     {
-      "id": "san-juan-faces", "kind": "shapefile", "publisher": "U.S. Census Bureau", "upstream_version": "2026",
-      "citation_urls": ["https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"],
+      "id": "san-juan-faces",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
       "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72127_faces.zip",
       "archive_sha256": "9b259c5b02d1280254f3145ea945c6040d217cdee1cf39007f72f035595496b6",
       "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
-      "text_encoding": "UTF-8", "notice_paths": ["notices/census.txt"],"attribute_domains":{"LWFLAG":["G","I","L","P","S"]},
-      "archive_members": ["tl_2026_72127_faces.cpg","tl_2026_72127_faces.dbf","tl_2026_72127_faces.prj","tl_2026_72127_faces.shp","tl_2026_72127_faces.shp.ea.iso.xml","tl_2026_72127_faces.shp.iso.xml","tl_2026_72127_faces.shx"],
-      "limits": {"download_bytes":536870912,"member_bytes":1073741824,"expanded_bytes":2147483648,"members":128}
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72127_faces.cpg",
+        "tl_2026_72127_faces.dbf",
+        "tl_2026_72127_faces.prj",
+        "tl_2026_72127_faces.shp",
+        "tl_2026_72127_faces.shp.ea.iso.xml",
+        "tl_2026_72127_faces.shp.iso.xml",
+        "tl_2026_72127_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
     },
     {
-      "id": "st-thomas-faces", "kind": "shapefile", "publisher": "U.S. Census Bureau", "upstream_version": "2026",
-      "citation_urls": ["https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"],
+      "id": "st-thomas-faces",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
       "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_78030_faces.zip",
       "archive_sha256": "c91c4cd3097b26c39efb8fcef1eebdfd6dcc0783f82630e2b23b5b74cdacfec3",
       "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
-      "text_encoding": "UTF-8", "notice_paths": ["notices/census.txt"],"attribute_domains":{"LWFLAG":["G","I","L","P","S"]},
-      "archive_members": ["tl_2026_78030_faces.cpg","tl_2026_78030_faces.dbf","tl_2026_78030_faces.prj","tl_2026_78030_faces.shp","tl_2026_78030_faces.shp.ea.iso.xml","tl_2026_78030_faces.shp.iso.xml","tl_2026_78030_faces.shx"],
-      "limits": {"download_bytes":536870912,"member_bytes":1073741824,"expanded_bytes":2147483648,"members":128}
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_78030_faces.cpg",
+        "tl_2026_78030_faces.dbf",
+        "tl_2026_78030_faces.prj",
+        "tl_2026_78030_faces.shp",
+        "tl_2026_78030_faces.shp.ea.iso.xml",
+        "tl_2026_78030_faces.shp.iso.xml",
+        "tl_2026_78030_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
     },
     {
-      "id":"caribbean-grid","kind":"grid","publisher":"NOAA / PROJ-data","upstream_version":"cdab44864a36a9f3c3e90a36637c5d8a86e624c6",
-      "citation_urls":["https://cdn.proj.org/us_noaa_pvhpgn.tif","https://github.com/OSGeo/PROJ-data/tree/cdab44864a36a9f3c3e90a36637c5d8a86e624c6"],
-      "download_url":"https://cdn.proj.org/us_noaa_pvhpgn.tif","archive_sha256":"a6db010f956526a011ba719c45fe32e5aff987eeb1cb03f2b8338208a77c619d",
-      "expected_coordinate_declaration":"EPSG:4269 to EPSG:4152 correction grid; angular offsets in arc-seconds, positive east; HARN approximated as WGS84 under EPSG:1731",
-      "text_encoding":"UTF-8","archive_members":[],"notice_paths":["notices/noaa.txt"],
-      "limits":{"download_bytes":33554432,"member_bytes":33554432,"expanded_bytes":33554432,"members":1}
+      "id": "caribbean-grid",
+      "publisher": "NOAA / PROJ-data",
+      "upstream_version": "cdab44864a36a9f3c3e90a36637c5d8a86e624c6",
+      "citation_urls": [
+        "https://cdn.proj.org/us_noaa_pvhpgn.tif",
+        "https://github.com/OSGeo/PROJ-data/tree/cdab44864a36a9f3c3e90a36637c5d8a86e624c6"
+      ],
+      "download_url": "https://cdn.proj.org/us_noaa_pvhpgn.tif",
+      "archive_sha256": "a6db010f956526a011ba719c45fe32e5aff987eeb1cb03f2b8338208a77c619d",
+      "expected_coordinate_declaration": "EPSG:4269 to EPSG:4152 correction grid; angular offsets in arc-seconds, positive east; HARN approximated as WGS84 under EPSG:1731",
+      "text_encoding": "UTF-8",
+      "archive_members": [],
+      "notice_paths": [
+        "notices/noaa.txt"
+      ],
+      "attribute_domains": {},
+      "kind": "grid",
+      "limits": {
+        "download_bytes": 33554432,
+        "member_bytes": 33554432,
+        "expanded_bytes": 33554432,
+        "members": 1
+      }
     }
   ],
   "selections": [
-    {"source_id":"states","identity_fields":["GEOID"],"properties":{"STATEFP":["02","09","15","41","53","60","66","69","72","78"]},"expected_count":10},
-    {"source_id":"counties","identity_fields":["GEOID"],"properties":{"GEOID":["53033","53053","53061","53011","41051","02020","02016","15003","72127","78030"]},"expected_count":10},
-    {"source_id":"ct-counties","identity_fields":["GEOID"],"properties":{"STATEFP":["09"]},"expected_count":8},
-    {"source_id":"cq","identity_fields":["name"],"properties":{},"expected_count":40},
-    {"source_id":"itu","identity_fields":["name"],"properties":{"name":["1","2","6","8","27","45","56","59","60","61","62"]},"expected_count":11},
-    {"source_id":"subunits","identity_fields":["SU_A3"],"properties":{"SU_A3":["USB","USK","USH","ENG","SCT","GRC"]},"expected_count":6},
-    {"source_id":"minor-islands","identity_fields":[],"properties":{},"feature_sha256":"00479e3060c7cc9d302488eebe38d54a0cc88aed23cda68bbd3cd23617597934","expected_count":1},
-    {"source_id":"aleutian-faces","identity_fields":["TFID"],"properties":{"LWFLAG":["L"]},"expected_count":534},
-    {"source_id":"san-juan-faces","identity_fields":["TFID"],"properties":{"LWFLAG":["L"]},"expected_count":5963},
-    {"source_id":"st-thomas-faces","identity_fields":["TFID"],"properties":{"LWFLAG":["L"]},"expected_count":1352}
+    {
+      "source_id": "states",
+      "identity_fields": [
+        "GEOID"
+      ],
+      "properties": {
+        "STATEFP": [
+          "02",
+          "09",
+          "15",
+          "41",
+          "53",
+          "60",
+          "66",
+          "69",
+          "72",
+          "78"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 10
+    },
+    {
+      "source_id": "counties",
+      "identity_fields": [
+        "GEOID"
+      ],
+      "properties": {
+        "GEOID": [
+          "02016",
+          "02020",
+          "15003",
+          "41051",
+          "53011",
+          "53033",
+          "53053",
+          "53061",
+          "72127",
+          "78030"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 10
+    },
+    {
+      "source_id": "ct-counties",
+      "identity_fields": [
+        "GEOID"
+      ],
+      "properties": {
+        "STATEFP": [
+          "09"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 8
+    },
+    {
+      "source_id": "cq",
+      "identity_fields": [
+        "name"
+      ],
+      "properties": {},
+      "feature_sha256": null,
+      "expected_count": 40
+    },
+    {
+      "source_id": "itu",
+      "identity_fields": [
+        "name"
+      ],
+      "properties": {
+        "name": [
+          "1",
+          "2",
+          "27",
+          "45",
+          "56",
+          "59",
+          "6",
+          "60",
+          "61",
+          "62",
+          "8"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 11
+    },
+    {
+      "source_id": "subunits",
+      "identity_fields": [
+        "SU_A3"
+      ],
+      "properties": {
+        "SU_A3": [
+          "ENG",
+          "GRC",
+          "SCT",
+          "USB",
+          "USH",
+          "USK"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 6
+    },
+    {
+      "source_id": "minor-islands",
+      "identity_fields": [],
+      "properties": {},
+      "feature_sha256": "00479e3060c7cc9d302488eebe38d54a0cc88aed23cda68bbd3cd23617597934",
+      "expected_count": 1
+    },
+    {
+      "source_id": "aleutian-faces",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 534
+    },
+    {
+      "source_id": "san-juan-faces",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 5963
+    },
+    {
+      "source_id": "st-thomas-faces",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1352
+    }
   ],
-  "operations": [], "corrections": [], "mappings": [], "exceptions": [],
+  "operations": [
+    {
+      "id": "mainland-1188",
+      "source_ids": [
+        "states",
+        "counties",
+        "ct-counties"
+      ],
+      "method": {
+        "translation": {
+          "x_m": 0.0,
+          "y_m": 0.0,
+          "z_m": 0.0
+        }
+      },
+      "assignment": {
+        "source_mask": {
+          "source_ids": [
+            "ct-counties"
+          ],
+          "components": [
+            {
+              "feature": {
+                "source_id": "states",
+                "feature_id": "02"
+              },
+              "contains_point": [
+                -150.0,
+                64.0
+              ]
+            }
+          ],
+          "identities": [
+            {
+              "source_id": "states",
+              "feature_id": "53"
+            },
+            {
+              "source_id": "states",
+              "feature_id": "41"
+            },
+            {
+              "source_id": "states",
+              "feature_id": "09"
+            }
+          ],
+          "extent": [
+            -172.54,
+            23.81,
+            -47.74,
+            86.46
+          ]
+        }
+      },
+      "description": "EPSG:1188; zero-height geocentric translation; stated accuracy 4 m.",
+      "citations": [
+        "https://github.com/OSGeo/PROJ/blob/5fa31c29f0a806568ed7bc76c1a557604db4a804/data/sql/helmert_transformation.sql",
+        "https://github.com/OSGeo/PROJ/blob/5fa31c29f0a806568ed7bc76c1a557604db4a804/data/sql/extent.sql"
+      ]
+    },
+    {
+      "id": "aleutians-1251",
+      "source_ids": [
+        "states",
+        "counties",
+        "ct-counties"
+      ],
+      "method": {
+        "translation": {
+          "x_m": -2.0,
+          "y_m": 0.0,
+          "z_m": 4.0
+        }
+      },
+      "assignment": {
+        "source_mask": {
+          "source_ids": [
+            "aleutian-faces"
+          ],
+          "components": [],
+          "identities": [],
+          "extent": [
+            172.42,
+            51.3,
+            -164.84,
+            54.34
+          ]
+        }
+      },
+      "description": "EPSG:1251; reviewed selected Aleutian land faces within onshore applicability; stated accuracy 8 m.",
+      "citations": [
+        "https://github.com/OSGeo/PROJ/blob/5fa31c29f0a806568ed7bc76c1a557604db4a804/data/sql/helmert_transformation.sql",
+        "https://github.com/OSGeo/PROJ/blob/5fa31c29f0a806568ed7bc76c1a557604db4a804/data/sql/extent.sql"
+      ]
+    },
+    {
+      "id": "hawaii-1252",
+      "source_ids": [
+        "states",
+        "counties",
+        "ct-counties"
+      ],
+      "method": {
+        "translation": {
+          "x_m": 1.0,
+          "y_m": 1.0,
+          "z_m": -1.0
+        }
+      },
+      "assignment": {
+        "source_mask": {
+          "source_ids": [],
+          "components": [
+            {
+              "feature": {
+                "source_id": "states",
+                "feature_id": "15"
+              },
+              "contains_point": [
+                -155.5,
+                19.6
+              ]
+            },
+            {
+              "feature": {
+                "source_id": "states",
+                "feature_id": "15"
+              },
+              "contains_point": [
+                -156.3,
+                20.8
+              ]
+            },
+            {
+              "feature": {
+                "source_id": "states",
+                "feature_id": "15"
+              },
+              "contains_point": [
+                -157.0,
+                21.13
+              ]
+            },
+            {
+              "feature": {
+                "source_id": "states",
+                "feature_id": "15"
+              },
+              "contains_point": [
+                -156.92,
+                20.83
+              ]
+            },
+            {
+              "feature": {
+                "source_id": "states",
+                "feature_id": "15"
+              },
+              "contains_point": [
+                -156.6,
+                20.55
+              ]
+            },
+            {
+              "feature": {
+                "source_id": "states",
+                "feature_id": "15"
+              },
+              "contains_point": [
+                -157.95,
+                21.45
+              ]
+            },
+            {
+              "feature": {
+                "source_id": "states",
+                "feature_id": "15"
+              },
+              "contains_point": [
+                -159.5,
+                22.05
+              ]
+            },
+            {
+              "feature": {
+                "source_id": "states",
+                "feature_id": "15"
+              },
+              "contains_point": [
+                -160.16,
+                21.9
+              ]
+            }
+          ],
+          "identities": [],
+          "extent": [
+            -163.74,
+            15.56,
+            -151.27,
+            25.58
+          ]
+        }
+      },
+      "description": "EPSG:1252; eight main-island source components and registry extent; stated accuracy 4 m. Remaining components explicitly no-shift.",
+      "citations": [
+        "https://github.com/OSGeo/PROJ/blob/5fa31c29f0a806568ed7bc76c1a557604db4a804/data/sql/helmert_transformation.sql",
+        "https://github.com/OSGeo/PROJ/blob/5fa31c29f0a806568ed7bc76c1a557604db4a804/data/sql/extent.sql"
+      ]
+    },
+    {
+      "id": "caribbean-1731",
+      "source_ids": [
+        "states",
+        "counties",
+        "ct-counties"
+      ],
+      "method": {
+        "grid": {
+          "source_id": "caribbean-grid"
+        }
+      },
+      "assignment": {
+        "source_mask": {
+          "source_ids": [
+            "san-juan-faces",
+            "st-thomas-faces"
+          ],
+          "components": [],
+          "identities": [],
+          "extent": [
+            -68.0,
+            17.62,
+            -64.51,
+            18.57
+          ]
+        }
+      },
+      "description": "EPSG:1731; selected San Juan/St Thomas land faces, with HARN target approximated as WGS84; stated accuracy 2 m. Other onshore areas are outside this representative operation coverage.",
+      "citations": [
+        "https://github.com/OSGeo/PROJ/blob/5fa31c29f0a806568ed7bc76c1a557604db4a804/data/sql/helmert_transformation.sql",
+        "https://github.com/OSGeo/PROJ/blob/5fa31c29f0a806568ed7bc76c1a557604db4a804/data/sql/extent.sql"
+      ]
+    },
+    {
+      "id": "remaining-d259",
+      "source_ids": [
+        "states",
+        "counties",
+        "ct-counties"
+      ],
+      "method": "no_shift",
+      "assignment": {
+        "remainder": {
+          "excluded_operation_ids": [
+            "mainland-1188",
+            "aleutians-1251",
+            "hawaii-1252",
+            "caribbean-1731"
+          ]
+        }
+      },
+      "description": "D259 no-shift approximation for Pacific/outlying/offshore components. Unestablished accuracy; unselected Caribbean onshore coverage is omitted from classified output.",
+      "citations": [
+        "https://github.com/OSGeo/PROJ/blob/5fa31c29f0a806568ed7bc76c1a557604db4a804/data/sql/helmert_transformation.sql",
+        "https://github.com/OSGeo/PROJ/blob/5fa31c29f0a806568ed7bc76c1a557604db4a804/data/sql/extent.sql"
+      ]
+    },
+    {
+      "id": "wgs84-source",
+      "source_ids": [
+        "cq",
+        "itu",
+        "subunits",
+        "minor-islands"
+      ],
+      "method": "identity",
+      "assignment": "entire",
+      "description": "Source-declared geographic longitude/latitude interpreted as WGS84; source accuracy limits retained.",
+      "citations": [
+        "https://www.naturalearthdata.com/about/terms-of-use/",
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    }
+  ],
+  "corrections": [
+    {
+      "id": "itu-2-closure",
+      "feature": {
+        "source_id": "itu",
+        "feature_id": "2"
+      },
+      "expected_source_digest": "e95e6779aaa38d13cf5a09940e1276647b0cc79b49c26ac001528474997d9c8f",
+      "expected_feature_sha256": "215a3669ceb6741d297b618d558ada6329498cb0c34da857e4a33d4ef7ba724a",
+      "replacement_geojson_path": "itu-2.json",
+      "replacement_sha256": "e45f3c2e284e9235a1841cff2a21ff05b72f0a32ef5734b5d64844a6d50e50c3",
+      "rationale": "Remove only the final near-start overshoot and close to the original first vertex. All other vertices retained; complete reviewed source-derived replacement.",
+      "supporting_citations": [
+        "https://raw.githubusercontent.com/ha8tks/Leaflet.ITUzones/cc727e8d969a4171bc0fc13fe7ebd97ad1887029/src/L.ITUzones.js"
+      ],
+      "notice_paths": [
+        "notices/ha8tks.txt"
+      ]
+    }
+  ],
+  "mappings": [
+    {
+      "id": "county-02016",
+      "source_feature_selectors": [
+        {
+          "source_id": "counties",
+          "feature_id": "02016"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "6",
+          "primary": "AK"
+        }
+      },
+      "recordable_value": "AK,Aleutians West",
+      "display_label": "Aleutians West Census Area",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-02020",
+      "source_feature_selectors": [
+        {
+          "source_id": "counties",
+          "feature_id": "02020"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "6",
+          "primary": "AK"
+        }
+      },
+      "recordable_value": "AK,Anchorage",
+      "display_label": "Anchorage Municipality",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-15003",
+      "source_feature_selectors": [
+        {
+          "source_id": "counties",
+          "feature_id": "15003"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "110",
+          "primary": "HI"
+        }
+      },
+      "recordable_value": "HI,Honolulu",
+      "display_label": "Honolulu County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-41051",
+      "source_feature_selectors": [
+        {
+          "source_id": "counties",
+          "feature_id": "41051"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "291",
+          "primary": "OR"
+        }
+      },
+      "recordable_value": "OR,Multnomah",
+      "display_label": "Multnomah County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-53011",
+      "source_feature_selectors": [
+        {
+          "source_id": "counties",
+          "feature_id": "53011"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "291",
+          "primary": "WA"
+        }
+      },
+      "recordable_value": "WA,Clark",
+      "display_label": "Clark County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-53033",
+      "source_feature_selectors": [
+        {
+          "source_id": "counties",
+          "feature_id": "53033"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "291",
+          "primary": "WA"
+        }
+      },
+      "recordable_value": "WA,King",
+      "display_label": "King County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-53053",
+      "source_feature_selectors": [
+        {
+          "source_id": "counties",
+          "feature_id": "53053"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "291",
+          "primary": "WA"
+        }
+      },
+      "recordable_value": "WA,Pierce",
+      "display_label": "Pierce County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-53061",
+      "source_feature_selectors": [
+        {
+          "source_id": "counties",
+          "feature_id": "53061"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "291",
+          "primary": "WA"
+        }
+      },
+      "recordable_value": "WA,Snohomish",
+      "display_label": "Snohomish County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-72127",
+      "source_feature_selectors": [
+        {
+          "source_id": "counties",
+          "feature_id": "72127"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "202",
+          "primary": "PR"
+        }
+      },
+      "recordable_value": "PR,San Juan",
+      "display_label": "San Juan Municipio",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "representative-state-PR",
+      "source_feature_selectors": [
+        {
+          "source_id": "counties",
+          "feature_id": "72127"
+        }
+      ],
+      "field": "primary_subdivision",
+      "parent_scope": {
+        "entity": "202"
+      },
+      "recordable_value": "PR",
+      "display_label": "Puerto Rico",
+      "citations": [
+        "Census selected county footprint; no claim outside selected county"
+      ]
+    },
+    {
+      "id": "county-78030",
+      "source_feature_selectors": [
+        {
+          "source_id": "counties",
+          "feature_id": "78030"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "285",
+          "primary": "VI"
+        }
+      },
+      "recordable_value": "VI,St. Thomas",
+      "display_label": "St. Thomas Island",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "representative-state-VI",
+      "source_feature_selectors": [
+        {
+          "source_id": "counties",
+          "feature_id": "78030"
+        }
+      ],
+      "field": "primary_subdivision",
+      "parent_scope": {
+        "entity": "285"
+      },
+      "recordable_value": "VI",
+      "display_label": "United States Virgin Islands",
+      "citations": [
+        "Census selected county footprint; no claim outside selected county"
+      ]
+    },
+    {
+      "id": "cq-1",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "1"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "1",
+      "display_label": "CQ zone 1",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-10",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "10"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "10",
+      "display_label": "CQ zone 10",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-11",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "11"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "11",
+      "display_label": "CQ zone 11",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-12",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "12"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "12",
+      "display_label": "CQ zone 12",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-13",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "13"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "13",
+      "display_label": "CQ zone 13",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-14",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "14"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "14",
+      "display_label": "CQ zone 14",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-15",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "15"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "15",
+      "display_label": "CQ zone 15",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-16",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "16"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "16",
+      "display_label": "CQ zone 16",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-17",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "17"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "17",
+      "display_label": "CQ zone 17",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-18",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "18"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "18",
+      "display_label": "CQ zone 18",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-19",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "19"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "19",
+      "display_label": "CQ zone 19",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-2",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "2"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "2",
+      "display_label": "CQ zone 2",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-20",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "20"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "20",
+      "display_label": "CQ zone 20",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-21",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "21"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "21",
+      "display_label": "CQ zone 21",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-22",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "22"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "22",
+      "display_label": "CQ zone 22",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-23",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "23"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "23",
+      "display_label": "CQ zone 23",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-24",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "24"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "24",
+      "display_label": "CQ zone 24",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-25",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "25"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "25",
+      "display_label": "CQ zone 25",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-26",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "26"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "26",
+      "display_label": "CQ zone 26",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-27",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "27"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "27",
+      "display_label": "CQ zone 27",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-28",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "28"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "28",
+      "display_label": "CQ zone 28",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-29",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "29"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "29",
+      "display_label": "CQ zone 29",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-3",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "3"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "3",
+      "display_label": "CQ zone 3",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-30",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "30"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "30",
+      "display_label": "CQ zone 30",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-31",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "31"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "31",
+      "display_label": "CQ zone 31",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-32",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "32"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "32",
+      "display_label": "CQ zone 32",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-33",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "33"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "33",
+      "display_label": "CQ zone 33",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-34",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "34"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "34",
+      "display_label": "CQ zone 34",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-35",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "35"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "35",
+      "display_label": "CQ zone 35",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-36",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "36"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "36",
+      "display_label": "CQ zone 36",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-37",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "37"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "37",
+      "display_label": "CQ zone 37",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-38",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "38"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "38",
+      "display_label": "CQ zone 38",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-39",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "39"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "39",
+      "display_label": "CQ zone 39",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-4",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "4"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "4",
+      "display_label": "CQ zone 4",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-40",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "40"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "40",
+      "display_label": "CQ zone 40",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-5",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "5"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "5",
+      "display_label": "CQ zone 5",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-6",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "6"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "6",
+      "display_label": "CQ zone 6",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-7",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "7"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "7",
+      "display_label": "CQ zone 7",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-8",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "8"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "8",
+      "display_label": "CQ zone 8",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "cq-9",
+      "source_feature_selectors": [
+        {
+          "source_id": "cq",
+          "feature_id": "9"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "9",
+      "display_label": "CQ zone 9",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "county-09001",
+      "source_feature_selectors": [
+        {
+          "source_id": "ct-counties",
+          "feature_id": "09001"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "291",
+          "primary": "CT"
+        }
+      },
+      "recordable_value": "CT,Fairfield",
+      "display_label": "Fairfield County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-09003",
+      "source_feature_selectors": [
+        {
+          "source_id": "ct-counties",
+          "feature_id": "09003"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "291",
+          "primary": "CT"
+        }
+      },
+      "recordable_value": "CT,Hartford",
+      "display_label": "Hartford County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-09005",
+      "source_feature_selectors": [
+        {
+          "source_id": "ct-counties",
+          "feature_id": "09005"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "291",
+          "primary": "CT"
+        }
+      },
+      "recordable_value": "CT,Litchfield",
+      "display_label": "Litchfield County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-09007",
+      "source_feature_selectors": [
+        {
+          "source_id": "ct-counties",
+          "feature_id": "09007"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "291",
+          "primary": "CT"
+        }
+      },
+      "recordable_value": "CT,Middlesex",
+      "display_label": "Middlesex County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-09009",
+      "source_feature_selectors": [
+        {
+          "source_id": "ct-counties",
+          "feature_id": "09009"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "291",
+          "primary": "CT"
+        }
+      },
+      "recordable_value": "CT,New Haven",
+      "display_label": "New Haven County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-09011",
+      "source_feature_selectors": [
+        {
+          "source_id": "ct-counties",
+          "feature_id": "09011"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "291",
+          "primary": "CT"
+        }
+      },
+      "recordable_value": "CT,New London",
+      "display_label": "New London County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-09013",
+      "source_feature_selectors": [
+        {
+          "source_id": "ct-counties",
+          "feature_id": "09013"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "291",
+          "primary": "CT"
+        }
+      },
+      "recordable_value": "CT,Tolland",
+      "display_label": "Tolland County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "county-09015",
+      "source_feature_selectors": [
+        {
+          "source_id": "ct-counties",
+          "feature_id": "09015"
+        }
+      ],
+      "field": "secondary_subdivision",
+      "parent_scope": {
+        "subdivision": {
+          "entity": "291",
+          "primary": "CT"
+        }
+      },
+      "recordable_value": "CT,Windham",
+      "display_label": "Windham County",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"
+      ]
+    },
+    {
+      "id": "itu-1",
+      "source_feature_selectors": [
+        {
+          "source_id": "itu",
+          "feature_id": "1"
+        }
+      ],
+      "field": "itu_zone",
+      "parent_scope": "global",
+      "recordable_value": "1",
+      "display_label": "ITU zone 1",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "itu-2",
+      "source_feature_selectors": [
+        {
+          "source_id": "itu",
+          "feature_id": "2"
+        }
+      ],
+      "field": "itu_zone",
+      "parent_scope": "global",
+      "recordable_value": "2",
+      "display_label": "ITU zone 2",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "itu-27",
+      "source_feature_selectors": [
+        {
+          "source_id": "itu",
+          "feature_id": "27"
+        }
+      ],
+      "field": "itu_zone",
+      "parent_scope": "global",
+      "recordable_value": "27",
+      "display_label": "ITU zone 27",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "itu-45",
+      "source_feature_selectors": [
+        {
+          "source_id": "itu",
+          "feature_id": "45"
+        }
+      ],
+      "field": "itu_zone",
+      "parent_scope": "global",
+      "recordable_value": "45",
+      "display_label": "ITU zone 45",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "itu-56",
+      "source_feature_selectors": [
+        {
+          "source_id": "itu",
+          "feature_id": "56"
+        }
+      ],
+      "field": "itu_zone",
+      "parent_scope": "global",
+      "recordable_value": "56",
+      "display_label": "ITU zone 56",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "itu-59",
+      "source_feature_selectors": [
+        {
+          "source_id": "itu",
+          "feature_id": "59"
+        }
+      ],
+      "field": "itu_zone",
+      "parent_scope": "global",
+      "recordable_value": "59",
+      "display_label": "ITU zone 59",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "itu-6",
+      "source_feature_selectors": [
+        {
+          "source_id": "itu",
+          "feature_id": "6"
+        }
+      ],
+      "field": "itu_zone",
+      "parent_scope": "global",
+      "recordable_value": "6",
+      "display_label": "ITU zone 6",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "itu-60",
+      "source_feature_selectors": [
+        {
+          "source_id": "itu",
+          "feature_id": "60"
+        }
+      ],
+      "field": "itu_zone",
+      "parent_scope": "global",
+      "recordable_value": "60",
+      "display_label": "ITU zone 60",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "itu-61",
+      "source_feature_selectors": [
+        {
+          "source_id": "itu",
+          "feature_id": "61"
+        }
+      ],
+      "field": "itu_zone",
+      "parent_scope": "global",
+      "recordable_value": "61",
+      "display_label": "ITU zone 61",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "itu-62",
+      "source_feature_selectors": [
+        {
+          "source_id": "itu",
+          "feature_id": "62"
+        }
+      ],
+      "field": "itu_zone",
+      "parent_scope": "global",
+      "recordable_value": "62",
+      "display_label": "ITU zone 62",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "itu-8",
+      "source_feature_selectors": [
+        {
+          "source_id": "itu",
+          "feature_id": "8"
+        }
+      ],
+      "field": "itu_zone",
+      "parent_scope": "global",
+      "recordable_value": "8",
+      "display_label": "ITU zone 8",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.CQ-Zones"
+      ]
+    },
+    {
+      "id": "state-AK",
+      "source_feature_selectors": [
+        {
+          "source_id": "states",
+          "feature_id": "02"
+        }
+      ],
+      "field": "primary_subdivision",
+      "parent_scope": {
+        "entity": "6"
+      },
+      "recordable_value": "AK",
+      "display_label": "Alaska",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes"
+      ]
+    },
+    {
+      "id": "state-CT",
+      "source_feature_selectors": [
+        {
+          "source_id": "states",
+          "feature_id": "09"
+        }
+      ],
+      "field": "primary_subdivision",
+      "parent_scope": {
+        "entity": "291"
+      },
+      "recordable_value": "CT",
+      "display_label": "Connecticut",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes"
+      ]
+    },
+    {
+      "id": "state-cq-CT",
+      "source_feature_selectors": [
+        {
+          "source_id": "states",
+          "feature_id": "09"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "5",
+      "display_label": "CQ zone 5",
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm"
+      ]
+    },
+    {
+      "id": "state-HI",
+      "source_feature_selectors": [
+        {
+          "source_id": "states",
+          "feature_id": "15"
+        }
+      ],
+      "field": "primary_subdivision",
+      "parent_scope": {
+        "entity": "110"
+      },
+      "recordable_value": "HI",
+      "display_label": "Hawaii",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes"
+      ]
+    },
+    {
+      "id": "state-OR",
+      "source_feature_selectors": [
+        {
+          "source_id": "states",
+          "feature_id": "41"
+        }
+      ],
+      "field": "primary_subdivision",
+      "parent_scope": {
+        "entity": "291"
+      },
+      "recordable_value": "OR",
+      "display_label": "Oregon",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes"
+      ]
+    },
+    {
+      "id": "state-cq-OR",
+      "source_feature_selectors": [
+        {
+          "source_id": "states",
+          "feature_id": "41"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "3",
+      "display_label": "CQ zone 3",
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm"
+      ]
+    },
+    {
+      "id": "state-WA",
+      "source_feature_selectors": [
+        {
+          "source_id": "states",
+          "feature_id": "53"
+        }
+      ],
+      "field": "primary_subdivision",
+      "parent_scope": {
+        "entity": "291"
+      },
+      "recordable_value": "WA",
+      "display_label": "Washington",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes"
+      ]
+    },
+    {
+      "id": "state-cq-WA",
+      "source_feature_selectors": [
+        {
+          "source_id": "states",
+          "feature_id": "53"
+        }
+      ],
+      "field": "cq_zone",
+      "parent_scope": "global",
+      "recordable_value": "3",
+      "display_label": "CQ zone 3",
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm"
+      ]
+    },
+    {
+      "id": "state-AS",
+      "source_feature_selectors": [
+        {
+          "source_id": "states",
+          "feature_id": "60"
+        }
+      ],
+      "field": "primary_subdivision",
+      "parent_scope": {
+        "entity": "9"
+      },
+      "recordable_value": "AS",
+      "display_label": "American Samoa",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes"
+      ]
+    },
+    {
+      "id": "state-GU",
+      "source_feature_selectors": [
+        {
+          "source_id": "states",
+          "feature_id": "66"
+        }
+      ],
+      "field": "primary_subdivision",
+      "parent_scope": {
+        "entity": "103"
+      },
+      "recordable_value": "GU",
+      "display_label": "Guam",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes"
+      ]
+    },
+    {
+      "id": "state-MP",
+      "source_feature_selectors": [
+        {
+          "source_id": "states",
+          "feature_id": "69"
+        }
+      ],
+      "field": "primary_subdivision",
+      "parent_scope": {
+        "entity": "166"
+      },
+      "recordable_value": "MP",
+      "display_label": "Commonwealth of the Northern Mariana Islands",
+      "citations": [
+        "https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html",
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes"
+      ]
+    },
+    {
+      "id": "dxcc-ENG",
+      "source_feature_selectors": [
+        {
+          "source_id": "subunits",
+          "feature_id": "ENG"
+        }
+      ],
+      "field": "dxcc",
+      "parent_scope": "global",
+      "recordable_value": "223",
+      "display_label": "England",
+      "citations": [
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes",
+        "https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-details/"
+      ]
+    },
+    {
+      "id": "dxcc-GRC",
+      "source_feature_selectors": [
+        {
+          "source_id": "subunits",
+          "feature_id": "GRC"
+        }
+      ],
+      "field": "dxcc",
+      "parent_scope": "global",
+      "recordable_value": "236",
+      "display_label": "Greece",
+      "citations": [
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes",
+        "https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-details/"
+      ]
+    },
+    {
+      "id": "dxcc-SCT",
+      "source_feature_selectors": [
+        {
+          "source_id": "subunits",
+          "feature_id": "SCT"
+        }
+      ],
+      "field": "dxcc",
+      "parent_scope": "global",
+      "recordable_value": "279",
+      "display_label": "Scotland",
+      "citations": [
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes",
+        "https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-details/"
+      ]
+    },
+    {
+      "id": "dxcc-USB",
+      "source_feature_selectors": [
+        {
+          "source_id": "subunits",
+          "feature_id": "USB"
+        }
+      ],
+      "field": "dxcc",
+      "parent_scope": "global",
+      "recordable_value": "291",
+      "display_label": "United States",
+      "citations": [
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes",
+        "https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-details/"
+      ]
+    },
+    {
+      "id": "dxcc-USH",
+      "source_feature_selectors": [
+        {
+          "source_id": "subunits",
+          "feature_id": "USH"
+        }
+      ],
+      "field": "dxcc",
+      "parent_scope": "global",
+      "recordable_value": "110",
+      "display_label": "Hawaii",
+      "citations": [
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes",
+        "https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-details/"
+      ]
+    },
+    {
+      "id": "dxcc-USK",
+      "source_feature_selectors": [
+        {
+          "source_id": "subunits",
+          "feature_id": "USK"
+        }
+      ],
+      "field": "dxcc",
+      "parent_scope": "global",
+      "recordable_value": "6",
+      "display_label": "Alaska",
+      "citations": [
+        "https://github.com/jhelwig/clacks-log/blob/6e05fc6/lib/clacks-model/data/lotw-11.34.json; entity names: https://www.arrl.org/country-lists-prefixes",
+        "https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-details/"
+      ]
+    }
+  ],
+  "exceptions": [
+    {
+      "id": "detailed-state-cq",
+      "affected_mapping_ids": [
+        "cq-1",
+        "cq-10",
+        "cq-11",
+        "cq-12",
+        "cq-13",
+        "cq-14",
+        "cq-15",
+        "cq-16",
+        "cq-17",
+        "cq-18",
+        "cq-19",
+        "cq-2",
+        "cq-20",
+        "cq-21",
+        "cq-22",
+        "cq-23",
+        "cq-24",
+        "cq-25",
+        "cq-26",
+        "cq-27",
+        "cq-28",
+        "cq-29",
+        "cq-3",
+        "cq-30",
+        "cq-31",
+        "cq-32",
+        "cq-33",
+        "cq-34",
+        "cq-35",
+        "cq-36",
+        "cq-37",
+        "cq-38",
+        "cq-39",
+        "cq-4",
+        "cq-40",
+        "cq-5",
+        "cq-6",
+        "cq-7",
+        "cq-8",
+        "cq-9"
+      ],
+      "exclusion_mapping_ids": [
+        "state-cq-WA",
+        "state-cq-OR",
+        "state-cq-CT"
+      ],
+      "exclusion_geometry_path": "",
+      "exclusion_sha256": "",
+      "replacement": null,
+      "rationale": "Published CQ state definitions use the detailed Census geometry; exclude that exact transformed area from coarse world zones before inserting state-derived assignments.",
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm"
+      ],
+      "notice_paths": []
+    },
+    {
+      "id": "athos-unknown-review-area",
+      "affected_mapping_ids": [
+        "dxcc-GRC"
+      ],
+      "exclusion_mapping_ids": [],
+      "exclusion_geometry_path": "athos-review-area.json",
+      "exclusion_sha256": "67faf560bf32677dae8cf3826e015ffc0e6015e3392cc5be706308cc38081eed",
+      "replacement": null,
+      "rationale": "Conservative authored uncertainty rectangle, deliberately broader than Mount Athos; no entity boundary or DXCC 180 classification claimed.",
+      "citations": [
+        "https://www.arrl.org/news/arrl-dxcc-statement-on-mount-athos-operation-sv1ga-a",
+        "https://whc.unesco.org/en/list/454/maps/"
+      ],
+      "notice_paths": []
+    }
+  ],
   "omissions": [
-    {"id":"itu-outside-representative-scope","field":"itu_zone","source_identities":[{"source_id":"itu","feature_id":"4"},{"source_id":"itu","feature_id":"14"},{"source_id":"itu","feature_id":"15"},{"source_id":"itu","feature_id":"31"},{"source_id":"itu","feature_id":"42"}],"reason":"This representative release selects only ITU 1, 2, 6, 8, 27, 45, 56, 59, 60, 61, 62. All other ITU records remain unpublished, including the named known-defective polygons. ITU 2 requires its separately guarded complete replacement before publication. Unsupported polar caps are not inferred.","citations":["https://github.com/ha8tks/Leaflet.ITUzones/tree/cc727e8d969a4171bc0fc13fe7ebd97ad1887029"]},
-    {"id":"unmapped-minor-island","field":"dxcc","source_identities":[{"source_id":"minor-islands","feature_id":"sha256:00479e3060c7cc9d302488eebe38d54a0cc88aed23cda68bbd3cd23617597934"}],"reason":"Representative original minor-island geometry has no source-defined unique key or supported DXCC correspondence. Its revision-bound geometry/attribute digest identifies the selected input. It remains unclassified; proximity is not a mapping rule.","citations":["https://www.naturalearthdata.com/downloads/10m-physical-vectors/10m-minor-islands/"]}
+    {
+      "id": "caribbean-whole-state-masks-incomplete",
+      "field": "primary_subdivision",
+      "source_identities": [
+        { "source_id": "states", "feature_id": "72" },
+        { "source_id": "states", "feature_id": "78" }
+      ],
+      "reason": "Full Puerto Rico and Virgin Islands state features are selected as source context but not classified. Only the complete selected county footprints supply primary subdivision coverage; remaining onshore operation masks require additional reviewed sources. Do not apply the selected county masks as if they established whole-state datum applicability.",
+      "citations": ["https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html"]
+    },
+    {
+      "id": "itu-outside-representative-scope",
+      "field": "itu_zone",
+      "source_identities": [
+        {
+          "source_id": "itu",
+          "feature_id": "4"
+        },
+        {
+          "source_id": "itu",
+          "feature_id": "14"
+        },
+        {
+          "source_id": "itu",
+          "feature_id": "15"
+        },
+        {
+          "source_id": "itu",
+          "feature_id": "31"
+        },
+        {
+          "source_id": "itu",
+          "feature_id": "42"
+        }
+      ],
+      "reason": "This representative release selects only ITU 1, 2, 6, 8, 27, 45, 56, 59, 60, 61, 62. All other ITU records remain unpublished, including the named known-defective polygons. ITU 2 requires its separately guarded complete replacement before publication. Unsupported polar caps are not inferred.",
+      "citations": [
+        "https://github.com/ha8tks/Leaflet.ITUzones/tree/cc727e8d969a4171bc0fc13fe7ebd97ad1887029"
+      ]
+    },
+    {
+      "id": "unmapped-minor-island",
+      "field": "dxcc",
+      "source_identities": [
+        {
+          "source_id": "minor-islands",
+          "feature_id": "sha256:00479e3060c7cc9d302488eebe38d54a0cc88aed23cda68bbd3cd23617597934"
+        }
+      ],
+      "reason": "Representative original minor-island geometry has no source-defined unique key or supported DXCC correspondence. Its revision-bound geometry/attribute digest identifies the selected input. It remains unclassified; proximity is not a mapping rule.",
+      "citations": [
+        "https://www.naturalearthdata.com/downloads/10m-physical-vectors/10m-minor-islands/"
+      ]
+    }
   ],
-  "acceptance_cases": [],
+  "acceptance_cases": [
+    {
+      "id": "seattle",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 47606200,
+          "longitude_microdegrees": -122332100
+        }
+      },
+      "expected": {
+        "dxcc": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "291"
+            }
+          ]
+        },
+        "primary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "entity": "291"
+              },
+              "value": "WA"
+            }
+          ]
+        },
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "WA"
+                }
+              },
+              "value": "WA,King"
+            }
+          ]
+        },
+        "cq_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "3"
+            }
+          ]
+        },
+        "itu_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "6"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "new-haven",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 41308000,
+          "longitude_microdegrees": -72928000
+        }
+      },
+      "expected": {
+        "primary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "entity": "291"
+              },
+              "value": "CT"
+            }
+          ]
+        },
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "CT"
+                }
+              },
+              "value": "CT,New Haven"
+            }
+          ]
+        },
+        "cq_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "5"
+            }
+          ]
+        },
+        "itu_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "8"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "honolulu",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 21309000,
+          "longitude_microdegrees": -157858000
+        }
+      },
+      "expected": {
+        "dxcc": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "110"
+            }
+          ]
+        },
+        "primary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "entity": "110"
+              },
+              "value": "HI"
+            }
+          ]
+        },
+        "cq_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "31"
+            }
+          ]
+        },
+        "itu_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "61"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "anchorage",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 61218000,
+          "longitude_microdegrees": -149900000
+        }
+      },
+      "expected": {
+        "dxcc": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "6"
+            }
+          ]
+        },
+        "primary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "entity": "6"
+              },
+              "value": "AK"
+            }
+          ]
+        },
+        "cq_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "1"
+            }
+          ]
+        },
+        "itu_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "unalaska",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 53870000,
+          "longitude_microdegrees": -166530000
+        }
+      },
+      "expected": {
+        "primary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "entity": "6"
+              },
+              "value": "AK"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "san-juan",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 18460000,
+          "longitude_microdegrees": -66100000
+        }
+      },
+      "expected": {
+        "primary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "entity": "202"
+              },
+              "value": "PR"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "guam",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 13444000,
+          "longitude_microdegrees": 144793700
+        }
+      },
+      "expected": {
+        "primary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "entity": "103"
+              },
+              "value": "GU"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "northern-marianas",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 15190000,
+          "longitude_microdegrees": 145750000
+        }
+      },
+      "expected": {
+        "primary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "entity": "166"
+              },
+              "value": "MP"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "american-samoa",
+      "query": {
+        "point": {
+          "latitude_microdegrees": -14280000,
+          "longitude_microdegrees": -170700000
+        }
+      },
+      "expected": {
+        "primary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "entity": "9"
+              },
+              "value": "AS"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "london",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 51507000,
+          "longitude_microdegrees": -127800
+        }
+      },
+      "expected": {
+        "dxcc": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "223"
+            }
+          ]
+        },
+        "cq_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "14"
+            }
+          ]
+        },
+        "itu_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "27"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "edinburgh",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 55953000,
+          "longitude_microdegrees": -3188000
+        }
+      },
+      "expected": {
+        "dxcc": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "279"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "athens",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 37983810,
+          "longitude_microdegrees": 23727540
+        }
+      },
+      "expected": {
+        "dxcc": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "236"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "auckland",
+      "query": {
+        "point": {
+          "latitude_microdegrees": -36850000,
+          "longitude_microdegrees": 174764000
+        }
+      },
+      "expected": {
+        "cq_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "32"
+            }
+          ]
+        },
+        "itu_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "60"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "suva",
+      "query": {
+        "point": {
+          "latitude_microdegrees": -18141000,
+          "longitude_microdegrees": 178441000
+        }
+      },
+      "expected": {
+        "cq_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "32"
+            }
+          ]
+        },
+        "itu_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "56"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "apia",
+      "query": {
+        "point": {
+          "latitude_microdegrees": -13833000,
+          "longitude_microdegrees": -171750000
+        }
+      },
+      "expected": {
+        "cq_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "32"
+            }
+          ]
+        },
+        "itu_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "62"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "tokyo",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 35676000,
+          "longitude_microdegrees": 139650000
+        }
+      },
+      "expected": {
+        "cq_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "25"
+            }
+          ]
+        },
+        "itu_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "45"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "sydney",
+      "query": {
+        "point": {
+          "latitude_microdegrees": -33869000,
+          "longitude_microdegrees": 151209000
+        }
+      },
+      "expected": {
+        "cq_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "30"
+            }
+          ]
+        },
+        "itu_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "59"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "https://www.cqww.com/cq_waz_list.htm",
+        "Pinned Census administrative identities / Natural Earth subunit keys and Clacks DXCC catalog; city interiors independently identified before pipeline output"
+      ]
+    },
+    {
+      "id": "athos-unknown",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 40266670,
+          "longitude_microdegrees": 24216670
+        }
+      },
+      "expected": {
+        "dxcc": {
+          "coverage": "none",
+          "candidates": []
+        }
+      },
+      "citations": [
+        "Authored conservative exclusion rectangle; ARRL separate-entity statement, UNESCO location context"
+      ]
+    },
+    {
+      "id": "cn87-whole-area",
+      "query": {
+        "grid": "CN87"
+      },
+      "expected": {
+        "cq_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "3"
+            }
+          ]
+        },
+        "itu_zone": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": "global",
+              "value": "6"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "CQ written western US definition; HA8TKS ITU-6 source boundary encloses entire cell"
+      ]
+    },
+    {
+      "id": "cn85-crosses-wa-or",
+      "query": {
+        "grid": "CN85"
+      },
+      "expected": {
+        "primary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "entity": "291"
+              },
+              "value": "WA"
+            },
+            {
+              "parent_scope": {
+                "entity": "291"
+              },
+              "value": "OR"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Census Washington/Oregon Columbia River boundary traverses this cell; state administrative geometry includes coastal and river waters, covering the whole cell"
+      ]
+    },
+    {
+      "id": "cn75-coastal-partial",
+      "query": {
+        "grid": "CN75"
+      },
+      "expected": {
+        "primary_subdivision": {
+          "coverage": "partial",
+          "candidates": [
+            {
+              "parent_scope": {
+                "entity": "291"
+              },
+              "value": "OR"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Census Oregon coastal administrative waters intersect the eastern edge of CN75; most of the cell is offshore outside the selected state geography."
+      ]
+    },
+    {
+      "id": "source-internal-counties-02016",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 51948964,
+          "longitude_microdegrees": 179621188
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "6",
+                  "primary": "AK"
+                }
+              },
+              "value": "AK,Aleutians West"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census counties GEOID=02016 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-counties-02020",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 61174250,
+          "longitude_microdegrees": -149284329
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "6",
+                  "primary": "AK"
+                }
+              },
+              "value": "AK,Anchorage"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census counties GEOID=02020 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-counties-15003",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 21461365,
+          "longitude_microdegrees": -158201974
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "110",
+                  "primary": "HI"
+                }
+              },
+              "value": "HI,Honolulu"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census counties GEOID=15003 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-counties-41051",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 45547168,
+          "longitude_microdegrees": -122414003
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "OR"
+                }
+              },
+              "value": "OR,Multnomah"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census counties GEOID=41051 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-counties-53011",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 45771684,
+          "longitude_microdegrees": -122486107
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "WA"
+                }
+              },
+              "value": "WA,Clark"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census counties GEOID=53011 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-counties-53033",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 47475047,
+          "longitude_microdegrees": -121813743
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "WA"
+                }
+              },
+              "value": "WA,King"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census counties GEOID=53033 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-counties-53053",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 47051444,
+          "longitude_microdegrees": -122153283
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "WA"
+                }
+              },
+              "value": "WA,Pierce"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census counties GEOID=53053 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-counties-53061",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 48054913,
+          "longitude_microdegrees": -121765038
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "WA"
+                }
+              },
+              "value": "WA,Snohomish"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census counties GEOID=53061 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-counties-72127",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 18422249,
+          "longitude_microdegrees": -66069081
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "202",
+                  "primary": "PR"
+                }
+              },
+              "value": "PR,San Juan"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census counties GEOID=72127 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-counties-78030",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 18339236,
+          "longitude_microdegrees": -64950043
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "285",
+                  "primary": "VI"
+                }
+              },
+              "value": "VI,St. Thomas"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census counties GEOID=78030 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-ct-counties-09001",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 41227413,
+          "longitude_microdegrees": -73367061
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "CT"
+                }
+              },
+              "value": "CT,Fairfield"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census ct-counties GEOID=09001 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-ct-counties-09003",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 41806053,
+          "longitude_microdegrees": -72732916
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "CT"
+                }
+              },
+              "value": "CT,Hartford"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census ct-counties GEOID=09003 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-ct-counties-09005",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 41791883,
+          "longitude_microdegrees": -73235404
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "CT"
+                }
+              },
+              "value": "CT,Litchfield"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census ct-counties GEOID=09005 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-ct-counties-09007",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 41433003,
+          "longitude_microdegrees": -72522780
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "CT"
+                }
+              },
+              "value": "CT,Middlesex"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census ct-counties GEOID=09007 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-ct-counties-09009",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 41349719,
+          "longitude_microdegrees": -72900203
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "CT"
+                }
+              },
+              "value": "CT,New Haven"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census ct-counties GEOID=09009 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-ct-counties-09011",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 41472652,
+          "longitude_microdegrees": -72108634
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "CT"
+                }
+              },
+              "value": "CT,New London"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census ct-counties GEOID=09011 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-ct-counties-09013",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 41858081,
+          "longitude_microdegrees": -72340978
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "CT"
+                }
+              },
+              "value": "CT,Tolland"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census ct-counties GEOID=09013 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    },
+    {
+      "id": "source-internal-ct-counties-09015",
+      "query": {
+        "point": {
+          "latitude_microdegrees": 41824999,
+          "longitude_microdegrees": -71990702
+        }
+      },
+      "expected": {
+        "secondary_subdivision": {
+          "coverage": "complete",
+          "candidates": [
+            {
+              "parent_scope": {
+                "subdivision": {
+                  "entity": "291",
+                  "primary": "CT"
+                }
+              },
+              "value": "CT,Windham"
+            }
+          ]
+        }
+      },
+      "citations": [
+        "Pinned Census ct-counties GEOID=09015 INTPTLAT/INTPTLON attributes supply an independent interior-point check"
+      ]
+    }
+  ],
   "notices": {
-    "notices/census.txt":"Source: U.S. Census Bureau, 2026 and 2021 TIGER/Line Shapefiles. Modified for Clacks Log. TIGER/Line is a Census Bureau trademark. No Census endorsement is implied. Reproduction and attribution basis: https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf sections 1.1–1.2. Connecticut county geometry uses the 2021 eight counties rather than 2026 planning regions. Coordinate transformations and documented approximations are Clacks processing, not Census accuracy guarantees.\n",
-    "notices/ha8tks.txt":"MIT License\n\nCopyright (c) 2019 ha8tks\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n\nClacks modifications: source linework converted to reviewed polygon artifacts; documented closures, date-line handling and guarded replacements. No upstream survey-accuracy claim is made.\n",
-    "notices/natural-earth.txt":"Made with Natural Earth. Map subunits 5.1.1 and minor islands 4.1.0. Natural Earth places its raster/vector data in the public domain, including modification and commercial redistribution: https://www.naturalearthdata.com/about/terms-of-use/. Generalized cartographic geometry is not an award-eligibility determination. Clacks authors the factual DXCC correspondence and explicit omissions/exclusions.\n",
-    "notices/noaa.txt":"Coordinate correction grid us_noaa_pvhpgn.tif, NOAA National Geodetic Survey / PROJ-data. The original grid metadata states public domain. Source and metadata: https://cdn.proj.org/us_noaa_pvhpgn.tif and https://github.com/OSGeo/PROJ-data/tree/cdab44864a36a9f3c3e90a36637c5d8a86e624c6. EPSG:1731 uses the NAD83-to-HARN grid and approximates HARN as WGS84; stated operation accuracy is separate from Census boundary accuracy.\n"
+    "notices/census.txt": "Source: U.S. Census Bureau, 2026 and 2021 TIGER/Line Shapefiles. Modified for Clacks Log. TIGER/Line is a Census Bureau trademark. No Census endorsement is implied. Reproduction and attribution basis: https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf sections 1.1–1.2. Connecticut county geometry uses the 2021 eight counties rather than 2026 planning regions. Coordinate transformations and documented approximations are Clacks processing, not Census accuracy guarantees.\n",
+    "notices/ha8tks.txt": "MIT License\n\nCopyright (c) 2019 ha8tks\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n\nClacks modifications: source linework converted to reviewed polygon artifacts; documented closures, date-line handling and guarded replacements. No upstream survey-accuracy claim is made.\n",
+    "notices/natural-earth.txt": "Made with Natural Earth. Map subunits 5.1.1 and minor islands 4.1.0. Natural Earth places its raster/vector data in the public domain, including modification and commercial redistribution: https://www.naturalearthdata.com/about/terms-of-use/. Generalized cartographic geometry is not an award-eligibility determination. Clacks authors the factual DXCC correspondence and explicit omissions/exclusions.\n",
+    "notices/noaa.txt": "Coordinate correction grid us_noaa_pvhpgn.tif, NOAA National Geodetic Survey / PROJ-data. The original grid metadata states public domain. Source and metadata: https://cdn.proj.org/us_noaa_pvhpgn.tif and https://github.com/OSGeo/PROJ-data/tree/cdab44864a36a9f3c3e90a36637c5d8a86e624c6. EPSG:1731 uses the NAD83-to-HARN grid and approximates HARN as WGS84; stated operation accuracy is separate from Census boundary accuracy.\n"
   },
-  "scope":"Representative real-source production-path validation; selected U.S. administrative areas, CQ/ITU zones and DXCC subunits. Complete national/world coverage is not claimed.",
-  "limitations":["Census is not survey-grade boundary data.","Natural Earth is generalized cartography with incomplete small-island/polar coverage.","HA8TKS zone linework has unestablished survey lineage and requires reviewed corrections.","No-shift assignments have unestablished accuracy."]
+  "scope": "Representative real-source production-path validation; selected U.S. administrative areas, CQ/ITU zones and DXCC subunits. Complete national/world coverage is not claimed.",
+  "limitations": [
+    "Census is not survey-grade boundary data.",
+    "HA8TKS zone linework has unestablished survey lineage and requires reviewed corrections.",
+    "Natural Earth is generalized cartography with incomplete small-island/polar coverage.",
+    "No-shift assignments have unestablished accuracy.",
+    "Representative Caribbean primary coverage uses complete selected county footprints only; unselected onshore areas require additional reviewed operation masks in #23. D269 preserves and reports exact-operation seams."
+  ]
 }
