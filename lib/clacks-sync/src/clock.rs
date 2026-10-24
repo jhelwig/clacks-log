@@ -39,6 +39,7 @@ impl RecordVector {
     ) -> Result<Self, MetadataError> {
         let mut all = BTreeMap::new();
         for (actor, counter) in entries {
+            crate::error::validate_counter(counter, "record vector component")?;
             if all.insert(actor, counter).is_some_and(|old| old != counter) {
                 return Err(MetadataError::Conflict {
                     detail: format!("writer {actor:?} has conflicting counters"),
@@ -88,13 +89,10 @@ impl RecordVector {
         actor: ClockActor,
         high_water: u64,
     ) -> Result<(Self, u64), MetadataError> {
-        let count = self
-            .component(actor)
-            .max(high_water)
-            .checked_add(1)
-            .ok_or_else(|| MetadataError::Overflow {
-                counter: format!("{actor:?}"),
-            })?;
+        let count = crate::error::next_counter(
+            self.component(actor).max(high_water),
+            &format!("{actor:?}"),
+        )?;
         let mut next = self.clone();
         next.0.insert(actor, count);
         Ok((next, count))

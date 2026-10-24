@@ -131,6 +131,14 @@ pub enum VersionCondition {
 }
 
 impl VersionCondition {
+    /// Check the counter domain of the accepted or absent comparison basis.
+    pub fn validate(&self) -> Result<(), crate::error::MetadataError> {
+        match self {
+            Self::Absent { checkpoint, .. } => checkpoint.validate(),
+            Self::Is { stamp, .. } => stamp.validate(),
+        }
+    }
+
     /// Identify the guarded record for transaction dependency checks.
     pub fn key(&self) -> RecordKey {
         match self {
@@ -290,8 +298,11 @@ fn validate_client(current: &ClientRecord) -> anyhow::Result<()> {
             .into());
         }
         p.working.validate(current.key)?;
-        if let OriginalBasis::Accepted(original) = &p.original {
-            original.validate()?;
+        match &p.original {
+            OriginalBasis::Accepted(original) => original.validate()?,
+            OriginalBasis::NeverCreated { checkpoint, .. } => checkpoint.validate()?,
+            OriginalBasis::SubsumedOwn { witness, .. } => witness.validate()?,
+            OriginalBasis::Unavailable { .. } => {}
         }
         if let Some(state) = p.original.state() {
             state.validate(current.key)?;
@@ -304,6 +315,10 @@ fn validate_client(current: &ClientRecord) -> anyhow::Result<()> {
                 .into());
             }
             prepared.state.validate(p.key)?;
+            prepared.expected.validate()?;
+            for dependency in &prepared.dependencies {
+                dependency.validate()?;
+            }
         }
     }
     Ok(())
@@ -320,6 +335,8 @@ fn witness_evidence(
     let Some(witness) = &pending.witness else {
         return Ok(None);
     };
+    witness.observed.validate()?;
+    witness.checkpoint.validate()?;
     if witness.key != current.key
         || witness.original != pending.original
         || witness.checkpoint.account != current.key.account
@@ -596,6 +613,10 @@ pub fn prepare_change(
     dependencies: &[VersionCondition],
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<Preparation> {
+    crate::error::validate_counter(counter.high_water, "client counter high-water mark")?;
+    for dependency in dependencies {
+        dependency.validate()?;
+    }
     validate_client(current)?;
     let sealed = witness_evidence(current, evidence)?;
     let sealed_view = sealed

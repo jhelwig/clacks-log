@@ -14,12 +14,21 @@ use std::collections::{BTreeMap, BTreeSet};
 pub struct Coverage(BTreeMap<TimelineId, u64>);
 
 impl Coverage {
+    /// Check that every retained prefix fits the synchronization counter domain.
+    pub fn validate(&self) -> Result<(), MetadataError> {
+        for revision in self.0.values() {
+            crate::error::validate_counter(*revision, "coverage revision")?;
+        }
+        Ok(())
+    }
+
     /// Validate prefix coordinates, rejecting inconsistent duplicate claims.
     pub fn from_entries(
         entries: impl IntoIterator<Item = (TimelineId, u64)>,
     ) -> Result<Self, MetadataError> {
         let mut map = BTreeMap::new();
         for (id, n) in entries {
+            crate::error::validate_counter(n, "coverage revision")?;
             if map.insert(id, n).is_some_and(|old| old != n) {
                 return Err(MetadataError::Conflict {
                     detail: format!("timeline {id} has conflicting prefixes"),
@@ -147,6 +156,8 @@ impl Lineage {
 
     /// Add an immutable relationship, rejecting rewrites, missing origins and cycles.
     pub fn add_boundary(&mut self, boundary: TimelineBoundary) -> Result<(), MetadataError> {
+        boundary.at.validate()?;
+        boundary.includes.validate()?;
         if let Some(old) = self.boundaries.iter().find(|old| old.at == boundary.at) {
             return if old == &boundary {
                 Ok(())
@@ -184,6 +195,7 @@ impl Lineage {
 
     /// Establish complete ancestry at this cut, without borrowing later boundaries.
     pub fn coverage_at(&self, position: Position) -> Result<Coverage, MetadataError> {
+        position.validate()?;
         let mut result = Coverage::default();
         let mut stack = vec![(position, false)];
         let mut active = Vec::<Position>::new();

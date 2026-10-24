@@ -107,6 +107,8 @@ pub fn check_history(
     observation: &HistoryObservation,
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<HistoryCheck> {
+    observation.advertised.validate()?;
+    observation.remembered.validate()?;
     if observation.account != evidence.lineage.account() {
         return Err(MetadataError::Scope {
             detail: "history observation crosses account".into(),
@@ -172,6 +174,7 @@ pub fn plan_recovery_fork(
     known_restored: &Coverage,
 ) -> anyhow::Result<RecoveryBoundaryPlan> {
     membership.validate(account)?;
+    known_restored.validate()?;
     if new_timeline == account.head.timeline
         || account
             .installed

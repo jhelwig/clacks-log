@@ -69,6 +69,10 @@ impl WindowManifest {
         baselines: Vec<Baseline>,
         units: Vec<CoupledRequirement>,
     ) -> anyhow::Result<Self> {
+        source.validate()?;
+        if let WindowMode::Incremental { after } = &mode {
+            after.validate()?;
+        }
         if source.account != account {
             return Err(MetadataError::Scope {
                 detail: format!(
@@ -80,6 +84,7 @@ impl WindowManifest {
         }
         let mut unique = BTreeMap::new();
         for record in records {
+            record.stamp.validate()?;
             if record.key.account != account {
                 return Err(MetadataError::Scope {
                     detail: format!("manifest record {:?} crosses account", record.key),
@@ -103,12 +108,17 @@ impl WindowManifest {
             }
         }
         for b in &baselines {
+            b.validate()?;
             if b.account != account || b.lineage.account() != account {
                 return Err(MetadataError::Scope {
                     detail: format!("manifest baseline {} crosses account", b.id),
                 }
                 .into());
             }
+        }
+        for boundary in &boundaries {
+            boundary.at.validate()?;
+            boundary.includes.validate()?;
         }
         let mut unit_ids = BTreeSet::new();
         for unit in &units {
@@ -117,6 +127,7 @@ impl WindowManifest {
             }
             let mut member_keys = BTreeSet::new();
             for member in &unit.members {
+                member.stamp.validate()?;
                 anyhow::ensure!(
                     member.key.account == account
                         && unique.contains_key(&member.key)
@@ -223,6 +234,7 @@ pub struct CheckpointUpdate {
 
 /// Verify the progress row belongs to this immutable window.
 fn validate_progress(manifest: &WindowManifest, progress: &WindowProgress) -> anyhow::Result<()> {
+    crate::error::validate_counter(progress.generation, "window progress")?;
     manifest.validate()?;
     if manifest.source != progress.source || manifest.mode != progress.mode {
         return Err(MetadataError::Conflict {
@@ -297,13 +309,7 @@ pub fn plan_batch(
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<InstallBatch> {
     validate_progress(manifest, progress)?;
-    let next_generation =
-        progress
-            .generation
-            .checked_add(1)
-            .ok_or_else(|| MetadataError::Overflow {
-                counter: "window progress".into(),
-            })?;
+    let next_generation = crate::error::next_counter(progress.generation, "window progress")?;
     let mut candidates = progress.staged.clone();
     for row in incoming {
         let required = manifest
@@ -575,6 +581,7 @@ pub fn finish_window(
     previous: &InstalledCheckpoint,
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<CheckpointUpdate> {
+    previous.validate()?;
     validate_progress(manifest, progress)?;
     if previous.account != manifest.account || evidence.lineage.account() != manifest.account {
         return Err(MetadataError::Scope {
