@@ -58,8 +58,13 @@ record ownership or whole-record reconciliation.
 Use one database for one local account workspace. All its tags, contacts,
 profiles, equipment and synchronization/evidence rows share that database;
 there is no database per tag. The caller supplies the database path. Discovering
-application directories, account switching and authentication UI belong to later
-runtime composition; this layout does not add a multi-account desktop UI.
+application directories and desktop startup belong to the
+[desktop specification](desktop.md#4-workspace-and-configuration); account switching
+and authentication UI are separate capabilities. This layout does not add a
+multi-account desktop UI. Desktop reopening discovers the stored account through
+the same read-only compatibility preflight; expected-account callers retain their
+account check. This integration requires an opening API extension, not desktop
+SQL, an identity registry or another database marker.
 
 `store_account` is a singleton containing the native account ID, optional server
 binding, optional current client actor ID, and a local-only/enrolled state.
@@ -558,7 +563,10 @@ a write connection. Do not rely on `Migrator::run` alone to guarantee a read-onl
 rejection path. SQLite transactions and SQLx's per-migration transactions handle
 concurrent access. Concurrent migration attempts can fail with ordinary database
 or migration errors; retrying startup reads fresh history. There is no separate
-startup lock or automatic migration-retry mechanism.
+store startup lock or automatic migration-retry mechanism. The desktop's
+[process-lifetime coordination](desktop.md#5-one-process-per-workspace-and-activation)
+serves single-instance activation, not database migration correctness; direct
+store consumers retain ordinary SQLite concurrency behavior.
 
 New-store creation initializes the schema and account on an exclusively created
 file. SQLx migration history is the sole schema-version record; do not maintain

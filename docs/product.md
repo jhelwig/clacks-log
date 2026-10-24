@@ -1,13 +1,13 @@
 # Product scope and operating workflows
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The [native-model specification](native-model.md) defines the contact and shared-data contracts. The [native-model library](../lib/clacks-model/README.md) implements their pure value and selection operations; desktop/server applications and persistence remain downstream capabilities.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The [native-model specification](native-model.md) defines the contact and shared-data contracts. The [native-model library](../lib/clacks-model/README.md) implements their pure value and selection operations. The client-store library supplies durable persistence; desktop/server applications remain downstream capabilities.
 
 Clacks Log should replace the everyday shack logger while supporting independently writable offline logs on any number of clients. Fixed and portable operation use the same product model.
 
 ## Product direction
 
 - Native, graphical desktop operation targeting Windows, macOS, and Linux (D83). D162 selects Windows desktop support for MVP, with macOS/Linux releases post-MVP and their exact timing open. Architecture, tooling, and platform abstractions remain cross-platform from the start.
-- Rust wherever practical. D213 selects PostgreSQL for the server and embedded SQLite for clients. D215 selects egui for the desktop interface, with eframe and egui_extras as the starting integration direction. Wire protocol, cryptographic libraries, exact dependency versions and physical schemas remain open.
+- Rust wherever practical. D213 selects PostgreSQL for the server and embedded SQLite for clients. D215 selects egui for the desktop interface, with eframe and egui_extras as the starting integration direction. The synchronization, signing and client-store specifications define their integration contracts; exact desktop dependency versions and server storage details remain engineering work.
 - Dense, useful operating context and efficient use of desktop space. Avoid interfaces that resemble a simplified mobile application inside a desktop window.
 - Integrate with specialist applications rather than becoming an all-in-one operating suite.
 - Self-hostable synchronization and integration services, with an optional hosted subscription offering. D241 permits hosted-subscription launch after MVP; the first release does not require a commercial hosted-service launch. D63 requires multiple independent accounts per server in minimum viable product (MVP), with account-isolated log data, profiles, clients, and service credentials.
@@ -15,132 +15,69 @@ Clacks Log should replace the everyday shack logger while supporting independent
 - D222 requires the web architecture to accommodate eventual logbook browsing/editing and reporting, with logging a possibility. MVP administration/setup/diagnostics scope is not the long-term interface boundary; these future capabilities are not added to MVP. D223 selects Leptos/Axum with server-rendered initial pages and Rust/WebAssembly browser interactivity through hydration, within the one Clacks server application.
 - Working name: **Clacks Log**, a Discworld reference. The name is provisional.
 
-## Desktop workspace startup (D270)
+## Desktop application foundation
 
-Ordinary startup automatically creates a default local workspace on first use and
-reopens it on subsequent launches, using the platform's per-user application-data
-directory. Provide a path override for development and troubleshooting. Offline
-startup requires neither a server connection nor enrollment. The local-only
-account identity is not a fabricated server account or synchronization context.
-An existing workspace that fails to open must not be silently replaced or
-recreated. Platform directory discovery and application startup compose the
-existing client store; they do not introduce a second persistence mechanism.
+The [desktop specification](desktop.md) defines issue #46's production application
+foundation and its acceptance requirements. It integrates the existing client
+store and native model; later profile/equipment, tag, contact-entry and history
+capabilities extend this same application. Installed release packaging remains
+separate. Concrete engineering defaults are identified in the specification;
+D270–D279 record the agreed choices.
 
-## Desktop startup configuration (D277)
+### Workspace and configuration (D270/D277)
 
-Use an optional local `config.toml` file for desktop startup and diagnostic
-settings. Discover its default location through the operating system's
-application-configuration conventions. Provide a command-line configuration-file
-path override, separately from the workspace-path override. A missing default
-file uses built-in defaults, so normal launch requires no configuration file.
+Ordinary startup automatically creates a default local account workspace on first
+use and reopens it on later launches, using OS-conventional per-user local data.
+A workspace-path override supports development/troubleshooting. Startup works
+offline without enrollment and never silently replaces an existing database after
+an opening error. Local-only identity is not a fabricated server authorization.
 
-Resolve explicitly supplied command-line settings before standard logging and
-OpenTelemetry environment settings, then file values, then built-in defaults.
-Keep saved station profiles, operating defaults and account data under their
-existing storage contracts. Exact file schema, platform paths and option
-spellings remain engineering work for issue #46.
+Use optional `config.toml` in the OS-conventional application-configuration
+location, with a separate command-line configuration-file override. Explicit
+command-line settings precede applicable standard logging/OpenTelemetry environment
+settings, then file values, then built-in defaults. Missing default configuration
+uses defaults. Profiles, operating defaults and account data retain their existing
+SQLite storage contracts. See [workspace/configuration details](desktop.md#4-workspace-and-configuration).
 
-## Desktop process ownership (D276)
+### Process ownership and activation (D276/D279)
 
-Run one desktop process per workspace. A subsequent launch targeting that
-workspace requests activation of the existing window and exits, rather than
-starting a second runtime for that workspace. A path override selecting a
-different workspace may run separately. Keep process coordination scoped to
-the workspace; database correctness retains the existing SQLite transaction
-and stale-save protections. D279 selects the ownership and activation
-mechanisms; concrete workspace identification and coordination details remain
-engineering work for issue #46.
+Run one desktop process per workspace. Subsequent launches request activation of
+that workspace's existing window and exit; different workspaces may run separately.
+Hold an exclusive standard-library file lock for the owner's lifetime, and use
+`interprocess` local sockets for activation: Windows named pipes and Unix-domain
+sockets. Endpoint recovery/cleanup respects ownership; file existence is not a
+running-process test. Existing database transactions and stale-save protections
+remain responsible for data correctness. See [coordination](desktop.md#5-one-process-per-workspace-and-activation).
 
-## Desktop instance coordination (D279)
+### Runtime, rendering and shutdown (D271–D273)
 
-Hold an exclusive standard-library file lock on a separate workspace
-coordination file for the desktop process's lifetime. Use `File::try_lock()`
-to distinguish ownership from an already running instance. A leftover file
-does not itself establish ownership; the operating system releases the lock
-when the owning handles close, including after process termination.
+Use egui/eframe with wgpu and an application-owned multi-thread Tokio runtime
+alongside the main-thread native event loop. Background operations progress
+independently of drawing; standard channels and repaint requests integrate results
+without blocking input. UI state stays on its owning thread. Reuse the SQLx pool
+and ordinary transactions, without a custom write queue or async framework.
 
-Use the `interprocess` crate for activation requests to the current owner,
-using Windows named pipes and Unix-domain sockets through its cross-platform
-interface. Scope ownership and activation to the same workspace. Endpoint
-creation/recovery and cleanup must respect that ownership. This coordinates
-the desktop runtime under D276 while database operations retain the existing
-SQLite transaction and stale-save contracts. Exact naming, permissions and
-startup/shutdown sequencing remain engineering work for issue #46.
+Normal close stops new work, cancels background operations at supported boundaries
+and allows already-started save transactions to finish, then closes resources and
+flushes telemetry. Keep the window responsive. Delayed shutdown offers waiting or
+explicit force quit, never automatic forced exit. Saved pending work needs no
+synchronization before closing; unfinished drafts remain nonpersistent. Closing
+stops the client, without tray operation. See [shutdown](desktop.md#7-graceful-shutdown-and-failure).
 
-## Desktop asynchronous runtime (D271)
+### Diagnostics (D274/D275/D278)
 
-The desktop application owns one multi-thread Tokio runtime alongside egui's
-main-thread event loop. Asynchronous storage operations and later background
-work run on that runtime. The UI receives results without blocking its event
-loop, using standard channel facilities and egui repaint requests. UI state
-remains owned by the UI thread. Store operations use the existing SQLx pool and
-transaction contracts; this does not introduce a custom database write queue.
-Runtime ownership and shutdown belong to application composition in the library,
-with a thin executable entry point. Concrete task/result contracts and runtime
-tuning remain engineering work for issue #46. D272 defines normal shutdown
-behavior.
-
-## Desktop shutdown (D272)
-
-Normal closing stops admission of new work, requests cancellation of background
-operations at their supported safe boundaries and allows already-started local
-save transactions to finish. Close the store, flush telemetry and shut down the
-application-owned runtime. Keep the window responsive during shutdown. If exit
-is delayed, offer the operator the choice to continue waiting or explicitly
-force quit; do not automatically force exit after a deadline.
-
-Saved pending changes remain durable without waiting for synchronization to
-complete. Unfinished QSO drafts remain nonpersistent under D113. D82 continues
-to require closing to stop the client, with no tray/background-running behavior.
-A forced exit does not guarantee completion of unfinished work; existing atomic
-transaction and restart-recovery guarantees still apply. Exact delayed-shutdown
-threshold and coordination mechanisms remain engineering work for issue #46.
-
-## Desktop rendering (D273)
-
-Use wgpu through eframe for the initial desktop renderer. Keep interface
-components in egui and preserve the Windows MVP and eventual macOS/Linux
-architecture. Exact compatible versions, platform backend features and native
-rendering verification remain engineering work for issue #46.
-
-## Desktop diagnostic logs (D274)
-
-Write local rotating structured JSON logs by default. Use `info` as the normal
-level under the [observability level policy](observability.md#level-selection-policy),
-retain tracing fields and span context, and provide configurable filtering for
-troubleshooting. Apply rotation and a retained-file limit with a bounded,
-off-thread writer. Console output is optional for development and troubleshooting.
-Use standard tracing formatting and appender facilities directly. D275 defines
-optional export in addition to local logs. The desktop does not require a
-telemetry collector for ordinary offline operation.
-Concrete rotation, retention, buffering and configuration details remain
-engineering work for issue #46.
-
-## Desktop optional telemetry export (D275)
-
-Support opt-in export of desktop traces, metrics and logs using the
-OpenTelemetry Protocol (OTLP) to explicitly configured destinations. Retain
-local rotating logs as the default under D274, including when export is enabled.
-Use existing Rust adapters for the `tracing` and `metrics` producers and standard
-OpenTelemetry exporters; preserve bounded buffering, failure independence and
-graceful-shutdown behavior under the observability contract. Collector outages
-do not prevent logging or storage. Normal offline operation requires no
-collector, and no hosted destination is enabled automatically. D278 selects
-HTTP/protobuf transport with Rustls for HTTPS. Adapter versions, feature
-selection and concrete configuration remain engineering work for issue #46.
-
-## Desktop OTLP transport (D278)
-
-Use HTTP with binary Protocol Buffers payloads (`http/protobuf`) for desktop
-OTLP export of traces, metrics and logs. Use Rustls for HTTPS. Configure the
-standard Rust OpenTelemetry exporter and preserve D275's explicit opt-in,
-bounded buffering, failure independence and continued local logs. Concrete
-compatible dependency versions, features and client/processor integration
-remain engineering work for issue #46.
+Default to local rotating structured JSON logs at `info`, retaining selected fields
+and span context, with bounded off-thread writing and retained-file limits.
+Filtering and optional console output support troubleshooting. Support opt-in
+OpenTelemetry Protocol (OTLP) export of traces, metrics and logs to explicitly
+configured destinations over HTTP/protobuf, with Rustls for HTTPS. Local logs
+continue when export is enabled. Collector outages do not prevent ordinary local
+work. Use standard adapters/exporters and the [observability contract](observability.md),
+with [desktop composition and acceptance](desktop.md#8-observability-composition).
 
 ## Contacts, logbooks and tags
 
-The account owns each radio contact (QSO). A Clacks logbook is a tag-defined view of those contacts, not a container that owns separate copies. A QSO can have zero, one or multiple tags; its complete tag set is part of its logical record (D243). Each tag has a stable ID, name and service settings. Names may be duplicated, with enough interface context to distinguish tags; matching names never merge identities (D119/D120). The physical database representation remains engineering work.
+The account owns each radio contact (QSO). A Clacks logbook is a tag-defined view of those contacts, not a container that owns separate copies. A QSO can have zero, one or multiple tags; its complete tag set is part of its logical record (D243). Each tag has a stable ID, name and service settings. Names may be duplicated, with enough interface context to distinguish tags; matching names never merge identities (D119/D120). The [client-store specification](client-store.md) defines the relational representation.
 
 Opening a logbook selects its tag as the default for newly logged/captured QSOs and filters normal history and Worked Before. Selection is client-local and occurs before entry. Switching views does not change operating defaults, existing contacts, server jobs or synchronization participation. Profiles, reusable equipment and directory credentials remain account-shared. Every enrolled client synchronizes all account contacts, tags and shared synchronized data through one account scope (D248); selective synchronization is post-MVP.
 

@@ -156,52 +156,26 @@ test collectors and fixtures in tests; no public production API exists solely
 to support telemetry tests.
 
 The current-library producer interfaces and instrumentation schema are defined
-below. D274/D275 select desktop log output and optional export. Runtime metric
-buckets, propagation rules, sampling defaults, collection/visualization backends,
-access controls, retention and deployment configuration still require engineering
-specification; server export protocols remain open. No vendor or additional application service topology is selected
+below. The [desktop specification](desktop.md) defines desktop composition and
+engineering defaults. Concrete dependency/feature verification belongs to its
+implementation plan. Server propagation, sampling, collection/visualization,
+access, retention and deployment choices still require engineering specification;
+server export protocols remain open. No vendor or additional application service topology is selected
 by this contract. Desktop diagnostics and any telemetry export must respect the
 existing offline-operation and credential-handling requirements; this requirement
 does not introduce automatic upload of desktop diagnostics to a hosted service.
 
-## Desktop default log output (D274)
+## Desktop runtime composition (D274/D275/D277/D278)
 
-The desktop writes local rotating JSON logs by default, with `info` as the
-normal level under the level-selection policy above. Include the existing
-structured event fields and span context. Provide configurable filtering and
-optional console output for development and troubleshooting. Configure a
-retained-file limit and bounded off-thread writing through standard
-`tracing-subscriber` and `tracing-appender` facilities, preserving the existing
-overflow, failure-independence and graceful-shutdown requirements. Do not add a
-custom logging or span-lifecycle framework.
-
-D275 selects optional export alongside these default local logs. No collector
-is required for normal offline operation. Concrete rotation, retention and
-buffering settings remain desktop specification work.
-
-## Desktop optional telemetry export (D275)
-
-Desktop traces, metrics and logs support opt-in export through the OpenTelemetry
-Protocol (OTLP) to explicitly configured destinations. Local rotating logs remain
-the default and continue when export is enabled. Reuse the existing `tracing` and
-`metrics` instrumentation through existing adapters and standard OpenTelemetry
-exporters. Do not introduce custom telemetry producers or an exporter framework.
-
-Preserve the bounded-buffering, deliberate data selection, failure-independence
-and graceful-shutdown requirements above. Collector unavailability does not
-prevent ordinary logging or storage, and no hosted collector is enabled
-automatically. This selects desktop export without selecting a mandatory
-collector, observability vendor or separate Clacks service.
-
-D278 selects HTTP with binary Protocol Buffers payloads (`http/protobuf`) for
-all three desktop signals, with Rustls for HTTPS. Use the standard Rust
-OpenTelemetry exporter. Compatible adapter/exporter versions, feature selection
-and configuration remain desktop specification work.
-
-Desktop startup and diagnostic configuration follows D277 in the
-[product contract](product.md#desktop-startup-configuration-d277), including
-OS-conventional configuration-file discovery and the command-line file-path
-override.
+The [desktop specification](desktop.md#8-observability-composition) owns concrete
+runtime composition: local rotating JSON logs at `info`, bounded nonblocking
+writing, retained-file limits, optional console output and opt-in OTLP export
+of traces, metrics and logs. Export uses HTTP/protobuf with Rustls. Local logs
+continue with export enabled; offline use requires no collector. The specification
+defines startup configuration, failure/overflow/shutdown behavior and acceptance
+through real desktop operations. Use standard tracing/appender/metrics adapters
+and exporters, preserving this document's instrumentation and level policies.
+No custom telemetry or span-lifecycle framework is introduced.
 
 ## Library producer contract
 

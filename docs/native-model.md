@@ -395,7 +395,9 @@ second local snapshot-version scheme, or per-entry copies of source information.
 numbers, booleans and collections. It does not become a QSO field schema.
 
 Seed default definitions into each new account, then synchronize them as ordinary
-account-shared records. Clients use locally synchronized definitions offline.
+account-shared records. The [desktop specification](desktop.md#4-workspace-and-configuration)
+assigns production seed provisioning for standalone account initialization.
+Clients use locally synchronized definitions offline.
 User-defined groups must have full capability parity with defaults. There is
 no privileged built-in interpretation path, POTA enum variant or program-name
 switch. MVP does not include user management of group definitions.

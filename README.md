@@ -12,6 +12,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Decision register](docs/decisions.md)
 - [Native-model contract](docs/native-model.md)
 - [Durable offline client storage](docs/client-store.md)
+- [Desktop application specification](docs/desktop.md)
 - [Geographic-pipeline specification](docs/geographic-pipeline.md)
 - [Synchronization behavior](docs/synchronization.md) and [metadata model](docs/synchronization-model.md)
 - [Accounts and enrollment](docs/accounts.md)
@@ -20,8 +21,8 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Production observability](docs/observability.md)
 - [Research provenance](references/README.md) and [TrustedQSL source map](references/trustedqsl/source-map.md)
 
-Product and architecture requirements are settled through D269. Engineering
-specifications and implementation plans are prepared for the capability being
+Product and architecture requirements are settled. The desktop specification
+consolidates D270–D279; implementation plans are prepared for the capability being
 undertaken. GitHub owns delivery status; the roadmap describes phase outcomes
 and dependencies. Historical source material is evidence, not operative guidance.
 
@@ -29,7 +30,7 @@ and dependencies. Historical source material is evidence, not operative guidance
 
 | Component | Selected direction |
 | --- | --- |
-| Desktop | Rust with egui/eframe and egui_extras; Windows MVP, cross-platform foundations for later macOS/Linux clients |
+| Desktop | Rust with egui/eframe, wgpu and egui_extras; Windows MVP, cross-platform foundations for later macOS/Linux clients |
 | Storage | Embedded SQLite on clients; PostgreSQL on the server; ordinary transactions without a custom client write queue |
 | Server | One Clacks application containing web, synchronization and background workers, deployed in Linux containers alongside PostgreSQL |
 | Web | Leptos/Axum with server rendering and Rust/WebAssembly hydration; architecture accommodates later browsing, editing and reporting |

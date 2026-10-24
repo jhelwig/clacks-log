@@ -90,8 +90,9 @@ paths does not establish this milestone.
 
 Milestones:
 
-- Establish the production Windows desktop application using the selected egui
-  direction and durable client store before delivering its operating-context,
+- Establish the production Windows desktop application under the
+  [desktop specification](desktop.md), using the selected egui direction and
+  durable client store before delivering its operating-context,
   tag, contact-entry and history workflows. Later capabilities extend the same
   application; installed release packaging remains in Phase 6.
 - Deliver Windows manual contact entry with the agreed timestamp behavior,
