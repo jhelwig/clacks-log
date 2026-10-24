@@ -191,8 +191,12 @@ Preserve the bounded-buffering, deliberate data selection, failure-independence
 and graceful-shutdown requirements above. Collector unavailability does not
 prevent ordinary logging or storage, and no hosted collector is enabled
 automatically. This selects desktop export without selecting a mandatory
-collector, observability vendor or separate Clacks service. Exact transport,
-adapter versions/features and configuration remain desktop specification work.
+collector, observability vendor or separate Clacks service.
+
+D278 selects HTTP with binary Protocol Buffers payloads (`http/protobuf`) for
+all three desktop signals, with Rustls for HTTPS. Use the standard Rust
+OpenTelemetry exporter. Compatible adapter/exporter versions, feature selection
+and configuration remain desktop specification work.
 
 Desktop startup and diagnostic configuration follows D277 in the
 [product contract](product.md#desktop-startup-configuration-d277), including

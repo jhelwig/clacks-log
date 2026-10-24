@@ -109,9 +109,18 @@ Use existing Rust adapters for the `tracing` and `metrics` producers and standar
 OpenTelemetry exporters; preserve bounded buffering, failure independence and
 graceful-shutdown behavior under the observability contract. Collector outages
 do not prevent logging or storage. Normal offline operation requires no
-collector, and no hosted destination is enabled automatically. Exact transport,
-adapter versions, feature selection and configuration remain engineering work
-for issue #46.
+collector, and no hosted destination is enabled automatically. D278 selects
+HTTP/protobuf transport with Rustls for HTTPS. Adapter versions, feature
+selection and concrete configuration remain engineering work for issue #46.
+
+## Desktop OTLP transport (D278)
+
+Use HTTP with binary Protocol Buffers payloads (`http/protobuf`) for desktop
+OTLP export of traces, metrics and logs. Use Rustls for HTTPS. Configure the
+standard Rust OpenTelemetry exporter and preserve D275's explicit opt-in,
+bounded buffering, failure independence and continued local logs. Concrete
+compatible dependency versions, features and client/processor integration
+remain engineering work for issue #46.
 
 ## Contacts, logbooks and tags
 

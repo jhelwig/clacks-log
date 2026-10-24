@@ -1212,3 +1212,9 @@ Use one running desktop process per workspace. Subsequent launches targeting the
 #### D277
 
 Use an optional local `config.toml` file for desktop startup and diagnostic settings, with its default location respecting operating-system application-configuration conventions. Support explicitly selecting the configuration-file path on the command line, separately from D270's workspace-path override. Use explicit command-line settings, then standard logging/OpenTelemetry environment settings, then file values, then built-in defaults. A missing default configuration file uses defaults. Preserve the existing storage contracts for station profiles, current operating defaults and account data. Concrete platform paths, file schema and option spellings remain engineering work for issue #46.
+
+### Decision D278
+
+#### D278
+
+Use HTTP/protobuf with Rustls for desktop OTLP export. HTTP carries binary Protocol Buffers payloads for traces, metrics and logs; HTTPS uses Rustls. Use the standard Rust OpenTelemetry exporter and preserve D275's explicit opt-in, configured destinations, bounded buffering, failure independence and continued local logs. Concrete compatible dependency versions, feature selection and HTTP-client/processor integration remain engineering work for issue #46. This refines D275's open desktop transport choice.
