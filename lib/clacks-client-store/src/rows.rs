@@ -4,5 +4,6 @@ pub(crate) mod client;
 pub(crate) mod contact;
 pub(crate) mod definitions;
 pub(crate) mod operating;
+pub(crate) mod review;
 pub(crate) mod service;
 pub(crate) mod workspace;

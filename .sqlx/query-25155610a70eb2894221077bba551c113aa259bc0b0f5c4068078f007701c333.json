@@ -1,0 +1,110 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT original_id,local_payload,shared_observation,reason,unknown_reason,reference_kind,reference_id,actor_id FROM local_review WHERE account = ? AND kind = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "original_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "local_review",
+            "name": "original_id"
+          }
+        }
+      },
+      {
+        "name": "local_payload",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "local_review",
+            "name": "local_payload"
+          }
+        }
+      },
+      {
+        "name": "shared_observation",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "local_review",
+            "name": "shared_observation"
+          }
+        }
+      },
+      {
+        "name": "reason",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "local_review",
+            "name": "reason"
+          }
+        }
+      },
+      {
+        "name": "unknown_reason",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "local_review",
+            "name": "unknown_reason"
+          }
+        }
+      },
+      {
+        "name": "reference_kind",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "local_review",
+            "name": "reference_kind"
+          }
+        }
+      },
+      {
+        "name": "reference_id",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "local_review",
+            "name": "reference_id"
+          }
+        }
+      },
+      {
+        "name": "actor_id",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "local_review",
+            "name": "actor_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "25155610a70eb2894221077bba551c113aa259bc0b0f5c4068078f007701c333"
+}

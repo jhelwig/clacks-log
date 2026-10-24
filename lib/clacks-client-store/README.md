@@ -67,3 +67,10 @@ packaging must retain applicable third-party copyright and license notices.
 Only the SQLite backend and Tokio runtime are enabled; no SQLx TLS backend is
 needed for a local file. The SQLx CLI is developer tooling, not a runtime
 application or project task dispatcher.
+
+`save` and `operating` commit guarded offline edits and owned defaults. `synchronization`
+commits native preparation, receipt, rejection and explicit resolution with their
+comparison roles. `observe_account` stores an authenticated coordinator's supplied
+account/membership view under an exact prior-value check; authentication and recovery
+policy remain with that coordinator. Observed server head and membership are separate
+from the client's completed installed checkpoint. No record response advances receipt.

@@ -10,3 +10,4 @@ mod payload;
 mod rows;
 pub mod save;
 pub mod store;
+pub mod synchronization;

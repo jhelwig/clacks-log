@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ordinal,envelope_id FROM review_retained WHERE account = ? AND kind = ? AND record_id = ? ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "ordinal",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "review_retained",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "name": "envelope_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "review_retained",
+            "name": "envelope_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d7e4951b936fb53c6a8092f4821ee32f07907f65a62fae64ebdeada7cf32c8d7"
+}

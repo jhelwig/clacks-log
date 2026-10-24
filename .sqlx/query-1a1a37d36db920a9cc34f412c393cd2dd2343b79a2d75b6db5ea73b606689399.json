@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO review_retained (account,kind,record_id,ordinal,envelope_id) VALUES (?,?,?,?,?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "1a1a37d36db920a9cc34f412c393cd2dd2343b79a2d75b6db5ea73b606689399"
+}

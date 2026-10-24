@@ -348,8 +348,11 @@ fn validate_input(
     Ok(())
 }
 
-/// Derive mandatory native reference identities without treating unknown groups as invalid.
-pub(crate) fn required_references(key: RecordKey, state: &RecordState) -> Vec<RecordKey> {
+/// Identify native references that must be live when publishing this state.
+///
+/// Storage adapters use these keys to read compared shared observations in the
+/// same transaction as preparation. Unknown group associations are not prerequisites.
+pub fn required_references(key: RecordKey, state: &RecordState) -> Vec<RecordKey> {
     match state {
         RecordState::Live(RecordValue::Qso(q)) => q
             .tags

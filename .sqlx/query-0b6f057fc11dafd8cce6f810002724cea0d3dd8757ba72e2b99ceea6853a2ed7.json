@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM local_review WHERE account = ? AND kind = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "0b6f057fc11dafd8cce6f810002724cea0d3dd8757ba72e2b99ceea6853a2ed7"
+}
