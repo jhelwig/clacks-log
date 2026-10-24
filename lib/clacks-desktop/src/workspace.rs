@@ -1,5 +1,8 @@
 //! Local workspace files and operating-system application directory conventions.
 
+#[cfg(test)]
+mod tests;
+
 use directories::ProjectDirs;
 use std::path::{Path, PathBuf};
 
@@ -59,6 +62,3 @@ pub(crate) fn relative_to(value: &Path, base: &Path) -> PathBuf {
         base.join(value)
     }
 }
-
-#[cfg(test)]
-mod tests;

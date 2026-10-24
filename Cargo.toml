@@ -29,6 +29,12 @@ toml = { version = "=0.9.8", features = ["parse", "serde"] }
 directories = "=6.0.0"
 url = "2"
 http = "1"
+interprocess = { version = "=2.4.7", features = ["tokio"] }
+tokio-util = { version = "=0.7.16", features = ["rt"] }
+libc = "=0.2.191"
+windows-sys = "=0.61.2"
+widestring = "=1.2.1"
+sha2 = "=0.11.1"
 percent-encoding = "2"
 clacks-client-store = { path = "lib/clacks-client-store" }
 clacks-sync = { path = "lib/clacks-sync" }
