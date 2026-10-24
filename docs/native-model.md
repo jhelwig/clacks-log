@@ -237,11 +237,19 @@ input follows D167.
 For offline geographic lookup, use the area for a grid-derived position and
 the point for explicit coordinates. Populate unambiguous fields and allow
 manual selection for ambiguous fields; the center of an area does not resolve
-its geographic ambiguity. Preserve manual corrections while the position is
+its geographic ambiguity. An explicit point exactly on a shared boundary is
+ambiguous between the adjoining distinct geographic values. For a grid area,
+edge-only/corner-only touches do not add candidates; any area in different values
+is ambiguous, without choosing the largest overlap. Uncovered portions prevent
+confident autofill. Multiple features/fragments carrying the same value do not
+themselves introduce ambiguity (D260). Preserve manual corrections while the position is
 unchanged. A changed position populates fresh values; a grid-length-only change
 to the same explicit point does not erase corrections (D77/D78/D184).
 Saved profiles and QSO snapshots retain their recorded geographic values;
-dataset refreshes do not silently rewrite historical contacts.
+dataset refreshes do not silently rewrite historical contacts. The
+[geographic-pipeline specification](geographic-pipeline.md) defines the proposed
+reader/result contracts that consume this model's point/area geometry. The
+geographic reader does not mutate these native values or apply suggestions.
 
 Recorded references whose group declares location context count as recorded
 location information even when geographic details are unknown. They suppress
