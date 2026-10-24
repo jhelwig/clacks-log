@@ -47,9 +47,25 @@ workspace requests activation of the existing window and exits, rather than
 starting a second runtime for that workspace. A path override selecting a
 different workspace may run separately. Keep process coordination scoped to
 the workspace; database correctness retains the existing SQLite transaction
-and stale-save protections. Concrete workspace identification, process
-coordination and window-activation mechanisms remain engineering work for
-issue #46.
+and stale-save protections. D279 selects the ownership and activation
+mechanisms; concrete workspace identification and coordination details remain
+engineering work for issue #46.
+
+## Desktop instance coordination (D279)
+
+Hold an exclusive standard-library file lock on a separate workspace
+coordination file for the desktop process's lifetime. Use `File::try_lock()`
+to distinguish ownership from an already running instance. A leftover file
+does not itself establish ownership; the operating system releases the lock
+when the owning handles close, including after process termination.
+
+Use the `interprocess` crate for activation requests to the current owner,
+using Windows named pipes and Unix-domain sockets through its cross-platform
+interface. Scope ownership and activation to the same workspace. Endpoint
+creation/recovery and cleanup must respect that ownership. This coordinates
+the desktop runtime under D276 while database operations retain the existing
+SQLite transaction and stale-save contracts. Exact naming, permissions and
+startup/shutdown sequencing remain engineering work for issue #46.
 
 ## Desktop asynchronous runtime (D271)
 

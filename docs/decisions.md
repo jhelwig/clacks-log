@@ -1218,3 +1218,9 @@ Use an optional local `config.toml` file for desktop startup and diagnostic sett
 #### D278
 
 Use HTTP/protobuf with Rustls for desktop OTLP export. HTTP carries binary Protocol Buffers payloads for traces, metrics and logs; HTTPS uses Rustls. Use the standard Rust OpenTelemetry exporter and preserve D275's explicit opt-in, configured destinations, bounded buffering, failure independence and continued local logs. Concrete compatible dependency versions, feature selection and HTTP-client/processor integration remain engineering work for issue #46. This refines D275's open desktop transport choice.
+
+### Decision D279
+
+#### D279
+
+Use a standard-library lifetime file lock plus `interprocess` for desktop activation. Hold an exclusive `std::fs::File::try_lock()` lock on a separate workspace coordination file for the owning process's lifetime; file existence alone does not indicate an active owner. Use `interprocess` local sockets for activation requests, with its Windows named-pipe and Unix-domain-socket implementations. Scope both to the same workspace and coordinate endpoint recovery/cleanup under ownership. Preserve the existing SQLite transaction and stale-save protections. This selects D276's concrete coordination approach; workspace naming, permissions and startup/shutdown sequencing remain engineering work for issue #46.
