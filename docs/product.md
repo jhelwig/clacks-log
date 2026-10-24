@@ -15,6 +15,17 @@ Clacks Log should replace the everyday shack logger while supporting independent
 - D222 requires the web architecture to accommodate eventual logbook browsing/editing and reporting, with logging a possibility. MVP administration/setup/diagnostics scope is not the long-term interface boundary; these future capabilities are not added to MVP. D223 selects Leptos/Axum with server-rendered initial pages and Rust/WebAssembly browser interactivity through hydration, within the one Clacks server application.
 - Working name: **Clacks Log**, a Discworld reference. The name is provisional.
 
+## Desktop workspace startup (D270)
+
+Ordinary startup automatically creates a default local workspace on first use and
+reopens it on subsequent launches, using the platform's per-user application-data
+directory. Provide a path override for development and troubleshooting. Offline
+startup requires neither a server connection nor enrollment. The local-only
+account identity is not a fabricated server account or synchronization context.
+An existing workspace that fails to open must not be silently replaced or
+recreated. Platform directory discovery and application startup compose the
+existing client store; they do not introduce a second persistence mechanism.
+
 ## Contacts, logbooks and tags
 
 The account owns each radio contact (QSO). A Clacks logbook is a tag-defined view of those contacts, not a container that owns separate copies. A QSO can have zero, one or multiple tags; its complete tag set is part of its logical record (D243). Each tag has a stable ID, name and service settings. Names may be duplicated, with enough interface context to distinguish tags; matching names never merge identities (D119/D120). The physical database representation remains engineering work.

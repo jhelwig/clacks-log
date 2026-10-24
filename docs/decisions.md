@@ -1164,3 +1164,9 @@ When a decision changes, update the current design documents and this register t
 #### D269
 
 Keep each prescribed geographic coordinate operation exact at boundaries between different operations, including adjacent no-shift areas. Report the resulting seams, including gaps or overlaps, rather than adjusting the no-shift boundary, blending operations or snapping geometry to force agreement. Shared-edge consistency applies within the same operation. The pinned San Juan land-mask example exhibits approximately 1.02 m displacement between the grid-shifted boundary and its no-shift counterpart; this is distinct from the segment-subdivision computational tolerance.
+
+### Decision D270
+
+#### D270
+
+Use an automatically managed default desktop workspace in the platform's per-user application-data directory, creating it on first use and reopening it on later launches. Provide a path override for development and troubleshooting. This supplies the runtime workspace-discovery behavior left open by the client-store specification. Preserve independent offline use, the local-only versus enrolled account distinction and existing open-failure preservation; do not silently replace an existing workspace after an opening error. Concrete directory conventions, override syntax and startup implementation remain engineering work for issue #46.
