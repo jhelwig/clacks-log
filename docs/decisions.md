@@ -1176,3 +1176,9 @@ Use an automatically managed default desktop workspace in the platform's per-use
 #### D271
 
 Use an application-owned multi-thread Tokio runtime for the desktop alongside egui's main-thread event loop. Background tasks progress independently of UI rendering. Deliver results through standard nonblocking channel integration and request egui repaint when needed, leaving UI state on its owning thread. Reuse the existing asynchronous store APIs, SQLx pool and transaction semantics. Application composition owns the runtime lifetime; do not introduce a separate database execution queue or async framework. Concrete runtime tuning and shutdown coordination remain engineering work for issue #46.
+
+### Decision D272
+
+#### D272
+
+Use graceful desktop shutdown with an explicit force-quit option when shutdown is delayed. Stop admitting new work, cancel background operations at supported safe boundaries and let already-started local save transactions finish before closing the store, flushing telemetry and shutting down the runtime. Keep the window responsive and let the operator continue waiting or explicitly force quit rather than applying an automatic forced-exit deadline. Do not require synchronization completion before exit. Preserve D82's close-stops-client behavior, D113's nonpersistent unfinished drafts and existing durable pending-work/transaction recovery guarantees. Force quit may interrupt unfinished work. Concrete delayed-shutdown timing and coordination remain engineering work for issue #46.

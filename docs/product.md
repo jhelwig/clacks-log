@@ -35,8 +35,25 @@ loop, using standard channel facilities and egui repaint requests. UI state
 remains owned by the UI thread. Store operations use the existing SQLx pool and
 transaction contracts; this does not introduce a custom database write queue.
 Runtime ownership and shutdown belong to application composition in the library,
-with a thin executable entry point. Concrete task/result types, runtime tuning
-and shutdown coordination remain engineering work for issue #46.
+with a thin executable entry point. Concrete task/result contracts and runtime
+tuning remain engineering work for issue #46. D272 defines normal shutdown
+behavior.
+
+## Desktop shutdown (D272)
+
+Normal closing stops admission of new work, requests cancellation of background
+operations at their supported safe boundaries and allows already-started local
+save transactions to finish. Close the store, flush telemetry and shut down the
+application-owned runtime. Keep the window responsive during shutdown. If exit
+is delayed, offer the operator the choice to continue waiting or explicitly
+force quit; do not automatically force exit after a deadline.
+
+Saved pending changes remain durable without waiting for synchronization to
+complete. Unfinished QSO drafts remain nonpersistent under D113. D82 continues
+to require closing to stop the client, with no tray/background-running behavior.
+A forced exit does not guarantee completion of unfinished work; existing atomic
+transaction and restart-recovery guarantees still apply. Exact delayed-shutdown
+threshold and coordination mechanisms remain engineering work for issue #46.
 
 ## Contacts, logbooks and tags
 
