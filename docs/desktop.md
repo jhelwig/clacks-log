@@ -6,6 +6,8 @@ D270–D279 and the selected egui architecture. It is a specification for delive
 not a claim that the desktop has been implemented. The [product contract](product.md),
 [client store](client-store.md), [native model](native-model.md) and
 [observability contract](observability.md) remain authoritative for their domains.
+The [implementation plan](superpowers/plans/2026-10-24-desktop-foundation.md)
+defines the delivery tasks and engineering choices for this specification.
 
 ## 1. Outcome and boundaries
 
