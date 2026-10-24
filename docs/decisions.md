@@ -1200,3 +1200,9 @@ Use local rotating structured JSON logs as the desktop default, with `info` as t
 #### D275
 
 Support opt-in OpenTelemetry Protocol (OTLP) export for desktop traces, metrics and logs to explicitly configured destinations. Retain D274's local rotating logs as the default and continue them when export is enabled. Use existing adapters for the current `tracing`/`metrics` producers and standard OpenTelemetry exporters, preserving bounded buffering, failure independence and graceful shutdown. Collector outages do not block ordinary logging or storage. Normal offline operation requires no collector, and no hosted destination is enabled automatically. Exact transport, compatible adapter versions/features and configuration remain engineering work for issue #46; this does not select server export protocols or a mandatory collector/vendor.
+
+### Decision D276
+
+#### D276
+
+Use one running desktop process per workspace. Subsequent launches targeting the same workspace request activation of the existing window and then exit. A path override selecting a different workspace may run separately. Scope coordination to workspace identity rather than imposing a global one-process restriction. The desktop runtime owns its workspace's background activities, while existing SQLite transactions and stale-save guards continue to establish database correctness. Concrete workspace identification, process coordination and activation mechanisms remain engineering work for issue #46.

@@ -26,6 +26,17 @@ An existing workspace that fails to open must not be silently replaced or
 recreated. Platform directory discovery and application startup compose the
 existing client store; they do not introduce a second persistence mechanism.
 
+## Desktop process ownership (D276)
+
+Run one desktop process per workspace. A subsequent launch targeting that
+workspace requests activation of the existing window and exits, rather than
+starting a second runtime for that workspace. A path override selecting a
+different workspace may run separately. Keep process coordination scoped to
+the workspace; database correctness retains the existing SQLite transaction
+and stale-save protections. Concrete workspace identification, process
+coordination and window-activation mechanisms remain engineering work for
+issue #46.
+
 ## Desktop asynchronous runtime (D271)
 
 The desktop application owns one multi-thread Tokio runtime alongside egui's
