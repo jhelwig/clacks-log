@@ -23,6 +23,10 @@ pub(super) fn show(
     });
     match &frame.tab {
         OperatingTab::Station => {
+            let baseline =
+                editor.expected.current.as_ref().map(|value| {
+                    crate::operating::station::StationForm::from_snapshot(&value.station)
+                });
             ui.label(format!(
                 "Selected profile: {}",
                 editor
@@ -52,6 +56,8 @@ pub(super) fn show(
                             });
                             if let Err(error) = editor.stage_profile(profile, equipment) {
                                 frame.notice = Some(format!("Could not load profile: {error:#}"));
+                            } else {
+                                frame.validation.invalidate();
                             }
                         }
                     });
@@ -67,13 +73,16 @@ pub(super) fn show(
                 ui.label("Selected profile has changed. Values remain as copied; explicitly load it to refresh.");
             }
             let previous = editor.station.clone();
-            fields::station(
+            if fields::station(
                 ui,
                 "operating.station",
                 &mut editor.station,
                 definitions,
                 &frame.errors,
-            );
+                baseline.as_ref(),
+            ) {
+                frame.validation.edited(ui.input(|input| input.time));
+            }
             editor.station_changed(&previous, definitions);
             if ui.button("Save station values as profile…").clicked() {
                 navigation.next = Some(Screen::Profile(Box::new(ProfileEditor::new(
@@ -86,6 +95,13 @@ pub(super) fn show(
             }
         }
         OperatingTab::Equipment => {
+            let baseline = crate::operating::equipment::EquipmentForm::from_values(
+                editor
+                    .expected
+                    .current
+                    .as_ref()
+                    .and_then(|value| value.equipment.as_ref()),
+            );
             ui.label(format!(
                 "Selected configuration: {}",
                 editor
@@ -106,6 +122,7 @@ pub(super) fn show(
                         .clicked()
                     {
                         editor.stage_equipment(equipment);
+                        frame.validation.invalidate();
                     }
                 });
             }
@@ -119,12 +136,15 @@ pub(super) fn show(
                 ui.label("Selected configuration has changed. Values remain as copied; explicitly load it to refresh.");
             }
             let previous = editor.equipment.clone();
-            fields::equipment(
+            if fields::equipment(
                 ui,
                 "operating.equipment",
                 &mut editor.equipment,
                 &frame.errors,
-            );
+                Some(&baseline),
+            ) {
+                frame.validation.edited(ui.input(|input| input.time));
+            }
             editor.equipment_changed(&previous);
             if ui
                 .button("Save equipment values as configuration…")
@@ -140,31 +160,67 @@ pub(super) fn show(
             }
         }
         OperatingTab::Operator => {
-            fields::text(
+            let original = editor
+                .expected
+                .current
+                .as_ref()
+                .and_then(|value| value.operator.as_ref());
+            let call_changed = fields::callsign_changed(
+                &editor.operator_callsign,
+                original
+                    .and_then(|value| value.callsign.as_ref())
+                    .map(|call| call.as_str()),
+            );
+            let mut changed = fields::radio_text(
                 ui,
                 "operating.operator.call",
                 "Operator callsign",
                 &mut editor.operator_callsign,
                 &frame.errors,
+                call_changed,
             );
-            fields::text(
+            let name_changed = fields::text_changed(
+                &editor.operator_name,
+                original.and_then(|value| value.recorded_name.as_deref()),
+            );
+            changed |= fields::text(
                 ui,
                 "operating.operator.name",
                 "Operator name",
                 &mut editor.operator_name,
                 &frame.errors,
+                name_changed,
             );
-            fields::text(
+            let original_power = editor
+                .expected
+                .current
+                .as_ref()
+                .and_then(|value| value.transmit_power);
+            let power_changed = crate::operating::power::parse_watts(&editor.power_watts)
+                .map(|value| value != original_power)
+                .unwrap_or(true);
+            changed |= fields::radio_text(
                 ui,
                 "operating.power",
-                "Transmit power (W)",
+                "Transmit power",
                 &mut editor.power_watts,
                 &frame.errors,
+                power_changed,
             );
+            ui.small("Power is entered in watts (W).");
+            if changed {
+                frame.validation.edited(ui.input(|input| input.time));
+            }
         }
     }
     ui.separator();
-    if ui.button("Apply").clicked() {
+    if ui
+        .add_enabled(
+            frame.validation.can_submit(&frame.errors),
+            egui::Button::new("Apply"),
+        )
+        .clicked()
+    {
         match editor.build(definitions) {
             Ok(next) => {
                 let expected = editor.expected.clone();

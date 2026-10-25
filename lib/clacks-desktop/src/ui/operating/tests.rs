@@ -6,6 +6,94 @@ use super::*;
 use support::Window;
 
 #[tokio::test]
+async fn semantic_normalization_does_not_create_false_edit_markers() -> anyhow::Result<()> {
+    let mut window = Window::new().await?;
+    window.seed().await?;
+    window.click("Operating settings");
+
+    window.text("operating.station.call", "  w7hex  ");
+    window.frame(vec![]);
+
+    assert!(!window.visible("Not applied"));
+    assert!(
+        matches!(&window.view.stack.last().unwrap().screen, Screen::Operating(editor) if editor.selected_profile.is_some())
+    );
+    window.text("operating.station.call", "W7OTHER");
+    window.frame(vec![]);
+    assert!(window.visible("Not applied"));
+    assert!(
+        matches!(&window.view.stack.last().unwrap().screen, Screen::Operating(editor) if editor.selected_profile.is_none())
+    );
+    window.close().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn validation_live_power_reports_errors_without_submitting() -> anyhow::Result<()> {
+    let mut window = Window::new().await?;
+    window.context.enable_accesskit();
+    window.click("Operating settings");
+    window.text("operating.station.call", "W7HEX");
+    window.click("Operator / power");
+    window.text("operating.power", "invalid");
+
+    window.advance(0.3);
+
+    assert!(
+        window
+            .output
+            .platform_output
+            .accesskit_update
+            .as_ref()
+            .unwrap()
+            .nodes
+            .iter()
+            .any(|(_, node)| node.label() == Some("Apply") && node.is_disabled())
+    );
+
+    assert!(
+        window
+            .view
+            .stack
+            .last()
+            .unwrap()
+            .errors
+            .iter()
+            .any(|error| error.field == "Transmit power")
+    );
+    assert!(
+        clacks_client_store::settings::snapshot(&window.store)
+            .await?
+            .operating
+            .current
+            .is_none()
+    );
+    window.text("operating.power", ".5");
+    window.advance(0.3);
+    assert!(window.view.stack.last().unwrap().errors.is_empty());
+    assert!(
+        window
+            .output
+            .platform_output
+            .accesskit_update
+            .as_ref()
+            .unwrap()
+            .nodes
+            .iter()
+            .any(|(_, node)| node.label() == Some("Apply") && !node.is_disabled())
+    );
+    assert!(
+        clacks_client_store::settings::snapshot(&window.store)
+            .await?
+            .operating
+            .current
+            .is_none()
+    );
+    window.close().await?;
+    Ok(())
+}
+
+#[tokio::test]
 async fn font_and_scale_changes_preserve_pending_operating_text() -> anyhow::Result<()> {
     use crate::ui::{
         appearance::{AppearanceAction, AppearanceUi},
@@ -49,7 +137,7 @@ async fn nested_equipment_save_survives_profile_cancel_without_applying() -> any
     window.click("New configuration");
     window.text("equipment.name", "Rig C");
     window.text("equipment.description", "IC-7300");
-    window.click("Save configuration");
+    window.submit("Save configuration");
     window.settle().await;
     window.click("Back");
     window.click("Cancel profile");
@@ -81,7 +169,7 @@ async fn independent_equipment_selection_applies_and_survives_reopen() -> anyhow
             .id,
         sources.rig_a.id
     );
-    window.click("Apply");
+    window.submit("Apply");
     window.settle().await;
     let stored = clacks_client_store::settings::snapshot(&window.store).await?;
     assert_eq!(
@@ -132,9 +220,9 @@ async fn manual_detachment_cancel_and_separate_profile_save_use_pending_values()
     window.click("Station");
     window.click("Save station values as profile…");
     window.text("profile.name", "Field");
-    window.click("Save profile");
+    window.submit("Save profile");
     window.settle().await;
-    window.click("Apply");
+    window.submit("Apply");
     window.frame(vec![]);
     assert!(window.visible("Transmit power"));
     assert!(
@@ -174,7 +262,7 @@ async fn nested_saved_equipment_edits_and_source_deletions_preserve_operating_te
     window.click("Manage equipment");
     window.click_below(&equipment_label(&sources.rig_a), "Edit configuration");
     window.text("equipment.antenna", "Loop");
-    window.click("Save configuration");
+    window.submit("Save configuration");
     window.settle().await;
     window.click("Back");
     window.click("Cancel profile");
@@ -234,7 +322,7 @@ async fn stale_profile_save_and_deleted_default_have_distinct_repair_paths() -> 
     let mut remote = sources.home.clone();
     remote.name = "Changed elsewhere".into();
     clacks_client_store::settings::save_profile(&window.store, Some(&record), &remote).await?;
-    window.click("Save profile");
+    window.submit("Save profile");
     window.settle().await;
     assert!(window.visible("The saved target changed"));
     assert!(
@@ -255,11 +343,11 @@ async fn stale_profile_save_and_deleted_default_have_distinct_repair_paths() -> 
     )
     .await?;
     // That repair also changed the profile, so stale protection takes precedence.
-    window.click("Save profile");
+    window.submit("Save profile");
     window.settle().await;
     assert!(window.visible("The saved target changed"));
     window.click("Keep my values against this saved version");
-    window.click("Save profile");
+    window.submit("Save profile");
     window.settle().await;
     assert!(window.visible("Profile saved locally with a missing equipment reference"));
     assert!(
@@ -270,7 +358,7 @@ async fn stale_profile_save_and_deleted_default_have_distinct_repair_paths() -> 
         sources.rig_a.id
     ));
     window.click("None");
-    window.click("Save profile");
+    window.submit("Save profile");
     window.settle().await;
     let stored = clacks_client_store::settings::snapshot(&window.store).await?;
     assert!(
@@ -310,7 +398,7 @@ async fn duplicate_names_remain_distinct_and_failed_request_keeps_form_and_focus
         .execute(include_str!("fail_profile_save.sql"))
         .await?;
     connection.close().await?;
-    window.click("Save profile");
+    window.submit("Save profile");
     window.settle().await;
     assert!(
         matches!(&window.view.stack.last().unwrap().screen, Screen::Profile(e) if e.name == "Other location")

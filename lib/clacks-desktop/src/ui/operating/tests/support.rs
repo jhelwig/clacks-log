@@ -11,6 +11,7 @@ use crate::{
 use eframe::egui::{Event, Modifiers, PointerButton, Pos2, Rect, Vec2};
 
 pub(in crate::ui::operating) struct Window {
+    now: f64,
     pub(in crate::ui::operating) view: SettingsUi,
     pub(in crate::ui::operating) context: egui::Context,
     pub(in crate::ui::operating) output: egui::FullOutput,
@@ -41,6 +42,7 @@ impl Window {
         let snapshot = fixture.settings_view.borrow().clone().unwrap();
         let opened = workspace::open(&paths).await?;
         Ok(Self {
+            now: 0.0,
             view: SettingsUi::default(),
             context: Default::default(),
             output: Default::default(),
@@ -56,7 +58,9 @@ impl Window {
         })
     }
     pub(in crate::ui::operating) fn frame(&mut self, events: Vec<Event>) {
+        self.now += 1.0 / 60.0;
         let input = egui::RawInput {
+            time: Some(self.now),
             screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1300.0, 2200.0))),
             events,
             ..Default::default()
@@ -65,6 +69,16 @@ impl Window {
             .context
             .run_ui(input, |ui| self.view.show(ui, &self.snapshot, &self.sender));
         self.output.textures_delta.clear();
+    }
+
+    pub(in crate::ui::operating) fn advance(&mut self, seconds: f64) {
+        self.now += seconds;
+        self.frame(vec![]);
+    }
+
+    pub(in crate::ui::operating) fn submit(&mut self, text: &str) {
+        self.advance(0.300);
+        self.click(text);
     }
     pub(in crate::ui::operating) fn click(&mut self, text: &str) {
         self.frame(vec![]);

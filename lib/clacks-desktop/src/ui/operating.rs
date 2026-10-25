@@ -80,8 +80,10 @@ pub(super) struct Frame {
     tab: OperatingTab,
     /// In-flight result; no globally routed response can overwrite another editor.
     response: Option<oneshot::Receiver<SettingsResponse>>,
-    /// Actionable field-local errors from the last explicit save/apply.
+    /// Actionable native field errors for the latest validated input.
     pub(super) errors: Vec<FieldError>,
+    /// Deadline/freshness of the existing errors for this frame's current form.
+    pub(super) validation: crate::ui::validation::ValidationState,
     /// Outcome, stale-save instructions or request failure.
     pub(super) notice: Option<String>,
     /// Current competing record for explicit reviewed retry.
@@ -97,11 +99,28 @@ impl Frame {
             tab: Default::default(),
             response: None,
             errors: vec![],
+            validation: Default::default(),
             notice: None,
             stale: None,
             stale_operating: None,
         }
     }
+
+    /// Refresh native validation when due, without submitting or changing operating values.
+    fn validate(&mut self, definitions: &DefinitionSet, context: &egui::Context) {
+        let now = context.input(|input| input.time);
+        if self.validation.due(now) {
+            self.errors = match &self.screen {
+                Screen::Operating(editor) => editor.build(definitions).err().unwrap_or_default(),
+                Screen::Profile(editor) => editor.build(definitions).err().unwrap_or_default(),
+                Screen::EquipmentEdit(editor) => editor.build().err().unwrap_or_default(),
+                _ => Vec::new(),
+            };
+            self.validation.validated();
+        }
+        self.validation.request_repaint(context, now);
+    }
+
     /// Submit once, retaining this editor and its text on admission failure.
     pub(super) fn send(&mut self, sender: &mpsc::Sender<SettingsRequest>, action: SettingsAction) {
         let (reply, response) = oneshot::channel();
@@ -200,6 +219,7 @@ impl SettingsUi {
         let Some(frame) = self.stack.last_mut() else {
             return;
         };
+        frame.validate(&self.definitions, ui.ctx());
         let busy = frame.response.is_some();
         if busy {
             ui.spinner();
@@ -263,6 +283,12 @@ impl SettingsUi {
                 }
             }
         });
+        frame
+            .validation
+            .request_repaint(ui.ctx(), ui.input(|input| input.time));
+        if frame.errors.is_empty() && !frame.validation.can_submit(&frame.errors) {
+            ui.small("Checking changes…");
+        }
         fields::unplaced_errors(ui, &errors);
         if navigation.back && self.stack.len() > 1 {
             self.stack.pop();
@@ -280,6 +306,9 @@ impl SettingsUi {
             .is_some_and(|p| Arc::ptr_eq(p, snapshot))
         {
             return;
+        }
+        for frame in &mut self.stack {
+            frame.validation.invalidate();
         }
         if self
             .previous

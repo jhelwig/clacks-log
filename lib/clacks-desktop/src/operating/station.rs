@@ -26,6 +26,14 @@ pub(crate) struct ReferenceForm {
 }
 
 impl ReferenceForm {
+    /// Identify a pending association change using current group rules and its recorded baseline.
+    pub fn is_changed(&self, definitions: &DefinitionSet) -> bool {
+        match (&self.original, self.build(definitions)) {
+            (Some(original), Ok(current)) => original != &current,
+            _ => true,
+        }
+    }
+
     /// Start an incomplete reference row without inventing a group association.
     pub fn new() -> Self {
         Self {

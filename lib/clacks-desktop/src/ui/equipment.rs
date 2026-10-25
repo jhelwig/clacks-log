@@ -133,16 +133,40 @@ pub(super) fn show(
                 });
             if editor.id != old_id {
                 frame.stale = None;
+                frame.validation.invalidate();
             }
-            operating::fields::text(
+            let baseline = editor.expected.as_ref().and_then(configuration);
+            let edited = operating::fields::text_changed(
+                &editor.name,
+                baseline.map(|value| value.name.as_str()),
+            );
+            if operating::fields::text(
                 ui,
                 "equipment.name",
                 "Configuration name",
                 &mut editor.name,
                 &frame.errors,
-            );
-            operating::fields::equipment(ui, "equipment", &mut editor.equipment, &frame.errors);
-            if ui.button("Save configuration").clicked() {
+                edited,
+            ) {
+                frame.validation.edited(ui.input(|input| input.time));
+            }
+            let baseline = EquipmentForm::from_values(baseline.map(|value| &value.values));
+            if operating::fields::equipment(
+                ui,
+                "equipment",
+                &mut editor.equipment,
+                &frame.errors,
+                Some(&baseline),
+            ) {
+                frame.validation.edited(ui.input(|input| input.time));
+            }
+            if ui
+                .add_enabled(
+                    frame.validation.can_submit(&frame.errors),
+                    egui::Button::new("Save configuration"),
+                )
+                .clicked()
+            {
                 match editor.build() {
                     Ok(next) => {
                         let expected = editor.expected.clone();

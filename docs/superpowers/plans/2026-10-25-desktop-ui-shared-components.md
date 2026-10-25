@@ -122,7 +122,7 @@ All paths above are relative to `lib/clacks-desktop/`. Keep items crate-private 
 
 **Interfaces:**
 - `power::parse_watts(text: &str) -> Result<Option<Milliwatts>, String>` and `power::format_watts(value: Option<Milliwatts>) -> String`; full operating build and inline power share them.
-- `ValidationState::edited(&mut self, now: Instant)`, `due(&self, now: Instant) -> bool`, `validated(&mut self, errors: Vec<FieldError>)`; state retains whether validation belongs to the current edit. A ready action has current successful validation and no in-flight request.
+- `ValidationState::edited(&mut self, now: f64)`, `due(&self, now: f64) -> bool`, `validated(&mut self)`; state uses egui input time and retains validation freshness while Frame owns the field errors. A ready action has current successful validation and no in-flight request.
 - `fields::text(ui: &mut egui::Ui, id: egui::Id, label: &str, value: &mut String, presentation: FieldPresentation<'_>) -> egui::Response`; `FieldPresentation` has named `edited`, `read_only` and matching `errors` fields. Unit/help presentation stays with its field. No fluent field-schema DSL.
 
 - [ ] Add exact assertions: `parse_watts(".5").unwrap().unwrap().get() == 500`, `"0.001" == 1`, `"  " == None`; reject `"0"`, `"-1"`, `".0001"` and overflow without modifying the prior operating state. Keep full seconds/whole-hertz and other native rules unchanged.

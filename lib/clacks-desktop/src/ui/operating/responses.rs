@@ -118,6 +118,7 @@ pub(super) fn stale_review(ui: &mut egui::Ui, frame: &mut Frame) {
                         &mut form,
                         &DefinitionSet::default(),
                         &[],
+                        None,
                     )
                 });
                 ui.label(format!("Default equipment: {:?}", p.default_equipment));
@@ -140,7 +141,7 @@ pub(super) fn stale_review(ui: &mut egui::Ui, frame: &mut Frame) {
                 let mut form =
                     crate::operating::equipment::EquipmentForm::from_values(Some(&e.values));
                 ui.add_enabled_ui(false, |ui| {
-                    fields::equipment(ui, "stale.equipment", &mut form, &[])
+                    fields::equipment(ui, "stale.equipment", &mut form, &[], None)
                 });
                 if ui
                     .button("Keep my values against this saved version")

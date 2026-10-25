@@ -16,15 +16,87 @@ pub(in crate::ui) fn text(
     label: &str,
     value: &mut String,
     errors: &[FieldError],
+    edited: bool,
 ) -> bool {
-    ui.label(label);
-    let changed = ui
-        .add(egui::TextEdit::singleline(value).id(egui::Id::unique(id)))
-        .changed();
-    for error in errors.iter().filter(|e| e.field == label) {
-        ui.colored_label(egui::Color32::RED, &error.message);
+    crate::ui::fields::text(
+        ui,
+        egui::Id::unique(id),
+        label,
+        value,
+        crate::ui::fields::FieldPresentation {
+            edited: edited && ui.is_enabled(),
+            read_only: !ui.is_enabled(),
+            errors,
+            validation_label: None,
+            radio_data: false,
+        },
+    )
+    .changed()
+}
+
+/// Present a radio-data field using the selected radio typeface and native field feedback.
+pub(in crate::ui) fn radio_text(
+    ui: &mut egui::Ui,
+    id: &str,
+    label: &str,
+    value: &mut String,
+    errors: &[FieldError],
+    edited: bool,
+) -> bool {
+    crate::ui::fields::text(
+        ui,
+        egui::Id::unique(id),
+        label,
+        value,
+        crate::ui::fields::FieldPresentation {
+            edited: edited && ui.is_enabled(),
+            read_only: !ui.is_enabled(),
+            errors,
+            validation_label: None,
+            radio_data: true,
+        },
+    )
+    .changed()
+}
+
+/// Attach a native Position validation error to its locator and coordinate controls.
+fn position_text(
+    ui: &mut egui::Ui,
+    id: &str,
+    label: &str,
+    value: &mut String,
+    errors: &[FieldError],
+    edited: bool,
+) -> bool {
+    crate::ui::fields::text(
+        ui,
+        egui::Id::unique(id),
+        label,
+        value,
+        crate::ui::fields::FieldPresentation {
+            edited: edited && ui.is_enabled(),
+            read_only: !ui.is_enabled(),
+            errors,
+            validation_label: Some("Position"),
+            radio_data: true,
+        },
+    )
+    .changed()
+}
+
+/// Compare optional text without treating whitespace-only absence as a new recorded value.
+pub(in crate::ui) fn text_changed(value: &str, baseline: Option<&str>) -> bool {
+    let baseline = baseline.unwrap_or_default();
+    if value.trim().is_empty() && baseline.trim().is_empty() {
+        false
+    } else {
+        value != baseline
     }
-    changed
+}
+
+/// Compare callsign input using the same trim/uppercase semantics as recorded callsigns.
+pub(in crate::ui) fn callsign_changed(value: &str, baseline: Option<&str>) -> bool {
+    value.trim().to_uppercase() != baseline.unwrap_or_default().trim().to_uppercase()
 }
 
 /// Render all station facts, preserving area/point intent and explicit reference edits.
@@ -34,42 +106,62 @@ pub(in crate::ui) fn station(
     form: &mut StationForm,
     definitions: &DefinitionSet,
     errors: &[FieldError],
-) {
-    text(
+    baseline: Option<&StationForm>,
+) -> bool {
+    let call_changed = callsign_changed(
+        &form.callsign,
+        baseline.map(|value| value.callsign.as_str()),
+    );
+    let mut changed = radio_text(
         ui,
         &format!("{id}.call"),
         "Station callsign",
         &mut form.callsign,
         errors,
+        call_changed,
     );
+    let position_changed = match (
+        form.position.build(),
+        baseline
+            .map(|value| value.position.build())
+            .unwrap_or(Ok(None)),
+    ) {
+        (Ok(value), Ok(previous)) => value != previous,
+        _ => baseline.is_none_or(|value| value.position != form.position),
+    };
     let mut grid = form.position.grid.clone();
-    if text(
+    if position_text(
         ui,
         &format!("{id}.grid"),
         "Grid locator (4–12 characters)",
         &mut grid,
         errors,
+        position_changed,
     ) {
         form.edit_grid(grid);
+        changed = true;
     }
     let mut latitude = form.position.latitude.clone();
     let mut longitude = form.position.longitude.clone();
-    let latitude_changed = text(
+    let latitude_changed = position_text(
         ui,
         &format!("{id}.latitude"),
         "Latitude",
         &mut latitude,
         errors,
+        position_changed,
     );
-    let longitude_changed = text(
+    let longitude_changed = position_text(
         ui,
         &format!("{id}.longitude"),
         "Longitude",
         &mut longitude,
         errors,
+        position_changed,
     );
     if latitude_changed || longitude_changed {
         form.edit_coordinates(latitude, longitude);
+        changed = true;
     }
     ui.label(match form.position.kind {
         PositionKind::Grid => "Position: grid area; coordinates show its center",
@@ -88,43 +180,63 @@ pub(in crate::ui) fn station(
             });
         if length != form.position.length {
             form.edit_precision(length);
+            changed = true;
         }
     }
     ui.label("Geographic details (manual corrections; automatic lookup comes later)");
-    text(
+    let edited = text_changed(&form.dxcc, baseline.map(|value| value.dxcc.as_str()));
+    changed |= radio_text(
         ui,
         &format!("{id}.dxcc"),
         "DXCC entity",
         &mut form.dxcc,
         errors,
+        edited,
     );
-    text(
+    let edited = text_changed(
+        &form.primary_subdivision,
+        baseline.map(|value| value.primary_subdivision.as_str()),
+    );
+    changed |= radio_text(
         ui,
         &format!("{id}.state"),
         "State / province",
         &mut form.primary_subdivision,
         errors,
+        edited,
     );
-    text(
+    let edited = text_changed(
+        &form.secondary_subdivision,
+        baseline.map(|value| value.secondary_subdivision.as_str()),
+    );
+    changed |= radio_text(
         ui,
         &format!("{id}.county"),
         "County / subdivision",
         &mut form.secondary_subdivision,
         errors,
+        edited,
     );
-    text(
+    let edited = zone_changed(&form.cq_zone, baseline.map(|value| value.cq_zone.as_str()));
+    changed |= radio_text(
         ui,
         &format!("{id}.cq"),
         "CQ zone",
         &mut form.cq_zone,
         errors,
+        edited,
     );
-    text(
+    let edited = zone_changed(
+        &form.itu_zone,
+        baseline.map(|value| value.itu_zone.as_str()),
+    );
+    changed |= radio_text(
         ui,
         &format!("{id}.itu"),
         "ITU zone",
         &mut form.itu_zone,
         errors,
+        edited,
     );
     ui.separator();
     ui.label("Participation / references");
@@ -152,14 +264,20 @@ pub(in crate::ui) fn station(
                         );
                     }
                 });
-            row.edited |= previous != row.group;
-            row.edited |= text(
+            let group_changed = previous != row.group;
+            row.edited |= group_changed;
+            changed |= group_changed;
+            let reference_changed = row.is_changed(definitions);
+            let input_changed = radio_text(
                 ui,
                 &format!("{id}.reference.{index}"),
                 "Reference identifier",
                 &mut row.identifier,
                 errors,
+                reference_changed,
             );
+            row.edited |= input_changed;
+            changed |= input_changed;
             if ui.button("Remove reference").clicked() {
                 remove = Some(index);
             }
@@ -167,9 +285,21 @@ pub(in crate::ui) fn station(
     }
     if let Some(index) = remove {
         form.references.remove(index);
+        changed = true;
     }
     if ui.button("Add reference").clicked() {
         form.references.push(ReferenceForm::new());
+        changed = true;
+    }
+    changed
+}
+
+/// Compare recognized numeric zone input without creating edits from zero padding.
+fn zone_changed(value: &str, baseline: Option<&str>) -> bool {
+    let baseline = baseline.unwrap_or_default();
+    match (value.trim().parse::<u8>(), baseline.trim().parse::<u8>()) {
+        (Ok(value), Ok(previous)) => value != previous,
+        _ => text_changed(value, Some(baseline)),
     }
 }
 
@@ -179,28 +309,39 @@ pub(in crate::ui) fn equipment(
     id: &str,
     form: &mut EquipmentForm,
     errors: &[FieldError],
-) {
-    text(
+    baseline: Option<&EquipmentForm>,
+) -> bool {
+    let edited = text_changed(
+        &form.description,
+        baseline.map(|value| value.description.as_str()),
+    );
+    let mut changed = text(
         ui,
         &format!("{id}.description"),
         "Equipment description",
         &mut form.description,
         errors,
+        edited,
     );
-    text(
+    let edited = text_changed(&form.antenna, baseline.map(|value| value.antenna.as_str()));
+    changed |= text(
         ui,
         &format!("{id}.antenna"),
         "Antenna",
         &mut form.antenna,
         errors,
+        edited,
     );
-    text(
+    let edited = text_changed(&form.notes, baseline.map(|value| value.notes.as_str()));
+    changed |= text(
         ui,
         &format!("{id}.notes"),
         "Equipment notes",
         &mut form.notes,
         errors,
+        edited,
     );
+    changed
 }
 
 /// Show applied facts separately from pending edits and reusable definitions.
@@ -294,7 +435,7 @@ pub(super) fn active_summary(ui: &mut egui::Ui, state: &OperatingState) {
 pub(super) fn unplaced_errors(ui: &mut egui::Ui, errors: &[FieldError]) {
     for error in errors {
         ui.colored_label(
-            egui::Color32::RED,
+            ui.visuals().error_fg_color,
             format!("{}: {}", error.field, error.message),
         );
     }

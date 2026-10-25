@@ -3,6 +3,7 @@
 mod appearance;
 mod closing;
 mod equipment;
+mod fields;
 pub(crate) mod fonts;
 mod operating;
 mod preferences;
@@ -11,6 +12,7 @@ mod startup;
 #[cfg(test)]
 mod tests;
 mod theme;
+mod validation;
 
 use crate::{
     session::{SessionCommand, SessionStatus, settings::SettingsRequest},
