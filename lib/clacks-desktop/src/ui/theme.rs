@@ -29,6 +29,13 @@ pub(super) fn palette(theme: Theme) -> Palette {
     }
 }
 
+/// Give a real tool section the active appearance's restrained boundary and surface.
+pub(super) fn section_frame(ui: &egui::Ui) -> egui::Frame {
+    egui::Frame::group(ui.style())
+        .fill(ui.visuals().panel_fill)
+        .inner_margin(12)
+}
+
 /// Install both appearance styles and let egui combine theme and native scaling.
 pub(super) fn install(context: &egui::Context, preferences: &AppearancePreferences) {
     context.set_theme(match preferences.appearance {

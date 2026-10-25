@@ -127,3 +127,40 @@ fn font_face_is_used_by_radio_field_without_rewriting_text() {
     assert!(output.shapes.iter().any(|shape| matches!(&shape.shape, egui::epaint::Shape::Text(text) if text.galley.text() == "K7ABC/P" && text.galley.job.sections.iter().any(|section| section.format.font_id.family == FontFamily::Name("clacks.radio".into())))));
     output.drop_without_applying_deltas();
 }
+
+#[test]
+fn selected_font_failure_is_visible_without_recording_the_requested_family() {
+    struct Captured(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Captured {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let captured = std::sync::Arc::new(std::sync::Mutex::new(Vec::<u8>::new()));
+    let writer = captured.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::WARN)
+        .with_ansi(false)
+        .without_time()
+        .with_writer(move || Captured(writer.clone()))
+        .finish();
+    let (reply, result) = tokio::sync::oneshot::channel();
+
+    tracing::subscriber::with_default(subscriber, || {
+        FontOperation::Load {
+            family: "Clacks-private-missing-family-7ed9\0".into(),
+            reply,
+        }
+        .run();
+    });
+
+    assert!(result.blocking_recv().unwrap().is_err());
+    let diagnostic = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
+    assert!(diagnostic.contains("desktop.selected_font_unavailable"));
+    assert!(!diagnostic.contains("Clacks-private-missing-family"));
+}

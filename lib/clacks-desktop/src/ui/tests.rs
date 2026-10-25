@@ -1,5 +1,8 @@
 //! Private view-state tests without a display server.
 
+mod appearance;
+mod main_screen;
+
 use super::*;
 use std::time::Instant;
 
@@ -32,7 +35,10 @@ fn appearance_apply_survives_app_save_and_reconstruction() {
     let mut storage = Storage::default();
     storage.0.insert("unrelated".into(), "keep me".into());
 
-    window.app.appearance.open();
+    window
+        .app
+        .appearance
+        .open(egui::Id::unique("test.appearance.opener"));
     let pending = &mut window.app.appearance.editor.as_mut().unwrap().pending;
     pending.appearance = Appearance::Light;
     pending.zoom = 1.25;
@@ -71,7 +77,10 @@ fn appearance_cancelled_preview_is_not_saved() {
     use eframe::App;
 
     let mut window = Window::new();
-    window.app.appearance.open();
+    window
+        .app
+        .appearance
+        .open(egui::Id::unique("test.appearance.opener"));
     let pending = &mut window.app.appearance.editor.as_mut().unwrap().pending;
     pending.appearance = Appearance::Dark;
     pending.zoom = 1.5;
@@ -320,4 +329,66 @@ fn native_close_while_failed_is_cancelled_until_cleanup_acknowledges() {
         window.commands.try_recv(),
         Ok(SessionCommand::BeginShutdown)
     ));
+}
+
+#[test]
+fn closing_cancels_appearance_preview_and_keeps_delayed_shutdown_controls_accessible() {
+    use super::preferences::AppearancePreferences;
+    use eframe::App;
+    let mut window = Window::new();
+    window
+        .app
+        .appearance
+        .open(egui::Id::unique("test.appearance.opener"));
+    window.app.appearance.editor.as_mut().unwrap().pending.zoom = 1.5;
+    theme::install(
+        &window.context,
+        &window.app.appearance.editor.as_ref().unwrap().pending,
+    );
+    window.draw(egui::RawInput::default());
+    window.app.begin_close();
+    window
+        .updates
+        .send(SessionStatus::Closing {
+            phase: "Finishing work",
+            started: Instant::now() - Duration::from_secs(6),
+        })
+        .unwrap();
+    window.draw(egui::RawInput::default());
+    let mut native_frame = eframe::Frame::_new_kittest();
+    let mut output = window.context.run_ui(egui::RawInput::default(), |ui| {
+        window.app.ui(ui, &mut native_frame)
+    });
+    output.textures_delta.clear();
+    assert!(window.app.appearance.editor.is_none());
+    assert_eq!(
+        window.context.zoom_factor(),
+        AppearancePreferences::default().zoom
+    );
+    let position = output
+        .shapes
+        .iter()
+        .find_map(|shape| match &shape.shape {
+            egui::epaint::Shape::Text(text) if text.galley.text() == "Continue Waiting" => {
+                Some(text.visual_bounding_rect().center())
+            }
+            _ => None,
+        })
+        .unwrap();
+    output.drop_without_applying_deltas();
+    for pressed in [true, false] {
+        window.draw(egui::RawInput {
+            events: vec![
+                egui::Event::PointerMoved(position),
+                egui::Event::PointerButton {
+                    pos: position,
+                    button: egui::PointerButton::Primary,
+                    pressed,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            ..Default::default()
+        });
+    }
+    assert!(window.app.continuing);
 }

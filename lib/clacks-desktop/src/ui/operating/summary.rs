@@ -27,7 +27,20 @@ pub(super) fn show(
     sender: &mpsc::Sender<SettingsRequest>,
 ) -> SummaryAction {
     let mut action = SummaryAction::None;
-    egui::Frame::group(ui.style()).show(ui, |ui| {
+    crate::ui::theme::section_frame(ui).show(ui, |ui| {
+        ui.horizontal(|ui| {
+            ui.heading("Operating context");
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui
+                    .button("Operating settings")
+                    .on_hover_text("Edit station, equipment, operator and power")
+                    .clicked()
+                {
+                    action = SummaryAction::Operating;
+                }
+            });
+        });
+        ui.separator();
         ui.horizontal_wrapped(|ui| {
             ui.strong("Active station");
             if let Some(current) = &active.current {
@@ -43,13 +56,6 @@ pub(super) fn show(
             } else {
                 ui.label("No station configured");
             }
-            if ui
-                .button("Operating settings")
-                .on_hover_text("Edit station, equipment, operator and power")
-                .clicked()
-            {
-                action = SummaryAction::Operating;
-            }
         });
         ui.horizontal_wrapped(|ui| {
             ui.label(format!(
@@ -63,6 +69,7 @@ pub(super) fn show(
             if ui.button("Change profile…").clicked() {
                 action = SummaryAction::Profile;
             }
+            ui.separator();
             ui.label(format!(
                 "Equipment: {}",
                 active
@@ -99,6 +106,8 @@ pub(super) fn show(
                 ui.label(equipment.equipment_description.as_deref().unwrap_or(""));
                 ui.label(equipment.antenna_description.as_deref().unwrap_or(""));
             }
+        });
+        ui.horizontal_wrapped(|ui| {
             let operator = active
                 .current
                 .as_ref()
@@ -123,8 +132,9 @@ pub(super) fn show(
             {
                 action = SummaryAction::Operator;
             }
+            ui.separator();
+            quick.power(ui, active, sender);
         });
-        quick.power(ui, active, sender);
     });
     action
 }

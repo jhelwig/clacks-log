@@ -47,6 +47,7 @@ impl SettingsUi {
             }
         };
         frame.response = None;
+        let refresh_failed = matches!(&response, SettingsResponse::RefreshFailed { .. });
         let response = if let SettingsResponse::RefreshFailed { outcome, message } = response {
             self.refresh_error = Some(message);
             *outcome
@@ -60,7 +61,7 @@ impl SettingsUi {
             response
         };
         match response {
-            SettingsResponse::Refresh(_) => frame.notice = Some("Settings refreshed.".into()),
+            SettingsResponse::Refresh(_) => frame.notice = None,
             SettingsResponse::Apply(OperatingSaveOutcome::Saved(state) | OperatingSaveOutcome::Unchanged(state)) => {
                 self.acknowledged = Some(state);
                 pop = true;
@@ -72,6 +73,10 @@ impl SettingsUi {
             SettingsResponse::SaveProfile(result) => {
                 match result.outcome {
                     SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record) => {
+                        if refresh_failed {
+                            self.acknowledged_records.insert(record.key.id, record.clone());
+                            self.completion_notice = Some("Profile saved locally. Refresh settings to recover the remaining view; do not repeat the save.".into());
+                        }
                         if result.missing_equipment.is_some() {
                             if let Screen::Profile(editor) = &mut frame.screen { editor.expected = Some(record); }
                             frame.notice = Some("Profile saved locally with a missing equipment reference. Choose a replacement or None and save again; it has not been applied.".into());
@@ -81,7 +86,13 @@ impl SettingsUi {
                 }
             }
             SettingsResponse::SaveEquipment(outcome) => match outcome {
-                SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_) => pop = true,
+                SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record) => {
+                    if refresh_failed {
+                        self.acknowledged_records.insert(record.key.id, record);
+                        self.completion_notice = Some("Equipment saved locally. Refresh settings to recover the remaining view; do not repeat the save.".into());
+                    }
+                    pop = true;
+                },
                 SaveOutcome::Stale { current } => stale(frame, current),
             },
             SettingsResponse::DeleteProfile(outcome) => match outcome {

@@ -104,6 +104,14 @@ or pixel dimensions. Preserve the selected egui/eframe architecture when
 implementing the shared components below; prototype markup is not the production
 component implementation.
 
+The current main screen applies this hierarchy to its available production
+tools: an application bar, the operating-context section, a separate saved-settings
+section and a compact workspace-status footer. Workspace paths and account
+identity are available through **Workspace & diagnostics**. Opening failures,
+retry actions and degraded-diagnostic warnings remain visible when those details
+are collapsed. Later contact capabilities extend this screen without placeholder
+panes for tools that do not yet exist.
+
 ### Appearance preference
 
 Follow the operating system's light/dark appearance by default (D298), including
@@ -129,10 +137,12 @@ belong to the component specification and implementation design.
 ## Validation and unapplied changes
 
 Validate edited values live after a debounce, rather than waiting for the field
-to lose focus or for Save/Apply. The debounce duration remains a design choice.
-Validation reports whether input is valid; it does not itself save or apply it.
-Explicit commit actions still validate the current input without waiting for a
-pending debounce. Preserve the existing inline-power and dialog commit boundaries.
+to lose focus or for Save/Apply. The current desktop uses 300 ms. Validation
+reports whether input is valid; it does not itself save or apply it.
+Dialog Save/Apply waits for current validation. Once available, the action
+revalidates the latest input before submitting rather than trusting a cached
+result. Inline-power commits validate immediately on Enter, Tab or focus departure.
+Preserve those distinct commit boundaries.
 
 Give unapplied changes an amber-tinted field background and amber edge marker,
 alongside a text indication such as “Not applied.” Keep this distinguishable
@@ -140,14 +150,15 @@ from keyboard focus, selection and validation errors; color alone must not carry
 the meaning. A value can be both changed and invalid: retain the edit highlight
 while showing the validation border/message and independent focus outline.
 An invalid edit never replaces the active value. D290 defines validation and
-D291 selects this highlight treatment; exact color tokens remain under design.
+D291 selects this highlight treatment; semantic color tokens are centralized in
+the desktop theme implementation.
 
 Save/Apply is disabled while validation errors remain (D292). Keep a clear error
 summary near the action and messages at the affected fields, identifying what
 needs fixing without requiring an attempt to submit. Re-evaluate availability
 as debounced validation runs; clearing errors enables the action without applying
-the values. Submission still validates the latest input, including any edit whose
-debounce has not completed. An independently valid reusable-record save is not
+the values. Submission still validates the latest input rather than relying on
+the earlier live check. An independently valid reusable-record save is not
 blocked by errors in unrelated operating fields.
 
 ## Contact-table selection
@@ -298,13 +309,13 @@ new account, synchronization or domain rules:
   Keep keyboard focus apparent and tab order aligned with the visible workflow.
   Input-local keyboard behavior takes precedence over table/global shortcuts.
 
-### Engineering defaults to review
+### Shared-component defaults
 
-The following complete the component behavior proposal; they are not additional
-explicit user decisions:
+These defaults complete the shared interaction contract:
 
-- Use a 300 ms live-validation debounce initially. Explicit commit does not wait
-  for it; validation state must remain associated with the current edited value.
+- Use a 300 ms live-validation debounce. Dialog actions remain disabled while
+  validation is pending or invalid; inline-power commit validates immediately.
+  Validation state remains associated with the current edited value.
 - Return focus to the opener on dialog dismissal. Keep modal focus inside the
   active dialog; clicking its backdrop does not discard edits. Escape dismisses
   the innermost transient control first, rather than cancelling an outer editor
@@ -314,11 +325,11 @@ explicit user decisions:
   Put initial focus on Cancel and require explicit confirmation of the chosen
   outcome. Existing deletion semantics remain unchanged.
 
-Concrete colors, spacing steps, font families/discovery, safe scale range,
-preference storage keys, table column definitions and Rust APIs are implementation
-design. Use existing framework capabilities and verify their fit before fixing
-dependency/API choices in a plan. Defaults should be centralized so refinement
-does not require restyling every screen.
+Concrete colors and spacing are centralized in the desktop theme; the desktop
+guide describes current font selection, scale range and local preference storage.
+Table column definitions and pane preferences arrive with their production
+consumers. Use existing framework facilities and keep defaults centralized so
+refinement does not require restyling every screen.
 
 ### Verification and delivery
 
@@ -338,5 +349,7 @@ checks for large contact tables belong to the real table capability.
 Follow the [observability contract](observability.md). Preserve meaningful
 operation diagnostics and data exclusion as views change. Do not log keystrokes,
 hover/focus changes or entire forms, or add telemetry
-frameworks to style helpers. No Rust implementation or task-level execution plan
-is introduced by this design document.
+frameworks to style helpers. The [desktop guide](../lib/clacks-desktop/README.md)
+describes current production controls. Contact tables, panes and additional
+logging windows adopt this contract with their owning capabilities; they are not
+implemented by the operating-settings retrofit.

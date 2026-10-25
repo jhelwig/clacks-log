@@ -59,7 +59,6 @@ pub(super) fn show(
 ) {
     match &mut frame.screen {
         Screen::Equipment => {
-            ui.heading("Saved equipment configurations");
             if ui.button("New configuration").clicked() {
                 navigation.next = Some(Screen::EquipmentEdit(Box::new(EquipmentEditor::new(
                     None,

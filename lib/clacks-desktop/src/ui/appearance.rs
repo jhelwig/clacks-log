@@ -13,13 +13,16 @@ use tokio::sync::mpsc;
 pub(super) struct AppearanceEditor {
     /// Values currently shown in the preview.
     pub pending: AppearancePreferences,
+    /// Native control that opened this preview and receives focus on dismissal.
+    opener: egui::Id,
 }
 
 impl AppearanceEditor {
     /// Start a preview using the last committed presentation choices.
-    pub fn new(preferences: &AppearancePreferences) -> Self {
+    pub fn new(preferences: &AppearancePreferences, opener: egui::Id) -> Self {
         Self {
             pending: preferences.clone(),
+            opener,
         }
     }
 }
@@ -35,6 +38,8 @@ pub(super) enum AppearanceAction {
 /// Application-owned preference state shared by every view in this client.
 #[derive(Default)]
 pub(super) struct AppearanceUi {
+    /// Native opener awaiting focus after the modal has left the active frame.
+    restore_focus: Option<egui::Id>,
     /// Actual native-family catalog and role requests, independent of domain forms.
     fonts: FontsUi,
     /// Only these values reach the framework save hook.
@@ -87,9 +92,9 @@ impl AppearanceUi {
     }
 
     /// Open the local appearance editor without replacing an existing preview.
-    pub fn open(&mut self) {
+    pub fn open(&mut self, opener: egui::Id) {
         self.editor
-            .get_or_insert_with(|| AppearanceEditor::new(&self.committed));
+            .get_or_insert_with(|| AppearanceEditor::new(&self.committed, opener));
     }
 
     /// Complete a user action and install the corresponding valid appearance.
@@ -104,12 +109,18 @@ impl AppearanceUi {
             self.committed = editor.pending.clone();
             self.notice = None;
         }
-        self.editor = None;
+        if let Some(editor) = self.editor.take() {
+            self.restore_focus = Some(editor.opener);
+            context.request_repaint();
+        }
         theme::install(context, &self.committed);
     }
 
     /// Render the actual appearance dialog and preview valid presentation edits.
     pub fn show(&mut self, context: &egui::Context) {
+        if let Some(opener) = self.restore_focus.take() {
+            context.memory_mut(|memory| memory.request_focus(opener));
+        }
         let Some(editor) = &mut self.editor else {
             return;
         };
@@ -121,8 +132,6 @@ impl AppearanceUi {
             "Appearance",
             |ui| {
                 ui.set_width(340.0_f32.min(ui.available_width()));
-                ui.heading("Appearance");
-                ui.separator();
                 ui.label("Appearance");
                 ui.horizontal(|ui| {
                     ui.selectable_value(

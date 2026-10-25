@@ -3,6 +3,9 @@
 #[cfg(test)]
 mod dialog_tests;
 pub(super) mod fields;
+mod home;
+#[cfg(test)]
+mod layout_tests;
 mod pending;
 mod quick;
 #[cfg(test)]
@@ -65,6 +68,23 @@ pub(super) enum Screen {
 }
 
 impl Screen {
+    /// Name the actual workflow in the modal header.
+    fn title(&self) -> &'static str {
+        match self {
+            Self::Home => "Settings",
+            Self::Operating(_) => "Operating settings",
+            Self::Profiles => "Station profiles",
+            Self::Profile(_) => "Edit station profile",
+            Self::Equipment => "Equipment configurations",
+            Self::EquipmentEdit(_) => "Edit equipment configuration",
+            Self::DeleteEquipment(_) => "Delete equipment configuration",
+            Self::Quick(quick::editors::QuickEdit::Profile(_)) => "Choose station profile",
+            Self::Quick(quick::editors::QuickEdit::Equipment(_)) => {
+                "Choose equipment configuration"
+            }
+            Self::Quick(quick::editors::QuickEdit::Operator(_)) => "Change operator",
+        }
+    }
     /// Access pending operating facts shared by full and quick workflows.
     fn operating(&self) -> Option<&OperatingEditor> {
         match self {
@@ -180,6 +200,8 @@ pub(super) struct SettingsUi {
     completion_notice: Option<String>,
     /// Last accepted Apply basis until a subsequent atomic view arrives.
     acknowledged: Option<clacks_client_store::operating::OperatingState>,
+    /// Exact accepted reusable records retained across a failed post-write view read.
+    acknowledged_records: BTreeMap<RecordId, ClientRecord>,
     /// Native opener awaiting focus after modal removal.
     restore_focus: Option<egui::Id>,
     /// Explicit navigation stack, preserving pending callers.
@@ -225,9 +247,21 @@ impl SettingsUi {
             self.acknowledged = Some(acknowledged);
             self.refresh_error = quick_outcome.refresh_error;
         }
-        let mut effective = snapshot.as_ref().clone();
+        let mut effective = std::borrow::Cow::Borrowed(snapshot.as_ref());
         if let Some(acknowledged) = &self.acknowledged {
-            effective.operating = acknowledged.clone();
+            effective.to_mut().operating = acknowledged.clone();
+        }
+        for record in self.acknowledged_records.values() {
+            let rows = match record.key.id {
+                RecordId::Profile(_) => &mut effective.to_mut().profiles,
+                RecordId::Equipment(_) => &mut effective.to_mut().equipment,
+                _ => continue,
+            };
+            if let Some(previous) = rows.iter_mut().find(|previous| previous.key == record.key) {
+                *previous = record.clone();
+            } else {
+                rows.push(record.clone());
+            }
         }
         if effective
             .operating
@@ -238,7 +272,7 @@ impl SettingsUi {
                     .contains(&RecordId::Profile(profile.id))
             })
         {
-            effective.operating.selected_profile = None;
+            effective.to_mut().operating.selected_profile = None;
         }
         if effective
             .operating
@@ -249,9 +283,9 @@ impl SettingsUi {
                     .contains(&RecordId::Equipment(equipment.id))
             })
         {
-            effective.operating.selected_equipment = None;
+            effective.to_mut().operating.selected_equipment = None;
         }
-        let snapshot = &effective;
+        let snapshot = effective.as_ref();
         if let Some(opener) = self.restore_focus.take() {
             ui.memory_mut(|memory| memory.request_focus(opener));
         }
@@ -271,12 +305,10 @@ impl SettingsUi {
             self.stack.push(Frame::new(Screen::Home));
         }
 
-        ui.separator();
-        ui.heading("Active operating settings");
         if let Some(error) = &self.refresh_error {
             ui.colored_label(egui::Color32::YELLOW, error);
             ui.label(
-                "The summary below is the last successfully read state and may be out of date.",
+                "Accepted changes are retained. Other details are from the last successfully read state and may be out of date.",
             );
         }
         let summary_action = summary::show(ui, &snapshot.operating, &mut self.quick, sender);
@@ -302,13 +334,18 @@ impl SettingsUi {
                 "Active equipment source changed; applied equipment values have not been reloaded.",
             );
         }
-        if ui.button("Refresh settings").clicked()
+        let home_action = home::show(
+            ui,
+            self.stack
+                .last()
+                .is_none_or(|frame| frame.response.is_none()),
+        );
+        if matches!(home_action, home::HomeAction::Refresh)
             && let Some(frame) = self.stack.last_mut()
             && frame.response.is_none()
         {
             frame.send(sender, SettingsAction::Refresh);
         }
-        ui.separator();
 
         let Some(frame) = self.stack.last_mut() else {
             return;
@@ -340,8 +377,14 @@ impl SettingsUi {
                 Some(Screen::Quick(quick::editors::QuickEdit::Operator(editor())))
             }
         };
+        match home_action {
+            home::HomeAction::Profiles => navigation.next = Some(Screen::Profiles),
+            home::HomeAction::Equipment => navigation.next = Some(Screen::Equipment),
+            home::HomeAction::None | home::HomeAction::Refresh => {}
+        }
         let context = ui.ctx().clone();
         let modal = !matches!(frame.screen, Screen::Home);
+        let title = frame.screen.title();
         let mut body = |ui: &mut egui::Ui| {
             if let Some(notice) = &frame.notice {
                 super::feedback::problem(ui, notice);
@@ -349,14 +392,7 @@ impl SettingsUi {
             ui.add_enabled_ui(!busy, |ui| {
                 responses::stale_review(ui, frame);
                 match &mut frame.screen {
-                    Screen::Home => {
-                        if ui.button("Station profiles").clicked() {
-                            navigation.next = Some(Screen::Profiles);
-                        }
-                        if ui.button("Equipment configurations").clicked() {
-                            navigation.next = Some(Screen::Equipment);
-                        }
-                    }
+                    Screen::Home => {}
                     Screen::Operating(_) => pending::show(
                         ui,
                         frame,
@@ -405,7 +441,7 @@ impl SettingsUi {
             let result = super::dialog::show(
                 &context,
                 egui::Id::unique("settings.editor"),
-                "Operating settings",
+                title,
                 &mut body,
             );
             let () = result.inner;
@@ -447,6 +483,7 @@ impl SettingsUi {
             return;
         }
         self.acknowledged = None;
+        self.acknowledged_records.clear();
         for frame in &mut self.stack {
             frame.validation.invalidate();
         }

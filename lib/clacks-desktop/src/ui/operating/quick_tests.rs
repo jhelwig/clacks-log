@@ -409,3 +409,94 @@ async fn quick_profile_can_establish_initial_complete_context() -> anyhow::Resul
     window.close().await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn inline_power_tab_during_pending_request_commits_new_value_after_acknowledgment()
+-> anyhow::Result<()> {
+    let mut window = Window::new().await?;
+    window.seed().await?;
+    let (sender, mut requests) = mpsc::channel::<SettingsRequest>(4);
+    window.sender = sender;
+    window.text("summary.power", "25");
+    window.frame(vec![key(egui::Key::Enter)]);
+    let first = requests.try_recv()?;
+    window.text("summary.power", "30");
+    window.frame(vec![key(egui::Key::Tab)]);
+    window.frame(vec![]);
+    window.frame(vec![]);
+    assert!(window.view.quick.is_busy());
+    assert!(requests.try_recv().is_err());
+    let SettingsAction::Apply { expected, next } = first.action else {
+        panic!()
+    };
+    let result = clacks_client_store::operating::save(&window.store, &expected, &next).await?;
+    first.reply.send(SettingsResponse::Apply(result)).unwrap();
+    window.frame(vec![]);
+    let second = requests.try_recv()?;
+    let SettingsAction::Apply { expected, next } = second.action else {
+        panic!()
+    };
+    assert_eq!(
+        expected
+            .current
+            .as_ref()
+            .unwrap()
+            .transmit_power
+            .unwrap()
+            .get(),
+        25_000
+    );
+    let result = clacks_client_store::operating::save(&window.store, &expected, &next).await?;
+    second.reply.send(SettingsResponse::Apply(result)).unwrap();
+    window.settle().await;
+    assert_eq!(
+        clacks_client_store::operating::load(&window.store)
+            .await?
+            .current
+            .unwrap()
+            .transmit_power
+            .unwrap()
+            .get(),
+        30_000
+    );
+    assert!(requests.try_recv().is_err());
+    window.close().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn inline_power_failed_prior_request_does_not_automatically_retry_waiting_edit()
+-> anyhow::Result<()> {
+    let mut window = Window::new().await?;
+    window.seed().await?;
+    let (sender, mut requests) = mpsc::channel::<SettingsRequest>(4);
+    window.sender = sender;
+    window.text("summary.power", "25");
+    window.frame(vec![key(egui::Key::Enter)]);
+    let first = requests.try_recv()?;
+    window.text("summary.power", "30");
+    window.frame(vec![key(egui::Key::Tab)]);
+    window.frame(vec![]);
+    window.frame(vec![]);
+    first
+        .reply
+        .send(SettingsResponse::Failed(
+            "Acknowledgment unavailable".into(),
+        ))
+        .unwrap();
+    window.settle().await;
+    window.frame(vec![]);
+    assert!(requests.try_recv().is_err());
+    assert_eq!(window.view.quick.power_text, "30");
+    assert!(window.visible("Acknowledgment unavailable"));
+    assert!(
+        clacks_client_store::operating::load(&window.store)
+            .await?
+            .current
+            .unwrap()
+            .transmit_power
+            .is_none()
+    );
+    window.close().await?;
+    Ok(())
+}

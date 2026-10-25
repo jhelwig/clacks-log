@@ -27,7 +27,6 @@ pub(super) fn show(
 ) {
     match &mut frame.screen {
         Screen::Profiles => {
-            ui.heading("Saved station profiles");
             ui.label(
                 "A profile owns station values and an optional default equipment configuration.",
             );

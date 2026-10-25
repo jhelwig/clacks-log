@@ -43,7 +43,6 @@ pub(in crate::ui::operating) fn show(
     };
     match edit {
         QuickEdit::Profile(editor) => {
-            ui.heading("Choose station profile");
             ui.label("Apply copies this station and its associated default equipment. Operator and power stay unchanged.");
             for saved in snapshot
                 .profiles

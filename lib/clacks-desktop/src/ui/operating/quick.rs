@@ -41,6 +41,8 @@ pub(super) struct QuickOperatingUi {
     notice: Option<String>,
     /// Admitted edit; dropping focus never discards its response.
     power_request: Option<PowerRequest>,
+    /// Exact newer text explicitly committed while an earlier request was outstanding.
+    commit_after_reply: Option<String>,
 }
 
 impl QuickOperatingUi {
@@ -54,6 +56,7 @@ impl QuickOperatingUi {
             Err(oneshot::error::TryRecvError::Empty) => return QuickOutcome::default(),
             Err(oneshot::error::TryRecvError::Closed) => {
                 self.power_request = None;
+                self.commit_after_reply = None;
                 self.notice =
                     Some("No acknowledgment received. Refresh settings before retrying.".into());
                 return QuickOutcome::default();
@@ -72,6 +75,14 @@ impl QuickOperatingUi {
         } else {
             response
         };
+        if !matches!(
+            &response,
+            SettingsResponse::Apply(
+                OperatingSaveOutcome::Saved(_) | OperatingSaveOutcome::Unchanged(_)
+            )
+        ) {
+            self.commit_after_reply = None;
+        }
         match response {
             SettingsResponse::Apply(
                 OperatingSaveOutcome::Saved(state) | OperatingSaveOutcome::Unchanged(state),
@@ -116,6 +127,13 @@ impl QuickOperatingUi {
             .current
             .as_ref()
             .and_then(|value| value.transmit_power);
+        if self.power_request.is_none()
+            && let Some(committed_text) = self.commit_after_reply.take()
+            && committed_text == self.power_text
+            && self.dirty
+        {
+            self.commit(active, sender);
+        }
         if !self.dirty && self.power_request.is_none() {
             self.power_text = power::format_watts(committed);
         }
@@ -151,6 +169,7 @@ impl QuickOperatingUi {
             );
         }
         if response.changed() {
+            self.commit_after_reply = None;
             self.dirty = self.power_request.is_some()
                 || power::parse_watts(&self.power_text)
                     .map(|value| value != committed)
@@ -169,18 +188,31 @@ impl QuickOperatingUi {
         let cancelled = editing
             && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
         if cancelled {
+            self.commit_after_reply = None;
             self.power_text = power::format_watts(committed);
             self.dirty = false;
             self.error = None;
             response.surrender_focus();
         } else if self.dirty
-            && self.power_request.is_none()
             && (response.lost_focus()
                 || (response.has_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter))))
         {
-            self.commit(active, sender);
+            if self.power_request.is_some() {
+                match power::parse_watts(&self.power_text) {
+                    Ok(_) => self.commit_after_reply = Some(self.power_text.clone()),
+                    Err(error) => self.error = Some(error),
+                }
+            } else {
+                self.commit(active, sender);
+            }
         }
         if let Some(error) = &self.error {
+            ui.painter().rect_stroke(
+                response.rect.expand(1.0),
+                3,
+                egui::Stroke::new(1.0, colors.error),
+                egui::StrokeKind::Outside,
+            );
             ui.colored_label(colors.error, error);
         }
         if let Some(notice) = &self.notice {

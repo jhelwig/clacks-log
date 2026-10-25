@@ -12,6 +12,7 @@ use eframe::egui::{Event, Modifiers, PointerButton, Pos2, Rect, Vec2};
 
 pub(in crate::ui::operating) struct Window {
     now: f64,
+    pub(in crate::ui::operating) size: Vec2,
     pub(in crate::ui::operating) view: SettingsUi,
     pub(in crate::ui::operating) context: egui::Context,
     pub(in crate::ui::operating) output: egui::FullOutput,
@@ -43,6 +44,7 @@ impl Window {
         let opened = workspace::open(&paths).await?;
         Ok(Self {
             now: 0.0,
+            size: Vec2::new(1300.0, 2200.0),
             view: SettingsUi::default(),
             context: Default::default(),
             output: Default::default(),
@@ -61,7 +63,7 @@ impl Window {
         self.now += 1.0 / 60.0;
         let input = egui::RawInput {
             time: Some(self.now),
-            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1300.0, 2200.0))),
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, self.size)),
             events,
             ..Default::default()
         };

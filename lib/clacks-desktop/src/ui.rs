@@ -200,36 +200,76 @@ impl eframe::App for DesktopApp {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let state = self.status.borrow().clone();
+        let closing = self.close_requested
+            || matches!(
+                &state,
+                SessionStatus::Closing { .. } | SessionStatus::Closed
+            );
+        if closing && self.appearance.editor.is_some() {
+            self.appearance
+                .finish(ui.ctx(), appearance::AppearanceAction::Cancel);
+        }
         self.appearance.update_fonts(ui.ctx(), &self.commands);
-        egui::CentralPanel::default().show(ui, |ui| {
+        egui::Panel::top("application.header").show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Clacks Log");
-                if ui.button("Appearance…").clicked() {
-                    self.appearance.open();
-                }
-            });
-            if let Some(notice) = &self.appearance.notice {
-                ui.label(notice);
-            }
-
-            let state = self.status.borrow().clone();
-            startup::show(self, ui, &state);
-
-            if matches!(state, SessionStatus::Ready { .. })
-                && !self.close_requested
-                && let Some(snapshot) = self.settings_view.borrow_and_update().clone()
-            {
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    self.settings.show(ui, &snapshot, &self.settings_requests)
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let appearance = ui.add_enabled(!closing, egui::Button::new("Appearance…"));
+                    if appearance.clicked() {
+                        self.appearance.open(appearance.id);
+                    }
                 });
-            }
-
-            if let SessionStatus::Closing { phase, started } = state {
-                closing::show(self, ui, phase, started);
-            } else if ui.button("Close").clicked() {
-                self.begin_close();
-            }
+            });
         });
-        self.appearance.show(ui.ctx());
+        egui::Panel::bottom("application.status").show(ui, |ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui
+                    .add_enabled(!closing, egui::Button::new("Close"))
+                    .clicked()
+                {
+                    self.begin_close();
+                }
+                ui.separator();
+                startup::status(ui, &state);
+            });
+        });
+        let background = ui.visuals().extreme_bg_color;
+        egui::CentralPanel::default()
+            .frame(
+                egui::Frame::central_panel(ui.style())
+                    .fill(background)
+                    .inner_margin(12),
+            )
+            .show(ui, |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("application.content")
+                    .show(ui, |ui| {
+                        if let Some(notice) = &self.appearance.notice {
+                            feedback::problem(ui, notice);
+                        }
+                        startup::diagnostics(self, ui);
+                        startup::show(self, ui, &state);
+
+                        if matches!(state, SessionStatus::Ready { .. })
+                            && !self.close_requested
+                            && let Some(snapshot) = self.settings_view.borrow_and_update().clone()
+                        {
+                            self.settings.show(ui, &snapshot, &self.settings_requests);
+                        }
+
+                        if let SessionStatus::Closing { phase, started } = state {
+                            theme::section_frame(ui).show(ui, |ui| {
+                                ui.heading("Closing workspace");
+                                ui.separator();
+                                closing::show(self, ui, phase, started);
+                            });
+                        }
+                        startup::details(self, ui, &state);
+                    });
+            });
+        if !closing {
+            self.appearance.show(ui.ctx());
+        }
     }
 }

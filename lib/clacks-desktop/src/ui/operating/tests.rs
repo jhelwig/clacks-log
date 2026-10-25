@@ -104,7 +104,7 @@ async fn font_and_scale_changes_preserve_pending_operating_text() -> anyhow::Res
     window.click("Operating settings");
     window.text("operating.station.call", "VE7ABC/P");
     let mut appearance = AppearanceUi::default();
-    appearance.open();
+    appearance.open(egui::Id::unique("test.appearance.opener"));
     let pending = &mut appearance.editor.as_mut().unwrap().pending;
     pending.appearance = Appearance::Light;
     pending.zoom = 1.25;
