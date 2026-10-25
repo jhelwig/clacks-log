@@ -26,9 +26,14 @@ use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 use tracing::instrument::WithSubscriber;
 
+/// Bound blocking font discovery/loading so rapid preference changes cannot grow workers indefinitely.
+const MAX_FONT_TASKS: usize = 4;
+
 /// Lifecycle requests; ordinary domain work does not pass through this channel.
 #[derive(Debug)]
 pub(crate) enum SessionCommand {
+    /// Resolve presentation fonts on session-owned workers, without touching account data.
+    Font(crate::ui::fonts::FontOperation),
     /// Retry only after the previous failed open has settled.
     RetryOpen,
     /// Stop admitting work and begin resource cleanup.
@@ -120,6 +125,7 @@ pub(crate) async fn run(
     ));
 
     let mut work = JoinSet::new();
+    let mut font_work = JoinSet::new();
     let mut settings_open = true;
     let mut opening = JoinSet::new();
     opening::begin(
@@ -140,13 +146,21 @@ pub(crate) async fn run(
     let mut loss_check = tokio::time::interval(Duration::from_secs(5));
 
     loop {
-        if closing.is_some() && opening.is_empty() && work.is_empty() {
+        if closing.is_some() && opening.is_empty() && work.is_empty() && font_work.is_empty() {
             break;
         }
 
         tokio::select! {
             biased;
             command = commands.recv(), if commands_open => match command {
+                Some(SessionCommand::Font(operation)) if closing.is_none() && font_work.len() < MAX_FONT_TASKS => {
+                    let span = tracing::Span::current();
+                    let dispatcher = tracing::dispatcher::get_default(Clone::clone);
+                    font_work.spawn_blocking(move || tracing::dispatcher::with_default(&dispatcher, || span.in_scope(|| operation.run())));
+                }
+                Some(SessionCommand::Font(operation)) => {
+                    operation.reject(if closing.is_some() { "The application is closing." } else { "Font loading is busy. Retry after current loads finish." });
+                },
                 Some(SessionCommand::RetryOpen) if closing.is_none() && opening.is_empty() && opened.is_none() => {
                     publish(&status, &context, SessionStatus::Opening);
                     attempt_started = Instant::now();
@@ -175,6 +189,10 @@ pub(crate) async fn run(
                         commands_open = false;
                     }
                 }
+            },
+            result = font_work.join_next(), if !font_work.is_empty() => {
+                if matches!(result, Some(Err(_))) { tracing::error!(event = "desktop.font_task_failed"); }
+                if let Some(context) = context.get() { context.request_repaint(); }
             },
             result = opening.join_next(), if !opening.is_empty() => {
                 if let Some(result) = result {

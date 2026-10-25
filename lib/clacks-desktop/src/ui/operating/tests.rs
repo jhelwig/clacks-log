@@ -6,6 +6,39 @@ use super::*;
 use support::Window;
 
 #[tokio::test]
+async fn font_and_scale_changes_preserve_pending_operating_text() -> anyhow::Result<()> {
+    use crate::ui::{
+        appearance::{AppearanceAction, AppearanceUi},
+        preferences::Appearance,
+    };
+
+    let mut window = Window::new().await?;
+    window.click("Operating settings");
+    window.text("operating.station.call", "VE7ABC/P");
+    let mut appearance = AppearanceUi::default();
+    appearance.open();
+    let pending = &mut appearance.editor.as_mut().unwrap().pending;
+    pending.appearance = Appearance::Light;
+    pending.zoom = 1.25;
+
+    appearance.finish(&window.context, AppearanceAction::Apply);
+    window.frame(vec![]);
+
+    assert!(
+        matches!(&window.view.stack.last().unwrap().screen, Screen::Operating(editor) if editor.station.callsign == "VE7ABC/P")
+    );
+    assert!(
+        clacks_client_store::settings::snapshot(&window.store)
+            .await?
+            .operating
+            .current
+            .is_none()
+    );
+    window.close().await?;
+    Ok(())
+}
+
+#[tokio::test]
 async fn nested_equipment_save_survives_profile_cancel_without_applying() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     window.click("Station profiles");

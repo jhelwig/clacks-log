@@ -107,7 +107,7 @@ All paths above are relative to `lib/clacks-desktop/`. Keep items crate-private 
 
 **Interfaces:**
 - `fonts::enumerate() -> anyhow::Result<Vec<String>>` returns installed family names; `fonts::load(family: &str) -> anyhow::Result<egui::FontData>` loads the family's default face and preserves its collection index.
-- UI-owned `FontRequest { choice: FontChoice, reply: oneshot::Receiver<anyhow::Result<egui::FontData>> }` retains the requested choice beside its response. Pass the existing runtime handle into UI resources to call blocking font work with `spawn_blocking`; no separate executor or generic job bus.
+- UI-owned `FontRequest { choice: FontChoice, reply: oneshot::Receiver<anyhow::Result<egui::FontData>> }` retains the requested choice beside its response. Send explicit font operations through the existing `SessionCommand` channel; the session tracks blocking jobs in a drained `JoinSet`, preserving shutdown admission and completion. No separate executor or generic job bus.
 
 - [ ] Write `font_result_for_previous_choice_cannot_replace_current_preview`: choose family A, then B, complete A late; only B may install. Add `missing_selected_family_uses_default_without_erasing_choice` and `font_and_scale_changes_preserve_pending_operating_text` using real editor state.
 - [ ] Add a rendering-boundary check with a small licensed, project-reproducible Rust test input or existing bundled font bytes: registering a chosen face changes the radio role used by an actual field while leaving its recorded text unchanged. Do not assert whatever fonts happen to be installed on CI or test fontique's discovery implementation.

@@ -1,6 +1,6 @@
 //! Shared logical sizing and semantic state colors for the native UI.
 
-use super::preferences::{Appearance, AppearancePreferences};
+use super::preferences::{Appearance, AppearancePreferences, FontChoice};
 use eframe::egui::{self, Color32, FontFamily, FontId, TextStyle, Theme};
 
 /// State colors kept separate from focus and selection styling owned by egui.
@@ -37,27 +37,32 @@ pub(super) fn install(context: &egui::Context, preferences: &AppearancePreferenc
         Appearance::Dark => egui::ThemePreference::Dark,
     });
     context.set_zoom_factor(preferences.zoom);
+    let ui_family = match preferences.ui_font {
+        FontChoice::Default => FontFamily::Proportional,
+        FontChoice::Installed { .. } => FontFamily::Name("clacks.ui".into()),
+    };
+    let radio_family = match preferences.radio_font {
+        FontChoice::Default => FontFamily::Monospace,
+        FontChoice::Installed { .. } => FontFamily::Name("clacks.radio".into()),
+    };
 
     for theme in [Theme::Light, Theme::Dark] {
         context.style_mut_of(theme, |style| {
             style
                 .text_styles
-                .insert(TextStyle::Body, FontId::new(13.0, FontFamily::Proportional));
-            style.text_styles.insert(
-                TextStyle::Button,
-                FontId::new(13.0, FontFamily::Proportional),
-            );
-            style.text_styles.insert(
-                TextStyle::Small,
-                FontId::new(12.0, FontFamily::Proportional),
-            );
-            style.text_styles.insert(
-                TextStyle::Heading,
-                FontId::new(15.0, FontFamily::Proportional),
-            );
+                .insert(TextStyle::Body, FontId::new(13.0, ui_family.clone()));
+            style
+                .text_styles
+                .insert(TextStyle::Button, FontId::new(13.0, ui_family.clone()));
+            style
+                .text_styles
+                .insert(TextStyle::Small, FontId::new(12.0, ui_family.clone()));
+            style
+                .text_styles
+                .insert(TextStyle::Heading, FontId::new(15.0, ui_family.clone()));
             style.text_styles.insert(
                 TextStyle::Monospace,
-                FontId::new(13.0, FontFamily::Monospace),
+                FontId::new(13.0, radio_family.clone()),
             );
             style.spacing.item_spacing = egui::vec2(8.0, 8.0);
             style.spacing.button_padding = egui::vec2(8.0, 4.0);

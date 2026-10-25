@@ -1,10 +1,13 @@
 //! Appearance preview and explicit commit/discard without changing operating data.
 
 use super::{
+    fonts::FontsUi,
     preferences::{Appearance, AppearancePreferences, STORAGE_KEY},
     theme,
 };
+use crate::session::SessionCommand;
 use eframe::egui;
+use tokio::sync::mpsc;
 
 /// Pending presentation choices, isolated from the persisted preferences.
 pub(super) struct AppearanceEditor {
@@ -32,6 +35,8 @@ pub(super) enum AppearanceAction {
 /// Application-owned preference state shared by every view in this client.
 #[derive(Default)]
 pub(super) struct AppearanceUi {
+    /// Actual native-family catalog and role requests, independent of domain forms.
+    fonts: FontsUi,
     /// Only these values reach the framework save hook.
     pub committed: AppearancePreferences,
     /// Optional preview whose changes remain unapplied.
@@ -41,6 +46,21 @@ pub(super) struct AppearanceUi {
 }
 
 impl AppearanceUi {
+    /// Advance font work for the current preview or committed preferences.
+    pub fn update_fonts(
+        &mut self,
+        context: &egui::Context,
+        commands: &mpsc::Sender<SessionCommand>,
+    ) {
+        let preferences = self
+            .editor
+            .as_ref()
+            .map(|editor| &editor.pending)
+            .unwrap_or(&self.committed);
+        self.fonts
+            .update(context, preferences, commands, self.editor.is_some());
+    }
+
     /// Restore validated local preferences or keep usable defaults with a notice.
     pub fn restore(storage: Option<&dyn eframe::Storage>) -> Self {
         let Some(storage) = storage else {
@@ -119,6 +139,7 @@ impl AppearanceUi {
                 if ui.button("Reset scale to 100%").clicked() {
                     editor.pending.zoom = 1.0;
                 }
+                self.fonts.show(ui, &mut editor.pending);
                 if editor.pending != self.committed {
                     let colors = theme::palette(context.theme());
                     egui::Frame::new()

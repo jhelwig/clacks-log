@@ -3,6 +3,7 @@
 mod appearance;
 mod closing;
 mod equipment;
+pub(crate) mod fonts;
 mod operating;
 mod preferences;
 mod profiles;
@@ -195,6 +196,7 @@ impl eframe::App for DesktopApp {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.appearance.update_fonts(ui.ctx(), &self.commands);
         egui::CentralPanel::default().show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Clacks Log");

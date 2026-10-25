@@ -154,6 +154,32 @@ fn appearance_composes_with_native_display_scale() {
     }
 }
 
+#[test]
+fn font_selection_assigns_the_requested_radio_role() {
+    use super::preferences::{AppearancePreferences, FontChoice};
+
+    let context = egui::Context::default();
+    theme::install(
+        &context,
+        &AppearancePreferences {
+            radio_font: FontChoice::Installed {
+                family: "Selected radio family".into(),
+            },
+            ..Default::default()
+        },
+    );
+
+    assert_eq!(
+        context
+            .global_style()
+            .text_styles
+            .get(&egui::TextStyle::Monospace)
+            .unwrap()
+            .family,
+        egui::FontFamily::Name("clacks.radio".into())
+    );
+}
+
 struct Window {
     app: DesktopApp,
     context: egui::Context,
