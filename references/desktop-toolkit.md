@@ -4,7 +4,7 @@
 
 ## Selected direction (D215)
 
-Use **egui through eframe, with egui_extras for contact tables**, keeping the application, interface behavior and domain operations in Rust. SQLite and the ordinary transaction approach remain unchanged. D215 accepts the toolkit direction. Exact versions, renderer, optional components and layout remain open; no implementation plan or prototype is approved.
+Use **egui through eframe, with egui_extras for contact tables**, keeping the application, interface behavior and domain operations in Rust. SQLite and the ordinary transaction approach remain unchanged. D215 accepts the toolkit direction; D273 selects wgpu as the initial renderer. Exact compatible versions, optional components and layout remain open; no implementation plan or prototype is approved.
 
 GTK still supplies more integrated table selection, keyboard and widget behavior. Clacks needs contact lists, forms, indicators and explicit resolution choices; it has no accepted requirement for a spreadsheet engine, custom canvas or comprehensive inline table editor. That limits the benefit of choosing the largest widget stack.
 

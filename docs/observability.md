@@ -156,13 +156,37 @@ test collectors and fixtures in tests; no public production API exists solely
 to support telemetry tests.
 
 The current-library producer interfaces and instrumentation schema are defined
-below. Runtime metric buckets,
-propagation/export protocols, sampling defaults, collection/visualization backends,
-access controls, retention and deployment configuration still require engineering
-specification. No vendor or additional application service topology is selected
+below. The [desktop specification](desktop.md) defines desktop composition and
+engineering defaults. Concrete dependency/feature verification belongs to its
+implementation plan. Server propagation, sampling, collection/visualization,
+access, retention and deployment choices still require engineering specification;
+server export protocols remain open. No vendor or additional application service topology is selected
 by this contract. Desktop diagnostics and any telemetry export must respect the
 existing offline-operation and credential-handling requirements; this requirement
 does not introduce automatic upload of desktop diagnostics to a hosted service.
+
+## Desktop runtime composition (D274/D275/D277/D278)
+
+The [desktop specification](desktop.md#8-observability-composition) owns concrete
+runtime composition: local rotating JSON logs at `info`, bounded nonblocking
+writing, retained-file limits, optional console output and opt-in OTLP export
+of traces, metrics and logs. Export uses HTTP/protobuf with Rustls. Local logs
+continue with export enabled; offline use requires no collector. The specification
+defines startup configuration, failure/overflow/shutdown behavior and acceptance
+through real desktop operations. Use standard tracing/appender/metrics adapters
+and exporters, preserving this document's instrumentation and level policies.
+No custom telemetry or span-lifecycle framework is introduced.
+
+Desktop composition caps OpenTelemetry SDK and HTTP transport diagnostics at
+`warn`, even with a more verbose user filter: their debug diagnostics can contain
+endpoint query strings or response bodies. Collector-provided `error_message`
+events are suppressed at every output level as well. These backend targets are excluded
+from the log-export bridge to avoid feedback. Safe SDK warnings remain in local
+output. Operational sink failures degrade diagnostics rather than prevent local
+storage; invalid supplied configuration is still a startup error.
+Runtime file I/O failures set a persistent UI diagnostic and move the standard
+writer's output to stderr; queue saturation remains a separate dropped-line count.
+The narrow I/O adapter neither formats events nor owns rotation, queues or workers.
 
 ## Library producer contract
 

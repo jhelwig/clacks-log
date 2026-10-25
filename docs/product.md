@@ -1,13 +1,13 @@
 # Product scope and operating workflows
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The [native-model specification](native-model.md) defines the contact and shared-data contracts. The [native-model library](../lib/clacks-model/README.md) implements their pure value and selection operations; desktop/server applications and persistence remain downstream capabilities.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The [native-model specification](native-model.md) defines the contact and shared-data contracts. The [native-model library](../lib/clacks-model/README.md) implements their pure value and selection operations. The client-store library supplies durable persistence; desktop/server applications remain downstream capabilities.
 
 Clacks Log should replace the everyday shack logger while supporting independently writable offline logs on any number of clients. Fixed and portable operation use the same product model.
 
 ## Product direction
 
 - Native, graphical desktop operation targeting Windows, macOS, and Linux (D83). D162 selects Windows desktop support for MVP, with macOS/Linux releases post-MVP and their exact timing open. Architecture, tooling, and platform abstractions remain cross-platform from the start.
-- Rust wherever practical. D213 selects PostgreSQL for the server and embedded SQLite for clients. D215 selects egui for the desktop interface, with eframe and egui_extras as the starting integration direction. Wire protocol, cryptographic libraries, exact dependency versions and physical schemas remain open.
+- Rust wherever practical. D213 selects PostgreSQL for the server and embedded SQLite for clients. D215 selects egui for the desktop interface, with eframe and egui_extras as the starting integration direction. The synchronization, signing and client-store specifications define their integration contracts; exact desktop dependency versions and server storage details remain engineering work.
 - Dense, useful operating context and efficient use of desktop space. Avoid interfaces that resemble a simplified mobile application inside a desktop window.
 - Integrate with specialist applications rather than becoming an all-in-one operating suite.
 - Self-hostable synchronization and integration services, with an optional hosted subscription offering. D241 permits hosted-subscription launch after MVP; the first release does not require a commercial hosted-service launch. D63 requires multiple independent accounts per server in minimum viable product (MVP), with account-isolated log data, profiles, clients, and service credentials.
@@ -15,9 +15,69 @@ Clacks Log should replace the everyday shack logger while supporting independent
 - D222 requires the web architecture to accommodate eventual logbook browsing/editing and reporting, with logging a possibility. MVP administration/setup/diagnostics scope is not the long-term interface boundary; these future capabilities are not added to MVP. D223 selects Leptos/Axum with server-rendered initial pages and Rust/WebAssembly browser interactivity through hydration, within the one Clacks server application.
 - Working name: **Clacks Log**, a Discworld reference. The name is provisional.
 
+## Desktop application foundation
+
+The [desktop specification](desktop.md) defines issue #46's production application
+foundation and its acceptance requirements. It integrates the existing client
+store and native model; later profile/equipment, tag, contact-entry and history
+capabilities extend this same application. Installed release packaging remains
+separate. Concrete engineering defaults are identified in the specification;
+D270–D279 record the agreed choices.
+
+### Workspace and configuration (D270/D277)
+
+Ordinary startup automatically creates a default local account workspace on first
+use and reopens it on later launches, using OS-conventional per-user local data.
+A workspace-path override supports development/troubleshooting. Startup works
+offline without enrollment and never silently replaces an existing database after
+an opening error. Local-only identity is not a fabricated server authorization.
+
+Use optional `config.toml` in the OS-conventional application-configuration
+location, with a separate command-line configuration-file override. Explicit
+command-line settings precede applicable standard logging/OpenTelemetry environment
+settings, then file values, then built-in defaults. Missing default configuration
+uses defaults. Profiles, operating defaults and account data retain their existing
+SQLite storage contracts. See [workspace/configuration details](desktop.md#4-workspace-and-configuration).
+
+### Process ownership and activation (D276/D279)
+
+Run one desktop process per workspace. Subsequent launches request activation of
+that workspace's existing window and exit; different workspaces may run separately.
+Hold an exclusive standard-library file lock for the owner's lifetime, and use
+`interprocess` local sockets for activation: Windows named pipes and Unix-domain
+sockets. Endpoint recovery/cleanup respects ownership; file existence is not a
+running-process test. Existing database transactions and stale-save protections
+remain responsible for data correctness. See [coordination](desktop.md#5-one-process-per-workspace-and-activation).
+
+### Runtime, rendering and shutdown (D271–D273)
+
+Use egui/eframe with wgpu and an application-owned multi-thread Tokio runtime
+alongside the main-thread native event loop. Background operations progress
+independently of drawing; standard channels and repaint requests integrate results
+without blocking input. UI state stays on its owning thread. Reuse the SQLx pool
+and ordinary transactions, without a custom write queue or async framework.
+
+Normal close stops new work, cancels background operations at supported boundaries
+and allows already-started save transactions to finish, then closes resources and
+flushes telemetry. Keep the window responsive. Delayed shutdown offers waiting or
+explicit force quit, never automatic forced exit. Saved pending work needs no
+synchronization before closing; unfinished drafts remain nonpersistent. Closing
+stops the client, without tray operation. See [shutdown](desktop.md#7-graceful-shutdown-and-failure).
+
+### Diagnostics (D274/D275/D278)
+
+Default to local rotating structured JSON logs at `info`, retaining selected fields
+and span context, with bounded off-thread writing and retained-file limits.
+Filtering and optional console output support troubleshooting. Support opt-in
+OpenTelemetry Protocol (OTLP) export of traces, metrics and logs to explicitly
+configured destinations over HTTP/protobuf, with Rustls for HTTPS. Local logs
+continue when export is enabled. Collector outages do not prevent ordinary local
+work. Use standard adapters/exporters and the [observability contract](observability.md),
+with [desktop composition and acceptance](desktop.md#8-observability-composition).
+
 ## Contacts, logbooks and tags
 
-The account owns each radio contact (QSO). A Clacks logbook is a tag-defined view of those contacts, not a container that owns separate copies. A QSO can have zero, one or multiple tags; its complete tag set is part of its logical record (D243). Each tag has a stable ID, name and service settings. Names may be duplicated, with enough interface context to distinguish tags; matching names never merge identities (D119/D120). The physical database representation remains engineering work.
+The account owns each radio contact (QSO). A Clacks logbook is a tag-defined view of those contacts, not a container that owns separate copies. A QSO can have zero, one or multiple tags; its complete tag set is part of its logical record (D243). Each tag has a stable ID, name and service settings. Names may be duplicated, with enough interface context to distinguish tags; matching names never merge identities (D119/D120). The [client-store specification](client-store.md) defines the relational representation.
 
 Opening a logbook selects its tag as the default for newly logged/captured QSOs and filters normal history and Worked Before. Selection is client-local and occurs before entry. Switching views does not change operating defaults, existing contacts, server jobs or synchronization participation. Profiles, reusable equipment and directory credentials remain account-shared. Every enrolled client synchronizes all account contacts, tags and shared synchronized data through one account scope (D248); selective synchronization is post-MVP.
 

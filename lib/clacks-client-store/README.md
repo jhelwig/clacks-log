@@ -6,13 +6,22 @@ Native values, saved roles, operating defaults and transfer windows use real SQL
 synchronization workflows implemented by this library.
 
 `store::ClientStore::create` exclusively creates a local-only workspace;
-`open` requires an existing workspace and the expected account ID. Startup
+`open` requires an existing workspace and the expected account ID.
+`open_discovered` uses the stored account when only the local path is known,
+sharing the same read-only preflight. `account_id()` supplies record qualification
+after discovery; `identity::status` returns non-secret enrollment presentation.
+`create_with_definitions` installs supplied groups/output profiles and the new
+account row in one transaction after schema creation. It leaves no initialized
+account on failure, preserves the exclusively created file, and never reseeds an
+existing workspace. Raw `create` remains the empty provisioning path. Startup
 inspects migration history and account in one read-only snapshot
 through a read-only connection before enabling WAL or running migrations.
 Unsupported newer schemas and wrong accounts are rejected without changing
 user data. SQLx migration history is the sole schema-version record. Concurrent
 migration attempts may return ordinary database/migration errors; startup can be
-retried against fresh history. Reads and writes use SQLite transactions.
+retried against fresh history. Once opened, preflight and initialization connections
+are explicitly closed before returning success or an operation error, so retries can immediately
+replace a failed database file. Reads and writes use SQLite transactions.
 
 The pool enables foreign keys, WAL and `synchronous=FULL` on every connection,
 with SQLite's standard automatic checkpointing. Close the store before making

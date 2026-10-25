@@ -102,7 +102,10 @@ pub enum BindingCondition {
 /// An ordered contribution to the planned file partition key.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PartitionRule {
-    /// An expression-valued partition dimension.
+    /// An expression-valued partition dimension, with absence grouped separately.
+    ///
+    /// Absent optional values contribute an empty logical key component; they do
+    /// not invent field content or require an otherwise optional QSO value.
     ByValue(ValueExpression),
     /// A station-reference partition dimension with a named value.
     EachReference {
@@ -222,6 +225,7 @@ impl CompiledGroupDefinition<'_> {
         if depth > 32 {
             return Err(self.error(path, "expression nesting exceeds 32"));
         }
+
         Ok(match expression {
             ValueExpression::Literal(_) => Shape::Scalar,
             ValueExpression::QsoField(_) => {
@@ -315,9 +319,11 @@ impl CompiledGroupDefinition<'_> {
                 }
             }
         }
+
         for expansion in expansions {
             self.declare_binding(&mut bindings, &expansion.binding, path)?;
         }
+
         let mut static_fields: BTreeMap<&str, &str> = BTreeMap::new();
         for (i, field) in fields.iter().enumerate() {
             let location = format!("{path}.fields[{i}]");
@@ -390,11 +396,13 @@ impl CompiledGroupDefinition<'_> {
         if depth > 32 {
             return Err(self.error("expression", "expression nesting exceeds 32"));
         }
+
         let scalar = |v: Option<String>| {
             v.filter(|s| !s.is_empty())
                 .map(ExpressionValue::Scalar)
                 .unwrap_or(ExpressionValue::Absent)
         };
+
         Ok(match expression {
             ValueExpression::Literal(v) => scalar(Some(v.clone())),
             ValueExpression::CurrentIdentifier => {
@@ -479,6 +487,7 @@ impl CompiledGroupDefinition<'_> {
         if association.group_id != d.id {
             return Err(self.error("identifier", "definition ID does not match association"));
         }
+
         let mut value = association.identifier.clone();
         for operation in &d.identifier.normalization {
             value = value.map(|v| match operation {

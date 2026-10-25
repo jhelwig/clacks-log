@@ -59,6 +59,8 @@ jobs:
           cargo sqlx prepare --check --workspace -- --all-targets
       - name: Check formatting
         run: cargo fmt --all --check
+      - name: Verify desktop command-line startup without a display
+        run: cargo run --bin clacks-log --locked --offline -- --help
       - name: Test workspace and native filesystem behavior
         run: cargo test --workspace --all-targets --locked --offline
       - name: Test documentation

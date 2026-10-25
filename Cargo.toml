@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "lib/clacks-client-store",
+    "lib/clacks-desktop",
     "lib/clacks-geography",
     "lib/clacks-geography-builder",
     "bin/clacks-geography-build",
@@ -9,6 +10,9 @@ members = [
     "lib/clacks-lotw",
     "lib/clacks-reference-data",
     "bin/clacks-lotw-data",
+    "bin/clacks-account-data",
+    "bin/clacks-log",
+
     "bin/clacks-lotw-fixtures",
 ]
 resolver = "3"
@@ -21,6 +25,28 @@ license = "Elastic-2.0"
 publish = false
 
 [workspace.dependencies]
+eframe = { version = "=0.37.0", default-features = false, features = ["accesskit", "clipboard", "default_fonts", "links", "system_fonts", "wgpu", "wayland", "x11"] }
+clacks-desktop = { path = "lib/clacks-desktop" }
+config = { version = "=0.15.27", default-features = false, features = ["toml"] }
+directories = "=6.0.0"
+url = "2"
+http = "1"
+tracing-appender = "=0.2.5"
+opentelemetry = { version = "=0.33.1", default-features = false, features = ["trace", "metrics", "logs", "internal-logs"] }
+opentelemetry_sdk = { version = "=0.33.1", default-features = false, features = ["trace", "metrics", "logs", "internal-logs"] }
+opentelemetry-otlp = { version = "=0.33.1", default-features = false, features = ["http-proto", "reqwest-blocking-client", "reqwest-rustls", "trace", "metrics", "logs", "internal-logs"] }
+tracing-opentelemetry = { version = "=0.34.0", default-features = false }
+opentelemetry-appender-tracing = { version = "=0.33.1", default-features = false }
+metrics-opentelemetry = { version = "=0.24033.1", default-features = false }
+opentelemetry-proto = { version = "=0.33.1", default-features = false, features = ["gen-tonic-messages", "trace", "metrics", "logs"] }
+prost = "=0.14.1"
+interprocess = { version = "=2.4.7", features = ["tokio"] }
+tokio-util = { version = "=0.7.16", features = ["rt"] }
+libc = "=0.2.191"
+windows-sys = "=0.61.2"
+widestring = "=1.2.1"
+sha2 = "=0.11.1"
+percent-encoding = "2"
 clacks-client-store = { path = "lib/clacks-client-store" }
 clacks-sync = { path = "lib/clacks-sync" }
 sqlx = { version = "=0.9.0", default-features = false, features = ["runtime-tokio", "sqlite-bundled", "macros", "migrate"] }

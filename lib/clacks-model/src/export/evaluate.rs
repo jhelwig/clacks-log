@@ -90,6 +90,7 @@ fn extend_references(
             format!("required reference missing for {binding}"),
         ));
     }
+
     let mut result = Vec::new();
     for row in rows {
         for identifier in &identifiers {
@@ -126,12 +127,14 @@ fn targeted_entries(
                     };
                     match definition.evaluate(expression, &context)? {
                         ExpressionValue::Scalar(value) => row.key.push(value),
+                        ExpressionValue::Absent => row.key.push(String::new()),
                         _ => return Err(not_ready(qso, "required file-partition value missing")),
                     }
                 }
             }
         }
     }
+
     for expansion in &plan.entry_expansion {
         rows = extend_references(
             qso,
@@ -143,6 +146,7 @@ fn targeted_entries(
             expansion.keep_one_if_empty,
         )?;
     }
+
     rows.into_iter()
         .map(|row| {
             let context = ExpressionContext {

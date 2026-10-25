@@ -1,6 +1,6 @@
 # Decision register
 
-This register records explicit decisions from the planning conversation through 23 October 2026 (D01–D269). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
+This register records explicit decisions from the planning conversation through 24 October 2026 (D01–D279). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. The [desktop specification](desktop.md) consolidates D270–D279, distinguishing agreed choices from engineering defaults. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
 
 ## Accepted decisions
 
@@ -882,7 +882,7 @@ GPL distribution is incompatible with Clacks’s intended licensing direction. D
 
 #### D215
 
-Use egui for the desktop interface, following the Rust-oriented toolkit comparison. Use the recommended eframe native application integration and egui_extras table facilities as the starting direction. Keep application and interface behavior in Rust, with embedded SQLite under D213. Preserve Windows-first delivery and cross-platform tooling under D83/D162. Exact compatible dependency versions, renderer configuration, optional components, interface layout and implementation remain open; toolkit selection does not authorize a prototype or implementation.
+Use egui for the desktop interface, following the Rust-oriented toolkit comparison. Use the recommended eframe native application integration and egui_extras table facilities as the starting direction. Keep application and interface behavior in Rust, with embedded SQLite under D213. Preserve Windows-first delivery and cross-platform tooling under D83/D162. D273 subsequently selects wgpu as the initial renderer. Exact compatible dependency versions/features, optional workflow components, permanent interface layout and implementation remain engineering work; toolkit selection does not authorize a prototype or implementation.
 
 #### D216
 
@@ -1164,3 +1164,63 @@ When a decision changes, update the current design documents and this register t
 #### D269
 
 Keep each prescribed geographic coordinate operation exact at boundaries between different operations, including adjacent no-shift areas. Report the resulting seams, including gaps or overlaps, rather than adjusting the no-shift boundary, blending operations or snapping geometry to force agreement. Shared-edge consistency applies within the same operation. The pinned San Juan land-mask example exhibits approximately 1.02 m displacement between the grid-shifted boundary and its no-shift counterpart; this is distinct from the segment-subdivision computational tolerance.
+
+### Decision D270
+
+#### D270
+
+Use an automatically managed default desktop workspace in the platform's per-user application-data directory, creating it on first use and reopening it on later launches. Provide a path override for development and troubleshooting. This supplies the runtime workspace-discovery behavior left open by the client-store specification. Preserve independent offline use, the local-only versus enrolled account distinction and existing open-failure preservation; do not silently replace an existing workspace after an opening error. The [desktop specification](desktop.md#4-workspace-and-configuration) defines directory/override and startup integration, with engineering defaults identified separately.
+
+### Decision D271
+
+#### D271
+
+Use an application-owned multi-thread Tokio runtime for the desktop alongside egui's main-thread event loop. Background tasks progress independently of UI rendering. Deliver results through standard nonblocking channel integration and request egui repaint when needed, leaving UI state on its owning thread. Reuse the existing asynchronous store APIs, SQLx pool and transaction semantics. Application composition owns the runtime lifetime; do not introduce a separate database execution queue or async framework. The [desktop specification](desktop.md) defines runtime ownership and shutdown coordination; concrete task types and runtime tuning belong to the implementation plan.
+
+### Decision D272
+
+#### D272
+
+Use graceful desktop shutdown with an explicit force-quit option when shutdown is delayed. Stop admitting new work, cancel background operations at supported safe boundaries and let already-started local save transactions finish before closing the store, flushing telemetry and shutting down the runtime. Keep the window responsive and let the operator continue waiting or explicitly force quit rather than applying an automatic forced-exit deadline. Do not require synchronization completion before exit. Preserve D82's close-stops-client behavior, D113's nonpersistent unfinished drafts and existing durable pending-work/transaction recovery guarantees. Force quit may interrupt unfinished work. The [desktop specification](desktop.md#7-graceful-shutdown-and-failure) defines shutdown coordination and identifies its delay threshold as an engineering default.
+
+### Decision D273
+
+#### D273
+
+Use wgpu as the initial desktop renderer through eframe, refining D215's previously open renderer choice. Keep the interface in ordinary egui components and retain the Windows MVP and eventual macOS/Linux architecture. Eframe defaults to wgpu; its supported native platform backends fit that direction. Glow remains an evaluated alternative with a documented binary-size advantage, not the selected initial renderer. Exact compatible dependency versions, enabled backend features and actual native rendering verification remain engineering work for issue #46. See [eframe features](https://docs.rs/eframe/latest/eframe/#feature-flags) and [wgpu platform support](https://github.com/gfx-rs/wgpu#supported-platforms).
+
+### Decision D274
+
+#### D274
+
+Use local rotating structured JSON logs as the desktop default, with `info` as the normal level following the existing observability policy. Retain tracing fields and span context; use rotation, a retained-file limit and a bounded off-thread writer. Provide optional console output and configurable filtering for development and troubleshooting. Use standard tracing formatting/appender facilities directly. The application remains usable offline without a collector. D275/D278 select optional export and transport. The [desktop specification](desktop.md) defines composition, configuration and engineering defaults for retention/buffering.
+
+### Decision D275
+
+#### D275
+
+Support opt-in OpenTelemetry Protocol (OTLP) export for desktop traces, metrics and logs to explicitly configured destinations. Retain D274's local rotating logs as the default and continue them when export is enabled. Use existing adapters for the current `tracing`/`metrics` producers and standard OpenTelemetry exporters, preserving bounded buffering, failure independence and graceful shutdown. Collector outages do not block ordinary logging or storage. Normal offline operation requires no collector, and no hosted destination is enabled automatically. D278 selects transport. The [desktop specification](desktop.md) defines configuration/composition; compatible dependency versions/features require implementation-plan verification. This does not select server export protocols or a mandatory collector/vendor.
+
+### Decision D276
+
+#### D276
+
+Use one running desktop process per workspace. Subsequent launches targeting the same workspace request activation of the existing window and then exit. A path override selecting a different workspace may run separately. Scope coordination to workspace identity rather than imposing a global one-process restriction. The desktop runtime owns its workspace's background activities, while existing SQLite transactions and stale-save guards continue to establish database correctness. D279 selects the coordination mechanisms; the [desktop specification](desktop.md#5-one-process-per-workspace-and-activation) defines ownership and activation behavior.
+
+### Decision D277
+
+#### D277
+
+Use an optional local `config.toml` file for desktop startup and diagnostic settings, with its default location respecting operating-system application-configuration conventions. Support explicitly selecting the configuration-file path on the command line, separately from D270's workspace-path override. Use explicit command-line settings, then standard logging/OpenTelemetry environment settings, then file values, then built-in defaults. A missing default configuration file uses defaults. Preserve the existing storage contracts for station profiles, current operating defaults and account data. The [desktop specification](desktop.md#4-workspace-and-configuration) defines path/precedence semantics and engineering defaults; exact typed keys and CLI help belong to the implementation plan.
+
+### Decision D278
+
+#### D278
+
+Use HTTP/protobuf with Rustls for desktop OTLP export. HTTP carries binary Protocol Buffers payloads for traces, metrics and logs; HTTPS uses Rustls. Use the standard Rust OpenTelemetry exporter and preserve D275's explicit opt-in, configured destinations, bounded buffering, failure independence and continued local logs. Concrete compatible dependency versions, feature selection and HTTP-client/processor integration remain engineering work for issue #46. This refines D275's open desktop transport choice.
+
+### Decision D279
+
+#### D279
+
+Use a standard-library lifetime file lock plus `interprocess` for desktop activation. Hold an exclusive `std::fs::File::try_lock()` lock on a separate workspace coordination file for the owning process's lifetime; file existence alone does not indicate an active owner. Use `interprocess` local sockets for activation requests, with its Windows named-pipe and Unix-domain-socket implementations. Scope both to the same workspace and coordinate endpoint recovery/cleanup under ownership. Preserve the existing SQLite transaction and stale-save protections. This selects D276's concrete coordination approach. The [desktop specification](desktop.md) defines ownership-sensitive startup/shutdown and endpoint requirements; exact platform naming/security settings belong to the implementation plan.

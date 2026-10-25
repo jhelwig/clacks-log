@@ -30,3 +30,33 @@ Secondary administrative bindings are the service contract's `US_COUNTY` and
 `JA_CITY_GUN_KU`; park-selection fields are not administrative subdivisions.
 Input uppercase flags and entity/subdivision zone constraints apply before
 shared signing values are emitted. The extraction check covers these derived rows.
+
+## Initial account definitions
+
+`account-definitions.json` contains production seed data for new accounts, not
+recognition types or test fixtures. It includes POTA/SOTA/IOTA reference groups,
+the factual ADIF 3.1.8 Contest ID labels (including import-only identifiers),
+and ordinary/POTA-compatible output profiles. Stable IDs are recorded once and
+preserved by the Rust maintenance tool. Existing accounts are not overwritten
+when bundled data changes.
+
+Source: [ADIF 3.1.8](https://www.adif.org/318/ADIF_318.htm), obtained 24 October 2026,
+Contest ID and reference-field/type tables. Only factual identifiers and authored
+behavioral mappings are retained, not copied contest descriptions. POTA's
+separate submission conventions follow its [technical reference](https://docs.pota.app/docs/activator_reference/ADIF_for_POTA_reference.html)
+and the [existing interchange findings](../../../references/adif-matching.md).
+Catalog membership is not asserted by syntax validation. SOTA/IOTA scalar ADIF
+mappings remain export-adapter work; the seed preserves their entry/location rules.
+
+Supply the released HTML document to the dedicated Rust maintenance command:
+
+```sh
+cargo run --bin clacks-account-data -- --help
+cargo run --bin clacks-account-data -- --adif /path/to/ADIF_318.htm --check
+cargo run --bin clacks-account-data -- --adif /path/to/ADIF_318.htm --write
+```
+
+The normal build/test path needs no downloaded document. The tool preserves
+existing IDs by seed identity, validates every generated definition, and can
+verify the committed data without writing. Changes to the initial dataset should
+be reviewed as account provisioning data; they do not silently migrate accounts.

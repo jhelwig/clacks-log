@@ -2,7 +2,7 @@
 
 Clacks Log is a planned amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The client-storage library persists those values, pending work, evidence and complete-window receipts in SQLite. The libraries also provide service projections, retained evidence and guarded processing/recovery operations. Desktop/server applications, server persistence and live provider adapters remain downstream capabilities.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The client-storage library persists those values, pending work, evidence and complete-window receipts in SQLite. The desktop foundation creates or reopens a local account, presents startup diagnostics and coordinates activation and graceful shutdown. Logging workflows, server persistence and live provider adapters remain downstream capabilities.
 
 ## Documentation
 
@@ -12,6 +12,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Decision register](docs/decisions.md)
 - [Native-model contract](docs/native-model.md)
 - [Durable offline client storage](docs/client-store.md)
+- [Desktop application specification](docs/desktop.md)
 - [Geographic-pipeline specification](docs/geographic-pipeline.md)
 - [Synchronization behavior](docs/synchronization.md) and [metadata model](docs/synchronization-model.md)
 - [Accounts and enrollment](docs/accounts.md)
@@ -20,8 +21,8 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Production observability](docs/observability.md)
 - [Research provenance](references/README.md) and [TrustedQSL source map](references/trustedqsl/source-map.md)
 
-Product and architecture requirements are settled through D269. Engineering
-specifications and implementation plans are prepared for the capability being
+Product and architecture requirements are settled. The desktop specification
+consolidates D270–D279; implementation plans are prepared for the capability being
 undertaken. GitHub owns delivery status; the roadmap describes phase outcomes
 and dependencies. Historical source material is evidence, not operative guidance.
 
@@ -29,7 +30,7 @@ and dependencies. Historical source material is evidence, not operative guidance
 
 | Component | Selected direction |
 | --- | --- |
-| Desktop | Rust with egui/eframe and egui_extras; Windows MVP, cross-platform foundations for later macOS/Linux clients |
+| Desktop | Rust with egui/eframe, wgpu and egui_extras; Windows MVP, cross-platform foundations for later macOS/Linux clients |
 | Storage | Embedded SQLite on clients; PostgreSQL on the server; ordinary transactions without a custom client write queue |
 | Server | One Clacks application containing web, synchronization and background workers, deployed in Linux containers alongside PostgreSQL |
 | Web | Leptos/Axum with server rendering and Rust/WebAssembly hydration; architecture accommodates later browsing, editing and reporting |
@@ -43,6 +44,14 @@ and dependencies. Historical source material is evidence, not operative guidance
 [`lib/clacks-model`](lib/clacks-model/README.md) contains recorded values, contacts,
 profiles, equipment, tags, data-driven reference definitions, effective source
 selection and in-memory reference-export planning. See its crate guide for usage and adapter boundaries, and [development](#development) for workspace verification.
+
+## Native desktop
+
+Run `cargo run --bin clacks-log -- --help`, or start a separate local workspace
+with `cargo run --bin clacks-log -- --workspace /absolute/path/to/workspace`.
+The [desktop guide](lib/clacks-desktop/README.md) covers configuration, logs,
+activation, shutdown and native Windows acceptance. This foundation does not yet
+provide contact-entry or synchronization networking workflows.
 
 ## Synchronization library
 

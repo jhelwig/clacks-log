@@ -1,0 +1,212 @@
+//! Headless tests of the production session with real workspace resources.
+
+use super::*;
+use crate::{
+    config::{self, Cli, StartupContext},
+    instance::{self, Election},
+    workspace::AppDirectories,
+};
+use clap::Parser;
+
+struct Fixture {
+    _directory: tempfile::TempDir,
+    _owner: instance::InstanceOwner,
+    resources: SessionResources,
+    status: watch::Receiver<SessionStatus>,
+    updates: watch::Sender<SessionStatus>,
+    commands: mpsc::Sender<SessionCommand>,
+    input: mpsc::Receiver<SessionCommand>,
+}
+
+impl Fixture {
+    fn new() -> anyhow::Result<Self> {
+        let directory = tempfile::tempdir()?;
+        let config = config::resolve(
+            Cli::try_parse_from(["clacks-log"])?,
+            &StartupContext {
+                cwd: directory.path().into(),
+                environment: ::config::Environment::default().source(Some(Default::default())),
+                directories: AppDirectories {
+                    config: directory.path().join("config"),
+                    data: directory.path().join("data"),
+                },
+            },
+        )?;
+        let paths = WorkspacePaths::resolve(&config)?;
+        let Election::Owner(owner) = instance::elect(&paths)? else {
+            anyhow::bail!("owner expected")
+        };
+        let (notices, activation) = watch::channel(());
+        let listener = owner.listen(&tokio::runtime::Handle::current(), notices)?;
+        let telemetry = crate::telemetry::initialize(&config, &paths);
+        let resources = SessionResources {
+            paths,
+            listener,
+            telemetry,
+            activation,
+            context: Arc::new(OnceLock::new()),
+            opening_gate: None,
+        };
+        let (updates, status) = watch::channel(SessionStatus::Opening);
+        let (commands, input) = mpsc::channel(8);
+        Ok(Self {
+            _directory: directory,
+            _owner: owner,
+            resources,
+            status,
+            updates,
+            commands,
+            input,
+        })
+    }
+}
+
+async fn next_matching(
+    status: &mut watch::Receiver<SessionStatus>,
+    predicate: impl Fn(&SessionStatus) -> bool,
+) -> anyhow::Result<SessionStatus> {
+    tokio::time::timeout(Duration::from_secs(15), async {
+        loop {
+            let current = status.borrow_and_update().clone();
+            if predicate(&current) {
+                return Ok(current);
+            }
+            status.changed().await?;
+        }
+    })
+    .await?
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn close_during_open_does_not_publish_ready() -> anyhow::Result<()> {
+    let mut fixture = Fixture::new()?;
+    let paths = fixture.resources.paths.clone();
+    let (release, gate) = tokio::sync::oneshot::channel();
+    fixture.resources.opening_gate = Some(gate);
+
+    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
+    fixture.commands.send(SessionCommand::BeginShutdown).await?;
+    let closing = next_matching(&mut fixture.status, |s| {
+        matches!(s, SessionStatus::Closing { .. })
+    })
+    .await?;
+    let SessionStatus::Closing { started, .. } = closing else {
+        unreachable!()
+    };
+    fixture.commands.send(SessionCommand::BeginShutdown).await?;
+    release.send(()).unwrap();
+    loop {
+        let current = fixture.status.borrow_and_update().clone();
+
+        assert!(!matches!(current, SessionStatus::Ready { .. }));
+        if let SessionStatus::Closing {
+            started: current_start,
+            ..
+        } = current
+        {
+            assert_eq!(current_start, started);
+        }
+        if matches!(current, SessionStatus::Closed) {
+            break;
+        }
+        fixture.status.changed().await?;
+    }
+    task.await??;
+    // Account provisioning admitted before close must retain all native saves.
+    let reopened = crate::workspace::open(&paths).await?;
+    let definitions = clacks_model::defaults::account_definitions()?;
+    for group in definitions.groups {
+        let key = clacks_sync::record::RecordKey {
+            account: reopened.identity.account,
+            id: clacks_sync::record::RecordId::Group(group.id),
+        };
+        let saved = clacks_client_store::save::load(&reopened.store, key)
+            .await?
+            .unwrap();
+
+        assert_eq!(
+            saved.working_state(),
+            Some(&clacks_sync::record::RecordState::Live(
+                clacks_sync::record::RecordValue::Group(Box::new(group))
+            ))
+        );
+    }
+    reopened.store.close().await?;
+    drop(fixture._owner);
+
+    crate::instance::tests::wait_for_owner(&paths)?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn retry_does_not_leak_failed_resources() -> anyhow::Result<()> {
+    let mut fixture = Fixture::new()?;
+    std::fs::write(&fixture.resources.paths.database, b"invalid")?;
+    let database = fixture.resources.paths.database.clone();
+
+    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
+    next_matching(&mut fixture.status, |s| {
+        matches!(s, SessionStatus::Failed { .. })
+    })
+    .await?;
+
+    assert_eq!(std::fs::read(&database)?, b"invalid");
+    std::fs::remove_file(&database)?;
+    fixture.commands.send(SessionCommand::RetryOpen).await?;
+    next_matching(&mut fixture.status, |s| {
+        matches!(s, SessionStatus::Ready { .. })
+    })
+    .await?;
+    fixture.commands.send(SessionCommand::BeginShutdown).await?;
+    next_matching(&mut fixture.status, |s| matches!(s, SessionStatus::Closed)).await?;
+    task.await??;
+
+    let store =
+        clacks_client_store::store::ClientStore::open_discovered(&database, Default::default())
+            .await?;
+
+    store.close().await?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn disconnected_window_still_drains_open_and_closes() -> anyhow::Result<()> {
+    let mut fixture = Fixture::new()?;
+    let paths = fixture.resources.paths.clone();
+    drop(fixture.commands);
+    tokio::time::timeout(
+        Duration::from_secs(15),
+        run(fixture.resources, fixture.input, fixture.updates),
+    )
+    .await??;
+
+    assert!(matches!(
+        *fixture.status.borrow_and_update(),
+        SessionStatus::Closed
+    ));
+    let opened = crate::workspace::open(&paths).await?;
+    opened.store.close().await?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn close_while_failed_preserves_file_and_releases_resources() -> anyhow::Result<()> {
+    let mut fixture = Fixture::new()?;
+    let paths = fixture.resources.paths.clone();
+    std::fs::write(&paths.database, b"incomplete")?;
+
+    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
+    next_matching(&mut fixture.status, |s| {
+        matches!(s, SessionStatus::Failed { .. })
+    })
+    .await?;
+    fixture.commands.send(SessionCommand::BeginShutdown).await?;
+    next_matching(&mut fixture.status, |s| matches!(s, SessionStatus::Closed)).await?;
+    task.await??;
+
+    assert_eq!(std::fs::read(&paths.database)?, b"incomplete");
+    drop(fixture._owner);
+
+    assert!(matches!(instance::elect(&paths)?, Election::Owner(_)));
+    Ok(())
+}

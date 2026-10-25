@@ -1,0 +1,7203 @@
+{
+  "groups": [
+    {
+      "id": "01M5QZFPZZ8TTM3MCPAT3MA7MA",
+      "name": "POTA",
+      "identifier": {
+        "required": true,
+        "normalization": [
+          "Trim",
+          "Uppercase"
+        ],
+        "syntax": "[A-Z0-9]+-[0-9]{4,5}(?:@[A-Z0-9]{2}-[A-Z0-9]{1,3})?"
+      },
+      "bears_location_context": true,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "MY_POTA_REF",
+            "value": {
+              "Join": {
+                "values": {
+                  "Identifiers": "Own"
+                },
+                "separator": ","
+              }
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          },
+          {
+            "field": "POTA_REF",
+            "value": {
+              "Join": {
+                "values": {
+                  "Identifiers": "Contacted"
+                },
+                "separator": ","
+              }
+            },
+            "when": {
+              "AssociationPresent": "Contacted"
+            }
+          }
+        ],
+        "targeted": {
+          "01M5QZFPZZM8HD710JY3Z4M36X": {
+            "fields": [
+              {
+                "field": "MY_SIG",
+                "value": {
+                  "Literal": "POTA"
+                },
+                "when": {
+                  "BoundPresent": "own_park"
+                }
+              },
+              {
+                "field": "MY_SIG_INFO",
+                "value": {
+                  "Capture": {
+                    "value": {
+                      "BoundIdentifier": "own_park"
+                    },
+                    "pattern": "(?P<park>[A-Z0-9]+-[0-9]{4,5})(?:@[A-Z0-9-]+)?",
+                    "name": "park"
+                  }
+                },
+                "when": {
+                  "BoundPresent": "own_park"
+                }
+              },
+              {
+                "field": "SIG",
+                "value": {
+                  "Literal": "POTA"
+                },
+                "when": {
+                  "BoundPresent": "contacted_park"
+                }
+              },
+              {
+                "field": "SIG_INFO",
+                "value": {
+                  "Capture": {
+                    "value": {
+                      "BoundIdentifier": "contacted_park"
+                    },
+                    "pattern": "(?P<park>[A-Z0-9]+-[0-9]{4,5})(?:@[A-Z0-9-]+)?",
+                    "name": "park"
+                  }
+                },
+                "when": {
+                  "BoundPresent": "contacted_park"
+                }
+              },
+              {
+                "field": "MY_STATE",
+                "value": {
+                  "QsoField": "OwnPrimarySubdivision"
+                },
+                "when": "Always"
+              }
+            ],
+            "file_partition": [
+              {
+                "EachReference": {
+                  "side": "Own",
+                  "binding": "own_park"
+                }
+              },
+              {
+                "ByValue": {
+                  "QsoField": "OwnPrimarySubdivision"
+                }
+              }
+            ],
+            "entry_expansion": [
+              {
+                "side": "Contacted",
+                "binding": "contacted_park",
+                "keep_one_if_empty": true
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "01M5QZFPZZ8QTCY3F399Y282AR",
+      "name": "SOTA",
+      "identifier": {
+        "required": true,
+        "normalization": [
+          "Trim",
+          "Uppercase"
+        ],
+        "syntax": "[A-Z0-9]+/[A-Z0-9]+-[0-9]{3,}"
+      },
+      "bears_location_context": true,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ9GPDY819J1WMTJAK",
+      "name": "IOTA",
+      "identifier": {
+        "required": true,
+        "normalization": [
+          "Trim",
+          "Uppercase"
+        ],
+        "syntax": "(?:AF|AN|AS|EU|NA|OC|SA)-(?:00[1-9]|0[1-9][0-9]|[1-9][0-9]{2})"
+      },
+      "bears_location_context": true,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZX5EW5Y7JPCDYD3H1",
+      "name": "070-160M-SPRINT",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "070-160M-SPRINT"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZC215Z61VW00MX34Y",
+      "name": "070-3-DAY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "070-3-DAY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZVGDJ92PS1Z97TYG5",
+      "name": "070-31-FLAVORS",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "070-31-FLAVORS"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ0N34A5GGED7FMQAX",
+      "name": "070-40M-SPRINT",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "070-40M-SPRINT"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZSV3H558042KAY6AH",
+      "name": "070-80M-SPRINT",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "070-80M-SPRINT"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ5PQZ2FHWB30EQST9",
+      "name": "070-PSKFEST",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "070-PSKFEST"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ3S35JMWE442WR3M1",
+      "name": "070-ST-PATS-DAY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "070-ST-PATS-DAY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZKD7BM4T378G6DR74",
+      "name": "070-VALENTINE-SPRINT",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "070-VALENTINE-SPRINT"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZQ1BNPMGXQ80JZ89K",
+      "name": "10-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "10-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ64P481G7ZA52GDBY",
+      "name": "1010-OPEN-SEASON",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "1010-OPEN-SEASON"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZRV12HK561VP3802B",
+      "name": "7QP",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "7QP"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZJ5NKTGKBBTST1HMB",
+      "name": "AL-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "AL-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ96FRW9JVXKM75K22",
+      "name": "ALL-ASIAN-DX-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ALL-ASIAN-DX-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ6HPD9VNS1CMZ14SM",
+      "name": "ALL-ASIAN-DX-PHONE",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ALL-ASIAN-DX-PHONE"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ8798CJCYK5T9YNVW",
+      "name": "ANARTS-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ANARTS-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZRBPNCN1EHBJ7MNY4",
+      "name": "ANATOLIAN-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ANATOLIAN-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZE834K3ZEX3RMQF47",
+      "name": "AP-SPRINT",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "AP-SPRINT"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZJJFGAP5KJ11FTVZR",
+      "name": "AR-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "AR-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZVG1Y7YW1KQVZ7AB5",
+      "name": "ARI-DX",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARI-DX"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZQZJP0T0HE8QGE4FS",
+      "name": "ARI-EME",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARI-EME"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZW6PZXFBN2VM6SC8Q",
+      "name": "ARI-IAC-13CM",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARI-IAC-13CM"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ12KA7MMDAR0MJF47",
+      "name": "ARI-IAC-23CM",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARI-IAC-23CM"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ46XNY3EDZRE6CXB8",
+      "name": "ARI-IAC-6M",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARI-IAC-6M"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZQP3CWW0D5C5BJCC4",
+      "name": "ARI-IAC-UHF",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARI-IAC-UHF"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZR2HEBGRPGYES8W32",
+      "name": "ARI-IAC-VHF",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARI-IAC-VHF"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZNKRJKWPF3QPR97WF",
+      "name": "ARRL-10",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-10"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZSMVM11TV89FV5QTJ",
+      "name": "ARRL-10-GHZ",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-10-GHZ"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZHRZRVTJJREX4V9J",
+      "name": "ARRL-160",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-160"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ14YH66TTFPQZPFDC",
+      "name": "ARRL-222",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-222"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZDQARE5T3E1688J0B",
+      "name": "ARRL-DIGI",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-DIGI"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZDDTK0R61QW0DZGCE",
+      "name": "ARRL-DX-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-DX-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ2TPSRWDRJRMTZJ6M",
+      "name": "ARRL-DX-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-DX-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ823WK3Q15H0JXZRF",
+      "name": "ARRL-EME",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-EME"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ2VY4T00DBNSD28PR",
+      "name": "ARRL-FIELD-DAY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-FIELD-DAY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZDXNQSYGXETMAWRDE",
+      "name": "ARRL-RR-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-RR-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ3BJ6R9FG09WABZBH",
+      "name": "ARRL-RR-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-RR-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZQMD63DZ1MBSJDSVH",
+      "name": "ARRL-RR-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-RR-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ00R70D44N8BPE7XA",
+      "name": "ARRL-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZGY1YBVNMGQ3WRMH0",
+      "name": "ARRL-SCR",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-SCR"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ9HQNDRX51K4CMA23",
+      "name": "ARRL-SS-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-SS-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ6TZQXRR99DWQG5FB",
+      "name": "ARRL-SS-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-SS-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ1T6D8Z0H72EZ68MC",
+      "name": "ARRL-UHF-AUG",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-UHF-AUG"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ61GV3TF9HZSWHQ41",
+      "name": "ARRL-VHF-JAN",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-VHF-JAN"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZWCF5ACDHZ4Y7P65H",
+      "name": "ARRL-VHF-JUN",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-VHF-JUN"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZPM1N8PB4AEN6E8CM",
+      "name": "ARRL-VHF-SEP",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ARRL-VHF-SEP"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ8M3XYJZD24DJBG7K",
+      "name": "AZ-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "AZ-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ2SQ47FM18SAZ5D6H",
+      "name": "BANGGAI-DX",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "BANGGAI-DX"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ0D4W9QSDFRESRXCQ",
+      "name": "BARTG-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "BARTG-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ1SM7DBKQAY440SKH",
+      "name": "BARTG-SPRINT",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "BARTG-SPRINT"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZG8BQDKXN8WBCPV9W",
+      "name": "BC-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "BC-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZF3ZZHHTZ3S4E1PTC",
+      "name": "BEKASI-MERDEKA-CONTEST",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "BEKASI-MERDEKA-CONTEST"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZXPVEBPDGJ3CGEB0D",
+      "name": "CA-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CA-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ2Q5VJ1ZW0HAPVY4X",
+      "name": "CIS-DX",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CIS-DX"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ6GRVWKMG63S7QT3B",
+      "name": "CO-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CO-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ2K0FTCDM3SEYBDJT",
+      "name": "CQ-160-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CQ-160-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZYVTJEN9039K7Z9HZ",
+      "name": "CQ-160-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CQ-160-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZESAW889Q3W70C9FC",
+      "name": "CQ-M",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CQ-M"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZNGG5AVFSVWY7XD69",
+      "name": "CQ-VHF",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CQ-VHF"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZWSE4ZT5QXNYQH9G9",
+      "name": "CQ-WPX-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CQ-WPX-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZH41MQKKKATRTXYJ1",
+      "name": "CQ-WPX-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CQ-WPX-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZS7N5S36QES1MVDHM",
+      "name": "CQ-WPX-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CQ-WPX-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZKE0R1RG6N0BVDJ4J",
+      "name": "CQ-WW-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CQ-WW-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZEDDZ0WAQW19G6T57",
+      "name": "CQ-WW-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CQ-WW-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZEZNTRMRYGXD7F5YH",
+      "name": "CQ-WW-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CQ-WW-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZJNVE03YQKZDAZNER",
+      "name": "CT-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CT-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ4YRBMVFP9534PFFY",
+      "name": "CVA-DX-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CVA-DX-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZTENR44TJ6Q7JNEWM",
+      "name": "CVA-DX-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CVA-DX-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZKRKW2834WDTBSWG",
+      "name": "CWOPS-CW-OPEN",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CWOPS-CW-OPEN"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZJABRKRFNW95A5NSH",
+      "name": "CWOPS-CWT",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "CWOPS-CWT"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZX82SNAGPVQMEEHDA",
+      "name": "DARC-10",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DARC-10"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZN4MFAYGG5AEC1A01",
+      "name": "DARC-CWA",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DARC-CWA"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ6F2K9Y8JBAQHP697",
+      "name": "DARC-FT4",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DARC-FT4"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZKVY6D38ANW1STSBJ",
+      "name": "DARC-HELL",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DARC-HELL"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZPT8SDTSBBRRGAKJF",
+      "name": "DARC-MICROWAVE",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DARC-MICROWAVE"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ334E4F641SF01XMX",
+      "name": "DARC-TRAINEE",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DARC-TRAINEE"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZNCVV70K3A5VA0B41",
+      "name": "DARC-UKW-FIELD-DAY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DARC-UKW-FIELD-DAY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZA5YTE0YHTNZV74KJ",
+      "name": "DARC-UKW-SPRING",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DARC-UKW-SPRING"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZC4RXB8F9PTG1XNVJ",
+      "name": "DARC-VHF-UHF-MICROWAVE",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DARC-VHF-UHF-MICROWAVE"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZFY6Z8B8DHJ8HSS95",
+      "name": "DARC-WAEDC-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DARC-WAEDC-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZR79JNJV83RTJ9AK3",
+      "name": "DARC-WAEDC-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DARC-WAEDC-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ2G4XRZWFJEQSN0RQ",
+      "name": "DARC-WAEDC-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DARC-WAEDC-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZJQPY9YZG4JJP07YF",
+      "name": "DARC-WAG",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DARC-WAG"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZ02SRPK9TP5GRA5J",
+      "name": "DE-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DE-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZSJFTP69MTRRKJR5Z",
+      "name": "DL-DX-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DL-DX-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZ691CWQK6T5E9876",
+      "name": "DMC-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "DMC-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ04PGPQBQ72WVBQPW",
+      "name": "EA-CNCW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-CNCW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZVPAWCZJP8NKZBAHP",
+      "name": "EA-DME",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-DME"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZGW13YCZ1ZXZTRFV7",
+      "name": "EA-MAJESTAD-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-MAJESTAD-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZ05G25THGAZAN4R2",
+      "name": "EA-MAJESTAD-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-MAJESTAD-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZHFN9AE9MG7WX3FS3",
+      "name": "EA-PSK63",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-PSK63"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZP7N6HS9VPMG6V9EF",
+      "name": "EA-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ51Q09WR005T9MDQD",
+      "name": "EA-SMRE-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-SMRE-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZWRQ1DBH0CHCGXQ1F",
+      "name": "EA-SMRE-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-SMRE-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZK59EMDKPG3Y8R075",
+      "name": "EA-VHF-ATLANTIC",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-VHF-ATLANTIC"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZFBQ7B030MF6DBSNJ",
+      "name": "EA-VHF-COM",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-VHF-COM"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZQYA22V16Q9P0498D",
+      "name": "EA-VHF-COSTA-SOL",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-VHF-COSTA-SOL"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZPS1H3GPRHP310XW1",
+      "name": "EA-VHF-EA",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-VHF-EA"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZWDC0FXVXSWSGJKB4",
+      "name": "EA-VHF-EA1RCS",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-VHF-EA1RCS"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZX99058ZNCQHFCBVZ",
+      "name": "EA-VHF-QSL",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-VHF-QSL"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZHHDDP1SBNG97167N",
+      "name": "EA-VHF-SADURNI",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-VHF-SADURNI"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ9XQRXJ2M8PJ0YV7V",
+      "name": "EA-WW-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EA-WW-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ6VDRMRT21P9XBEDT",
+      "name": "EASTER",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EASTER"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ4M67GG6B66HBERGP",
+      "name": "EPC-PSK63",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EPC-PSK63"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZRB8GYCY6N3CFB6QC",
+      "name": "EU",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EU"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZQNQZNYBS4GR6TR16",
+      "name": "EU-HF",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EU-HF"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZHCY8TDBW6GERQ0AS",
+      "name": "EU-PSK-DX",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EU-PSK-DX"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ79QD13VP745HVD1V",
+      "name": "EUCW160M",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "EUCW160M"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ565XDWYBMVCNB9BQ",
+      "name": "FALL",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "FALL"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ0SQ1T5P8PF4M9N2X",
+      "name": "FL-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "FL-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ8W8HMWAN274Q408J",
+      "name": "GA-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "GA-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZW45VVYVMF05WBCVR",
+      "name": "HA-DX",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "HA-DX"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZHVXZ4MWZFP659SKA",
+      "name": "HELVETIA",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "HELVETIA"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZSQWTPFV24PR0TC8",
+      "name": "HI-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "HI-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ03H4E8PC5EHBGSGQ",
+      "name": "HOLYLAND",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "HOLYLAND"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZCKEX6FM4VSFTNC4N",
+      "name": "IA-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "IA-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZKAFR73HC8B3GWGET",
+      "name": "IARU-FIELD-DAY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "IARU-FIELD-DAY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZQ9TFKQ84GTBRSJF7",
+      "name": "IARU-HF",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "IARU-HF"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ3D1J7477XJ54K131",
+      "name": "ICWC-MST",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ICWC-MST"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ1ZB2FH24KQC8E048",
+      "name": "ID-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ID-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZT8JH56SPJJ6440E1",
+      "name": "IL",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "IL"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZX9EYE8RNG4Y4XFKP",
+      "name": "IN-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "IN-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZGZAPEGY17465VN2S",
+      "name": "JARTS-WW-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "JARTS-WW-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZY0CFV9PPV8EBKDVD",
+      "name": "JIDX-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "JIDX-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZYX87BX1EQSBJ7935",
+      "name": "JIDX-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "JIDX-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZG714RXJYV3X70GHD",
+      "name": "JT-DX-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "JT-DX-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZM4QR1RNZKJBQ1BP",
+      "name": "K1USN-SSO",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "K1USN-SSO"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ0ZW37Z1CKJA69J0B",
+      "name": "K1USN-SST",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "K1USN-SST"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ74SS0SERHV607EFX",
+      "name": "KS-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "KS-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZFB8EZ25ZSZ329K4R",
+      "name": "KY-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "KY-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZBZ71YQ82K04BNWC4",
+      "name": "LA-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "LA-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZV3FBC9TX9NW4AD5",
+      "name": "LDC-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "LDC-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZ7NP69ASM3H67M0X",
+      "name": "LZ",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "LZ"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ587NXWATSKX5WB2R",
+      "name": "MAR-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "MAR-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZGNSN94MTMWVCT4AZ",
+      "name": "MD-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "MD-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZQHC7JZ8YJ5KB99QN",
+      "name": "ME-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ME-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ09PZ2N02QEK5JNRQ",
+      "name": "MI-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "MI-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZRWAKDTHMHP03WGJD",
+      "name": "MIDATLANTIC-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "MIDATLANTIC-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZNRE3W1FMSJY96PYX",
+      "name": "MN-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "MN-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ20KDPT43FVVRSM8Z",
+      "name": "MO-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "MO-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ0P9J0H6EX7567NK9",
+      "name": "MS-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "MS-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZM55G0B9EAKJWQNZG",
+      "name": "MT-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "MT-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ04G5XA9DA07CKS29",
+      "name": "NA-SPRINT-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NA-SPRINT-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZSR6KDFKM9DPG1A9K",
+      "name": "NA-SPRINT-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NA-SPRINT-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZRVGECA3J9M1EKQAJ",
+      "name": "NA-SPRINT-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NA-SPRINT-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZMGJYEW4Q1XVGYAW9",
+      "name": "NAQP-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NAQP-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZKRNCGCAWGV1FQSY0",
+      "name": "NAQP-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NAQP-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZ8E580B78AT8AMFB",
+      "name": "NAQP-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NAQP-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZJF51DNH80QVKBPE7",
+      "name": "NAVAL",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NAVAL"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZQ22HGQ2J49Z2H3CB",
+      "name": "NC-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NC-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZXDYSTEDYP8DQV8N6",
+      "name": "ND-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ND-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZEGTMF482TC9KXGFV",
+      "name": "NE-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NE-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ7KSX4QBS1A237F4J",
+      "name": "NEQP",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NEQP"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZV8Q6X37ZCNTH7B9A",
+      "name": "NH-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NH-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZH5G77SWGXF9Q16QB",
+      "name": "NJ-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NJ-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZK1Z7N64R47ZFQ9AD",
+      "name": "NM-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NM-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZYDAXT6CMVH00N297",
+      "name": "NRAU-BALTIC-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NRAU-BALTIC-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ37MF7EKJPCCBTAGP",
+      "name": "NRAU-BALTIC-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NRAU-BALTIC-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ4J4NF87EBAT8T3PH",
+      "name": "NV-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NV-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZF37CQZZD6FA9AFB5",
+      "name": "NY-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "NY-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZTRVXSYTHA4TRQ74B",
+      "name": "OCEANIA-DX-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "OCEANIA-DX-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZED4VKVB8QJZ8Z8A4",
+      "name": "OCEANIA-DX-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "OCEANIA-DX-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZTSKRCRNT0BXMNYS3",
+      "name": "OH-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "OH-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZXCYYNBE8ZZXJZ3P2",
+      "name": "OK-DX-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "OK-DX-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZFF3WMDR9XXVWGDN4",
+      "name": "OK-OM-DX",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "OK-OM-DX"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZAAQNSEWM5ZXCE5B8",
+      "name": "OK-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "OK-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZWJ9Y8VM740RM2KM7",
+      "name": "OMISS-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "OMISS-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZEK93VJ1588QW6PR0",
+      "name": "ON-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ON-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZNK8700Y8HX28WC16",
+      "name": "OR-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "OR-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZBB8F0EAZT2NQEZKG",
+      "name": "ORARI-DX",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ORARI-DX"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZV0FHYXD4T6CJ722V",
+      "name": "PA-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "PA-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ4H3DC4D85C0163AT",
+      "name": "PACC",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "PACC"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZKAC9GJ5VW2G6WP2W",
+      "name": "PCC",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "PCC"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZD0ZMFKTT4A4TREQ8",
+      "name": "PSK-DEATHMATCH",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "PSK-DEATHMATCH"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZJ1GS26K7PC82HFG3",
+      "name": "QC-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "QC-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZPMJYTT11S1717MP7",
+      "name": "RAC",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RAC"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ34ET7NND0GXKFJS8",
+      "name": "RAC-CANADA-DAY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RAC-CANADA-DAY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZW8DMV4DSNF2TXA96",
+      "name": "RAC-CANADA-WINTER",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RAC-CANADA-WINTER"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ48JMA6F1EVJ189Z1",
+      "name": "RDAC",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RDAC"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZYNP3RYKMS6ZFYHM8",
+      "name": "RDXC",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RDXC"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ89HD0F8XNAFW01M9",
+      "name": "REF-160M",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "REF-160M"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZVZA1Q4ES29DZ7CVC",
+      "name": "REF-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "REF-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ2SCDTV3J2S1AKYJZ",
+      "name": "REF-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "REF-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZV02G1YMF61VFXE80",
+      "name": "REP-PORTUGAL-DAY-HF",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "REP-PORTUGAL-DAY-HF"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZCVF5R1SCP96065WZ",
+      "name": "RI-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RI-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZC3ZQ1WEMWP2JSSPH",
+      "name": "RSGB-160",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RSGB-160"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ7RYQ84EQQR8M724Y",
+      "name": "RSGB-21/28-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RSGB-21/28-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZSBFS63Q6SRBAGN0T",
+      "name": "RSGB-21/28-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RSGB-21/28-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ3ZJ13JD0RHXGPFF0",
+      "name": "RSGB-80M-CC",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RSGB-80M-CC"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZQ076JHQPF3NWSP6H",
+      "name": "RSGB-AFS-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RSGB-AFS-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZV1VWAV2S64PB7RZV",
+      "name": "RSGB-AFS-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RSGB-AFS-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ6XKMBDJP8QBM7QKG",
+      "name": "RSGB-CLUB-CALLS",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RSGB-CLUB-CALLS"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZHD1MECR2EA3FKJ0N",
+      "name": "RSGB-COMMONWEALTH",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RSGB-COMMONWEALTH"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZPA62BV9J6RAFTRDY",
+      "name": "RSGB-IOTA",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RSGB-IOTA"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZDG6GPTFCCEB4MQRW",
+      "name": "RSGB-LOW-POWER",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RSGB-LOW-POWER"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZVPD7YTNKH3VQ2ET5",
+      "name": "RSGB-NFD",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RSGB-NFD"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZVWQM7Q5G11VKHQV3",
+      "name": "RSGB-ROPOCO",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RSGB-ROPOCO"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZATWDZD0VXPPVC35B",
+      "name": "RSGB-SSB-FD",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RSGB-SSB-FD"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZJS2SZKE46XG9MPVK",
+      "name": "RUSSIAN-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "RUSSIAN-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZE8ZAE11D8QYM8A2Y",
+      "name": "SAC-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SAC-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZP76RHQC0YC80DRAV",
+      "name": "SAC-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SAC-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZM1YQCYFFA1E7G9A",
+      "name": "SARTG-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SARTG-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZSD96PDSHZQ50PQJ3",
+      "name": "SC-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SC-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZDPC6CVQZSM8ARN3F",
+      "name": "SCC-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SCC-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZG54M2CMDGRSH897P",
+      "name": "SD-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SD-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZMRCP4R6VB38ARFMY",
+      "name": "SKCC-SKS",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SKCC-SKS"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZFX585XH6W1P5NX6Y",
+      "name": "SKCC-SKSA",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SKCC-SKSA"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZY269V5HDHS6ZCWPS",
+      "name": "SKCC-SKSE",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SKCC-SKSE"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ0WVZRDVW081CJWH7",
+      "name": "SKCC-WES",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SKCC-WES"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZ82X3DGV811GEN0D",
+      "name": "SMP-AUG",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SMP-AUG"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZAMEAJNVGB8Z2KTKS",
+      "name": "SMP-MAY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SMP-MAY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZV2TA55F88Z4DEYTV",
+      "name": "SP-DX-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SP-DX-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZM01BBX24VDVXDANH",
+      "name": "SPAR-WINTER-FD",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SPAR-WINTER-FD"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZSPX1M2TN819XB48R",
+      "name": "SPDXContest",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SPDXContest"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ2H110EPFPP1T95WT",
+      "name": "SPRING",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SPRING"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ05QE7X6B8GH8T25S",
+      "name": "SR-MARATHON",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SR-MARATHON"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZG5TAQKFXPTEFMF8G",
+      "name": "STEW-PERRY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "STEW-PERRY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZACT6A1EFQ5E267SP",
+      "name": "SUMMER",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "SUMMER"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZZST80X5YQY67YZA",
+      "name": "ShortRY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "ShortRY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ79A23QEZ1ND7EDN2",
+      "name": "TARA-GRID-DIP",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "TARA-GRID-DIP"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZN48C4GP6Z4QD4302",
+      "name": "TARA-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "TARA-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZNR94SD4QPTPDK6QN",
+      "name": "TARA-RUMBLE",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "TARA-RUMBLE"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ3EVAYNG8E6FPA9GW",
+      "name": "TARA-SKIRMISH",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "TARA-SKIRMISH"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZTCW6GCMX75KX86E6",
+      "name": "TEN-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "TEN-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZXFDGNZSC45DF09DE",
+      "name": "TMC-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "TMC-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZCPKJH3V4E5VR43W4",
+      "name": "TN-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "TN-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZFHPKKT8T4VYNAMXP",
+      "name": "TX-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "TX-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ4BV15955BNGC02W7",
+      "name": "UBA-DX-CW",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "UBA-DX-CW"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZN07KSCZGJGSBTDPF",
+      "name": "UBA-DX-SSB",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "UBA-DX-SSB"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZACCRX141Y60FA1VQ",
+      "name": "UK-DX-BPSK63",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "UK-DX-BPSK63"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZK3SSMPSGK6WJ8MBE",
+      "name": "UK-DX-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "UK-DX-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZZZW337K494APV37H",
+      "name": "UKR-CHAMP-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "UKR-CHAMP-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZR3KMSJ2BWX3ZE0CE",
+      "name": "UKRAINIAN",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "UKRAINIAN"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ6MDT5WM6WP7X2S6D",
+      "name": "UKSMG-6M-MARATHON",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "UKSMG-6M-MARATHON"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZVE183YWWR2BHXJJ1",
+      "name": "UKSMG-SUMMER-ES",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "UKSMG-SUMMER-ES"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ3GGENJAYBBWTX4DT",
+      "name": "URE-DX",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "URE-DX"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZSAHND9K6H73YZ6H1",
+      "name": "US-COUNTIES-QSO",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "US-COUNTIES-QSO"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZJ1EPD822TQYR6EV1",
+      "name": "UT-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "UT-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZBBPADZPZ7E2X3SDD",
+      "name": "VA-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "VA-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ4AH3CN129BQN6ERJ",
+      "name": "VENEZ-IND-DAY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "VENEZ-IND-DAY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ03W8B3XK1NT23ZAQ",
+      "name": "VIRGINIA",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "VIRGINIA"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ62VKDMAGWS4W8XPJ",
+      "name": "VOLTA-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "VOLTA-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ0FQ4VPAAAPVRE6A7",
+      "name": "VT-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "VT-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZDZ5MTHDW9KG2PZCY",
+      "name": "WA-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WA-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ96ZFDV8CYHYGXB59",
+      "name": "WFD",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WFD"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZAMTGSG10BGMW2WAD",
+      "name": "WI-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WI-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ27EQVT3V8JHPS31J",
+      "name": "WIA-HARRY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WIA-HARRY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ8D4WZK810XZ40JM0",
+      "name": "WIA-JMMFD",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WIA-JMMFD"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ6E46GB9GZ62492E2",
+      "name": "WIA-OCDX",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WIA-OCDX"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ40ZM7B6616NXHA38",
+      "name": "WIA-REMEMBRANCE",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WIA-REMEMBRANCE"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZRXN74YNTRX7TWN3V",
+      "name": "WIA-ROSS",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WIA-ROSS"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ723P414S8GBGMDPF",
+      "name": "WIA-TRANS",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WIA-TRANS"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZKH69Y2TR8SVPS36F",
+      "name": "WIA-VHF/UHF",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WIA-VHF/UHF"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZGKSCRPWKS7GM64YT",
+      "name": "WIA-VK",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WIA-VK"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZGN94V7BVQY5FV7QA",
+      "name": "WINTER",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WINTER"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZF2BW5RZ9WGK6BY1S",
+      "name": "WV-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WV-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZJSR9Z5KQVP5M1VJ8",
+      "name": "WW-DIGI",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WW-DIGI"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZ5BG8WEW0F9FBYYSC",
+      "name": "WY-QSO-PARTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "WY-QSO-PARTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZQ8TPZGDSQW3R588C",
+      "name": "XE-INTL-RTTY",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "XE-INTL-RTTY"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZNRRC360Q5YP1VGA9",
+      "name": "YOHFDX",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "YOHFDX"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    },
+    {
+      "id": "01M5QZFPZZSW3EV7N0787544SD",
+      "name": "YUDXC",
+      "identifier": {
+        "required": false,
+        "normalization": [
+          "Trim"
+        ],
+        "syntax": null
+      },
+      "bears_location_context": false,
+      "catalog": null,
+      "export_mappings": {
+        "ordinary_interchange": [
+          {
+            "field": "CONTEST_ID",
+            "value": {
+              "Literal": "YUDXC"
+            },
+            "when": {
+              "AssociationPresent": "Own"
+            }
+          }
+        ],
+        "targeted": {}
+      }
+    }
+  ],
+  "output_profiles": [
+    {
+      "id": "01M5QZFPZZ51NMFFDGHD21Q5XY",
+      "name": "ADIF",
+      "purpose": "OrdinaryInterchange",
+      "contextual_fields": [
+        "CONTEST_ID"
+      ]
+    },
+    {
+      "id": "01M5QZFPZZM8HD710JY3Z4M36X",
+      "name": "POTA-compatible ADIF",
+      "purpose": "Targeted",
+      "contextual_fields": []
+    }
+  ]
+}

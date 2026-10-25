@@ -41,3 +41,11 @@ All executable project maintenance and non-trivial fixture generation is Rust.
 One debug span covers the maintenance command. Its completion event reports only
 check/write mode and actual file count. The tool does not install telemetry
 subscribers, define workflow metrics, or emit source/data payloads.
+
+## Initial account definitions
+
+`accounts::run` powers the dedicated `clacks-account-data` executable. Supply a
+released ADIF 3.1.8 HTML document with `--adif <file> --check` or `--write`.
+It extracts factual contest IDs, preserves the committed native IDs and authors
+ordinary group/profile data. See [the dataset notes](../clacks-model/data/README.md#initial-account-definitions).
+It does not execute TrustedQSL sources or seed an account itself.

@@ -9,6 +9,8 @@ publish.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+clacks-model.workspace = true
+
 serde.workspace = true
 serde_json.workspace = true
 regex.workspace = true

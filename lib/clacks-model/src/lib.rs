@@ -27,7 +27,9 @@
 )]
 #![cfg_attr(not(test), deny(clippy::expect_used, clippy::unwrap_used))]
 
+pub mod defaults;
 pub mod error;
+
 pub mod ids;
 pub mod scalar;
 
