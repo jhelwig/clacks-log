@@ -25,6 +25,7 @@ fn child_case(case: &str) -> anyhow::Result<()> {
         }
     }
     command.env("NO_PROXY", "*").env("no_proxy", "*");
+
     let output = command
         .args([
             "--exact",
@@ -69,6 +70,7 @@ fn child_entry() -> anyhow::Result<()> {
             })
         })
         .transpose()?;
+
     let mut values = ::config::Map::new();
     let mut env = StartupContext {
         cwd: directory.path().into(),
@@ -78,6 +80,7 @@ fn child_entry() -> anyhow::Result<()> {
             data: directory.path().join("data"),
         },
     };
+
     let endpoint = collector
         .as_ref()
         .map(|collector| format!("http://{}", collector.address))
@@ -105,6 +108,7 @@ fn child_entry() -> anyhow::Result<()> {
             endpoint
         },
     ];
+
     if case == "secrets" {
         arguments.extend(["--log-filter".into(), "trace".into()]);
         values.insert(
@@ -112,6 +116,7 @@ fn child_entry() -> anyhow::Result<()> {
             "authorization=Bearer%20SECRET_SENTINEL".into(),
         );
     }
+
     if case == "headers-file" {
         std::fs::create_dir_all(&env.directories.config)?;
         std::fs::write(
@@ -119,21 +124,27 @@ fn child_entry() -> anyhow::Result<()> {
             "[telemetry]\nheaders = { authorization = \"Bearer abc%2Fdef\" }\n",
         )?;
     }
+
     if case == "headers-env" {
         values.insert(
             "OTEL_EXPORTER_OTLP_HEADERS".into(),
             "authorization=Bearer%20abc%252Fdef".into(),
         );
     }
+
     env.environment = ::config::Environment::default().source(Some(values));
+
     let config = crate::config::resolve(Cli::try_parse_from(arguments)?, &env)?;
     let mut paths = WorkspacePaths::resolve(&config)?;
     if case == "unwritable" {
         paths.log_directory = directory.path().join("regular-file");
         std::fs::write(&paths.log_directory, "preserve")?;
     }
+
     let telemetry = initialize(&config, &paths);
+
     assert_eq!(!telemetry.diagnostics().is_empty(), case == "unwritable");
+
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
@@ -147,12 +158,15 @@ fn child_entry() -> anyhow::Result<()> {
         }
         account
     };
+
     assert!(paths.database.exists());
+
     if case != "unwritable" {
         let contents = std::fs::read_dir(&paths.log_directory)?
             .map(|entry| std::fs::read_to_string(entry?.path()))
             .collect::<Result<Vec<_>, _>>()?
             .join("");
+
         assert!(contents.contains("workspace.created"));
         assert!(contents.contains(&account.to_string()));
         assert!(!contents.contains("SECRET_SENTINEL"));
@@ -164,11 +178,13 @@ fn child_entry() -> anyhow::Result<()> {
             assert!(!contents.contains("client_store.schema.migrate"));
         }
     }
+
     if let Some(collector) = &collector {
         let requests = collector.requests.lock().unwrap();
         if !exporting {
             assert!(requests.is_empty());
         }
+
         for request in requests.iter() {
             assert!(
                 !request
@@ -177,15 +193,20 @@ fn child_entry() -> anyhow::Result<()> {
                     .any(|bytes| bytes == b"SECRET_SENTINEL")
             );
         }
+
         if matches!(case.as_str(), "headers-file" | "headers-env") {
-            assert_eq!(requests.len(), 3);
+            for path in ["/v1/traces", "/v1/metrics", "/v1/logs"] {
+                assert!(requests.iter().any(|request| request.path == path));
+            }
             for request in requests.iter() {
                 assert_eq!(request.authorization.as_deref(), Some("Bearer abc%2Fdef"));
             }
         }
+
         if case == "session" {
             session::assert_wire(&requests)?;
         }
+
         if case == "enabled" {
             assert_signals(&requests)?;
         }
@@ -233,6 +254,7 @@ fn assert_signals(requests: &[collector::Request]) -> anyhow::Result<()> {
         .find(|request| request.path == "/v1/metrics")
         .expect("metric export");
     let trace = ExportTraceServiceRequest::decode(trace.body.as_slice())?;
+
     assert!(
         trace
             .resource_spans
@@ -242,6 +264,7 @@ fn assert_signals(requests: &[collector::Request]) -> anyhow::Result<()> {
             .any(|span| span.name == "client_store.create_with_definitions")
     );
     let logs = ExportLogsServiceRequest::decode(logs.body.as_slice())?;
+
     assert!(
         logs.resource_logs
             .iter()
@@ -253,6 +276,7 @@ fn assert_signals(requests: &[collector::Request]) -> anyhow::Result<()> {
                 .any(|attribute| attribute.key == "event"))
     );
     let metrics = ExportMetricsServiceRequest::decode(metrics.body.as_slice())?;
+
     assert!(
         metrics
             .resource_metrics
@@ -275,6 +299,7 @@ fn constructor_diagnostics_exclude_sdk_payloads() {
         "Trace",
         opentelemetry_otlp::ExporterBuildError::InternalFailure("SECRET_SENTINEL".into()),
     );
+
     assert!(!message.contains("SECRET_SENTINEL"));
     assert!(message.contains("initialization failed"));
 }

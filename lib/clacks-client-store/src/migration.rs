@@ -18,10 +18,12 @@ pub(crate) fn creation_path(path: &Path) -> anyhow::Result<PathBuf> {
         .ok_or_else(|| StoreError::InvalidDatabase {
             detail: "missing file name".into(),
         })?;
+
     let parent = path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
+
     Ok(parent.canonicalize()?.join(name))
 }
 
@@ -43,12 +45,28 @@ pub(crate) async fn preflight(
     settings: &StoreSettings,
 ) -> anyhow::Result<Preflight> {
     let mut connection = options(path, settings).read_only(true).connect().await?;
+    let result = inspect(&mut connection, expected).await;
+    let closed = connection.close().await;
+
+    // A failed open must release the worker's file handle before a caller retries.
+    let preflight = result?;
+    closed?;
+    Ok(preflight)
+}
+
+/// Validate history and identity within the caller's read-only connection.
+async fn inspect(
+    connection: &mut SqliteConnection,
+    expected: Option<AccountId>,
+) -> anyhow::Result<Preflight> {
     let mut transaction = connection.begin().await?;
+
     let supported = MIGRATIONS
         .iter()
         .map(|migration| migration.version)
         .max()
         .unwrap_or(0);
+
     let history = sqlx::query_file!("sql/opening/migration_history.sql")
         .fetch_all(&mut *transaction)
         .await?;
@@ -58,6 +76,7 @@ pub(crate) async fn preflight(
             detail: "migration history is empty".into()
         }
     );
+
     let mut latest = 0;
     for applied in history {
         let version = applied.version.ok_or_else(|| StoreError::InvalidDatabase {
@@ -84,12 +103,14 @@ pub(crate) async fn preflight(
             }
         );
     }
+
     let actual = crate::identity::load(&mut transaction)
         .await?
         .ok_or_else(|| StoreError::InvalidDatabase {
             detail: "account row is missing".into(),
         })?
         .account;
+
     if let Some(account) = expected
         && actual != account
     {
@@ -99,8 +120,9 @@ pub(crate) async fn preflight(
         }
         .into());
     }
+
     transaction.commit().await?;
-    connection.close().await?;
+
     Ok(Preflight {
         account: actual,
         previous: latest,
@@ -116,11 +138,13 @@ pub(crate) async fn apply(connection: &mut SqliteConnection, previous: i64) -> a
     // SQLx exposes this direct-connection path to avoid its generic Acquire
     // lifetime limitation when the surrounding operation is spawned as Send.
     MIGRATIONS.run_direct(None, connection, false).await?;
+
     let current = sqlx::query_file!("sql/opening/migration_version.sql")
         .fetch_one(connection)
         .await?
         .version
         .unwrap_or(0);
+
     if previous != current {
         tracing::info!(
             event = "schema.upgraded",

@@ -134,7 +134,7 @@ async fn close_during_open_does_not_publish_ready() -> anyhow::Result<()> {
     reopened.store.close().await?;
     drop(fixture._owner);
 
-    assert!(matches!(instance::elect(&paths)?, Election::Owner(_)));
+    crate::instance::tests::wait_for_owner(&paths)?;
     Ok(())
 }
 

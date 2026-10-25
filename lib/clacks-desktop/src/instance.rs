@@ -2,7 +2,7 @@
 
 pub(crate) mod activation;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 #[cfg(unix)]
 mod unix;
 #[cfg(windows)]

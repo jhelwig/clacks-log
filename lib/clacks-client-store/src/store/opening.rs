@@ -40,14 +40,20 @@ async fn open(
         settings.max_connections > 0,
         "maximum connections must be positive"
     );
+
     let path = path.canonicalize()?;
     let previous = migration::preflight(&path, expected, &settings).await?;
+
     let mut connection = options(&path, &settings)
         .foreign_keys(true)
         .synchronous(SqliteSynchronous::Full)
         .connect()
         .await?;
-    migration::apply(&mut connection, previous.previous).await?;
-    connection.close().await?;
+
+    let migrated = migration::apply(&mut connection, previous.previous).await;
+    let closed = connection.close().await;
+    migrated?;
+    closed?;
+
     ClientStore::connect(&path, previous.account, &settings).await
 }

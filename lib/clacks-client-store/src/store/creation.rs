@@ -52,6 +52,7 @@ async fn initialize(
     sqlx::query_file!("sql/workspace/create.sql", account_text)
         .execute(&mut *transaction)
         .await?;
+
     if let Some(definitions) = definitions {
         for value in definitions
             .output_profiles
@@ -71,6 +72,7 @@ async fn initialize(
             save_in(&mut transaction, key, None, RecordState::Live(value)).await?;
         }
     }
+
     transaction.commit().await?;
     Ok(())
 }
@@ -86,23 +88,35 @@ async fn create(
         settings.max_connections > 0,
         "maximum connections must be positive"
     );
+
     let path = migration::creation_path(path)?;
     let _file = std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(&path)?;
+
     let mut connection = options(&path, &settings)
         .foreign_keys(true)
         .synchronous(SqliteSynchronous::Full)
         .connect()
         .await?;
-    migration::apply(&mut connection, 0).await?;
-    initialize(&mut connection, account, definitions).await?;
-    connection.close().await?;
+
+    let initialized = async {
+        migration::apply(&mut connection, 0).await?;
+        initialize(&mut connection, account, definitions).await
+    }
+    .await;
+    let closed = connection.close().await;
+    initialized?;
+    closed?;
+
     let store = ClientStore::connect(&path, account, &settings).await?;
+
     let group_count = definitions.map_or(0, |definitions| definitions.groups.len());
     let output_profile_count =
         definitions.map_or(0, |definitions| definitions.output_profiles.len());
+
     tracing::info!(event = "workspace.created", account_id = %account, group_count, output_profile_count);
+
     Ok(store)
 }

@@ -189,7 +189,7 @@ fn malformed_messages_do_not_activate_or_stop_the_listener() -> anyhow::Result<(
 }
 
 /// Wait for inherited test-process descriptors to close across concurrent fork/exec.
-fn wait_for_owner(paths: &WorkspacePaths) -> anyhow::Result<()> {
+pub(crate) fn wait_for_owner(paths: &WorkspacePaths) -> anyhow::Result<()> {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
     loop {
         if matches!(elect(paths)?, Election::Owner(_)) {

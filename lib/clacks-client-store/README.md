@@ -19,7 +19,9 @@ through a read-only connection before enabling WAL or running migrations.
 Unsupported newer schemas and wrong accounts are rejected without changing
 user data. SQLx migration history is the sole schema-version record. Concurrent
 migration attempts may return ordinary database/migration errors; startup can be
-retried against fresh history. Reads and writes use SQLite transactions.
+retried against fresh history. Once opened, preflight and initialization connections
+are explicitly closed before returning success or an operation error, so retries can immediately
+replace a failed database file. Reads and writes use SQLite transactions.
 
 The pool enables foreign keys, WAL and `synchronous=FULL` on every connection,
 with SQLite's standard automatic checkpointing. Close the store before making
