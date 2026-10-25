@@ -31,6 +31,7 @@ fn child_case(case: &str) -> anyhow::Result<()> {
             "--exact",
             "telemetry::tests::child_entry",
             "--ignored",
+            "--nocapture",
             "--test-threads=1",
         ])
         .env("CLACKS_TELEMETRY_CASE", case)
@@ -42,11 +43,18 @@ fn child_case(case: &str) -> anyhow::Result<()> {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    if case == "disabled" {
+        anyhow::ensure!(
+            output.stderr.is_empty(),
+            "first launch unexpectedly wrote to stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
     Ok(())
 }
 
 #[test]
-fn export_disabled_sends_nothing() -> anyhow::Result<()> {
+fn first_launch_keeps_diagnostics_in_local_logs() -> anyhow::Result<()> {
     child_case("disabled")
 }
 

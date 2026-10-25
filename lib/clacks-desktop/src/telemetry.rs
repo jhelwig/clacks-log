@@ -118,12 +118,16 @@ fn exported_event(metadata: &tracing::Metadata<'_>) -> bool {
 /// Configure ordinary framework layers and guarded resources for one process.
 pub(crate) fn initialize(config: &DesktopConfig, paths: &WorkspacePaths) -> TelemetryGuard {
     let mut diagnostics = Vec::new();
-    let output = tracing_appender::rolling::Builder::new()
-        .rotation(Rotation::DAILY)
-        .filename_prefix("clacks-log")
-        .filename_suffix("jsonl")
-        .max_log_files(config.logs.retained_files)
-        .build(&paths.log_directory);
+    // Retention scans run before the appender creates its first file.
+    let output = std::fs::create_dir_all(&paths.log_directory).and_then(|()| {
+        tracing_appender::rolling::Builder::new()
+            .rotation(Rotation::DAILY)
+            .filename_prefix("clacks-log")
+            .filename_suffix("jsonl")
+            .max_log_files(config.logs.retained_files)
+            .build(&paths.log_directory)
+            .map_err(io::Error::other)
+    });
 
     let fallback = output.is_err();
     let file_failure = Arc::new(AtomicBool::new(false));
