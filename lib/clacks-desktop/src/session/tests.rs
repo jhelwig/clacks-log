@@ -1,5 +1,8 @@
 //! Headless tests of the production session with real workspace resources.
 
+#[path = "settings/tests.rs"]
+mod settings_tests;
+
 use super::*;
 use crate::{
     config::{self, Cli, StartupContext},
@@ -16,6 +19,8 @@ struct Fixture {
     updates: watch::Sender<SessionStatus>,
     commands: mpsc::Sender<SessionCommand>,
     input: mpsc::Receiver<SessionCommand>,
+    settings: mpsc::Sender<settings::SettingsRequest>,
+    settings_view: watch::Receiver<Option<Arc<clacks_client_store::settings::SettingsSnapshot>>>,
 }
 
 impl Fixture {
@@ -39,7 +44,11 @@ impl Fixture {
         let (notices, activation) = watch::channel(());
         let listener = owner.listen(&tokio::runtime::Handle::current(), notices)?;
         let telemetry = crate::telemetry::initialize(&config, &paths);
+        let (settings, requests) = mpsc::channel(8);
+        let (settings_updates, settings_view) = watch::channel(None);
         let resources = SessionResources {
+            settings_requests: requests,
+            settings_updates,
             paths,
             listener,
             telemetry,
@@ -57,6 +66,8 @@ impl Fixture {
             updates,
             commands,
             input,
+            settings,
+            settings_view,
         })
     }
 }

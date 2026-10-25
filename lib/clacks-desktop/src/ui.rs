@@ -6,9 +6,10 @@ mod startup;
 mod tests;
 
 use crate::{
-    session::{SessionCommand, SessionStatus},
+    session::{SessionCommand, SessionStatus, settings::SettingsRequest},
     workspace::WorkspacePaths,
 };
+use clacks_client_store::settings::SettingsSnapshot;
 use eframe::egui;
 use std::{
     sync::{Arc, atomic::AtomicBool},
@@ -16,6 +17,28 @@ use std::{
 };
 use tokio::sync::{mpsc, watch};
 use tracing_appender::non_blocking::ErrorCounter;
+
+/// Runtime handles and diagnostic resources transferred to the native window.
+pub(crate) struct UiResources {
+    /// Workspace lifecycle notifications.
+    pub status: watch::Receiver<SessionStatus>,
+    /// Existing-instance activation notifications.
+    pub activation: watch::Receiver<()>,
+    /// Lifecycle commands owned by the native window.
+    pub commands: mpsc::Sender<SessionCommand>,
+    /// Domain request admission without UI-thread database work.
+    pub settings_requests: mpsc::Sender<SettingsRequest>,
+    /// Last usable committed settings snapshot.
+    pub settings_view: watch::Receiver<Option<Arc<SettingsSnapshot>>>,
+    /// Workspace paths displayed directly to the user.
+    pub paths: WorkspacePaths,
+    /// Startup diagnostic notices.
+    pub diagnostics: Vec<String>,
+    /// Standard logger loss counter.
+    pub loss: ErrorCounter,
+    /// Shared local-file failure indicator.
+    pub file_failure: Arc<AtomicBool>,
+}
 
 /// Window-owned view state and standard communication handles.
 pub(crate) struct DesktopApp {
@@ -25,6 +48,10 @@ pub(crate) struct DesktopApp {
     activation: watch::Receiver<()>,
     /// Bounded lifecycle-only requests.
     commands: mpsc::Sender<SessionCommand>,
+    /// Domain operations sent through the application runtime.
+    settings_requests: mpsc::Sender<SettingsRequest>,
+    /// Committed settings snapshots received from the runtime.
+    settings_view: watch::Receiver<Option<Arc<SettingsSnapshot>>>,
     /// Local paths displayed to the operator, never diagnostic payloads.
     paths: WorkspacePaths,
     /// Safe startup degradation details.
@@ -47,19 +74,24 @@ pub(crate) struct DesktopApp {
 
 impl DesktopApp {
     /// Attach the actual session and diagnostic state to one native window.
-    pub fn new(
-        status: watch::Receiver<SessionStatus>,
-        activation: watch::Receiver<()>,
-        commands: mpsc::Sender<SessionCommand>,
-        paths: WorkspacePaths,
-        diagnostics: Vec<String>,
-        loss: ErrorCounter,
-        file_failure: Arc<AtomicBool>,
-    ) -> Self {
+    pub fn new(resources: UiResources) -> Self {
+        let UiResources {
+            status,
+            activation,
+            commands,
+            settings_requests,
+            settings_view,
+            paths,
+            diagnostics,
+            loss,
+            file_failure,
+        } = resources;
         Self {
             status,
             activation,
             commands,
+            settings_requests,
+            settings_view,
             paths,
             diagnostics,
             loss,

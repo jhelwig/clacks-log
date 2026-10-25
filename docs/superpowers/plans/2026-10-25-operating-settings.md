@@ -292,11 +292,12 @@ pub(crate) enum SettingsResponse {
     PreviewEquipmentDeletion(EquipmentDeletionPreview),
     DeleteEquipment(EquipmentDeleteOutcome),
     Failed(String),
+    RefreshFailed { outcome: Box<SettingsResponse>, message: String },
     Closing,
 }
 ```
 
-- [ ] **1. Write failing runtime integration cases.** Drive the real session with a temporary workspace:
+- [x] **1. Write failing runtime integration cases.** Drive the real session with a temporary workspace:
   - Save profile/equipment => published snapshot contains actual stored pending records, active values unchanged.
   - Apply => published active values change only after successful transaction; failure/Stale preserves prior active state and caller form.
   - Complete a Save after its caller navigates elsewhere => saved record remains, unrelated form is not overwritten.
@@ -309,13 +310,13 @@ pub(crate) enum SettingsResponse {
   assert_eq!(published.operating, active_before_save);
   assert_eq!(persisted_equipment.values, requested_equipment.values);
   ```
-- [ ] **2. Run red.** `SQLX_OFFLINE=true cargo test -p clacks-desktop session:: --locked --offline`.
-- [ ] **3. Extend session work without replacing the lifecycle design.** Share the established account store/pool and runtime. Open resources once, populate settings on Ready, admit requests only while ready, and publish a consistent refreshed snapshot after committed writes. Use bounded standard channels and standard JoinSet/task facilities; do not perform database work or block on results in the redraw callback.
+- [x] **2. Run red.** `SQLX_OFFLINE=true cargo test -p clacks-desktop session:: --locked --offline`.
+- [x] **3. Extend session work without replacing the lifecycle design.** Share the established account store/pool and runtime. Open resources once, populate settings on Ready, admit requests only while ready, and publish a consistent refreshed snapshot after committed writes. Use bounded standard channels and standard JoinSet/task facilities; do not perform database work or block on results in the redraw callback.
   - Do not await a long database operation inside a select branch that prevents handling shutdown/activation. Track admitted work and drain it before `shutdown::finish` closes the store. Propagate span context with `tracing::Instrument` across spawned work.
   - Do not erase a known successful Save if its subsequent list refresh fails: report the committed outcome separately, keep the last usable snapshot and offer refresh. Never automatically repeat a mutation just to recover a failed refresh.
   - Source cleanup observed from committed snapshots produces an `info` domain event with account/source IDs and affected component, no copied values. Refreshes do not log keystrokes or emit generic completion events. Runtime handling boundaries report unexpected failures once, without dumping user forms/error payloads into logs.
-- [ ] **4. Run green with lifecycle regression coverage.** Run all session tests and existing `instance`/`ui` tests. Test shutdown through real Rust task/transaction coordination; no shipped delay flags or manual ignored tests.
-- [ ] **5. Commit.** Suggested subject: `Connect desktop settings requests to the existing workspace session`. Body explains lifecycle separation, committed-result publication and shutdown behavior.
+- [x] **4. Run green with lifecycle regression coverage.** Run all session tests and existing `instance`/`ui` tests. Test shutdown through real Rust task/transaction coordination; no shipped delay flags or manual ignored tests.
+- [x] **5. Commit.** Suggested subject: `Connect desktop settings requests to the existing workspace session`. Body explains lifecycle separation, committed-result publication and shutdown behavior.
 
 ## Task 6: Deliver the separated egui workflows and deletion review
 

@@ -99,7 +99,7 @@ async fn first_open_then_reopen_uses_same_account() -> anyhow::Result<()> {
     let first = super::open(&paths).await?;
 
     assert!(!first.identity.enrolled);
-    assert_eq!(first.operating, Default::default());
+    assert_eq!(first.settings.operating, Default::default());
     let account = first.identity.account;
     first.store.close().await?;
     let next = super::open(&paths).await?;
@@ -155,13 +155,13 @@ async fn ready_requires_initial_reads() -> anyhow::Result<()> {
     };
 
     assert!(matches!(
-        operating::save(&initial.store, &initial.operating, &next).await?,
+        operating::save(&initial.store, &initial.settings.operating, &next).await?,
         OperatingSaveOutcome::Saved(_)
     ));
     initial.store.close().await?;
     let ready = super::open(&paths).await?;
 
-    assert_eq!(ready.operating, next);
+    assert_eq!(ready.settings.operating, next);
     ready.store.close().await?;
     Ok(())
 }
