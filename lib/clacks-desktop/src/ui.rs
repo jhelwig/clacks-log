@@ -2,7 +2,9 @@
 
 mod appearance;
 mod closing;
+mod dialog;
 mod equipment;
+mod feedback;
 mod fields;
 pub(crate) mod fonts;
 mod operating;

@@ -115,8 +115,11 @@ impl AppearanceUi {
         };
         let before = editor.pending.clone();
         let mut action = None;
-        let response =
-            egui::Modal::new(egui::Id::unique("appearance.editor")).show(context, |ui| {
+        let response = super::dialog::show(
+            context,
+            egui::Id::unique("appearance.editor"),
+            "Appearance",
+            |ui| {
                 ui.set_width(340.0_f32.min(ui.available_width()));
                 ui.heading("Appearance");
                 ui.separator();
@@ -166,15 +169,12 @@ impl AppearanceUi {
                         action = Some(AppearanceAction::Cancel);
                     }
                 });
-            });
+            },
+        );
         if editor.pending != before && editor.pending.validate().is_ok() {
             theme::install(context, &editor.pending);
         }
-        if response.is_top_modal
-            && !response.any_popup_open
-            && context
-                .input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
-        {
+        if response.cancel_requested {
             action = Some(AppearanceAction::Cancel);
         }
         if let Some(action) = action {

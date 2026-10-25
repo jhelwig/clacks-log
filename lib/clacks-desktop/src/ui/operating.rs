@@ -1,5 +1,7 @@
 //! Navigation owns one operating edit and independent reusable-record editors.
 
+#[cfg(test)]
+mod dialog_tests;
 pub(super) mod fields;
 mod pending;
 #[cfg(test)]
@@ -72,8 +74,10 @@ pub(super) struct DeletionReview {
     pub(super) choices: BTreeMap<ProfileId, Option<EquipmentConfigurationId>>,
 }
 
-/// One screen's response and validation, discarded with that originating screen.
+/// An originating screen's form, validation and independently owned response.
 pub(super) struct Frame {
+    /// Native widget to focus when this destination is dismissed.
+    opener: Option<egui::Id>,
     /// Purpose-specific form or list.
     pub(super) screen: Screen,
     /// Selected view of this single pending operating form.
@@ -95,6 +99,7 @@ impl Frame {
     /// Open a new navigation destination without inheriting another form's request.
     fn new(screen: Screen) -> Self {
         Self {
+            opener: None,
             screen,
             tab: Default::default(),
             response: None,
@@ -138,6 +143,14 @@ impl Frame {
 /// Window-owned settings presentation; no database reads occur in rendering callbacks.
 #[derive(Default)]
 pub(super) struct SettingsUi {
+    /// Hidden originating forms retained only until their admitted response settles.
+    dismissed: Vec<Frame>,
+    /// Result of a dismissed operation that still needs the operator's attention.
+    completion_notice: Option<String>,
+    /// Last accepted Apply basis until a subsequent atomic view arrives.
+    acknowledged: Option<clacks_client_store::operating::OperatingState>,
+    /// Native opener awaiting focus after modal removal.
+    restore_focus: Option<egui::Id>,
     /// Explicit navigation stack, preserving pending callers.
     stack: Vec<Frame>,
     /// Last observed atomic snapshot, used only as a refresh identity.
@@ -173,6 +186,48 @@ impl SettingsUi {
         }
         self.refresh(snapshot);
         self.poll();
+        let mut effective = snapshot.as_ref().clone();
+        if let Some(acknowledged) = &self.acknowledged {
+            effective.operating = acknowledged.clone();
+        }
+        if effective
+            .operating
+            .selected_profile
+            .as_ref()
+            .is_some_and(|profile| {
+                self.known_deletions
+                    .contains(&RecordId::Profile(profile.id))
+            })
+        {
+            effective.operating.selected_profile = None;
+        }
+        if effective
+            .operating
+            .selected_equipment
+            .as_ref()
+            .is_some_and(|equipment| {
+                self.known_deletions
+                    .contains(&RecordId::Equipment(equipment.id))
+            })
+        {
+            effective.operating.selected_equipment = None;
+        }
+        let snapshot = &effective;
+        if let Some(opener) = self.restore_focus.take() {
+            ui.memory_mut(|memory| memory.request_focus(opener));
+        }
+        if !self.dismissed.is_empty() {
+            ui.spinner();
+            ui.label("Finishing submitted settings request…");
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(50));
+        }
+        if let Some(notice) = &self.completion_notice {
+            super::feedback::problem(ui, notice);
+            if ui.button("Dismiss notice").clicked() {
+                self.completion_notice = None;
+            }
+        }
         if self.stack.is_empty() {
             self.stack.push(Frame::new(Screen::Home));
         }
@@ -227,74 +282,103 @@ impl SettingsUi {
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_millis(50));
         }
-        if let Some(notice) = &frame.notice {
-            ui.label(notice);
-        }
         let errors = frame.errors.clone();
         let mut navigation = Navigation {
             next: None,
             back: false,
         };
-        ui.add_enabled_ui(!busy, |ui| {
-            responses::stale_review(ui, frame);
-            match &mut frame.screen {
-                Screen::Home => {
-                    if ui.button("Operating settings").clicked() {
-                        let mut editor = OperatingEditor::new(&snapshot.operating);
-                        for id in &self.known_deletions {
-                            editor.forget_source(*id);
+        let context = ui.ctx().clone();
+        let modal = !matches!(frame.screen, Screen::Home);
+        let mut body = |ui: &mut egui::Ui| {
+            if let Some(notice) = &frame.notice {
+                super::feedback::problem(ui, notice);
+            }
+            ui.add_enabled_ui(!busy, |ui| {
+                responses::stale_review(ui, frame);
+                match &mut frame.screen {
+                    Screen::Home => {
+                        if ui.button("Operating settings").clicked() {
+                            let mut editor = OperatingEditor::new(&snapshot.operating);
+                            for id in &self.known_deletions {
+                                editor.forget_source(*id);
+                            }
+                            navigation.next = Some(Screen::Operating(Box::new(editor)));
                         }
-                        navigation.next = Some(Screen::Operating(Box::new(editor)));
+                        if ui.button("Station profiles").clicked() {
+                            navigation.next = Some(Screen::Profiles);
+                        }
+                        if ui.button("Equipment configurations").clicked() {
+                            navigation.next = Some(Screen::Equipment);
+                        }
                     }
-                    if ui.button("Station profiles").clicked() {
-                        navigation.next = Some(Screen::Profiles);
-                    }
-                    if ui.button("Equipment configurations").clicked() {
-                        navigation.next = Some(Screen::Equipment);
-                    }
-                }
-                Screen::Operating(_) => pending::show(
-                    ui,
-                    frame,
-                    snapshot,
-                    &self.definitions,
-                    sender,
-                    &mut navigation,
-                    &self.known_deletions,
-                ),
-                Screen::Profiles | Screen::Profile(_) => profiles::show(
-                    ui,
-                    frame,
-                    snapshot,
-                    &self.definitions,
-                    sender,
-                    &mut navigation,
-                    &self.known_deletions,
-                ),
-                Screen::Equipment | Screen::EquipmentEdit(_) | Screen::DeleteEquipment(_) => {
-                    equipment::show(
+                    Screen::Operating(_) => pending::show(
                         ui,
                         frame,
                         snapshot,
+                        &self.definitions,
                         sender,
                         &mut navigation,
                         &self.known_deletions,
-                    )
+                    ),
+                    Screen::Profiles | Screen::Profile(_) => profiles::show(
+                        ui,
+                        frame,
+                        snapshot,
+                        &self.definitions,
+                        sender,
+                        &mut navigation,
+                        &self.known_deletions,
+                    ),
+                    Screen::Equipment | Screen::EquipmentEdit(_) | Screen::DeleteEquipment(_) => {
+                        equipment::show(
+                            ui,
+                            frame,
+                            snapshot,
+                            sender,
+                            &mut navigation,
+                            &self.known_deletions,
+                        )
+                    }
                 }
+            });
+            if busy && ui.button("Close dialog").clicked() {
+                navigation.back = true;
             }
-        });
+            fields::unplaced_errors(ui, &errors);
+        };
+        if modal {
+            let result = super::dialog::show(
+                &context,
+                egui::Id::unique("settings.editor"),
+                "Operating settings",
+                &mut body,
+            );
+            let () = result.inner;
+            navigation.back |= result.cancel_requested;
+        } else {
+            body(ui);
+        }
         frame
             .validation
             .request_repaint(ui.ctx(), ui.input(|input| input.time));
         if frame.errors.is_empty() && !frame.validation.can_submit(&frame.errors) {
             ui.small("Checking changes…");
         }
-        fields::unplaced_errors(ui, &errors);
-        if navigation.back && self.stack.len() > 1 {
-            self.stack.pop();
+        if navigation.back
+            && self.stack.len() > 1
+            && let Some(frame) = self.stack.pop()
+        {
+            self.restore_focus = frame.opener;
+            if frame.response.is_some() {
+                self.dismissed.push(frame);
+            }
         }
         if let Some(screen) = navigation.next {
-            self.stack.push(Frame::new(screen));
+            let mut frame = Frame::new(screen);
+            frame.opener = context
+                .interaction_snapshot(|interaction| interaction.clicked)
+                .or_else(|| context.memory(|memory| memory.focused()));
+            self.stack.push(frame);
         }
     }
 
@@ -307,6 +391,7 @@ impl SettingsUi {
         {
             return;
         }
+        self.acknowledged = None;
         for frame in &mut self.stack {
             frame.validation.invalidate();
         }

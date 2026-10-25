@@ -82,6 +82,7 @@ impl Window {
     }
     pub(in crate::ui::operating) fn click(&mut self, text: &str) {
         self.frame(vec![]);
+        self.frame(vec![]);
         let position = self
             .output
             .shapes
@@ -93,7 +94,19 @@ impl Window {
                 _ => None,
             })
             .next_back()
-            .unwrap_or_else(|| panic!("missing rendered control: {text}"));
+            .unwrap_or_else(|| {
+                panic!(
+                    "missing rendered control: {text}; shapes: {:?}",
+                    self.output
+                        .shapes
+                        .iter()
+                        .filter_map(|shape| match &shape.shape {
+                            egui::epaint::Shape::Text(t) => Some(t.galley.text()),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>()
+                )
+            });
         self.frame(vec![
             Event::PointerMoved(position),
             Event::PointerButton {
@@ -112,6 +125,7 @@ impl Window {
     }
 
     pub(in crate::ui::operating) fn click_below(&mut self, anchor: &str, text: &str) {
+        self.frame(vec![]);
         self.frame(vec![]);
         let anchor_y = self
             .output
@@ -156,6 +170,7 @@ impl Window {
         }]);
     }
     pub(in crate::ui::operating) fn text(&mut self, id: &str, value: &str) {
+        self.frame(vec![]);
         self.context
             .memory_mut(|m| m.request_focus(egui::Id::unique(id)));
         self.frame(vec![
@@ -184,7 +199,9 @@ impl Window {
                     self.snapshot = snapshot;
                 }
                 self.frame(vec![]);
-                if self.view.stack.last().is_none_or(|f| f.response.is_none()) {
+                if self.view.stack.last().is_none_or(|f| f.response.is_none())
+                    && self.view.dismissed.is_empty()
+                {
                     break;
                 }
                 tokio::task::yield_now().await;

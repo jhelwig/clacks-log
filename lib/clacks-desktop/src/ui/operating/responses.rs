@@ -4,24 +4,46 @@ use super::*;
 use clacks_client_store::{operating::OperatingSaveOutcome, settings::EquipmentDeleteOutcome};
 
 impl SettingsUi {
-    /// Settle only responses held by current callers, retaining failed/stale forms verbatim.
+    /// Settle admitted requests, including dialogs the operator already dismissed.
     pub(super) fn poll(&mut self) {
+        let dismissed = std::mem::take(&mut self.dismissed);
+        for mut frame in dismissed {
+            self.poll_frame(&mut frame);
+            if frame.response.is_some() {
+                self.dismissed.push(frame);
+            } else if let Some(notice) = frame.notice {
+                self.completion_notice = Some(notice);
+            }
+        }
+        let Some(mut frame) = self.stack.pop() else {
+            return;
+        };
+        let result = self.poll_frame(&mut frame);
+        if !result.complete || self.stack.is_empty() {
+            self.stack.push(frame);
+        } else if let Some(opener) = frame.opener {
+            self.restore_focus = Some(opener);
+        }
+        if let Some(screen) = result.next {
+            self.stack.push(Frame::new(screen));
+        }
+    }
+
+    /// Preserve each typed acknowledgment without retrying an admitted write.
+    fn poll_frame(&mut self, frame: &mut Frame) -> PollResult {
         let mut pop = false;
         let mut deleted = None;
         let mut next = None;
-        let Some(frame) = self.stack.last_mut() else {
-            return;
-        };
         let Some(receiver) = &mut frame.response else {
-            return;
+            return PollResult::default();
         };
         let response = match receiver.try_recv() {
             Ok(response) => response,
-            Err(oneshot::error::TryRecvError::Empty) => return,
+            Err(oneshot::error::TryRecvError::Empty) => return PollResult::default(),
             Err(oneshot::error::TryRecvError::Closed) => {
                 frame.response = None;
                 frame.notice = Some("The background request ended without an acknowledgment. Refresh before retrying.".into());
-                return;
+                return PollResult::default();
             }
         };
         frame.response = None;
@@ -39,7 +61,10 @@ impl SettingsUi {
         };
         match response {
             SettingsResponse::Refresh(_) => frame.notice = Some("Settings refreshed.".into()),
-            SettingsResponse::Apply(OperatingSaveOutcome::Saved(_) | OperatingSaveOutcome::Unchanged(_)) => pop = true,
+            SettingsResponse::Apply(OperatingSaveOutcome::Saved(state) | OperatingSaveOutcome::Unchanged(state)) => {
+                self.acknowledged = Some(state);
+                pop = true;
+            },
             SettingsResponse::Apply(OperatingSaveOutcome::Stale(current)) => {
                 frame.stale_operating = Some(current);
                 frame.notice = Some("Applied settings changed while you edited. Your text is preserved. Review the current applied state before retrying.".into());
@@ -88,13 +113,20 @@ impl SettingsUi {
                 }
             }
         }
-        if pop && self.stack.len() > 1 {
-            self.stack.pop();
-        }
-        if let Some(screen) = next {
-            self.stack.push(Frame::new(screen));
+        PollResult {
+            complete: pop,
+            next,
         }
     }
+}
+
+/// Navigation consequences of settling one originating request.
+#[derive(Default)]
+struct PollResult {
+    /// The visible form has completed successfully.
+    complete: bool,
+    /// A preview result opens its explicit review screen.
+    next: Option<Screen>,
 }
 
 /// Retain typed values and the competing saved version for explicit user review.
