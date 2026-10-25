@@ -141,7 +141,10 @@ pub async fn save(
     transaction.commit().await?;
     if let SaveOutcome::Saved(record) = &outcome {
         tracing::info!(event = "record.saved", account_id = %key.account, record_id = %key.id);
-        if matches!(key.id, RecordId::Qso(_)) {
+        if matches!(
+            key.id,
+            RecordId::Qso(_) | RecordId::Profile(_) | RecordId::Equipment(_)
+        ) {
             let change = if matches!(record.working_state(), Some(RecordState::Deleted)) {
                 "delete"
             } else if expected
@@ -152,7 +155,20 @@ pub async fn save(
             } else {
                 "create"
             };
-            metrics::counter!("clacks_client_qso_mutations_total", "change" => change).increment(1);
+            match key.id {
+                RecordId::Qso(_) => {
+                    metrics::counter!("clacks_client_qso_mutations_total", "change" => change)
+                        .increment(1)
+                }
+                RecordId::Profile(_) => {
+                    metrics::counter!("clacks_client_profile_mutations_total", "change" => change)
+                        .increment(1);
+                }
+                RecordId::Equipment(_) => {
+                    metrics::counter!("clacks_client_equipment_mutations_total", "change" => change).increment(1);
+                }
+                _ => {}
+            }
         }
     }
     Ok(outcome)

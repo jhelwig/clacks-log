@@ -86,3 +86,52 @@ pub(super) async fn store(
     }
     Ok(())
 }
+
+/// Find actual working tombstones among the source identities used by an Apply.
+pub(super) async fn deleted_sources(
+    connection: &mut SqliteConnection,
+    account: AccountId,
+    states: &[&super::OperatingState],
+) -> anyhow::Result<std::collections::BTreeSet<RecordId>> {
+    let mut ids = std::collections::BTreeSet::new();
+    for state in states {
+        if let Some(profile) = &state.selected_profile {
+            ids.insert(RecordId::Profile(profile.id));
+        }
+        if let Some(equipment) = &state.selected_equipment {
+            ids.insert(RecordId::Equipment(equipment.id));
+        }
+    }
+    let mut deleted = std::collections::BTreeSet::new();
+    for id in ids {
+        if crate::metadata::client::load(connection, RecordKey { account, id })
+            .await?
+            .as_ref()
+            .is_some_and(|record| matches!(record.working_state(), Some(RecordState::Deleted)))
+        {
+            deleted.insert(id);
+        }
+    }
+    Ok(deleted)
+}
+
+/// Remove proven deleted source metadata without touching any copied operating facts.
+pub(super) fn forget(
+    state: &mut super::OperatingState,
+    deleted: &std::collections::BTreeSet<RecordId>,
+) {
+    if state
+        .selected_profile
+        .as_ref()
+        .is_some_and(|p| deleted.contains(&RecordId::Profile(p.id)))
+    {
+        state.selected_profile = None;
+    }
+    if state
+        .selected_equipment
+        .as_ref()
+        .is_some_and(|e| deleted.contains(&RecordId::Equipment(e.id)))
+    {
+        state.selected_equipment = None;
+    }
+}

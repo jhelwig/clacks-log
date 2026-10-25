@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT kind, record_id FROM client_record\nWHERE account = ? AND kind IN ('profile', 'equipment', 'group')\nORDER BY kind, record_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "kind",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "client_record",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "record_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "client_record",
+            "name": "record_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "3156550573e5099b93cae170af79a89d8b98cd39469c1e72b864cb8daca84927"
+}

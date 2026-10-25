@@ -130,15 +130,24 @@ pub async fn save(
     next.validate()?;
     let mut transaction = store.write().await?;
     let current = load_in(&mut transaction, store.account).await?;
-    if &current != expected {
+    let deleted =
+        selections::deleted_sources(&mut transaction, store.account, &[expected, &current, next])
+            .await?;
+    let mut expected = expected.clone();
+    let mut comparable_current = current.clone();
+    let mut next = next.clone();
+    selections::forget(&mut expected, &deleted);
+    selections::forget(&mut comparable_current, &deleted);
+    selections::forget(&mut next, &deleted);
+    if comparable_current != expected {
         return Ok(OperatingSaveOutcome::Stale(current));
     }
-    if &current == next {
+    if current == next {
         return Ok(OperatingSaveOutcome::Unchanged(current));
     }
-    store_in(&mut transaction, store.account, next).await?;
+    store_in(&mut transaction, store.account, &next).await?;
     transaction.commit().await?;
     tracing::info!(event = "operating.applied", account_id = %store.account);
     metrics::counter!("clacks_client_operating_applications_total").increment(1);
-    Ok(OperatingSaveOutcome::Saved(next.clone()))
+    Ok(OperatingSaveOutcome::Saved(next))
 }
