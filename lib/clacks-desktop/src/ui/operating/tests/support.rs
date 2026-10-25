@@ -201,6 +201,7 @@ impl Window {
                 self.frame(vec![]);
                 if self.view.stack.last().is_none_or(|f| f.response.is_none())
                     && self.view.dismissed.is_empty()
+                    && !self.view.quick.is_busy()
                 {
                     break;
                 }

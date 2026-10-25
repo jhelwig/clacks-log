@@ -4,11 +4,15 @@
 mod dialog_tests;
 pub(super) mod fields;
 mod pending;
+mod quick;
+#[cfg(test)]
+mod quick_tests;
 #[cfg(test)]
 mod refresh_tests;
 mod responses;
 #[cfg(test)]
 mod stale_tests;
+mod summary;
 #[cfg(test)]
 mod tests;
 
@@ -143,6 +147,8 @@ impl Frame {
 /// Window-owned settings presentation; no database reads occur in rendering callbacks.
 #[derive(Default)]
 pub(super) struct SettingsUi {
+    /// Inline edits and their guarded requests, separate from full forms.
+    quick: quick::QuickOperatingUi,
     /// Hidden originating forms retained only until their admitted response settles.
     dismissed: Vec<Frame>,
     /// Result of a dismissed operation that still needs the operator's attention.
@@ -186,6 +192,14 @@ impl SettingsUi {
         }
         self.refresh(snapshot);
         self.poll();
+        let quick_outcome = self.quick.poll();
+        if let Some(error) = &quick_outcome.refresh_error {
+            self.refresh_error = Some(error.clone());
+        }
+        if let Some(acknowledged) = quick_outcome.acknowledged {
+            self.acknowledged = Some(acknowledged);
+            self.refresh_error = quick_outcome.refresh_error;
+        }
         let mut effective = snapshot.as_ref().clone();
         if let Some(acknowledged) = &self.acknowledged {
             effective.operating = acknowledged.clone();
@@ -240,7 +254,7 @@ impl SettingsUi {
                 "The summary below is the last successfully read state and may be out of date.",
             );
         }
-        fields::active_summary(ui, &snapshot.operating);
+        let summary_action = summary::show(ui, &snapshot.operating, &mut self.quick, sender);
         if let Some(selected) = &snapshot.operating.selected_profile
             && snapshot
                 .profiles
@@ -287,6 +301,11 @@ impl SettingsUi {
             next: None,
             back: false,
         };
+        if matches!(summary_action, summary::SummaryAction::Operating) {
+            navigation.next = Some(Screen::Operating(Box::new(OperatingEditor::new(
+                &snapshot.operating,
+            ))));
+        }
         let context = ui.ctx().clone();
         let modal = !matches!(frame.screen, Screen::Home);
         let mut body = |ui: &mut egui::Ui| {
@@ -297,13 +316,6 @@ impl SettingsUi {
                 responses::stale_review(ui, frame);
                 match &mut frame.screen {
                     Screen::Home => {
-                        if ui.button("Operating settings").clicked() {
-                            let mut editor = OperatingEditor::new(&snapshot.operating);
-                            for id in &self.known_deletions {
-                                editor.forget_source(*id);
-                            }
-                            navigation.next = Some(Screen::Operating(Box::new(editor)));
-                        }
                         if ui.button("Station profiles").clicked() {
                             navigation.next = Some(Screen::Profiles);
                         }
