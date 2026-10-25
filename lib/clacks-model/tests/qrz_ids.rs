@@ -37,37 +37,50 @@ fn decimal_ids_use_numeric_order_and_unbounded_carry() -> TestResult {
 }
 
 #[test]
-fn destinations_and_associations_keep_canonical_decimal_ids() -> TestResult {
-    use clacks_model::ids::{AssociationId, DestinationId, QsoId};
-    use clacks_model::service::destination::{
-        Destination, ExternalRecordKey, QrzBookId, QrzRecordId, RemoteCollection,
-        validate_destinations,
-    };
-    use clacks_model::service::evidence::processing::{AssociationState, ExternalAssociation};
-    let destination = Destination {
-        id: DestinationId::new(),
-        collection: RemoteCollection::Qrz {
-            book_id: Some(QrzBookId::new("001844674407370955161600")?),
-        },
-        description: "Historical book".into(),
-    };
+fn incoming_destination_and_association_ids_emit_canonical_decimal_strings() -> TestResult {
+    use clacks_model::service::destination::{Destination, validate_destinations};
+    use clacks_model::service::evidence::processing::ExternalAssociation;
+    use serde_json::json;
+
+    let incoming_destination = json!({
+        "id": "00000000000000000000000001",
+        "collection": {"Qrz": {"book_id": "001844674407370955161600"}},
+        "description": "Historical book"
+    });
+    let destination: Destination = serde_json::from_value(incoming_destination)?;
     validate_destinations(std::slice::from_ref(&destination))?;
+
     assert_eq!(
-        serde_json::from_str::<Destination>(&serde_json::to_string(&destination)?)?,
-        destination
+        serde_json::to_value(&destination)?,
+        json!({
+            "id": "00000000000000000000000001",
+            "collection": {"Qrz": {"book_id": "1844674407370955161600"}},
+            "description": "Historical book"
+        })
     );
-    let association = ExternalAssociation {
-        id: AssociationId::new(),
-        external: ExternalRecordKey {
-            destination: destination.id,
-            record: RemoteRecordId::Qrz(QrzRecordId::new("001844674407370955161611")?),
+
+    let incoming_association = json!({
+        "id": "00000000000000000000000002",
+        "external": {
+            "destination": "00000000000000000000000001",
+            "record": {"Qrz": "001844674407370955161611"}
         },
-        qso: QsoId::new(),
-        state: AssociationState::Active,
-    };
+        "qso": "00000000000000000000000003",
+        "state": "Active"
+    });
+    let association: ExternalAssociation = serde_json::from_value(incoming_association)?;
+
     assert_eq!(
-        serde_json::from_str::<ExternalAssociation>(&serde_json::to_string(&association)?)?,
-        association
+        serde_json::to_value(&association)?,
+        json!({
+            "id": "00000000000000000000000002",
+            "external": {
+                "destination": "00000000000000000000000001",
+                "record": {"Qrz": "1844674407370955161611"}
+            },
+            "qso": "00000000000000000000000003",
+            "state": "Active"
+        })
     );
     Ok(())
 }

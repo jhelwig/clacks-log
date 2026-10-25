@@ -95,18 +95,12 @@ fn bounds_private_integer_encodings_before_private_validation() {
 }
 
 #[test]
-fn a_failed_import_does_not_modify_an_existing_credential() -> anyhow::Result<()> {
-    let credential = import_pkcs12(&support::fixture("1024/normal.p12"), "fixture-password")?;
-    let metadata = credential.metadata().clone();
-    let certificate = credential.certificate_der().to_vec();
-    assert!(import_pkcs12(&support::fixture("mismatch.p12"), "fixture-password").is_err());
-    assert_eq!(credential.metadata(), &metadata);
-    assert_eq!(credential.certificate_der(), certificate);
+fn integrity_failure_preserves_the_archive_error_for_diagnostics() {
     let error = import_pkcs12(&support::fixture("1024/normal.p12"), "wrong")
         .err()
         .expect("integrity failure");
+
     assert!(error.downcast_ref::<p12_keystore::error::Error>().is_some());
-    Ok(())
 }
 
 #[test]

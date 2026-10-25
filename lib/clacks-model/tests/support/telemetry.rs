@@ -146,15 +146,19 @@ pub fn capture_filtered<T>(
     action: impl FnOnce() -> T,
     enabled: fn(&tracing::Metadata<'_>) -> bool,
 ) -> Capture<T> {
+    capture_with_filter(action, tracing_subscriber::filter::filter_fn(enabled))
+}
+
+/// Observe a real operation under a standard subscriber filter supplied by its caller.
+pub fn capture_with_filter<T, F>(action: impl FnOnce() -> T, filter: F) -> Capture<T>
+where
+    F: tracing_subscriber::layer::Filter<tracing_subscriber::Registry> + Send + Sync + 'static,
+{
     // Keep two dispatchers alive: tracing-core's single-dispatch cache consults
     // the registering thread, which may be an unconfigured parallel test.
     let _cache_guard = tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default());
     let collector = Collector::default();
-    let subscriber = tracing_subscriber::registry().with(
-        collector
-            .clone()
-            .with_filter(tracing_subscriber::filter::filter_fn(enabled)),
-    );
+    let subscriber = tracing_subscriber::registry().with(collector.clone().with_filter(filter));
     let recorder = DebuggingRecorder::new();
     let snapshot = recorder.snapshotter();
     let result = tracing::subscriber::with_default(subscriber, || {

@@ -141,6 +141,8 @@ A test collector is an observation tool, not the behavior under test. Check that
   Exercise credential-handling adapters with recognizable test secrets when those
   adapters exist; do not manufacture authentication facilities just for this test.
 - Actual emitted metric dimensions remain bounded as account and record IDs vary.
+- Configured module filters select the intended Clacks diagnostics while domain work
+  still completes. Verify observed visibility rather than framework-generated target strings.
 
 Do not test the telemetry libraries' event formatting, histogram implementations,
 subscriber installation or general tolerance of an absent subscriber/recorder.

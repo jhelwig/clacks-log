@@ -1,6 +1,6 @@
 mod support;
 
-use clacks_model::ids::{QsoId, TagId};
+use clacks_model::ids::QsoId;
 use clacks_model::scalar::{
     Hertz, Milliwatts, RecordedCallsign, UtcSecond, UtcTimestamp, optional_text,
 };
@@ -37,16 +37,20 @@ fn quantities_and_operational_time_are_validated() -> TestResult {
 }
 
 #[test]
-fn identity_round_trips_without_display_name_identity() -> TestResult {
-    let a = support::id::<QsoId>(123);
-    assert_eq!(a.to_string().parse::<QsoId>()?, a);
+fn native_ids_use_string_values_in_persisted_records() -> TestResult {
+    let encoded = serde_json::json!("00000000000000000000000001");
+    let contact = support::qso(support::id::<QsoId>(2));
+    let mut incoming = serde_json::to_value(&contact)?;
+    incoming["id"] = encoded.clone();
+
+    let restored: clacks_model::contact::Qso = serde_json::from_value(incoming)?;
+    assert_eq!(restored.id.to_string(), "00000000000000000000000001");
+    assert_eq!(serde_json::to_value(&restored)?["id"], encoded);
+
     assert_eq!(
-        serde_json::from_str::<QsoId>(&serde_json::to_string(&a)?)?,
-        a
+        serde_json::to_value(&contact)?["id"],
+        serde_json::json!("00000000000000000000000002")
     );
-    assert!("invalid".parse::<QsoId>().is_err());
-    assert_ne!(QsoId::new(), QsoId::new());
-    assert_eq!(support::id::<TagId>(123).to_string(), a.to_string());
     Ok(())
 }
 

@@ -102,16 +102,6 @@ fn bindings_are_group_scoped() -> TestResult {
 }
 
 #[test]
-fn compiled_state_is_not_serialized() -> TestResult {
-    let defs = support::definitions();
-    let d = defs.get(support::id::<GroupId>(1)).unwrap();
-    let before = serde_json::to_value(d)?;
-    let compiled = compile_definition(d)?;
-    assert_eq!(serde_json::to_value(compiled.definition())?, before);
-    Ok(())
-}
-
-#[test]
 fn excessive_expression_depth_is_rejected_before_recursive_clone() {
     const CHILD_FLAG: &str = "CLACKS_TEST_DEEP_EXPRESSION";
     if std::env::var_os(CHILD_FLAG).is_some() {

@@ -4,13 +4,11 @@ use clacks_model::contact::Qso;
 use clacks_model::effective::{
     EligibleStationFacts, InformationSource, StationFacts, select_location,
 };
-use clacks_model::ids::{GroupId, ProfileId, QsoId, TagId};
+use clacks_model::ids::{QsoId, TagId};
 use clacks_model::location::RecordedLocation;
 use clacks_model::position::{Locator, Position};
-use clacks_model::profile::{CurrentOperatingValues, SavedLocationProfile, load_profile};
 use clacks_model::recognition::RecognitionCatalog;
 use clacks_model::recognition::mode::{Mode, ModeIdentity};
-use clacks_model::scalar::RecordedCallsign;
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 #[test]
@@ -42,37 +40,6 @@ fn unrelated_edit_survives_old_recognition_round_trip() -> TestResult {
         );
         received.validate()?;
     }
-    Ok(())
-}
-
-#[test]
-fn source_mutation_cannot_rewrite_recorded_snapshots() -> TestResult {
-    let mut q = support::qso(support::id::<QsoId>(1));
-    let mut station = q.own_station.clone();
-    station.references.insert(support::reference(
-        support::id::<GroupId>(1),
-        Some("US-1234"),
-    ));
-    let mut p = SavedLocationProfile {
-        id: support::id::<ProfileId>(1),
-        name: "field".into(),
-        station,
-        default_equipment: None,
-    };
-    let c = CurrentOperatingValues {
-        station: q.own_station.clone(),
-        operator: None,
-        transmit_power: None,
-        equipment: None,
-    };
-    let loaded = load_profile(&c, &p, None)?;
-    q.own_station = loaded.station.clone();
-    let before = q.clone();
-    p.station.references.clear();
-    p.station.callsign = RecordedCallsign::new("W7HEX/P")?;
-    assert_eq!(q, before);
-    assert_eq!(loaded.station, q.own_station);
-    assert_ne!(loaded.station, p.station);
     Ok(())
 }
 

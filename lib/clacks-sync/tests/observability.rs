@@ -269,33 +269,65 @@ fn service_operations_preserve_input_scope_and_missing_record_identity() -> anyh
 }
 
 #[test]
-fn module_targets_preserve_filtering_for_sync_operations() {
-    let captured = capture(|| seed(support::id(101), 11));
-    assert!(matches!(captured.result, Ok(AcceptanceDecision::Commit(_))));
-    for observation in captured
-        .observations
-        .spans
-        .iter()
-        .chain(&captured.observations.events)
-    {
-        assert!(!observation.fields.contains_key("operation"));
-        assert!(!observation.fields.contains_key("component"));
+fn configured_module_filters_separate_acceptance_from_model_validation_diagnostics() {
+    for (directive, acceptance_visible) in [
+        ("off,clacks_sync=debug,clacks_model=off", true),
+        ("off,clacks_sync=off,clacks_model=trace", false),
+    ] {
+        let captured = support::telemetry::capture_with_filter(
+            || seed(support::id(101), 11),
+            tracing_subscriber::EnvFilter::new(directive),
+        );
+
+        assert!(matches!(captured.result, Ok(AcceptanceDecision::Commit(_))));
+        let acceptance = captured.observations.events.iter().find(|event| {
+            event
+                .fields
+                .get("event")
+                .is_some_and(|name| name == "acceptance.decided")
+        });
+        if acceptance_visible {
+            let event = acceptance.expect("acceptance decision must be visible");
+            assert_eq!(
+                event.fields.get("decision").map(String::as_str),
+                Some("proposed")
+            );
+            assert_eq!(
+                event.fields.get("origin").map(String::as_str),
+                Some("server")
+            );
+            assert_eq!(
+                captured
+                    .span("sync.acceptance.server.plan")
+                    .fields
+                    .get("account_id"),
+                Some(&support::id::<AccountId>(101).to_string())
+            );
+            assert!(
+                captured
+                    .observations
+                    .spans
+                    .iter()
+                    .all(|span| span.name != "model.reference_definition.compile")
+            );
+        } else {
+            assert!(acceptance.is_none());
+            assert!(
+                captured
+                    .observations
+                    .spans
+                    .iter()
+                    .any(|span| span.name == "model.reference_definition.compile")
+            );
+            assert!(
+                captured
+                    .observations
+                    .spans
+                    .iter()
+                    .all(|span| span.name != "sync.acceptance.server.plan")
+            );
+        }
     }
-    assert_eq!(
-        captured.span("sync.acceptance.server.plan").target,
-        "clacks_sync::acceptance"
-    );
-    assert_eq!(
-        captured.event("acceptance.decided").target,
-        "clacks_sync::acceptance"
-    );
-    assert!(
-        captured
-            .observations
-            .spans
-            .iter()
-            .any(|s| s.target == "clacks_model::export::rules")
-    );
 }
 
 #[test]
