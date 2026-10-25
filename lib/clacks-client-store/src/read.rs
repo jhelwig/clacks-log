@@ -45,6 +45,11 @@ pub async fn snapshot(store: &ClientStore) -> anyhow::Result<ReadSnapshot> {
 }
 
 impl ReadSnapshot {
+    /// Read applied context and reusable sources from this existing snapshot.
+    pub async fn settings(&mut self) -> anyhow::Result<crate::settings::SettingsSnapshot> {
+        crate::settings::read::load_in(&mut self.transaction, self.account).await
+    }
+
     /// Read complete current/shared/pending roles from this snapshot.
     pub async fn record(&mut self, key: RecordKey) -> anyhow::Result<Option<ClientRecord>> {
         anyhow::ensure!(

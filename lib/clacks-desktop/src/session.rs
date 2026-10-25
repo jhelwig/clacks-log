@@ -1,9 +1,10 @@
 //! Workspace session lifetime, independent of native redraws.
 
 mod opening;
+pub(crate) mod settings;
 mod shutdown;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use crate::{
     application::STARTUP_DURATION_METRIC,
@@ -11,7 +12,7 @@ use crate::{
     telemetry::TelemetryGuard,
     workspace::{OpenedWorkspace, WorkspacePaths},
 };
-use clacks_client_store::identity::WorkspaceStatus;
+use clacks_client_store::{identity::WorkspaceStatus, settings::SettingsSnapshot};
 use eframe::egui;
 use std::{
     sync::{Arc, OnceLock},
@@ -22,6 +23,8 @@ use tokio::{
     task::JoinSet,
 };
 use tokio_util::sync::CancellationToken;
+use tracing::Instrument;
+use tracing::instrument::WithSubscriber;
 
 /// Lifecycle requests; ordinary domain work does not pass through this channel.
 #[derive(Debug)]
@@ -41,8 +44,6 @@ pub(crate) enum SessionStatus {
     Ready {
         /// Stable local account and enrollment status.
         identity: WorkspaceStatus,
-        /// Whether persisted operating defaults have been selected.
-        has_operating_location: bool,
     },
     /// Opening failed without replacing existing files.
     Failed {
@@ -72,6 +73,10 @@ pub(crate) struct SessionResources {
     pub activation: watch::Receiver<()>,
     /// Attached native context, absent while the renderer starts.
     pub context: Arc<OnceLock<egui::Context>>,
+    /// Bounded requests from actual settings editors.
+    pub settings_requests: mpsc::Receiver<settings::SettingsRequest>,
+    /// Ordered committed settings view for native presentation.
+    pub settings_updates: watch::Sender<Option<Arc<SettingsSnapshot>>>,
     /// Test-only pause at the opening boundary; no shipped delay control.
     #[cfg(test)]
     pub opening_gate: Option<tokio::sync::oneshot::Receiver<()>>,
@@ -101,6 +106,8 @@ pub(crate) async fn run(
         telemetry,
         activation,
         context,
+        mut settings_requests,
+        settings_updates,
         #[cfg(test)]
         opening_gate,
     } = resources;
@@ -112,6 +119,8 @@ pub(crate) async fn run(
         stop.clone(),
     ));
 
+    let mut work = JoinSet::new();
+    let mut settings_open = true;
     let mut opening = JoinSet::new();
     opening::begin(
         &mut opening,
@@ -131,7 +140,7 @@ pub(crate) async fn run(
     let mut loss_check = tokio::time::interval(Duration::from_secs(5));
 
     loop {
-        if closing.is_some() && opening.is_empty() {
+        if closing.is_some() && opening.is_empty() && work.is_empty() {
             break;
         }
 
@@ -149,6 +158,8 @@ pub(crate) async fn run(
                     if closing.is_none() {
                         let started = Instant::now();
                         closing = Some(started);
+                        settings_requests.close();
+                        while let Ok(request) = settings_requests.try_recv() { let _ = request.reply.send(settings::SettingsResponse::Closing); }
                         tracing::info!(event = "desktop.shutdown_requested");
                         publish(
                             &status,
@@ -181,6 +192,7 @@ pub(crate) async fn run(
                     match result {
                         Ok(workspace) => {
                             if closing.is_none() {
+                                settings_updates.send_replace(Some(Arc::new(workspace.settings.clone())));
                                 tracing::info!(
                                     event = "desktop.workspace_ready",
                                     account_id = %workspace.identity.account,
@@ -191,7 +203,6 @@ pub(crate) async fn run(
                                     &context,
                                     SessionStatus::Ready {
                                         identity: workspace.identity,
-                                        has_operating_location: workspace.operating.current.is_some(),
                                     },
                                 );
                             }
@@ -210,6 +221,43 @@ pub(crate) async fn run(
                             }
                         }
                     }
+                }
+            },
+            request = settings_requests.recv(), if settings_open && closing.is_none() && work.is_empty() => {
+                match request {
+                    Some(request) => {
+                        if let Some(workspace) = &opened {
+                            work.spawn(settings::execute(workspace.store.clone(), request).in_current_span().with_current_subscriber());
+                        } else {
+                            let _ = request.reply.send(settings::SettingsResponse::Failed("The local workspace is not ready".into()));
+                        }
+                    }
+                    None => settings_open = false,
+                }
+            },
+            completion = work.join_next(), if !work.is_empty() => {
+                match completion {
+                    Some(Ok(completion)) => {
+                        if let Some(snapshot) = completion.snapshot {
+                            if let Some(previous) = settings_updates.borrow().as_ref() {
+                                if let Some(profile) = &previous.operating.selected_profile
+                                    && snapshot.operating.selected_profile.is_none()
+                                    && let Some(deleted) = snapshot.profiles.iter().find(|row| row.key.id == clacks_sync::record::RecordId::Profile(profile.id) && matches!(row.working_state(), Some(clacks_sync::record::RecordState::Deleted))) {
+                                    tracing::info!(event = "operating.deleted_profile_forgotten", account_id = %deleted.key.account, profile_id = %profile.id);
+                                }
+                                if let Some(equipment) = &previous.operating.selected_equipment
+                                    && snapshot.operating.selected_equipment.is_none()
+                                    && let Some(deleted) = snapshot.equipment.iter().find(|row| row.key.id == clacks_sync::record::RecordId::Equipment(equipment.id) && matches!(row.working_state(), Some(clacks_sync::record::RecordState::Deleted))) {
+                                    tracing::info!(event = "operating.deleted_equipment_forgotten", account_id = %deleted.key.account, equipment_id = %equipment.id);
+                                }
+                            }
+                            settings_updates.send_replace(Some(Arc::new(snapshot)));
+                        }
+                        let _ = completion.reply.send(completion.response);
+                        if let Some(context) = context.get() { context.request_repaint(); }
+                    }
+                    Some(Err(_)) => tracing::error!(event = "desktop.settings_task_failed"),
+                    None => {},
                 }
             },
             _ = loss_check.tick() => {

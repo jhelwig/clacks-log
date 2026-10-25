@@ -85,6 +85,12 @@ pub(crate) async fn store(
 ) -> anyhow::Result<()> {
     value.validate()?;
     if load(connection, value.key).await?.as_ref() == Some(value) {
+        if matches!(
+            value.working_state(),
+            Some(clacks_sync::record::RecordState::Deleted)
+        ) {
+            crate::operating::selections::forget_source_in(connection, value.key).await?;
+        }
         return Ok(());
     }
     let latest = insert_observation(connection, &value.latest).await?;
@@ -114,6 +120,12 @@ pub(crate) async fn store(
         )
         .execute(&mut *connection)
         .await?;
+    }
+    if matches!(
+        value.working_state(),
+        Some(clacks_sync::record::RecordState::Deleted)
+    ) {
+        crate::operating::selections::forget_source_in(connection, value.key).await?;
     }
     Ok(())
 }

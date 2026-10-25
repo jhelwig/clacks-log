@@ -18,10 +18,7 @@ pub(super) fn show(app: &mut DesktopApp, ui: &mut egui::Ui, state: &SessionStatu
             ui.spinner();
             ui.label("Opening local account…");
         }
-        SessionStatus::Ready {
-            identity,
-            has_operating_location,
-        } => {
+        SessionStatus::Ready { identity } => {
             ui.label("Local workspace ready");
             ui.label(format!("Account: {}", identity.account));
             ui.label(if identity.enrolled {
@@ -29,11 +26,18 @@ pub(super) fn show(app: &mut DesktopApp, ui: &mut egui::Ui, state: &SessionStatu
             } else {
                 "Standalone account"
             });
-            ui.label(if *has_operating_location {
-                "Operating defaults loaded"
-            } else {
-                "No operating defaults selected"
-            });
+            ui.label(
+                if app
+                    .settings_view
+                    .borrow()
+                    .as_ref()
+                    .is_some_and(|view| view.operating.current.is_some())
+                {
+                    "Operating defaults loaded"
+                } else {
+                    "No operating defaults selected"
+                },
+            );
         }
         SessionStatus::Failed { message } => {
             ui.label(message);

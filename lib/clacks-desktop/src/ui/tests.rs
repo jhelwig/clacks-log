@@ -24,16 +24,20 @@ impl Window {
             lock_file: "workspace/instance.lock".into(),
             log_directory: "workspace/logs".into(),
         };
+        let (settings_requests, _requests) = mpsc::channel(8);
+        let (_settings_updates, settings_view) = watch::channel(None);
         Self {
-            app: DesktopApp::new(
+            app: DesktopApp::new(UiResources {
                 status,
                 activation,
                 commands,
                 paths,
-                Vec::new(),
-                output.error_counter(),
-                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            ),
+                diagnostics: Vec::new(),
+                loss: output.error_counter(),
+                file_failure: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                settings_requests,
+                settings_view,
+            }),
             context: Default::default(),
             updates,
             notices,

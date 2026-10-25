@@ -1,5 +1,8 @@
 //! Headless tests of the production session with real workspace resources.
 
+#[path = "settings/tests.rs"]
+mod settings_tests;
+
 use super::*;
 use crate::{
     config::{self, Cli, StartupContext},
@@ -8,18 +11,21 @@ use crate::{
 };
 use clap::Parser;
 
-struct Fixture {
-    _directory: tempfile::TempDir,
-    _owner: instance::InstanceOwner,
-    resources: SessionResources,
-    status: watch::Receiver<SessionStatus>,
-    updates: watch::Sender<SessionStatus>,
-    commands: mpsc::Sender<SessionCommand>,
-    input: mpsc::Receiver<SessionCommand>,
+pub(crate) struct Fixture {
+    pub(crate) _directory: tempfile::TempDir,
+    pub(crate) _owner: instance::InstanceOwner,
+    pub(crate) resources: SessionResources,
+    pub(crate) status: watch::Receiver<SessionStatus>,
+    pub(crate) updates: watch::Sender<SessionStatus>,
+    pub(crate) commands: mpsc::Sender<SessionCommand>,
+    pub(crate) input: mpsc::Receiver<SessionCommand>,
+    pub(crate) settings: mpsc::Sender<settings::SettingsRequest>,
+    pub(crate) settings_view:
+        watch::Receiver<Option<Arc<clacks_client_store::settings::SettingsSnapshot>>>,
 }
 
 impl Fixture {
-    fn new() -> anyhow::Result<Self> {
+    pub(crate) fn new() -> anyhow::Result<Self> {
         let directory = tempfile::tempdir()?;
         let config = config::resolve(
             Cli::try_parse_from(["clacks-log"])?,
@@ -39,7 +45,11 @@ impl Fixture {
         let (notices, activation) = watch::channel(());
         let listener = owner.listen(&tokio::runtime::Handle::current(), notices)?;
         let telemetry = crate::telemetry::initialize(&config, &paths);
+        let (settings, requests) = mpsc::channel(8);
+        let (settings_updates, settings_view) = watch::channel(None);
         let resources = SessionResources {
+            settings_requests: requests,
+            settings_updates,
             paths,
             listener,
             telemetry,
@@ -57,11 +67,13 @@ impl Fixture {
             updates,
             commands,
             input,
+            settings,
+            settings_view,
         })
     }
 }
 
-async fn next_matching(
+pub(crate) async fn next_matching(
     status: &mut watch::Receiver<SessionStatus>,
     predicate: impl Fn(&SessionStatus) -> bool,
 ) -> anyhow::Result<SessionStatus> {

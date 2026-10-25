@@ -12,8 +12,8 @@ pub(crate) struct OpenedWorkspace {
     pub store: clacks_client_store::store::ClientStore,
     /// Non-secret account and enrollment state.
     pub identity: clacks_client_store::identity::WorkspaceStatus,
-    /// Persisted current entry defaults, independent of saved profiles.
-    pub operating: clacks_client_store::operating::OperatingState,
+    /// Initial consistent operating state and reusable account records.
+    pub settings: clacks_client_store::settings::SettingsSnapshot,
 }
 
 /// Open an existing workspace or initialize a missing file with account defaults.
@@ -23,7 +23,7 @@ pub(crate) struct OpenedWorkspace {
 #[tracing::instrument(skip_all, name = "desktop.workspace.open")]
 pub(crate) async fn open(paths: &WorkspacePaths) -> anyhow::Result<OpenedWorkspace> {
     use clacks_client_store::{
-        identity, operating,
+        identity, settings,
         store::{ClientStore, StoreSettings},
     };
 
@@ -50,8 +50,8 @@ pub(crate) async fn open(paths: &WorkspacePaths) -> anyhow::Result<OpenedWorkspa
         }
     };
 
-    let operating = match operating::load(&store).await {
-        Ok(operating) => operating,
+    let settings = match settings::snapshot(&store).await {
+        Ok(settings) => settings,
         Err(error) => {
             store.close().await?;
             return Err(error);
@@ -61,7 +61,7 @@ pub(crate) async fn open(paths: &WorkspacePaths) -> anyhow::Result<OpenedWorkspa
     Ok(OpenedWorkspace {
         store,
         identity,
-        operating,
+        settings,
     })
 }
 

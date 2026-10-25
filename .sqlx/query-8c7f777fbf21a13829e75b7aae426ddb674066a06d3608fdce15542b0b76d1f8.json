@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT p.record_id FROM profile_payload p\nJOIN local_working w ON w.account = p.account AND w.kind = 'profile'\n    AND w.record_id = p.record_id AND w.payload_id = p.payload_id\nJOIN payload root ON root.payload_id = p.payload_id\nWHERE p.account = ? AND p.equipment_id = ? AND root.deleted = 0\nORDER BY p.record_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "record_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "profile_payload",
+            "name": "record_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8c7f777fbf21a13829e75b7aae426ddb674066a06d3608fdce15542b0b76d1f8"
+}

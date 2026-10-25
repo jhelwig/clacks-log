@@ -94,8 +94,9 @@ from the client's completed installed checkpoint. No record response advances re
 - `save` preserves the original basis and any already-frozen proposal while
   changing working values. Exact expected rows guard editor saves and tag changes.
   Tag deletion rechecks the complete preview before committing all effects together.
-- `operating` owns current values and full loaded-profile copies. Loading is
-  explicit; later synchronized profile/equipment edits do not change these copies.
+- `operating` owns current values and independent optional profile/equipment
+  source copies. Apply saves their values and selections together; later shared
+  source edits do not reload them. Manual adjustments clear the affected selection.
 - `synchronization::prepare` persists reservations and frozen values before returning
   them. `receive`, `reject` and `resolve` save actual core-produced role/review updates.
 - `transfer` remembers immutable manifests, stages incomplete coupled units,
@@ -133,3 +134,41 @@ Interruption tests spawn the Rust test binary itself, terminate it at real save,
 preparation and transfer boundaries, then reopen the file. No test harness binary,
 Python tooling, external storage service or compiled TQSL implementation is required.
 The repository workflow runs these tests natively on Windows and Linux.
+
+## Operating settings and reusable records
+
+The [operating-settings contract](../../docs/operating-settings.md) uses
+`operating::OperatingState`: optional current facts plus independent
+`selected_profile` and `selected_equipment` copies. `operating::save` takes the
+expected active state and returns Saved, Unchanged or Stale. It does not require
+saved sources to be fresh. Known effective tombstones clear selections in the
+same transaction that installs their working deletion; absence is not deletion.
+
+`settings::snapshot` and `ReadSnapshot::settings` read current settings, complete
+profile/equipment roles and group definitions consistently. UI selectors use live
+working values while preserving tombstones and unavailable roles in the snapshot.
+`settings::save_profile` returns a missing-equipment issue separately from the
+save outcome. `settings::save_equipment` changes only the reusable record.
+
+`preview_equipment_deletion` captures the target, every referring profile and
+available replacement records. `delete_equipment` requires an explicit choice
+for every referrer and revalidates the complete set, including new referrers,
+under one immediate transaction. Repairs, tombstone and active-source cleanup
+commit together. Generic shared saves cannot bypass this review for referenced
+equipment. Selected baseline payloads are retention roots; changing or deleting
+a source never rewrites historical QSO snapshots.
+
+Stale Apply and deletion reviews emit focused diagnostic reasons for changed
+active settings, a changed target, changed referrers or a changed replacement.
+These are noncommitting outcomes, not mutation successes. IDs remain structured
+trace fields; equipment descriptions and other recorded values are excluded.
+
+The forward startup migration separates older combined loaded metadata without
+reloading saved sources: it retains a station selection only when the old copied
+station still matches the current station semantically, starts with no inferred
+equipment selection, and preserves current facts. Fixed queries and committed
+SQLx metadata remain the schema contract. Regenerate/check metadata against a
+fresh temporary migrated database with `cargo sqlx prepare --workspace --
+--all-targets` and `cargo sqlx prepare --check --workspace -- --all-targets`, using
+`SQLX_OFFLINE=false` and that temporary `DATABASE_URL`. Never use a real account
+workspace for query preparation.

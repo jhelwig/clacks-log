@@ -3,6 +3,7 @@
 mod application;
 mod config;
 mod instance;
+mod operating;
 mod session;
 mod telemetry;
 mod ui;

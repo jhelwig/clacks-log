@@ -365,18 +365,68 @@ description/antenna/notes. `local_operating_reference` holds its unordered
 group/optional-identifier set, with the same null-aware uniqueness rules as
 `station_reference`. These local values have no synchronized native identity.
 `loaded_profile_baseline` references a complete copied profile payload and a
-`local_operating_value` snapshot immediately after loading. It retains those
-values even when the current operating-state reference changes. A copied profile
+`local_operating_value` snapshot immediately after loading. A copied profile
 payload here does not create pending shared work. The baseline is not merely a
-profile ID.
+profile ID. Under D285, a manual station adjustment clears the selected profile
+and its baseline reference in the pending state; Apply persists that removal with
+the edited values. The detached component retains no source association for
+comparison, reload or saved-source indicators. Explicitly loading a profile
+creates a new selection/baseline; matching values alone does not.
+
+Client-local operating state independently retains an optional selected equipment
+ID and last-loaded configuration/baseline under D281/D285, including selection
+through a profile default. Manual equipment adjustment clears only this selection
+and baseline in the pending state. Station adjustment leaves equipment selection
+intact; equipment adjustment leaves station selection intact. Operator/power edits
+clear neither. Apply commits values and optional selections/baselines together;
+Cancel writes neither. A profile load without an equipment default preserves
+equipment and its optional selection. These comparison copies do not create
+shared synchronized work or add fields to historical QSOs.
+
+For selections that remain, compare the latest locally available saved source
+against its captured baseline to detect saved-source changes. D284 additionally
+distinguishes selection of different equipment from the selected station profile’s
+default. Once the station is detached there is no operating profile-default
+association to compare, without changing the saved profile’s own equipment link.
+
 Keep selected tag ID, when persisted by composition, separate from station facts.
 A deleted selection cannot cause implicit reassignment of an existing QSO.
 
-A profile load reads the selected local working profile and equipment values,
-calls the native loading operation, then saves the new defaults and baseline in
-one transaction. Ordinary shared profile receipt never changes them. Unsaved
-manual entry drafts are not durable QSO records and are outside this store's
-saved-record API.
+Selecting or reloading a profile/equipment configuration in the operating-context
+editor reads the local working source values and stages the resulting copies
+and comparison baselines. Manual adjustment clears only the affected selection
+and baseline. Apply commits displayed values and the remaining optional selections/
+baselines together in one transaction under the active-state stale-save
+guard. D283 permits the saved sources to have changed since selection; their
+freshness is not a precondition for applying those displayed local copies. Report
+saved-source changes only for still-selected sources, without replacing the form
+or advancing their baselines. Ordinary shared record receipt never changes active
+defaults. Unsaved manual entry drafts are not
+durable QSO records and are outside this store's saved-record API.
+
+Operating-context form edits likewise remain outside durable state until explicit
+Apply commits the complete validated context through the guarded operating-state
+save. Cancel changes no stored operating values. Saving a reusable profile is a
+separate shared-record operation and does not implicitly change active defaults
+(D280). Save Profile takes the edited form’s station values under D282, not a
+fresh read of the active defaults. It validates and saves the shared profile
+under the ordinary new-record/stale-update rules without requiring an operating
+state write. Cancelling the form does not undo that separate committed save.
+Saving a reusable record does not implicitly select it, reattach detached operating
+values or apply them. Station/equipment views share one pending operating edit;
+switching views introduces no intermediate acceptance transaction.
+
+Under D287, a known working-state deletion clears a matching active source
+selection/baseline in the same local transaction as deletion, preserving copied
+values. Effective deletions installed by synchronization require the same cleanup
+at the store boundary. Publishing the committed result clears matching selections
+in open forms without discarding their edits. Apply must not reintroduce a source
+already known deleted; Cancel must not restore it. Keep ordinary active-state
+stale-save protection, distinguishing metadata-only deletion cleanup from any
+intervening operating-value edit. A missing query result, failed refresh or unknown
+source state does not by itself authorize deletion cleanup. See the
+[operating-settings specification](operating-settings.md) for transaction boundaries
+and referenced-equipment deletion.
 
 Directory snapshots have agreed product semantics but no complete saved carrier
 in the present native/synchronization types. This specification does not hide them in
@@ -432,7 +482,7 @@ or telemetry wrapper is needed. Composition may reuse private transaction helper
 | Save new/edit/delete native record | Current client row and expected edit basis, original/working/prepared roles, relevant local reference observations; native validation | New working payload, pending original on first edit, unchanged frozen prepared/original on later edits. No invented accepted stamp or installed progress. |
 | Save selected-group tag changes | Selected local records and expected edit bases, tag identity; existing whole-QSO policy | Each QSO's complete working tag set and pending state. Groups use bounded transactions; never independent synchronized membership rows. |
 | Delete tag with chosen effects | Native deletion plan from current local membership sets and selected choice | Tag deletion plus the planned QSO deletions/membership removals in one local logical-operation transaction. Do not split this operation into partly visible effects. Transaction size is proportional to affected contacts; any future resumable bulk design must preserve the operation contract rather than silently batching it. |
-| Change defaults/load profile | Current operating values, loaded profile baseline, selected profile/equipment working values | Copied defaults and complete loaded baseline together, without editing shared profile or old contacts. |
+| Change defaults/load profile | Current operating values and optional selected profile/equipment baselines | Values and remaining optional selections/baselines together; manual adjustments clear only the affected selection/baseline under D285. No shared-profile or old-contact edits. |
 | Prepare outgoing change | Current client row, actor, counter, native reference conditions, current baseline/lineage/witness | Core `prepare_change` result plus counter reservation and exact frozen payload/dependencies. Commit before exposing a sendable result. Existing prepared version is retried, not reallocated. |
 | Receive accepted/rejected response | Current client row, frozen change, current context; `receive_accepted`/`receive_rejection` | Resulting accepted observation and pending/original/retained/witness changes together. A response does not certify completion of an account window. |
 | Store manifest | Existing same-source/mode manifest and current interpretation | Complete immutable manifest, requirements/units, initial progress. Unequal replacement fails. |
@@ -662,6 +712,10 @@ Required verification for the store:
    combinations rather than silently hydrating incomplete native values.
 2. Reopen real temporary databases after local saves/deletions/profile loads and
    frozen preparations. History returns one working QSO, not one per tag/role.
+   For operating-state delivery under D285, verify independent station/equipment
+   detachment: Apply persists edited values with the affected source/baseline
+   cleared, while Cancel retains prior active values and selections. A separate
+   shared-record save survives Cancel without reattaching operating values.
 3. Exercise stale local saves and stale resolution inputs with an intervening
    committed update. Assert unchanged current state and an explicit stale outcome
    without requiring additional generation columns. Exercise missing/deleted

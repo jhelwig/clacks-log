@@ -522,6 +522,9 @@ recorded associations or resolve synchronization conflicts.
 
 ## 11. Profiles, equipment and logbook tags
 
+The [operating-settings specification](operating-settings.md) defines desktop
+interaction and local persistence integration for profiles and equipment.
+
 ### 11.1 Profiles and current defaults
 
 ```text
@@ -564,12 +567,56 @@ Power is separate; there is no dedicated amplifier field.
 
 Current operating defaults are client-local and persistent; saved profiles and
 equipment synchronize. Explicit reload is required after saved-profile changes
-or conflict resolution. Retain last-loaded profile values/revision as the
-comparison baseline for distinguishing local adjustments from newer saved
-profile values. Offline, use the latest profile state available to the client.
+or conflict resolution. While a profile remains selected, retain its last-loaded
+values/revision to detect newer saved-source changes. D285 clears the selection
+and comparison baseline when station values are manually adjusted. Independently
+clear the equipment selection/baseline on manual equipment adjustment. Neither
+detachment clears the other component’s selection; operator/power edits clear
+neither. Detached values retain no source association, comparison, reload action
+or saved-source-change indicator. Explicit selection/loading establishes a new
+association; matching values alone does not. Offline, use the latest saved source
+available to the client.
 This does not require a global history graph. Logging requires neither a saved
 profile nor an operating-session lifecycle. Unfinished manual drafts are not
 restart-persistent records.
+
+Editing the active operating context uses an unapplied form under D280. Apply
+validates and commits the complete client-local context; Cancel leaves active
+values unchanged. Saving a shared profile is a separate action and does not
+implicitly apply or reload operating defaults. Save Profile uses the edited form’s
+station values under D282, without requiring Apply first. Validate the saved
+profile independently; its fields remain the station snapshot and optional
+equipment-configuration reference. Cancelling the operating-context form does
+not roll back a separate completed profile save.
+
+Retain a selected equipment configuration’s identity and last-loaded baseline as
+client-local metadata under D281/D285, including selections via a profile default.
+Compare the latest locally available saved configuration against that baseline to
+detect saved-source changes. Persist the optional selection across restarts while
+it exists; do not retain it across manual equipment adjustments. A profile without
+an equipment default preserves equipment and its optional selection. Apply commits
+values and any selections/baselines together, including clearing detached sources;
+Cancel preserves prior active values and selections. These comparison copies are
+outside synchronized equipment records and QSO snapshots. A separate reusable-record
+save neither selects its result nor activates operating values implicitly.
+
+Apply preserves the displayed values and any still-selected source baselines
+under D283 when a saved source changes while the form is open. Indicate the newer
+saved source without silently replacing form values, advancing their baselines
+or blocking local application solely on source freshness. Retain stale-save
+protection for the active local state and for separate shared-record updates.
+
+Using a different saved equipment configuration from the selected station
+profile’s default is an equipment override (D284), without detaching the station
+profile. An unchanged saved Rig B overriding Home’s default Rig A does not edit
+either saved record. Station detachment removes that operating profile-default
+relationship; it does not change Home’s saved equipment association. Saved-source
+change indicators apply only to selections that remain.
+
+D287 clears the affected selection and baseline on a known source deletion while
+preserving operating values and the other selection. Apply the cleanup to active
+state and open pending operating forms; cancelling a form cannot restore that
+deleted-source association. Unavailable source data alone is not deletion.
 
 Before deleting referenced equipment, show affected profiles and require explicit
 reassignment or removal of the optional reference (D73). Pending profiles that
@@ -674,6 +721,9 @@ contracts across the native library and the indicated adapter boundaries.
 | Default and an equivalent user-defined group | The same declared capabilities produce the same interpretation/mapping behavior. |
 | Catalog/name/location metadata refresh | No recorded association, position or QSO equality change. |
 | Profile load with absent values/equipment default | Replace station snapshot; preserve operator/power and preserve equipment only when no default is selected. |
+| Manual operating station/equipment adjustment | Clear only that component’s saved selection and baseline; matching values do not implicitly reattach it. |
+| Apply/Cancel with pending detachment | Apply commits values and remaining selections together; Cancel preserves prior active values and selections. Separate reusable-record saves survive Cancel. |
+| Selected source deletion | Clear only its selection/baseline in active and pending state, retaining copied values. Cancel does not revive that selection; unavailable data alone does not detach it. |
 | Profile/configuration change after logging | Current defaults change only through the agreed explicit operation; historical copies remain intact. |
 | Tag removal/deletion and service policy combinations | Distinguish untagged from deleted; apply the three deletion choices and Forbid precedence. |
 | Provider fallback with partial recorded location | Use the selected whole source; do not mix directory/catalog geographic fields into it. |

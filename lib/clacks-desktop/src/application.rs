@@ -5,7 +5,7 @@ use crate::{
     instance::{self, Election},
     session::{self, SessionCommand, SessionResources, SessionStatus},
     telemetry,
-    ui::DesktopApp,
+    ui::{DesktopApp, UiResources},
     workspace::WorkspacePaths,
 };
 use std::sync::{Arc, OnceLock};
@@ -52,7 +52,11 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
     tracing::info!(event = "desktop.starting");
 
     let context = Arc::new(OnceLock::new());
+    let (settings_requests, requests) = mpsc::channel(8);
+    let (settings_updates, settings_view) = watch::channel(None);
     let resources = SessionResources {
+        settings_requests: requests,
+        settings_updates,
         paths: paths.clone(),
         listener,
         telemetry,
@@ -77,15 +81,17 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
         options,
         Box::new(move |creation| {
             let _ = context.set(creation.egui_ctx.clone());
-            Ok(Box::new(DesktopApp::new(
+            Ok(Box::new(DesktopApp::new(UiResources {
                 status,
                 activation,
-                ui_commands,
+                commands: ui_commands,
                 paths,
                 diagnostics,
                 loss,
                 file_failure,
-            )))
+                settings_requests,
+                settings_view,
+            })))
         }),
     );
 

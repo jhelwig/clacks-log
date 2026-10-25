@@ -41,6 +41,53 @@ Activation failures return an error after three seconds rather than bypassing
 ownership. Unix sockets live in a checked user-only directory; Windows pipes have
 a protected current-user-only access list. Stale socket cleanup requires the lock.
 
+## Operating settings
+
+After the workspace opens, the active summary shows copied station/equipment
+values and their independent optional source selections. Open **Operating
+settings** to edit one pending context across **Station**, **Equipment** and
+**Operator / power** views. **Apply** saves that context locally; **Cancel
+operating changes** discards it. No unfinished form is persisted.
+
+Loading a profile replaces its station values as a whole. Its associated default
+equipment loads with it; a profile without a default leaves equipment unchanged.
+Operator and power remain independent. Loading a configuration changes equipment
+only. A manual station/equipment edit clears that component's selection; matching
+the old values later does not reattach it. Explicit loading reattaches a source.
+Source changes show an indicator while applied/copied values remain unchanged.
+
+**Station profiles** and **Equipment configurations** open separate reusable
+record lists and editors. Profile editors show their associated equipment
+configuration explicitly and can open equipment management while preserving the
+unfinished profile. Save affects only the displayed reusable record; it never
+selects, loads or applies the saved result. Cancelling an outer editor does not
+undo an inner Save. Saving operating values as a reusable record opens the same
+editor with an explicit new-versus-existing target choice. Names can repeat;
+station context and native IDs distinguish saved records.
+
+Station entry includes callsign, grid area or explicit coordinates, manual
+geographic corrections and account-defined references. Own-station locators
+require 4–12 characters. Transmit power uses watts with up to three decimal
+places. Geographic autofill, QSO entry and the general synchronization/conflict
+review UI remain separate capabilities.
+
+Equipment deletion first reviews every referring profile. Choose a replacement
+or remove its default for each, then confirm the atomic deletion. Changed review
+inputs require another explicit review. Deleting a selected source clears only
+its selection, preserving copied operating values and historical contacts.
+
+Writes run on the application runtime. Failed or stale saves preserve form text;
+competing saved values are shown before an explicit retry. If a profile saves
+with an unavailable default, it stays open with saved-local/missing-reference
+feedback and replacement/None choices. A failed read after a completed write is
+reported separately: the committed result stands and the previous summary is
+marked stale until **Refresh settings** succeeds. Do not repeat the write merely
+to refresh its view. Confirmed deletions remain authoritative while that view is
+stale: deleted sources are excluded from load/target choices, and new operating
+forms start without their selections. A later successful read of a live working
+source can establish its availability again. Graceful shutdown drains admitted
+writes.
+
 ## Configuration
 
 Command-line options override supported environment values, which override file
@@ -179,6 +226,10 @@ Automated lifecycle and delayed-close tests run noninteractively with
 `cargo test -p clacks-desktop --locked`. They do not open native windows or wait
 for operator input. Manual native smoke checks use the production executable.
 
-Record observed results with the change's review evidence. These steps remain
-required before declaring issue #46 delivered; compilation does not establish
-native rendering or input behavior.
+Record observed results with the change's review evidence. Compilation does not establish native rendering or input behavior.
+
+For operating-settings acceptance, use the production executable in a disposable
+workspace. Create profiles/configurations, exercise keyboard entry and selection,
+manual detachment, separate Save/Apply/Cancel boundaries, nested saves, equipment
+deletion review and close/reopen. Automated rendered/session tests are separate
+evidence; they do not establish native Windows focus, graphics or input behavior.

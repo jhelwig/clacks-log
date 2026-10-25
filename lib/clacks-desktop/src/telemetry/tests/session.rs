@@ -27,7 +27,11 @@ pub(super) fn complete(
     let listener = owner.listen(runtime.handle(), notices)?;
     let (commands, input) = mpsc::channel(8);
     let (updates, mut status) = watch::channel(SessionStatus::Opening);
+    let (_settings_requests, requests) = mpsc::channel(8);
+    let (settings_updates, _settings_view) = watch::channel(None);
     let resources = SessionResources {
+        settings_requests: requests,
+        settings_updates,
         paths: paths.clone(),
         listener,
         telemetry,

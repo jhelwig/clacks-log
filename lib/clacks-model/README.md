@@ -13,7 +13,12 @@ not flatten module contents through re-exports.
 
 Normalize optional aggregates with `Qso::normalize_optional_aggregates`, then call
 `Qso::validate` before saving. Incomplete entry and import preparation remain
-outside saved records. Profile loading and equipment selection copy values.
+outside saved records. `profile::SavedLocationProfile` owns a station snapshot
+and an optional equipment configuration ID; `EquipmentConfiguration` owns reusable
+equipment values. `CurrentOperatingValues` owns copied facts plus operator/power.
+Desktop transient forms own loading and independent source selection; the store
+owns their local baselines. None of these reusable values is a live link into
+historical QSOs. See the [operating-settings contract](../../docs/operating-settings.md).
 
 Group definitions are account data, not a hardcoded registry. Test fixtures are
 not production account seeds. `plan_reference_export` returns fields, partitions,
@@ -23,7 +28,7 @@ Outstanding decisions block publication in the eventual export workflow.
 ## Responsibilities
 
 - Scalar validation, typed identities, exact grid-area/point calculations and preserved mode/band identities.
-- Contact records, copied profiles/equipment, local comparison baselines, tag policy and tag-deletion classification.
+- Contact records, copied profiles/equipment, tag policy and tag-deletion classification.
 - Data-driven reference groups/catalogs, eligible-source selection, bounded mapping validation, export-context selection and in-memory reference-output planning.
 
 Recorded facts remain independent of provider and catalog metadata. Mode and
