@@ -175,3 +175,89 @@ async fn equipment_default_is_checked_and_copied_without_a_live_link() -> anyhow
     store.close().await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn saved_contact_keeps_its_station_snapshot_after_profile_edit_and_reopen()
+-> anyhow::Result<()> {
+    let directory = tempfile::tempdir()?;
+    let file = directory.path().join("workspace.sqlite");
+    let store = ClientStore::create(&file, id(1), StoreSettings::default()).await?;
+    let profile = SavedLocationProfile {
+        id: id(30),
+        name: "Field station".into(),
+        station: StationSnapshot {
+            callsign: RecordedCallsign::new("W7HEX/P")?,
+            location: Some(RecordedLocation {
+                primary_subdivision: Some("WA".into()),
+                ..Default::default()
+            }),
+            references: [clacks_model::reference::ReferenceAssociation {
+                group_id: id(40),
+                identifier: Some("US-1234".into()),
+            }]
+            .into(),
+        },
+        default_equipment: None,
+    };
+    let value = RecordValue::Profile(Box::new(profile.clone()));
+    let key = support::key(&value);
+    let SaveOutcome::Saved(saved_profile) =
+        save::save(&store, key, None, RecordState::Live(value)).await?
+    else {
+        panic!("profile save expected");
+    };
+    let empty = operating::load(&store).await?;
+    let OperatingSaveOutcome::Saved(loaded) =
+        operating::load_profile(&store, &empty, &saved_profile, None).await?
+    else {
+        panic!("profile load expected");
+    };
+    let mut contact = support::qso(id(10));
+    contact.own_station = loaded.current.as_ref().unwrap().station.clone();
+    let contact_key = support::qso_key(contact.id);
+    let SaveOutcome::Saved(saved_contact) =
+        save::save(&store, contact_key, None, support::contact(contact)).await?
+    else {
+        panic!("contact save expected");
+    };
+
+    let mut changed = profile;
+    changed.station.callsign = RecordedCallsign::new("W7HEX/M")?;
+    changed.station.location = None;
+    changed.station.references.clear();
+    let SaveOutcome::Saved(updated_profile) = save::save(
+        &store,
+        key,
+        Some(&saved_profile),
+        RecordState::Live(RecordValue::Profile(Box::new(changed))),
+    )
+    .await?
+    else {
+        panic!("profile update expected");
+    };
+    let OperatingSaveOutcome::Saved(reloaded) =
+        operating::load_profile(&store, &loaded, &updated_profile, None).await?
+    else {
+        panic!("updated profile load expected");
+    };
+    assert_eq!(
+        reloaded.current.as_ref().unwrap().station.callsign.as_str(),
+        "W7HEX/M"
+    );
+    assert!(
+        reloaded
+            .current
+            .as_ref()
+            .unwrap()
+            .station
+            .location
+            .is_none()
+    );
+    store.close().await?;
+
+    let store = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
+    assert_eq!(save::load(&store, contact_key).await?, Some(saved_contact));
+    assert_eq!(operating::load(&store).await?, reloaded);
+    store.close().await?;
+    Ok(())
+}

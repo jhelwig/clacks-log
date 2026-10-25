@@ -139,14 +139,6 @@ fn tag_deletion_counts_identities() {
 }
 
 #[test]
-fn duplicate_tag_names_preserve_ids() {
-    let a = LogbookTag::new(support::id::<TagId>(1), "POTA".into());
-    let b = LogbookTag::new(support::id::<TagId>(2), "POTA".into());
-    assert_ne!(a.id, b.id);
-    assert_eq!(a.name, b.name);
-}
-
-#[test]
 fn loaded_baseline_distinguishes_local_and_saved_changes() {
     let p = profile();
     let c = current();

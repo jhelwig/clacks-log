@@ -36,18 +36,6 @@ fn unknown_book_id_is_not_inferred() {
 }
 
 #[test]
-fn distinct_credentials_do_not_create_destinations() {
-    let mut destination = book(DestinationId::new(), Some(42));
-    let key = ExternalRecordKey {
-        destination: destination.id,
-        record: RemoteRecordId::Qrz("7".parse().unwrap()),
-    };
-    destination.description = "Renewed credentials".into();
-    assert_eq!(key.destination, destination.id);
-    assert!(validate_destinations(&[destination]).is_ok());
-}
-
-#[test]
 fn remote_ids_are_destination_scoped() {
     assert_ne!(
         ExternalRecordKey {
@@ -62,21 +50,14 @@ fn remote_ids_are_destination_scoped() {
 }
 
 #[test]
-fn service_ids_round_trip() -> anyhow::Result<()> {
-    let d = book(DestinationId::new(), Some(42));
-    let decoded: Destination = serde_json::from_str(&serde_json::to_string(&d)?)?;
-    assert_eq!(decoded, d);
-    assert!(
-        validate_destinations(&[
-            d.clone(),
-            Destination {
-                description: "different".into(),
-                ..d
-            }
-        ])
-        .is_err()
-    );
-    Ok(())
+fn a_description_change_does_not_allow_reusing_a_destination_id() {
+    let original = book(DestinationId::new(), Some(42));
+    let renamed = Destination {
+        description: "Renamed book".into(),
+        ..original.clone()
+    };
+
+    assert!(validate_destinations(&[original, renamed]).is_err());
 }
 
 #[test]

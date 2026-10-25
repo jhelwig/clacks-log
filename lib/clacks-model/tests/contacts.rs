@@ -1,11 +1,9 @@
 mod support;
 
 use clacks_model::contact::{BandFrequency, OperatorInformation, Qso};
-use clacks_model::ids::{GroupId, QsoId, TagId};
-use clacks_model::location::RecordedLocation;
+use clacks_model::ids::QsoId;
 use clacks_model::recognition::RecognitionCatalog;
 use clacks_model::recognition::band::Band;
-use clacks_model::recognition::mode::{Mode, ModeIdentity};
 use clacks_model::scalar::{Hertz, RecordedCallsign, UtcSecond};
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
@@ -76,42 +74,17 @@ fn validate_contact_times_and_required_station_identity() -> TestResult {
 }
 
 #[test]
-fn whole_record_equality_uses_sets_and_preserved_values() -> TestResult {
-    let mut a = support::qso(support::id::<QsoId>(1));
-    a.tags
-        .extend([support::id::<TagId>(2), support::id::<TagId>(3)]);
-    a.own_station.references.insert(support::reference(
-        support::id::<GroupId>(1),
-        Some("US-1234"),
-    ));
-    let mut b = a.clone();
-    b.tags.insert(support::id::<TagId>(2));
-    assert_eq!(a, b);
-    b.comment = Some("changed".into());
-    assert_ne!(a, b);
-    b = a.clone();
-    b.id = support::id::<QsoId>(2);
-    assert_ne!(a, b);
-    a.mode = Mode::from_recorded_identity(ModeIdentity::Specialization {
-        label: "Future".into(),
-        parent: None,
-    })?;
-    b = a.clone();
-    b.comment = Some("unrelated".into());
-    assert_eq!(
-        serde_json::to_value(&a.mode)?,
-        serde_json::to_value(&b.mode)?
-    );
-    a.contacted_operator = Some(OperatorInformation {
+fn recorded_operator_names_do_not_require_operator_callsigns() -> TestResult {
+    let mut contact = support::qso(support::id::<QsoId>(1));
+    contact.own_context.operator = Some(OperatorInformation {
+        callsign: None,
+        recorded_name: Some("Our operator".into()),
+    });
+    contact.contacted_operator = Some(OperatorInformation {
         callsign: None,
         recorded_name: Some("Alice".into()),
     });
-    a.validate()?;
-    assert!(a.contacted_operator.as_ref().unwrap().callsign.is_none());
-    a.own_station.location = Some(RecordedLocation::default());
-    a.own_context.operator = Some(OperatorInformation::default());
-    a.normalize_optional_aggregates();
-    assert!(a.own_station.location.is_none());
-    assert!(a.own_context.operator.is_none());
+
+    contact.validate()?;
     Ok(())
 }

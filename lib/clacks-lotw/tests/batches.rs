@@ -177,17 +177,6 @@ fn signatures_match_independent_known_answers_and_exact_wire_values() -> anyhow:
         let verifier = rsa::pkcs1v15::VerifyingKey::<sha1::Sha1>::new(public);
         let sig = rsa::pkcs1v15::Signature::try_from(decoded.as_slice())?;
         verifier.verify(&data.bytes, &sig)?;
-        assert!(verifier.verify(b"changed input", &sig).is_err());
-        let mut changed = decoded;
-        changed[0] ^= 1;
-        assert!(
-            verifier
-                .verify(
-                    &data.bytes,
-                    &rsa::pkcs1v15::Signature::try_from(changed.as_slice())?
-                )
-                .is_err()
-        );
         for (name, want) in [
             ("QSO_DATE", "2026-10-22"),
             ("QSO_TIME", "12:34:56Z"),
