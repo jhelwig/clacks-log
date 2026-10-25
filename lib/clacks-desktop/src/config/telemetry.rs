@@ -1,10 +1,13 @@
-//! Resolve optional OTLP controls without exposing endpoints or headers in errors.
+//! OpenTelemetry setting conventions layered by config, then validated for export.
 
 use super::{
-    Cli, Environment,
+    Cli,
     file::{SignalFile, TelemetryFile},
+    sources,
 };
+use ::config::{Config, Environment};
 use http::{HeaderName, HeaderValue};
+use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, time::Duration};
 
 /// Export opt-in and independently resolved signal destinations.
@@ -31,62 +34,218 @@ pub(crate) struct SignalConfig {
     pub timeout: Duration,
 }
 
-/// Read an OpenTelemetry setting, treating empty values as unset per its contract.
-fn setting(environment: &Environment, name: &str) -> anyhow::Result<Option<String>> {
-    Ok(environment.value(name)?.filter(|value| !value.is_empty()))
+/// Endpoint interpretation supplied by the selected configuration source.
+#[derive(Serialize, Deserialize)]
+struct EndpointInput {
+    /// Supplied URL before validation.
+    value: String,
+    /// Whether the standard per-signal path must be appended.
+    base: bool,
 }
 
-/// Parse a supported textual Boolean without echoing its input.
-fn boolean(value: &str) -> anyhow::Result<bool> {
-    if value.eq_ignore_ascii_case("true") {
-        Ok(true)
-    } else if value.eq_ignore_ascii_case("false") {
-        Ok(false)
-    } else {
-        anyhow::bail!("invalid telemetry Boolean setting")
+/// One source's signal settings; absent fields do not override lower-priority sources.
+#[derive(Default, Serialize)]
+struct SignalLayer {
+    /// Supplied endpoint and its generic-versus-complete meaning.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    endpoint: Option<EndpointInput>,
+    /// Request headers combined by key through ordinary config layering.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    headers: Option<BTreeMap<String, String>>,
+    /// External timeout text, parsed after higher-priority overrides are applied.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    timeout_ms: Option<String>,
+    /// External transport selection.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    protocol: Option<String>,
+}
+
+/// Selected signal settings, before URL/header and duration validation.
+#[derive(Deserialize)]
+#[serde(default)]
+struct SignalSettings {
+    /// Selected endpoint with its interpretation intact.
+    endpoint: EndpointInput,
+    /// Combined request headers.
+    headers: BTreeMap<String, String>,
+    /// Positive request deadline in milliseconds.
+    timeout_ms: u64,
+    /// Supported wire protocol name.
+    protocol: String,
+}
+
+impl Default for SignalSettings {
+    fn default() -> Self {
+        Self {
+            endpoint: EndpointInput {
+                value: "http://localhost:4318".into(),
+                base: true,
+            },
+            headers: BTreeMap::new(),
+            timeout_ms: 5000,
+            protocol: "http/protobuf".into(),
+        }
     }
 }
 
-/// Resolve application opt-in before constructing any destination adapters.
+/// Export permission before applying the SDK-disable policy.
+#[derive(Default, Deserialize)]
+#[serde(default)]
+struct ExportPolicy {
+    /// Explicit application opt-in.
+    enabled: bool,
+    /// Standard SDK veto, overridden by an explicit CLI choice.
+    disabled: bool,
+}
+
+/// Resolve application policy and each signal with standard configuration layers.
 pub(super) fn resolve(
     cli: &Cli,
     environment: &Environment,
     file: &TelemetryFile,
 ) -> anyhow::Result<TelemetryConfig> {
-    let enabled = if let Some(value) = cli.otlp {
-        value
-    } else {
-        let disabled = setting(environment, "OTEL_SDK_DISABLED")?
-            .map(|value| boolean(&value))
-            .transpose()?;
-        !disabled.unwrap_or(false) && file.enabled.unwrap_or(false)
-    };
+    let otel = sources::environment(environment, "OTEL")?;
+
+    let policy = Config::builder()
+        .set_override_option("enabled", file.enabled)?
+        .add_source(
+            Config::builder()
+                .set_override_option("disabled", sources::optional(&otel, "sdk_disabled")?)?
+                .build()?,
+        )
+        .set_override_option("enabled", cli.otlp)?
+        .set_override_option("disabled", cli.otlp.map(|_| false))?
+        .build()
+        .and_then(Config::try_deserialize::<ExportPolicy>)
+        .map_err(|error| sources::invalid("telemetry", error))?;
+
+    let external = sources::environment(environment, "OTEL_EXPORTER_OTLP")?;
     Ok(TelemetryConfig {
-        enabled,
+        enabled: policy.enabled && !policy.disabled,
         traces: signal(
             "traces",
             cli.otlp_traces_endpoint.as_deref(),
             cli,
-            environment,
             file,
             &file.traces,
+            &external,
         )?,
         metrics: signal(
             "metrics",
             cli.otlp_metrics_endpoint.as_deref(),
             cli,
-            environment,
             file,
             &file.metrics,
+            &external,
         )?,
         logs: signal(
             "logs",
             cli.otlp_logs_endpoint.as_deref(),
             cli,
-            environment,
             file,
             &file.logs,
+            &external,
         )?,
+    })
+}
+
+/// Adapt the standard environment names and encoded header syntax into one source.
+fn environment_layer(source: &Config, prefix: &str, base: bool) -> anyhow::Result<SignalLayer> {
+    Ok(SignalLayer {
+        endpoint: sources::optional(source, &format!("{prefix}endpoint"))?
+            .map(|value| EndpointInput { value, base }),
+        headers: sources::optional(source, &format!("{prefix}headers"))?
+            .map(environment_headers)
+            .transpose()?,
+        timeout_ms: sources::optional(source, &format!("{prefix}timeout"))?,
+        protocol: sources::optional(source, &format!("{prefix}protocol"))?,
+    })
+}
+
+/// Layer generic and specific settings inside each source tier, with CLI overrides last.
+fn signal(
+    name: &str,
+    cli_endpoint: Option<&str>,
+    cli: &Cli,
+    file: &TelemetryFile,
+    specific: &SignalFile,
+    external: &Config,
+) -> anyhow::Result<SignalConfig> {
+    let generic_file = SignalLayer {
+        endpoint: file
+            .endpoint
+            .clone()
+            .map(|value| EndpointInput { value, base: true }),
+        headers: file.headers.clone().map(headers).transpose()?,
+        timeout_ms: file.timeout_ms.map(|value| value.to_string()),
+        protocol: None,
+    };
+
+    let specific_file = SignalLayer {
+        endpoint: specific
+            .endpoint
+            .clone()
+            .map(|value| EndpointInput { value, base: false }),
+        headers: specific.headers.clone().map(headers).transpose()?,
+        timeout_ms: specific.timeout_ms.map(|value| value.to_string()),
+        protocol: None,
+    };
+
+    let generic_environment = environment_layer(external, "", true)?;
+
+    let specific_environment = environment_layer(external, &format!("{name}_"), false)?;
+
+    let generic_cli = SignalLayer {
+        endpoint: cli
+            .otlp_endpoint
+            .clone()
+            .map(|value| EndpointInput { value, base: true }),
+        timeout_ms: cli.otlp_timeout_ms.map(|value| value.to_string()),
+        ..Default::default()
+    };
+
+    let specific_cli = SignalLayer {
+        endpoint: cli_endpoint.map(|value| EndpointInput {
+            value: value.into(),
+            base: false,
+        }),
+        ..Default::default()
+    };
+
+    let mut builder = Config::builder();
+    for layer in [
+        generic_file,
+        specific_file,
+        generic_environment,
+        specific_environment,
+        generic_cli,
+        specific_cli,
+    ] {
+        builder = builder.add_source(
+            Config::try_from(&layer).map_err(|error| sources::invalid("telemetry", error))?,
+        );
+    }
+
+    let settings = builder
+        .build()
+        .and_then(Config::try_deserialize::<SignalSettings>)
+        .map_err(|error| sources::invalid("telemetry", error))?;
+
+    anyhow::ensure!(
+        settings.protocol == "http/protobuf",
+        "unsupported telemetry transport; use http/protobuf"
+    );
+    anyhow::ensure!(
+        settings.timeout_ms > 0,
+        "telemetry timeout must be positive"
+    );
+    Ok(SignalConfig {
+        endpoint: endpoint(
+            &settings.endpoint.value,
+            settings.endpoint.base.then_some(name),
+        )?,
+        headers: headers(settings.headers)?,
+        timeout: Duration::from_millis(settings.timeout_ms),
     })
 }
 
@@ -94,6 +253,7 @@ pub(super) fn resolve(
 fn endpoint(value: &str, append_signal: Option<&str>) -> anyhow::Result<String> {
     let mut url =
         url::Url::parse(value).map_err(|_| anyhow::anyhow!("invalid telemetry endpoint URL"))?;
+
     anyhow::ensure!(
         matches!(url.scheme(), "http" | "https") && url.host().is_some(),
         "telemetry endpoints require HTTP or HTTPS"
@@ -106,10 +266,11 @@ fn endpoint(value: &str, append_signal: Option<&str>) -> anyhow::Result<String> 
         let path = format!("{}/v1/{signal}", url.path().trim_end_matches('/'));
         url.set_path(&path);
     }
+
     Ok(url.into())
 }
 
-/// Validate header entries without retaining parser errors containing values.
+/// Validate and canonicalize request header names without exposing their values.
 fn headers(values: BTreeMap<String, String>) -> anyhow::Result<BTreeMap<String, String>> {
     let mut result = BTreeMap::new();
     for (name, value) in values {
@@ -119,10 +280,11 @@ fn headers(values: BTreeMap<String, String>) -> anyhow::Result<BTreeMap<String, 
             .map_err(|_| anyhow::anyhow!("invalid telemetry header value"))?;
         result.insert(name.as_str().into(), value);
     }
+
     Ok(result)
 }
 
-/// Decode the standard comma-separated OpenTelemetry header setting.
+/// Decode the standard comma-separated, percent-encoded external header list.
 fn environment_headers(value: String) -> anyhow::Result<BTreeMap<String, String>> {
     let mut result = BTreeMap::new();
     for entry in value.split(',') {
@@ -136,84 +298,4 @@ fn environment_headers(value: String) -> anyhow::Result<BTreeMap<String, String>
         result.insert(name.trim().into(), value.into_owned());
     }
     headers(result)
-}
-
-/// Select one signal's destination with tier priority ahead of signal specificity.
-fn signal(
-    name: &str,
-    cli_endpoint: Option<&str>,
-    cli: &Cli,
-    environment: &Environment,
-    file: &TelemetryFile,
-    specific: &SignalFile,
-) -> anyhow::Result<SignalConfig> {
-    let prefix = format!("OTEL_EXPORTER_OTLP_{}", name.to_uppercase());
-    let protocol = signal_setting(environment, &prefix, "PROTOCOL")?;
-    anyhow::ensure!(
-        protocol
-            .as_deref()
-            .is_none_or(|value| value == "http/protobuf"),
-        "unsupported telemetry transport; use http/protobuf"
-    );
-    let endpoint = if let Some(value) = cli_endpoint {
-        endpoint(value, None)?
-    } else if let Some(value) = &cli.otlp_endpoint {
-        endpoint(value, Some(name))?
-    } else if let Some(value) = setting(environment, &format!("{prefix}_ENDPOINT"))? {
-        endpoint(&value, None)?
-    } else if let Some(value) = setting(environment, "OTEL_EXPORTER_OTLP_ENDPOINT")? {
-        endpoint(&value, Some(name))?
-    } else if let Some(value) = &specific.endpoint {
-        endpoint(value, None)?
-    } else {
-        endpoint(
-            file.endpoint.as_deref().unwrap_or("http://localhost:4318"),
-            Some(name),
-        )?
-    };
-    let env_headers = signal_setting(environment, &prefix, "HEADERS")?;
-    let headers = if let Some(value) = env_headers {
-        environment_headers(value)?
-    } else {
-        headers(
-            specific
-                .headers
-                .clone()
-                .or(file.headers.clone())
-                .unwrap_or_default(),
-        )?
-    };
-    let timeout_ms = if let Some(value) = cli.otlp_timeout_ms {
-        value
-    } else {
-        signal_setting(environment, &prefix, "TIMEOUT")?
-            .map(|value| {
-                value
-                    .parse::<u64>()
-                    .map_err(|_| anyhow::anyhow!("invalid telemetry timeout"))
-            })
-            .transpose()?
-            .or(specific.timeout_ms)
-            .or(file.timeout_ms)
-            .unwrap_or(5000)
-    };
-    anyhow::ensure!(timeout_ms > 0, "telemetry timeout must be positive");
-    Ok(SignalConfig {
-        endpoint,
-        headers,
-        timeout: Duration::from_millis(timeout_ms),
-    })
-}
-
-/// Honor per-signal environment values before reading a shadowed generic value.
-fn signal_setting(
-    environment: &Environment,
-    prefix: &str,
-    suffix: &str,
-) -> anyhow::Result<Option<String>> {
-    if let Some(value) = setting(environment, &format!("{prefix}_{suffix}"))? {
-        Ok(Some(value))
-    } else {
-        setting(environment, &format!("OTEL_EXPORTER_OTLP_{suffix}"))
-    }
 }

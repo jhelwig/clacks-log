@@ -49,6 +49,13 @@ tier; a generic CLI endpoint still overrides an environment-specific endpoint.
 Unknown file keys, invalid supplied values and missing explicitly selected files
 are errors. A missing default file is normal.
 
+The `config` crate provides source merging, environment collection and typed
+deserialization. Clacks maps the standard logging/OpenTelemetry names, resolves
+path origins and validates the selected values. Header dictionaries merge by
+header name; higher-priority sources replace matching values. Configuration
+errors identify settings or source categories without echoing values or excerpts.
+Defaults belong to the typed settings through Serde's default handling.
+
 ```toml
 # Optional workspace path, relative to this file.
 workspace = "local-workspace"

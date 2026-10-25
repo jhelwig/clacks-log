@@ -1,6 +1,6 @@
 //! Typed optional startup-file values, before precedence resolution.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::PathBuf};
 
 /// Optional file values; absent entries must not override other configuration tiers.
@@ -10,24 +10,29 @@ pub(super) struct FileConfig {
     /// Selected account workspace directory, relative to this file when not absolute.
     pub workspace: Option<PathBuf>,
     /// Local structured-output preferences.
-    pub logs: LogFile,
+    pub logs: LogOptions,
     /// Explicit export opt-in and destination controls.
     pub telemetry: TelemetryFile,
 }
 
-/// File-supplied log controls.
-#[derive(Default, Deserialize)]
+/// Optional log controls supplied by a configuration source.
+#[derive(Default, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
-pub(super) struct LogFile {
+pub(super) struct LogOptions {
     /// Output directory override.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub directory: Option<PathBuf>,
     /// Tracing filter expression.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub filter: Option<String>,
     /// Whether to also emit console diagnostics.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub console: Option<bool>,
     /// Maximum matching rotated files retained.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub retained_files: Option<usize>,
     /// Bounded off-thread writer capacity in lines.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub buffered_lines: Option<usize>,
 }
 

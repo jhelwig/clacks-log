@@ -7,7 +7,7 @@ mod session;
 
 use super::*;
 use crate::{
-    config::{Cli, Environment},
+    config::{Cli, StartupContext},
     workspace::{AppDirectories, WorkspacePaths},
 };
 use clap::Parser;
@@ -69,9 +69,10 @@ fn child_entry() -> anyhow::Result<()> {
             })
         })
         .transpose()?;
-    let mut env = Environment {
+    let mut values = ::config::Map::new();
+    let mut env = StartupContext {
         cwd: directory.path().into(),
-        values: Default::default(),
+        environment: ::config::Environment::default(),
         directories: AppDirectories {
             config: directory.path().join("config"),
             data: directory.path().join("data"),
@@ -106,7 +107,7 @@ fn child_entry() -> anyhow::Result<()> {
     ];
     if case == "secrets" {
         arguments.extend(["--log-filter".into(), "trace".into()]);
-        env.values.insert(
+        values.insert(
             "OTEL_EXPORTER_OTLP_HEADERS".into(),
             "authorization=Bearer%20SECRET_SENTINEL".into(),
         );
@@ -119,11 +120,12 @@ fn child_entry() -> anyhow::Result<()> {
         )?;
     }
     if case == "headers-env" {
-        env.values.insert(
+        values.insert(
             "OTEL_EXPORTER_OTLP_HEADERS".into(),
             "authorization=Bearer%20abc%252Fdef".into(),
         );
     }
+    env.environment = ::config::Environment::default().source(Some(values));
     let config = crate::config::resolve(Cli::try_parse_from(arguments)?, &env)?;
     let mut paths = WorkspacePaths::resolve(&config)?;
     if case == "unwritable" {

@@ -1,15 +1,15 @@
 //! Native path-policy checks without launching a renderer or opening a store.
 
 use super::*;
-use crate::config::{Cli, Environment};
+use crate::config::{Cli, StartupContext};
 use clap::Parser;
 
 #[test]
 fn workspace_override_creates_only_the_directory() -> anyhow::Result<()> {
     let directory = tempfile::tempdir()?;
-    let environment = Environment {
+    let environment = StartupContext {
         cwd: directory.path().into(),
-        values: Default::default(),
+        environment: ::config::Environment::default().source(Some(Default::default())),
         directories: AppDirectories {
             config: directory.path().join("config"),
             data: directory.path().join("data"),
@@ -57,9 +57,9 @@ fn symlink_workspace_aliases_have_one_canonical_directory() -> anyhow::Result<()
     let target = directory.path().join("target");
     std::fs::create_dir(&target)?;
     std::os::unix::fs::symlink(&target, directory.path().join("alias"))?;
-    let environment = Environment {
+    let environment = StartupContext {
         cwd: directory.path().into(),
-        values: Default::default(),
+        environment: ::config::Environment::default().source(Some(Default::default())),
         directories: AppDirectories {
             config: directory.path().join("config"),
             data: directory.path().join("data"),

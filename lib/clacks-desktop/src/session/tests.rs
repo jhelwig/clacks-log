@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::{
-    config::{self, Cli, Environment},
+    config::{self, Cli, StartupContext},
     instance::{self, Election},
     workspace::AppDirectories,
 };
@@ -23,9 +23,9 @@ impl Fixture {
         let directory = tempfile::tempdir()?;
         let config = config::resolve(
             Cli::try_parse_from(["clacks-log"])?,
-            &Environment {
+            &StartupContext {
                 cwd: directory.path().into(),
-                values: Default::default(),
+                environment: ::config::Environment::default().source(Some(Default::default())),
                 directories: AppDirectories {
                     config: directory.path().join("config"),
                     data: directory.path().join("data"),

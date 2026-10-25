@@ -15,7 +15,7 @@ mod workspace;
 pub fn run() -> anyhow::Result<()> {
     use clap::Parser;
     let arguments = config::Cli::parse();
-    let environment = config::Environment::capture()?;
-    let configuration = config::resolve(arguments, &environment)?;
+    let context = config::StartupContext::discover()?;
+    let configuration = config::resolve(arguments, &context)?;
     application::run(configuration)
 }

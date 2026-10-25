@@ -98,11 +98,10 @@ error. Failed initialization can leave an incomplete file; report it and preserv
 it rather than silently resetting it. A workspace override has the same opening
 and preservation rules as the default.
 
-The store currently requires a caller-supplied expected account for opening.
-Add a production opening path that discovers the stored account within the same
-read-only compatibility preflight, then returns an account-qualified store and
-its non-secret identity. Preserve the expected-account opening path for callers
-that already know the account. Share preflight/migration logic; do not add an
+The store can discover the stored account within its read-only compatibility
+preflight, returning an account-qualified store and its non-secret identity.
+The expected-account opening path remains available for callers that already
+know the account. Both paths share preflight/migration logic; do not add an
 extra discovery connection, duplicate validation, account registry, application
 marker, schema-version copy or desktop SQL. Fixed queries remain checked SQLx
 query files with committed offline metadata.
