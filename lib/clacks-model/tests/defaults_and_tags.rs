@@ -5,10 +5,10 @@ use clacks_model::equipment::EquipmentValues;
 use clacks_model::ids::{EquipmentConfigurationId, GroupId, ProfileId, QsoId, TagId};
 use clacks_model::location::RecordedLocation;
 use clacks_model::profile::{
-    CurrentOperatingValues, EquipmentConfiguration, LoadedProfileBaseline, ProfileDifference,
-    SavedLocationProfile, compare_loaded_profile, load_equipment, load_profile,
+    CurrentOperatingValues, EquipmentConfiguration, SavedLocationProfile, load_equipment,
+    load_profile,
 };
-use clacks_model::scalar::{Milliwatts, RecordedCallsign};
+use clacks_model::scalar::Milliwatts;
 use clacks_model::tag::{
     AutomaticUploadPolicy, LogbookTag, TagDeletionChoice, automatic_upload_allowed,
     plan_tag_deletion,
@@ -136,35 +136,4 @@ fn tag_deletion_counts_identities() {
         assert!(plan.mark_deleted.is_disjoint(&plan.remove_membership));
     }
     assert!(qsos.iter().all(|q| q.tags.contains(&tag)));
-}
-
-#[test]
-fn loaded_baseline_distinguishes_local_and_saved_changes() {
-    let p = profile();
-    let c = current();
-    let baseline = LoadedProfileBaseline {
-        profile: p.clone(),
-        operating_values: c.clone(),
-    };
-    for local in [false, true] {
-        for saved in [false, true] {
-            let mut now = c.clone();
-            let mut latest = p.clone();
-            now.transmit_power = Some(Milliwatts::new(100).unwrap());
-            now.operator = None;
-            if local {
-                now.station.callsign = RecordedCallsign::new("W7HEX/P").unwrap();
-            }
-            if saved {
-                latest.station.callsign = RecordedCallsign::new("W7HEX/7").unwrap();
-            }
-            assert_eq!(
-                compare_loaded_profile(&now, &latest, &baseline),
-                ProfileDifference {
-                    local_station_or_equipment_changed: local,
-                    saved_profile_changed: saved
-                }
-            );
-        }
-    }
 }

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO operating_state (singleton, account, current_values, loaded_profile, profile_record, loaded_equipment, equipment_record)\nVALUES (1, ?, ?, ?, ?, ?, ?)\nON CONFLICT (singleton) DO UPDATE SET current_values = excluded.current_values,\n    loaded_profile = excluded.loaded_profile, profile_record = excluded.profile_record,\n    loaded_equipment = excluded.loaded_equipment, equipment_record = excluded.equipment_record\nWHERE account = excluded.account\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "45d53548cf00a7702cab09d42d8f2a41022826eebb0eac255ea682ec3f33f68a"
+}

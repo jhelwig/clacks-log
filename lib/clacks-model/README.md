@@ -23,7 +23,7 @@ Outstanding decisions block publication in the eventual export workflow.
 ## Responsibilities
 
 - Scalar validation, typed identities, exact grid-area/point calculations and preserved mode/band identities.
-- Contact records, copied profiles/equipment, local comparison baselines, tag policy and tag-deletion classification.
+- Contact records, copied profiles/equipment, tag policy and tag-deletion classification.
 - Data-driven reference groups/catalogs, eligible-source selection, bounded mapping validation, export-context selection and in-memory reference-output planning.
 
 Recorded facts remain independent of provider and catalog metadata. Mode and

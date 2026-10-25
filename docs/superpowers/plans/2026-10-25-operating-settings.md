@@ -116,7 +116,7 @@ pub async fn delete_equipment(store: &ClientStore, expected: &EquipmentDeletionP
 
 **Interfaces:** Produce the `OperatingState`, `OperatingSaveOutcome`, `load` and `save` interfaces above. Keep native `load_profile`/`load_equipment` temporarily until Task 4 ports their useful tests to actual staged workflows and removes those unused wrappers; remove model `LoadedProfileBaseline`, `ProfileDifference`, `compare_loaded_profile` now and update all callers/tests. Remove the store's immediate-writing `operating::load_profile`; staging belongs to the read/form flow, not a second Apply path.
 
-- [ ] **1. Write failing persistence and migration cases.** Add named tests:
+- [x] **1. Write failing persistence and migration cases.** Add named tests:
   - `independent_sources_survive_reopen`: save Home plus selected Rig B, close/reopen; assert both source IDs/baseline values and operator/power exactly match, while Home's default is still Rig A.
   - `apply_detaches_only_the_edited_component`: next station changes and `selected_profile = None`; assert equipment selection survives; repeat for equipment.
   - `old_baseline_migrates_by_station_values`: construct a real version-8 database using the committed first eight migrations and Rust test support. Equal station values in different snapshot rows retain the profile; altered grid/reference/geographic values drop it. Operator/power/equipment-only changes do not drop an unchanged station selection.
@@ -129,15 +129,15 @@ pub async fn delete_equipment(store: &ClientStore, expected: &EquipmentDeletionP
   assert_eq!(reopened.selected_equipment.as_ref().map(|e| e.id), Some(rig_b.id));
   assert_eq!(reopened.current, Some(applied.clone()));
   ```
-- [ ] **2. Verify the new cases fail against the old API/schema.** Run `SQLX_OFFLINE=true cargo test -p clacks-client-store --test operating --locked --offline` and the targeted migration tests. Missing-field/variant compile failures are an expected first red result; do not weaken cases to fit the old API.
-- [ ] **3. Implement the state and forward migration.** Rebuild `operating_state` in 0009 with existing `current_values`, `loaded_profile`/`profile_record`, and new `loaded_equipment`/`equipment_record` columns. Each optional pair is all-null or complete; selections require initialized current values. Use kind-checked, account-qualified foreign keys to the existing immutable `payload` roots. Remove `loaded_values`; retain `profile_kind` and add fixed `equipment_kind` checks.
+- [x] **2. Verify the new cases fail against the old API/schema.** Run `SQLX_OFFLINE=true cargo test -p clacks-client-store --test operating --locked --offline` and the targeted migration tests. Missing-field/variant compile failures are an expected first red result; do not weaken cases to fit the old API.
+- [x] **3. Implement the state and forward migration.** Rebuild `operating_state` in 0009 with existing `current_values`, `loaded_profile`/`profile_record`, and new `loaded_equipment`/`equipment_record` columns. Each optional pair is all-null or complete; selections require initialized current values. Use kind-checked, account-qualified foreign keys to the existing immutable `payload` roots. Remove `loaded_values`; retain `profile_kind` and add fixed `equipment_kind` checks.
   - Migration compares current station to the old `loaded_values` station semantically: callsign, location presence and every location column using null-safe equality, and both directions of reference-set difference using `EXCEPT`. Do not compare station row IDs. Exclude known working tombstones from retained profile selection. Start equipment selection null; never reload current records.
   - SQLx alone owns migration/history atomicity; no post-startup migration marker or Rust side migration. Preserve current value IDs and all underlying facts.
   - Hydrate independent native baseline copies using existing payload functions. Validate that selections imply current values and match their own copied station/equipment facts; operator/power and equipment override do not invalidate the station selection.
   - Move value hydration to `operating/values.rs`, selection handling to `operating/selections.rs`; keep transactional orchestration in `operating.rs`.
   - Retention protects both baseline payload roots. `operating_garbage.sql` no longer references `loaded_values`; other station/equipment garbage rules still protect live operating/contact/payload owners.
-- [ ] **4. Regenerate SQLx metadata and verify.** Use the query-check procedure below, then `cargo test -p clacks-model --test defaults_and_tags --locked --offline` and the store tests above. Update old tests asserting migration version 8 to the new real version 9, retaining their semantic checks.
-- [ ] **5. Commit the deliverable.** Suggested subject: `Persist independent operating source selections`. Body explains why coupled comparisons no longer fit D285, conservative legacy equipment treatment, and migration/reopen evidence. Stage explicit files only.
+- [x] **4. Regenerate SQLx metadata and verify.** Use the query-check procedure below, then `cargo test -p clacks-model --test defaults_and_tags --locked --offline` and the store tests above. Update old tests asserting migration version 8 to the new real version 9, retaining their semantic checks.
+- [x] **5. Commit the deliverable.** Suggested subject: `Persist independent operating source selections`. Body explains why coupled comparisons no longer fit D285, conservative legacy equipment treatment, and migration/reopen evidence. Stage explicit files only.
 
 ## Task 2: Read settings consistently and apply/save without conflating effects
 

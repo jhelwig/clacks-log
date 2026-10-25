@@ -60,26 +60,6 @@ impl CurrentOperatingValues {
     }
 }
 
-/// Copied profile and local values used to detect changes since an explicit load.
-///
-/// Capture it after loading; it is not a live reference to the saved profile.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LoadedProfileBaseline {
-    /// Saved profile as it existed at load time.
-    pub profile: SavedLocationProfile,
-    /// Local defaults immediately after that load.
-    pub operating_values: CurrentOperatingValues,
-}
-
-/// Independent indications that local station/equipment or the saved profile has changed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ProfileDifference {
-    /// Local station or equipment differs from the loaded defaults.
-    pub local_station_or_equipment_changed: bool,
-    /// The supplied saved profile differs from the loaded profile copy.
-    pub saved_profile_changed: bool,
-}
-
 /// Copy a saved profile into current defaults while preserving operator and transmit power.
 ///
 /// Replace the station snapshot as a whole, clearing absent values. A profile
@@ -133,21 +113,4 @@ pub fn load_equipment(
     let mut loaded = current.clone();
     loaded.equipment = Some(equipment.values.clone());
     loaded
-}
-
-/// Compare local and saved values with the baseline captured at profile load.
-///
-/// Use to indicate modified defaults or an updated saved profile without
-/// automatically reloading either. Operator/power-only edits do not mark the
-/// local station/equipment comparison as changed; supply the same profile identity.
-pub fn compare_loaded_profile(
-    current: &CurrentOperatingValues,
-    latest: &SavedLocationProfile,
-    baseline: &LoadedProfileBaseline,
-) -> ProfileDifference {
-    ProfileDifference {
-        local_station_or_equipment_changed: current.station != baseline.operating_values.station
-            || current.equipment != baseline.operating_values.equipment,
-        saved_profile_changed: latest != &baseline.profile,
-    }
 }

@@ -150,7 +150,8 @@ async fn ready_requires_initial_reads() -> anyhow::Result<()> {
             transmit_power: None,
             equipment: None,
         }),
-        loaded: None,
+        selected_profile: None,
+        selected_equipment: None,
     };
 
     assert!(matches!(

@@ -1,13 +1,15 @@
-//! Relational operating rows and field groups shared within the client store.
+//! Relational references for copied operating facts and independent selected sources.
 
-/// Stored references for current defaults and an optional complete loaded baseline.
+/// Account-qualified current facts and optional immutable source payload roots.
 pub(crate) struct OperatingStateRow {
     /// Current owned operating snapshot.
     pub(crate) current_values: Option<i64>,
-    /// Copied loaded profile payload.
+    /// Exact saved profile loaded into the station fields.
     pub(crate) loaded_profile: Option<i64>,
-    /// Native ID of the copied profile.
+    /// Identity belonging to the profile baseline.
     pub(crate) profile_record: Option<String>,
-    /// Operating snapshot captured when the profile was loaded.
-    pub(crate) loaded_values: Option<i64>,
+    /// Exact saved configuration loaded into equipment fields.
+    pub(crate) loaded_equipment: Option<i64>,
+    /// Identity belonging to the equipment baseline.
+    pub(crate) equipment_record: Option<String>,
 }

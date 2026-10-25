@@ -1,111 +1,94 @@
 mod support;
+
 use clacks_client_store::{
     operating::{self, OperatingSaveOutcome, OperatingState},
+    retention,
     save::{self, SaveOutcome},
     store::{ClientStore, StoreSettings},
 };
 use clacks_model::{
     contact::{OperatorInformation, StationSnapshot},
     equipment::EquipmentValues,
-    location::RecordedLocation,
-    profile::{CurrentOperatingValues, SavedLocationProfile},
+    profile::{CurrentOperatingValues, EquipmentConfiguration, SavedLocationProfile},
     scalar::{Milliwatts, RecordedCallsign},
 };
 use clacks_sync::record::{RecordState, RecordValue};
 use support::id;
 
+fn selected_state() -> anyhow::Result<OperatingState> {
+    let profile = SavedLocationProfile {
+        id: id(30),
+        name: "Home".into(),
+        station: StationSnapshot {
+            callsign: RecordedCallsign::new("W7HEX")?,
+            location: None,
+            references: Default::default(),
+        },
+        default_equipment: Some(id(31)),
+    };
+    let equipment = EquipmentConfiguration {
+        id: id(32),
+        name: "Rig B".into(),
+        values: EquipmentValues {
+            equipment_description: Some("KX3".into()),
+            antenna_description: Some("Vertical".into()),
+            notes: None,
+        },
+    };
+    Ok(OperatingState {
+        current: Some(CurrentOperatingValues {
+            station: profile.station.clone(),
+            operator: Some(OperatorInformation {
+                callsign: Some(RecordedCallsign::new("W7ABC")?),
+                recorded_name: Some("Recorded operator".into()),
+            }),
+            transmit_power: Some(Milliwatts::new(5000)?),
+            equipment: Some(equipment.values.clone()),
+        }),
+        selected_profile: Some(profile),
+        selected_equipment: Some(equipment),
+    })
+}
+
 #[tokio::test]
-async fn profile_load_replaces_station_and_preserves_current_context_and_copies()
--> anyhow::Result<()> {
+async fn independent_sources_survive_reopen() -> anyhow::Result<()> {
     let dir = tempfile::tempdir()?;
     let file = dir.path().join("workspace.sqlite");
     let store = ClientStore::create(&file, id(1), StoreSettings::default()).await?;
+    let state = selected_state()?;
     let empty = operating::load(&store).await?;
-    assert_eq!(
-        empty,
-        OperatingState {
-            current: None,
-            loaded: None
-        }
-    );
-    let current = CurrentOperatingValues {
-        station: StationSnapshot {
-            callsign: RecordedCallsign::new("W7HEX")?,
-            location: Some(RecordedLocation {
-                dxcc: Some("291".into()),
-                ..Default::default()
-            }),
-            references: Default::default(),
-        },
-        operator: Some(OperatorInformation {
-            callsign: None,
-            recorded_name: Some("Recorded operator".into()),
-        }),
-        transmit_power: Some(Milliwatts::new(5000)?),
-        equipment: Some(EquipmentValues {
-            equipment_description: Some("Current rig".into()),
-            ..Default::default()
-        }),
-    };
-    let state = OperatingState {
-        current: Some(current.clone()),
-        loaded: None,
-    };
+    assert_eq!(empty, OperatingState::default());
     assert!(matches!(
         operating::save(&store, &empty, &state).await?,
         OperatingSaveOutcome::Saved(_)
     ));
+    assert!(matches!(
+        operating::save(&store, &state, &state).await?,
+        OperatingSaveOutcome::Unchanged(_)
+    ));
+    store.close().await?;
+
+    let reopened = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
+    let loaded = operating::load(&reopened).await?;
+    assert_eq!(loaded.selected_profile.as_ref().map(|p| p.id), Some(id(30)));
     assert_eq!(
-        operating::save(&store, &empty, &empty).await?,
-        OperatingSaveOutcome::Stale(state.clone())
+        loaded.selected_equipment.as_ref().map(|e| e.id),
+        Some(id(32))
     );
-    let profile = SavedLocationProfile {
-        id: id(30),
-        name: "Operating location".into(),
-        station: StationSnapshot {
-            callsign: RecordedCallsign::new("W7HEX/P")?,
-            location: None,
-            references: Default::default(),
-        },
-        default_equipment: None,
-    };
-    let value = RecordValue::Profile(Box::new(profile.clone()));
-    let key = support::key(&value);
-    let SaveOutcome::Saved(saved) = save::save(&store, key, None, RecordState::Live(value)).await?
-    else {
-        panic!("profile save expected")
-    };
-    let OperatingSaveOutcome::Saved(loaded) =
-        operating::load_profile(&store, &state, &saved, None).await?
-    else {
-        panic!("profile load expected")
-    };
-    let loaded_current = loaded.current.as_ref().unwrap();
-    assert_eq!(loaded_current.station, profile.station);
-    assert_eq!(loaded_current.equipment, current.equipment);
-    assert_eq!(loaded_current.operator, current.operator);
-    assert_eq!(loaded_current.transmit_power, current.transmit_power);
-    assert_eq!(loaded.loaded.as_ref().unwrap().profile, profile);
-    let mut updated = profile;
-    updated.station.callsign = RecordedCallsign::new("W7HEX/M")?;
-    save::save(
-        &store,
-        key,
-        Some(&saved),
-        RecordState::Live(RecordValue::Profile(Box::new(updated))),
-    )
-    .await?;
-    assert_eq!(operating::load(&store).await?, loaded);
-    store.close().await?;
-    let store = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
-    assert_eq!(operating::load(&store).await?, loaded);
-    store.close().await?;
+    assert_eq!(
+        loaded
+            .selected_profile
+            .as_ref()
+            .and_then(|p| p.default_equipment),
+        Some(id(31))
+    );
+    assert_eq!(loaded.current, state.current);
+    reopened.close().await?;
     Ok(())
 }
 
 #[tokio::test]
-async fn equipment_default_is_checked_and_copied_without_a_live_link() -> anyhow::Result<()> {
-    use clacks_model::profile::EquipmentConfiguration;
+async fn apply_detaches_only_the_edited_component() -> anyhow::Result<()> {
     let dir = tempfile::tempdir()?;
     let store = ClientStore::create(
         &dir.path().join("workspace.sqlite"),
@@ -113,151 +96,67 @@ async fn equipment_default_is_checked_and_copied_without_a_live_link() -> anyhow
         StoreSettings::default(),
     )
     .await?;
-    let equipment = EquipmentConfiguration {
-        id: id(50),
-        name: "Selected".into(),
-        values: EquipmentValues {
-            equipment_description: Some("Selected rig".into()),
-            ..Default::default()
-        },
-    };
-    let value = RecordValue::Equipment(Box::new(equipment.clone()));
-    let key = support::key(&value);
-    let SaveOutcome::Saved(saved_equipment) =
-        save::save(&store, key, None, RecordState::Live(value)).await?
-    else {
-        panic!("equipment save expected")
-    };
-    let profile = SavedLocationProfile {
-        id: id(51),
-        name: "Base".into(),
-        station: StationSnapshot {
-            callsign: RecordedCallsign::new("W7HEX")?,
-            location: None,
-            references: Default::default(),
-        },
-        default_equipment: Some(equipment.id),
-    };
-    let value = RecordValue::Profile(Box::new(profile));
-    let key = support::key(&value);
-    let SaveOutcome::Saved(profile) =
-        save::save(&store, key, None, RecordState::Live(value)).await?
-    else {
-        panic!("profile save expected")
-    };
-    let empty = operating::load(&store).await?;
-    assert!(
-        operating::load_profile(&store, &empty, &profile, None)
-            .await
-            .is_err()
-    );
-    let OperatingSaveOutcome::Saved(loaded) =
-        operating::load_profile(&store, &empty, &profile, Some(&saved_equipment)).await?
-    else {
-        panic!("load expected")
-    };
+    let state = selected_state()?;
+    operating::save(&store, &OperatingState::default(), &state).await?;
+    let mut station_edit = state.clone();
+    station_edit.current.as_mut().unwrap().station.callsign = RecordedCallsign::new("W7HEX/P")?;
+    station_edit.selected_profile = None;
+    operating::save(&store, &state, &station_edit).await?;
+    let saved = operating::load(&store).await?;
+    assert_eq!(saved.selected_profile, None);
     assert_eq!(
-        loaded.current.as_ref().unwrap().equipment,
-        Some(equipment.values)
+        saved.selected_equipment.as_ref().map(|e| e.id),
+        Some(id(32))
     );
-    save::save(
-        &store,
-        saved_equipment.key,
-        Some(&saved_equipment),
-        RecordState::Deleted,
-    )
-    .await?;
-    assert_eq!(operating::load(&store).await?, loaded);
+
     assert_eq!(
-        operating::load_profile(&store, &loaded, &profile, Some(&saved_equipment)).await?,
-        OperatingSaveOutcome::Stale(loaded)
+        operating::save(&store, &state, &state).await?,
+        OperatingSaveOutcome::Stale(saved.clone())
     );
+    let mut equipment_edit = saved.clone();
+    equipment_edit
+        .current
+        .as_mut()
+        .unwrap()
+        .equipment
+        .as_mut()
+        .unwrap()
+        .antenna_description = Some("Loop".into());
+    equipment_edit.selected_equipment = None;
+    operating::save(&store, &saved, &equipment_edit).await?;
+    assert_eq!(operating::load(&store).await?, equipment_edit);
     store.close().await?;
     Ok(())
 }
 
 #[tokio::test]
-async fn saved_contact_keeps_its_station_snapshot_after_profile_edit_and_reopen()
--> anyhow::Result<()> {
-    let directory = tempfile::tempdir()?;
-    let file = directory.path().join("workspace.sqlite");
+async fn selection_roots_survive_collection() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let file = dir.path().join("workspace.sqlite");
     let store = ClientStore::create(&file, id(1), StoreSettings::default()).await?;
-    let profile = SavedLocationProfile {
-        id: id(30),
-        name: "Field station".into(),
-        station: StationSnapshot {
-            callsign: RecordedCallsign::new("W7HEX/P")?,
-            location: Some(RecordedLocation {
-                primary_subdivision: Some("WA".into()),
-                ..Default::default()
-            }),
-            references: [clacks_model::reference::ReferenceAssociation {
-                group_id: id(40),
-                identifier: Some("US-1234".into()),
-            }]
-            .into(),
-        },
-        default_equipment: None,
-    };
-    let value = RecordValue::Profile(Box::new(profile.clone()));
+    let state = selected_state()?;
+    operating::save(&store, &OperatingState::default(), &state).await?;
+    let qso = support::qso(id(100));
+    let value = RecordValue::Qso(Box::new(qso.clone()));
     let key = support::key(&value);
-    let SaveOutcome::Saved(saved_profile) =
-        save::save(&store, key, None, RecordState::Live(value)).await?
-    else {
-        panic!("profile save expected");
-    };
-    let empty = operating::load(&store).await?;
-    let OperatingSaveOutcome::Saved(loaded) =
-        operating::load_profile(&store, &empty, &saved_profile, None).await?
-    else {
-        panic!("profile load expected");
-    };
-    let mut contact = support::qso(id(10));
-    contact.own_station = loaded.current.as_ref().unwrap().station.clone();
-    let contact_key = support::qso_key(contact.id);
-    let SaveOutcome::Saved(saved_contact) =
-        save::save(&store, contact_key, None, support::contact(contact)).await?
-    else {
-        panic!("contact save expected");
-    };
-
-    let mut changed = profile;
-    changed.station.callsign = RecordedCallsign::new("W7HEX/M")?;
-    changed.station.location = None;
-    changed.station.references.clear();
-    let SaveOutcome::Saved(updated_profile) = save::save(
-        &store,
-        key,
-        Some(&saved_profile),
-        RecordState::Live(RecordValue::Profile(Box::new(changed))),
-    )
-    .await?
-    else {
-        panic!("profile update expected");
-    };
-    let OperatingSaveOutcome::Saved(reloaded) =
-        operating::load_profile(&store, &loaded, &updated_profile, None).await?
-    else {
-        panic!("updated profile load expected");
-    };
+    assert!(matches!(
+        save::save(&store, key, None, RecordState::Live(value)).await?,
+        SaveOutcome::Saved(_)
+    ));
+    retention::collect_unreferenced(&store).await?;
+    assert_eq!(operating::load(&store).await?, state);
+    let mut detached = state.clone();
+    detached.selected_equipment = None;
+    operating::save(&store, &state, &detached).await?;
+    retention::collect_unreferenced(&store).await?;
+    let row = save::load(&store, key).await?.unwrap();
     assert_eq!(
-        reloaded.current.as_ref().unwrap().station.callsign.as_str(),
-        "W7HEX/M"
-    );
-    assert!(
-        reloaded
-            .current
-            .as_ref()
-            .unwrap()
-            .station
-            .location
-            .is_none()
+        row.working_state(),
+        Some(&RecordState::Live(RecordValue::Qso(Box::new(qso))))
     );
     store.close().await?;
-
-    let store = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
-    assert_eq!(save::load(&store, contact_key).await?, Some(saved_contact));
-    assert_eq!(operating::load(&store).await?, reloaded);
-    store.close().await?;
+    let reopened = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
+    assert_eq!(operating::load(&reopened).await?, detached);
+    reopened.close().await?;
     Ok(())
 }

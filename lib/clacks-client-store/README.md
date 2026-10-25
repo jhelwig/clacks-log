@@ -94,8 +94,9 @@ from the client's completed installed checkpoint. No record response advances re
 - `save` preserves the original basis and any already-frozen proposal while
   changing working values. Exact expected rows guard editor saves and tag changes.
   Tag deletion rechecks the complete preview before committing all effects together.
-- `operating` owns current values and full loaded-profile copies. Loading is
-  explicit; later synchronized profile/equipment edits do not change these copies.
+- `operating` owns current values and independent optional profile/equipment
+  source copies. Apply saves their values and selections together; later shared
+  source edits do not reload them. Manual adjustments clear the affected selection.
 - `synchronization::prepare` persists reservations and frozen values before returning
   them. `receive`, `reject` and `resolve` save actual core-produced role/review updates.
 - `transfer` remembers immutable manifests, stages incomplete coupled units,

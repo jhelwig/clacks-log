@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT current_values, loaded_profile, profile_record, loaded_values FROM operating_state WHERE account = ?\n",
+  "query": "SELECT current_values, loaded_profile, profile_record, loaded_equipment, equipment_record\nFROM operating_state WHERE account = ?\n",
   "describe": {
     "columns": [
       {
@@ -37,13 +37,24 @@
         }
       },
       {
-        "name": "loaded_values",
+        "name": "loaded_equipment",
         "ordinal": 3,
         "type_info": "Integer",
         "origin": {
           "Table": {
             "table": "operating_state",
-            "name": "loaded_values"
+            "name": "loaded_equipment"
+          }
+        }
+      },
+      {
+        "name": "equipment_record",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operating_state",
+            "name": "equipment_record"
           }
         }
       }
@@ -55,8 +66,9 @@
       true,
       true,
       true,
+      true,
       true
     ]
   },
-  "hash": "cf6650fc3ce525ea2c9c773823fa2fae81cea46f48806d28038f87a05daa2d2c"
+  "hash": "2fdfa1c0c64dcda1883629c4721193ca536bfe8419db24a1caa58aaf44f2584a"
 }
