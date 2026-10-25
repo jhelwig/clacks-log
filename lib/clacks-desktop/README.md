@@ -163,14 +163,10 @@ checks require a visible desktop; headless CI is separate evidence.
    both can run independently. Close both normally, then reopen the first and
    verify the same account ID. Inspect its JSON logs for readiness, shutdown and
    work-drained milestones.
-3. Run `cargo test -p clacks-desktop native_delayed_shutdown --locked -- --ignored --nocapture --test-threads=1`.
-   This private Windows-only harness uses the production UI/session and a paused
-   open, prints a retained temporary workspace path, and has no shipped delay
-   flag. Close while opening; after five seconds choose Continue Waiting. Cleanup
-   completes twenty seconds after the close request. Repeat for Force Quit;
-   immediate test-process exit 1 is expected. Reopen each printed workspace with
-   the production executable and verify the database remains usable. Remove the
-   test directories when finished.
+
+Automated lifecycle and delayed-close tests run noninteractively with
+`cargo test -p clacks-desktop --locked`. They do not open native windows or wait
+for operator input. Manual native smoke checks use the production executable.
 
 Record observed results with the change's review evidence. These steps remain
 required before declaring issue #46 delivered; compilation does not establish

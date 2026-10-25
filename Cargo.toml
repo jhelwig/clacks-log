@@ -26,7 +26,6 @@ publish = false
 
 [workspace.dependencies]
 eframe = { version = "=0.37.0", default-features = false, features = ["accesskit", "clipboard", "default_fonts", "links", "system_fonts", "wgpu", "wayland", "x11"] }
-winit = { version = "=0.30.13", default-features = false }
 clacks-desktop = { path = "lib/clacks-desktop" }
 toml = { version = "=0.9.8", features = ["parse", "serde"] }
 directories = "=6.0.0"
