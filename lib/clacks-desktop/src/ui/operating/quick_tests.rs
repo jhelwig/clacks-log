@@ -208,3 +208,204 @@ async fn inline_power_blur_admits_only_one_request() -> anyhow::Result<()> {
     window.close().await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn quick_equipment_selection_preserves_station_and_cancel_has_no_effect() -> anyhow::Result<()>
+{
+    let mut window = Window::new().await?;
+    let sources = window.seed().await?;
+    window.click("Change equipment…");
+    window.click(&format!("Load {}", equipment_label(&sources.rig_b)));
+    window.click("Cancel");
+    assert_eq!(
+        clacks_client_store::operating::load(&window.store)
+            .await?
+            .selected_equipment,
+        Some(sources.rig_a.clone())
+    );
+    window.click("Change equipment…");
+    window.click(&format!("Load {}", equipment_label(&sources.rig_b)));
+    window.submit("Apply");
+    window.settle().await;
+    let active = clacks_client_store::operating::load(&window.store).await?;
+    assert_eq!(active.selected_profile, Some(sources.home));
+    assert_eq!(active.selected_equipment, Some(sources.rig_b));
+    assert!(window.visible("Equipment override"));
+    window.close().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn quick_profiles_preserve_operator_power_and_absent_default_equipment() -> anyhow::Result<()>
+{
+    let mut window = Window::new().await?;
+    let sources = window.seed().await?;
+    window.click("Change operator…");
+    window.text("quick.operator.call", " ve7abc/p ");
+    window.text("quick.operator.name", "Operator name");
+    window.submit("Apply");
+    window.settle().await;
+    window.text("summary.power", "25");
+    window.frame(vec![key(egui::Key::Enter)]);
+    window.settle().await;
+    let mut field = sources.home.clone();
+    field.id = Default::default();
+    field.name = "Field".into();
+    field.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7FIELD")?;
+    field.default_equipment = Some(sources.rig_b.id);
+    let mut portable = field.clone();
+    portable.id = Default::default();
+    portable.name = "Portable".into();
+    portable.default_equipment = None;
+    for saved in [&field, &portable] {
+        clacks_client_store::settings::save_profile(&window.store, None, saved).await?;
+    }
+    window.refresh().await;
+    for saved in [&field, &portable] {
+        window.click("Change profile…");
+        window.click(&format!("Load {}", profile_label(saved)));
+        window.submit("Apply");
+        window.settle().await;
+        let active = clacks_client_store::operating::load(&window.store).await?;
+        assert_eq!(active.selected_profile.as_ref(), Some(saved));
+        assert_eq!(active.selected_equipment.as_ref(), Some(&sources.rig_b));
+        let current = active.current.unwrap();
+        assert_eq!(current.transmit_power.unwrap().get(), 25_000);
+        let operator = current.operator.unwrap();
+        assert_eq!(operator.callsign.unwrap().as_str(), "VE7ABC/P");
+        assert_eq!(operator.recorded_name.as_deref(), Some("Operator name"));
+    }
+    window.click("Change operator…");
+    window.text("quick.operator.call", "");
+    window.submit("Apply");
+    window.settle().await;
+    let active = clacks_client_store::operating::load(&window.store).await?;
+    assert_eq!(active.selected_profile, Some(portable));
+    assert_eq!(active.selected_equipment, Some(sources.rig_b));
+    let operator = active.current.unwrap().operator.unwrap();
+    assert!(operator.callsign.is_none());
+    assert_eq!(operator.recorded_name.as_deref(), Some("Operator name"));
+    window.close().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn quick_missing_default_does_not_partially_load_station() -> anyhow::Result<()> {
+    let mut window = Window::new().await?;
+    let sources = window.seed().await?;
+    let mut broken = sources.home.clone();
+    broken.id = Default::default();
+    broken.name = "Unavailable default".into();
+    broken.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7BROKEN")?;
+    broken.default_equipment = Some(Default::default());
+    clacks_client_store::settings::save_profile(&window.store, None, &broken).await?;
+    window.refresh().await;
+    window.click("Change profile…");
+    window.click(&format!("Load {}", profile_label(&broken)));
+    window.frame(vec![]);
+    assert!(window.visible("Could not load profile"));
+    window.submit("Apply");
+    window.settle().await;
+    let active = clacks_client_store::operating::load(&window.store).await?;
+    assert_eq!(active.selected_profile, Some(sources.home));
+    assert_eq!(active.selected_equipment, Some(sources.rig_a));
+    window.close().await?;
+    Ok(())
+}
+
+async fn publish(window: &mut Window) -> anyhow::Result<()> {
+    let (reply, response) = oneshot::channel();
+    window
+        .sender
+        .send(SettingsRequest {
+            action: SettingsAction::Refresh,
+            reply,
+        })
+        .await?;
+    assert!(matches!(response.await?, SettingsResponse::Refresh(_)));
+    window.snapshot = window.settings_view.borrow().clone().unwrap();
+    window.frame(vec![]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn quick_source_refresh_preserves_captured_values_and_concurrent_save_requires_review()
+-> anyhow::Result<()> {
+    let mut window = Window::new().await?;
+    let sources = window.seed().await?;
+    window.click("Change profile…");
+    let expected = window.snapshot.operating.clone();
+    let old = window
+        .snapshot
+        .profiles
+        .iter()
+        .find(|record| profile(record).is_some_and(|profile| profile.id == sources.home.id))
+        .unwrap()
+        .clone();
+    let mut changed = sources.home.clone();
+    changed.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7NEW")?;
+    clacks_client_store::settings::save_profile(&window.store, Some(&old), &changed).await?;
+    let mut concurrent = expected.clone();
+    concurrent.current.as_mut().unwrap().transmit_power =
+        Some(clacks_model::scalar::Milliwatts::new(50_000)?);
+    clacks_client_store::operating::save(&window.store, &expected, &concurrent).await?;
+    publish(&mut window).await?;
+    assert!(window.visible("Saved profile changed"));
+    let editor = window
+        .view
+        .stack
+        .last()
+        .unwrap()
+        .screen
+        .operating()
+        .unwrap();
+    assert_eq!(editor.expected, expected);
+    assert_eq!(editor.selected_profile.as_ref(), Some(&sources.home));
+    window.submit("Apply");
+    window.settle().await;
+    assert!(window.visible("Current applied settings to review"));
+    assert_eq!(
+        window
+            .view
+            .stack
+            .last()
+            .unwrap()
+            .screen
+            .operating()
+            .unwrap()
+            .expected,
+        expected
+    );
+    assert_eq!(
+        clacks_client_store::operating::load(&window.store).await?,
+        concurrent
+    );
+    window.close().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn quick_profile_can_establish_initial_complete_context() -> anyhow::Result<()> {
+    let mut window = Window::new().await?;
+    let saved = SavedLocationProfile {
+        id: Default::default(),
+        name: "Initial station".into(),
+        station: clacks_model::contact::StationSnapshot {
+            callsign: clacks_model::scalar::RecordedCallsign::new("W7FIRST")?,
+            location: None,
+            references: Default::default(),
+        },
+        default_equipment: None,
+    };
+    clacks_client_store::settings::save_profile(&window.store, None, &saved).await?;
+    window.refresh().await;
+    window.click("Change profile…");
+    window.click(&format!("Load {}", profile_label(&saved)));
+    window.submit("Apply");
+    window.settle().await;
+    let active = clacks_client_store::operating::load(&window.store).await?;
+    assert_eq!(active.current.unwrap().station, saved.station);
+    assert_eq!(active.selected_profile, Some(saved));
+    window.close().await?;
+    Ok(())
+}

@@ -11,6 +11,12 @@ pub(super) enum SummaryAction {
     None,
     /// Open the complete pending operating editor.
     Operating,
+    /// Preview a saved station profile and its equipment consequence.
+    Profile,
+    /// Select equipment independently of the current station profile.
+    Equipment,
+    /// Change optional operator information only.
+    Operator,
 }
 
 /// Show actual active values, keeping full optional facts in the operating editor.
@@ -54,6 +60,9 @@ pub(super) fn show(
                     .map(|profile| profile.name.as_str())
                     .unwrap_or("None")
             ));
+            if ui.button("Change profile…").clicked() {
+                action = SummaryAction::Profile;
+            }
             ui.label(format!(
                 "Equipment: {}",
                 active
@@ -62,6 +71,26 @@ pub(super) fn show(
                     .map(|equipment| equipment.name.as_str())
                     .unwrap_or("Custom / none")
             ));
+            if ui
+                .add_enabled(
+                    active.current.is_some(),
+                    egui::Button::new("Change equipment…"),
+                )
+                .on_disabled_hover_text("Set up a station in Operating settings first.")
+                .clicked()
+            {
+                action = SummaryAction::Equipment;
+            }
+            if let Some(profile) = &active.selected_profile
+                && profile.default_equipment.is_some()
+                && profile.default_equipment
+                    != active
+                        .selected_equipment
+                        .as_ref()
+                        .map(|equipment| equipment.id)
+            {
+                ui.small("Equipment override");
+            }
             if let Some(equipment) = active
                 .current
                 .as_ref()
@@ -83,6 +112,16 @@ pub(super) fn show(
             );
             if let Some(name) = operator.and_then(|value| value.recorded_name.as_deref()) {
                 ui.label(name);
+            }
+            if ui
+                .add_enabled(
+                    active.current.is_some(),
+                    egui::Button::new("Change operator…"),
+                )
+                .on_disabled_hover_text("Set up a station in Operating settings first.")
+                .clicked()
+            {
+                action = SummaryAction::Operator;
             }
         });
         quick.power(ui, active, sender);

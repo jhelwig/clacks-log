@@ -1,5 +1,7 @@
 //! Inline operating power commits through the existing guarded settings transaction.
 
+pub(super) mod editors;
+
 use super::*;
 use crate::{
     operating::power,

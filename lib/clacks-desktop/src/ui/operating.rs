@@ -50,6 +50,8 @@ pub(super) enum Screen {
     Home,
     /// Transient operation-wide form.
     Operating(Box<OperatingEditor>),
+    /// Narrow source/operator choice with an independent captured operating basis.
+    Quick(quick::editors::QuickEdit),
     /// Reusable station-profile list.
     Profiles,
     /// Independent saved station-profile form.
@@ -60,6 +62,26 @@ pub(super) enum Screen {
     EquipmentEdit(Box<EquipmentEditor>),
     /// Atomic equipment deletion and complete reference repair.
     DeleteEquipment(Box<DeletionReview>),
+}
+
+impl Screen {
+    /// Access pending operating facts shared by full and quick workflows.
+    fn operating(&self) -> Option<&OperatingEditor> {
+        match self {
+            Self::Operating(editor) => Some(editor),
+            Self::Quick(edit) => Some(edit.editor()),
+            _ => None,
+        }
+    }
+
+    /// Preserve source cleanup and stale review on either operating workflow.
+    fn operating_mut(&mut self) -> Option<&mut OperatingEditor> {
+        match self {
+            Self::Operating(editor) => Some(editor),
+            Self::Quick(edit) => Some(edit.editor_mut()),
+            _ => None,
+        }
+    }
 }
 
 /// A view transition, applied only after rendering the current form.
@@ -119,11 +141,14 @@ impl Frame {
     fn validate(&mut self, definitions: &DefinitionSet, context: &egui::Context) {
         let now = context.input(|input| input.time);
         if self.validation.due(now) {
-            self.errors = match &self.screen {
-                Screen::Operating(editor) => editor.build(definitions).err().unwrap_or_default(),
-                Screen::Profile(editor) => editor.build(definitions).err().unwrap_or_default(),
-                Screen::EquipmentEdit(editor) => editor.build().err().unwrap_or_default(),
-                _ => Vec::new(),
+            self.errors = if let Some(editor) = self.screen.operating() {
+                editor.build(definitions).err().unwrap_or_default()
+            } else {
+                match &self.screen {
+                    Screen::Profile(editor) => editor.build(definitions).err().unwrap_or_default(),
+                    Screen::EquipmentEdit(editor) => editor.build().err().unwrap_or_default(),
+                    _ => Vec::new(),
+                }
             };
             self.validation.validated();
         }
@@ -301,11 +326,20 @@ impl SettingsUi {
             next: None,
             back: false,
         };
-        if matches!(summary_action, summary::SummaryAction::Operating) {
-            navigation.next = Some(Screen::Operating(Box::new(OperatingEditor::new(
-                &snapshot.operating,
-            ))));
-        }
+        let editor = || Box::new(OperatingEditor::new(&snapshot.operating));
+        navigation.next = match summary_action {
+            summary::SummaryAction::None => None,
+            summary::SummaryAction::Operating => Some(Screen::Operating(editor())),
+            summary::SummaryAction::Profile => {
+                Some(Screen::Quick(quick::editors::QuickEdit::Profile(editor())))
+            }
+            summary::SummaryAction::Equipment => Some(Screen::Quick(
+                quick::editors::QuickEdit::Equipment(editor()),
+            )),
+            summary::SummaryAction::Operator => {
+                Some(Screen::Quick(quick::editors::QuickEdit::Operator(editor())))
+            }
+        };
         let context = ui.ctx().clone();
         let modal = !matches!(frame.screen, Screen::Home);
         let mut body = |ui: &mut egui::Ui| {
@@ -324,6 +358,15 @@ impl SettingsUi {
                         }
                     }
                     Screen::Operating(_) => pending::show(
+                        ui,
+                        frame,
+                        snapshot,
+                        &self.definitions,
+                        sender,
+                        &mut navigation,
+                        &self.known_deletions,
+                    ),
+                    Screen::Quick(_) => quick::editors::show(
                         ui,
                         frame,
                         snapshot,
@@ -437,7 +480,7 @@ impl SettingsUi {
             }
         }
         for frame in &mut self.stack {
-            if let Screen::Operating(editor) = &mut frame.screen {
+            if let Some(editor) = frame.screen.operating_mut() {
                 editor.refresh_sources(snapshot);
                 for id in &self.known_deletions {
                     editor.forget_source(*id);

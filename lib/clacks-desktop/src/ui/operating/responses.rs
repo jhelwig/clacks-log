@@ -108,7 +108,7 @@ impl SettingsUi {
         if let Some(id) = deleted {
             self.known_deletions.insert(id);
             for caller in &mut self.stack {
-                if let Screen::Operating(editor) = &mut caller.screen {
+                if let Some(editor) = caller.screen.operating_mut() {
                     editor.forget_source(id);
                 }
             }
@@ -201,7 +201,7 @@ pub(super) fn stale_review(ui: &mut egui::Ui, frame: &mut Frame) {
             .button("Keep my pending values against these applied settings")
             .clicked()
         {
-            if let Screen::Operating(editor) = &mut frame.screen {
+            if let Some(editor) = frame.screen.operating_mut() {
                 editor.expected = current.clone();
             }
             frame.stale_operating = None;
