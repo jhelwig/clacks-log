@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE operating_state SET\n    loaded_profile = CASE WHEN ?2 = 'profile' AND profile_record = ?3 THEN NULL ELSE loaded_profile END,\n    profile_record = CASE WHEN ?2 = 'profile' AND profile_record = ?3 THEN NULL ELSE profile_record END,\n    loaded_equipment = CASE WHEN ?2 = 'equipment' AND equipment_record = ?3 THEN NULL ELSE loaded_equipment END,\n    equipment_record = CASE WHEN ?2 = 'equipment' AND equipment_record = ?3 THEN NULL ELSE equipment_record END\nWHERE account = ?1\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "4ee1962921f011cc2f0bd478ca4de3d842bb81c831191d57698524c1bbcfa18c"
+}

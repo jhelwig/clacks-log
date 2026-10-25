@@ -140,6 +140,7 @@ pub async fn save(
     selections::forget(&mut comparable_current, &deleted);
     selections::forget(&mut next, &deleted);
     if comparable_current != expected {
+        tracing::info!(event = "operating.apply_deferred", account_id = %store.account, reason = "active_state_changed");
         return Ok(OperatingSaveOutcome::Stale(current));
     }
     if current == next {

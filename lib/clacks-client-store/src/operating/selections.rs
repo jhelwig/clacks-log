@@ -135,3 +135,20 @@ pub(super) fn forget(
         state.selected_equipment = None;
     }
 }
+
+/// Forget a deleted source in the caller's transaction while preserving all copied facts.
+pub(crate) async fn forget_source_in(
+    connection: &mut SqliteConnection,
+    key: RecordKey,
+) -> anyhow::Result<()> {
+    if !matches!(key.id, RecordId::Profile(_) | RecordId::Equipment(_)) {
+        return Ok(());
+    }
+    let account = key.account.to_string();
+    let kind = payload::kind(key.id);
+    let id = key.id.to_string();
+    sqlx::query_file!("sql/operating/forget_source.sql", account, kind, id)
+        .execute(connection)
+        .await?;
+    Ok(())
+}

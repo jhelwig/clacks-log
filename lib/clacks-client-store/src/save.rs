@@ -137,6 +137,16 @@ pub async fn save(
         }
     );
     let mut transaction = store.write().await?;
+    if matches!(next, RecordState::Deleted)
+        && let RecordId::Equipment(id) = key.id
+    {
+        anyhow::ensure!(
+            crate::settings::deletion::referring_profiles(&mut transaction, store.account, id)
+                .await?
+                .is_empty(),
+            "equipment has referring profiles; use reviewed equipment deletion"
+        );
+    }
     let outcome = save_in(&mut transaction, key, expected, next).await?;
     transaction.commit().await?;
     if let SaveOutcome::Saved(record) = &outcome {

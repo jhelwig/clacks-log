@@ -175,7 +175,7 @@ pub async fn delete_equipment(store: &ClientStore, expected: &EquipmentDeletionP
 
 **Interfaces:** Produce `EquipmentDeletionPreview`, `ProfileEquipmentReplacement`, `EquipmentDeleteOutcome`, preview/delete functions and `delete_profile` above. Add crate-private `operating::selections::forget_source_in(connection: &mut SqliteConnection, key: RecordKey) -> anyhow::Result<()>`; it removes only matching selection columns, preserving `current_values` and the other selection.
 
-- [ ] **1. Write failing transaction cases.** Add:
+- [x] **1. Write failing transaction cases.** Add:
   - `delete_source_clears_only_matching_metadata`: deleting Home retains exact current facts/selected B; deleting B retains station/profile; close/reopen to prove the result.
   - `effective_received_deletion_forgets_source`: use real core envelopes/transfer installation and the production store. An effective working tombstone detaches; an accepted deletion with a retained live pending working value follows the core's actual working-state result instead of inventing a second conflict rule.
   - `equipment_delete_repairs_all_reviewed_profiles_atomically`: Home/A and Field/A become Home/B and Field/None with A Deleted; exact existing QSO/current equipment facts remain. Observe no intermediate committed state.
@@ -191,17 +191,17 @@ pub async fn delete_equipment(store: &ClientStore, expected: &EquipmentDeletionP
   assert_eq!(after.equipment, before_attempt.equipment);
   assert_eq!(after.operating, before_attempt.operating);
   ```
-- [ ] **2. Run red.** `SQLX_OFFLINE=true cargo test -p clacks-client-store --test settings_deletion --locked --offline`; run the targeted transfer regression as well.
-- [ ] **3. Add cleanup at the common persistence boundary.** After `metadata::client::store` has installed a client's new roles, inspect `value.working_state()`. For a Profile/Equipment Deleted working state, call the private metadata-only cleanup using that record key within the same transaction. Route its early unchanged return through this idempotent cleanup too, so retries cannot leave a selected tombstone. No recursion through profile save, implicit value reload, or treating `None`/failed loads as deletion.
+- [x] **2. Run red.** `SQLX_OFFLINE=true cargo test -p clacks-client-store --test settings_deletion --locked --offline`; run the targeted transfer regression as well.
+- [x] **3. Add cleanup at the common persistence boundary.** After `metadata::client::store` has installed a client's new roles, inspect `value.working_state()`. For a Profile/Equipment Deleted working state, call the private metadata-only cleanup using that record key within the same transaction. Route its early unchanged return through this idempotent cleanup too, so retries cannot leave a selected tombstone. No recursion through profile save, implicit value reload, or treating `None`/failed loads as deletion.
   - This covers local saves, accepted responses, complete received batches and resolution installs that already use this boundary. Verify callers with `rg`, not a second list of special-case sync algorithms.
   - The hook may emit `debug` transaction-local detail; it cannot claim a committed deletion before the caller commits. Public save/delete boundaries retain their committed events. Runtime refresh in Task 5 reports observed committed selection cleanup without generic telemetry plumbing.
-- [ ] **4. Implement reviewed equipment deletion.** Snapshot equipment, the complete referring working-profile set and available replacement records together using `EquipmentDeletionPreview`. Require exactly one explicit replacement/removal choice per referring profile; reject duplicate/missing/extra profile choices and selecting the target itself. Each chosen replacement must exist in the preview; newly created candidates require refreshing it.
+- [x] **4. Implement reviewed equipment deletion.** Snapshot equipment, the complete referring working-profile set and available replacement records together using `EquipmentDeletionPreview`. Require exactly one explicit replacement/removal choice per referring profile; reject duplicate/missing/extra profile choices and selecting the target itself. Each chosen replacement must exist in the preview; newly created candidates require refreshing it.
   - Re-read complete set, expected rows and replacements inside one immediate transaction. Stale set/value/replacement => no writes. Missing/non-live target => actionable no-effect outcome.
   - Compose normal `save_in` profile edits and equipment tombstone under that transaction; commit once. Do not allocate actors or alter prepared/original evidence.
   - After commit, report the actual repaired-profile count and deleted equipment ID; increment profile-update mutations by the committed repair count and equipment-delete mutations by one. A Stale/Unavailable/error path increments neither. No mutation metrics in `save_in` or the uncommitted cleanup hook.
   - Protect the generic public `save::save` deletion entry: equipment with live referring profiles requires this reviewed path. Profile deletion can use ordinary guarded save plus common cleanup. Do not put the local review restriction on the lower-level received-state loader.
-- [ ] **5. Verify green with reopen/transfer checks.** Regenerate query metadata, run settings deletion/transfers/operating tests, and the store clippy command. Confirm future server-side acceptance remains downstream; do not implement a fake server to test it.
-- [ ] **6. Commit.** Suggested subject: `Make source deletion repair references and forget selections atomically`. Body describes phantom-referrer checks, core working-state classification and preserved copied values.
+- [x] **5. Verify green with reopen/transfer checks.** Regenerate query metadata, run settings deletion/transfers/operating tests, and the store clippy command. Confirm future server-side acceptance remains downstream; do not implement a fake server to test it.
+- [x] **6. Commit.** Suggested subject: `Make source deletion repair references and forget selections atomically`. Body describes phantom-referrer checks, core working-state classification and preserved copied values.
 
 ## Task 4: Build transient operating and reusable-record editor state
 
