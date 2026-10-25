@@ -45,11 +45,15 @@ Separate reusable-record management from current operation:
   equipment description, antenna description and notes. Its editor can show which
   saved profiles reference it, but editing it does not reassign those profiles.
 
-The reviewed mockup establishes these boundaries and navigation, not permanent
-panel placement, exact labels, decoration or a requirement for floating windows.
-An always-visible active-settings summary distinguishes selected saved sources
-from unassociated values and reports source changes for selections that remain.
-Pending operating edits are visually distinct from that active summary.
+The [desktop UI contract](desktop-ui.md) defines the compact workbench, additional
+views and operating-summary controls. Full operating editing uses a dialog with
+the Apply/Cancel boundaries above. Quick profile, equipment and operator edits
+are available from the summary; power uses inline commit/cancel behavior rather
+than a popup or the full-dialog Apply button. These shortcuts preserve the value,
+selection and reusable-record semantics in this specification. The active summary
+distinguishes selected saved sources from unassociated values and reports source
+changes for selections that remain. Pending dialog edits are visually distinct
+from that active summary.
 
 The combined form mixing reusable records, their association and operating copies
 was rejected because the effects of saves and application were unclear. Nested
