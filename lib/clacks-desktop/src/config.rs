@@ -30,8 +30,9 @@ pub(crate) struct Cli {
     /// Set a tracing filter, such as info or clacks_desktop=debug.
     #[arg(long)]
     pub log_filter: Option<String>,
-    /// Also write diagnostics to the console (true or false).
-    #[arg(long, action = clap::ArgAction::Set)]
+    /// Also write diagnostics to the console; use =false to disable.
+    #[arg(long, action = clap::ArgAction::Set, num_args = 0..=1,
+        default_missing_value = "true", require_equals = true, value_name = "BOOL")]
     pub console: Option<bool>,
     /// Maximum matching rotated log files retained.
     #[arg(long)]
@@ -39,8 +40,9 @@ pub(crate) struct Cli {
     /// Bounded off-thread writer capacity, in lines.
     #[arg(long)]
     pub log_buffered_lines: Option<usize>,
-    /// Explicitly enable or disable optional telemetry export.
-    #[arg(long, action = clap::ArgAction::Set)]
+    /// Enable optional telemetry export; use =false to disable.
+    #[arg(long, action = clap::ArgAction::Set, num_args = 0..=1,
+        default_missing_value = "true", require_equals = true, value_name = "BOOL")]
     pub otlp: Option<bool>,
     /// Set the generic OTLP HTTP endpoint base.
     #[arg(long)]

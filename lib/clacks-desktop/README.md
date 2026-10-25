@@ -71,7 +71,10 @@ timeout_ms = 5000
 endpoint = "http://localhost:4318/v1/traces"
 ```
 
-See `--help` for explicit Boolean options, log controls and generic/per-signal
+`--console` and `--otlp` enable console reporting and telemetry export respectively.
+Use `--console=false` or `--otlp=false` to override enabled file settings; optional
+Boolean values require `=`. Export endpoints use the separate `--otlp-endpoint`
+and signal-specific endpoint options. See `--help` for log controls and generic/per-signal
 export endpoints. Header values are configured in the file or standard environment
 settings, never in diagnostic fields. Protect configuration file permissions when
 it contains collector credentials.
@@ -90,7 +93,7 @@ independent of the queue-loss counter. Correct the disk/permission problem and
 relaunch to restore file output; previously lost bytes cannot be recovered.
 
 OpenTelemetry Protocol (OTLP) export of traces, metrics and logs is explicitly
-opt-in through `--otlp true` or `[telemetry].enabled = true`. Endpoint settings alone
+opt-in through `--otlp` or `[telemetry].enabled = true`. Endpoint settings alone
 do not enable export. Export uses HTTP/protobuf over Rustls; local logs continue.
 No collector is required for offline operation. SDK and HTTP backend debug output
 is capped at `warn` because it can expose request/response data; backend events
@@ -105,7 +108,8 @@ Supported environment settings are `RUST_LOG`, `OTEL_SDK_DISABLED` and
 `TRACES_`, `METRICS_` and `LOGS_` signal-specific forms. Only `http/protobuf` is
 accepted. Headers use standard comma-separated, percent-encoded values. Generic
 endpoints append `/v1/<signal>`; signal endpoints are complete. Explicit
-`--otlp` overrides `OTEL_SDK_DISABLED`; false does not itself opt in. SDK batch,
+`--otlp` or `--otlp=false` overrides `OTEL_SDK_DISABLED`;
+`OTEL_SDK_DISABLED=false` alone does not opt in. SDK batch,
 metric reader and sampler environment controls retain their standard behavior.
 The application resource identifies service/version/process; account and path
 values are not metric labels. Safe account IDs can correlate domain events.

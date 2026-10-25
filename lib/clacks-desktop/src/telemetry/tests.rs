@@ -94,8 +94,7 @@ fn child_entry() -> anyhow::Result<()> {
     );
     let mut arguments = vec![
         "clacks-log".to_owned(),
-        "--otlp".into(),
-        exporting.to_string(),
+        format!("--otlp={exporting}"),
         "--otlp-timeout-ms".into(),
         "100".into(),
         "--otlp-endpoint".into(),

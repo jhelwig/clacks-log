@@ -60,12 +60,10 @@ fn command_environment_file_precedence_and_explicit_false_are_preserved() -> any
             "clacks-log",
             "--config",
             "config.toml",
-            "--console",
-            "false",
+            "--console=false",
             "--log-filter",
             "trace",
             "--otlp",
-            "true",
         ])?,
         &env,
     )?;
@@ -128,7 +126,7 @@ fn shadowed_invalid_environment_does_not_override_cli() -> anyhow::Result<()> {
     env.values
         .insert("OTEL_EXPORTER_OTLP_TIMEOUT".into(), "not-a-timeout".into());
     let config = resolve(
-        Cli::try_parse_from(["clacks-log", "--otlp", "true", "--otlp-timeout-ms", "10"])?,
+        Cli::try_parse_from(["clacks-log", "--otlp", "--otlp-timeout-ms", "10"])?,
         &env,
     )?;
     assert!(config.telemetry.enabled);
@@ -250,5 +248,45 @@ fn unsupported_transport_and_invalid_header_values_are_safe_errors() -> anyhow::
         .err()
         .expect("invalid header rejected");
     assert!(!format!("{error:#?}").contains("SECRET_SENTINEL"));
+    Ok(())
+}
+
+#[test]
+fn bare_output_flags_enable_reporting_and_keep_values_unambiguous() -> anyhow::Result<()> {
+    use clap::CommandFactory;
+    let directory = tempfile::tempdir()?;
+    let env = environment(directory.path().to_path_buf());
+    let config = resolve(
+        Cli::try_parse_from(["clacks-log", "--otlp", "--console"])?,
+        &env,
+    )?;
+    assert!(config.telemetry.enabled);
+    assert!(config.logs.console);
+    let help = Cli::command().render_long_help().to_string();
+    assert!(help.contains("<BOOL>"));
+    assert!(!help.contains("<OTLP>"));
+    assert!(!help.contains("<CONSOLE>"));
+    Ok(())
+}
+
+#[test]
+fn omitted_output_flags_preserve_file_settings_and_false_overrides_them() -> anyhow::Result<()> {
+    let directory = tempfile::tempdir()?;
+    let env = environment(directory.path().to_path_buf());
+    std::fs::create_dir_all(&env.directories.config)?;
+    std::fs::write(
+        env.directories.config.join("config.toml"),
+        "[logs]\nconsole = true\n[telemetry]\nenabled = true\n",
+    )?;
+    let arguments = Cli::try_parse_from(["clacks-log"])?;
+    assert_eq!(arguments.otlp, None);
+    assert_eq!(arguments.console, None);
+    let inherited = resolve(arguments, &env)?;
+    assert!(inherited.telemetry.enabled && inherited.logs.console);
+    let disabled = resolve(
+        Cli::try_parse_from(["clacks-log", "--otlp=false", "--console=false"])?,
+        &env,
+    )?;
+    assert!(!disabled.telemetry.enabled && !disabled.logs.console);
     Ok(())
 }
