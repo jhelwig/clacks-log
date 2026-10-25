@@ -355,8 +355,8 @@ pub(crate) enum SettingsResponse {
 
 **Interfaces:** Consume the shipped production executable and Tasks 1–6 APIs. No new application behavior or test-only public interface.
 
-- [ ] **1. Run the complete persistence/workflow acceptance set.** Save real current settings and an existing QSO snapshot, edit/delete reusable records and Apply a new context, collect unreferenced rows, reopen and assert exact QSO facts unchanged. Add missing coverage to existing store operating/deletion tests. Verify older-schema upgrades, known-deletion cleanup after a received batch, nested saves and failure preservation as specified; do not count a helper-only clone comparison as durable evidence.
-- [ ] **2. Verify query metadata against a fresh production schema.** Use a task-specific temporary directory and `DATABASE_URL` pointing to `sqlite://<absolute-file-path>`. Install the existing pinned tool if unavailable:
+- [x] **1. Run the complete persistence/workflow acceptance set.** Save real current settings and an existing QSO snapshot, edit/delete reusable records and Apply a new context, collect unreferenced rows, reopen and assert exact QSO facts unchanged. Add missing coverage to existing store operating/deletion tests. Verify older-schema upgrades, known-deletion cleanup after a received batch, nested saves and failure preservation as specified; do not count a helper-only clone comparison as durable evidence.
+- [x] **2. Verify query metadata against a fresh production schema.** Use a task-specific temporary directory and `DATABASE_URL` pointing to `sqlite://<absolute-file-path>`. Install the existing pinned tool if unavailable:
 
   ```sh
   cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features sqlite
@@ -368,7 +368,7 @@ pub(crate) enum SettingsResponse {
   ```
 
   Regenerate `.sqlx/` with each query-changing task, not only at the end. Do not point tooling at a user's real workspace or hand-edit generated metadata.
-- [ ] **3. Run final repository checks.** Set `SQLX_OFFLINE=true` for compilation/test commands:
+- [x] **3. Run final repository checks.** Set `SQLX_OFFLINE=true` for compilation/test commands:
 
   ```sh
   cargo fmt --all --check
@@ -383,8 +383,8 @@ pub(crate) enum SettingsResponse {
 
   Passing means actual exit success for each applicable command. Fix failures in their owning task; do not weaken the specified behavior to preserve old tests.
 - [ ] **4. Run native acceptance using the production executable.** On Windows use a separate disposable workspace directory with the normal `--workspace` flag. Exercise blank first use, profile/equipment create and explicit selection, keyboard traversal and position/reference entry, one Apply/Cancel pair, manual detachment, nested saves, equipment deletion review, close/reopen, and existing activation/shutdown. No test harness, artificial mutation-delay flag or human-dependent cargo test. Record unavailable Windows access as an outstanding acceptance step; Linux/macOS results do not substitute.
-- [ ] **5. Update usage and contracts.** Document actual shipped paths/screens and save boundaries in the desktop README; document independent state/API and query regeneration in the store README; remove obsolete model comparison usage. Preserve distinction between delivered local operations and future transport/global conflict/geo autofill. Link the specification from relevant owning docs, not transient visualization paths.
-- [ ] **6. Finish with reviewed commits and truthful evidence.** Each commit needs a subject plus motivation/constraints/verification body. If a review finds a defect introduced by an earlier task, fold it into that task's commit before publication without collapsing unrelated substantive tasks into one. Never stage unrelated research changes. Keep completed implementation plans only until merged, following the repository's existing cleanup practice.
+- [x] **5. Update usage and contracts.** Document actual shipped paths/screens and save boundaries in the desktop README; document independent state/API and query regeneration in the store README; remove obsolete model comparison usage. Preserve distinction between delivered local operations and future transport/global conflict/geo autofill. Link the specification from relevant owning docs, not transient visualization paths.
+- [x] **6. Finish with reviewed commits and truthful evidence.** Each commit needs a subject plus motivation/constraints/verification body. If a review finds a defect introduced by an earlier task, fold it into that task's commit before publication without collapsing unrelated substantive tasks into one. Never stage unrelated research changes. Keep completed implementation plans only until merged, following the repository's existing cleanup practice.
 
 ## Dependency order, publication and handoff
 
@@ -392,4 +392,4 @@ Execute Tasks 1 → 2 → 3; Task 4 consumes their final interfaces, Task 5 conn
 
 Use the existing Git worktree workflow when implementation is authorized. The approved specification/notes/plan are currently uncommitted: transfer only those selected planning files into the isolated implementation checkout and commit a planning checkpoint before code, or use an already committed approved checkpoint if one exists by then. Do not lose them by creating a clean worktree from an older main or include unrelated research. Do not push or create a PR solely to run CI without the user's publication authorization. Once authorized, reuse the existing PR/main-only Rust workflow and monitor both native Windows and Linux jobs; do not enable all-branch push triggers. A green Windows job is automated evidence, not native graphics/input acceptance. Request human Windows smoke verification when access is unavailable.
 
-Before calling #7 complete, perform the required whole-branch implementation review, resolve findings, and report delivered behavior, verification and remaining platform limitations. Do not close #7 for this plan or for a specification alone. This document is ready for user review; implementation has not started.
+Before calling #7 complete, perform the required whole-branch implementation review, resolve findings, and report delivered behavior, verification and remaining platform limitations. Do not close #7 for this plan or for a specification alone. The production components follow the specification; native Windows operating-settings acceptance remains a human verification step.

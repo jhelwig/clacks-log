@@ -5,8 +5,8 @@ This specification defines the production desktop workflows for
 D21–D26, D68–D78, D183 and D280–D287. The [product contract](product.md),
 [native model](native-model.md), [client store](client-store.md),
 [desktop foundation](desktop.md) and [observability contract](observability.md)
-retain their owning responsibilities. This is a capability specification for
-review, not an implementation plan or authorization to implement.
+retain their owning responsibilities. This contract owns operating-settings behavior; crate READMEs document the
+production APIs and screen paths.
 
 ## 1. Outcome and boundaries
 
@@ -246,6 +246,10 @@ preserving all copied operating values. The other selection remains intact.
 Clear matching selections in an open pending form as well, preserving its values
 and manual edits. Cancel does not undo the deletion or restore those selections.
 Apply must not resurrect an association to a source already known deleted.
+Retain a confirmed deletion when the following view refresh fails. Exclude that
+source from cached load/target choices and clear its selection in newly opened
+operating forms; a later successful read of a live working source can establish
+availability again.
 
 This applies to a locally committed deletion and to a deletion becoming effective
 through the existing synchronization transitions. Classify the current local

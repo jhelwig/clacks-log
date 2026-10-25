@@ -51,6 +51,7 @@ async fn fixture() -> anyhow::Result<Fixture> {
     let active = state(&home, &a);
     operating::save(&store, &OperatingState::default(), &active).await?;
     let mut qso = support::qso(id(100));
+    qso.own_station = active.current.as_ref().unwrap().station.clone();
     qso.own_context.equipment = active.current.as_ref().unwrap().equipment.clone();
     let value = RecordValue::Qso(Box::new(qso));
     let key = support::key(&value);
@@ -64,6 +65,60 @@ async fn fixture() -> anyhow::Result<Fixture> {
         field,
         active,
     })
+}
+
+#[tokio::test]
+async fn historical_qso_copies_survive_source_changes_apply_collection_and_reopen()
+-> anyhow::Result<()> {
+    let f = fixture().await?;
+    let qso_key = support::qso_key(id(100));
+    let original = save::load(&f.store, qso_key).await?.unwrap();
+    let home = record(&f.store, RecordId::Profile(f.home.id)).await;
+    let mut changed_home = f.home.clone();
+    changed_home.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7HEX/P")?;
+    settings::save_profile(&f.store, Some(&home), &changed_home).await?;
+    let rig = record(&f.store, RecordId::Equipment(f.a.id)).await;
+    let mut changed_rig = f.a.clone();
+    changed_rig.values.antenna_description = Some("Loop".into());
+    settings::save_equipment(&f.store, Some(&rig), &changed_rig).await?;
+    assert_eq!(operating::load(&f.store).await?, f.active);
+
+    let preview = settings::preview_equipment_deletion(&f.store, f.a.id).await?;
+    assert_eq!(
+        settings::delete_equipment(&f.store, &preview, &choices(&f)).await?,
+        EquipmentDeleteOutcome::Applied
+    );
+    let home = record(&f.store, RecordId::Profile(f.home.id)).await;
+    settings::delete_profile(&f.store, &home).await?;
+    let after_deletions = operating::load(&f.store).await?;
+    let mut next = after_deletions.clone();
+    let current = next.current.as_mut().unwrap();
+    current.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7FIELD")?;
+    current.equipment = Some(f.b.values.clone());
+    current.transmit_power = Some(Milliwatts::new(25_000)?);
+    operating::save(&f.store, &after_deletions, &next).await?;
+    clacks_client_store::retention::collect_unreferenced(&f.store).await?;
+    f.store.close().await?;
+
+    let reopened = ClientStore::open(
+        &f.directory.path().join("account.sqlite"),
+        id(1),
+        StoreSettings::default(),
+    )
+    .await?;
+    assert_eq!(operating::load(&reopened).await?, next);
+    let persisted = save::load(&reopened, qso_key).await?.unwrap();
+    assert_eq!(persisted, original);
+    let Some(RecordState::Live(RecordValue::Qso(qso))) = persisted.working_state() else {
+        panic!("historical QSO must remain live");
+    };
+    assert_eq!(qso.own_station, f.active.current.as_ref().unwrap().station);
+    assert_eq!(
+        qso.own_context.equipment,
+        f.active.current.as_ref().unwrap().equipment
+    );
+    reopened.close().await?;
+    Ok(())
 }
 
 fn default(view: &SettingsSnapshot, id: ProfileId) -> Option<EquipmentConfigurationId> {
