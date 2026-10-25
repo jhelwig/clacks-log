@@ -23,9 +23,11 @@ async fn workspace_futures_are_send() -> anyhow::Result<()> {
         &path,
         StoreSettings::default(),
     ));
+
     let store = ClientStore::create(&path, AccountId::new(), StoreSettings::default()).await?;
     requires_send(identity::status(&store));
     requires_send(operating::load(&store));
+
     store.close().await?;
     Ok(())
 }

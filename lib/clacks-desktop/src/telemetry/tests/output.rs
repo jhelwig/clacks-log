@@ -70,6 +70,7 @@ fn runtime_write_failure_is_visible_and_preserves_account_work() -> anyhow::Resu
     tracing::subscriber::with_default(subscriber, || -> anyhow::Result<()> {
         tracing::info!(event = "test.initial_output");
         first_write.recv_timeout(Duration::from_secs(2))?;
+
         assert!(!degraded.load(Ordering::Relaxed));
         fail.store(true, Ordering::Relaxed);
         let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -79,9 +80,11 @@ fn runtime_write_failure_is_visible_and_preserves_account_work() -> anyhow::Resu
         Ok(())
     })?;
     drop(guard);
+
     assert!(degraded.load(Ordering::Relaxed));
     assert_eq!(queue_loss.dropped_lines(), 0);
     let contents = String::from_utf8(captured.lock().unwrap().clone())?;
+
     assert!(contents.contains("workspace.created"));
     assert!(!contents.contains("SECRET_SENTINEL"));
     assert!(paths.database.exists());

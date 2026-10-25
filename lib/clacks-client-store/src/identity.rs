@@ -36,6 +36,7 @@ pub(crate) async fn load(
     else {
         return Ok(None);
     };
+
     let account = row.account.parse()?;
     let binding = match row {
         EnrollmentRow {
@@ -62,6 +63,7 @@ pub(crate) async fn load(
             .into());
         }
     };
+
     Ok(Some(WorkspaceIdentity { account, binding }))
 }
 
@@ -88,6 +90,7 @@ pub async fn bind(
             detail: "empty enrollment endpoint or credential reference".into()
         }
     );
+
     let mut transaction = store.write().await?;
     let current = load(&mut transaction)
         .await?
@@ -98,12 +101,14 @@ pub async fn bind(
         current.binding.as_ref() == expected,
         StoreError::StaleBinding
     );
+
     if current.binding.is_none() {
         let row = sqlx::query_file!("sql/workspace/populated.sql")
             .fetch_one(&mut *transaction)
             .await?;
         anyhow::ensure!(row.populated == 0, StoreError::PopulatedWorkspace);
     }
+
     let actor = binding.actor.to_string();
     let account = binding.account.to_string();
     sqlx::query_file!(
@@ -115,6 +120,7 @@ pub async fn bind(
     )
     .execute(&mut *transaction)
     .await?;
+
     transaction.commit().await?;
     tracing::info!(event = "workspace.enrollment.bound", account_id = %store.account);
     Ok(())
@@ -147,10 +153,12 @@ pub async fn status(store: &ClientStore) -> anyhow::Result<WorkspaceStatus> {
             actual: identity.account
         }
     );
+
     let result = WorkspaceStatus {
         account: identity.account,
         enrolled: identity.binding.is_some(),
     };
+
     transaction.commit().await?;
     Ok(result)
 }

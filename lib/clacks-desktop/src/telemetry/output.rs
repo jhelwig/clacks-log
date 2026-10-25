@@ -43,6 +43,7 @@ impl<W: Write, F: Write> Write for FallbackWriter<W, F> {
                 }
             }
         }
+
         self.fallback.write(bytes)
     }
 
@@ -56,6 +57,7 @@ impl<W: Write, F: Write> Write for FallbackWriter<W, F> {
                 }
             }
         }
+
         self.fallback.flush()
     }
 }

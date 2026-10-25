@@ -15,6 +15,7 @@ use clacks_sync::record::{RecordKey, RecordState, RecordValue};
 /// Persist a real local QSO and return its account identity for correlation assertions.
 pub(super) async fn save_contact(paths: &WorkspacePaths) -> anyhow::Result<AccountId> {
     let account = AccountId::new();
+
     let store = clacks_client_store::store::ClientStore::create_with_definitions(
         &paths.database,
         account,
@@ -58,10 +59,12 @@ pub(super) async fn save_contact(paths: &WorkspacePaths) -> anyhow::Result<Accou
         account,
         id: value.id(),
     };
+
     assert!(matches!(
         clacks_client_store::save::save(&store, key, None, RecordState::Live(value)).await?,
         clacks_client_store::save::SaveOutcome::Saved(_)
     ));
+
     store.close().await?;
     Ok(account)
 }

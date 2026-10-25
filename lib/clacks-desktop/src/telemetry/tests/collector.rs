@@ -52,6 +52,7 @@ impl Collector {
         let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))?;
         listener.set_nonblocking(true)?;
         let address = listener.local_addr()?;
+
         let requests = Arc::new(Mutex::new(Vec::new()));
         let stop = Arc::new(AtomicBool::new(false));
         let captured = requests.clone();
@@ -66,9 +67,11 @@ impl Collector {
                     }
                     Err(error) => return Err(error.into()),
                 };
+
                 stream.set_nonblocking(false)?;
                 stream.set_read_timeout(Some(Duration::from_secs(2)))?;
                 stream.set_write_timeout(Some(Duration::from_secs(2)))?;
+
                 let mut reader = BufReader::new(stream);
                 let mut first = String::new();
                 reader.read_line(&mut first)?;
@@ -77,9 +80,11 @@ impl Collector {
                     .nth(1)
                     .ok_or_else(|| anyhow::anyhow!("missing HTTP path"))?
                     .to_owned();
+
                 let mut length = None;
                 let mut authorization = None;
                 let mut header_bytes = first.len();
+
                 loop {
                     let mut line = String::new();
                     let bytes = reader.read_line(&mut line)?;
@@ -100,10 +105,12 @@ impl Collector {
                         length = Some(value.trim().parse::<usize>()?);
                     }
                 }
+
                 let length = length.ok_or_else(|| anyhow::anyhow!("missing HTTP body length"))?;
                 anyhow::ensure!(length <= 1_048_576, "test request body exceeds limit");
                 let mut body = vec![0; length];
                 reader.read_exact(&mut body)?;
+
                 let mut captured = captured.lock().expect("receiver mutex");
                 anyhow::ensure!(captured.len() < 100, "unexpected exporter request storm");
                 let partial = partial_response(&path);
@@ -113,9 +120,11 @@ impl Collector {
                     authorization,
                 });
                 drop(captured);
+
                 if matches!(reply, Reply::Delayed) {
                     std::thread::sleep(Duration::from_millis(300));
                 }
+
                 let response = match reply {
                     Reply::RejectSecret => b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 15\r\nConnection: close\r\n\r\nSECRET_SENTINEL".to_vec(),
                     Reply::PartialSecret => {
@@ -125,6 +134,7 @@ impl Collector {
                     }
                     _ => b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec(),
                 };
+
                 if let Err(error) = reader.get_mut().write_all(&response)
                     && !matches!(
                         error.kind(),
@@ -138,6 +148,7 @@ impl Collector {
             }
             Ok(())
         });
+
         Ok(Self {
             address,
             requests,
@@ -166,6 +177,7 @@ fn partial_response(path: &str) -> Vec<u8> {
         trace::v1::{ExportTracePartialSuccess, ExportTraceServiceResponse},
     };
     use prost::Message;
+
     match path {
         "/v1/logs" => ExportLogsServiceResponse {
             partial_success: Some(ExportLogsPartialSuccess {

@@ -88,16 +88,19 @@ impl DesktopApp {
             context.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
             context.send_viewport_cmd(egui::ViewportCommand::Focus);
         }
+
         let state = self.status.borrow_and_update().clone();
         if matches!(state, SessionStatus::Closed) {
             context.send_viewport_cmd(egui::ViewportCommand::Close);
             return;
         }
+
         if context.input(|input| input.viewport().close_requested()) {
             context.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.begin_close();
             self.continuing = false;
         }
+
         if self.shutdown_pending {
             match self.commands.try_send(SessionCommand::BeginShutdown) {
                 Ok(()) => self.shutdown_pending = false,
@@ -111,6 +114,7 @@ impl DesktopApp {
                 }
             }
         }
+
         if let SessionStatus::Closing { started, .. } = state {
             if closing::delayed(started) && !self.delayed_reported {
                 tracing::warn!(event = "desktop.shutdown_delayed");
@@ -131,8 +135,10 @@ impl eframe::App for DesktopApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ui, |ui| {
             ui.heading("Clacks Log");
+
             let state = self.status.borrow().clone();
             startup::show(self, ui, &state);
+
             if let SessionStatus::Closing { phase, started } = state {
                 closing::show(self, ui, phase, started);
             } else if ui.button("Close").clicked() {

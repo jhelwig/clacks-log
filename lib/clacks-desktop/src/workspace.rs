@@ -26,6 +26,7 @@ pub(crate) async fn open(paths: &WorkspacePaths) -> anyhow::Result<OpenedWorkspa
         identity, operating,
         store::{ClientStore, StoreSettings},
     };
+
     let store = match tokio::fs::metadata(&paths.database).await {
         Ok(_) => ClientStore::open_discovered(&paths.database, StoreSettings::default()).await?,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -40,6 +41,7 @@ pub(crate) async fn open(paths: &WorkspacePaths) -> anyhow::Result<OpenedWorkspa
         }
         Err(error) => return Err(error.into()),
     };
+
     let identity = match identity::status(&store).await {
         Ok(identity) => identity,
         Err(error) => {
@@ -47,6 +49,7 @@ pub(crate) async fn open(paths: &WorkspacePaths) -> anyhow::Result<OpenedWorkspa
             return Err(error);
         }
     };
+
     let operating = match operating::load(&store).await {
         Ok(operating) => operating,
         Err(error) => {
@@ -54,6 +57,7 @@ pub(crate) async fn open(paths: &WorkspacePaths) -> anyhow::Result<OpenedWorkspa
             return Err(error);
         }
     };
+
     Ok(OpenedWorkspace {
         store,
         identity,
@@ -75,6 +79,7 @@ impl AppDirectories {
         let project = ProjectDirs::from("", "", "Clacks Log").ok_or_else(|| {
             anyhow::anyhow!("operating-system application directories are unavailable")
         })?;
+
         Ok(Self {
             config: project.config_dir().into(),
             data: project.data_local_dir().into(),
@@ -100,6 +105,7 @@ impl WorkspacePaths {
     pub fn resolve(config: &crate::config::DesktopConfig) -> anyhow::Result<Self> {
         std::fs::create_dir_all(&config.workspace)?;
         let directory = config.workspace.canonicalize()?;
+
         Ok(Self {
             database: directory.join("workspace.sqlite"),
             lock_file: directory.join("instance.lock"),

@@ -31,6 +31,7 @@ impl AccountDefinitions {
             "duplicate initial group ID"
         );
         let mut profiles = BTreeMap::new();
+
         for profile in &self.output_profiles {
             anyhow::ensure!(
                 !profile.name.trim().is_empty(),
@@ -41,6 +42,7 @@ impl AccountDefinitions {
                 "duplicate initial output profile ID"
             );
         }
+
         for group in &self.groups {
             compile_definition(group)?;
             for target in group.export_mappings.targeted.keys() {
@@ -54,6 +56,7 @@ impl AccountDefinitions {
                 );
             }
         }
+
         Ok(())
     }
 }

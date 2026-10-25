@@ -38,6 +38,7 @@ pub(super) fn initialize(config: &TelemetryConfig, diagnostics: &mut Vec<String>
     if !config.enabled {
         return Providers::default();
     }
+
     let resource = Resource::builder()
         .with_service_name("clacks-log")
         .with_attributes([
@@ -45,6 +46,7 @@ pub(super) fn initialize(config: &TelemetryConfig, diagnostics: &mut Vec<String>
             KeyValue::new("process.pid", i64::from(std::process::id())),
         ])
         .build();
+
     let traces = match opentelemetry_otlp::SpanExporter::builder()
         .with_http()
         .with_protocol(Protocol::HttpBinary)
@@ -64,6 +66,7 @@ pub(super) fn initialize(config: &TelemetryConfig, diagnostics: &mut Vec<String>
             None
         }
     };
+
     let metrics = match opentelemetry_otlp::MetricExporter::builder()
         .with_http()
         .with_protocol(Protocol::HttpBinary)
@@ -83,6 +86,7 @@ pub(super) fn initialize(config: &TelemetryConfig, diagnostics: &mut Vec<String>
             None
         }
     };
+
     let logs = match opentelemetry_otlp::LogExporter::builder()
         .with_http()
         .with_protocol(Protocol::HttpBinary)
@@ -102,6 +106,7 @@ pub(super) fn initialize(config: &TelemetryConfig, diagnostics: &mut Vec<String>
             None
         }
     };
+
     if let Some(provider) = &metrics {
         let meter = provider.meter("clacks_desktop");
         let mut recorder = metrics_opentelemetry::OpenTelemetryRecorder::new(
@@ -118,6 +123,7 @@ pub(super) fn initialize(config: &TelemetryConfig, diagnostics: &mut Vec<String>
             );
         }
     }
+
     Providers {
         traces,
         metrics,

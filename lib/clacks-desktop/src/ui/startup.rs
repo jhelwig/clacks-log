@@ -12,6 +12,7 @@ pub(super) fn show(app: &mut DesktopApp, ui: &mut egui::Ui, state: &SessionStatu
         app.paths.log_directory.display()
     ));
     ui.separator();
+
     match state {
         SessionStatus::Opening => {
             ui.spinner();
@@ -51,9 +52,11 @@ pub(super) fn show(app: &mut DesktopApp, ui: &mut egui::Ui, state: &SessionStatu
             ui.label("Closed");
         }
     }
+
     for diagnostic in &app.diagnostics {
         ui.label(diagnostic);
     }
+
     let dropped = app.loss.dropped_lines();
     if app.file_failure.load(std::sync::atomic::Ordering::Relaxed) {
         ui.label("Local log file writes failed; diagnostics are using stderr. Check disk space and permissions, then relaunch to restore file output.");
@@ -63,6 +66,7 @@ pub(super) fn show(app: &mut DesktopApp, ui: &mut egui::Ui, state: &SessionStatu
             "Diagnostic output is overloaded: {dropped} log lines dropped."
         ));
     }
+
     if let Some(error) = &app.command_error {
         ui.label(error);
     }

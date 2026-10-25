@@ -83,6 +83,7 @@ async fn close_during_open_does_not_publish_ready() -> anyhow::Result<()> {
     let paths = fixture.resources.paths.clone();
     let (release, gate) = tokio::sync::oneshot::channel();
     fixture.resources.opening_gate = Some(gate);
+
     let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
     fixture.commands.send(SessionCommand::BeginShutdown).await?;
     let closing = next_matching(&mut fixture.status, |s| {
@@ -96,6 +97,7 @@ async fn close_during_open_does_not_publish_ready() -> anyhow::Result<()> {
     release.send(()).unwrap();
     loop {
         let current = fixture.status.borrow_and_update().clone();
+
         assert!(!matches!(current, SessionStatus::Ready { .. }));
         if let SessionStatus::Closing {
             started: current_start,
@@ -121,6 +123,7 @@ async fn close_during_open_does_not_publish_ready() -> anyhow::Result<()> {
         let saved = clacks_client_store::save::load(&reopened.store, key)
             .await?
             .unwrap();
+
         assert_eq!(
             saved.working_state(),
             Some(&clacks_sync::record::RecordState::Live(
@@ -130,6 +133,7 @@ async fn close_during_open_does_not_publish_ready() -> anyhow::Result<()> {
     }
     reopened.store.close().await?;
     drop(fixture._owner);
+
     assert!(matches!(instance::elect(&paths)?, Election::Owner(_)));
     Ok(())
 }
@@ -139,11 +143,13 @@ async fn retry_does_not_leak_failed_resources() -> anyhow::Result<()> {
     let mut fixture = Fixture::new()?;
     std::fs::write(&fixture.resources.paths.database, b"invalid")?;
     let database = fixture.resources.paths.database.clone();
+
     let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
     next_matching(&mut fixture.status, |s| {
         matches!(s, SessionStatus::Failed { .. })
     })
     .await?;
+
     assert_eq!(std::fs::read(&database)?, b"invalid");
     std::fs::remove_file(&database)?;
     fixture.commands.send(SessionCommand::RetryOpen).await?;
@@ -154,9 +160,11 @@ async fn retry_does_not_leak_failed_resources() -> anyhow::Result<()> {
     fixture.commands.send(SessionCommand::BeginShutdown).await?;
     next_matching(&mut fixture.status, |s| matches!(s, SessionStatus::Closed)).await?;
     task.await??;
+
     let store =
         clacks_client_store::store::ClientStore::open_discovered(&database, Default::default())
             .await?;
+
     store.close().await?;
     Ok(())
 }
@@ -171,6 +179,7 @@ async fn disconnected_window_still_drains_open_and_closes() -> anyhow::Result<()
         run(fixture.resources, fixture.input, fixture.updates),
     )
     .await??;
+
     assert!(matches!(
         *fixture.status.borrow_and_update(),
         SessionStatus::Closed
@@ -185,6 +194,7 @@ async fn close_while_failed_preserves_file_and_releases_resources() -> anyhow::R
     let mut fixture = Fixture::new()?;
     let paths = fixture.resources.paths.clone();
     std::fs::write(&paths.database, b"incomplete")?;
+
     let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
     next_matching(&mut fixture.status, |s| {
         matches!(s, SessionStatus::Failed { .. })
@@ -193,8 +203,10 @@ async fn close_while_failed_preserves_file_and_releases_resources() -> anyhow::R
     fixture.commands.send(SessionCommand::BeginShutdown).await?;
     next_matching(&mut fixture.status, |s| matches!(s, SessionStatus::Closed)).await?;
     task.await??;
+
     assert_eq!(std::fs::read(&paths.database)?, b"incomplete");
     drop(fixture._owner);
+
     assert!(matches!(instance::elect(&paths)?, Election::Owner(_)));
     Ok(())
 }

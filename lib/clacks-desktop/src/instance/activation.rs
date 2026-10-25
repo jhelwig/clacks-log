@@ -60,6 +60,7 @@ async fn receive(mut stream: Stream, notices: watch::Sender<()>) -> io::Result<(
             "unsupported activation message",
         ));
     }
+
     notices.send_replace(());
     stream.write_all(ACK).await?;
     Ok(())
@@ -72,6 +73,7 @@ async fn serve(
     notices: watch::Sender<()>,
 ) -> anyhow::Result<()> {
     let mut handlers = JoinSet::new();
+
     loop {
         tokio::select! {
             _ = stop.cancelled() => break,
@@ -87,13 +89,17 @@ async fn serve(
                 });
             },
             result = handlers.join_next(), if !handlers.is_empty() => {
-                if let Some(result) = result { result?; }
+                if let Some(result) = result {
+                    result?;
+                }
             }
         }
     }
+
     while let Some(result) = handlers.join_next().await {
         result?;
     }
+
     drop(listener);
     Ok(())
 }
@@ -103,6 +109,7 @@ pub(crate) fn request(address: &ActivationAddress) -> anyhow::Result<()> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
+
     runtime.block_on(request_async(address))
 }
 
@@ -123,6 +130,7 @@ async fn request_async(address: &ActivationAddress) -> anyhow::Result<()> {
                 }
                 Ok::<_, io::Error>(())
             };
+
             match tokio::time::timeout(CONNECTION_TIMEOUT, attempt).await {
                 Ok(Ok(())) => return Ok(()),
                 Ok(Err(error))

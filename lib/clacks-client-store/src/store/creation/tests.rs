@@ -16,22 +16,27 @@ async fn later_seed_failure_rolls_back_account_and_earlier_profile() -> anyhow::
         .execute(&mut connection)
         .await?;
     let definitions = clacks_model::defaults::account_definitions()?;
+
     assert!(
         initialize(&mut connection, AccountId::new(), Some(&definitions))
             .await
             .is_err()
     );
+
     assert!(crate::identity::load(&mut connection).await?.is_none());
     let records = sqlx::query_file!("sql/workspace/populated.sql")
         .fetch_one(&mut connection)
         .await?;
+
     assert_eq!(records.populated, 0);
     connection.close().await?;
+
     assert!(
         ClientStore::open_discovered(&path, StoreSettings::default())
             .await
             .is_err()
     );
+
     assert!(path.exists());
     Ok(())
 }

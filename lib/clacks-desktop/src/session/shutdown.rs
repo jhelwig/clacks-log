@@ -37,6 +37,7 @@ pub(super) async fn finish(
         stop,
         notices,
     } = resources;
+
     let mut failures = Vec::new();
     publish(
         status,
@@ -51,6 +52,7 @@ pub(super) async fn finish(
     {
         failures.push(error);
     }
+
     publish(
         status,
         context,
@@ -62,10 +64,12 @@ pub(super) async fn finish(
     if let Err(error) = listener.shutdown().await {
         failures.push(error);
     }
+
     stop.cancel();
     if let Err(error) = notices.await {
         failures.push(error.into());
     }
+
     tracing::info!(
         event = "desktop.work_drained",
         cleanup_failures = failures.len(),
@@ -74,6 +78,7 @@ pub(super) async fn finish(
             .load(std::sync::atomic::Ordering::Relaxed),
         dropped_log_lines = telemetry.dropped_lines()
     );
+
     publish(
         status,
         context,
@@ -87,9 +92,11 @@ pub(super) async fn finish(
         Ok(Err(error)) => failures.push(error),
         Err(error) => failures.push(error.into()),
     }
+
     publish(status, context, SessionStatus::Closed);
     if let Some(error) = failures.into_iter().next() {
         return Err(error);
     }
+
     Ok(())
 }

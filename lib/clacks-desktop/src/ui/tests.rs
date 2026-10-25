@@ -61,12 +61,15 @@ fn has_command(output: &egui::LogicOutput, expected: &egui::ViewportCommand) -> 
 fn activation_before_ready_is_retained() {
     let mut window = Window::new();
     window.notices.send_replace(());
+
     let output = window.update();
+
     assert!(has_command(&output, &egui::ViewportCommand::Visible(true)));
     assert!(has_command(
         &output,
         &egui::ViewportCommand::Minimized(false)
     ));
+
     assert!(has_command(&output, &egui::ViewportCommand::Focus));
     assert!(!has_command(
         &window.update(),
@@ -80,22 +83,27 @@ fn delayed_close_does_not_automatically_exit_and_repeated_requests_do_not_restar
     window.app.begin_close();
     window.app.begin_close();
     window.update();
+
     assert!(matches!(
         window.commands.try_recv(),
         Ok(SessionCommand::BeginShutdown)
     ));
+
     assert!(window.commands.try_recv().is_err());
     let started = Instant::now() - Duration::from_secs(6);
     window.updates.send_replace(SessionStatus::Closing {
         phase: "Finishing work",
         started,
     });
+
     let output = window.update();
+
     assert!(window.app.delayed_reported);
     assert!(!has_command(&output, &egui::ViewportCommand::Close));
     assert!(!closing::delayed(Instant::now()));
     assert!(closing::delayed(started));
     window.updates.send_replace(SessionStatus::Closed);
+
     assert!(has_command(&window.update(), &egui::ViewportCommand::Close));
 }
 
@@ -112,9 +120,11 @@ fn native_close_while_failed_is_cancelled_until_cleanup_acknowledges() {
         .or_default()
         .events
         .push(egui::ViewportEvent::Close);
+
     let output = window
         .context
         .run_logic(&input, |context| window.app.update_lifecycle(context));
+
     assert!(has_command(&output, &egui::ViewportCommand::CancelClose));
     assert!(matches!(
         window.commands.try_recv(),

@@ -90,6 +90,7 @@ fn extend_references(
             format!("required reference missing for {binding}"),
         ));
     }
+
     let mut result = Vec::new();
     for row in rows {
         for identifier in &identifiers {
@@ -133,6 +134,7 @@ fn targeted_entries(
             }
         }
     }
+
     for expansion in &plan.entry_expansion {
         rows = extend_references(
             qso,
@@ -144,6 +146,7 @@ fn targeted_entries(
             expansion.keep_one_if_empty,
         )?;
     }
+
     rows.into_iter()
         .map(|row| {
             let context = ExpressionContext {

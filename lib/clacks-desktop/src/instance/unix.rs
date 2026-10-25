@@ -21,6 +21,7 @@ fn endpoint_directory() -> anyhow::Result<PathBuf> {
     let directory = ProjectDirs::from("", "", "Clacks Log")
         .and_then(|project| project.runtime_dir().map(PathBuf::from))
         .unwrap_or_else(|| PathBuf::from("/tmp").join(format!("clacks-log-{uid}")));
+
     match DirBuilder::new()
         .recursive(true)
         .mode(0o700)
@@ -30,6 +31,7 @@ fn endpoint_directory() -> anyhow::Result<PathBuf> {
         Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
         Err(error) => return Err(error.into()),
     }
+
     verify_directory(&directory, uid)?;
     Ok(directory)
 }
@@ -70,6 +72,7 @@ pub(super) fn owned_options(
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
         Err(error) => return Err(error.into()),
     }
+
     Ok(ListenerOptions::new().name(address.name.clone()))
 }
 
@@ -82,6 +85,7 @@ pub(super) fn bind(
         use interprocess::os::unix::local_socket::ListenerOptionsExt;
         owned_options(address)?.mode(0o600).create_tokio()?
     };
+
     #[cfg(target_os = "macos")]
     let listener = {
         let listener = owned_options(address)?.create_tokio()?;
@@ -90,5 +94,6 @@ pub(super) fn bind(
         std::fs::set_permissions(&address.path, std::fs::Permissions::from_mode(0o600))?;
         listener
     };
+
     Ok(listener)
 }

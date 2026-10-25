@@ -30,10 +30,13 @@ fn contest_ids(html: &str) -> anyhow::Result<Vec<String>> {
         .captures(html)
         .and_then(|captures| captures.get(1))
         .ok_or_else(|| anyhow::anyhow!("missing ADIF Contest ID enumeration table"))?;
+
     let rows = Regex::new(r"(?s)<tr\b[^>]*>(.*?)</tr>")?;
     let cell = Regex::new(r"(?s)<td\b[^>]*>(.*?)</td>")?;
     let tags = Regex::new(r"<[^>]*>")?;
+
     let mut ids = BTreeSet::new();
+
     for row in rows.captures_iter(content.as_str()) {
         let Some(value) = row
             .get(1)
@@ -54,6 +57,7 @@ fn contest_ids(html: &str) -> anyhow::Result<Vec<String>> {
         );
         anyhow::ensure!(ids.insert(id), "duplicate ADIF contest identifier");
     }
+
     anyhow::ensure!(!ids.is_empty(), "empty ADIF Contest ID enumeration");
     Ok(ids.into_iter().collect())
 }
@@ -163,6 +167,7 @@ fn build(ids: Vec<String>, existing: &AccountDefinitions) -> anyhow::Result<Acco
         .iter()
         .map(|profile| (profile.name.as_str(), profile.id))
         .collect();
+
     let ordinary = old_profiles
         .get("ADIF")
         .copied()
@@ -171,6 +176,7 @@ fn build(ids: Vec<String>, existing: &AccountDefinitions) -> anyhow::Result<Acco
         .get("POTA-compatible ADIF")
         .copied()
         .unwrap_or_else(OutputProfileId::new);
+
     let mut groups = Vec::new();
     for (name, syntax) in [
         (
@@ -200,6 +206,7 @@ fn build(ids: Vec<String>, existing: &AccountDefinitions) -> anyhow::Result<Acco
             },
         });
     }
+
     for id in ids {
         anyhow::ensure!(
             !matches!(id.as_str(), "POTA" | "SOTA" | "IOTA"),
@@ -228,6 +235,7 @@ fn build(ids: Vec<String>, existing: &AccountDefinitions) -> anyhow::Result<Acco
             },
         });
     }
+
     let result = AccountDefinitions {
         groups,
         output_profiles: vec![
@@ -245,6 +253,7 @@ fn build(ids: Vec<String>, existing: &AccountDefinitions) -> anyhow::Result<Acco
             },
         ],
     };
+
     result.validate()?;
     Ok(result)
 }
@@ -276,21 +285,25 @@ pub fn run(arguments: impl IntoIterator<Item = String>) -> anyhow::Result<()> {
             _ => anyhow::bail!("unsupported argument; {HELP}"),
         }
     }
+
     let Some(source) = source else {
         print!("{HELP}");
         return Ok(());
     };
+
     let html = std::fs::read_to_string(source)?;
     anyhow::ensure!(
         html.contains("ADIF Version 3.1.8"),
         "expected ADIF 3.1.8 reference document"
     );
+
     let output = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../clacks-model/data/account-definitions.json");
     let previous = std::fs::read_to_string(&output)?;
     let existing: AccountDefinitions = serde_json::from_str(&previous)?;
     let next = build(contest_ids(&html)?, &existing)?;
     let encoded = format!("{}\n", serde_json::to_string_pretty(&next)?);
+
     if write {
         std::fs::write(output, encoded)?;
     } else {

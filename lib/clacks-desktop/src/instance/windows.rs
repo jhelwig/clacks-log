@@ -33,8 +33,10 @@ fn current_user() -> anyhow::Result<String> {
     if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
         return Err(io::Error::last_os_error().into());
     }
+
     // SAFETY: OpenProcessToken succeeded and returned an owned valid handle.
     let token = unsafe { OwnedHandle::from_raw_handle(token) };
+
     let mut required = 0;
     // SAFETY: this first call requests the required buffer length only.
     unsafe {
@@ -50,6 +52,7 @@ fn current_user() -> anyhow::Result<String> {
         required > 0,
         "could not determine current user identity size"
     );
+
     let mut storage =
         vec![0_usize; usize::try_from(required)?.div_ceil(std::mem::size_of::<usize>())];
     // SAFETY: storage has the requested byte capacity and pointer alignment, and
@@ -66,17 +69,21 @@ fn current_user() -> anyhow::Result<String> {
     {
         return Err(io::Error::last_os_error().into());
     }
+
     // SAFETY: successful TokenUser query initializes TOKEN_USER within the aligned
     // buffer, whose allocation stays alive while the embedded identifier is read.
     let user = unsafe { &*storage.as_ptr().cast::<TOKEN_USER>() };
+
     let mut text = ptr::null_mut();
     // SAFETY: the identifier points into the live token buffer; text receives an
     // OS-allocated null-terminated string released below with LocalFree.
     if unsafe { ConvertSidToStringSidW(user.User.Sid, &mut text) } == 0 {
         return Err(io::Error::last_os_error().into());
     }
+
     // SAFETY: successful conversion returns a valid null-terminated UTF-16 string.
     let decoded = unsafe { U16CStr::from_ptr_str(text) }.to_string();
+
     // SAFETY: this pointer was allocated by ConvertSidToStringSidW and is not used again.
     unsafe {
         LocalFree(text.cast());
@@ -95,13 +102,16 @@ pub(super) fn address(file: &File) -> anyhow::Result<ActivationAddress> {
     let information = unsafe { information.assume_init() };
     let index =
         (u64::from(information.nFileIndexHigh) << 32) | u64::from(information.nFileIndexLow);
+
     let identity = format!(
         "{}:{index}:{}",
         information.dwVolumeSerialNumber,
         current_user()?
     );
+
     let name =
         format!("clacks-log-{}", suffix(identity.as_bytes())).to_ns_name::<GenericNamespaced>()?;
+
     Ok(ActivationAddress { name })
 }
 
@@ -111,6 +121,7 @@ pub(super) fn owned_options(
 ) -> anyhow::Result<ListenerOptions<'static>> {
     let descriptor = U16CString::from_str(format!("D:P(A;;GA;;;{})", current_user()?))?;
     let descriptor = SecurityDescriptor::deserialize(&descriptor)?;
+
     Ok(ListenerOptions::new()
         .name(address.name.clone())
         .security_descriptor(descriptor))

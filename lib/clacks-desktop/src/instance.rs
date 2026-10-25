@@ -54,6 +54,7 @@ impl InstanceOwner {
             let _entered = runtime.enter();
             platform::bind(&self.address)?
         };
+
         Ok(activation::listen(listener, runtime, notices))
     }
 }
@@ -66,6 +67,7 @@ pub(crate) fn elect(paths: &WorkspacePaths) -> anyhow::Result<Election> {
         .create(true)
         .truncate(false)
         .open(&paths.lock_file)?;
+
     match file.try_lock() {
         Ok(()) => {
             let address = platform::address(&file)?;

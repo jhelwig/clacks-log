@@ -23,6 +23,7 @@ pub(super) fn complete(
         anyhow::bail!("owner expected")
     };
     let (notices, activation) = watch::channel(());
+
     let listener = owner.listen(runtime.handle(), notices)?;
     let (commands, input) = mpsc::channel(8);
     let (updates, mut status) = watch::channel(SessionStatus::Opening);
@@ -47,17 +48,20 @@ pub(super) fn complete(
         .await??;
         commands.send(SessionCommand::BeginShutdown).await?;
         task.await??;
+
         assert!(matches!(*status.borrow(), SessionStatus::Closed));
         let store = clacks_client_store::store::ClientStore::open_discovered(
             &paths.database,
             Default::default(),
         )
         .await?;
+
         assert_eq!(store.account_id(), identity.account);
         store.close().await?;
         anyhow::Ok(identity.account)
     })?;
     drop(owner);
+
     assert!(matches!(instance::elect(paths)?, Election::Owner(_)));
     Ok(account)
 }
@@ -91,6 +95,7 @@ pub(super) fn assert_wire(requests: &[super::collector::Request]) -> anyhow::Res
                             1,
                             "only the bounded outcome dimension"
                         );
+
                         assert!(point.attributes.iter().any(|attribute| attribute.key == "outcome" && attribute.value.as_ref().is_some_and(|value| value.value == Some(opentelemetry_proto::tonic::common::v1::any_value::Value::StringValue("ready".into())))));
                         samples += point.count;
                     }
@@ -115,6 +120,7 @@ pub(super) fn assert_wire(requests: &[super::collector::Request]) -> anyhow::Res
                 if matches!(event, Some(Value::StringValue(value)) if value == "desktop.workspace_ready")
                 {
                     ready = true;
+
                     assert!(
                         record
                             .attributes
@@ -126,6 +132,7 @@ pub(super) fn assert_wire(requests: &[super::collector::Request]) -> anyhow::Res
             }
         }
     }
+
     assert_eq!(samples, 1);
     assert!(ready && drained);
     Ok(())

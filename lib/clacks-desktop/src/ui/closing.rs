@@ -16,6 +16,7 @@ pub(super) fn delayed(started: Instant) -> bool {
 pub(super) fn show(app: &mut DesktopApp, ui: &mut egui::Ui, phase: &str, started: Instant) {
     ui.label(phase);
     ui.spinner();
+
     if delayed(started) && !app.continuing {
         ui.label("Shutdown is taking longer than usual. Force Quit can lose unfinished work and diagnostics.");
         if ui.button("Continue Waiting").clicked() {

@@ -37,7 +37,9 @@ fn environment(cwd: PathBuf) -> Inputs {
 fn absent_default_config_uses_managed_paths_and_bounded_defaults() -> anyhow::Result<()> {
     let directory = tempfile::tempdir()?;
     let env = environment(directory.path().to_path_buf());
+
     let config = resolve(Cli::try_parse_from(["clacks-log"])?, &env.context())?;
+
     assert!(!config.telemetry.enabled);
     assert_eq!(config.logs.filter.to_string(), "info");
     assert_eq!(config.logs.retained_files, 7);
@@ -50,6 +52,7 @@ fn absent_default_config_uses_managed_paths_and_bounded_defaults() -> anyhow::Re
 fn explicit_missing_config_is_an_error() -> anyhow::Result<()> {
     let directory = tempfile::tempdir()?;
     let env = environment(directory.path().to_path_buf());
+
     assert!(
         resolve(
             Cli::try_parse_from(["clacks-log", "--config", "absent.toml"])?,
@@ -74,6 +77,7 @@ fn command_environment_file_precedence_and_explicit_false_are_preserved() -> any
         "https://env.invalid".into(),
     );
     env.values.insert("OTEL_SDK_DISABLED".into(), "true".into());
+
     let config = resolve(
         Cli::try_parse_from([
             "clacks-log",
@@ -86,6 +90,7 @@ fn command_environment_file_precedence_and_explicit_false_are_preserved() -> any
         ])?,
         &env.context(),
     )?;
+
     assert_eq!(config.logs.filter.to_string(), "trace");
     assert!(!config.logs.console);
     assert!(config.telemetry.enabled);
@@ -107,6 +112,7 @@ fn endpoints_do_not_implicitly_enable_export() -> anyhow::Result<()> {
     );
     env.values
         .insert("OTEL_SDK_DISABLED".into(), "false".into());
+
     assert!(
         !resolve(Cli::try_parse_from(["clacks-log"])?, &env.context())?
             .telemetry
@@ -125,12 +131,14 @@ fn invalid_config_does_not_echo_secrets() -> anyhow::Result<()> {
         "[telemetry]\nendpoint = 'https://user:SECRET_SENTINEL@invalid/'\n",
     ] {
         std::fs::write(directory.path().join("config.toml"), body)?;
+
         let error = resolve(
             Cli::try_parse_from(["clacks-log", "--config", "config.toml"])?,
             &env.context(),
         )
         .err()
         .expect("invalid config rejected");
+
         assert!(!format!("{error:#?}").contains("SECRET_SENTINEL"));
     }
     Ok(())
@@ -144,10 +152,12 @@ fn shadowed_invalid_environment_does_not_override_cli() -> anyhow::Result<()> {
         .insert("OTEL_SDK_DISABLED".into(), "not-a-boolean".into());
     env.values
         .insert("OTEL_EXPORTER_OTLP_TIMEOUT".into(), "not-a-timeout".into());
+
     let config = resolve(
         Cli::try_parse_from(["clacks-log", "--otlp", "--otlp-timeout-ms", "10"])?,
         &env.context(),
     )?;
+
     assert!(config.telemetry.enabled);
     assert_eq!(
         config.telemetry.traces.timeout,
@@ -168,14 +178,17 @@ fn signal_specificity_is_subordinate_to_configuration_tier() -> anyhow::Result<(
         "OTEL_EXPORTER_OTLP_HEADERS".into(),
         "authorization=Bearer%20a+b".into(),
     );
+
     let config = resolve(
         Cli::try_parse_from(["clacks-log", "--otlp-endpoint", "https://cli.invalid/base"])?,
         &env.context(),
     )?;
+
     assert_eq!(
         config.telemetry.traces.endpoint,
         "https://cli.invalid/base/v1/traces"
     );
+
     assert_eq!(
         config
             .telemetry
@@ -198,10 +211,12 @@ fn relative_file_paths_use_the_file_directory() -> anyhow::Result<()> {
         "workspace='data'\n[logs]\ndirectory='diagnostics'\n",
     )?;
     let env = environment(directory.path().to_path_buf());
+
     let config = resolve(
         Cli::try_parse_from(["clacks-log", "--config", "nested/settings.toml"])?,
         &env.context(),
     )?;
+
     assert_eq!(config.workspace, nested.join("data"));
     assert_eq!(config.logs.directory, nested.join("diagnostics"));
     let overridden = resolve(
@@ -214,6 +229,7 @@ fn relative_file_paths_use_the_file_directory() -> anyhow::Result<()> {
         ])?,
         &env.context(),
     )?;
+
     assert_eq!(overridden.workspace, directory.path().join("elsewhere"));
     assert_eq!(overridden.logs.directory, nested.join("diagnostics"));
     Ok(())
@@ -241,12 +257,14 @@ fn configuration_error_identifies_the_setting_without_its_value() -> anyhow::Res
         directory.path().join("config.toml"),
         "[logs]\nretained_files = 'bad'\n",
     )?;
+
     let error = resolve(
         Cli::try_parse_from(["clacks-log", "--config", "config.toml"])?,
         &env.context(),
     )
     .err()
     .expect("invalid type rejected");
+
     assert!(error.to_string().contains("logs.retained_files"), "{error}");
     assert!(!format!("{error:#?}").contains("bad"));
     Ok(())
@@ -258,15 +276,18 @@ fn unsupported_transport_and_invalid_header_values_are_safe_errors() -> anyhow::
     let mut env = environment(directory.path().to_path_buf());
     env.values
         .insert("OTEL_EXPORTER_OTLP_PROTOCOL".into(), "grpc".into());
+
     assert!(resolve(Cli::try_parse_from(["clacks-log"])?, &env.context()).is_err());
     env.values.remove("OTEL_EXPORTER_OTLP_PROTOCOL");
     env.values.insert(
         "OTEL_EXPORTER_OTLP_HEADERS".into(),
         "authorization=SECRET_SENTINEL%0D%0A".into(),
     );
+
     let error = resolve(Cli::try_parse_from(["clacks-log"])?, &env.context())
         .err()
         .expect("invalid header rejected");
+
     assert!(!format!("{error:#?}").contains("SECRET_SENTINEL"));
     Ok(())
 }
@@ -276,13 +297,16 @@ fn bare_output_flags_enable_reporting_and_keep_values_unambiguous() -> anyhow::R
     use clap::CommandFactory;
     let directory = tempfile::tempdir()?;
     let env = environment(directory.path().to_path_buf());
+
     let config = resolve(
         Cli::try_parse_from(["clacks-log", "--otlp", "--console"])?,
         &env.context(),
     )?;
+
     assert!(config.telemetry.enabled);
     assert!(config.logs.console);
     let help = Cli::command().render_long_help().to_string();
+
     assert!(help.contains("<BOOL>"));
     assert!(!help.contains("<OTLP>"));
     assert!(!help.contains("<CONSOLE>"));
@@ -299,14 +323,17 @@ fn omitted_output_flags_preserve_file_settings_and_false_overrides_them() -> any
         "[logs]\nconsole = true\n[telemetry]\nenabled = true\n",
     )?;
     let arguments = Cli::try_parse_from(["clacks-log"])?;
+
     assert_eq!(arguments.otlp, None);
     assert_eq!(arguments.console, None);
     let inherited = resolve(arguments, &env.context())?;
+
     assert!(inherited.telemetry.enabled && inherited.logs.console);
     let disabled = resolve(
         Cli::try_parse_from(["clacks-log", "--otlp=false", "--console=false"])?,
         &env.context(),
     )?;
+
     assert!(!disabled.telemetry.enabled && !disabled.logs.console);
     Ok(())
 }
@@ -335,11 +362,14 @@ headers = { x-trace = "trace" }
         "OTEL_EXPORTER_OTLP_HEADERS".into(),
         "authorization=env-token".into(),
     );
+
     let config = resolve(Cli::try_parse_from(["clacks-log"])?, &inputs.context())?;
+
     assert_eq!(
         config.telemetry.traces.endpoint,
         "https://env.invalid/base/v1/traces"
     );
+
     assert_eq!(
         config
             .telemetry
@@ -349,6 +379,7 @@ headers = { x-trace = "trace" }
             .map(String::as_str),
         Some("env-token")
     );
+
     assert_eq!(
         config
             .telemetry
@@ -358,6 +389,7 @@ headers = { x-trace = "trace" }
             .map(String::as_str),
         Some("trace")
     );
+
     assert_eq!(
         config
             .telemetry
@@ -367,6 +399,7 @@ headers = { x-trace = "trace" }
             .map(String::as_str),
         Some("common")
     );
+
     assert!(!config.telemetry.metrics.headers.contains_key("x-trace"));
     Ok(())
 }
@@ -379,6 +412,7 @@ fn selected_config_is_an_exact_file_and_unreadable_default_is_not_absence() -> a
         directory.path().join("selected.toml.toml"),
         "workspace = 'unexpected'",
     )?;
+
     assert!(
         resolve(
             Cli::try_parse_from(["clacks-log", "--config", "selected.toml"])?,
@@ -387,6 +421,7 @@ fn selected_config_is_an_exact_file_and_unreadable_default_is_not_absence() -> a
         .is_err()
     );
     std::fs::create_dir_all(inputs.directories.config.join("config.toml"))?;
+
     assert!(resolve(Cli::try_parse_from(["clacks-log"])?, &inputs.context()).is_err());
     Ok(())
 }

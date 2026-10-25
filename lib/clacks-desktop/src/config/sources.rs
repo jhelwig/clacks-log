@@ -19,6 +19,7 @@ pub(super) fn file(path: &Path, explicit: bool) -> anyhow::Result<FileConfig> {
             ));
         }
     };
+
     Config::builder()
         .add_source(File::from_str(&text, FileFormat::Toml))
         .build()

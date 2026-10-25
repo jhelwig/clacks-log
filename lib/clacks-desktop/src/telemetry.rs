@@ -57,28 +57,34 @@ impl TelemetryGuard {
     /// Flush standard providers, then release the writer; call outside the UI thread.
     pub fn shutdown(self) -> anyhow::Result<()> {
         let mut failures = Vec::new();
+
         if let Some(provider) = self.providers.traces
             && let Err(error) = provider.shutdown_with_timeout(Duration::from_secs(5))
         {
             failures.push(format!("trace export: {error}"));
         }
+
         if let Some(provider) = self.providers.metrics
             && let Err(error) = provider.shutdown_with_timeout(Duration::from_secs(5))
         {
             failures.push(format!("metric export: {error}"));
         }
+
         if let Some(provider) = self.providers.logs
             && let Err(error) = provider.shutdown_with_timeout(Duration::from_secs(5))
         {
             failures.push(format!("log export: {error}"));
         }
+
         if !failures.is_empty() {
             tracing::warn!(
                 event = "desktop.telemetry_flush_failed",
                 failed_signals = failures.len()
             );
         }
+
         drop(self.writer);
+
         anyhow::ensure!(
             failures.is_empty(),
             "telemetry flush incomplete: {}",
@@ -118,6 +124,7 @@ pub(crate) fn initialize(config: &DesktopConfig, paths: &WorkspacePaths) -> Tele
         .filename_suffix("jsonl")
         .max_log_files(config.logs.retained_files)
         .build(&paths.log_directory);
+
     let fallback = output.is_err();
     let file_failure = Arc::new(AtomicBool::new(false));
     let builder = tracing_appender::non_blocking::NonBlockingBuilder::default()
@@ -134,8 +141,11 @@ pub(crate) fn initialize(config: &DesktopConfig, paths: &WorkspacePaths) -> Tele
             builder.finish(io::stderr())
         }
     };
+
     let loss = writer.error_counter();
+
     let providers = export::initialize(&config.telemetry, &mut diagnostics);
+
     let json = tracing_subscriber::fmt::layer()
         .json()
         .with_writer(writer)
@@ -146,6 +156,7 @@ pub(crate) fn initialize(config: &DesktopConfig, paths: &WorkspacePaths) -> Tele
             .with_writer(io::stderr)
             .with_ansi(false)
     });
+
     let spans = providers.traces.as_ref().map(|provider| {
         tracing_opentelemetry::layer().with_tracer(provider.tracer("clacks_desktop"))
     });
@@ -153,6 +164,7 @@ pub(crate) fn initialize(config: &DesktopConfig, paths: &WorkspacePaths) -> Tele
         opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new(provider)
             .with_filter(tracing_subscriber::filter::filter_fn(exported_event))
     });
+
     let subscriber = tracing_subscriber::registry()
         .with(config.logs.filter.clone())
         .with(tracing_subscriber::filter::filter_fn(safe_backend))
@@ -160,12 +172,14 @@ pub(crate) fn initialize(config: &DesktopConfig, paths: &WorkspacePaths) -> Tele
         .with(console)
         .with(spans)
         .with(logs);
+
     if subscriber.try_init().is_err() {
         diagnostics.push(
             "Desktop logging could not install its subscriber; an existing subscriber is active"
                 .into(),
         );
     }
+
     TelemetryGuard {
         writer: guard,
         loss,

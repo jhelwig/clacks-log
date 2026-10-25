@@ -83,6 +83,7 @@ fn simultaneous_processes_elect_one_owner_and_crash_releases_it() -> anyhow::Res
         result(directory.path(), "first")?,
         result(directory.path(), "second")?,
     ];
+
     assert_eq!(
         outcomes
             .iter()
@@ -90,6 +91,7 @@ fn simultaneous_processes_elect_one_owner_and_crash_releases_it() -> anyhow::Res
             .count(),
         1
     );
+
     assert_eq!(
         outcomes
             .iter()
@@ -97,6 +99,7 @@ fn simultaneous_processes_elect_one_owner_and_crash_releases_it() -> anyhow::Res
             .count(),
         1
     );
+
     assert!(matches!(
         elect(&paths(directory.path()))?,
         Election::Contended(_)
@@ -104,6 +107,7 @@ fn simultaneous_processes_elect_one_owner_and_crash_releases_it() -> anyhow::Res
     drop(first);
     drop(second);
     wait_for_owner(&paths(directory.path()))?;
+
     assert!(!directory.path().join("workspace.sqlite").exists());
     Ok(())
 }

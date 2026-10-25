@@ -11,6 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[test]
 fn bundled_definitions_compile() -> anyhow::Result<()> {
     let defaults = account_definitions()?;
+
     assert!(
         defaults.groups.len() > 100,
         "complete contest baseline required"
@@ -24,6 +25,7 @@ fn bundled_definitions_compile() -> anyhow::Result<()> {
 #[test]
 fn stable_ids_are_unique_and_mapping_targets_exist() -> anyhow::Result<()> {
     let first = account_definitions()?;
+
     assert_eq!(first, account_definitions()?);
     assert_eq!(
         first
@@ -39,6 +41,7 @@ fn stable_ids_are_unique_and_mapping_targets_exist() -> anyhow::Result<()> {
         .iter()
         .map(|profile| profile.id)
         .collect();
+
     assert_eq!(profiles.len(), first.output_profiles.len());
     for group in &first.groups {
         for target in group.export_mappings.targeted.keys() {
@@ -56,6 +59,7 @@ fn default_reference_rules_preserve_native_values() -> anyhow::Result<()> {
         .iter()
         .find(|group| group.name == "POTA")
         .unwrap();
+
     assert!(pota.bears_location_context);
     let compiled = compile_definition(pota)?;
     let entered = clacks_model::reference::ReferenceAssociation {
@@ -64,6 +68,7 @@ fn default_reference_rules_preserve_native_values() -> anyhow::Result<()> {
     };
     let original = entered.clone();
     let prepared = compiled.normalize_reference(&entered)?;
+
     assert_eq!(prepared.identifier.as_deref(), Some("US-0001@US-CA"));
     assert_eq!(entered, original);
     assert!(
@@ -112,6 +117,7 @@ fn pota_mapping_uses_separate_export_contexts() -> anyhow::Result<()> {
             &profiles,
             &BTreeMap::new(),
         )?;
+
         assert_eq!(plan.files.len(), if targeted { 2 } else { 1 });
         for file in &plan.files {
             assert_eq!(file.entries.len(), if targeted { 3 } else { 1 });
@@ -165,6 +171,7 @@ fn competing_contests_need_an_explicit_context() -> anyhow::Result<()> {
         &profiles,
         None,
     )?;
+
     assert!(!selection.decisions.is_empty());
     let context = ExportContext {
         output_profile_id: profile.id,
@@ -177,6 +184,7 @@ fn competing_contests_need_an_explicit_context() -> anyhow::Result<()> {
         &profiles,
         None,
     )?;
+
     assert!(selection.decisions.is_empty());
     Ok(())
 }
@@ -222,6 +230,7 @@ fn unknown_activation_subdivision_has_its_own_partition() -> anyhow::Result<()> 
         &profiles,
         &BTreeMap::new(),
     )?;
+
     assert_eq!(plan.files.len(), 2);
     let mut states = BTreeSet::new();
     for file in &plan.files {
@@ -235,6 +244,7 @@ fn unknown_activation_subdivision_has_its_own_partition() -> anyhow::Result<()> 
                 .cloned(),
         );
     }
+
     assert_eq!(states, [None, Some("CA".into())].into());
     Ok(())
 }
@@ -245,9 +255,11 @@ fn invalid_initial_definitions_are_rejected_before_installation() -> anyhow::Res
     defaults
         .groups
         .push(defaults.groups.first().unwrap().clone());
+
     assert!(defaults.validate().is_err());
     let mut defaults = account_definitions()?;
     defaults.output_profiles.clear();
+
     assert!(defaults.validate().is_err());
     Ok(())
 }

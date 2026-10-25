@@ -104,12 +104,14 @@ pub(crate) async fn run(
         #[cfg(test)]
         opening_gate,
     } = resources;
+
     let stop = CancellationToken::new();
     let notice_task = tokio::spawn(activation_notices(
         activation,
         context.clone(),
         stop.clone(),
     ));
+
     let mut opening = JoinSet::new();
     opening::begin(
         &mut opening,
@@ -117,18 +119,22 @@ pub(crate) async fn run(
         #[cfg(test)]
         opening_gate,
     );
+
     let mut attempt_started = Instant::now();
     let mut opened: Option<OpenedWorkspace> = None;
     let mut closing = None;
     let mut commands_open = true;
+
     let mut loss_count = 0;
     let file_failure = telemetry.file_failure();
     let mut file_failure_reported = false;
     let mut loss_check = tokio::time::interval(Duration::from_secs(5));
+
     loop {
         if closing.is_some() && opening.is_empty() {
             break;
         }
+
         tokio::select! {
             biased;
             command = commands.recv(), if commands_open => match command {
@@ -144,29 +150,63 @@ pub(crate) async fn run(
                         let started = Instant::now();
                         closing = Some(started);
                         tracing::info!(event = "desktop.shutdown_requested");
-                        publish(&status, &context, SessionStatus::Closing { phase: "Finishing workspace work", started });
+                        publish(
+                            &status,
+                            &context,
+                            SessionStatus::Closing {
+                                phase: "Finishing workspace work",
+                                started,
+                            },
+                        );
                     }
                     // A disconnected UI must not leave a permanently-ready recv branch.
-                    if commands.is_closed() { commands_open = false; }
+                    if commands.is_closed() {
+                        commands_open = false;
+                    }
                 }
             },
             result = opening.join_next(), if !opening.is_empty() => {
                 if let Some(result) = result {
                     let result = result.map_err(anyhow::Error::from).and_then(std::convert::identity);
-                    let outcome = if closing.is_some() { "cancelled" } else if result.is_ok() { "ready" } else { "failed" };
-                    metrics::histogram!(STARTUP_DURATION_METRIC, "outcome" => outcome).record(attempt_started.elapsed().as_secs_f64());
+                    let outcome = if closing.is_some() {
+                        "cancelled"
+                    } else if result.is_ok() {
+                        "ready"
+                    } else {
+                        "failed"
+                    };
+                    metrics::histogram!(STARTUP_DURATION_METRIC, "outcome" => outcome)
+                        .record(attempt_started.elapsed().as_secs_f64());
+
                     match result {
                         Ok(workspace) => {
                             if closing.is_none() {
-                                tracing::info!(event = "desktop.workspace_ready", account_id = %workspace.identity.account, enrolled = workspace.identity.enrolled);
-                                publish(&status, &context, SessionStatus::Ready { identity: workspace.identity, has_operating_location: workspace.operating.current.is_some() });
+                                tracing::info!(
+                                    event = "desktop.workspace_ready",
+                                    account_id = %workspace.identity.account,
+                                    enrolled = workspace.identity.enrolled,
+                                );
+                                publish(
+                                    &status,
+                                    &context,
+                                    SessionStatus::Ready {
+                                        identity: workspace.identity,
+                                        has_operating_location: workspace.operating.current.is_some(),
+                                    },
+                                );
                             }
                             opened = Some(workspace);
                         }
                         Err(error) => {
                             tracing::error!(event = "desktop.workspace_open_failed");
                             if closing.is_none() {
-                                publish(&status, &context, SessionStatus::Failed { message: format!("Could not open the workspace: {error:#}. Correct the problem and retry, or select another directory with --workspace.") });
+                                publish(
+                                    &status,
+                                    &context,
+                                    SessionStatus::Failed {
+                                        message: format!("Could not open the workspace: {error:#}. Correct the problem and retry, or select another directory with --workspace."),
+                                    },
+                                );
                             }
                         }
                     }
@@ -176,17 +216,23 @@ pub(crate) async fn run(
                 if file_failure.load(std::sync::atomic::Ordering::Relaxed) && !file_failure_reported {
                     file_failure_reported = true;
                     tracing::warn!(event = "desktop.local_log_write_failed");
-                    if let Some(context) = context.get() { context.request_repaint(); }
+                    if let Some(context) = context.get() {
+                        context.request_repaint();
+                    }
                 }
+
                 let dropped = telemetry.dropped_lines();
                 if dropped != loss_count {
                     tracing::warn!(event = "desktop.local_log_loss", dropped_lines = dropped);
                     loss_count = dropped;
-                    if let Some(context) = context.get() { context.request_repaint(); }
+                    if let Some(context) = context.get() {
+                        context.request_repaint();
+                    }
                 }
             }
         }
     }
+
     let started = closing.unwrap_or_else(Instant::now);
     shutdown::finish(
         shutdown::ShutdownResources {
@@ -213,9 +259,13 @@ async fn activation_notices(
         tokio::select! {
             _ = stop.cancelled() => break,
             result = activation.changed() => {
-                if result.is_err() { break; }
+                if result.is_err() {
+                    break;
+                }
                 tracing::info!(event = "desktop.activation_received");
-                if let Some(context) = context.get() { context.request_repaint(); }
+                if let Some(context) = context.get() {
+                    context.request_repaint();
+                }
             }
         }
     }
