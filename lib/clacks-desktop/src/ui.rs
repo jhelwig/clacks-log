@@ -1,12 +1,15 @@
 //! Native presentation and lifecycle requests, with no database work in callbacks.
 
+mod appearance;
 mod closing;
 mod equipment;
 mod operating;
+mod preferences;
 mod profiles;
 mod startup;
 #[cfg(test)]
 mod tests;
+mod theme;
 
 use crate::{
     session::{SessionCommand, SessionStatus, settings::SettingsRequest},
@@ -45,6 +48,8 @@ pub(crate) struct UiResources {
 
 /// Window-owned view state and standard communication handles.
 pub(crate) struct DesktopApp {
+    /// Committed local appearance and an optional unapplied preview.
+    appearance: appearance::AppearanceUi,
     /// Runtime-owned lifecycle snapshot.
     status: watch::Receiver<SessionStatus>,
     /// Coalesced activation notices, including notices before window construction.
@@ -92,6 +97,7 @@ impl DesktopApp {
             file_failure,
         } = resources;
         Self {
+            appearance: Default::default(),
             status,
             activation,
             commands,
@@ -108,6 +114,16 @@ impl DesktopApp {
             continuing: false,
             command_error: None,
         }
+    }
+
+    /// Restore presentation preferences before the first native frame.
+    pub(crate) fn restore_appearance(
+        &mut self,
+        context: &egui::Context,
+        storage: Option<&dyn eframe::Storage>,
+    ) {
+        self.appearance = appearance::AppearanceUi::restore(storage);
+        theme::install(context, &self.appearance.committed);
     }
 
     /// Request orderly cleanup once; repeated native closes retain the original deadline.
@@ -166,13 +182,29 @@ impl DesktopApp {
 }
 
 impl eframe::App for DesktopApp {
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        self.appearance.save(storage);
+    }
+
+    fn persist_egui_memory(&self) -> bool {
+        false
+    }
+
     fn logic(&mut self, context: &egui::Context, _frame: &mut eframe::Frame) {
         self.update_lifecycle(context);
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ui, |ui| {
-            ui.heading("Clacks Log");
+            ui.horizontal(|ui| {
+                ui.heading("Clacks Log");
+                if ui.button("Appearance…").clicked() {
+                    self.appearance.open();
+                }
+            });
+            if let Some(notice) = &self.appearance.notice {
+                ui.label(notice);
+            }
 
             let state = self.status.borrow().clone();
             startup::show(self, ui, &state);
@@ -192,5 +224,6 @@ impl eframe::App for DesktopApp {
                 self.begin_close();
             }
         });
+        self.appearance.show(ui.ctx());
     }
 }

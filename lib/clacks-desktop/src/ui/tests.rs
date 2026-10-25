@@ -3,6 +3,157 @@
 use super::*;
 use std::time::Instant;
 
+#[derive(Default)]
+struct Storage(std::collections::BTreeMap<String, String>);
+
+impl eframe::Storage for Storage {
+    fn get_string(&self, key: &str) -> Option<String> {
+        self.0.get(key).cloned()
+    }
+
+    fn set_string(&mut self, key: &str, value: String) {
+        self.0.insert(key.into(), value);
+    }
+
+    fn remove_string(&mut self, key: &str) {
+        self.0.remove(key);
+    }
+
+    fn flush(&mut self) {}
+}
+
+#[test]
+fn appearance_apply_survives_app_save_and_reconstruction() {
+    use super::appearance::AppearanceAction;
+    use super::preferences::{Appearance, FontChoice};
+    use eframe::App;
+
+    let mut window = Window::new();
+    let mut storage = Storage::default();
+    storage.0.insert("unrelated".into(), "keep me".into());
+
+    window.app.appearance.open();
+    let pending = &mut window.app.appearance.editor.as_mut().unwrap().pending;
+    pending.appearance = Appearance::Light;
+    pending.zoom = 1.25;
+    pending.radio_font = FontChoice::Installed {
+        family: "Example family".into(),
+    };
+    window
+        .app
+        .appearance
+        .finish(&window.context, AppearanceAction::Apply);
+    window.app.save(&mut storage);
+
+    let mut reopened = Window::new();
+    reopened
+        .app
+        .restore_appearance(&reopened.context, Some(&storage));
+    reopened.draw(egui::RawInput::default());
+
+    assert!(storage.0.contains_key("clacks.appearance.v1"));
+    assert_eq!(storage.0.get("unrelated").unwrap(), "keep me");
+    assert_eq!(reopened.context.theme(), egui::Theme::Light);
+    assert_eq!(reopened.context.zoom_factor(), 1.25);
+    assert_eq!(
+        reopened.app.appearance.committed.radio_font,
+        FontChoice::Installed {
+            family: "Example family".into()
+        }
+    );
+    assert!(!reopened.app.persist_egui_memory());
+}
+
+#[test]
+fn appearance_cancelled_preview_is_not_saved() {
+    use super::appearance::AppearanceAction;
+    use super::preferences::Appearance;
+    use eframe::App;
+
+    let mut window = Window::new();
+    window.app.appearance.open();
+    let pending = &mut window.app.appearance.editor.as_mut().unwrap().pending;
+    pending.appearance = Appearance::Dark;
+    pending.zoom = 1.5;
+    window
+        .app
+        .appearance
+        .finish(&window.context, AppearanceAction::Cancel);
+    window.draw(egui::RawInput::default());
+    let mut storage = Storage::default();
+    window.app.save(&mut storage);
+    let mut reopened = Window::new();
+    reopened
+        .app
+        .restore_appearance(&reopened.context, Some(&storage));
+    reopened.draw(egui::RawInput::default());
+
+    assert_eq!(
+        reopened.app.appearance.committed.appearance,
+        Appearance::System
+    );
+    assert_eq!(reopened.context.zoom_factor(), 1.0);
+}
+
+#[test]
+fn appearance_invalid_saved_preferences_do_not_prevent_startup() {
+    let mut storage = Storage::default();
+    storage.0.insert(
+        "clacks.appearance.v1".into(),
+        "not valid appearance data".into(),
+    );
+    let mut window = Window::new();
+
+    window
+        .app
+        .restore_appearance(&window.context, Some(&storage));
+    window.draw(egui::RawInput::default());
+
+    assert_eq!(window.context.zoom_factor(), 1.0);
+    assert!(window.app.appearance.notice.is_some());
+    assert!(window.app.appearance.editor.is_none());
+}
+
+#[test]
+fn appearance_composes_with_native_display_scale() {
+    use super::preferences::{Appearance, AppearancePreferences};
+
+    let mut window = Window::new();
+    let mut input = egui::RawInput::default();
+    input
+        .viewports
+        .entry(egui::ViewportId::ROOT)
+        .or_default()
+        .native_pixels_per_point = Some(2.0);
+    theme::install(
+        &window.context,
+        &AppearancePreferences {
+            appearance: Appearance::Light,
+            zoom: 1.25,
+            ..Default::default()
+        },
+    );
+    window.draw(input);
+
+    assert_eq!(window.context.pixels_per_point(), 2.5);
+    for appearance in [egui::Theme::Light, egui::Theme::Dark] {
+        let style = window.context.style_of(appearance);
+        let colors = theme::palette(appearance);
+        assert_ne!(colors.error, colors.edited_edge);
+        assert_ne!(colors.error, style.visuals.selection.bg_fill);
+    }
+    for zoom in [f32::NAN, f32::INFINITY, 0.0, 0.74, 2.01] {
+        assert!(
+            AppearancePreferences {
+                zoom,
+                ..Default::default()
+            }
+            .validate()
+            .is_err()
+        );
+    }
+}
+
 struct Window {
     app: DesktopApp,
     context: egui::Context,
@@ -13,6 +164,15 @@ struct Window {
 }
 
 impl Window {
+    fn draw(&mut self, input: egui::RawInput) {
+        use eframe::App;
+
+        let mut frame = eframe::Frame::_new_kittest();
+        self.context
+            .run_ui(input, |ui| self.app.ui(ui, &mut frame))
+            .drop_without_applying_deltas();
+    }
+
     fn new() -> Self {
         let (updates, status) = watch::channel(SessionStatus::Opening);
         let (notices, activation) = watch::channel(());

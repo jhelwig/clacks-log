@@ -25,7 +25,7 @@ license = "Elastic-2.0"
 publish = false
 
 [workspace.dependencies]
-eframe = { version = "=0.37.0", default-features = false, features = ["accesskit", "clipboard", "default_fonts", "links", "system_fonts", "wgpu", "wayland", "x11"] }
+eframe = { version = "=0.37.0", default-features = false, features = ["accesskit", "clipboard", "default_fonts", "links", "persistence", "system_fonts", "wgpu", "wayland", "x11"] }
 clacks-desktop = { path = "lib/clacks-desktop" }
 config = { version = "=0.15.27", default-features = false, features = ["toml"] }
 directories = "=6.0.0"
