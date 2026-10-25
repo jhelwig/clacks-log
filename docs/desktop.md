@@ -6,8 +6,6 @@ D270–D279 and the selected egui architecture. The [desktop guide](../lib/clack
 documents runtime usage and validation. The [product contract](product.md),
 [client store](client-store.md), [native model](native-model.md) and
 [observability contract](observability.md) remain authoritative for their domains.
-The [implementation plan](superpowers/plans/2026-10-24-desktop-foundation.md)
-defines the delivery tasks and engineering choices for this specification.
 
 ## 1. Outcome and boundaries
 
@@ -143,8 +141,8 @@ settings produce actionable diagnostics rather than silently changing meaning.
 A missing default file uses defaults; an explicitly selected missing/unreadable
 file is an error. Do not create a configuration file merely by launching.
 
-The implementation plan defines the exact typed keys and CLI help for these
-settings; this specification fixes their meanings:
+The desktop guide documents the supported configuration keys; the executable’s
+`--help` lists command-line options. This specification fixes their meanings:
 
 | Setting | Contract/default |
 | --- | --- |
@@ -386,15 +384,12 @@ and actual native interaction for window/renderer claims. Rust fixtures and
 private test seams may control delayed work; public APIs must still serve real
 application behavior. Platform checks not performed remain explicitly unverified.
 
-## 10. Implementation-plan obligations and sources
+## 10. Integration references
 
-The implementation plan must resolve exact dependency versions/features/licenses,
-compatible exporter/recorder APIs, supported configuration keys, endpoint naming
-and permissions, task/result types and the Windows native verification procedure.
-These are bounded engineering choices under this contract, not a renewed product
-scope discussion. Validate selected features against Rust 1.99.1 and ensure the
-new desktop/export paths do not bring in OpenSSL. No dependency has been added or
-runtime integration proved merely by writing this specification.
+The [desktop guide](../lib/clacks-desktop/README.md) documents configuration,
+platform integration, dependency obligations and native verification. Resolved
+dependency versions are pinned in `Cargo.lock`. Desktop and exporter paths must
+remain compatible with Rust 1.99.1 and must not introduce OpenSSL.
 
 Primary API references supporting the integration boundaries:
 
@@ -404,4 +399,4 @@ Primary API references supporting the integration boundaries:
 - [interprocess local sockets](https://docs.rs/interprocess/latest/interprocess/local_socket/): cross-platform activation transport; endpoint recovery remains ownership-sensitive.
 - [OS project directories](https://docs.rs/directories/latest/directories/struct.ProjectDirs.html): platform-specific configuration and local data locations.
 - [tracing-appender rotation](https://docs.rs/tracing-appender/latest/tracing_appender/rolling/struct.Builder.html): time rotation and retained-file count.
-- [OTLP Rust exporter](https://docs.rs/opentelemetry-otlp/latest/opentelemetry_otlp/) and [metrics adapter](https://docs.rs/metrics-opentelemetry/latest/metrics_opentelemetry/): standard export and producer integration; exact compatible versions are a plan prerequisite.
+- [OTLP Rust exporter](https://docs.rs/opentelemetry-otlp/latest/opentelemetry_otlp/) and [metrics adapter](https://docs.rs/metrics-opentelemetry/latest/metrics_opentelemetry/): standard export and producer integration; resolved versions are pinned in `Cargo.lock`.
