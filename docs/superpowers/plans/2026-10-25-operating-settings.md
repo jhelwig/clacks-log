@@ -252,7 +252,7 @@ impl OperatingEditor {
 
 Use named form fields and dedicated edit methods rather than anonymous tuples. `build` creates native values only at a save/apply boundary; the form owns raw incomplete text, not incomplete native records. Keep ordinary UI state private, not public APIs for tests.
 
-- [ ] **1. Write failing form cases.** In the owning modules, assert exact behavior for:
+- [x] **1. Write failing form cases.** In the owning modules, assert exact behavior for:
   - W7HEX/Home and Rig A: manually change grid CN87 to CN88 => profile selection None, equipment still A; change back => still None. Changing antenna Dipole to Loop clears only equipment. Operator W7ABC or power 25 clears neither.
   - Callsign ` w7hex/p ` builds W7HEX/P without dropping slash components. Merely normalizing equivalent text or repainting does not detach. Partial invalid manual text detaches its component and stays editable; Apply returns field errors, not a panic.
   - Switching views retains raw text and selections; stage Field with absent station fields clears them, no equipment default preserves current equipment, explicit B changes only equipment.
@@ -266,15 +266,15 @@ Use named form fields and dedicated edit methods rather than anonymous tuples. `
   assert_eq!(editor.selected_equipment.as_ref().map(|e| e.id), Some(rig_a.id));
   assert_eq!(editor.expected, active_before_edit);
   ```
-- [ ] **2. Run red.** `SQLX_OFFLINE=true cargo test -p clacks-desktop operating:: --locked --offline`.
-- [ ] **3. Implement the forms.** Use `RecordedCallsign::new`, `Position`, `Locator`, `GridLength`, `Coordinates::from_decimal_degrees`, `Position::same_geographic_position`, native normalization and `group::normalize_reference`. Keep area/point intent explicit to avoid coordinate feedback. Parse power to checked integer milliwatts; no floating point or new decimal framework.
+- [x] **2. Run red.** `SQLX_OFFLINE=true cargo test -p clacks-desktop operating:: --locked --offline`.
+- [x] **3. Implement the forms.** Use `RecordedCallsign::new`, `Position`, `Locator`, `GridLength`, `Coordinates::from_decimal_degrees`, `Position::same_geographic_position`, native normalization and `group::normalize_reference`. Keep area/point intent explicit to avoid coordinate feedback. Parse power to checked integer milliwatts; no floating point or new decimal framework.
   - Detach on a user-originated value change, not on a `.changed()` caused by programmatic reload/derived display. For complete valid text compare native meaning; equivalent normalization is not a new value. Once detached, matching again does not reattach.
   - Remember which reference rows were explicitly edited so Save does not renormalize existing rows merely because definitions changed.
   - `refresh_sources` updates availability/source-change display only. Known working tombstones clear matching source copies and normalize the expected read basis only when all other active values/selections still match; otherwise retain the form and its ordinary stale-save condition. No reload or baseline advance on ordinary saved edits.
   - Creating/updating a reusable editor from form values copies only its owned fields. Existing profile target retains its saved default; new profile starts None. New equipment creation does not select it for the caller.
   - Stage a profile by validating its station and required configuration ID/values before changing any form fields, then copying owned station/equipment facts. Operator/power and equipment-with-no-default remain as their original editable text, even when incomplete. Do not construct a synthetic valid operating context merely to call an old copying helper. Remove native `load_profile`/`load_equipment` wrappers once their sole production store caller is replaced; the real `OperatingEditor::stage_profile`/`stage_equipment` methods and their tests own this interaction. Port useful old loading/copy assertions to those product paths and remove obsolete helper-span assertions without weakening reference-entry telemetry coverage.
-- [ ] **4. Run green and model validation regressions.** Run the form tests and `SQLX_OFFLINE=true cargo clippy -p clacks-desktop --all-targets --locked --offline -- -D warnings`. Test actual conversion outputs, not egui's text buffer implementation.
-- [ ] **5. Commit.** Suggested subject: `Add transient native operating and reusable-record editors`. Body explains independent form ownership, actual detachment and preservation of partial input without persisted unfinished records.
+- [x] **4. Run green and model validation regressions.** Run the form tests and `SQLX_OFFLINE=true cargo clippy -p clacks-desktop --all-targets --locked --offline -- -D warnings`. Test actual conversion outputs, not egui's text buffer implementation.
+- [x] **5. Commit.** Suggested subject: `Add transient native operating and reusable-record editors`. Body explains independent form ownership, actual detachment and preservation of partial input without persisted unfinished records.
 
 ## Task 5: Integrate settings work with the production desktop runtime
 

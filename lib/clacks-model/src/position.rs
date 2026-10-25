@@ -15,6 +15,14 @@ const RADICES: [i64; 6] = [18, 10, 24, 10, 24, 10];
 #[serde(try_from = "u8", into = "u8")]
 pub struct GridLength(u8);
 
+/// Use six characters when no display-locator precision has been selected.
+impl Default for GridLength {
+    /// Return the initial six-character locator display precision.
+    fn default() -> Self {
+        Self(6)
+    }
+}
+
 impl GridLength {
     /// Validate a locator’s retained character count.
     ///

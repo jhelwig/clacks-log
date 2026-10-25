@@ -37,9 +37,9 @@ metrics-opentelemetry.workspace = true
 metrics.workspace = true
 clacks-client-store.workspace = true
 clacks-model.workspace = true
+clacks-sync.workspace = true
 
 [dev-dependencies]
-clacks-sync.workspace = true
 opentelemetry-proto.workspace = true
 prost.workspace = true
 

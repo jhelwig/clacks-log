@@ -109,62 +109,9 @@ fn lotw_readiness_keeps_unfamiliar_values_out_of_telemetry() -> anyhow::Result<(
 }
 
 #[test]
-fn profile_and_reference_entry_preserve_semantics_and_safe_errors() -> anyhow::Result<()> {
-    use clacks_model::{
-        contact::RecordError,
-        group::normalize_reference,
-        profile::{
-            CurrentOperatingValues, EquipmentConfiguration, SavedLocationProfile, load_profile,
-        },
-    };
-    let q = support::qso(support::id(1));
-    let current = CurrentOperatingValues {
-        station: q.own_station.clone(),
-        operator: None,
-        transmit_power: None,
-        equipment: None,
-    };
-    let mut profile = SavedLocationProfile {
-        id: support::id(1),
-        name: "CANARY-PROFILE".into(),
-        station: q.own_station,
-        default_equipment: None,
-    };
-    let captured = capture(|| load_profile(&current, &profile, None));
-    assert_eq!(captured.result.as_ref().unwrap().station, profile.station);
-    profile.default_equipment = Some(support::id(2));
-    let captured = capture(|| load_profile(&current, &profile, None));
-    assert!(
-        captured
-            .result
-            .as_ref()
-            .unwrap_err()
-            .downcast_ref::<RecordError>()
-            .is_some()
-    );
-    assert_eq!(
-        captured.span("model.profile.load").fields.get("profile_id"),
-        Some(&profile.id.to_string())
-    );
-    assert!(captured.observations.events.is_empty());
-    assert!(!format!("{:?}", captured.observations).contains("CANARY-PROFILE"));
-    let equipment = EquipmentConfiguration {
-        id: support::id(2),
-        name: "CANARY-EQUIPMENT-NAME".into(),
-        values: Default::default(),
-    };
-    let captured = capture(|| load_profile(&current, &profile, Some(&equipment)));
-    assert_eq!(
-        captured.result.as_ref().unwrap().equipment,
-        Some(equipment.values.clone())
-    );
-    let event = captured.event("profile.equipment_selected");
-    assert_eq!(
-        event.fields.get("equipment_id"),
-        Some(&equipment.id.to_string())
-    );
-    assert_eq!(event.parent, captured.span("model.profile.load").id);
-    assert!(!format!("{:?}", captured.observations).contains("CANARY-EQUIPMENT-NAME"));
+fn reference_entry_preserves_recorded_values_without_implicit_recognition_edits()
+-> anyhow::Result<()> {
+    use clacks_model::group::normalize_reference;
     let association = support::reference(support::id(1), Some("us-1234"));
     let captured = capture(|| normalize_reference(&association, None));
     assert_eq!(captured.result.as_ref().unwrap(), &association);
