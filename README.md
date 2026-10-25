@@ -13,6 +13,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Native-model contract](docs/native-model.md)
 - [Durable offline client storage](docs/client-store.md)
 - [Desktop application specification](docs/desktop.md)
+- [Operating settings, station profiles and equipment](docs/operating-settings.md)
 - [Geographic-pipeline specification](docs/geographic-pipeline.md)
 - [Synchronization behavior](docs/synchronization.md) and [metadata model](docs/synchronization-model.md)
 - [Accounts and enrollment](docs/accounts.md)
