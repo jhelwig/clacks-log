@@ -1,6 +1,9 @@
 //! Native presentation and lifecycle requests, with no database work in callbacks.
 
 mod closing;
+mod equipment;
+mod operating;
+mod profiles;
 mod startup;
 #[cfg(test)]
 mod tests;
@@ -52,6 +55,8 @@ pub(crate) struct DesktopApp {
     settings_requests: mpsc::Sender<SettingsRequest>,
     /// Committed settings snapshots received from the runtime.
     settings_view: watch::Receiver<Option<Arc<SettingsSnapshot>>>,
+    /// Real settings navigation and pending editor ownership.
+    settings: operating::SettingsUi,
     /// Local paths displayed to the operator, never diagnostic payloads.
     paths: WorkspacePaths,
     /// Safe startup degradation details.
@@ -96,6 +101,7 @@ impl DesktopApp {
             diagnostics,
             loss,
             file_failure,
+            settings: Default::default(),
             shutdown_pending: false,
             close_requested: false,
             delayed_reported: false,
@@ -170,6 +176,15 @@ impl eframe::App for DesktopApp {
 
             let state = self.status.borrow().clone();
             startup::show(self, ui, &state);
+
+            if matches!(state, SessionStatus::Ready { .. })
+                && !self.close_requested
+                && let Some(snapshot) = self.settings_view.borrow_and_update().clone()
+            {
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    self.settings.show(ui, &snapshot, &self.settings_requests)
+                });
+            }
 
             if let SessionStatus::Closing { phase, started } = state {
                 closing::show(self, ui, phase, started);

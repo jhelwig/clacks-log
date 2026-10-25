@@ -164,6 +164,24 @@ impl OperatingEditor {
         })
     }
 
+    /// Clear a known deleted source association without changing copied facts or edit basis.
+    pub fn forget_source(&mut self, id: RecordId) {
+        if self
+            .selected_profile
+            .as_ref()
+            .is_some_and(|p| id == RecordId::Profile(p.id))
+        {
+            self.selected_profile = None;
+        }
+        if self
+            .selected_equipment
+            .as_ref()
+            .is_some_and(|e| id == RecordId::Equipment(e.id))
+        {
+            self.selected_equipment = None;
+        }
+    }
+
     /// Forget proven deletions while preserving pending text and the ordinary stale-save guard.
     pub fn refresh_sources(&mut self, snapshot: &SettingsSnapshot) {
         let deleted: BTreeSet<_> = snapshot
@@ -173,19 +191,8 @@ impl OperatingEditor {
             .filter(|r| matches!(r.working_state(), Some(RecordState::Deleted)))
             .map(|r| r.key.id)
             .collect();
-        if self
-            .selected_profile
-            .as_ref()
-            .is_some_and(|p| deleted.contains(&RecordId::Profile(p.id)))
-        {
-            self.selected_profile = None;
-        }
-        if self
-            .selected_equipment
-            .as_ref()
-            .is_some_and(|e| deleted.contains(&RecordId::Equipment(e.id)))
-        {
-            self.selected_equipment = None;
+        for id in &deleted {
+            self.forget_source(*id);
         }
         let mut cleaned = self.expected.clone();
         if cleaned

@@ -4,7 +4,7 @@ mod opening;
 pub(crate) mod settings;
 mod shutdown;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use crate::{
     application::STARTUP_DURATION_METRIC,

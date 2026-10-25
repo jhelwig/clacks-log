@@ -324,7 +324,7 @@ pub(crate) enum SettingsResponse {
 
 **Interfaces:** Each view exposes a crate-private `show(ui: &mut egui::Ui, ...)` with named form/snapshot/request context owned by DesktopApp. Use a small navigation enum with explicit screens and stored caller forms; no generic router, callback registry or anonymous record tuples. Keep one OperatingEditor alive while visiting nested reusable editors. Track outstanding request receivers next to their originating form; UI rendering emits the real SettingsRequest variants.
 
-- [ ] **1. Write failing workflow tests using the production form/session paths.** Give egui controls stable IDs derived from record IDs. Exercise pointer/keyboard events or captured control rectangles from the actual rendered views, rather than a test-only action API:
+- [x] **1. Write failing workflow tests using the production form/session paths.** Give egui controls stable IDs derived from record IDs. Exercise pointer/keyboard events or captured control rectangles from the actual rendered views, rather than a test-only action API:
   - Load Home/A, select B, Apply => visible active Home/B and saved Home/A; after restart it remains Home/B.
   - Edit grid => visible pending profile None and no profile reload/source-comparison control; active still Home. Switch equipment/station views, Cancel => active still Home/A.
   - Save Field from edited station while power is invalid => profile saved, Apply still invalid, no implicit selection; outer Cancel preserves Field.
@@ -339,15 +339,15 @@ pub(crate) enum SettingsResponse {
   assert_eq!(persisted_rig_c.values, entered_rig_c.values);
   assert_eq!(reopened.operating, active_before_edit);
   ```
-- [ ] **2. Run red.** `SQLX_OFFLINE=true cargo test -p clacks-desktop ui:: --locked --offline` and targeted settings session tests.
-- [ ] **3. Implement the real views.** Include an always-visible active source/value summary, one operating editor with Station/Equipment/Operator-power views and a single Apply/Cancel pair, separate profile/equipment lists and editors, explicit update-versus-new selection, visible profile/default-equipment association, and reviewed equipment deletion with one explicit choice per affected profile.
+- [x] **2. Run red.** `SQLX_OFFLINE=true cargo test -p clacks-desktop ui:: --locked --offline` and targeted settings session tests.
+- [x] **3. Implement the real views.** Include an always-visible active source/value summary, one operating editor with Station/Equipment/Operator-power views and a single Apply/Cancel pair, separate profile/equipment lists and editors, explicit update-versus-new selection, visible profile/default-equipment association, and reviewed equipment deletion with one explicit choice per affected profile.
   - All geographic/manual correction fields and reference rows come from Task 4 forms, not a grid-only mockup. No geographic-data calls yet.
   - Only explicit loading reattaches a source. Hide source comparison/reload when detached. Saved-source updates remain indicators, not forced refreshes.
   - Save and Cancel target the currently shown reusable editor; return to its preserved caller. Operating Apply/Cancel closes that form after committed success/discard; closing a reusable editor does not apply operating values.
   - Show validation next to fields and request state at the owning action; disable duplicate submission while that request is pending, preserving navigation/activation/shutdown responsiveness. Use standard egui focus/navigation controls, not custom key handling for ordinary fields.
   - Deletion review reuses actual preview/outcome types. A stale affected set refreshes the review with user choices retained for still-matching IDs; new profiles require new explicit choices. No partial-success deletion claim.
-- [ ] **4. Verify green and telemetry decisions through real operations.** Extend store `tests/observability.rs` and desktop private tests to assert staging does not increment application/mutation counters; one committed create/update/delete increments the correct family; Unchanged/Stale/rollback does not. Deliberately distinctive callsign/location/equipment/reference strings must be absent from emitted telemetry; account/record IDs remain available at the intended enabled level. Reuse existing scoped test subscribers/recorders; do not retest library formatting or duplicate the full suite without telemetry.
-- [ ] **5. Commit.** Suggested subject: `Deliver operating settings and reusable station/equipment workflows`. Body explains Save/Apply/Cancel boundaries, explicit associations, actual detachment and Windows evidence still required if unavailable.
+- [x] **4. Verify green and telemetry decisions through real operations.** Extend store `tests/observability.rs` and desktop private tests to assert staging does not increment application/mutation counters; one committed create/update/delete increments the correct family; Unchanged/Stale/rollback does not. Deliberately distinctive callsign/location/equipment/reference strings must be absent from emitted telemetry; account/record IDs remain available at the intended enabled level. Reuse existing scoped test subscribers/recorders; do not retest library formatting or duplicate the full suite without telemetry.
+- [x] **5. Commit.** Suggested subject: `Deliver operating settings and reusable station/equipment workflows`. Body explains Save/Apply/Cancel boundaries, explicit associations, actual detachment and Windows evidence still required if unavailable.
 
 ## Task 7: Complete durable acceptance, documentation and platform verification
 

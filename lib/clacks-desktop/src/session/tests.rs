@@ -11,20 +11,21 @@ use crate::{
 };
 use clap::Parser;
 
-struct Fixture {
-    _directory: tempfile::TempDir,
-    _owner: instance::InstanceOwner,
-    resources: SessionResources,
-    status: watch::Receiver<SessionStatus>,
-    updates: watch::Sender<SessionStatus>,
-    commands: mpsc::Sender<SessionCommand>,
-    input: mpsc::Receiver<SessionCommand>,
-    settings: mpsc::Sender<settings::SettingsRequest>,
-    settings_view: watch::Receiver<Option<Arc<clacks_client_store::settings::SettingsSnapshot>>>,
+pub(crate) struct Fixture {
+    pub(crate) _directory: tempfile::TempDir,
+    pub(crate) _owner: instance::InstanceOwner,
+    pub(crate) resources: SessionResources,
+    pub(crate) status: watch::Receiver<SessionStatus>,
+    pub(crate) updates: watch::Sender<SessionStatus>,
+    pub(crate) commands: mpsc::Sender<SessionCommand>,
+    pub(crate) input: mpsc::Receiver<SessionCommand>,
+    pub(crate) settings: mpsc::Sender<settings::SettingsRequest>,
+    pub(crate) settings_view:
+        watch::Receiver<Option<Arc<clacks_client_store::settings::SettingsSnapshot>>>,
 }
 
 impl Fixture {
-    fn new() -> anyhow::Result<Self> {
+    pub(crate) fn new() -> anyhow::Result<Self> {
         let directory = tempfile::tempdir()?;
         let config = config::resolve(
             Cli::try_parse_from(["clacks-log"])?,
@@ -72,7 +73,7 @@ impl Fixture {
     }
 }
 
-async fn next_matching(
+pub(crate) async fn next_matching(
     status: &mut watch::Receiver<SessionStatus>,
     predicate: impl Fn(&SessionStatus) -> bool,
 ) -> anyhow::Result<SessionStatus> {
