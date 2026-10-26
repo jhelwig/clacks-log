@@ -57,3 +57,14 @@ impl PositionFields {
         }
     }
 }
+
+/// Native working-contact pointers selected by local readers.
+#[derive(sqlx::FromRow)]
+pub(crate) struct WorkingContactRow {
+    /// Stable contact identity.
+    pub record_id: String,
+    /// Relational working payload pointer.
+    pub payload_id: i64,
+    /// Unpublished local state.
+    pub pending: bool,
+}

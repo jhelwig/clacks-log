@@ -203,3 +203,17 @@ SQLx metadata remain the schema contract. Regenerate/check metadata against a
 fresh temporary migrated database using the scoped commands above, with
 `SQLX_OFFLINE=false` and that temporary `DATABASE_URL`. Never use a real account
 workspace for query preparation.
+
+### Desktop contact pages
+
+`read::ReadSnapshot::contact_page` returns bounded current-working rows for a
+named tag, All contacts or Untagged. It orders native values in SQLite, with
+absent optional values last and stable contact-ID ties. Full UTC timestamps
+remain one comparison value. A point's displayed grid participates in grid
+sorting alongside recorded grid areas. The existing `history` keyset/filter
+reader retains its independent snapshot-consumer contract.
+
+The desktop uses pages of 100 and resets paging after known mutations or view/
+sort changes. A page's `has_more` is not an account-wide count; separate page
+reads are not represented as one immutable account snapshot. Save/edit/delete
+continues to use the existing expected-record transaction and pending metadata.
