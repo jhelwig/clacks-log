@@ -1,6 +1,8 @@
 //! Private view-state tests without a display server.
 
 mod appearance;
+mod logbooks;
+mod logbooks_support;
 mod main_screen;
 
 use super::*;

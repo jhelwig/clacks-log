@@ -3,7 +3,7 @@
 use super::*;
 
 impl Window {
-    fn ready_main_screen(&mut self) {
+    pub(super) fn ready_main_screen(&mut self) {
         let identity = clacks_client_store::identity::WorkspaceStatus {
             account: Default::default(),
             enrolled: false,
@@ -25,7 +25,7 @@ impl Window {
         self.app.settings_view = view;
     }
 
-    fn main_frame(&mut self, events: Vec<egui::Event>) -> egui::FullOutput {
+    pub(super) fn main_frame(&mut self, events: Vec<egui::Event>) -> egui::FullOutput {
         self.main_frame_at_size(events, egui::vec2(1024.0, 768.0))
     }
 
@@ -47,7 +47,7 @@ impl Window {
     }
 }
 
-fn labels(output: &egui::FullOutput) -> Vec<&str> {
+pub(super) fn labels(output: &egui::FullOutput) -> Vec<&str> {
     output
         .shapes
         .iter()

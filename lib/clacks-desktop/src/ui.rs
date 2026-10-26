@@ -7,6 +7,7 @@ mod equipment;
 mod feedback;
 mod fields;
 pub(crate) mod fonts;
+mod logbooks;
 mod operating;
 mod preferences;
 mod profiles;
@@ -67,6 +68,8 @@ pub(crate) struct DesktopApp {
     settings_view: watch::Receiver<Option<Arc<SettingsSnapshot>>>,
     /// Real settings navigation and pending editor ownership.
     settings: operating::SettingsUi,
+    /// Local logbook selector and independently owned management workflow.
+    logbooks: logbooks::LogbooksUi,
     /// Local paths displayed to the operator, never diagnostic payloads.
     paths: WorkspacePaths,
     /// Safe startup degradation details.
@@ -113,6 +116,7 @@ impl DesktopApp {
             loss,
             file_failure,
             settings: Default::default(),
+            logbooks: Default::default(),
             shutdown_pending: false,
             close_requested: false,
             delayed_reported: false,
@@ -255,6 +259,16 @@ impl eframe::App for DesktopApp {
                             && !self.close_requested
                             && let Some(snapshot) = self.settings_view.borrow_and_update().clone()
                         {
+                            let restored = match state {
+                                SessionStatus::Ready {
+                                    restored_view_from, ..
+                                } => restored_view_from,
+                                _ => None,
+                            };
+                            self.logbooks.observe(&snapshot.logbooks, restored);
+                            self.logbooks
+                                .show(ui, &snapshot.logbooks, &self.settings_requests);
+                            ui.add_space(8.0);
                             self.settings.show(ui, &snapshot, &self.settings_requests);
                         }
 

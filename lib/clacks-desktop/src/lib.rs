@@ -3,6 +3,7 @@
 mod application;
 mod config;
 mod instance;
+mod logbooks;
 mod operating;
 mod session;
 mod telemetry;
@@ -20,3 +21,7 @@ pub fn run() -> anyhow::Result<()> {
     let configuration = config::resolve(arguments, &context)?;
     application::run(configuration)
 }
+
+#[cfg(test)]
+#[path = "logbooks/tests.rs"]
+mod logbook_tests;
