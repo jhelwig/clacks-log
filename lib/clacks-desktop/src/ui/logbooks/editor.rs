@@ -27,7 +27,9 @@ impl LogbooksUi {
                 }
                 let pending = frame.response.is_some();
                 ui.add_enabled_ui(!pending, |ui| {
-                if frame.form.is_some() {
+                if frame.deletion.is_some() {
+                    super::deletion::show(ui, frame, sender);
+                } else if frame.form.is_some() {
                     show_form(ui, frame, records, sender);
                 } else {
                     ui.label("Save changes a named logbook. Choose it in the main selector to make it the current view.");
@@ -43,6 +45,9 @@ impl LogbooksUi {
                                         frame.form = Some(TagForm::new(records.iter().find(|row| row.key.id==RecordId::Tag(tag.id)).cloned()));
                                         frame.notice = None;
                                     }
+                                    if ui.button("Delete logbook").clicked() {
+                                        frame.send(sender, LogbookAction::PreviewDeletion { id: tag.id });
+                                    }
                                 });
                                 ui.small(format!("LoTW: {:?} · QRZ: {:?}", tag.automatic_upload.lotw, tag.automatic_upload.qrz));
                             });
@@ -54,7 +59,7 @@ impl LogbooksUi {
                 if pending {
                     ui.horizontal(|ui| {
                         ui.spinner();
-                        ui.label("Saving logbook change…");
+                        ui.label("Working…");
                     });
                 }
             },
@@ -146,7 +151,7 @@ fn show_form(
     if save {
         match form.editor.build() {
             Ok(next) => {
-                let expected = form.expected.clone();
+                let expected = form.expected.clone().map(Box::new);
                 frame.send(sender, LogbookAction::SaveTag { expected, next });
             }
             Err(errors) => {

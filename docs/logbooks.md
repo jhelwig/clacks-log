@@ -157,6 +157,13 @@ prevent duplicate submissions using the existing busy-state facilities. On a
 failed write, retain the prior committed view and show an actionable error.
 Do not claim a successful switch merely because a widget changed locally.
 
+Settle an admitted logbook result before allowing another logbook action,
+including when its management dialog was dismissed. This keeps an older
+deletion acknowledgment from overriding a later view choice. Other settings
+and background work retain their existing admission behavior. A successful
+explicit view change clears the prior current-view fallback notice; a failed
+change preserves it.
+
 View selection does not edit saved QSOs, station/equipment values, publication
 jobs or account synchronization scope. Later history selection follows D297:
 switching logbooks clears selected contact IDs, including hidden selections.

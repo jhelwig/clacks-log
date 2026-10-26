@@ -1,9 +1,9 @@
-//! Exact acknowledgments survive dialog dismissal and failed following reads.
+//! Handle logbook results after dialog dismissal or catalog-refresh failure.
 
 use super::*;
 
 impl LogbooksUi {
-    /// Settle each admitted result once without reissuing its mutation.
+    /// Handle completed logbook requests without repeating their writes.
     pub(super) fn poll(&mut self) {
         if let Some(response) = take_response(&mut self.selection_response) {
             self.selecting = None;
@@ -27,7 +27,7 @@ impl LogbooksUi {
         }
     }
 
-    /// Preserve domain results independently from a failed catalog refresh.
+    /// Preserve the store result when the following catalog refresh fails.
     fn accept(&mut self, response: SettingsResponse, mut frame: Option<&mut Management>) {
         let response = match response {
             SettingsResponse::RefreshFailed { outcome, message } => {
@@ -37,6 +37,55 @@ impl LogbooksUi {
             response => response,
         };
         match response {
+            SettingsResponse::Logbooks(LogbookResponse::DeletionPreview(preview)) => {
+                if let Some(frame) = &mut frame {
+                    frame.form = None;
+                    frame.deletion = Some(super::deletion::DeletionReview {
+                        preview,
+                        choice: None,
+                        stale: false,
+                        focus_cancel: true,
+                    });
+                    frame.notice = None;
+                }
+            }
+            SettingsResponse::Logbooks(LogbookResponse::Deleted(
+                clacks_client_store::logbooks::deletion::TagDeleteOutcome::Applied {
+                    plan,
+                    selected_view,
+                    fallback_from,
+                },
+            )) => {
+                self.acknowledged_view = Some(selected_view);
+                if let Some(frame) = &mut frame {
+                    if let Some(review) = frame.deletion.take()
+                        && let RecordId::Tag(id) = review.preview.tag.key.id
+                    {
+                        self.deleted_tags.insert(id);
+                        self.acknowledged_tags.remove(&id);
+                    }
+                    frame.form = None;
+                    frame.notice = None;
+                }
+                self.completion_notice = Some(format!(
+                    "Deleted {} contacts; removed this logbook from {} retained contacts.",
+                    plan.mark_deleted.len(),
+                    plan.remove_membership.len()
+                ));
+                if let Some(id) = fallback_from {
+                    self.fallback(id);
+                }
+            }
+            SettingsResponse::Logbooks(LogbookResponse::Deleted(
+                clacks_client_store::logbooks::deletion::TagDeleteOutcome::Stale { .. },
+            )) => {
+                if let Some(frame) = &mut frame {
+                    if let Some(review) = &mut frame.deletion {
+                        review.stale = true;
+                    }
+                    frame.notice = Some("The logbook or its contacts changed. Nothing was deleted. Reload the deletion review and confirm again.".into());
+                }
+            }
             SettingsResponse::Refresh(snapshot) => {
                 self.observe(&snapshot.logbooks, None);
                 self.acknowledged_view = None;
@@ -45,29 +94,31 @@ impl LogbooksUi {
                 self.error = None;
             }
             SettingsResponse::Logbooks(LogbookResponse::Selected(view)) => {
-                self.acknowledged_view = Some(view)
+                self.acknowledged_view = Some(view);
+                self.fallback_notice = None;
             }
-            SettingsResponse::Logbooks(LogbookResponse::Saved(
-                SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record),
-            )) => {
-                if let RecordId::Tag(id) = record.key.id {
-                    self.acknowledged_tags.insert(id, record);
-                }
-                if let Some(frame) = &mut frame {
-                    frame.form = None;
-                    frame.notice = None;
-                }
-            }
-            SettingsResponse::Logbooks(LogbookResponse::Saved(SaveOutcome::Stale { .. })) => {
-                if let Some(frame) = &mut frame {
-                    if let Some(form) = &mut frame.form {
-                        form.stale = true;
+            SettingsResponse::Logbooks(LogbookResponse::Saved(outcome)) => match *outcome {
+                SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record) => {
+                    if let RecordId::Tag(id) = record.key.id {
+                        self.acknowledged_tags.insert(id, record);
                     }
-                    frame.notice = Some(
-                        "The logbook changed. No save was applied; reload and review it.".into(),
-                    );
+                    if let Some(frame) = &mut frame {
+                        frame.form = None;
+                        frame.notice = None;
+                    }
                 }
-            }
+                SaveOutcome::Stale { .. } => {
+                    if let Some(frame) = &mut frame {
+                        if let Some(form) = &mut frame.form {
+                            form.stale = true;
+                        }
+                        frame.notice = Some(
+                            "The logbook changed. No save was applied; reload and review it."
+                                .into(),
+                        );
+                    }
+                }
+            },
             SettingsResponse::Failed(message) => {
                 if let Some(frame) = &mut frame {
                     frame.notice = Some(message);
@@ -85,7 +136,7 @@ impl LogbooksUi {
     }
 }
 
-/// Read a response nonblockingly, retaining an admitted request until settlement.
+/// Receive a completed request's result without blocking the UI.
 fn take_response(
     receiver: &mut Option<oneshot::Receiver<SettingsResponse>>,
 ) -> Option<SettingsResponse> {

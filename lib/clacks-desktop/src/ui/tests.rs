@@ -2,7 +2,7 @@
 
 mod appearance;
 mod logbooks;
-mod logbooks_support;
+pub(in crate::ui) mod logbooks_support;
 mod main_screen;
 
 use super::*;
@@ -191,7 +191,7 @@ fn font_selection_assigns_the_requested_radio_role() {
     );
 }
 
-struct Window {
+pub(in crate::ui) struct Window {
     app: DesktopApp,
     context: egui::Context,
     updates: watch::Sender<SessionStatus>,

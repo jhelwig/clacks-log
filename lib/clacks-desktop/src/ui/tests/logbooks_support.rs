@@ -4,7 +4,7 @@ use super::*;
 use crate::session::tests::{Fixture, next_matching};
 use clacks_client_store::{settings, store::ClientStore};
 
-pub(super) struct LiveWindow {
+pub(in crate::ui) struct LiveWindow {
     pub window: Window,
     pub output: egui::FullOutput,
     pub store: ClientStore,
@@ -145,4 +145,63 @@ impl LiveWindow {
         tokio::time::timeout(Duration::from_secs(15), self.task).await???;
         Ok(())
     }
+}
+
+/// Populate actual saved contacts for the native deletion workflow.
+pub(in crate::ui) async fn seed_contacts(
+    app: &mut LiveWindow,
+) -> anyhow::Result<clacks_model::ids::TagId> {
+    use clacks_client_store::{logbooks::tags, save};
+    use clacks_model::{
+        contact::{BandFrequency, OwnOperatingContext, Qso, StationSnapshot},
+        ids::{QsoId, TagId},
+        recognition::mode::{Mode, ModeIdentity},
+        scalar::{Hertz, RecordedCallsign, UtcSecond},
+        tag::LogbookTag,
+    };
+    use clacks_sync::record::{RecordId, RecordKey, RecordState, RecordValue};
+    let tag = LogbookTag::new(TagId::new(), "Main".into());
+    tags::save(&app.store, None, &tag).await?;
+    for shared in [false, true] {
+        let qso = Qso {
+            id: QsoId::new(),
+            start: UtcSecond::from_unix_seconds(1000),
+            end: None,
+            own_station: StationSnapshot {
+                callsign: RecordedCallsign::new("W7HEX")?,
+                location: None,
+                references: Default::default(),
+            },
+            contacted_station: StationSnapshot {
+                callsign: RecordedCallsign::new("K1ABC")?,
+                location: None,
+                references: Default::default(),
+            },
+            own_context: OwnOperatingContext::default(),
+            contacted_operator: None,
+            primary: BandFrequency::from_recorded_pair(Some(Hertz::new(14_074_000)?), None)?,
+            receive_override: None,
+            mode: Mode::from_recorded_identity(ModeIdentity::Parent { label: "CW".into() })?,
+            sent_report: None,
+            received_report: None,
+            comment: None,
+            tags: if shared {
+                [tag.id, TagId::new()].into()
+            } else {
+                [tag.id].into()
+            },
+        };
+        save::save(
+            &app.store,
+            RecordKey {
+                account: app.store.account_id(),
+                id: RecordId::Qso(qso.id),
+            },
+            None,
+            RecordState::Live(RecordValue::Qso(Box::new(qso))),
+        )
+        .await?;
+    }
+    app.settle().await?;
+    Ok(tag.id)
 }

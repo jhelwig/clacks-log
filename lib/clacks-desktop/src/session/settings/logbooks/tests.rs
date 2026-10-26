@@ -54,7 +54,7 @@ async fn session_logbook_operations_publish_committed_catalogs() -> anyhow::Resu
             }
         )
         .await?,
-        SettingsResponse::Logbooks(LogbookResponse::Saved(SaveOutcome::Saved(_)))
+        SettingsResponse::Logbooks(LogbookResponse::Saved(outcome)) if matches!(*outcome, SaveOutcome::Saved(_))
     ));
     assert_eq!(
         view.borrow().as_ref().unwrap().logbooks.selected_view,
@@ -132,8 +132,10 @@ async fn committed_logbook_outcome_survives_failed_followup_read() -> anyhow::Re
     else {
         panic!("retain success");
     };
-    let SettingsResponse::Logbooks(LogbookResponse::Saved(SaveOutcome::Saved(row))) = *outcome
-    else {
+    let SettingsResponse::Logbooks(LogbookResponse::Saved(outcome)) = *outcome else {
+        panic!("exact save result");
+    };
+    let SaveOutcome::Saved(row) = *outcome else {
         panic!("exact save result");
     };
     let store = clacks_client_store::store::ClientStore::open_discovered(

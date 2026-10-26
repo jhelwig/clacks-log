@@ -26,7 +26,7 @@ pub(crate) enum LogbookAction {
     /// Save a tag without selecting it.
     SaveTag {
         /// Full original record, absent for a new tag.
-        expected: Option<ClientRecord>,
+        expected: Option<Box<ClientRecord>>,
         /// Validated desired values.
         next: LogbookTag,
     },
@@ -50,7 +50,7 @@ pub(crate) enum LogbookResponse {
     /// Committed selected view.
     Selected(SelectedView),
     /// Saved, unchanged or stale tag values.
-    Saved(SaveOutcome),
+    Saved(Box<SaveOutcome>),
     /// Exact review with precomputed impact counts.
     DeletionPreview(Arc<TagDeletionPreview>),
     /// Committed deletion effects or a stale review.
@@ -66,9 +66,9 @@ pub(crate) async fn execute(
         LogbookAction::SelectView { next } => selection::select(store, next)
             .await
             .map(LogbookResponse::Selected),
-        LogbookAction::SaveTag { expected, next } => tags::save(store, expected.as_ref(), &next)
+        LogbookAction::SaveTag { expected, next } => tags::save(store, expected.as_deref(), &next)
             .await
-            .map(LogbookResponse::Saved),
+            .map(|outcome| LogbookResponse::Saved(Box::new(outcome))),
         LogbookAction::PreviewDeletion { id } => deletion::preview(store, id)
             .await
             .map(|preview| LogbookResponse::DeletionPreview(Arc::new(preview))),

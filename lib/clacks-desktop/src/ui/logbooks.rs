@@ -1,5 +1,6 @@
 //! Local view selection and independent saved-logbook management.
 
+mod deletion;
 mod editor;
 mod labels;
 mod responses;
@@ -62,6 +63,8 @@ impl TagForm {
 struct Management {
     /// New/edit form, absent for the saved-tag list.
     form: Option<TagForm>,
+    /// Exact worker-computed review and an explicit contact-treatment choice.
+    deletion: Option<deletion::DeletionReview>,
     /// Admitted operation owned independently of dialog visibility.
     response: Option<oneshot::Receiver<SettingsResponse>>,
     /// Actionable failure or stale-review feedback.
@@ -89,6 +92,8 @@ pub(super) struct LogbooksUi {
     dismissed: Vec<Management>,
     /// Persistent operation/read error.
     error: Option<String>,
+    /// Committed destructive effects, retained independently of dialog visibility.
+    completion_notice: Option<String>,
     /// Deleted tag whose fallback needs explanation.
     fallback_notice: Option<TagId>,
     /// Startup cause is handled once per window.
@@ -102,27 +107,28 @@ pub(super) struct LogbooksUi {
 impl LogbooksUi {
     /// Observe committed catalog changes without replacing unapplied form values.
     pub fn observe(&mut self, snapshot: &LogbookSnapshot, restored_from: Option<TagId>) {
-        if !self.startup_observed {
+        let startup_fallback = if !self.startup_observed {
             self.startup_observed = true;
-            if let Some(id) = restored_from {
-                self.fallback(id);
-            }
-        }
+            restored_from
+        } else {
+            None
+        };
         if self.observed.as_ref() == Some(snapshot) {
             return;
         }
         let previous = self
             .acknowledged_view
             .or_else(|| self.observed.as_ref().map(|view| view.selected_view));
-        if let Some(SelectedView::Logbook(id)) = previous
+        let detected_fallback = if let Some(SelectedView::Logbook(id)) = previous
             && snapshot.selected_view == SelectedView::AllContacts
             && snapshot.tags.iter().any(|row| {
                 row.key.id == RecordId::Tag(id)
                     && matches!(row.working_state(), Some(RecordState::Deleted))
-            })
-        {
-            self.fallback(id);
-        }
+            }) {
+            Some(id)
+        } else {
+            None
+        };
         self.acknowledged_view = None;
         self.acknowledged_tags.clear();
         self.deleted_tags.clear();
@@ -137,6 +143,9 @@ impl LogbooksUi {
             form.stale = true;
         }
         self.observed = Some(snapshot.clone());
+        if let Some(id) = startup_fallback.or(detected_fallback) {
+            self.fallback(id);
+        }
     }
 
     /// Render the real selector and dedicated management dialog without store I/O.
@@ -224,6 +233,7 @@ impl LogbooksUi {
                     self.opener = Some(manage.id);
                     self.management = Some(Management {
                         form: None,
+                        deletion: None,
                         response: None,
                         notice: None,
                     });
@@ -241,6 +251,17 @@ impl LogbooksUi {
             }
             if let Some(error) = &self.error {
                 feedback::problem(ui, error);
+            }
+            if let Some(message) = &self.completion_notice {
+                let dismiss = ui
+                    .horizontal_wrapped(|ui| {
+                        ui.label(message);
+                        ui.button("Dismiss result").clicked()
+                    })
+                    .inner;
+                if dismiss {
+                    self.completion_notice = None;
+                }
             }
             if self.error.is_some()
                 && ui
@@ -299,7 +320,21 @@ impl LogbooksUi {
     /// Explain an observed committed fallback without claiming an uncommitted write.
     fn fallback(&mut self, id: TagId) {
         if self.fallback_notice != Some(id) {
-            tracing::info!(event="logbook.view_fallback_observed", tag_id=%id);
+            let account = self
+                .observed
+                .as_ref()
+                .and_then(|snapshot| {
+                    snapshot
+                        .tags
+                        .iter()
+                        .find(|row| row.key.id == RecordId::Tag(id))
+                })
+                .map(|row| row.key.account);
+            if let Some(account) = account {
+                tracing::info!(event="logbook.view_fallback_observed", account_id=%account, tag_id=%id, cause="deleted_tag");
+            } else {
+                tracing::info!(event="logbook.view_fallback_observed", tag_id=%id, cause="deleted_tag");
+            }
             self.fallback_notice = Some(id);
         }
     }
@@ -329,3 +364,8 @@ impl Management {
         }
     }
 }
+
+#[cfg(test)]
+mod deletion_tests;
+#[cfg(test)]
+mod refresh_tests;
