@@ -2,6 +2,7 @@
 
 pub(crate) mod read;
 pub mod selection;
+pub mod tags;
 
 use clacks_sync::client::ClientRecord;
 use selection::SelectedView;

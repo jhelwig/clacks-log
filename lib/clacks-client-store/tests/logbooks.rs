@@ -1,6 +1,8 @@
 #[path = "support/logbooks.rs"]
 mod logbook_support;
 mod support;
+#[path = "support/telemetry.rs"]
+mod telemetry;
 
 use clacks_client_store::{
     logbooks::selection::{self, SelectedView},
@@ -223,5 +225,160 @@ async fn client_local_selection_does_not_make_an_empty_workspace_populated() -> 
         SelectedView::Untagged
     );
     workspace.store.close().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn tag_save_preserves_identity_selection_and_pending_basis() -> anyhow::Result<()> {
+    use clacks_client_store::logbooks::tags;
+    use clacks_model::tag::AutomaticUploadPolicy;
+
+    let workspace = Workspace::new().await?;
+    let mut tag = LogbookTag::new(id(20), "Main".into());
+    let SaveOutcome::Saved(first) = tags::save(&workspace.store, None, &tag).await? else {
+        panic!("fresh tag must be saved");
+    };
+    let other = LogbookTag::new(id(21), "Main".into());
+    let SaveOutcome::Saved(other_row) = tags::save(&workspace.store, None, &other).await? else {
+        panic!("duplicate names must be allowed");
+    };
+    selection::select(&workspace.store, SelectedView::Logbook(tag.id)).await?;
+    let before = settings::snapshot(&workspace.store).await?;
+
+    tag.name = "Renamed".into();
+    tag.automatic_upload.qrz = AutomaticUploadPolicy::Forbid;
+    let SaveOutcome::Saved(updated) = tags::save(&workspace.store, Some(&first), &tag).await?
+    else {
+        panic!("changed tag must be saved");
+    };
+    assert_eq!(updated.key, first.key);
+    assert_eq!(
+        updated.pending.as_ref().unwrap().original,
+        first.pending.as_ref().unwrap().original
+    );
+    assert_eq!(
+        tags::save(&workspace.store, Some(&updated), &tag).await?,
+        SaveOutcome::Unchanged(updated.clone())
+    );
+    assert_eq!(
+        save::load(&workspace.store, other_row.key).await?,
+        Some(other_row)
+    );
+    let after = settings::snapshot(&workspace.store).await?;
+    assert_eq!(after.logbooks.selected_view, before.logbooks.selected_view);
+    assert_eq!(after.operating, before.operating);
+    workspace.store.close().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn tag_editor_save_rejects_blank_names_and_stale_or_mismatched_bases() -> anyhow::Result<()> {
+    use clacks_client_store::logbooks::tags;
+
+    let workspace = Workspace::new().await?;
+    let mut tag = LogbookTag::new(id(20), " \t\n".into());
+    assert!(tags::save(&workspace.store, None, &tag).await.is_err());
+    assert!(
+        settings::snapshot(&workspace.store)
+            .await?
+            .logbooks
+            .tags
+            .is_empty()
+    );
+    tag.name = "  Preserved name  ".into();
+    let SaveOutcome::Saved(first) = tags::save(&workspace.store, None, &tag).await? else {
+        panic!("nonblank name must save");
+    };
+    assert_eq!(
+        first.working_state(),
+        Some(&RecordState::Live(RecordValue::Tag(Box::new(tag.clone()))))
+    );
+    tag.name = "Changed".into();
+    let SaveOutcome::Saved(current) = tags::save(&workspace.store, Some(&first), &tag).await?
+    else {
+        panic!("rename must save");
+    };
+    assert!(matches!(
+        tags::save(&workspace.store, Some(&first), &tag).await?,
+        SaveOutcome::Stale { .. }
+    ));
+    tag.id = id(21);
+    assert!(
+        tags::save(&workspace.store, Some(&current), &tag)
+            .await
+            .is_err()
+    );
+    let mut wrong_account = current.clone();
+    wrong_account.key.account = id(99);
+    tag.id = id(20);
+    assert!(
+        tags::save(&workspace.store, Some(&wrong_account), &tag)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        save::load(&workspace.store, current.key).await?,
+        Some(current)
+    );
+    workspace.store.close().await?;
+    Ok(())
+}
+
+#[test]
+fn tag_save_counts_only_committed_changes_without_names() -> anyhow::Result<()> {
+    use clacks_client_store::logbooks::tags;
+    let capture = telemetry::capture_filtered(
+        || {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()?
+                .block_on(async {
+                    let workspace = Workspace::new().await?;
+                    let mut tag = LogbookTag::new(id(20), "SECRET TAG NAME".into());
+                    let SaveOutcome::Saved(first) =
+                        tags::save(&workspace.store, None, &tag).await?
+                    else {
+                        panic!("create");
+                    };
+                    tag.name = "PRIVATE TAG NAME".into();
+                    let SaveOutcome::Saved(updated) =
+                        tags::save(&workspace.store, Some(&first), &tag).await?
+                    else {
+                        panic!("update");
+                    };
+                    assert!(matches!(
+                        tags::save(&workspace.store, Some(&updated), &tag).await?,
+                        SaveOutcome::Unchanged(_)
+                    ));
+                    assert!(matches!(
+                        tags::save(&workspace.store, Some(&first), &tag).await?,
+                        SaveOutcome::Stale { .. }
+                    ));
+                    tag.name = " ".into();
+                    assert!(
+                        tags::save(&workspace.store, Some(&updated), &tag)
+                            .await
+                            .is_err()
+                    );
+                    workspace.store.close().await?;
+                    anyhow::Ok(())
+                })
+        },
+        |metadata| *metadata.level() <= tracing::Level::INFO,
+    );
+    capture
+        .result
+        .as_ref()
+        .map_err(|error| anyhow::anyhow!("{error:#}"))?;
+    for change in ["create", "update"] {
+        capture.counter(
+            "clacks_client_tag_mutations_total",
+            &[("change", change)],
+            1,
+        );
+    }
+    let observations = format!("{:?}", capture.observations);
+    assert!(!observations.contains("SECRET TAG NAME"));
+    assert!(!observations.contains("PRIVATE TAG NAME"));
     Ok(())
 }
