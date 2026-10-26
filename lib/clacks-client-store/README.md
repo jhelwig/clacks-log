@@ -97,6 +97,32 @@ from the client's completed installed checkpoint. No record response advances re
 
 ## Transactional workflows
 
+- `logbooks::selection::SelectedView` represents All contacts, Untagged, or a
+  stable tag ID. Migration 0010 creates shared workspace-local `local_state` key/value
+  storage. The `logbooks.selected_view` key holds the serialized native enum;
+  an absent key defaults to All contacts, and invalid values return decoding errors.
+  It is not synchronized or stored with operating settings. Rust validates the
+  value; `selection::select` commits a validated live
+  target immediately; `selection::restore` repairs only known effective deletion
+  before startup reads. Missing/unknown targets are preserved as unavailable.
+- `settings::snapshot` includes `logbooks::LogbookSnapshot`, reading the catalog
+  and selected view in the same ordinary snapshot transaction as operating state.
+  Later QSO entry consumes this view: a named tag supplies the new-entry default,
+  while either built-in supplies none. Switching views does not edit saved QSOs.
+- `logbooks::tags::save` validates a nonblank name and exact editor identity,
+  then uses the ordinary pending-record save guard. Duplicate names are valid;
+  spelling is preserved. Saving does not select the tag.
+- `logbooks::deletion::{preview, delete_tag}` uses exact tag/member records and
+  precomputed distinct counts. LeaveAll removes membership, DeleteAll marks all
+  members deleted, and DeleteUnique marks only unique members deleted. Any changed
+  member invalidates confirmation, even if counts match. The transaction also
+  falls back to All contacts when this tag is selected; its result carries the
+  authoritative selected view and optional fallback cause.
+- Effective tag deletion at the shared client-role storage boundary also clears
+  the matching selected view inside receipt, transfer and resolution transactions.
+  A staged tombstone or a live pending working alternative does not trigger it.
+  Incoming deletion does not replay local contact-deletion choices or remove
+  deleted-tag references from pending QSOs; those require explicit repair.
 - `save` preserves the original basis and any already-frozen proposal while
   changing working values. Exact expected rows guard editor saves and tag changes.
   Tag deletion rechecks the complete preview before committing all effects together.

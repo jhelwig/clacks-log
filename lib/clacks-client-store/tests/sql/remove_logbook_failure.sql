@@ -1,0 +1,1 @@
+DROP TRIGGER fail_selected_view_fallback;

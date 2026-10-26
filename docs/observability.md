@@ -380,10 +380,26 @@ counts or typed reasons. Core planning events still describe proposals.
 `clacks_client_qso_mutations_total{change=create|update|delete}` counts changed
 local QSO values only after commit. Stale, unchanged and failed transactions do
 not increment it. Tag deletion counts its actual committed QSO effects.
+`clacks_client_tag_mutations_total{change=create|update|delete}` counts changed
+local tag records at their owning save/deletion commit boundaries. Previews,
+unchanged/stale saves and rolled-back contact/tag effects add nothing.
+`record.saved` identifies the native record kind and create/update/delete change
+for QSO, tag, profile and equipment saves. `tag.deleted` includes actual deleted
+contact/membership counts and the optional selected-tag fallback cause.
+`logbook.view.selected` reports committed local selection at `info`; the desktop's
+`logbook.view_fallback_observed` reports an observed committed deletion fallback,
+with account/tag context and `deleted_tag` cause, including startup repair.
+The presentation event does not count another mutation or replay on every frame.
+Selection/save/preview/restore spans use the owning module targets; routine
+preview and startup restoration context is `debug`. No selector/rendering metric
+or generic operation-completion wrapper is introduced.
+`tag.deletion_stale` is a focused `debug` event carrying account/tag IDs and
+`tag_changed` or `members_changed`, distinguishing the two unchanged-database
+review outcomes without logging record contents or counting a deletion.
 `clacks_client_sync_records_installed_total` counts changed incorporated accepted
 observations after a committed batch; replaying an identical envelope does not
 increment it. These are separate quantities from synchronization planning counts.
-Neither metric has account, record, path, payload or arbitrary-error labels.
+These counters have no account, record, path, payload or arbitrary-error labels.
 
 The store disables SQL statement/bound-value logging. No recorded call, name,
 comment, provider report, secret reference, certificate/private key or workspace
