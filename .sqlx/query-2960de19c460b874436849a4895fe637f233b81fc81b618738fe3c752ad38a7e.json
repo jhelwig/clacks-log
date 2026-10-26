@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "PRAGMA application_id = 0\n",
+  "query": "DROP TABLE _sqlx_migrations;\n",
   "describe": {
     "columns": [],
     "parameters": {
@@ -8,5 +8,5 @@
     },
     "nullable": []
   },
-  "hash": "44d46144a30be543d31a3b170a06816180feeb6a31e2eaaebe06f9f0ee25accf"
+  "hash": "2960de19c460b874436849a4895fe637f233b81fc81b618738fe3c752ad38a7e"
 }

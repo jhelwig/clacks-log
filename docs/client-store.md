@@ -762,9 +762,11 @@ Required verification for the store:
 7. Test multi-connection reader/writer coexistence, writer contention, stale-save
    protection and cancellation. Long readers retain a consistent snapshot;
    dropping a cancelled operation releases its transaction before reuse.
-8. Test startup migration success/failure/retry, applied-checksum mismatch,
-   concurrent startup and unsupported newer schema byte preservation. Inspect
-   actual migration history and application values, not only reported version.
+8. Verify that Clacks-authored migrations preserve application values and apply
+   the intended domain changes. Test read-only opening rejection for missing or
+   modified history, mismatched accounts and unsupported newer schemas. SQLx owns
+   migration journaling, per-migration transactions and resuming after failure;
+   do not duplicate its machinery tests.
 9. Build/check offline query metadata from all migrations and validate it in CI;
    demonstrate ordinary offline builds without `DATABASE_URL`. Check realistic
    query plans and bound dynamic filter values.

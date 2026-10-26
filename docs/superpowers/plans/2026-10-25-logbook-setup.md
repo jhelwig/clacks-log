@@ -82,7 +82,7 @@ Before every task commit, run `cargo fmt --all --check`, `git diff --check`, the
 
 ## Task 1: Persist selected views and expose a consistent catalog
 
-**Files:** Create the store `logbooks.rs`, `logbooks/{selection,read}.rs`, shared `local_state.rs`, migration `0010_local_state.sql`, `sql/local_state/{get,set}.sql` and `sql/logbooks/catalog.sql`. Modify `src/{lib,settings}.rs`, `src/settings/read.rs` and `src/migration_tests.rs` (the successful latest-version assertion becomes Some(10); earlier committed-migration assertions remain unchanged). Test in `lib/clacks-client-store/tests/logbooks.rs` with private `tests/support/logbooks.rs` fixtures and `tests/sql/{remove_selected_view_migration,invalid_selected_view}.sql`. Update the two existing desktop `SettingsSnapshot` literals in `src/operating/tests.rs` and `src/ui/tests/main_screen.rs` with explicit empty logbook snapshots.
+**Files:** Create the store `logbooks.rs`, `logbooks/{selection,read}.rs`, shared `local_state.rs`, migration `0010_local_state.sql`, `sql/local_state/{get,set}.sql` and `sql/logbooks/catalog.sql`. Modify `src/{lib,settings}.rs` and `src/settings/read.rs`. Test in `lib/clacks-client-store/tests/logbooks.rs` with private `tests/support/logbooks.rs` fixtures and `tests/sql/{remove_selected_view_migration,invalid_selected_view}.sql`. Verify native preference defaults and preservation rather than SQLx journal versions, commits or retries. Update the two existing desktop `SettingsSnapshot` literals in `src/operating/tests.rs` and `src/ui/tests/main_screen.rs` with explicit empty logbook snapshots.
 
 **Interfaces:**
 
