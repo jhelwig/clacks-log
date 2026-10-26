@@ -21,7 +21,6 @@ rsa = { workspace = true, optional = true }
 sha1 = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 rand_chacha = { workspace = true, optional = true }
-num-bigint = { workspace = true, optional = true }
 sha2-rsa = { workspace = true, optional = true }
 sha1-archive = { workspace = true, optional = true }
 sha2-archive = { workspace = true, optional = true }
@@ -41,7 +40,6 @@ fixtures = [
     "dep:sha1",
     "dep:rand",
     "dep:rand_chacha",
-    "dep:num-bigint",
     "dep:sha2-rsa",
     "dep:sha1-archive",
     "dep:sha2-archive",

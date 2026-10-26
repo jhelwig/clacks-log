@@ -109,14 +109,12 @@ with BasicConstraints CA=true. Unsupported encryption uses algorithm identifier
 
 It contains no terminating newline. Each `known-signature.bin` is constructed with
 RustCrypto's PKCS#1 v1.5/SHA-1 primitive over those exact bytes, using its directory's
-synthetic key. Before writing, the generator verifies the signature by public
-exponent modular arithmetic through `num-bigint`, a different implementation
-from RSA's `num-bigint-dig`, and compares the recovered bytes with literal padding
-and SHA-1 DigestInfo from RFC 8017 Appendix B.1. Regression coverage rejects
-changed input and signatures. Standard digest, derivation and cipher primitives
-are shared with dependencies of the production path; the independence is in
-fixture construction, protocol expectations and the extra RSA/padding check,
-not a claim of independently implemented cryptography throughout.
+synthetic key. Cryptographic primitives come from the same trusted dependencies
+as application signing. Fixture construction does not call Clacks's importer,
+signer or serializer; the independent expectations describe the protocol input,
+key identity and wire records. Tests verify Clacks-produced signatures against
+the expected message and public key through the RSA dependency's public API.
+There is no second implementation of RSA exponentiation or padding validation.
 
 `single-contact.gabbi` pins an entire independently authored batch: literal
 Clacks producer header, lexical value-field order, exact lengths, base64 wrapped

@@ -147,7 +147,6 @@ fn explains_local_rejections_without_logging_payloads_or_claiming_success() -> a
                 bytes: Vec::new(),
                 chunk: 0,
                 fail_at: None,
-                interrupted: false,
             },
             &[BatchItem {
                 submission: &a,
@@ -159,15 +158,14 @@ fn explains_local_rejections_without_logging_payloads_or_claiming_success() -> a
             support::now(),
         )
     };
-    let plain = run().unwrap_err();
     let (result, observed) = capture(run, false);
     assert_eq!(
-        plain.downcast_ref::<std::io::Error>().unwrap().kind(),
         result
             .unwrap_err()
             .downcast_ref::<std::io::Error>()
             .unwrap()
-            .kind()
+            .kind(),
+        std::io::ErrorKind::WriteZero
     );
     assert!(!observed.events.iter().any(|e| {
         e.fields

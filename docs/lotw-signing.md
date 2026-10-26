@@ -353,11 +353,13 @@ obtained by executing those sources as a substitute for this boundary.
 Author expected signing inputs and records independently from the documented
 protocol and source inspection, with worked examples reviewed separately from
 the Rust implementation under test. Use independently constructed synthetic
-archives covering the source-described export algorithms and layout. Verify
-cryptographic results against independently constructed known answers and an
-independent verifier; a sign/verify round trip through the same implementation
-alone is insufficient. Document which evidence checks protocol construction,
-archive handling and cryptographic correctness separately. Do not describe
+archives covering the source-described export algorithms and layout. Trust the
+RSA dependency's cryptographic primitives. Check Clacks's exact signing input,
+key and algorithm selection, and serialized records against reviewed fixed
+expectations. Signature verification may use the dependency's public API with
+the expected message and public key to check those integration choices; do not
+implement another RSA or padding verifier. Document protocol construction and
+archive-handling evidence separately from dependency cryptography. Do not describe
 source-derived tests as executed TQSL interoperability results.
 
 Keep known test private keys in test support and constructors in the dedicated
@@ -380,7 +382,7 @@ Required coverage:
 | Credentials | Matching/mismatched RSA keys, missing/ambiguous station credential, missing/malformed/duplicate required metadata, full serials, unrelated supporting certificates and 1024-bit/larger supported keys. |
 | Eligibility | Inclusive coverage endpoints, just-outside dates, current UTC expiry day and following day, callsign/entity mismatch, removed/superseded state, explicit evaluation time. |
 | Definitions | Reproducible extraction, selection/deprecation/version behavior, ordered fields, required/optional fields, unsupported definitions and incompatible configuration provenance. |
-| Signing | Hand-reviewed source-derived exact input/records, independent cryptographic vectors and verification, whitespace/case, every supported station field, frequency spelling, receive overrides and compact-to-wire timestamps. |
+| Signing | Hand-reviewed source-derived exact input/records, fixed signatures and expected-key/message verification through the RSA dependency, whitespace/case, every supported station field, frequency spelling, receive overrides and compact-to-wire timestamps. |
 | Records | Correct byte lengths, base64, signature type, `SIGNDATA`, producer header, linked certificate/station references, shared/different locations and multiple certificates/contacts. |
 | Failure | Short writes and failure after a prefix; no successful artifact or silently reduced membership; unchanged frozen submissions and normal error propagation. |
 | Integration boundary | Existing production model projections feed the actual signer; no normalization fork or cryptographic types in shared models; server-only dependency graph. |

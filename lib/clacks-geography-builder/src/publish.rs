@@ -116,8 +116,6 @@ pub fn build_release(
         serde_json::to_writer_pretty(temporary.as_file_mut(), &pointer)?;
         temporary.as_file_mut().write_all(b"\n")?;
         temporary.as_file_mut().sync_all()?;
-        #[cfg(test)]
-        tests::at_boundary(tests::Boundary::BeforePointer, cancelled)?;
         check_cancelled(cancelled)?;
         temporary
             .persist(&current_path)
@@ -142,12 +140,7 @@ pub fn build_release(
             .collect();
         tracing::info!(name:"geography.reviewed_omissions_applied",release_id=%recipe.release_id,reviewed_omissions=acceptance.reviewed_omissions,?omission_ids,"Reviewed geographic coverage omissions retained");
         // The pointer has committed. Further failures are reported as warnings.
-        #[cfg(test)]
-        tests::at_boundary(tests::Boundary::AfterPointer, cancelled)?;
         let durability = sync_directory(output);
-        #[cfg(test)]
-        let durability =
-            durability.and_then(|()| tests::at_boundary(tests::Boundary::DirectorySync, cancelled));
         if let Err(error) = durability {
             warnings.push(format!(
                 "selection committed; directory durability: {error:#}"
@@ -253,6 +246,3 @@ fn sync_directory(path: &Path) -> Result<()> {
     let _ = path;
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;

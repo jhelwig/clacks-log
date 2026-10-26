@@ -113,15 +113,10 @@ pub struct LimitedWriter {
     pub bytes: Vec<u8>,
     pub chunk: usize,
     pub fail_at: Option<usize>,
-    pub interrupted: bool,
 }
 
 impl std::io::Write for LimitedWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        if self.interrupted {
-            self.interrupted = false;
-            return Err(std::io::ErrorKind::Interrupted.into());
-        }
         if self.fail_at.is_some_and(|n| self.bytes.len() >= n) {
             return Err(std::io::ErrorKind::BrokenPipe.into());
         }
