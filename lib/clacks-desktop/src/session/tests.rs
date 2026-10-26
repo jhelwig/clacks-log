@@ -222,3 +222,6 @@ async fn close_while_failed_preserves_file_and_releases_resources() -> anyhow::R
     assert!(matches!(instance::elect(&paths)?, Election::Owner(_)));
     Ok(())
 }
+
+#[path = "settings/logbooks/tests.rs"]
+mod logbooks_tests;

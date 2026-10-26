@@ -49,6 +49,8 @@ pub(crate) enum SessionStatus {
     Ready {
         /// Stable local account and enrollment status.
         identity: WorkspaceStatus,
+        /// Tag whose known deletion caused startup to select All contacts.
+        restored_view_from: Option<clacks_model::ids::TagId>,
     },
     /// Opening failed without replacing existing files.
     Failed {
@@ -221,6 +223,7 @@ pub(crate) async fn run(
                                     &context,
                                     SessionStatus::Ready {
                                         identity: workspace.identity,
+                                        restored_view_from: workspace.restored_view_from,
                                     },
                                 );
                             }

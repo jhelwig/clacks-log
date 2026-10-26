@@ -8,7 +8,7 @@ use eframe::egui;
 pub(super) fn status(ui: &mut egui::Ui, state: &SessionStatus) {
     let label = match state {
         SessionStatus::Opening => "Opening local workspace…",
-        SessionStatus::Ready { identity } if identity.enrolled => {
+        SessionStatus::Ready { identity, .. } if identity.enrolled => {
             "Local workspace ready · Enrolled account"
         }
         SessionStatus::Ready { .. } => "Local workspace ready · Standalone account",
@@ -59,7 +59,7 @@ pub(super) fn details(app: &DesktopApp, ui: &mut egui::Ui, state: &SessionStatus
                 "Diagnostic logs: {}",
                 app.paths.log_directory.display()
             ));
-            if let SessionStatus::Ready { identity } = state {
+            if let SessionStatus::Ready { identity, .. } = state {
                 ui.monospace(format!("Account: {}", identity.account));
             }
         });

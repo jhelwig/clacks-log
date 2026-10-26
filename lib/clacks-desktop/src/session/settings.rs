@@ -1,5 +1,7 @@
 //! Typed settings requests on the existing application runtime.
 
+pub(crate) mod logbooks;
+
 use clacks_client_store::{
     operating::{self, OperatingSaveOutcome, OperatingState},
     save::SaveOutcome,
@@ -18,6 +20,8 @@ use tokio::sync::oneshot;
 
 /// An owned application operation, independent of the lifecycle command channel.
 pub(crate) enum SettingsAction {
+    /// Manage logbooks or the local view without altering operating settings.
+    Logbooks(logbooks::LogbookAction),
     /// Reload the current committed settings view.
     Refresh,
     /// Commit a validated operating edit under its expected active basis.
@@ -71,6 +75,8 @@ pub(crate) struct SettingsRequest {
 /// Authoritative operation outcome delivered independently from view refresh.
 #[derive(Debug)]
 pub(crate) enum SettingsResponse {
+    /// Authoritative outcome from the originating logbook workflow.
+    Logbooks(logbooks::LogbookResponse),
     /// Refreshed committed state.
     Refresh(SettingsSnapshot),
     /// Applied, unchanged or stale operating state.
@@ -113,6 +119,9 @@ pub(super) struct Completion {
 pub(super) async fn execute(store: ClientStore, request: SettingsRequest) -> Completion {
     let account = store.account_id();
     let result = match request.action {
+        SettingsAction::Logbooks(action) => logbooks::execute(&store, action)
+            .await
+            .map(SettingsResponse::Logbooks),
         SettingsAction::Refresh => settings::snapshot(&store)
             .await
             .map(SettingsResponse::Refresh),

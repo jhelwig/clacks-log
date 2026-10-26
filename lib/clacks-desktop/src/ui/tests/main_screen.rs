@@ -8,7 +8,10 @@ impl Window {
             account: Default::default(),
             enrolled: false,
         };
-        self.updates.send_replace(SessionStatus::Ready { identity });
+        self.updates.send_replace(SessionStatus::Ready {
+            identity,
+            restored_view_from: None,
+        });
         let (_, view) = watch::channel(Some(Arc::new(SettingsSnapshot {
             logbooks: clacks_client_store::logbooks::LogbookSnapshot {
                 selected_view: clacks_client_store::logbooks::selection::SelectedView::AllContacts,

@@ -14,6 +14,8 @@ pub(crate) struct OpenedWorkspace {
     pub identity: clacks_client_store::identity::WorkspaceStatus,
     /// Initial consistent operating state and reusable account records.
     pub settings: clacks_client_store::settings::SettingsSnapshot,
+    /// Known-deleted selection repaired before presenting the initial view.
+    pub restored_view_from: Option<clacks_model::ids::TagId>,
 }
 
 /// Open an existing workspace or initialize a missing file with account defaults.
@@ -50,6 +52,14 @@ pub(crate) async fn open(paths: &WorkspacePaths) -> anyhow::Result<OpenedWorkspa
         }
     };
 
+    let restored_view_from = match clacks_client_store::logbooks::selection::restore(&store).await {
+        Ok(value) => value,
+        Err(error) => {
+            store.close().await?;
+            return Err(error);
+        }
+    };
+
     let settings = match settings::snapshot(&store).await {
         Ok(settings) => settings,
         Err(error) => {
@@ -62,6 +72,7 @@ pub(crate) async fn open(paths: &WorkspacePaths) -> anyhow::Result<OpenedWorkspa
         store,
         identity,
         settings,
+        restored_view_from,
     })
 }
 
