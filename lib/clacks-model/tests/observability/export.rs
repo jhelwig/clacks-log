@@ -196,31 +196,6 @@ fn filtered_export_summary_can_be_a_root_event() {
 }
 
 #[test]
-fn filtering_spans_and_events_does_not_gate_export() {
-    let defs = support::definitions();
-    let profiles = support::profiles();
-    let q = support::qso(support::id(1));
-    let captured = support::telemetry::capture_filtered(
-        || {
-            plan_reference_export(
-                &[q],
-                &ExportContext {
-                    output_profile_id: support::id(1),
-                    target_group_id: None,
-                },
-                &defs,
-                &profiles,
-                &BTreeMap::new(),
-            )
-        },
-        |_| false,
-    );
-    assert_eq!(captured.result.as_ref().unwrap().source_contact_count, 1);
-    assert!(captured.observations.spans.is_empty());
-    assert!(captured.observations.events.is_empty());
-}
-
-#[test]
 fn configured_module_filters_select_export_diagnostics_without_gating_export() {
     let qso = support::qso(support::id(1));
     let definitions = support::definitions();

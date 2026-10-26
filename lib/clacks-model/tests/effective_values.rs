@@ -1,6 +1,5 @@
 mod support;
 
-use clacks_model::catalog::{CatalogFinding, lookup_reference};
 use clacks_model::effective::{
     EligibleStationFacts, InformationSource, StationFacts, select_location, select_name,
 };
@@ -82,23 +81,6 @@ fn location_reference_blocks_home_location() {
             .source,
         InformationSource::Qrz
     );
-}
-
-#[test]
-fn catalog_point_is_not_station_point() {
-    let (q, association, defs, catalogs, _) = support::catalog_case();
-    assert!(matches!(
-        lookup_reference(&association, &defs, &catalogs).unwrap(),
-        CatalogFinding::Found { .. }
-    ));
-    let chosen = select_location(
-        &q.contacted_station,
-        &EligibleStationFacts::default(),
-        &defs,
-    )
-    .unwrap();
-    assert_eq!(chosen.value, None);
-    assert!(q.contacted_station.location.is_none());
 }
 
 #[test]

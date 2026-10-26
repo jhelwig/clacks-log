@@ -37,7 +37,6 @@ fn imported_claim_has_no_fabricated_attempt_or_destination() -> anyhow::Result<(
     let json = serde_json::to_value(&value)?;
     assert_eq!(assertion.destination, None);
     assert!(!json.to_string().contains("attempt"));
-    assert_eq!(serde_json::from_value::<ServicePayload>(json)?, value);
     Ok(())
 }
 

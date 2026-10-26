@@ -27,9 +27,12 @@ fn quantities_and_operational_time_are_validated() -> TestResult {
     assert_eq!(UtcSecond::from_unix_seconds(-1).unix_seconds(), -1);
     let t = UtcTimestamp::new(-1, 999_999_999)?;
     assert_eq!(
-        serde_json::from_str::<UtcTimestamp>(&serde_json::to_string(&t)?)?,
-        t
+        serde_json::to_value(t)?,
+        serde_json::json!({"seconds": -1, "nanoseconds": 999_999_999})
     );
+    let decoded: UtcTimestamp = serde_json::from_str(r#"{"seconds":-1,"nanoseconds":999999999}"#)?;
+    assert_eq!(decoded.unix_seconds(), -1);
+    assert_eq!(decoded.subsecond_nanoseconds(), 999_999_999);
     assert!(
         serde_json::from_str::<UtcTimestamp>(r#"{"seconds":42,"nanoseconds":1000000000}"#).is_err()
     );

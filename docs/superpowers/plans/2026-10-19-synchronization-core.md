@@ -214,7 +214,6 @@ zero initialization. Provide `Coverage::covers(Position) -> bool` in this task.
 **Produces:**
 
 ```rust
-classify_changes<T: Eq>(original: &T, local: &T, shared: &T) -> ChangePattern
 compare_records(left: &AcceptedRecord, right: &AcceptedRecord, evidence: &EvidenceView<'_>)
     -> anyhow::Result<RecordRelation>
 ```
@@ -230,13 +229,12 @@ complete record contexts before claiming divergence. Same version/context with
 different native states is invalid. Native equality still bypasses business
 resolution when order is unknown; it does not fabricate lineage/coverage.
 
-- [x] **Step 1:** Add the complete original/local/shared truth table, including deletion, two independent tag edits, tag-versus-comment edits and equal results. Assert:
-
-```rust
-assert_eq!(classify_changes(&a, &b, &a), ChangePattern::LocalOnly);
-assert_eq!(classify_changes(&a, &b, &b), ChangePattern::EqualResults);
-assert_eq!(classify_changes(&a, &local_tag_edit, &shared_comment_edit), ChangePattern::BothDifferent);
-```
+- [x] **Step 1:** Exercise the complete original/local/shared truth table through
+production receipt and preparation, including deletion, two independent tag edits,
+tag-versus-comment edits and equal results. Assert that local-only edits remain
+pending, equal results settle, and differing concurrent values require explicit
+whole-record review. Use semantic record comparison in those transitions rather
+than exposing a second classifier solely for tests.
 
 Add record-specific T1:180 context under a T2 head whose global old-prefix coverage
 is only 160; it must establish record succession without claiming prefix 180.
@@ -246,7 +244,11 @@ same version identity. Conflicting baseline definitions error rather than
 selecting the first match.
 
 - [x] **Step 2:** Run `comparison`; verify the expected classifications fail before implementation.
-- [x] **Step 3:** Implement these operations using native equality and metadata interpretation. Preserve input values for future field resolution; do not create a reflective field/patch engine. Call the same generic classifier on the whole `RecordState` to trigger review, then on individual field values for later field attribution. Field-level calls never decide whether to bypass whole-record review.
+- [x] **Step 3:** Implement comparison using semantic native values and metadata
+interpretation. Preserve input values for future field resolution; do not create a
+reflective field/patch engine or a separate generic classification API. Receipt
+and preparation use the same internal whole-record policy. Later field attribution
+never decides whether to bypass whole-record review.
 - [x] **Step 4:** Run `cargo +1.99.1 test -p clacks-sync --test comparison --locked --offline`; all truth-table and evidence-conflict cases pass.
 - [x] **Step 5:** Commit; explain the distinction between native equality, causal order and coverage.
 

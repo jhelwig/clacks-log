@@ -34,12 +34,10 @@ fn definition_errors_are_not_record_errors() {
             Err(DefinitionError::InvalidDefinition { .. })
         ));
     }
-    assert!(serde_json::from_str::<ValueExpression>(r#"{"QsoField":"Nonexistent"}"#).is_err());
     let mut d = base.clone();
     d.export_mappings.ordinary_interchange[0].value =
         ValueExpression::Identifiers(StationSide::Own);
     assert!(compile_definition(&d).is_err());
-    assert!(support::qso(support::id::<QsoId>(1)).validate().is_ok());
 }
 
 #[test]

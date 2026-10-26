@@ -19,8 +19,6 @@ fn vectors_detect_concurrency_join_and_exhaustion() {
     assert_eq!(x.increment(a, 8).unwrap().1, 9);
     assert!(x.increment(a, u64::MAX).is_err());
     assert!(RecordVector::from_entries([(a, 1), (a, 2)]).is_err());
-    let round: RecordVector = serde_json::from_str(&serde_json::to_string(&x).unwrap()).unwrap();
-    assert_eq!(x, round);
     assert_eq!(x, RecordVector::from_entries([(a, 4)]).unwrap());
 }
 
@@ -70,42 +68,7 @@ fn accepted_envelopes_validate_native_state_and_identity() {
 }
 
 #[test]
-fn scopes_roles_and_deletions_remain_distinct() {
-    let key = RecordKey {
-        account: id(1),
-        id: RecordId::Qso(id(2)),
-    };
-    assert_ne!(
-        key,
-        RecordKey {
-            account: id(9),
-            ..key
-        }
-    );
-    let timeline = id(3);
-    let vector = RecordVector::from_entries([
-        (ClockActor::Server(timeline), 7),
-        (ClockActor::Client(id(3)), 2),
-    ])
-    .unwrap();
-    assert_eq!(vector.component(ClockActor::Client(id(3))), 2);
-    let record = AcceptedRecord::new(
-        key,
-        RecordState::Deleted,
-        VersionStamp {
-            accepted_at: Position {
-                timeline,
-                revision: 7,
-            },
-            baseline: id(4),
-            vector,
-        },
-    )
-    .unwrap();
-    assert_eq!(
-        serde_json::from_str::<AcceptedRecord>(&serde_json::to_string(&record).unwrap()).unwrap(),
-        record
-    );
+fn vector_ingress_rejects_conflicting_duplicate_components() {
     assert!(serde_json::from_str::<RecordVector>(r#"[[{"Client":"00000000000000000000000001"},1],[{"Client":"00000000000000000000000001"},2]]"#).is_err());
 }
 

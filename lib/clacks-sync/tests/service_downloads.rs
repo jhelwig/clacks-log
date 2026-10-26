@@ -1,7 +1,7 @@
 mod support;
 
 #[test]
-fn destination_control_identity_is_stable_and_streams_remain_separate() -> anyhow::Result<()> {
+fn destination_control_identity_is_deterministic_and_destination_specific() -> anyhow::Result<()> {
     use clacks_model::service::evidence::download::DownloadControl;
     let a = DownloadControl::new(support::id(42))?;
     let b = DownloadControl::new(support::id(42))?;
@@ -75,7 +75,7 @@ fn starts_compete_on_destination_control_guard() -> anyhow::Result<()> {
                     clacks_model::service::evidence::ServiceRecordId::Acquisition(support::id(100)),
                 ),
             },
-            checkpoint,
+            checkpoint: checkpoint.clone(),
         },
     ];
     let destinations = [Destination {
@@ -104,11 +104,89 @@ fn starts_compete_on_destination_control_guard() -> anyhow::Result<()> {
     let ServiceDecision::Ready(a) = plan_start(&input)? else {
         panic!()
     };
-    let ServiceDecision::Ready(b) = plan_start(&input)? else {
-        panic!()
+    let mut competing_reads = reads.clone();
+    competing_reads[1] = Observation::Absent {
+        key: RecordKey {
+            account: account.account,
+            id: RecordId::Service(
+                clacks_model::service::evidence::ServiceRecordId::Acquisition(support::id(102)),
+            ),
+        },
+        checkpoint: checkpoint.clone(),
     };
-    assert_eq!(a.conditions, b.conditions);
-    assert_eq!(a.accepted.len(), 2);
+    let competing_context = DownloadContext {
+        id: support::id(103),
+        reads: &competing_reads,
+        ..context
+    };
+    let ServiceDecision::Ready(b) = plan_start(&DownloadStartInput {
+        context: &competing_context,
+        id: support::id(102),
+        ..input
+    })?
+    else {
+        panic!("second acquisition start")
+    };
+    for (plan, acquisition) in [(&a, support::id(100)), (&b, support::id(102))] {
+        let control_key = RecordKey {
+            account: account.account,
+            id: RecordId::Service(clacks_model::service::evidence::ServiceRecordId::Download(
+                control.id,
+            )),
+        };
+        let acquisition_key = RecordKey {
+            account: account.account,
+            id: RecordId::Service(
+                clacks_model::service::evidence::ServiceRecordId::Acquisition(acquisition),
+            ),
+        };
+        assert_eq!(plan.conditions.len(), 2);
+        for key in [control_key, acquisition_key] {
+            assert!(
+                plan.conditions
+                    .contains(&clacks_sync::client::VersionCondition::Absent {
+                        key,
+                        checkpoint: checkpoint.clone(),
+                    })
+            );
+        }
+        assert_eq!(plan.accepted.len(), 2);
+        assert!(plan.accepted.iter().any(|r| r.key == acquisition_key));
+    }
+    let active_reads: Vec<_> = a
+        .accepted
+        .iter()
+        .cloned()
+        .map(Observation::Accepted)
+        .collect();
+    let active_control = a
+        .accepted
+        .iter()
+        .find_map(|row| {
+            if let clacks_sync::record::RecordState::Live(
+                clacks_sync::record::RecordValue::Service(record),
+            ) = &row.state
+                && let ServicePayload::Download(control) = &record.payload
+            {
+                Some(control)
+            } else {
+                None
+            }
+        })
+        .unwrap();
+    assert_eq!(active_control.active, Some(support::id(100)));
+    let active_context = DownloadContext {
+        id: support::id(104),
+        account: &a.next_account,
+        reads: &active_reads,
+        ..context
+    };
+    assert!(matches!(plan_start(&DownloadStartInput {
+        context: &active_context,
+        control: active_control,
+        id: support::id(105),
+        ..input
+    })?, ServiceDecision::Review(reason) if reason == "a request is already active for this destination"));
     Ok(())
 }
 
@@ -198,7 +276,6 @@ impl ReadFixture {
             self.rows.retain(|r| r.key != row.key);
             self.rows.push(row);
         }
-        self.rows = serde_json::from_str(&serde_json::to_string(&self.rows)?)?;
         Ok(())
     }
     fn start(
@@ -499,6 +576,7 @@ fn semantic_repeat_and_return_after_change_survive_reload() -> anyhow::Result<()
         panic!()
     };
     f.install(c)?;
+    f.rows = serde_json::from_str(&serde_json::to_string(&f.rows)?)?;
     assert!(matches!(
         f.observe(&a, "A", (None, None))?,
         ServiceDecision::Unchanged

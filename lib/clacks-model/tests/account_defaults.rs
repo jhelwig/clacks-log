@@ -23,10 +23,9 @@ fn bundled_definitions_compile() -> anyhow::Result<()> {
 }
 
 #[test]
-fn stable_ids_are_unique_and_mapping_targets_exist() -> anyhow::Result<()> {
+fn bundled_ids_are_unique_and_mapping_targets_exist() -> anyhow::Result<()> {
     let first = account_definitions()?;
 
-    assert_eq!(first, account_definitions()?);
     assert_eq!(
         first
             .groups

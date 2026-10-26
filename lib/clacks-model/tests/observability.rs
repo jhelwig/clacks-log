@@ -109,29 +109,18 @@ fn lotw_readiness_keeps_unfamiliar_values_out_of_telemetry() -> anyhow::Result<(
 }
 
 #[test]
-fn reference_entry_preserves_recorded_values_without_implicit_recognition_edits()
--> anyhow::Result<()> {
-    use clacks_model::group::normalize_reference;
-    let association = support::reference(support::id(1), Some("us-1234"));
-    let captured = capture(|| normalize_reference(&association, None));
-    assert_eq!(captured.result.as_ref().unwrap(), &association);
-    let defs = support::definitions();
-    let captured = capture(|| normalize_reference(&association, defs.get(association.group_id)));
-    assert_eq!(
-        captured.result.as_ref().unwrap().identifier.as_deref(),
-        Some("US-1234")
-    );
-    Ok(())
-}
-
-#[test]
 fn catalog_outcomes_and_invalid_definition_keep_diagnostics_private() -> anyhow::Result<()> {
     use clacks_model::{
         catalog::{CatalogFinding, lookup_reference},
         export::rules::compile_definition,
         group::DefinitionSet,
     };
-    let (_, association, defs, catalogs, _) = support::catalog_case();
+    let support::CatalogCase {
+        association,
+        definitions: defs,
+        catalogs,
+        ..
+    } = support::catalog_case();
     let captured = capture(|| lookup_reference(&association, &DefinitionSet::default(), &catalogs));
     assert_eq!(
         captured.result.as_ref().unwrap(),

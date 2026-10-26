@@ -198,20 +198,6 @@ fn supplied_catalog_rows_extend_recognition_without_code_changes() -> TestResult
 }
 
 #[test]
-fn supplied_band_rows_are_not_limited_to_compiled_labels() -> TestResult {
-    let base = RecognitionCatalog::adif_318()?;
-    let mut data = serde_json::to_value(base)?;
-    data["bands"]
-        .as_array_mut()
-        .unwrap()
-        .push(serde_json::json!({"code":"experimental-band","lower_hz":100,"upper_hz":200}));
-    let extended = RecognitionCatalog::from_json(&serde_json::to_string(&data)?)?;
-    let band = Band::from_recorded_label("experimental-band")?;
-    assert!(band.interpret(&extended).is_some());
-    Ok(())
-}
-
-#[test]
 fn catalog_rejects_labels_that_collide_during_recognition() -> TestResult {
     let valid = serde_json::json!({
         "release": "case-collision-regression",

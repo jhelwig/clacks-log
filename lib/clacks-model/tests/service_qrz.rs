@@ -13,7 +13,7 @@ use clacks_model::{
 };
 
 #[test]
-fn ordinary_projection_preserves_specialization_and_changes_only_payload() -> anyhow::Result<()> {
+fn ordinary_projection_maps_specialization_and_omits_unsupported_fields() -> anyhow::Result<()> {
     let q = support::qso(support::id::<QsoId>(1));
     let d = Destination {
         id: DestinationId::new(),

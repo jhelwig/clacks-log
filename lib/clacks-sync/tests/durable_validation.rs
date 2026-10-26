@@ -2,15 +2,12 @@ mod support;
 use clacks_sync::{
     client::ClientRecord,
     error::UnknownReason,
-    lineage::Lineage,
     record::{Observation, RecordId, RecordKey},
 };
 use support::id;
 
 #[test]
-fn durable_client_structure_and_lineage_root_are_available() -> anyhow::Result<()> {
-    let lineage = Lineage::new(id(1), id(2));
-    assert_eq!(lineage.initial_timeline(), id(2));
+fn client_record_validation_rejects_cross_account_observations() -> anyhow::Result<()> {
     let key = RecordKey {
         account: id(1),
         id: RecordId::Qso(id(10)),
