@@ -24,7 +24,7 @@ async fn operator_fields_and_actions_remain_reachable_at_supported_scales() -> a
                 );
                 window.frame(vec![]);
                 window.frame(vec![]);
-                window.click("Change operator…");
+                window.quick_change("Operator");
                 window.text("quick.operator.call", "W7SCALE");
                 window.advance(0.3);
                 let mut apply_visible = false;
@@ -71,7 +71,7 @@ async fn operator_fields_and_actions_remain_reachable_at_supported_scales() -> a
 async fn operator_keyboard_order_and_validation_preserve_field_identity() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     window.seed().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
     window.click("Operator / power");
     window.text("operating.operator.call", "W7KEY");
     for expected in ["operating.operator.name", "operating.power"] {

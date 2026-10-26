@@ -67,9 +67,10 @@ impl Window {
             events,
             ..Default::default()
         };
-        self.output = self
-            .context
-            .run_ui(input, |ui| self.view.show(ui, &self.snapshot, &self.sender));
+        self.output = self.context.run_ui(input, |ui| {
+            ui.horizontal_wrapped(|ui| self.view.management(ui, &self.sender));
+            self.view.show(ui, &self.snapshot, &self.sender);
+        });
         self.output.textures_delta.clear();
     }
 
@@ -83,6 +84,49 @@ impl Window {
         self.click(text);
     }
     pub(in crate::ui::operating) fn click(&mut self, text: &str) {
+        self.click_matching(text, |label| label == text);
+    }
+
+    pub(in crate::ui::operating) fn quick_change(&mut self, label: &str) {
+        self.frame(vec![]);
+        self.frame(vec![]);
+        let anchor = self
+            .output
+            .shapes
+            .iter()
+            .find_map(|shape| match &shape.shape {
+                egui::epaint::Shape::Text(text) if text.galley.text() == label => {
+                    Some(text.visual_bounding_rect())
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("missing {label} choice label"));
+        let position = self
+            .output
+            .shapes
+            .iter()
+            .filter_map(|shape| match &shape.shape {
+                egui::epaint::Shape::Text(text) if text.galley.text().ends_with(" ▾") => {
+                    let bounds = text.visual_bounding_rect();
+                    (bounds.left() > anchor.right()
+                        && bounds.top() < anchor.bottom()
+                        && bounds.bottom() > anchor.top())
+                    .then_some(bounds)
+                }
+                _ => None,
+            })
+            .min_by(|a, b| a.left().total_cmp(&b.left()))
+            .unwrap_or_else(|| panic!("missing {label} value control"))
+            .center();
+        self.click_at(position);
+    }
+
+    pub(in crate::ui::operating) fn saved_settings(&mut self, item: &str) {
+        self.click("Saved settings");
+        self.click(item);
+    }
+
+    fn click_matching(&mut self, text: &str, matches: impl Fn(&str) -> bool) {
         self.frame(vec![]);
         self.frame(vec![]);
         let position = self
@@ -90,7 +134,7 @@ impl Window {
             .shapes
             .iter()
             .filter_map(|shape| match &shape.shape {
-                egui::epaint::Shape::Text(t) if t.galley.text() == text => {
+                egui::epaint::Shape::Text(t) if matches(t.galley.text()) => {
                     Some(t.visual_bounding_rect().center())
                 }
                 _ => None,
@@ -109,6 +153,10 @@ impl Window {
                         .collect::<Vec<_>>()
                 )
             });
+        self.click_at(position);
+    }
+
+    fn click_at(&mut self, position: Pos2) {
         self.frame(vec![
             Event::PointerMoved(position),
             Event::PointerButton {
@@ -261,9 +309,9 @@ impl Window {
         clacks_client_store::settings::save_equipment(&self.store, None, &rig_a).await?;
         clacks_client_store::settings::save_equipment(&self.store, None, &rig_b).await?;
         clacks_client_store::settings::save_profile(&self.store, None, &home).await?;
-        self.click("Refresh settings");
+        self.saved_settings("Refresh settings");
         self.settle().await;
-        self.click("Operating settings");
+        self.click("Operating settings…");
         self.click(&format!("Load {}", profile_label(&home)));
         self.click("Apply");
         self.settle().await;
@@ -274,7 +322,15 @@ impl Window {
         self.output.shapes.iter().any(|shape| matches!(&shape.shape, egui::epaint::Shape::Text(t) if t.galley.text().contains(text)))
     }
     pub(in crate::ui::operating) async fn refresh(&mut self) {
-        self.click("Refresh settings");
+        let (reply, response) = oneshot::channel();
+        self.sender
+            .send(SettingsRequest {
+                action: SettingsAction::Refresh,
+                reply,
+            })
+            .await
+            .unwrap();
+        response.await.unwrap();
         self.settle().await;
         self.snapshot = self.settings_view.borrow().clone().unwrap();
         self.frame(vec![]);

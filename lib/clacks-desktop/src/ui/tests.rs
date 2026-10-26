@@ -2,8 +2,10 @@
 
 mod appearance;
 mod logbooks;
+mod logbooks_layout;
 pub(in crate::ui) mod logbooks_support;
 mod main_screen;
+mod visual_language;
 
 use super::*;
 use std::time::Instant;

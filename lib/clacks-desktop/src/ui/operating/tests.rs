@@ -9,7 +9,7 @@ use support::Window;
 async fn semantic_normalization_does_not_create_false_edit_markers() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     window.seed().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
 
     window.text("operating.station.call", "  w7hex  ");
     window.frame(vec![]);
@@ -32,7 +32,7 @@ async fn semantic_normalization_does_not_create_false_edit_markers() -> anyhow::
 async fn validation_live_power_reports_errors_without_submitting() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     window.context.enable_accesskit();
-    window.click("Operating settings");
+    window.click("Operating settings…");
     window.text("operating.station.call", "W7HEX");
     window.click("Operator / power");
     window.text("operating.power", "invalid");
@@ -101,7 +101,7 @@ async fn font_and_scale_changes_preserve_pending_operating_text() -> anyhow::Res
     };
 
     let mut window = Window::new().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
     window.text("operating.station.call", "VE7ABC/P");
     let mut appearance = AppearanceUi::default();
     appearance.open(egui::Id::unique("test.appearance.opener"));
@@ -129,7 +129,7 @@ async fn font_and_scale_changes_preserve_pending_operating_text() -> anyhow::Res
 #[tokio::test]
 async fn nested_equipment_save_survives_profile_cancel_without_applying() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
-    window.click("Station profiles");
+    window.saved_settings("Station profiles");
     window.click("New profile");
     window.text("profile.name", "Home");
     window.text("profile.station.call", "W7HEX");
@@ -156,7 +156,7 @@ async fn nested_equipment_save_survives_profile_cancel_without_applying() -> any
 async fn independent_equipment_selection_applies_and_survives_reopen() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
     window.click("Equipment");
     window.click(&format!("Load {}", equipment_label(&sources.rig_b)));
     assert_eq!(
@@ -210,7 +210,7 @@ async fn manual_detachment_cancel_and_separate_profile_save_use_pending_values()
 -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
     window.text("operating.station.grid", "CN88");
     window.frame(vec![]);
     assert!(window.visible("Selected profile: None"));
@@ -253,7 +253,7 @@ async fn nested_saved_equipment_edits_and_source_deletions_preserve_operating_te
 -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
     window.click("Operator / power");
     window.text("operating.power", "25");
     window.click("Station");
@@ -309,7 +309,7 @@ async fn nested_saved_equipment_edits_and_source_deletions_preserve_operating_te
 async fn stale_profile_save_and_deleted_default_have_distinct_repair_paths() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Station profiles");
+    window.saved_settings("Station profiles");
     window.click("Edit profile");
     window.text("profile.name", "My draft");
     let record = window
@@ -382,7 +382,7 @@ async fn duplicate_names_remain_distinct_and_failed_request_keeps_form_and_focus
     other.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7OTHER")?;
     clacks_client_store::settings::save_profile(&window.store, None, &other).await?;
     window.refresh().await;
-    window.click("Station profiles");
+    window.saved_settings("Station profiles");
     window.click_below(&profile_label(&other), "Edit profile");
     window.text("profile.name", "Other location");
     assert!(
@@ -420,7 +420,7 @@ async fn duplicate_names_remain_distinct_and_failed_request_keeps_form_and_focus
 async fn equipment_deletion_refreshes_phantoms_without_partial_repairs() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Equipment configurations");
+    window.saved_settings("Equipment configurations");
     window.click_below(&equipment_label(&sources.rig_a), "Review deletion");
     window.settle().await;
     window.click("Choose treatment");

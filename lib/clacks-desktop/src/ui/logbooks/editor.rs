@@ -144,10 +144,12 @@ fn show_form(
     if !form.errors.is_empty() {
         ui.label("Fix the highlighted fields to save.");
     }
-    let save = ui
-        .add_enabled(can_save, egui::Button::new("Save logbook"))
-        .clicked();
-    let cancel = ui.button("Cancel edits").clicked();
+    let mut save = false;
+    let mut cancel = false;
+    ui.horizontal(|ui| {
+        save = crate::ui::actions::primary(ui, "Save logbook", can_save).clicked();
+        cancel = ui.button("Cancel edits").clicked();
+    });
     if save {
         match form.editor.build() {
             Ok(next) => {

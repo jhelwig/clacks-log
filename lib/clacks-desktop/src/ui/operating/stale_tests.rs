@@ -6,7 +6,7 @@ use super::{tests::support::Window, *};
 async fn changing_equipment_target_discards_the_prior_stale_review() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Equipment configurations");
+    window.saved_settings("Equipment configurations");
     window.click_below(&equipment_label(&sources.rig_a), "Edit configuration");
     window.text("equipment.antenna", "Loop");
     let old = window
@@ -47,7 +47,7 @@ async fn changing_equipment_target_discards_the_prior_stale_review() -> anyhow::
 async fn partial_coordinates_survive_view_changes_and_apply_at_operating_precision()
 -> anyhow::Result<()> {
     let mut window = Window::new().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
     window.text("operating.station.call", "W7HEX");
     window.text("operating.station.grid", "CN");
     window.text("operating.station.longitude", "");

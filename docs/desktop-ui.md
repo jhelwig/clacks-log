@@ -18,10 +18,23 @@ The main window is a compact workbench with four continuously available areas:
   power above the logging areas.
 
 Use desktop space efficiently and keep useful data visible. The accepted compact
-arrangement establishes relative placement and density, not fixed pixel sizes,
-column widths, fonts, colors or a docking system. The visual direction below
+arrangement establishes relative placement and density, without fixing pane
+pixel sizes, column widths, font families or a docking system. The visual direction below
 governs separation. The shared-component contract below defines common behavior;
 exact visual tokens remain implementation design.
+
+![Accepted compact workbench composition](images/desktop-workbench-reference.jpg)
+
+This accepted reference fixes the composition: application name and logbook
+selection share the application bar; station/profile, station identity,
+equipment, operator, inline power and Operating settings share the operating
+strip directly beneath it. Defined sections frame the logging tools below.
+The logbook selector and operating summary are chrome, rather than independent
+stacked content panels. Preserve that placement and grouping as capabilities
+arrive; reducing padding on a different arrangement does not meet this contract.
+The illustrated contact data and not-yet-delivered tools remain illustrative.
+The [light appearance reference](images/desktop-workbench-light-reference.jpg)
+uses the same composition and component hierarchy.
 
 Worked Before presents one row of data per QSO, rather than a multiline card for
 each contact. Its callsign-prefix matching, current-logbook scope and handling of
@@ -146,18 +159,45 @@ editable controls make tool boundaries and inputs apparent while retaining the
 compact workbench density. Carry this hierarchy across the workbench, dialogs
 and additional windows. Avoid turning each data item into a separate card.
 
-This selects surface hierarchy, not exact prototype colors, typography, spacing
-or pixel dimensions. Preserve the selected egui/eframe architecture when
-implementing the shared components below; prototype markup is not the production
-component implementation.
+The references establish the surface palette, relative typography, control
+treatment and action emphasis as well as the hierarchy. Translate those roles
+into native egui styles and shared components; keep the selected egui/eframe
+architecture and normal framework interaction behavior. Pixel dimensions and
+browser markup are implementation details, while the visual relationships carry
+across native rendering, appearance choices and scaling.
 
-The current main screen applies this hierarchy to its available production
-tools: an application bar, the operating-context section, a separate saved-settings
-section and a compact workspace-status footer. Workspace paths and account
-identity are available through **Workspace & diagnostics**. Opening failures,
-retry actions and degraded-diagnostic warnings remain visible when those details
-are collapsed. Later contact capabilities extend this screen without placeholder
-panes for tools that do not yet exist.
+The current shared palette uses these surface and emphasis roles:
+
+| Role | Dark | Light |
+| --- | --- | --- |
+| Workspace canvas | `#1d2228` | `#f0f1f5` |
+| Application bar, section body, dialog | `#252a30` | `#ffffff` |
+| Operating strip and raised headers | `#2a2f35` | `#f0f1f5` |
+| Recessed fields and value controls | `#1d2226` | `#f5f6f8` |
+| Restrained border | `#49525b` | `#cbd1d8` |
+| Primary text | `#e4eaef` | `#1e272f` |
+| Secondary text | `#b5c0cb` | `#52616c` |
+| Primary action and focus accent | `#add6e7` | `#326781` |
+
+Controls use small corners and thin outlines, with distinct native hover, focus,
+selection and disabled states. Primary Save/Apply actions use the accent fill
+and a contrasting foreground; secondary actions retain the quieter control
+treatment. Edited and error colors retain their independent state meanings.
+
+The application bar contains the logbook selector with **Manage logbooks…** beside
+it. Reusable station/equipment management and refresh remain available through a
+compact **Saved settings** menu, alongside appearance controls; they do not occupy
+a permanent workbench content panel. The operating strip uses selected values as
+its quick-change controls instead of separate rows of values and Change buttons.
+Full editing remains **Operating settings…** beside inline power. Reflow or scroll
+when the window cannot accommodate the strip at the selected scale.
+
+The workspace-status footer stays compact. Workspace paths and account identity
+are available through **Workspace & diagnostics**. Opening failures, retry actions
+and degraded-diagnostic warnings remain visible when those details are collapsed.
+Later contact capabilities fill the logging region without placeholder panes for
+tools that do not yet exist. Verification must check relative placement and
+grouping against the reference, as well as usable controls and reachability.
 
 ### Appearance preference
 
@@ -180,6 +220,13 @@ timestamps. The font is selectable rather than fixed to the prototype's family.
 Font selection changes presentation, not recorded values, recognition or input
 validation. Exact default families, available choices and scaling increments
 belong to the component specification and implementation design.
+
+The shared logical type roles use 14-point application/dialog headings,
+12-point ordinary text and actions, 11-point secondary labels/supporting text,
+and 13-point monospace radio values. Section titles use emphasis within that
+hierarchy. Keep labels separate from their recessed value controls in the
+operating strip, with label/value groups wrapping together. Apply the selected
+font families and unified scale consistently to these roles.
 
 ## Validation and unapplied changes
 
@@ -301,9 +348,10 @@ additional views of the same client state. Defined sections was selected over
 Quiet surfaces because explicit headers, restrained borders and recessed inputs
 make tool and editing boundaries apparent at compact density.
 
-The written interaction rules govern behavior. Exact prototype markup, example
-data, colors and browser mechanics are illustrative. The existing Rust desktop
-and egui controls remain the implementation foundation.
+The written interaction rules govern behavior. Example contact data, browser
+mechanics and literal markup are illustrative. Native components retain the
+accepted layout, palette, typography and state treatments using the existing
+Rust desktop and egui foundation.
 
 ### Component responsibilities
 

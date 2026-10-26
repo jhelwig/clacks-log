@@ -153,12 +153,12 @@ pub(super) fn show(
             ) {
                 frame.validation.edited(ui.input(|input| input.time));
             }
-            if ui
-                .add_enabled(
-                    frame.validation.can_submit(&frame.errors),
-                    egui::Button::new("Save profile"),
-                )
-                .clicked()
+            if crate::ui::actions::primary(
+                ui,
+                "Save profile",
+                frame.validation.can_submit(&frame.errors),
+            )
+            .clicked()
             {
                 match editor.build(definitions) {
                     Ok(next) => {

@@ -35,9 +35,9 @@ struct TagForm {
     expected: Option<ClientRecord>,
     /// Current field feedback.
     errors: Vec<FieldError>,
-    /// Debounced readiness for the current fields.
+    /// Validation timing and Save availability for the edited fields.
     validation: ValidationState,
-    /// Intervening record requires explicit reload before retry.
+    /// Whether the saved tag changed after this editor was opened.
     stale: bool,
 }
 
@@ -59,13 +59,13 @@ impl TagForm {
     }
 }
 
-/// One management destination, retained until any admitted work settles.
+/// Management-dialog state retained until its pending request finishes.
 struct Management {
     /// New/edit form, absent for the saved-tag list.
     form: Option<TagForm>,
-    /// Exact worker-computed review and an explicit contact-treatment choice.
+    /// Deletion preview and the chosen QSO treatment.
     deletion: Option<deletion::DeletionReview>,
-    /// Admitted operation owned independently of dialog visibility.
+    /// Reply for a submitted operation, retained if the dialog closes.
     response: Option<oneshot::Receiver<SettingsResponse>>,
     /// Actionable failure or stale-review feedback.
     notice: Option<String>,
@@ -88,7 +88,7 @@ pub(super) struct LogbooksUi {
     selecting: Option<SelectedView>,
     /// Visible management destination.
     management: Option<Management>,
-    /// Dismissed destinations whose admitted results still need settling.
+    /// Closed dialogs whose submitted requests have not finished.
     dismissed: Vec<Management>,
     /// Persistent operation/read error.
     error: Option<String>,
@@ -96,11 +96,11 @@ pub(super) struct LogbooksUi {
     completion_notice: Option<String>,
     /// Deleted tag whose fallback needs explanation.
     fallback_notice: Option<TagId>,
-    /// Startup cause is handled once per window.
+    /// Whether the startup fallback has already been considered.
     startup_observed: bool,
-    /// Native management opener for focus restoration.
+    /// ID of the Manage logbooks button that opened the dialog.
     opener: Option<egui::Id>,
-    /// Deferred native focus request after dismissal.
+    /// Button to focus after the modal has finished closing.
     restore_focus: Option<egui::Id>,
 }
 
@@ -148,7 +148,7 @@ impl LogbooksUi {
         }
     }
 
-    /// Render the real selector and dedicated management dialog without store I/O.
+    /// Render immediate view selection and its management opener in the application bar.
     pub fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -165,11 +165,7 @@ impl LogbooksUi {
                 ui.ctx().request_repaint();
             }
         }
-        let mut records = snapshot.tags.clone();
-        for (id, record) in &self.acknowledged_tags {
-            records.retain(|row| row.key.id != RecordId::Tag(*id));
-            records.push(record.clone());
-        }
+        let records = self.records(snapshot);
         let mut tags: Vec<_> = records
             .iter()
             .filter_map(tag)
@@ -186,98 +182,139 @@ impl LogbooksUi {
                 .cloned()
                 .unwrap_or_else(|| format!("Unavailable logbook {id}")),
         };
-        theme::section_frame(ui).show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                ui.label("Logbook");
-                ui.add_enabled_ui(self.selection_response.is_none(), |ui| {
-                    egui::ComboBox::from_id_salt("logbooks.selection")
-                        .selected_text(caption)
-                        .show_ui(ui, |ui| {
-                            ui.strong("Built-in views");
-                            for (view, label) in [
-                                (SelectedView::AllContacts, "All contacts"),
-                                (SelectedView::Untagged, "Untagged"),
-                            ] {
-                                if ui.selectable_label(selected == view, label).clicked()
-                                    && selected != view
-                                {
-                                    self.select(sender, view);
-                                }
-                            }
-                            ui.separator();
-                            ui.strong("Named logbooks");
-                            for tag in &tags {
-                                if let Some(label) = labels.get(&tag.id)
-                                    && ui
-                                        .push_id(tag.id, |ui| {
-                                            ui.selectable_label(
-                                                selected == SelectedView::Logbook(tag.id),
-                                                label,
-                                            )
-                                        })
-                                        .inner
-                                        .clicked()
-                                    && selected != SelectedView::Logbook(tag.id)
-                                {
-                                    self.select(sender, SelectedView::Logbook(tag.id));
-                                }
-                            }
-                        });
-                });
-                if self.selecting.is_some() {
-                    ui.spinner();
-                    ui.small("Changing view…");
-                }
-                let manage = ui.button("Manage logbooks…");
-                if manage.clicked() {
-                    self.opener = Some(manage.id);
-                    self.management = Some(Management {
-                        form: None,
-                        deletion: None,
-                        response: None,
-                        notice: None,
-                    });
-                }
-            });
-            if let Some(id) = self.fallback_notice {
-                ui.horizontal_wrapped(|ui| {
-                    ui.label(format!(
-                        "The selected logbook {id} was deleted. Showing All contacts."
-                    ));
-                    if ui.button("Dismiss").clicked() {
-                        self.fallback_notice = None;
+        ui.small(egui::RichText::new("Logbook").color(theme::palette(ui.ctx().theme()).muted));
+        ui.add_enabled_ui(!self.is_busy(), |ui| {
+            egui::ComboBox::from_id_salt("logbooks.selection")
+                .selected_text(caption)
+                .show_ui(ui, |ui| {
+                    ui.strong("Built-in views");
+                    for (view, label) in [
+                        (SelectedView::AllContacts, "All contacts"),
+                        (SelectedView::Untagged, "Untagged"),
+                    ] {
+                        if ui.selectable_label(selected == view, label).clicked()
+                            && selected != view
+                        {
+                            self.select(sender, view);
+                        }
+                    }
+                    ui.separator();
+                    ui.strong("Named logbooks");
+                    for tag in &tags {
+                        if let Some(label) = labels.get(&tag.id)
+                            && ui
+                                .push_id(tag.id, |ui| {
+                                    ui.selectable_label(
+                                        selected == SelectedView::Logbook(tag.id),
+                                        label,
+                                    )
+                                })
+                                .inner
+                                .clicked()
+                            && selected != SelectedView::Logbook(tag.id)
+                        {
+                            self.select(sender, SelectedView::Logbook(tag.id));
+                        }
                     }
                 });
-            }
-            if let Some(error) = &self.error {
-                feedback::problem(ui, error);
-            }
-            if let Some(message) = &self.completion_notice {
-                let dismiss = ui
-                    .horizontal_wrapped(|ui| {
-                        ui.label(message);
-                        ui.button("Dismiss result").clicked()
-                    })
-                    .inner;
-                if dismiss {
-                    self.completion_notice = None;
-                }
-            }
-            if self.error.is_some()
-                && ui
-                    .add_enabled(
-                        self.selection_response.is_none(),
-                        egui::Button::new("Refresh logbooks"),
-                    )
-                    .clicked()
-            {
-                self.send_selection(sender, SettingsAction::Refresh);
-            }
         });
-        self.show_management(ui.ctx(), sender, &records, &tags, &labels);
+        if self.is_busy() {
+            ui.spinner();
+            ui.small(if self.selecting.is_some() {
+                "Changing view…"
+            } else {
+                "Finishing logbook request…"
+            });
+        }
+        let manage = ui.add_enabled(!self.is_busy(), egui::Button::new("Manage logbooks…"));
+        if manage.clicked() {
+            self.opener = Some(manage.id);
+            self.management = Some(Management {
+                form: None,
+                deletion: None,
+                response: None,
+                notice: None,
+            });
+        }
     }
 
-    /// Dismiss unapplied management edits while retaining admitted results.
+    /// Present actionable results outside the compact application bar.
+    pub fn feedback(&mut self, ui: &mut egui::Ui, sender: &mpsc::Sender<SettingsRequest>) {
+        if let Some(id) = self.fallback_notice {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(format!(
+                    "The selected logbook {id} was deleted. Showing All contacts."
+                ));
+                if ui.button("Dismiss").clicked() {
+                    self.fallback_notice = None;
+                }
+            });
+        }
+        if let Some(error) = &self.error {
+            feedback::problem(ui, error);
+        }
+        if let Some(message) = &self.completion_notice {
+            let dismiss = ui
+                .horizontal_wrapped(|ui| {
+                    ui.label(message);
+                    ui.button("Dismiss result").clicked()
+                })
+                .inner;
+            if dismiss {
+                self.completion_notice = None;
+            }
+        }
+        if self.error.is_some()
+            && ui
+                .add_enabled(!self.is_busy(), egui::Button::new("Refresh logbooks"))
+                .clicked()
+        {
+            self.send_selection(sender, SettingsAction::Refresh);
+        }
+    }
+
+    /// Show the native manager after the window's ordinary chrome has been laid out.
+    pub fn dialog(
+        &mut self,
+        context: &egui::Context,
+        snapshot: &LogbookSnapshot,
+        sender: &mpsc::Sender<SettingsRequest>,
+    ) {
+        if self.management.is_none() {
+            return;
+        }
+        let records = self.records(snapshot);
+        let mut tags: Vec<_> = records
+            .iter()
+            .filter_map(tag)
+            .filter(|tag| !self.deleted_tags.contains(&tag.id))
+            .collect();
+        tags.sort_by(|a, b| a.name.cmp(&b.name).then(a.id.cmp(&b.id)));
+        let labels = labels::labels(&tags);
+        self.show_management(context, sender, &records, &tags, &labels);
+    }
+
+    /// Merge acknowledged saves into the catalog until a refreshed catalog arrives.
+    fn records(&self, snapshot: &LogbookSnapshot) -> Vec<ClientRecord> {
+        let mut records = snapshot.tags.clone();
+        for (id, record) in &self.acknowledged_tags {
+            records.retain(|row| row.key.id != RecordId::Tag(*id));
+            records.push(record.clone());
+        }
+        records
+    }
+
+    /// Whether a submitted logbook request still has an unconsumed reply.
+    fn is_busy(&self) -> bool {
+        self.selection_response.is_some()
+            || self
+                .management
+                .as_ref()
+                .is_some_and(|frame| frame.response.is_some())
+            || !self.dismissed.is_empty()
+    }
+
+    /// Discard unapplied edits while retaining replies for submitted requests.
     fn cancel(&mut self) {
         if let Some(frame) = self.management.take()
             && frame.response.is_some()
@@ -297,7 +334,7 @@ impl LogbooksUi {
         }
     }
 
-    /// Retain the response receiver only when the existing lane admits this request.
+    /// Submit a view change or refresh, retaining the receiver if submission succeeds.
     fn send_selection(
         &mut self,
         sender: &mpsc::Sender<SettingsRequest>,
@@ -317,7 +354,7 @@ impl LogbooksUi {
         }
     }
 
-    /// Explain an observed committed fallback without claiming an uncommitted write.
+    /// Show an explanation for a view change caused by tag deletion.
     fn fallback(&mut self, id: TagId) {
         if self.fallback_notice != Some(id) {
             let account = self
@@ -349,7 +386,7 @@ fn tag(record: &ClientRecord) -> Option<&LogbookTag> {
 }
 
 impl Management {
-    /// Admit one operation without dropping its eventual acknowledgment.
+    /// Submit one request and retain its reply receiver until completion.
     fn send(&mut self, sender: &mpsc::Sender<SettingsRequest>, action: LogbookAction) {
         let (reply, response) = oneshot::channel();
         match sender.try_send(SettingsRequest {
@@ -365,6 +402,8 @@ impl Management {
     }
 }
 
+#[cfg(test)]
+mod admission_tests;
 #[cfg(test)]
 mod deletion_tests;
 #[cfg(test)]

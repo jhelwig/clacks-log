@@ -32,7 +32,7 @@ pub(super) fn text(
     let colors = theme::palette(ui.ctx().theme());
     let label_id = ui
         .horizontal(|ui| {
-            let label_id = ui.label(label).id;
+            let label_id = ui.small(egui::RichText::new(label).color(colors.muted)).id;
             if presentation.edited {
                 ui.small(egui::RichText::new("Not applied").color(colors.edited_edge));
             }
@@ -72,7 +72,56 @@ pub(super) fn text(
             egui::Stroke::new(1.0, colors.error),
             egui::StrokeKind::Outside,
         );
-        ui.colored_label(colors.error, &error.message);
+        ui.colored_label(colors.error, egui::RichText::new(&error.message).small());
     }
     response
+}
+
+/// Present a compact label and current-value button as one wrapping unit.
+///
+/// Use the returned response to open the relevant choice editor. The label uses
+/// secondary typography while the value retains its supplied text style.
+pub(super) fn choice(
+    ui: &mut egui::Ui,
+    label: &str,
+    value: impl Into<egui::WidgetText>,
+    enabled: bool,
+) -> egui::Response {
+    let value = value.into();
+    let caption = egui::RichText::new(label)
+        .small()
+        .color(theme::palette(ui.ctx().theme()).muted);
+    let caption_width = egui::WidgetText::from(caption.clone())
+        .into_galley(
+            ui,
+            Some(egui::TextWrapMode::Extend),
+            f32::INFINITY,
+            egui::TextStyle::Small,
+        )
+        .size()
+        .x;
+    let value_width = value
+        .clone()
+        .into_galley(
+            ui,
+            Some(egui::TextWrapMode::Extend),
+            f32::INFINITY,
+            egui::TextStyle::Button,
+        )
+        .size()
+        .x;
+    let width = caption_width
+        + value_width
+        + ui.spacing().item_spacing.x
+        + 2.0 * ui.spacing().button_padding.x;
+    ui.allocate_ui_with_layout(
+        egui::vec2(width, ui.spacing().interact_size.y),
+        egui::Layout::left_to_right(egui::Align::Center),
+        |ui| {
+            let label = ui.label(caption);
+            ui.add_enabled(enabled, egui::Button::new(value))
+                .labelled_by(label.id)
+        },
+    )
+    .inner
 }

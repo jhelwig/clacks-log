@@ -30,6 +30,7 @@
 3. An incoming tombstone is staged or conflicts with a live local working value: fallback occurs only when working deletion is effective, including receipt and later resolution. Task 3.
 4. A committed operation loses its next read or its dialog closes: preserve exact success/fallback, avoid mutation retries and keep shutdown responsive. Tasks 4 and 6.
 5. Duplicate names share the same short suffix, or match a built-in label: display remains unambiguous while every command uses the full ID. Task 5.
+6. Actual main-window rendering preserves the accepted application bar, operating strip, palette, control treatment and type hierarchy; default widget styling or label-presence checks do not establish visual conformity. Task 8.
 
 ## Production file map
 
@@ -231,14 +232,14 @@ assert_eq!(settings::snapshot(&store).await?.logbooks.selected_view,
 ```rust
 pub(crate) enum LogbookAction {
     SelectView { next: SelectedView },
-    SaveTag { expected: Option<ClientRecord>, next: LogbookTag },
+    SaveTag { expected: Option<Box<ClientRecord>>, next: LogbookTag },
     PreviewDeletion { id: TagId },
     DeleteTag { expected: Arc<TagDeletionPreview>, choice: TagDeletionChoice },
 }
 #[derive(Debug)]
 pub(crate) enum LogbookResponse {
     Selected(SelectedView),
-    Saved(SaveOutcome),
+    Saved(Box<SaveOutcome>),
     DeletionPreview(Arc<TagDeletionPreview>),
     Deleted(TagDeleteOutcome),
 }
@@ -251,6 +252,10 @@ pub(crate) async fn execute(store: &ClientStore, action: LogbookAction)
 
 The desktop's Arc shares the potentially large immutable preview between its dialog and admitted worker; it does not change the store API or clone all member records on a UI-frame/confirmation path. Use the existing std::sync::Arc, not a new ownership abstraction.
 
+Box the owned tag-save basis and save result in these enums so selection and
+preview messages do not carry the size of a complete client record. This is
+ordinary Rust ownership indirection; the store signatures remain unchanged.
+
 - [ ] Write `session_logbook_operations_publish_committed_catalogs` against a temporary real workspace: submit save, select, preview and delete through the production request lane. Assert exact native results, snapshot selection/tags, and persisted values after close/reopen. No second settings/logbook queue or watched catalog is introduced.
 - [ ] Write `committed_logbook_outcome_survives_failed_followup_read`: use the existing session test pattern (`session/settings/fail_refresh.sql` drops group_normalization after initial state is loaded). It must fail the following catalog read without preventing the tag write/select/delete. Assert RefreshFailed wraps the exact success, including selected view/fallback; do not call the mutation again to obtain a usable response.
 
@@ -258,8 +263,9 @@ The desktop's Arc shares the potentially large immutable preview between its dia
 let SettingsResponse::RefreshFailed { outcome, .. } = response else {
     panic!("the committed operation must survive its failed refresh");
 };
-let SettingsResponse::Logbooks(LogbookResponse::Saved(SaveOutcome::Saved(record)))
+let SettingsResponse::Logbooks(LogbookResponse::Saved(outcome))
     = *outcome else { panic!("preserve the exact tag-save result"); };
+let SaveOutcome::Saved(record) = *outcome else { panic!("preserve saved values"); };
 assert_eq!(record.key.id, RecordId::Tag(tag.id));
 assert_eq!(save::load(&store, record.key).await?, Some(record));
 ```
@@ -384,4 +390,35 @@ git diff --check
 | Domain events, truthful committed metrics and data exclusion | 1–4, 6, 7 |
 | Cross-theme/scale keyboard/native acceptance and final verification | 5–7 |
 
-Before handing over this plan, self-review spec coverage, step clarity, type names/signatures, the five Review Focus cases and proportion. Do not add a separate review-history file. No implementation work is authorized by the existence of this plan.
+Before handing over this plan, self-review spec coverage, step clarity, type names/signatures, the six Review Focus cases and proportion. Do not add a separate review-history file. No implementation work is authorized by the existence of this plan.
+
+## Task 8: Restore the agreed workbench chrome before final acceptance
+
+**Consumes:** The accepted Defined sections workbench reference and current real
+logbook/operating/profile/equipment workflows. This correction is required before
+Task 7's final verification/review; it does not add entry/history placeholders.
+
+**Files:** `src/ui.rs`, `src/ui/{actions,fields,logbooks,theme}.rs`,
+`src/ui/operating/{home,summary}.rs`, relevant native App/workflow tests and the
+owning desktop UI documentation in `lib/clacks-desktop` and `docs`.
+
+- [ ] Establish layout regressions against the accepted reference: the logbook
+  selector and management opener share the application bar; station/profile,
+  equipment, operator, inline power and full editing share the operating strip
+  immediately below. Default-state saved-management actions do not occupy a
+  permanent content panel. Check placement and grouping, not merely label presence.
+- [ ] Preserve current Save/Apply/Cancel, quick-change, stale-state, admitted-work
+  and inline-power semantics. Keep reusable management accessible through compact
+  application chrome and existing editor navigation. Do not replace real workflows
+  or fill the future logging region with placeholders.
+- [ ] Use the shared visual tokens and normal reflow/scrolling at small sizes.
+  Verify wide/default layout proportions and both appearances/scales against the
+  reference; compacting margins alone does not establish conformity.
+- [ ] Explicitly implement the reference surface palette, recessed/outlined
+  controls, relative type roles and primary-action emphasis in the shared native
+  foundation. Verify actual App paint output in both appearances, including
+  separating labels from value controls. Preserve native widget state handling.
+- [ ] Run actual App input tests and existing operating/logbook regressions. Update
+  stale descriptions of the stacked main screen and retain the visual reference
+  at a stable repository path. Commit with context about restoring the agreed
+  composition, then return to Task 7's final verification and whole-branch review.

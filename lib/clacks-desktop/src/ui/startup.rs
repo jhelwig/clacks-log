@@ -16,7 +16,7 @@ pub(super) fn status(ui: &mut egui::Ui, state: &SessionStatus) {
         SessionStatus::Closing { .. } => "Closing workspace…",
         SessionStatus::Closed => "Workspace closed",
     };
-    ui.small(label);
+    ui.small(egui::RichText::new(label).color(theme::palette(ui.ctx().theme()).muted));
 }
 
 /// Present an active opening or failure state with its real recovery action.

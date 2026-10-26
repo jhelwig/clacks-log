@@ -5,7 +5,7 @@ use super::{tests::support::Window, *};
 #[tokio::test]
 async fn escape_cancels_only_top_editor() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
     window.text("operating.station.call", "W7HEX");
     window.click("Save station values as profile…");
     let opener = window.view.stack.last().unwrap().opener.unwrap();
@@ -32,7 +32,7 @@ async fn escape_cancels_only_top_editor() -> anyhow::Result<()> {
 #[tokio::test]
 async fn committed_apply_refresh_failure_shows_acknowledged_state_once() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
     let mut acknowledged = window.snapshot.operating.clone();
     let Screen::Operating(editor) = &mut window.view.stack.last_mut().unwrap().screen else {
         panic!()
@@ -50,7 +50,7 @@ async fn committed_apply_refresh_failure_shows_acknowledged_state_once() -> anyh
         })
         .unwrap();
     window.frame(vec![]);
-    window.click("Operating settings");
+    window.click("Operating settings…");
     assert!(
         matches!(&window.view.stack.last().unwrap().screen, Screen::Operating(editor) if editor.station.callsign == "W7ACK" && editor.expected.current.is_some())
     );
@@ -61,7 +61,7 @@ async fn committed_apply_refresh_failure_shows_acknowledged_state_once() -> anyh
 #[tokio::test]
 async fn dismiss_after_request_admission_does_not_lose_completion() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
-    window.click("Equipment configurations");
+    window.saved_settings("Equipment configurations");
     window.click("New configuration");
     let next = EquipmentConfiguration {
         id: Default::default(),
@@ -94,7 +94,7 @@ async fn dismiss_after_request_admission_does_not_lose_completion() -> anyhow::R
 #[tokio::test]
 async fn backdrop_does_not_discard_editor() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
     let position = egui::pos2(2.0, 2.0);
     for pressed in [true, false] {
         window.frame(vec![
@@ -118,7 +118,7 @@ async fn backdrop_does_not_discard_editor() -> anyhow::Result<()> {
 #[tokio::test]
 async fn menu_escape_does_not_cancel_outer_editor() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
-    window.click("Equipment configurations");
+    window.saved_settings("Equipment configurations");
     window.click("New configuration");
     window.click("Create new configuration");
     window.frame(vec![egui::Event::Key {

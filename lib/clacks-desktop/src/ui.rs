@@ -1,5 +1,6 @@
 //! Native presentation and lifecycle requests, with no database work in callbacks.
 
+mod actions;
 mod appearance;
 mod closing;
 mod dialog;
@@ -215,17 +216,44 @@ impl eframe::App for DesktopApp {
                 .finish(ui.ctx(), appearance::AppearanceAction::Cancel);
         }
         self.appearance.update_fonts(ui.ctx(), &self.commands);
+        let snapshot = if !closing && matches!(state, SessionStatus::Ready { .. }) {
+            self.settings_view.borrow_and_update().clone()
+        } else {
+            None
+        };
+        if let Some(snapshot) = &snapshot {
+            let restored = match state {
+                SessionStatus::Ready {
+                    restored_view_from, ..
+                } => restored_view_from,
+                _ => None,
+            };
+            self.logbooks.observe(&snapshot.logbooks, restored);
+        }
         egui::Panel::top("application.header").show(ui, |ui| {
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.heading("Clacks Log");
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let appearance = ui.add_enabled(!closing, egui::Button::new("Appearance…"));
-                    if appearance.clicked() {
-                        self.appearance.open(appearance.id);
-                    }
-                });
+                if let Some(snapshot) = &snapshot {
+                    self.logbooks
+                        .show(ui, &snapshot.logbooks, &self.settings_requests);
+                    self.settings.management(ui, &self.settings_requests);
+                }
+                let appearance = ui.add_enabled(!closing, egui::Button::new("Appearance…"));
+                if appearance.clicked() {
+                    self.appearance.open(appearance.id);
+                }
             });
         });
+        if let Some(snapshot) = &snapshot {
+            egui::Panel::top("operating.strip")
+                .frame(
+                    egui::Frame::side_top_panel(ui.style())
+                        .fill(theme::palette(ui.ctx().theme()).header),
+                )
+                .show(ui, |ui| {
+                    self.settings.show(ui, snapshot, &self.settings_requests);
+                });
+        }
         egui::Panel::bottom("application.status").show(ui, |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui
@@ -238,7 +266,7 @@ impl eframe::App for DesktopApp {
                 startup::status(ui, &state);
             });
         });
-        let background = ui.visuals().extreme_bg_color;
+        let background = theme::palette(ui.ctx().theme()).workspace;
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::central_panel(ui.style())
@@ -255,21 +283,8 @@ impl eframe::App for DesktopApp {
                         startup::diagnostics(self, ui);
                         startup::show(self, ui, &state);
 
-                        if matches!(state, SessionStatus::Ready { .. })
-                            && !self.close_requested
-                            && let Some(snapshot) = self.settings_view.borrow_and_update().clone()
-                        {
-                            let restored = match state {
-                                SessionStatus::Ready {
-                                    restored_view_from, ..
-                                } => restored_view_from,
-                                _ => None,
-                            };
-                            self.logbooks.observe(&snapshot.logbooks, restored);
-                            self.logbooks
-                                .show(ui, &snapshot.logbooks, &self.settings_requests);
-                            ui.add_space(8.0);
-                            self.settings.show(ui, &snapshot, &self.settings_requests);
+                        if snapshot.is_some() {
+                            self.logbooks.feedback(ui, &self.settings_requests);
                         }
 
                         if let SessionStatus::Closing { phase, started } = state {
@@ -283,6 +298,10 @@ impl eframe::App for DesktopApp {
                     });
             });
         if !closing {
+            if let Some(snapshot) = &snapshot {
+                self.logbooks
+                    .dialog(ui.ctx(), &snapshot.logbooks, &self.settings_requests);
+            }
             self.appearance.show(ui.ctx());
         }
     }

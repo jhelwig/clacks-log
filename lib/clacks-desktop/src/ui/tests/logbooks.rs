@@ -61,6 +61,7 @@ async fn manage_logbooks_save_does_not_select_and_cancel_does_not_save() -> anyh
         app.snapshot().await?.logbooks.selected_view,
         SelectedView::Logbook(id)
     );
+    assert!(!main_screen::labels(&app.output).contains(&"Named logbooks"));
     app.click("Renamed");
     app.click("Untagged");
     app.settle().await?;
@@ -150,5 +151,26 @@ async fn builtins_and_same_named_tag_remain_distinct_choices() -> anyhow::Result
         app.snapshot().await?.logbooks.selected_view,
         SelectedView::AllContacts
     );
+    app.close().await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn saved_management_stays_in_the_application_menu_without_changing_operation()
+-> anyhow::Result<()> {
+    let mut app = LiveWindow::new().await?;
+    let before = app.snapshot().await?;
+    app.frame(vec![]);
+    assert!(!main_screen::labels(&app.output).contains(&"Station profiles"));
+    app.click("Saved settings");
+    app.click("Station profiles");
+    app.frame(vec![]);
+    assert!(main_screen::labels(&app.output).contains(&"New profile"));
+    app.click("Back");
+    app.click("Saved settings");
+    app.click("Equipment configurations");
+    app.frame(vec![]);
+    assert!(main_screen::labels(&app.output).contains(&"New configuration"));
+    app.click("Back");
+    assert_eq!(app.snapshot().await?, before);
     app.close().await
 }

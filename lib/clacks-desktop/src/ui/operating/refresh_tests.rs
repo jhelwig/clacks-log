@@ -9,7 +9,7 @@ async fn committed_delete_with_failed_refresh_clears_pending_source_and_warns() 
 {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
     window.click("Operator / power");
     window.text("operating.power", "25");
     window.click("Station");
@@ -43,11 +43,12 @@ async fn committed_delete_with_failed_refresh_clears_pending_source_and_warns() 
         sources.home.station
     );
     assert!(applied.current.as_ref().unwrap().transmit_power.is_none());
-    window.click("Operating settings");
+    window.click("Operating settings…");
     assert!(
         matches!(&window.view.stack.last().unwrap().screen, Screen::Operating(e) if e.selected_profile.is_none())
     );
-    window.click("Refresh settings");
+    window.click("Cancel operating changes");
+    window.saved_settings("Refresh settings");
     window.settle().await;
     assert!(window.visible("last successfully read state"));
     window.close().await?;
@@ -57,7 +58,7 @@ async fn committed_delete_with_failed_refresh_clears_pending_source_and_warns() 
 #[tokio::test]
 async fn successful_profile_save_survives_failed_refresh_in_visible_list() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
-    window.click("Station profiles");
+    window.saved_settings("Station profiles");
     window.click("New profile");
     window.text("profile.name", "Saved locally despite failed read");
     window.text("profile.station.call", "W7ACK");
@@ -88,7 +89,7 @@ async fn successful_profile_save_survives_failed_refresh_in_visible_list() -> an
 async fn dismissed_equipment_save_retains_acknowledged_record_when_refresh_fails()
 -> anyhow::Result<()> {
     let mut window = Window::new().await?;
-    window.click("Equipment configurations");
+    window.saved_settings("Equipment configurations");
     window.click("New configuration");
     window.text("equipment.name", "Saved after dismissal");
     let Screen::EquipmentEdit(editor) = &window.view.stack.last().unwrap().screen else {

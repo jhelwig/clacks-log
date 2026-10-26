@@ -41,21 +41,64 @@ Activation failures return an error after three seconds rather than bypassing
 ownership. Unix sockets live in a checked user-only directory; Windows pipes have
 a protected current-user-only access list. Stale socket cleanup requires the lock.
 
+## Logbook setup
+
+The application-bar **Logbook** selector offers **All contacts**, **Untagged** and named
+logbooks. Choosing a view commits it immediately in this workspace's SQLite
+database and restores the same tag ID on restart, including after a rename.
+Both built-ins supply no default new-contact tag. A named view supplies that tag;
+future QSO entry follows subsequent view changes without retaining an old proposed
+membership. Saved contacts and existing-contact editors are unaffected.
+
+**Manage logbooks…** opens a dedicated dialog with New/Edit and Save/Cancel
+boundaries. A save changes only the tag, never the selected view or station and
+equipment settings. New tags use **Neither** for both LoTW and QRZ upload policies.
+Each service independently supports Enable, Forbid and Neither; any Forbid wins
+when contact eligibility is evaluated across tags. Duplicate names are allowed.
+Only duplicate names display a short collision-checked ID suffix; full IDs are
+visible and copyable in the manager. A tag named All contacts remains distinct
+from the built-in view in the selector's named-logbook group.
+
+Deletion first reads a consistent review showing distinct affected, shared and
+unique contact counts. Explicitly choose whether to leave all contacts, delete all
+contacts, or delete only contacts unique to this tag, then confirm. A changed tag
+or contact makes the review stale and requires reloading and confirming again.
+Deleting the selected tag atomically selects All contacts and explains why.
+Known incoming deletion uses the same fallback; unknown/unavailable targets and
+live pending tag alternatives are preserved instead. External copies are untouched.
+
+Debounced validation and unapplied highlights use the shared controls. Cancel,
+Escape and the dialog close discard unapplied edits. Admitted operations settle
+even after dismissal. Their exact committed results remain visible if the next
+catalog read fails; a failed refresh never retries a mutation. Use **Refresh
+logbooks** to retry the read. QSO entry/basic contact presentation, richer history,
+and ordinary individual/group membership editing belong to #9, #10 and #51.
+
 ## Operating settings
 
-The main screen uses defined tool sections beneath an application bar. Operating
-context is the primary section; saved-profile/equipment management has its own
-section. A compact footer reports local workspace state. **Workspace &
-diagnostics** expands file locations and account identity when needed. Opening
+The main screen follows the [accepted workbench composition](../../docs/desktop-ui.md):
+logbook selection and its manager share the application bar; the operating strip
+sits immediately beneath it. **Saved settings** in the application bar opens
+station-profile/equipment management and refresh actions. A compact footer reports
+local workspace state. **Workspace & diagnostics** expands file locations and
+account identity when needed. Opening
 failures, retry actions and degraded diagnostics stay visible independently of
 that disclosure. These are the existing production tools; no future contact or
 history panes are shown as placeholders.
 
-The compact active summary shows station, profile, equipment and operator context.
-**Change profile…**, **Change equipment…** and **Change operator…** open narrow
-Apply/Cancel dialogs. A profile previews its associated equipment consequence;
+The operating strip shows station/profile, station identity, equipment and
+operator values as compact quick-change controls, alongside inline power and
+**Operating settings…**. The station, equipment and operator value controls open
+narrow Apply/Cancel dialogs. A profile previews its associated equipment consequence;
 these controls never edit the reusable source records. Equipment override and
 changed-source indicators describe applied context, separately from unapplied edits.
+
+The shared theme supplies both reference palettes, recessed fields/value controls,
+thin outlines, small corners and the application/dialog, label, action and radio
+type roles. The application installs it on startup and during appearance changes.
+Save/Apply actions use shared accent emphasis; ordinary controls keep their native
+interaction states. Appearance choices change those visual roles consistently
+across the main window and existing dialogs.
 
 Power is directly editable beside its **W** unit. Enter, Tab or leaving the field
 commits valid input; Escape restores the active value. Leading-decimal input such
@@ -313,3 +356,11 @@ For appearance/shared-control acceptance:
   equipment and operator choices without changing reusable records.
 - Close normally during a request. If cleanup is delayed, verify Continue
   Waiting/Force Quit are accessible, including when Appearance was open.
+
+For logbook-setup acceptance, use the same production executable and a disposable
+workspace. Create two Main tags, compare/copy their full IDs, change independent
+upload policies, select one and verify its ID after restart and rename. Switch
+both built-in views, cancel edits through Cancel/Escape/close, and delete selected
+and unselected empty tags after explicit review. Check All contacts fallback and
+its dismissible explanation in both themes/scales. Populated and incoming deletion
+use real automated store/session tests until logging/network consumers arrive.

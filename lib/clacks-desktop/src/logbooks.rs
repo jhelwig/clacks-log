@@ -10,9 +10,9 @@ use clacks_model::{
 pub(crate) struct TagEditor {
     /// Existing or newly allocated native identity.
     pub id: TagId,
-    /// Supplied nonblank name, without uniqueness or trimming changes.
+    /// Editable display name, preserved without trimming when saved.
     pub name: String,
-    /// Independent service policies.
+    /// Independent policies for automatic LoTW and QRZ uploads.
     pub automatic_upload: AutomaticUploadPolicies,
 }
 
@@ -35,7 +35,7 @@ impl TagEditor {
         }
     }
 
-    /// Validate required text and return the exact desired native values.
+    /// Validate the name and return the tag to save.
     pub fn build(&self) -> Result<LogbookTag, Vec<FieldError>> {
         if self.name.trim().is_empty() {
             return Err(vec![FieldError {

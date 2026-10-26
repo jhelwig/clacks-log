@@ -59,15 +59,15 @@ pub(super) fn labels(output: &egui::FullOutput) -> Vec<&str> {
 }
 
 #[test]
-fn main_screen_groups_existing_tools_and_discloses_workspace_details_on_request() {
+fn main_screen_keeps_management_in_chrome_and_discloses_workspace_details_on_request() {
     let mut window = Window::new();
     window.ready_main_screen();
     let output = window.main_frame(vec![]);
     let text = labels(&output);
-    assert!(text.contains(&"Operating context"));
+    assert!(!text.contains(&"Operating context"));
     assert!(text.contains(&"Saved settings"));
-    assert!(text.contains(&"Station profiles"));
-    assert!(text.contains(&"Equipment configurations"));
+    assert!(!text.contains(&"Station profiles"));
+    assert!(!text.contains(&"Equipment configurations"));
     assert!(text.contains(&"Workspace & diagnostics"));
     assert!(!text.iter().any(|label| label.contains("Diagnostic logs:")));
     assert!(!text.iter().any(|label| label.starts_with("Account:")));
@@ -209,10 +209,10 @@ fn main_screen_actions_and_radio_values_remain_reachable_across_scale_and_size()
                 for required in [
                     "Appearance…",
                     "Close",
-                    "Operating settings",
-                    "Station profiles",
-                    "Equipment configurations",
-                    "Refresh settings",
+                    "Operating settings…",
+                    "Saved settings",
+                    "Logbook",
+                    "Manage logbooks…",
                     "Workspace & diagnostics",
                     "W7LAYOUT",
                     "0.5",
@@ -225,4 +225,138 @@ fn main_screen_actions_and_radio_values_remain_reachable_across_scale_and_size()
             }
         }
     }
+}
+
+#[test]
+fn application_bar_and_operating_strip_follow_the_accepted_workbench_layout() {
+    use clacks_client_store::operating::OperatingState;
+    use clacks_model::{
+        contact::{OperatorInformation, StationSnapshot},
+        profile::{CurrentOperatingValues, EquipmentConfiguration, SavedLocationProfile},
+        scalar::{Milliwatts, RecordedCallsign},
+    };
+    let mut window = Window::new();
+    window.ready_main_screen();
+    theme::install(&window.context, &Default::default());
+    let station = StationSnapshot {
+        callsign: RecordedCallsign::new("W7LAYOUT").unwrap(),
+        location: None,
+        references: Default::default(),
+    };
+    let profile = SavedLocationProfile {
+        id: Default::default(),
+        name: "Home".into(),
+        station: station.clone(),
+        default_equipment: None,
+    };
+    let equipment = EquipmentConfiguration {
+        id: Default::default(),
+        name: "Rig A".into(),
+        values: Default::default(),
+    };
+    let mut snapshot = (**window.app.settings_view.borrow().as_ref().unwrap()).clone();
+    snapshot.operating = OperatingState {
+        current: Some(CurrentOperatingValues {
+            station,
+            operator: Some(OperatorInformation {
+                callsign: Some(RecordedCallsign::new("W7ABC").unwrap()),
+                recorded_name: None,
+            }),
+            transmit_power: Some(Milliwatts::new(50_000).unwrap()),
+            equipment: Some(equipment.values.clone()),
+        }),
+        selected_profile: Some(profile),
+        selected_equipment: Some(equipment),
+    };
+    let (_, view) = watch::channel(Some(Arc::new(snapshot)));
+    window.app.settings_view = view;
+    window.main_frame(vec![]).drop_without_applying_deltas();
+    let output = window.main_frame(vec![]);
+    let position = |prefix: &str| {
+        output
+            .shapes
+            .iter()
+            .find_map(|shape| match &shape.shape {
+                egui::epaint::Shape::Text(text) if text.galley.text().starts_with(prefix) => {
+                    Some(text.visual_bounding_rect())
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("missing {prefix}: {:?}", labels(&output)))
+    };
+    let header = position("Clacks Log");
+    for label in [
+        "Logbook",
+        "Manage logbooks…",
+        "Saved settings",
+        "Appearance…",
+    ] {
+        assert!(
+            (position(label).center().y - header.center().y).abs() < header.height(),
+            "{label} is outside the application bar"
+        );
+    }
+    assert!(labels(&output).contains(&"Station"));
+    assert!(labels(&output).contains(&"Home ▾"));
+    assert!(labels(&output).contains(&"Equipment"));
+    assert!(labels(&output).contains(&"Rig A ▾"));
+    let station = position("Station");
+    assert!(station.top() > header.bottom());
+    for label in [
+        "W7LAYOUT",
+        "Equipment",
+        "W7ABC ▾",
+        "Power",
+        "Operating settings…",
+    ] {
+        assert!(
+            (position(label).center().y - station.center().y).abs() < station.height(),
+            "{label} is outside the operating strip"
+        );
+    }
+    assert!(
+        station.bottom() - header.top() < 4.0 * header.height(),
+        "default chrome displaces the logging region"
+    );
+    assert!(!labels(&output).contains(&"Operating context"));
+    assert!(!labels(&output).contains(&"Station profiles"));
+    assert!(!labels(&output).contains(&"Equipment configurations"));
+    assert!(
+        !labels(&output)
+            .iter()
+            .any(|label| label.starts_with("Manage reusable station profiles"))
+    );
+}
+
+#[test]
+fn narrow_operating_strip_keeps_the_power_value_and_unit_together() {
+    let mut window = Window::new();
+    window.ready_main_screen();
+    theme::install(&window.context, &Default::default());
+    window
+        .main_frame_at_size(vec![], egui::vec2(680.0, 440.0))
+        .drop_without_applying_deltas();
+    let output = window.main_frame_at_size(vec![], egui::vec2(680.0, 440.0));
+    let mut label = None;
+    let mut unit = None;
+    for shape in &output.shapes {
+        if let egui::epaint::Shape::Text(text) = &shape.shape
+            && matches!(text.galley.text(), "Power" | "W")
+        {
+            let bounds = text.visual_bounding_rect();
+            assert!(
+                shape.clip_rect.contains_rect(bounds),
+                "{} is clipped in the operating strip",
+                text.galley.text()
+            );
+            if text.galley.text() == "Power" {
+                label = Some(bounds);
+            } else {
+                unit = Some(bounds);
+            }
+        }
+    }
+    let label = label.unwrap();
+    let unit = unit.unwrap();
+    assert!((label.center().y - unit.center().y).abs() < label.height());
 }

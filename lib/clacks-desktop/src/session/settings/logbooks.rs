@@ -1,4 +1,4 @@
-//! Logbook operations admitted through the existing settings request lane.
+//! Execute logbook management and view-selection requests on the desktop session.
 
 use clacks_client_store::{
     logbooks::{
@@ -16,7 +16,7 @@ use clacks_model::{
 use clacks_sync::client::ClientRecord;
 use std::sync::Arc;
 
-/// Owned logbook inputs, retained independently from the originating dialog.
+/// Logbook requests that can finish even if their originating dialog closes.
 pub(crate) enum LogbookAction {
     /// Persist the local view without changing station settings.
     SelectView {
@@ -30,34 +30,34 @@ pub(crate) enum LogbookAction {
         /// Validated desired values.
         next: LogbookTag,
     },
-    /// Read exact contact effects before asking for a deletion choice.
+    /// Load the tag, affected QSOs and counts for deletion review.
     PreviewDeletion {
         /// Tag being reviewed.
         id: TagId,
     },
     /// Commit a reviewed deletion and its matching selection fallback.
     DeleteTag {
-        /// Immutable complete basis shared with the dialog.
+        /// Tag and QSO snapshot shown in the deletion dialog.
         expected: Arc<TagDeletionPreview>,
         /// Explicit contact treatment chosen by the operator.
         choice: TagDeletionChoice,
     },
 }
 
-/// Authoritative logbook result, independent of following catalog refreshes.
+/// Store result retained even when the subsequent catalog refresh fails.
 #[derive(Debug)]
 pub(crate) enum LogbookResponse {
     /// Committed selected view.
     Selected(SelectedView),
     /// Saved, unchanged or stale tag values.
     Saved(Box<SaveOutcome>),
-    /// Exact review with precomputed impact counts.
+    /// Tag and QSO snapshot with counts to show before deletion.
     DeletionPreview(Arc<TagDeletionPreview>),
     /// Committed deletion effects or a stale review.
     Deleted(TagDeleteOutcome),
 }
 
-/// Run one admitted operation using the production store transaction boundaries.
+/// Execute a logbook request and return its store result.
 pub(crate) async fn execute(
     store: &ClientStore,
     action: LogbookAction,

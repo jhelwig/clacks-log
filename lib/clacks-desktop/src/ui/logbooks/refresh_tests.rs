@@ -158,3 +158,47 @@ async fn effective_deleted_selection_is_presented_once_without_repairing_pending
     }
     Ok(())
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn fallback_info_event_has_account_and_cause_with_debug_spans_filtered() -> anyhow::Result<()>
+{
+    use clacks_client_store::logbooks::selection;
+    let mut app = LiveWindow::new().await?;
+    let id = seed_contacts(&mut app).await?;
+    selection::select(&app.store, SelectedView::Logbook(id)).await?;
+    let before = app.snapshot().await?.logbooks;
+    let preview = deletion::preview(&app.store, id).await?;
+    deletion::delete_tag(
+        &app.store,
+        &preview,
+        clacks_model::tag::TagDeletionChoice::LeaveAll,
+    )
+    .await?;
+    let after = app.snapshot().await?.logbooks;
+    let output = tempfile::NamedTempFile::new()?;
+    let subscriber = tracing_subscriber::fmt()
+        .json()
+        .with_max_level(tracing::Level::INFO)
+        .with_writer(std::sync::Mutex::new(output.reopen()?))
+        .finish();
+    tracing::subscriber::with_default(subscriber, || {
+        let mut ui = LogbooksUi::default();
+        ui.observe(&before, None);
+        ui.observe(&after, None);
+        ui.fallback_notice = None;
+        ui.observe(&after, None);
+    });
+    let logged = std::fs::read_to_string(output.path())?;
+    assert_eq!(
+        logged
+            .lines()
+            .filter(|line| line.contains("logbook.view_fallback_observed"))
+            .count(),
+        1
+    );
+    assert!(logged.contains(&app.store.account_id().to_string()));
+    assert!(logged.contains(&id.to_string()));
+    assert!(logged.contains("deleted_tag"));
+    assert!(!logged.contains("Main"));
+    app.close().await
+}
