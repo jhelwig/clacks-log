@@ -1,4 +1,4 @@
-//! Immutable-window installation and completed account receipts in real transactions.
+//! Install synchronization batches and commit completed account checkpoints.
 
 use crate::{
     metadata::{binding, client, lineage, transfer},

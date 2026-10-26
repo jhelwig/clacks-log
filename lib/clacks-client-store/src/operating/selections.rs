@@ -1,4 +1,4 @@
-//! Independent immutable source baselines for operating settings.
+//! Store profile and equipment baselines used to detect later saved-setting changes.
 
 use crate::{payload, rows::operating::OperatingStateRow};
 use clacks_model::ids::AccountId;

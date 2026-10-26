@@ -1,4 +1,4 @@
-//! Required retained support and conditional admission for service evidence.
+//! Check dependencies and account boundaries for external-service evidence.
 
 use super::{ExternalBindingGuard, ServiceRecord, ServiceView, SupportRequirement};
 use crate::{

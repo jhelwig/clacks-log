@@ -1,4 +1,4 @@
-//! Account-scoped service carriers, retained support and real-store binding guards.
+//! Metadata and validation for synchronizing external-service evidence.
 
 pub mod association;
 pub mod combination;

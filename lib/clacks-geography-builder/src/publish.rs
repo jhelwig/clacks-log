@@ -1,4 +1,4 @@
-//! Serialized immutable-release publication with an atomic current pointer.
+//! Build geographic releases and atomically update the current-release pointer.
 
 use crate::{
     compile::{compile_bundle, verify_bundle},

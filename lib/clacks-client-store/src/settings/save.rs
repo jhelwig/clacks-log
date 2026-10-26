@@ -1,4 +1,4 @@
-//! Guarded reusable saves with explicit source-reference feedback.
+//! Save reusable station profiles and equipment configurations.
 
 use super::ProfileSaveResult;
 use crate::{
