@@ -14,6 +14,8 @@ use clacks_sync::client::ClientRecord;
 /// One consistent local view of applied settings and reusable working records.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SettingsSnapshot {
+    /// Workspace-local selected view and current account-owned tag roles.
+    pub logbooks: crate::logbooks::LogbookSnapshot,
     /// Applied facts and their independent optional source selections.
     pub operating: OperatingState,
     /// Complete profile roles, including retained working deletions.

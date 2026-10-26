@@ -2,6 +2,7 @@
 
 pub mod error;
 pub mod identity;
+pub mod logbooks;
 pub mod operating;
 pub mod read;
 pub mod retention;
@@ -11,6 +12,7 @@ pub mod store;
 pub mod synchronization;
 pub mod transfer;
 
+mod local_state;
 mod metadata;
 mod migration;
 mod payload;

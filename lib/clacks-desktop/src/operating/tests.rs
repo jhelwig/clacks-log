@@ -319,6 +319,10 @@ fn deletion_refresh_clears_sources_without_losing_pending_values_or_rebasing_rea
     let mut current = active.clone();
     current.selected_profile = None;
     let view = SettingsSnapshot {
+        logbooks: clacks_client_store::logbooks::LogbookSnapshot {
+            selected_view: clacks_client_store::logbooks::selection::SelectedView::AllContacts,
+            tags: vec![],
+        },
         operating: current.clone(),
         profiles: vec![row],
         equipment: vec![],

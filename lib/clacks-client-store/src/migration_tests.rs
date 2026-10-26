@@ -60,7 +60,7 @@ async fn startup_failure_keeps_prior_committed_migrations_and_retries_from_them(
             .fetch_one(&mut connection)
             .await?
             .version,
-        Some(9)
+        Some(10)
     );
     connection
         .execute("UPDATE _sqlx_migrations SET checksum = X'00' WHERE version = 1")

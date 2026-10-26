@@ -10,6 +10,10 @@ impl Window {
         };
         self.updates.send_replace(SessionStatus::Ready { identity });
         let (_, view) = watch::channel(Some(Arc::new(SettingsSnapshot {
+            logbooks: clacks_client_store::logbooks::LogbookSnapshot {
+                selected_view: clacks_client_store::logbooks::selection::SelectedView::AllContacts,
+                tags: vec![],
+            },
             operating: Default::default(),
             profiles: vec![],
             equipment: vec![],
@@ -131,6 +135,10 @@ fn main_screen_actions_and_radio_values_remain_reachable_across_scale_and_size()
     let mut window = Window::new();
     window.ready_main_screen();
     let (_, view) = watch::channel(Some(Arc::new(SettingsSnapshot {
+        logbooks: clacks_client_store::logbooks::LogbookSnapshot {
+            selected_view: clacks_client_store::logbooks::selection::SelectedView::AllContacts,
+            tags: vec![],
+        },
         operating: clacks_client_store::operating::OperatingState {
             current: Some(CurrentOperatingValues {
                 station: StationSnapshot {
