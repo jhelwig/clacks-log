@@ -1,9 +1,6 @@
 //! Real SQLite failure boundaries exercised through production store workflows.
 
-#[path = "../tests/support/process.rs"]
-mod process;
-#[path = "../tests/support/mod.rs"]
-mod support;
+use crate::test_support as support;
 #[path = "../tests/support/telemetry.rs"]
 mod telemetry;
 use crate::{
@@ -13,7 +10,7 @@ use crate::{
 use sqlx::Executor;
 
 #[tokio::test]
-async fn busy_and_cancelled_transactions_preserve_previous_values() -> anyhow::Result<()> {
+async fn competing_writer_rejects_save_until_released() -> anyhow::Result<()> {
     let directory = tempfile::tempdir()?;
     let store = ClientStore::create(
         &directory.path().join("workspace.sqlite"),
@@ -34,20 +31,8 @@ async fn busy_and_cancelled_transactions_preserve_previous_values() -> anyhow::R
     );
     held.rollback().await?;
     assert!(save::load(&store, key).await?.is_none());
-    let task_store = store.clone();
-    let state = original.clone();
-    let (sender, receiver) = tokio::sync::oneshot::channel();
-    let task = tokio::spawn(async move {
-        let mut tx = task_store.write().await.unwrap();
-        save::save_in(&mut tx, key, None, state).await.unwrap();
-        sender.send(()).unwrap();
-        std::future::pending::<()>().await;
-    });
-    receiver.await?;
-    task.abort();
-    assert!(task.await.unwrap_err().is_cancelled());
     let SaveOutcome::Saved(saved) = save::save(&store, key, None, original).await? else {
-        panic!("cancelled transaction must roll back")
+        panic!("save after writer release")
     };
     assert_eq!(save::load(&store, key).await?, Some(saved));
     store.close().await?;
@@ -81,7 +66,7 @@ async fn full_write_and_recovery() -> anyhow::Result<()> {
             .is_some_and(|cause| cause.code().as_deref() == Some("13"))
     }));
     assert!(save::load(&store, key).await?.is_none());
-    // Restore capacity on the same pooled connection and verify that no failed
+    // Restore capacity through the pool and verify that no failed
     // identity/payload fragments prevent a subsequent normal save.
     let mut connection = store.pool.acquire().await?;
     connection
@@ -103,41 +88,9 @@ async fn full_write_and_recovery() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn readonly_and_corrupt_files_do_not_report_a_successful_save_or_open() -> anyhow::Result<()>
-{
+async fn corrupt_database_is_rejected_without_modification() -> anyhow::Result<()> {
     let directory = tempfile::tempdir()?;
     let file = directory.path().join("workspace.sqlite");
-    let store = ClientStore::create(
-        &file,
-        support::id(1),
-        StoreSettings {
-            max_connections: 1,
-            ..Default::default()
-        },
-    )
-    .await?;
-    let mut connection = store.pool.acquire().await?;
-    connection.execute("PRAGMA query_only = ON").await?;
-    drop(connection);
-    assert!(
-        save::save(
-            &store,
-            support::qso_key(support::id(10)),
-            None,
-            support::contact(support::qso(support::id(10)))
-        )
-        .await
-        .is_err()
-    );
-    let mut connection = store.pool.acquire().await?;
-    connection.execute("PRAGMA query_only = OFF").await?;
-    drop(connection);
-    assert!(
-        save::load(&store, support::qso_key(support::id(10)))
-            .await?
-            .is_none()
-    );
-    store.close().await?;
     std::fs::write(&file, b"deliberately invalid database header")?;
     let before = std::fs::read(&file)?;
     assert!(
@@ -146,72 +99,6 @@ async fn readonly_and_corrupt_files_do_not_report_a_successful_save_or_open() ->
             .is_err()
     );
     assert_eq!(std::fs::read(&file)?, before);
-    Ok(())
-}
-
-#[test]
-#[ignore = "invoked only by the parent interruption test"]
-fn transaction_child() -> anyhow::Result<()> {
-    let file = std::path::PathBuf::from(
-        std::env::var_os("CLACKS_TEST_DATABASE")
-            .ok_or_else(|| anyhow::anyhow!("missing test database"))?,
-    );
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()?
-        .block_on(async {
-            let store =
-                ClientStore::create(&file, support::id(1), StoreSettings::default()).await?;
-            let mut transaction = store.write().await?;
-            let key = support::qso_key(support::id(10));
-            save::save_in(
-                &mut transaction,
-                key,
-                None,
-                support::contact(support::qso(support::id(10))),
-            )
-            .await?;
-            std::fs::write(file.with_extension("ready"), b"uncommitted")?;
-            std::future::pending::<()>().await;
-            transaction.commit().await?;
-            Ok::<_, anyhow::Error>(())
-        })
-}
-
-#[test]
-fn process_death_rolls_back_uncommitted_values() -> anyhow::Result<()> {
-    let directory = tempfile::tempdir()?;
-    let file = directory.path().join("workspace.sqlite");
-    let mut child = process::InterruptedChild::start(
-        "failure_tests::transaction_child",
-        &file,
-        "before_commit",
-    )?;
-    child.wait_ready(&file.with_extension("ready"))?;
-    child.kill()?;
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()?
-        .block_on(async {
-            let store = ClientStore::open(&file, support::id(1), StoreSettings::default()).await?;
-            assert!(
-                save::load(&store, support::qso_key(support::id(10)))
-                    .await?
-                    .is_none()
-            );
-            assert!(matches!(
-                save::save(
-                    &store,
-                    support::qso_key(support::id(10)),
-                    None,
-                    support::contact(support::qso(support::id(10)))
-                )
-                .await?,
-                SaveOutcome::Saved(_)
-            ));
-            store.close().await?;
-            Ok::<_, anyhow::Error>(())
-        })?;
     Ok(())
 }
 

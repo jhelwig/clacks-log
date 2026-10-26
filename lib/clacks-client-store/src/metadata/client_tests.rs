@@ -35,6 +35,17 @@ async fn client_roles_reopen_with_distinct_original_working_and_frozen_values() 
     let dir = tempfile::tempdir()?;
     let file = dir.path().join("workspace.sqlite");
     let store = ClientStore::create(&file, id(1), StoreSettings::default()).await?;
+    crate::identity::bind(
+        &store,
+        None,
+        crate::identity::EnrollmentBinding {
+            account: id(1),
+            actor: id(9),
+            server: "https://example.invalid".into(),
+            credential_reference: "test-credential-reference".into(),
+        },
+    )
+    .await?;
     let (account, baseline) = AccountMetadata::initialize(id(1), id(2), id(3));
     let baselines = [baseline.clone()];
     let evidence = EvidenceView {
@@ -119,7 +130,6 @@ async fn client_roles_reopen_with_distinct_original_working_and_frozen_values() 
     lineage::set_checkpoint(&mut tx, &checkpoint).await?;
     super::store(&mut tx, &record).await?;
     store_counter(&mut tx, key, &counter).await?;
-    assert_eq!(super::load(&mut tx, key).await?, Some(record.clone()));
     assert!(
         store_counter(
             &mut tx,
@@ -135,19 +145,17 @@ async fn client_roles_reopen_with_distinct_original_working_and_frozen_values() 
     tx.commit().await?;
     store.close().await?;
     let store = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
-    assert_eq!(crate::save::load(&store, key).await?, Some(record.clone()));
-    let mut tx = store.write().await?;
-    assert_eq!(super::counter(&mut tx, key, id(9)).await?, counter);
-    let restored = lineage::interpretation(&mut tx, id(1)).await?.unwrap();
-    let Preparation::Retry { change, .. } =
-        prepare_change(&record, id(9), &counter, &[], &restored.view())?
+    // Recovery must consume persisted roles, counters and interpretation through
+    // the production preparation boundary, not the pre-save fixture value.
+    let crate::synchronization::PrepareOutcome::Core(preparation) =
+        crate::synchronization::prepare(&store, key).await?
     else {
+        panic!("enrolled recovery")
+    };
+    let Preparation::Retry { record, change } = *preparation else {
         panic!("frozen retry expected")
     };
     assert_eq!(change.state, tag(10, "frozen"));
-    let pending = record.pending.as_ref().unwrap();
-    assert_eq!(pending.working, tag(10, "later working edit"));
-    assert_eq!(pending.original.state(), Some(&tag(10, "original")));
     let input = AcceptanceInput {
         destination_registry: None,
         bindings: &[],
@@ -159,14 +167,18 @@ async fn client_roles_reopen_with_distinct_original_working_and_frozen_values() 
     let AcceptanceDecision::Commit(response) = plan_acceptance(&change, &input, &evidence)? else {
         panic!("client acceptance expected")
     };
-    let response =
-        clacks_sync::client::receive_accepted(&record, &response.accepted, &evidence)?.record;
+    let response = crate::synchronization::receive(&store, &response.accepted)
+        .await?
+        .record;
     assert!(matches!(
         response.pending.as_ref().unwrap().original,
         OriginalBasis::SubsumedOwn { .. }
     ));
-    super::store(&mut tx, &response).await?;
-    assert_eq!(super::load(&mut tx, key).await?, Some(response.clone()));
+    assert_eq!(
+        response.working_state(),
+        Some(&tag(10, "later working edit"))
+    );
+    let mut tx = store.write().await?;
     assert_eq!(
         lineage::current_checkpoint(&mut tx, id(1)).await?,
         Some(checkpoint.clone())
@@ -204,7 +216,6 @@ async fn client_roles_reopen_with_distinct_original_working_and_frozen_values() 
         clacks_sync::client::receive_accepted(&response, &alternative, &fork_evidence)?.record;
     assert!(!response.retained.is_empty());
     super::store(&mut tx, &response).await?;
-    assert_eq!(super::load(&mut tx, key).await?, Some(response.clone()));
     for (n, certified) in [(20, true), (21, false)] {
         let key = RecordKey {
             account: id(1),
@@ -246,7 +257,6 @@ async fn client_roles_reopen_with_distinct_original_working_and_frozen_values() 
             }),
         };
         super::store(&mut tx, &value).await?;
-        assert_eq!(super::load(&mut tx, key).await?, Some(value));
     }
     let mut conflicting = baseline.clone();
     conflicting.membership_generation = 1;
@@ -258,21 +268,30 @@ async fn client_roles_reopen_with_distinct_original_working_and_frozen_values() 
     tx.commit().await?;
     store.close().await?;
     let store = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
-    assert_eq!(crate::save::load(&store, key).await?, Some(response));
-    for n in [20, 21] {
-        assert!(
-            crate::save::load(
-                &store,
-                RecordKey {
-                    account: id(1),
-                    id: RecordId::Tag(id(n))
-                }
-            )
-            .await?
-            .unwrap()
-            .pending
-            .is_some()
-        );
+    let crate::synchronization::PrepareOutcome::Core(preparation) =
+        crate::synchronization::prepare(&store, key).await?
+    else {
+        panic!("enrolled recovery")
+    };
+    let Preparation::Review { input, .. } = *preparation else {
+        panic!("retained branch requires review after restart")
+    };
+    assert!(!input.retained.is_empty());
+    for (n, certified) in [(20, true), (21, false)] {
+        let key = RecordKey {
+            account: id(1),
+            id: RecordId::Tag(id(n)),
+        };
+        let crate::synchronization::PrepareOutcome::Core(preparation) =
+            crate::synchronization::prepare(&store, key).await?
+        else {
+            panic!("enrolled recovery")
+        };
+        if certified {
+            assert!(matches!(*preparation, Preparation::Ready { .. }));
+        } else {
+            assert!(matches!(*preparation, Preparation::Review { .. }));
+        }
     }
     store.close().await?;
     Ok(())

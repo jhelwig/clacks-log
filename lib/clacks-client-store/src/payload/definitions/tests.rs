@@ -1,4 +1,5 @@
 use super::*;
+use crate::test_support as support;
 use crate::{
     payload,
     store::{ClientStore, StoreSettings},
@@ -17,7 +18,8 @@ where
 }
 
 #[tokio::test]
-async fn definitions_round_trip_and_cycles_are_rejected() -> anyhow::Result<()> {
+async fn restored_definitions_plan_reference_output_and_reject_malformed_expression_trees()
+-> anyhow::Result<()> {
     let dir = tempfile::tempdir()?;
     let store = ClientStore::create(
         &dir.path().join("workspace.sqlite"),
@@ -35,77 +37,25 @@ async fn definitions_round_trip_and_cycles_are_rejected() -> anyhow::Result<()> 
         name: "Field event".into(),
         identifier: IdentifierDefinition {
             required: false,
-            normalization: vec![
-                TextNormalization::Trim,
-                TextNormalization::Lowercase,
-                TextNormalization::Uppercase,
-            ],
-            syntax: Some("[A-Z0-9-]+".into()),
+            normalization: vec![],
+            syntax: None,
         },
         bears_location_context: true,
-        catalog: Some(CatalogBinding {
-            dataset_id: id(81),
-            lookup_key: capture(ValueExpression::CurrentIdentifier),
-            display_name: "name".into(),
-            details: vec![
-                MetadataDisplayBinding {
-                    label: "Region".into(),
-                    field: "region".into(),
-                },
-                MetadataDisplayBinding {
-                    label: "Status".into(),
-                    field: "status".into(),
-                },
-            ],
-        }),
+        catalog: None,
         export_mappings: GroupExportMappings {
-            ordinary_interchange: vec![
-                FieldBinding {
-                    field: "MY_REFS".into(),
-                    value: ValueExpression::Join {
-                        values: Box::new(capture(ValueExpression::Identifiers(StationSide::Own))),
-                        separator: ",".into(),
-                    },
-                    when: BindingCondition::AssociationPresent(StationSide::Own),
-                },
-                FieldBinding {
-                    field: "EVENT".into(),
-                    value: ValueExpression::Literal("Field event".into()),
-                    when: BindingCondition::Always,
-                },
-                FieldBinding {
-                    field: "MY_CALL".into(),
-                    value: ValueExpression::QsoField(QsoFieldPath::OwnCallsign),
-                    when: BindingCondition::Always,
-                },
-                FieldBinding {
-                    field: "CALL".into(),
-                    value: ValueExpression::QsoField(QsoFieldPath::ContactedCallsign),
-                    when: BindingCondition::Always,
-                },
-                FieldBinding {
-                    field: "MY_STATE".into(),
-                    value: ValueExpression::QsoField(QsoFieldPath::OwnPrimarySubdivision),
-                    when: BindingCondition::Always,
-                },
-                FieldBinding {
-                    field: "STATE".into(),
-                    value: ValueExpression::QsoField(QsoFieldPath::ContactedPrimarySubdivision),
-                    when: BindingCondition::Always,
-                },
-            ],
+            ordinary_interchange: vec![],
             targeted: [(
                 id(82),
                 GroupExportPlan {
                     fields: vec![
                         FieldBinding {
                             field: "MY_REF".into(),
-                            value: ValueExpression::BoundIdentifier("own_ref".into()),
+                            value: capture(ValueExpression::BoundIdentifier("own_ref".into())),
                             when: BindingCondition::BoundPresent("own_ref".into()),
                         },
                         FieldBinding {
                             field: "REF".into(),
-                            value: ValueExpression::BoundIdentifier("dx_ref".into()),
+                            value: capture(ValueExpression::BoundIdentifier("dx_ref".into())),
                             when: BindingCondition::BoundPresent("dx_ref".into()),
                         },
                     ],
@@ -136,7 +86,22 @@ async fn definitions_round_trip_and_cycles_are_rejected() -> anyhow::Result<()> 
     let state = RecordState::Live(RecordValue::Group(Box::new(group)));
     let mut tx = store.write().await?;
     let root = payload::insert(&mut tx, key, &state).await?;
-    assert_eq!(payload::load(&mut tx, key, root).await?, state);
+    let profile = clacks_model::export::OutputProfile {
+        id: id(82),
+        name: "Targeted event".into(),
+        purpose: clacks_model::export::OutputPurpose::Targeted,
+        contextual_fields: ["MY_REF".into(), "REF".into()].into(),
+    };
+    let profile_key = RecordKey {
+        account: id(1),
+        id: RecordId::OutputProfile(profile.id),
+    };
+    let profile_root = payload::insert(
+        &mut tx,
+        profile_key,
+        &RecordState::Live(RecordValue::OutputProfile(Box::new(profile))),
+    )
+    .await?;
     tx.commit().await?;
     store.close().await?;
     let store = ClientStore::open(
@@ -146,7 +111,64 @@ async fn definitions_round_trip_and_cycles_are_rejected() -> anyhow::Result<()> 
     )
     .await?;
     let mut tx = store.write().await?;
-    assert_eq!(payload::load(&mut tx, key, root).await?, state);
+    let RecordState::Live(RecordValue::Group(group)) = payload::load(&mut tx, key, root).await?
+    else {
+        panic!("restored definition")
+    };
+    let RecordState::Live(RecordValue::OutputProfile(profile)) =
+        payload::load(&mut tx, profile_key, profile_root).await?
+    else {
+        panic!("restored output profile")
+    };
+    let mut qso = support::qso(id(90));
+    for identifier in ["A", "B"] {
+        qso.own_station
+            .references
+            .insert(clacks_model::reference::ReferenceAssociation {
+                group_id: id(80),
+                identifier: Some(identifier.into()),
+            });
+    }
+    for identifier in ["X", "Y"] {
+        qso.contacted_station
+            .references
+            .insert(clacks_model::reference::ReferenceAssociation {
+                group_id: id(80),
+                identifier: Some(identifier.into()),
+            });
+    }
+    let output = clacks_model::export::evaluate::plan_reference_export(
+        &[qso],
+        &clacks_model::export::ExportContext {
+            output_profile_id: id(82),
+            target_group_id: Some(id(80)),
+        },
+        &clacks_model::group::DefinitionSet::new(vec![*group])?,
+        &[(profile.id, *profile)].into(),
+        &Default::default(),
+    )?;
+    assert!(output.decisions.is_empty());
+    assert!(output.warnings.is_empty());
+    let expected: Vec<_> = ["A", "B"]
+        .into_iter()
+        .map(|own| clacks_model::export::evaluate::ReferenceExportFile {
+            partition_key: vec![
+                id::<clacks_model::ids::OutputProfileId>(82).to_string(),
+                id::<clacks_model::ids::GroupId>(80).to_string(),
+                own.into(),
+                "W7HEX/P".into(),
+            ],
+            entries: ["X", "Y"]
+                .into_iter()
+                .map(|dx| clacks_model::export::evaluate::ReferenceExportEntry {
+                    qso_id: id(90),
+                    reference_fields: [("MY_REF".into(), own.into()), ("REF".into(), dx.into())]
+                        .into(),
+                })
+                .collect(),
+        })
+        .collect();
+    assert_eq!(output.files, expected);
     sqlx::query_file!("tests/sql/cycle_expression.sql", root)
         .execute(&mut *tx)
         .await?;
@@ -156,7 +178,7 @@ async fn definitions_round_trip_and_cycles_are_rejected() -> anyhow::Result<()> 
     assert!(diagnostic.contains("cycle"), "{diagnostic}");
     tx.rollback().await?;
     let mut connection = store.pool.acquire().await?;
-    assert_eq!(payload::load(&mut connection, key, root).await?, state);
+    payload::load(&mut connection, key, root).await?;
     drop(connection);
     let mut tx = store.write().await?;
     sqlx::query_file!("tests/sql/orphan_expression.sql", root)

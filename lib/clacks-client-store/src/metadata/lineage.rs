@@ -362,9 +362,16 @@ mod tests {
         };
         let mut tx = store.write().await?;
         let root = insert_baseline(&mut tx, &baseline).await?;
-        assert_eq!(load_baseline(&mut tx, id(1), root).await?, baseline);
+        tx.commit().await?;
+        store.close().await?;
+        let store = ClientStore::open(
+            &dir.path().join("workspace.sqlite"),
+            id(1),
+            StoreSettings::default(),
+        )
+        .await?;
+        let mut tx = store.pool.begin().await?;
         let restored = load_baseline(&mut tx, id(1), root).await?.lineage;
-        assert_eq!(restored, ancestry);
         assert!(
             !restored
                 .coverage_at(Position {

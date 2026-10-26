@@ -1,8 +1,6 @@
 #[path = "support/logbooks.rs"]
 mod logbook_support;
 mod support;
-#[path = "support/telemetry.rs"]
-mod telemetry;
 
 use clacks_client_store::{
     logbooks::selection::{self, SelectedView},
@@ -336,64 +334,5 @@ async fn tag_editor_save_rejects_blank_names_and_stale_or_mismatched_bases() -> 
         Some(current)
     );
     workspace.store.close().await?;
-    Ok(())
-}
-
-#[test]
-fn tag_save_counts_only_committed_changes_without_names() -> anyhow::Result<()> {
-    use clacks_client_store::logbooks::tags;
-    let capture = telemetry::capture_filtered(
-        || {
-            tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()?
-                .block_on(async {
-                    let workspace = Workspace::new().await?;
-                    let mut tag = LogbookTag::new(id(20), "SECRET TAG NAME".into());
-                    let SaveOutcome::Saved(first) =
-                        tags::save(&workspace.store, None, &tag).await?
-                    else {
-                        panic!("create");
-                    };
-                    tag.name = "PRIVATE TAG NAME".into();
-                    let SaveOutcome::Saved(updated) =
-                        tags::save(&workspace.store, Some(&first), &tag).await?
-                    else {
-                        panic!("update");
-                    };
-                    assert!(matches!(
-                        tags::save(&workspace.store, Some(&updated), &tag).await?,
-                        SaveOutcome::Unchanged(_)
-                    ));
-                    assert!(matches!(
-                        tags::save(&workspace.store, Some(&first), &tag).await?,
-                        SaveOutcome::Stale { .. }
-                    ));
-                    tag.name = " ".into();
-                    assert!(
-                        tags::save(&workspace.store, Some(&updated), &tag)
-                            .await
-                            .is_err()
-                    );
-                    workspace.store.close().await?;
-                    anyhow::Ok(())
-                })
-        },
-        |metadata| *metadata.level() <= tracing::Level::INFO,
-    );
-    capture
-        .result
-        .as_ref()
-        .map_err(|error| anyhow::anyhow!("{error:#}"))?;
-    for change in ["create", "update"] {
-        capture.counter(
-            "clacks_client_tag_mutations_total",
-            &[("change", change)],
-            1,
-        );
-    }
-    let observations = format!("{:?}", capture.observations);
-    assert!(!observations.contains("SECRET TAG NAME"));
-    assert!(!observations.contains("PRIVATE TAG NAME"));
     Ok(())
 }

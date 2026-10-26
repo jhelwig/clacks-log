@@ -5,7 +5,10 @@ use crate::{
     store::{StoreSettings, options},
 };
 use clacks_model::ids::AccountId;
-use sqlx::{ConnectOptions, Connection, SqliteConnection, migrate::Migrator};
+use sqlx::{
+    ConnectOptions, Connection, SqliteConnection,
+    migrate::{Migrate, MigrateError, Migrator},
+};
 use std::path::{Path, PathBuf};
 
 /// Embedded forward-only production schema, with each migration committed independently.
@@ -67,8 +70,14 @@ async fn inspect(
         .max()
         .unwrap_or(0);
 
-    let history = sqlx::query_file!("sql/opening/migration_history.sql")
-        .fetch_all(&mut *transaction)
+    // SQLx owns history extraction and dirty-state interpretation. Its full
+    // validator runs only after ensure_migrations_table, so compatibility must
+    // still be checked here to preserve read-only account admission.
+    if let Some(version) = transaction.dirty_version(&MIGRATIONS.table_name).await? {
+        return Err(MigrateError::Dirty(version).into());
+    }
+    let history = transaction
+        .list_applied_migrations(&MIGRATIONS.table_name)
         .await?;
     anyhow::ensure!(
         !history.is_empty(),
@@ -79,9 +88,7 @@ async fn inspect(
 
     let mut latest = 0;
     for applied in history {
-        let version = applied.version.ok_or_else(|| StoreError::InvalidDatabase {
-            detail: "migration version is null".into(),
-        })?;
+        let version = applied.version;
         latest = latest.max(version);
         if version > supported {
             return Err(StoreError::IncompatibleSchema {
@@ -97,9 +104,9 @@ async fn inspect(
                 detail: "unrecognized migration".into(),
             })?;
         anyhow::ensure!(
-            applied.success && applied.checksum.as_slice() == migration.checksum.as_ref(),
+            applied.checksum == migration.checksum,
             StoreError::InvalidDatabase {
-                detail: "migration history is dirty or modified".into()
+                detail: "migration history is modified".into()
             }
         );
     }
@@ -139,11 +146,11 @@ pub(crate) async fn apply(connection: &mut SqliteConnection, previous: i64) -> a
     // lifetime limitation when the surrounding operation is spawned as Send.
     MIGRATIONS.run_direct(None, connection, false).await?;
 
-    let current = sqlx::query_file!("sql/opening/migration_version.sql")
-        .fetch_one(connection)
+    let current = connection
+        .list_applied_migrations(&MIGRATIONS.table_name)
         .await?
-        .version
-        .unwrap_or(0);
+        .last()
+        .map_or(0, |migration| migration.version);
 
     if previous != current {
         tracing::info!(

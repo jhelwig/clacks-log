@@ -727,9 +727,11 @@ input fixtures for those contracts.
 
 Required verification for the store:
 
-1. Round-trip every native payload variant, all original/observation variants,
-   complete vectors/coverage/lineage/witnesses, unknown labels, optional aggregates,
-   unordered sets and ordered mapping rules. Verify frequency and transmit-power
+1. Exercise persisted values through their consuming workflows: reference output,
+   service evidence selection, contact queries and synchronization recovery.
+   Use fixed expected outputs and malformed-input admission checks where needed;
+   symmetric mapper equality alone does not establish correct field meaning.
+   Verify frequency and transmit-power
    values at 1 and the signed 64-bit maximum, optional absence, and rejection of
    zero and values above that maximum. Verify counter zero/nonzero rules, the
    signed maximum and checked exhaustion. Verify QRZ decimal-ID round trips,
@@ -751,9 +753,11 @@ Required verification for the store:
    references, exact prepared retries,
    accepted-own responses with later edits and incomparable retained alternatives
    through the production core and actual transactions.
-4. Kill a Rust child process before/after transaction commits and between batches;
-   reopen and verify complete state or prior state. Use test-only coordination
-   outside public APIs. These tests prove process-interruption behavior, not
+4. Kill a Rust child process at observable production operation boundaries and
+   between batches; reopen and verify the committed frozen/staged state. Child
+   coordination occurs outside completed public calls. Do not retain private
+   transactions or insert production pause/failure hooks to manufacture
+   interruption. These tests prove process-interruption behavior, not
    laboratory power-loss guarantees; SQLite/OS/filesystem durability remains an
    explicit dependency.
 5. Exercise staging/complete coupled units, support dependencies, immutable

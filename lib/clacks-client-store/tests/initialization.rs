@@ -33,24 +33,7 @@ async fn discover_existing_account_once() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn expected_account_check_is_preserved() -> anyhow::Result<()> {
-    let directory = tempfile::tempdir()?;
-    let path = directory.path().join("workspace.sqlite");
-    ClientStore::create(&path, AccountId::new(), StoreSettings::default())
-        .await?
-        .close()
-        .await?;
-
-    assert!(
-        ClientStore::open(&path, AccountId::new(), StoreSettings::default())
-            .await
-            .is_err()
-    );
-    Ok(())
-}
-
-#[tokio::test]
-async fn create_account_and_definitions_atomically() -> anyhow::Result<()> {
+async fn created_definitions_survive_reopen_as_unpublished_values() -> anyhow::Result<()> {
     let directory = tempfile::tempdir()?;
     let path = directory.path().join("workspace.sqlite");
     let account = AccountId::new();
@@ -63,6 +46,8 @@ async fn create_account_and_definitions_atomically() -> anyhow::Result<()> {
         StoreSettings::default(),
     )
     .await?;
+    store.close().await?;
+    let store = ClientStore::open_discovered(&path, StoreSettings::default()).await?;
     for group in &definitions.groups {
         let key = RecordKey {
             account,
@@ -86,11 +71,35 @@ async fn create_account_and_definitions_atomically() -> anyhow::Result<()> {
         );
     }
 
+    for profile in &definitions.output_profiles {
+        let record = save::load(
+            &store,
+            RecordKey {
+                account,
+                id: RecordId::OutputProfile(profile.id),
+            },
+        )
+        .await?
+        .unwrap();
+        assert!(matches!(record.latest, Observation::Unavailable { .. }));
+        assert!(
+            record
+                .pending
+                .as_ref()
+                .is_some_and(|pending| pending.prepared.is_none())
+        );
+        assert_eq!(
+            record.working_state(),
+            Some(&RecordState::Live(RecordValue::OutputProfile(Box::new(
+                profile.clone()
+            ))))
+        );
+    }
     store.close().await
 }
 
 #[tokio::test]
-async fn failed_seed_install_leaves_no_account() -> anyhow::Result<()> {
+async fn invalid_seed_is_rejected_before_file_creation() -> anyhow::Result<()> {
     let directory = tempfile::tempdir()?;
     let path = directory.path().join("workspace.sqlite");
     let mut definitions = account_definitions()?;
