@@ -90,6 +90,7 @@ pub(crate) async fn store(
             Some(clacks_sync::record::RecordState::Deleted)
         ) {
             crate::operating::selections::forget_source_in(connection, value.key).await?;
+            crate::logbooks::selection::fallback_deleted_in(connection, value.key).await?;
         }
         return Ok(());
     }
@@ -126,6 +127,7 @@ pub(crate) async fn store(
         Some(clacks_sync::record::RecordState::Deleted)
     ) {
         crate::operating::selections::forget_source_in(connection, value.key).await?;
+        crate::logbooks::selection::fallback_deleted_in(connection, value.key).await?;
     }
     Ok(())
 }

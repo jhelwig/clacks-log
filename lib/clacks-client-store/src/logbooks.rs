@@ -1,5 +1,6 @@
 //! Offline named-tag management and workspace-local contact view selection.
 
+pub mod deletion;
 pub(crate) mod read;
 pub mod selection;
 pub mod tags;

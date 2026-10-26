@@ -35,18 +35,6 @@ pub enum SaveOutcome {
     },
 }
 
-/// Result of revalidating a complete tag-deletion preview.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TagDeleteOutcome {
-    /// The tag and its classified contact effects committed together.
-    Applied(clacks_model::tag::TagDeletionPlan),
-    /// The tag or complete membership basis changed; no effects were committed.
-    Stale {
-        /// Current tag row for refreshing the preview.
-        current: Option<Box<ClientRecord>>,
-    },
-}
-
 /// Apply one local edit to actual current roles inside the caller's immediate transaction.
 pub(crate) async fn save_in(
     connection: &mut sqlx::SqliteConnection,
@@ -164,7 +152,8 @@ pub async fn save(
             } else {
                 "create"
             };
-            tracing::info!(event = "record.saved", account_id = %key.account, record_id = %key.id, record_kind = ?key.id, change);
+            let kind = crate::payload::kind(key.id);
+            tracing::info!(event = "record.saved", account_id = %key.account, record_id = %key.id, record_kind = kind, change);
             match key.id {
                 RecordId::Tag(_) => {
                     metrics::counter!("clacks_client_tag_mutations_total", "change" => change)
@@ -244,130 +233,4 @@ pub async fn change_tags(
         outcomes.push(outcome);
     }
     Ok(outcomes)
-}
-
-/// Recheck the entire preview before atomically deleting a tag and applying its contact effects.
-#[tracing::instrument(skip_all, name = "client_store.tag.delete", fields(account_id = %store.account, deletion_choice = ?choice))]
-pub async fn delete_tag(
-    store: &ClientStore,
-    expected_tag: &ClientRecord,
-    expected_members: &[ClientRecord],
-    choice: clacks_model::tag::TagDeletionChoice,
-) -> anyhow::Result<TagDeleteOutcome> {
-    use clacks_model::tag::plan_tag_deletion;
-    use clacks_sync::record::{RecordId, RecordState, RecordValue};
-    anyhow::ensure!(
-        expected_tag.key.account == store.account,
-        crate::error::StoreError::WrongAccount {
-            expected: store.account,
-            actual: expected_tag.key.account
-        }
-    );
-    let RecordId::Tag(tag) = expected_tag.key.id else {
-        anyhow::bail!("tag deletion requires a tag key")
-    };
-    let mut transaction = store.write().await?;
-    let current = client::load(&mut transaction, expected_tag.key).await?;
-    if current.as_ref() != Some(expected_tag) {
-        return Ok(TagDeleteOutcome::Stale {
-            current: current.map(Box::new),
-        });
-    }
-    anyhow::ensure!(
-        matches!(
-            expected_tag.working_state(),
-            Some(RecordState::Live(RecordValue::Tag(_)))
-        ),
-        "tag has no live working value"
-    );
-    let account = store.account.to_string();
-    let tag_text = tag.to_string();
-    let mut members = std::collections::BTreeMap::new();
-    for row in sqlx::query_file!("sql/save/members.sql", account, tag_text)
-        .fetch_all(&mut *transaction)
-        .await?
-    {
-        let key = RecordKey {
-            account: store.account,
-            id: RecordId::Qso(row.record_id.parse()?),
-        };
-        let value = client::load(&mut transaction, key)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("tag member lost its client row"))?;
-        members.insert(key, value);
-    }
-    let mut expected = std::collections::BTreeMap::new();
-    for row in expected_members {
-        anyhow::ensure!(
-            row.key.account == store.account && expected.insert(row.key, row.clone()).is_none(),
-            "invalid or duplicate deletion-preview member"
-        );
-    }
-    if members != expected {
-        return Ok(TagDeleteOutcome::Stale {
-            current: current.map(Box::new),
-        });
-    }
-    let mut qsos = Vec::new();
-    for row in members.values() {
-        let Some(RecordState::Live(RecordValue::Qso(qso))) = row.working_state() else {
-            anyhow::bail!("tag member has no live QSO")
-        };
-        qsos.push((**qso).clone());
-    }
-    let plan = plan_tag_deletion(tag, choice, &qsos);
-    let mut deleted = 0;
-    let mut updated = 0;
-    for row in members.values() {
-        let RecordId::Qso(id) = row.key.id else {
-            anyhow::bail!("invalid tag member kind")
-        };
-        let next = if plan.mark_deleted.contains(&id) {
-            RecordState::Deleted
-        } else {
-            let Some(RecordState::Live(RecordValue::Qso(qso))) = row.working_state() else {
-                anyhow::bail!("tag member has no live QSO")
-            };
-            let mut qso = qso.clone();
-            qso.tags.remove(&tag);
-            RecordState::Live(RecordValue::Qso(qso))
-        };
-        match save_in(&mut transaction, row.key, Some(row), next).await? {
-            SaveOutcome::Saved(_) => {
-                if plan.mark_deleted.contains(&id) {
-                    deleted += 1;
-                } else {
-                    updated += 1;
-                }
-            }
-            SaveOutcome::Unchanged(_) => {}
-            SaveOutcome::Stale { .. } => {
-                anyhow::bail!("tag deletion member changed within its transaction")
-            }
-        }
-    }
-    anyhow::ensure!(
-        !matches!(
-            save_in(
-                &mut transaction,
-                expected_tag.key,
-                Some(expected_tag),
-                RecordState::Deleted
-            )
-            .await?,
-            SaveOutcome::Stale { .. }
-        ),
-        "tag changed within deletion transaction"
-    );
-    transaction.commit().await?;
-    if deleted > 0 {
-        metrics::counter!("clacks_client_qso_mutations_total", "change" => "delete")
-            .increment(deleted);
-    }
-    if updated > 0 {
-        metrics::counter!("clacks_client_qso_mutations_total", "change" => "update")
-            .increment(updated);
-    }
-    tracing::info!(event = "tag.deleted", account_id = %store.account, tag_id = %tag, deleted_contacts = deleted, changed_memberships = updated);
-    Ok(TagDeleteOutcome::Applied(plan))
 }

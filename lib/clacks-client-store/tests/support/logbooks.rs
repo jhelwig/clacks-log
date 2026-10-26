@@ -38,6 +38,7 @@ impl Workspace {
 }
 
 /// Insert a native tag through the actual guarded store.
+#[allow(dead_code)]
 pub async fn insert(store: &ClientStore, value: u128, name: &str) -> anyhow::Result<ClientRecord> {
     let tag = LogbookTag::new(id(value), name.into());
     let key = RecordKey {
