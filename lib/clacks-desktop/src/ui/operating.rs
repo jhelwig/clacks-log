@@ -1,12 +1,21 @@
 //! Navigation owns one operating edit and independent reusable-record editors.
 
+#[cfg(test)]
+mod dialog_tests;
 pub(super) mod fields;
+mod home;
+#[cfg(test)]
+mod layout_tests;
 mod pending;
+mod quick;
+#[cfg(test)]
+mod quick_tests;
 #[cfg(test)]
 mod refresh_tests;
 mod responses;
 #[cfg(test)]
 mod stale_tests;
+mod summary;
 #[cfg(test)]
 mod tests;
 
@@ -44,6 +53,8 @@ pub(super) enum Screen {
     Home,
     /// Transient operation-wide form.
     Operating(Box<OperatingEditor>),
+    /// Narrow source/operator choice with an independent captured operating basis.
+    Quick(quick::editors::QuickEdit),
     /// Reusable station-profile list.
     Profiles,
     /// Independent saved station-profile form.
@@ -54,6 +65,43 @@ pub(super) enum Screen {
     EquipmentEdit(Box<EquipmentEditor>),
     /// Atomic equipment deletion and complete reference repair.
     DeleteEquipment(Box<DeletionReview>),
+}
+
+impl Screen {
+    /// Name the actual workflow in the modal header.
+    fn title(&self) -> &'static str {
+        match self {
+            Self::Home => "Settings",
+            Self::Operating(_) => "Operating settings",
+            Self::Profiles => "Station profiles",
+            Self::Profile(_) => "Edit station profile",
+            Self::Equipment => "Equipment configurations",
+            Self::EquipmentEdit(_) => "Edit equipment configuration",
+            Self::DeleteEquipment(_) => "Delete equipment configuration",
+            Self::Quick(quick::editors::QuickEdit::Profile(_)) => "Choose station profile",
+            Self::Quick(quick::editors::QuickEdit::Equipment(_)) => {
+                "Choose equipment configuration"
+            }
+            Self::Quick(quick::editors::QuickEdit::Operator(_)) => "Change operator",
+        }
+    }
+    /// Access pending operating facts shared by full and quick workflows.
+    fn operating(&self) -> Option<&OperatingEditor> {
+        match self {
+            Self::Operating(editor) => Some(editor),
+            Self::Quick(edit) => Some(edit.editor()),
+            _ => None,
+        }
+    }
+
+    /// Preserve source cleanup and stale review on either operating workflow.
+    fn operating_mut(&mut self) -> Option<&mut OperatingEditor> {
+        match self {
+            Self::Operating(editor) => Some(editor),
+            Self::Quick(edit) => Some(edit.editor_mut()),
+            _ => None,
+        }
+    }
 }
 
 /// A view transition, applied only after rendering the current form.
@@ -72,16 +120,20 @@ pub(super) struct DeletionReview {
     pub(super) choices: BTreeMap<ProfileId, Option<EquipmentConfigurationId>>,
 }
 
-/// One screen's response and validation, discarded with that originating screen.
+/// An originating screen's form, validation and independently owned response.
 pub(super) struct Frame {
+    /// Native widget to focus when this destination is dismissed.
+    opener: Option<egui::Id>,
     /// Purpose-specific form or list.
     pub(super) screen: Screen,
     /// Selected view of this single pending operating form.
     tab: OperatingTab,
     /// In-flight result; no globally routed response can overwrite another editor.
     response: Option<oneshot::Receiver<SettingsResponse>>,
-    /// Actionable field-local errors from the last explicit save/apply.
+    /// Actionable native field errors for the latest validated input.
     pub(super) errors: Vec<FieldError>,
+    /// Deadline/freshness of the existing errors for this frame's current form.
+    pub(super) validation: crate::ui::validation::ValidationState,
     /// Outcome, stale-save instructions or request failure.
     pub(super) notice: Option<String>,
     /// Current competing record for explicit reviewed retry.
@@ -93,15 +145,36 @@ impl Frame {
     /// Open a new navigation destination without inheriting another form's request.
     fn new(screen: Screen) -> Self {
         Self {
+            opener: None,
             screen,
             tab: Default::default(),
             response: None,
             errors: vec![],
+            validation: Default::default(),
             notice: None,
             stale: None,
             stale_operating: None,
         }
     }
+
+    /// Refresh native validation when due, without submitting or changing operating values.
+    fn validate(&mut self, definitions: &DefinitionSet, context: &egui::Context) {
+        let now = context.input(|input| input.time);
+        if self.validation.due(now) {
+            self.errors = if let Some(editor) = self.screen.operating() {
+                editor.build(definitions).err().unwrap_or_default()
+            } else {
+                match &self.screen {
+                    Screen::Profile(editor) => editor.build(definitions).err().unwrap_or_default(),
+                    Screen::EquipmentEdit(editor) => editor.build().err().unwrap_or_default(),
+                    _ => Vec::new(),
+                }
+            };
+            self.validation.validated();
+        }
+        self.validation.request_repaint(context, now);
+    }
+
     /// Submit once, retaining this editor and its text on admission failure.
     pub(super) fn send(&mut self, sender: &mpsc::Sender<SettingsRequest>, action: SettingsAction) {
         let (reply, response) = oneshot::channel();
@@ -119,6 +192,18 @@ impl Frame {
 /// Window-owned settings presentation; no database reads occur in rendering callbacks.
 #[derive(Default)]
 pub(super) struct SettingsUi {
+    /// Inline edits and their guarded requests, separate from full forms.
+    quick: quick::QuickOperatingUi,
+    /// Hidden originating forms retained only until their admitted response settles.
+    dismissed: Vec<Frame>,
+    /// Result of a dismissed operation that still needs the operator's attention.
+    completion_notice: Option<String>,
+    /// Last accepted Apply basis until a subsequent atomic view arrives.
+    acknowledged: Option<clacks_client_store::operating::OperatingState>,
+    /// Exact accepted reusable records retained across a failed post-write view read.
+    acknowledged_records: BTreeMap<RecordId, ClientRecord>,
+    /// Native opener awaiting focus after modal removal.
+    restore_focus: Option<egui::Id>,
     /// Explicit navigation stack, preserving pending callers.
     stack: Vec<Frame>,
     /// Last observed atomic snapshot, used only as a refresh identity.
@@ -154,19 +239,79 @@ impl SettingsUi {
         }
         self.refresh(snapshot);
         self.poll();
+        let quick_outcome = self.quick.poll();
+        if let Some(error) = &quick_outcome.refresh_error {
+            self.refresh_error = Some(error.clone());
+        }
+        if let Some(acknowledged) = quick_outcome.acknowledged {
+            self.acknowledged = Some(acknowledged);
+            self.refresh_error = quick_outcome.refresh_error;
+        }
+        let mut effective = std::borrow::Cow::Borrowed(snapshot.as_ref());
+        if let Some(acknowledged) = &self.acknowledged {
+            effective.to_mut().operating = acknowledged.clone();
+        }
+        for record in self.acknowledged_records.values() {
+            let rows = match record.key.id {
+                RecordId::Profile(_) => &mut effective.to_mut().profiles,
+                RecordId::Equipment(_) => &mut effective.to_mut().equipment,
+                _ => continue,
+            };
+            if let Some(previous) = rows.iter_mut().find(|previous| previous.key == record.key) {
+                *previous = record.clone();
+            } else {
+                rows.push(record.clone());
+            }
+        }
+        if effective
+            .operating
+            .selected_profile
+            .as_ref()
+            .is_some_and(|profile| {
+                self.known_deletions
+                    .contains(&RecordId::Profile(profile.id))
+            })
+        {
+            effective.to_mut().operating.selected_profile = None;
+        }
+        if effective
+            .operating
+            .selected_equipment
+            .as_ref()
+            .is_some_and(|equipment| {
+                self.known_deletions
+                    .contains(&RecordId::Equipment(equipment.id))
+            })
+        {
+            effective.to_mut().operating.selected_equipment = None;
+        }
+        let snapshot = effective.as_ref();
+        if let Some(opener) = self.restore_focus.take() {
+            ui.memory_mut(|memory| memory.request_focus(opener));
+        }
+        if !self.dismissed.is_empty() {
+            ui.spinner();
+            ui.label("Finishing submitted settings request…");
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(50));
+        }
+        if let Some(notice) = &self.completion_notice {
+            super::feedback::problem(ui, notice);
+            if ui.button("Dismiss notice").clicked() {
+                self.completion_notice = None;
+            }
+        }
         if self.stack.is_empty() {
             self.stack.push(Frame::new(Screen::Home));
         }
 
-        ui.separator();
-        ui.heading("Active operating settings");
         if let Some(error) = &self.refresh_error {
             ui.colored_label(egui::Color32::YELLOW, error);
             ui.label(
-                "The summary below is the last successfully read state and may be out of date.",
+                "Accepted changes are retained. Other details are from the last successfully read state and may be out of date.",
             );
         }
-        fields::active_summary(ui, &snapshot.operating);
+        let summary_action = summary::show(ui, &snapshot.operating, &mut self.quick, sender);
         if let Some(selected) = &snapshot.operating.selected_profile
             && snapshot
                 .profiles
@@ -189,17 +334,23 @@ impl SettingsUi {
                 "Active equipment source changed; applied equipment values have not been reloaded.",
             );
         }
-        if ui.button("Refresh settings").clicked()
+        let home_action = home::show(
+            ui,
+            self.stack
+                .last()
+                .is_none_or(|frame| frame.response.is_none()),
+        );
+        if matches!(home_action, home::HomeAction::Refresh)
             && let Some(frame) = self.stack.last_mut()
             && frame.response.is_none()
         {
             frame.send(sender, SettingsAction::Refresh);
         }
-        ui.separator();
 
         let Some(frame) = self.stack.last_mut() else {
             return;
         };
+        frame.validate(&self.definitions, ui.ctx());
         let busy = frame.response.is_some();
         if busy {
             ui.spinner();
@@ -207,68 +358,118 @@ impl SettingsUi {
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_millis(50));
         }
-        if let Some(notice) = &frame.notice {
-            ui.label(notice);
-        }
         let errors = frame.errors.clone();
         let mut navigation = Navigation {
             next: None,
             back: false,
         };
-        ui.add_enabled_ui(!busy, |ui| {
-            responses::stale_review(ui, frame);
-            match &mut frame.screen {
-                Screen::Home => {
-                    if ui.button("Operating settings").clicked() {
-                        let mut editor = OperatingEditor::new(&snapshot.operating);
-                        for id in &self.known_deletions {
-                            editor.forget_source(*id);
-                        }
-                        navigation.next = Some(Screen::Operating(Box::new(editor)));
-                    }
-                    if ui.button("Station profiles").clicked() {
-                        navigation.next = Some(Screen::Profiles);
-                    }
-                    if ui.button("Equipment configurations").clicked() {
-                        navigation.next = Some(Screen::Equipment);
-                    }
-                }
-                Screen::Operating(_) => pending::show(
-                    ui,
-                    frame,
-                    snapshot,
-                    &self.definitions,
-                    sender,
-                    &mut navigation,
-                    &self.known_deletions,
-                ),
-                Screen::Profiles | Screen::Profile(_) => profiles::show(
-                    ui,
-                    frame,
-                    snapshot,
-                    &self.definitions,
-                    sender,
-                    &mut navigation,
-                    &self.known_deletions,
-                ),
-                Screen::Equipment | Screen::EquipmentEdit(_) | Screen::DeleteEquipment(_) => {
-                    equipment::show(
+        let editor = || Box::new(OperatingEditor::new(&snapshot.operating));
+        navigation.next = match summary_action {
+            summary::SummaryAction::None => None,
+            summary::SummaryAction::Operating => Some(Screen::Operating(editor())),
+            summary::SummaryAction::Profile => {
+                Some(Screen::Quick(quick::editors::QuickEdit::Profile(editor())))
+            }
+            summary::SummaryAction::Equipment => Some(Screen::Quick(
+                quick::editors::QuickEdit::Equipment(editor()),
+            )),
+            summary::SummaryAction::Operator => {
+                Some(Screen::Quick(quick::editors::QuickEdit::Operator(editor())))
+            }
+        };
+        match home_action {
+            home::HomeAction::Profiles => navigation.next = Some(Screen::Profiles),
+            home::HomeAction::Equipment => navigation.next = Some(Screen::Equipment),
+            home::HomeAction::None | home::HomeAction::Refresh => {}
+        }
+        let context = ui.ctx().clone();
+        let modal = !matches!(frame.screen, Screen::Home);
+        let title = frame.screen.title();
+        let mut body = |ui: &mut egui::Ui| {
+            if let Some(notice) = &frame.notice {
+                super::feedback::problem(ui, notice);
+            }
+            ui.add_enabled_ui(!busy, |ui| {
+                responses::stale_review(ui, frame);
+                match &mut frame.screen {
+                    Screen::Home => {}
+                    Screen::Operating(_) => pending::show(
                         ui,
                         frame,
                         snapshot,
+                        &self.definitions,
                         sender,
                         &mut navigation,
                         &self.known_deletions,
-                    )
+                    ),
+                    Screen::Quick(_) => quick::editors::show(
+                        ui,
+                        frame,
+                        snapshot,
+                        &self.definitions,
+                        sender,
+                        &mut navigation,
+                        &self.known_deletions,
+                    ),
+                    Screen::Profiles | Screen::Profile(_) => profiles::show(
+                        ui,
+                        frame,
+                        snapshot,
+                        &self.definitions,
+                        sender,
+                        &mut navigation,
+                        &self.known_deletions,
+                    ),
+                    Screen::Equipment | Screen::EquipmentEdit(_) | Screen::DeleteEquipment(_) => {
+                        equipment::show(
+                            ui,
+                            frame,
+                            snapshot,
+                            sender,
+                            &mut navigation,
+                            &self.known_deletions,
+                        )
+                    }
                 }
+            });
+            if busy && ui.button("Close dialog").clicked() {
+                navigation.back = true;
             }
-        });
-        fields::unplaced_errors(ui, &errors);
-        if navigation.back && self.stack.len() > 1 {
-            self.stack.pop();
+            fields::unplaced_errors(ui, &errors);
+        };
+        if modal {
+            let result = super::dialog::show(
+                &context,
+                egui::Id::unique("settings.editor"),
+                title,
+                &mut body,
+            );
+            let () = result.inner;
+            navigation.back |= result.cancel_requested;
+        } else {
+            body(ui);
+        }
+        frame
+            .validation
+            .request_repaint(ui.ctx(), ui.input(|input| input.time));
+        if frame.errors.is_empty() && !frame.validation.can_submit(&frame.errors) {
+            ui.small("Checking changes…");
+        }
+        if navigation.back
+            && self.stack.len() > 1
+            && let Some(frame) = self.stack.pop()
+        {
+            self.restore_focus = frame.opener;
+            if frame.response.is_some() {
+                self.dismissed.push(frame);
+            }
         }
         if let Some(screen) = navigation.next {
-            self.stack.push(Frame::new(screen));
+            let mut frame = Frame::new(screen);
+            frame.opener = context
+                .interaction_snapshot(|interaction| interaction.clicked)
+                .or_else(|| context.memory(|memory| memory.focused()));
+            self.stack.push(frame);
         }
     }
 
@@ -280,6 +481,11 @@ impl SettingsUi {
             .is_some_and(|p| Arc::ptr_eq(p, snapshot))
         {
             return;
+        }
+        self.acknowledged = None;
+        self.acknowledged_records.clear();
+        for frame in &mut self.stack {
+            frame.validation.invalidate();
         }
         if self
             .previous
@@ -311,7 +517,7 @@ impl SettingsUi {
             }
         }
         for frame in &mut self.stack {
-            if let Screen::Operating(editor) = &mut frame.screen {
+            if let Some(editor) = frame.screen.operating_mut() {
                 editor.refresh_sources(snapshot);
                 for id in &self.known_deletions {
                     editor.forget_source(*id);

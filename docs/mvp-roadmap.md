@@ -94,7 +94,9 @@ Milestones:
   [desktop specification](desktop.md), using the selected egui direction and
   durable client store before delivering its operating-context,
   tag, contact-entry and history workflows. Later capabilities extend the same
-  application; installed release packaging remains in Phase 6.
+  application and the [desktop UI/shared-component contract](desktop-ui.md),
+  including its appearance, validation, dialog and compact operating controls;
+  installed release packaging remains in Phase 6.
 - Deliver Windows manual contact entry with the agreed timestamp behavior,
   optional operating profiles, equipment selection and historical snapshots.
 - Support editing saved contact facts and deleting individual contacts offline,

@@ -73,6 +73,7 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
     let options = eframe::NativeOptions {
         renderer: eframe::Renderer::Wgpu,
         viewport: eframe::egui::ViewportBuilder::default().with_inner_size([680.0, 440.0]),
+        persistence_path: Some(paths.directory.join("desktop-ui")),
         ..Default::default()
     };
 
@@ -81,7 +82,7 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
         options,
         Box::new(move |creation| {
             let _ = context.set(creation.egui_ctx.clone());
-            Ok(Box::new(DesktopApp::new(UiResources {
+            let mut app = DesktopApp::new(UiResources {
                 status,
                 activation,
                 commands: ui_commands,
@@ -91,7 +92,9 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
                 file_failure,
                 settings_requests,
                 settings_view,
-            })))
+            });
+            app.restore_appearance(&creation.egui_ctx, creation.storage);
+            Ok(Box::new(app))
         }),
     );
 

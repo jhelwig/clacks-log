@@ -18,14 +18,14 @@ async fn changing_equipment_target_discards_the_prior_stale_review() -> anyhow::
     let mut changed = sources.rig_a.clone();
     changed.values.notes = Some("Saved elsewhere".into());
     clacks_client_store::settings::save_equipment(&window.store, Some(old), &changed).await?;
-    window.click("Save configuration");
+    window.submit("Save configuration");
     window.settle().await;
     assert!(window.visible("Keep my values against this saved version"));
     window.click(&format!("Update {}", sources.rig_a.id));
     window.click(&format!("Update {}", equipment_label(&sources.rig_b)));
     window.frame(vec![]);
     assert!(!window.visible("Keep my values against this saved version"));
-    window.click("Save configuration");
+    window.submit("Save configuration");
     window.settle().await;
     let stored = clacks_client_store::settings::snapshot(&window.store).await?;
     assert!(stored.equipment.iter().filter_map(configuration).any(
@@ -60,7 +60,7 @@ async fn partial_coordinates_survive_view_changes_and_apply_at_operating_precisi
     );
     window.text("operating.station.latitude", "47.123456");
     window.text("operating.station.longitude", "-122.654321");
-    window.click("Apply");
+    window.submit("Apply");
     window.settle().await;
     let active = clacks_client_store::operating::load(&window.store).await?;
     assert!(

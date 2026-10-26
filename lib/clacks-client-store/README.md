@@ -62,9 +62,15 @@ run from the workspace root with `SQLX_OFFLINE=false`:
 ```sh
 cargo sqlx database create
 cargo sqlx migrate run --source lib/clacks-client-store/migrations
-cargo sqlx prepare --workspace -- --all-targets
-cargo sqlx prepare --check --workspace -- --all-targets
+cargo sqlx prepare --workspace -- --package clacks-client-store --all-targets --locked --offline
+cargo sqlx prepare --check --workspace -- --package clacks-client-store --all-targets --locked --offline
 ```
+
+`--workspace` keeps metadata in the root `.sqlx/` directory; the Cargo package
+selection limits compilation to the client store, including its test queries.
+The Windows/Linux verification workflow uses the same scoped check and caches
+Cargo dependencies, compiled dependency artifacts and the installed SQLx CLI.
+Cache hits do not skip metadata verification or any workspace checks.
 
 Commit query metadata with changes to queries or migrations. Applied migrations
 are forward-only; do not edit their checksums in deployed workspaces. Each
@@ -168,7 +174,6 @@ reloading saved sources: it retains a station selection only when the old copied
 station still matches the current station semantically, starts with no inferred
 equipment selection, and preserves current facts. Fixed queries and committed
 SQLx metadata remain the schema contract. Regenerate/check metadata against a
-fresh temporary migrated database with `cargo sqlx prepare --workspace --
---all-targets` and `cargo sqlx prepare --check --workspace -- --all-targets`, using
+fresh temporary migrated database using the scoped commands above, with
 `SQLX_OFFLINE=false` and that temporary `DATABASE_URL`. Never use a real account
 workspace for query preparation.

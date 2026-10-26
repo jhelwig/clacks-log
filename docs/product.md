@@ -17,6 +17,12 @@ Clacks Log should replace the everyday shack logger while supporting independent
 
 ## Desktop application foundation
 
+The [desktop UI contract](desktop-ui.md) defines the compact workbench: QSO entry
+and Worked Before share the top row, current-logbook history spans the width
+below, and an active operating summary provides quick controls. Dedicated entry
+and Worked Before windows add views without changing the main workbench; entry
+views share one in-progress QSO per client. Full operating editing uses a dialog.
+
 The [desktop specification](desktop.md) defines issue #46's production application
 foundation and its acceptance requirements. It integrates the existing client
 store and native model; later profile/equipment, tag, contact-entry and history

@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 eframe.workspace = true
+fontique.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 clap.workspace = true

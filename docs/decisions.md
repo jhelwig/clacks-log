@@ -1,6 +1,6 @@
 # Decision register
 
-This register records explicit decisions from the planning conversation through 24 October 2026 (D01–D279). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. The [desktop specification](desktop.md) consolidates D270–D279, distinguishing agreed choices from engineering defaults. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
+This register records explicit decisions from the planning conversation through 25 October 2026 (D01–D301). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. The [desktop specification](desktop.md) consolidates D270–D279, distinguishing agreed choices from engineering defaults. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
 
 ## Accepted decisions
 
@@ -1229,7 +1229,7 @@ Use a standard-library lifetime file lock plus `interprocess` for desktop activa
 
 #### D280
 
-Use explicit Apply/Cancel for changes to the active operating context. Keep edits in a temporary form; logging uses the previously applied context until Apply validates and commits the complete replacement. Cancel discards unapplied edits without changing active defaults. Saving a reusable location profile is a separate explicit action and does not implicitly apply or reload the active context. Preserve client-local persistent defaults, explicit profile loading, the separate operator/power scopes and historical QSO snapshots. This defines the operating-context editing interaction for issue #7; it does not introduce persistent unfinished forms.
+Use explicit Apply/Cancel for the full operating-context editor. Keep edits in a temporary form; logging uses the previously applied context until Apply validates and commits the complete replacement. Cancel discards unapplied edits without changing active defaults. Saving a reusable location profile is a separate explicit action and does not implicitly apply or reload the active context. Preserve client-local persistent defaults, explicit profile loading, the separate operator/power scopes and historical QSO snapshots. This defines the operating-context editing interaction for issue #7; it does not introduce persistent unfinished forms. D288 adds compact-summary shortcuts, including inline power editing with its own commit/cancel boundary.
 
 ### Decision D281
 
@@ -1274,3 +1274,138 @@ Use separate editors for reusable station profiles and equipment configurations,
 #### D287
 
 Deleting a selected station profile or equipment configuration clears only that component’s selection and comparison baseline, preserving copied operating values. Preserve the other component’s selection. Apply the same cleanup when a deletion becomes effective through synchronization; unavailable data or a failed read is not evidence of deletion. Clear affected selections in an open pending operating form as well, preserving its edits. Cancel does not restore a deleted-source selection or undo the deletion; normal Apply/Cancel continues to govern unapplied value changes. Saved-profile equipment-reference repairs still follow D73/D183. This extends D285’s independent detachment rule to deleted sources without changing historical QSO snapshots.
+
+### Decision D288
+
+#### D288
+
+Use a compact desktop workbench with QSO entry and single-row-per-contact Worked
+Before side by side above full-width current-logbook contact history, with an
+active operating summary above them. Dedicated entry and Worked Before windows
+add views without hiding or rearranging the workbench; entry views share the
+same in-progress QSO on that client. Full operating editing uses a dialog.
+Provide quick profile, equipment and operator changes from the summary, preserving
+the existing loading, selection and reusable-record boundaries. Edit power inline:
+Enter, Tab or leaving the field commits valid input; Escape restores committed
+power. Use an explicit Operating settings… action beside the summary controls.
+The [desktop UI contract](desktop-ui.md) owns the detailed behavior. Colors,
+typography, exact dimensions and the shared component system remain under design.
+
+### Decision D289
+
+#### D289
+
+Use the Defined sections visual direction for the desktop: panel headers,
+restrained borders and recessed editable controls establish hierarchy without
+reducing the accepted compact density. Apply the same visual language to the
+workbench, dialogs and additional windows. This selects the surface treatment;
+exact colors, typography, dimensions and shared component interaction states
+remain under design in the [desktop UI contract](desktop-ui.md).
+
+### Decision D290
+
+#### D290
+
+Use debounced live validation. Unapplied edits require a visible distinction or
+highlight, rather than text alone. Keep changed, invalid, focused and selected
+states distinguishable, including when a changed value is invalid. Validation
+does not change the established save/apply boundaries. Exact debounce timing and
+highlight styling remain under design in the [desktop UI contract](desktop-ui.md).
+
+### Decision D291
+
+#### D291
+
+Highlight unapplied field changes with an amber tint and edge marker, alongside
+an explicit text indication. Preserve that highlight when the value is invalid,
+with validation errors and keyboard focus independently apparent. This selects
+D290's visual treatment; exact color tokens and debounce timing remain under
+design in the [desktop UI contract](desktop-ui.md).
+
+### Decision D292
+
+#### D292
+
+Disable Save/Apply while validation errors remain, with a clear indication of
+the fields and corrections needed. Debounced live validation updates action
+availability; validation does not itself save or apply values. The
+[desktop UI contract](desktop-ui.md) defines the shared presentation rule.
+
+### Decision D293
+
+#### D293
+
+Preserve contact selection across filtering and sorting. Show an explicit hidden
+selection count and provide Show selected. Selection targets stable contact IDs,
+not row positions. The [desktop UI contract](desktop-ui.md) owns the presentation
+and operation-scope rules.
+
+### Decision D294
+
+#### D294
+
+Use quiet, local feedback for routine success and persistent actionable feedback
+for failures and partial results. Bulk operations expose progress, cancellation
+and record-specific outcome reports under their existing workflow contracts.
+Distinguish local saves, synchronization and external-service success. The
+[desktop UI contract](desktop-ui.md) owns these shared feedback patterns.
+
+### Decision D295
+
+#### D295
+
+Editor-dialog close and Escape discard unapplied edits just like Cancel, without
+an additional discard confirmation. Preserve separate completed saves and the
+existing nested-editor boundaries. The [desktop UI contract](desktop-ui.md) owns
+the shared dismissal rule.
+
+### Decision D296
+
+#### D296
+
+Double-click or Enter on a contact opens its editor directly, without a read-only
+detail view first. The [desktop UI contract](desktop-ui.md) owns contact-table
+activation behavior.
+
+### Decision D297
+
+#### D297
+
+Switching logbooks clears any contact selection. Cross-logbook selection uses a
+search/view that is not logbook-scoped. Preserve selection across filtering and
+sorting within a view under D293. The [desktop UI contract](desktop-ui.md) owns
+the selection-boundary rule.
+
+### Decision D298
+
+#### D298
+
+Follow OS light/dark appearance by default, with an application-level Light/Dark
+override and a System choice to restore OS following. The
+[desktop UI contract](desktop-ui.md) owns the shared appearance rule.
+
+### Decision D299
+
+#### D299
+
+Use unified application-level UI scaling for text, controls, spacing and table
+rows together, on top of OS display scaling. Radio data uses monospace by
+default, with selectable font. The [desktop UI contract](desktop-ui.md) owns
+the presentation and scaling requirements.
+
+### Decision D300
+
+#### D300
+
+Make workbench panes user-resizable, remember their sizes locally and provide a
+reset to the default arrangement. Minimum sizes keep controls usable. The
+[desktop UI contract](desktop-ui.md) owns resizing and restoration behavior.
+
+### Decision D301
+
+#### D301
+
+Both contact history and Worked Before support column visibility, ordering,
+resizing and remembered sorting. Keep independent local settings for each table,
+with a reset to defaults. The [desktop UI contract](desktop-ui.md) owns the
+shared table-configuration contract.

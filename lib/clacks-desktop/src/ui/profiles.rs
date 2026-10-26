@@ -27,7 +27,6 @@ pub(super) fn show(
 ) {
     match &mut frame.screen {
         Screen::Profiles => {
-            ui.heading("Saved station profiles");
             ui.label(
                 "A profile owns station values and an optional default equipment configuration.",
             );
@@ -112,14 +111,24 @@ pub(super) fn show(
                 });
             if editor.id != old_id {
                 frame.stale = None;
+                frame.validation.invalidate();
             }
-            operating::fields::text(
+            let baseline = editor.expected.as_ref().and_then(profile);
+            let edited = operating::fields::text_changed(
+                &editor.name,
+                baseline.map(|value| value.name.as_str()),
+            );
+            if operating::fields::text(
                 ui,
                 "profile.name",
                 "Profile name",
                 &mut editor.name,
                 &frame.errors,
-            );
+                edited,
+            ) {
+                frame.validation.edited(ui.input(|input| input.time));
+            }
+            let previous_default = editor.default_equipment;
             equipment::default_selector(
                 ui,
                 "profile.default",
@@ -127,17 +136,30 @@ pub(super) fn show(
                 &snapshot.equipment,
                 known_deletions,
             );
+            if previous_default != editor.default_equipment {
+                frame.validation.invalidate();
+            }
             if ui.button("Manage equipment").clicked() {
                 navigation.next = Some(Screen::Equipment);
             }
-            operating::fields::station(
+            let baseline = baseline.map(|value| StationForm::from_snapshot(&value.station));
+            if operating::fields::station(
                 ui,
                 "profile.station",
                 &mut editor.station,
                 definitions,
                 &frame.errors,
-            );
-            if ui.button("Save profile").clicked() {
+                baseline.as_ref(),
+            ) {
+                frame.validation.edited(ui.input(|input| input.time));
+            }
+            if ui
+                .add_enabled(
+                    frame.validation.can_submit(&frame.errors),
+                    egui::Button::new("Save profile"),
+                )
+                .clicked()
+            {
                 match editor.build(definitions) {
                     Ok(next) => {
                         let expected = editor.expected.clone();

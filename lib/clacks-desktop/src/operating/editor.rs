@@ -1,13 +1,13 @@
 //! Pending operating edits and separately saved reusable-record forms.
 
-use super::{FieldError, equipment::EquipmentForm, issue, optional, station::StationForm};
+use super::{FieldError, equipment::EquipmentForm, issue, optional, power, station::StationForm};
 use clacks_client_store::{operating::OperatingState, settings::SettingsSnapshot};
 use clacks_model::{
     contact::OperatorInformation,
     group::DefinitionSet,
     ids::{EquipmentConfigurationId, ProfileId},
     profile::{CurrentOperatingValues, EquipmentConfiguration, SavedLocationProfile},
-    scalar::{Milliwatts, RecordedCallsign},
+    scalar::RecordedCallsign,
 };
 use clacks_sync::{
     client::ClientRecord,
@@ -54,10 +54,7 @@ impl OperatingEditor {
             operator_name: operator
                 .and_then(|o| o.recorded_name.clone())
                 .unwrap_or_default(),
-            power_watts: current
-                .and_then(|v| v.transmit_power)
-                .map(|v| watts(v.get()))
-                .unwrap_or_default(),
+            power_watts: power::format_watts(current.and_then(|v| v.transmit_power)),
             selected_profile: state.selected_profile.clone(),
             selected_equipment: state.selected_equipment.clone(),
         }
@@ -147,7 +144,7 @@ impl OperatingEditor {
             None
         };
         let transmit_power =
-            parse_power(&self.power_watts).map_err(|e| vec![issue("Transmit power", e)])?;
+            power::parse_watts(&self.power_watts).map_err(|e| vec![issue("Transmit power", e)])?;
         let value = CurrentOperatingValues {
             station,
             equipment,
@@ -314,41 +311,4 @@ impl EquipmentEditor {
             values: self.equipment.build()?.unwrap_or_default(),
         })
     }
-}
-
-/// Convert entered watts into positive whole milliwatts without floating-point rounding.
-fn parse_power(text: &str) -> Result<Option<Milliwatts>, String> {
-    let text = text.trim();
-    if text.is_empty() {
-        return Ok(None);
-    }
-    let (whole, fraction) = text.split_once('.').unwrap_or((text, ""));
-    if whole.is_empty()
-        || !whole.bytes().all(|c| c.is_ascii_digit())
-        || fraction.len() > 3
-        || !fraction.bytes().all(|c| c.is_ascii_digit())
-    {
-        return Err("Enter positive watts with at most three decimal places".into());
-    }
-    let whole = whole.parse::<u64>().map_err(|e| e.to_string())?;
-    let fraction = fraction
-        .bytes()
-        .fold(0_u64, |v, c| v * 10 + u64::from(c - b'0'))
-        * 10_u64.pow(3 - u32::try_from(fraction.len()).map_err(|e| e.to_string())?);
-    let value = whole
-        .checked_mul(1000)
-        .and_then(|v| v.checked_add(fraction))
-        .filter(|v| *v <= i64::MAX as u64)
-        .ok_or_else(|| "Transmit power is too large".to_string())?;
-    Milliwatts::new(value).map(Some).map_err(|e| e.to_string())
-}
-
-/// Format native milliwatts as editable watts at the recorded resolution.
-fn watts(value: u64) -> String {
-    if value.is_multiple_of(1000) {
-        return (value / 1000).to_string();
-    }
-    format!("{}.{:03}", value / 1000, value % 1000)
-        .trim_end_matches('0')
-        .to_string()
 }

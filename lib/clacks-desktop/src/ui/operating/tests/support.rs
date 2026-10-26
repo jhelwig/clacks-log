@@ -11,6 +11,8 @@ use crate::{
 use eframe::egui::{Event, Modifiers, PointerButton, Pos2, Rect, Vec2};
 
 pub(in crate::ui::operating) struct Window {
+    now: f64,
+    pub(in crate::ui::operating) size: Vec2,
     pub(in crate::ui::operating) view: SettingsUi,
     pub(in crate::ui::operating) context: egui::Context,
     pub(in crate::ui::operating) output: egui::FullOutput,
@@ -41,6 +43,8 @@ impl Window {
         let snapshot = fixture.settings_view.borrow().clone().unwrap();
         let opened = workspace::open(&paths).await?;
         Ok(Self {
+            now: 0.0,
+            size: Vec2::new(1300.0, 2200.0),
             view: SettingsUi::default(),
             context: Default::default(),
             output: Default::default(),
@@ -56,8 +60,10 @@ impl Window {
         })
     }
     pub(in crate::ui::operating) fn frame(&mut self, events: Vec<Event>) {
+        self.now += 1.0 / 60.0;
         let input = egui::RawInput {
-            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1300.0, 2200.0))),
+            time: Some(self.now),
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, self.size)),
             events,
             ..Default::default()
         };
@@ -66,7 +72,18 @@ impl Window {
             .run_ui(input, |ui| self.view.show(ui, &self.snapshot, &self.sender));
         self.output.textures_delta.clear();
     }
+
+    pub(in crate::ui::operating) fn advance(&mut self, seconds: f64) {
+        self.now += seconds;
+        self.frame(vec![]);
+    }
+
+    pub(in crate::ui::operating) fn submit(&mut self, text: &str) {
+        self.advance(0.300);
+        self.click(text);
+    }
     pub(in crate::ui::operating) fn click(&mut self, text: &str) {
+        self.frame(vec![]);
         self.frame(vec![]);
         let position = self
             .output
@@ -79,7 +96,19 @@ impl Window {
                 _ => None,
             })
             .next_back()
-            .unwrap_or_else(|| panic!("missing rendered control: {text}"));
+            .unwrap_or_else(|| {
+                panic!(
+                    "missing rendered control: {text}; shapes: {:?}",
+                    self.output
+                        .shapes
+                        .iter()
+                        .filter_map(|shape| match &shape.shape {
+                            egui::epaint::Shape::Text(t) => Some(t.galley.text()),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>()
+                )
+            });
         self.frame(vec![
             Event::PointerMoved(position),
             Event::PointerButton {
@@ -98,6 +127,7 @@ impl Window {
     }
 
     pub(in crate::ui::operating) fn click_below(&mut self, anchor: &str, text: &str) {
+        self.frame(vec![]);
         self.frame(vec![]);
         let anchor_y = self
             .output
@@ -142,6 +172,7 @@ impl Window {
         }]);
     }
     pub(in crate::ui::operating) fn text(&mut self, id: &str, value: &str) {
+        self.frame(vec![]);
         self.context
             .memory_mut(|m| m.request_focus(egui::Id::unique(id)));
         self.frame(vec![
@@ -170,7 +201,10 @@ impl Window {
                     self.snapshot = snapshot;
                 }
                 self.frame(vec![]);
-                if self.view.stack.last().is_none_or(|f| f.response.is_none()) {
+                if self.view.stack.last().is_none_or(|f| f.response.is_none())
+                    && self.view.dismissed.is_empty()
+                    && !self.view.quick.is_busy()
+                {
                     break;
                 }
                 tokio::task::yield_now().await;

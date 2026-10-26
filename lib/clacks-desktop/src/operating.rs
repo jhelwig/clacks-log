@@ -3,6 +3,7 @@
 pub(crate) mod editor;
 pub(crate) mod equipment;
 pub(crate) mod position;
+pub(crate) mod power;
 pub(crate) mod station;
 
 #[cfg(test)]

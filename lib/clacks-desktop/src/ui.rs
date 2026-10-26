@@ -1,12 +1,20 @@
 //! Native presentation and lifecycle requests, with no database work in callbacks.
 
+mod appearance;
 mod closing;
+mod dialog;
 mod equipment;
+mod feedback;
+mod fields;
+pub(crate) mod fonts;
 mod operating;
+mod preferences;
 mod profiles;
 mod startup;
 #[cfg(test)]
 mod tests;
+mod theme;
+mod validation;
 
 use crate::{
     session::{SessionCommand, SessionStatus, settings::SettingsRequest},
@@ -45,6 +53,8 @@ pub(crate) struct UiResources {
 
 /// Window-owned view state and standard communication handles.
 pub(crate) struct DesktopApp {
+    /// Committed local appearance and an optional unapplied preview.
+    appearance: appearance::AppearanceUi,
     /// Runtime-owned lifecycle snapshot.
     status: watch::Receiver<SessionStatus>,
     /// Coalesced activation notices, including notices before window construction.
@@ -92,6 +102,7 @@ impl DesktopApp {
             file_failure,
         } = resources;
         Self {
+            appearance: Default::default(),
             status,
             activation,
             commands,
@@ -108,6 +119,16 @@ impl DesktopApp {
             continuing: false,
             command_error: None,
         }
+    }
+
+    /// Restore presentation preferences before the first native frame.
+    pub(crate) fn restore_appearance(
+        &mut self,
+        context: &egui::Context,
+        storage: Option<&dyn eframe::Storage>,
+    ) {
+        self.appearance = appearance::AppearanceUi::restore(storage);
+        theme::install(context, &self.appearance.committed);
     }
 
     /// Request orderly cleanup once; repeated native closes retain the original deadline.
@@ -166,31 +187,89 @@ impl DesktopApp {
 }
 
 impl eframe::App for DesktopApp {
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        self.appearance.save(storage);
+    }
+
+    fn persist_egui_memory(&self) -> bool {
+        false
+    }
+
     fn logic(&mut self, context: &egui::Context, _frame: &mut eframe::Frame) {
         self.update_lifecycle(context);
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ui, |ui| {
-            ui.heading("Clacks Log");
-
-            let state = self.status.borrow().clone();
-            startup::show(self, ui, &state);
-
-            if matches!(state, SessionStatus::Ready { .. })
-                && !self.close_requested
-                && let Some(snapshot) = self.settings_view.borrow_and_update().clone()
-            {
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    self.settings.show(ui, &snapshot, &self.settings_requests)
+        let state = self.status.borrow().clone();
+        let closing = self.close_requested
+            || matches!(
+                &state,
+                SessionStatus::Closing { .. } | SessionStatus::Closed
+            );
+        if closing && self.appearance.editor.is_some() {
+            self.appearance
+                .finish(ui.ctx(), appearance::AppearanceAction::Cancel);
+        }
+        self.appearance.update_fonts(ui.ctx(), &self.commands);
+        egui::Panel::top("application.header").show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.heading("Clacks Log");
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let appearance = ui.add_enabled(!closing, egui::Button::new("Appearance…"));
+                    if appearance.clicked() {
+                        self.appearance.open(appearance.id);
+                    }
                 });
-            }
-
-            if let SessionStatus::Closing { phase, started } = state {
-                closing::show(self, ui, phase, started);
-            } else if ui.button("Close").clicked() {
-                self.begin_close();
-            }
+            });
         });
+        egui::Panel::bottom("application.status").show(ui, |ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui
+                    .add_enabled(!closing, egui::Button::new("Close"))
+                    .clicked()
+                {
+                    self.begin_close();
+                }
+                ui.separator();
+                startup::status(ui, &state);
+            });
+        });
+        let background = ui.visuals().extreme_bg_color;
+        egui::CentralPanel::default()
+            .frame(
+                egui::Frame::central_panel(ui.style())
+                    .fill(background)
+                    .inner_margin(12),
+            )
+            .show(ui, |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("application.content")
+                    .show(ui, |ui| {
+                        if let Some(notice) = &self.appearance.notice {
+                            feedback::problem(ui, notice);
+                        }
+                        startup::diagnostics(self, ui);
+                        startup::show(self, ui, &state);
+
+                        if matches!(state, SessionStatus::Ready { .. })
+                            && !self.close_requested
+                            && let Some(snapshot) = self.settings_view.borrow_and_update().clone()
+                        {
+                            self.settings.show(ui, &snapshot, &self.settings_requests);
+                        }
+
+                        if let SessionStatus::Closing { phase, started } = state {
+                            theme::section_frame(ui).show(ui, |ui| {
+                                ui.heading("Closing workspace");
+                                ui.separator();
+                                closing::show(self, ui, phase, started);
+                            });
+                        }
+                        startup::details(self, ui, &state);
+                    });
+            });
+        if !closing {
+            self.appearance.show(ui.ctx());
+        }
     }
 }

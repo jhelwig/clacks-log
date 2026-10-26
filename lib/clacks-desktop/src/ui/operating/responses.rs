@@ -4,27 +4,50 @@ use super::*;
 use clacks_client_store::{operating::OperatingSaveOutcome, settings::EquipmentDeleteOutcome};
 
 impl SettingsUi {
-    /// Settle only responses held by current callers, retaining failed/stale forms verbatim.
+    /// Settle admitted requests, including dialogs the operator already dismissed.
     pub(super) fn poll(&mut self) {
+        let dismissed = std::mem::take(&mut self.dismissed);
+        for mut frame in dismissed {
+            self.poll_frame(&mut frame);
+            if frame.response.is_some() {
+                self.dismissed.push(frame);
+            } else if let Some(notice) = frame.notice {
+                self.completion_notice = Some(notice);
+            }
+        }
+        let Some(mut frame) = self.stack.pop() else {
+            return;
+        };
+        let result = self.poll_frame(&mut frame);
+        if !result.complete || self.stack.is_empty() {
+            self.stack.push(frame);
+        } else if let Some(opener) = frame.opener {
+            self.restore_focus = Some(opener);
+        }
+        if let Some(screen) = result.next {
+            self.stack.push(Frame::new(screen));
+        }
+    }
+
+    /// Preserve each typed acknowledgment without retrying an admitted write.
+    fn poll_frame(&mut self, frame: &mut Frame) -> PollResult {
         let mut pop = false;
         let mut deleted = None;
         let mut next = None;
-        let Some(frame) = self.stack.last_mut() else {
-            return;
-        };
         let Some(receiver) = &mut frame.response else {
-            return;
+            return PollResult::default();
         };
         let response = match receiver.try_recv() {
             Ok(response) => response,
-            Err(oneshot::error::TryRecvError::Empty) => return,
+            Err(oneshot::error::TryRecvError::Empty) => return PollResult::default(),
             Err(oneshot::error::TryRecvError::Closed) => {
                 frame.response = None;
                 frame.notice = Some("The background request ended without an acknowledgment. Refresh before retrying.".into());
-                return;
+                return PollResult::default();
             }
         };
         frame.response = None;
+        let refresh_failed = matches!(&response, SettingsResponse::RefreshFailed { .. });
         let response = if let SettingsResponse::RefreshFailed { outcome, message } = response {
             self.refresh_error = Some(message);
             *outcome
@@ -38,8 +61,11 @@ impl SettingsUi {
             response
         };
         match response {
-            SettingsResponse::Refresh(_) => frame.notice = Some("Settings refreshed.".into()),
-            SettingsResponse::Apply(OperatingSaveOutcome::Saved(_) | OperatingSaveOutcome::Unchanged(_)) => pop = true,
+            SettingsResponse::Refresh(_) => frame.notice = None,
+            SettingsResponse::Apply(OperatingSaveOutcome::Saved(state) | OperatingSaveOutcome::Unchanged(state)) => {
+                self.acknowledged = Some(state);
+                pop = true;
+            },
             SettingsResponse::Apply(OperatingSaveOutcome::Stale(current)) => {
                 frame.stale_operating = Some(current);
                 frame.notice = Some("Applied settings changed while you edited. Your text is preserved. Review the current applied state before retrying.".into());
@@ -47,6 +73,10 @@ impl SettingsUi {
             SettingsResponse::SaveProfile(result) => {
                 match result.outcome {
                     SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record) => {
+                        if refresh_failed {
+                            self.acknowledged_records.insert(record.key.id, record.clone());
+                            self.completion_notice = Some("Profile saved locally. Refresh settings to recover the remaining view; do not repeat the save.".into());
+                        }
                         if result.missing_equipment.is_some() {
                             if let Screen::Profile(editor) = &mut frame.screen { editor.expected = Some(record); }
                             frame.notice = Some("Profile saved locally with a missing equipment reference. Choose a replacement or None and save again; it has not been applied.".into());
@@ -56,7 +86,13 @@ impl SettingsUi {
                 }
             }
             SettingsResponse::SaveEquipment(outcome) => match outcome {
-                SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_) => pop = true,
+                SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record) => {
+                    if refresh_failed {
+                        self.acknowledged_records.insert(record.key.id, record);
+                        self.completion_notice = Some("Equipment saved locally. Refresh settings to recover the remaining view; do not repeat the save.".into());
+                    }
+                    pop = true;
+                },
                 SaveOutcome::Stale { current } => stale(frame, current),
             },
             SettingsResponse::DeleteProfile(outcome) => match outcome {
@@ -83,18 +119,25 @@ impl SettingsUi {
         if let Some(id) = deleted {
             self.known_deletions.insert(id);
             for caller in &mut self.stack {
-                if let Screen::Operating(editor) = &mut caller.screen {
+                if let Some(editor) = caller.screen.operating_mut() {
                     editor.forget_source(id);
                 }
             }
         }
-        if pop && self.stack.len() > 1 {
-            self.stack.pop();
-        }
-        if let Some(screen) = next {
-            self.stack.push(Frame::new(screen));
+        PollResult {
+            complete: pop,
+            next,
         }
     }
+}
+
+/// Navigation consequences of settling one originating request.
+#[derive(Default)]
+struct PollResult {
+    /// The visible form has completed successfully.
+    complete: bool,
+    /// A preview result opens its explicit review screen.
+    next: Option<Screen>,
 }
 
 /// Retain typed values and the competing saved version for explicit user review.
@@ -118,6 +161,7 @@ pub(super) fn stale_review(ui: &mut egui::Ui, frame: &mut Frame) {
                         &mut form,
                         &DefinitionSet::default(),
                         &[],
+                        None,
                     )
                 });
                 ui.label(format!("Default equipment: {:?}", p.default_equipment));
@@ -140,7 +184,7 @@ pub(super) fn stale_review(ui: &mut egui::Ui, frame: &mut Frame) {
                 let mut form =
                     crate::operating::equipment::EquipmentForm::from_values(Some(&e.values));
                 ui.add_enabled_ui(false, |ui| {
-                    fields::equipment(ui, "stale.equipment", &mut form, &[])
+                    fields::equipment(ui, "stale.equipment", &mut form, &[], None)
                 });
                 if ui
                     .button("Keep my values against this saved version")
@@ -168,7 +212,7 @@ pub(super) fn stale_review(ui: &mut egui::Ui, frame: &mut Frame) {
             .button("Keep my pending values against these applied settings")
             .clicked()
         {
-            if let Screen::Operating(editor) = &mut frame.screen {
+            if let Some(editor) = frame.screen.operating_mut() {
                 editor.expected = current.clone();
             }
             frame.stale_operating = None;

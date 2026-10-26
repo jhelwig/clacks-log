@@ -43,6 +43,32 @@ a protected current-user-only access list. Stale socket cleanup requires the loc
 
 ## Operating settings
 
+The main screen uses defined tool sections beneath an application bar. Operating
+context is the primary section; saved-profile/equipment management has its own
+section. A compact footer reports local workspace state. **Workspace &
+diagnostics** expands file locations and account identity when needed. Opening
+failures, retry actions and degraded diagnostics stay visible independently of
+that disclosure. These are the existing production tools; no future contact or
+history panes are shown as placeholders.
+
+The compact active summary shows station, profile, equipment and operator context.
+**Change profile…**, **Change equipment…** and **Change operator…** open narrow
+Apply/Cancel dialogs. A profile previews its associated equipment consequence;
+these controls never edit the reusable source records. Equipment override and
+changed-source indicators describe applied context, separately from unapplied edits.
+
+Power is directly editable beside its **W** unit. Enter, Tab or leaving the field
+commits valid input; Escape restores the active value. Leading-decimal input such
+as `.5` is accepted. Blank clears optional power. Invalid input and failed writes
+retain editable text and leave the active value intact. A late acknowledgment
+does not replace newer typing. Before station setup, only a complete profile or
+the full operating editor can establish valid operating values.
+
+If a newer value is explicitly committed while a previous power write is pending,
+it applies once after a successful acknowledgment, using the accepted basis.
+Further typing or Escape cancels that waiting intent. A failed or ambiguous
+earlier request leaves the text available for review and explicit retry.
+
 After the workspace opens, the active summary shows copied station/equipment
 values and their independent optional source selections. Open **Operating
 settings** to edit one pending context across **Station**, **Equipment** and
@@ -81,12 +107,47 @@ competing saved values are shown before an explicit retry. If a profile saves
 with an unavailable default, it stays open with saved-local/missing-reference
 feedback and replacement/None choices. A failed read after a completed write is
 reported separately: the committed result stands and the previous summary is
-marked stale until **Refresh settings** succeeds. Do not repeat the write merely
+marked stale until **Refresh settings** succeeds. An acknowledged Apply supplies
+the summary and next editor's operating basis even when that read failed. Do not repeat the write merely
 to refresh its view. Confirmed deletions remain authoritative while that view is
 stale: deleted sources are excluded from load/target choices, and new operating
 forms start without their selections. A later successful read of a live working
 source can establish its availability again. Graceful shutdown drains admitted
 writes.
+
+Accepted profile/equipment saves also retain their exact returned records after a
+failed view read. The saved record remains available with its acknowledged save
+basis, including when its editor was dismissed, while the remaining view is
+marked stale. Recovery refreshes that view without repeating a successful save.
+
+Editors use scrollable modal dialogs. Close, Escape and Cancel discard that
+form's unapplied edits without another prompt; backdrop clicks do not discard it.
+Escape closes an open menu before the editor, and dismissal returns focus to its
+opener. Admitted writes keep their response owner after dismissal and finish
+normally. A failed or ambiguous acknowledgment remains visible; it never causes
+an automatic write retry. Existing application shutdown drains admitted work.
+
+Fields validate after 300 ms without typing. Save/Apply waits for current valid
+input. Amber fill, an edge and **Not applied** distinguish edited values from
+the native focus indicator and field errors. Reusable-record validation remains
+independent of unrelated pending operating values.
+
+## Appearance
+
+**Appearance…** provides System (default), Light and Dark choices, unified UI
+scaling from 75% through 200%, and separate installed-family choices for ordinary
+UI and radio data. Defaults use bundled proportional UI and monospace radio
+fonts. Valid changes preview immediately; Apply retains them and Cancel restores
+the committed appearance. Reset scale restores 100%. Scaling composes with native
+display scaling and does not alter recorded values.
+Apply, Cancel, close and Escape return keyboard focus to the Appearance opener.
+
+Preferences and native window geometry are workspace-local in the `desktop-ui`
+file, written through eframe's native storage on its save lifecycle. They are
+not synchronized. Installed families are discovered and loaded on bounded
+session-owned workers. Missing or failed selections retain the requested family,
+show a notice and use bundled fallback; **Retry font loading** explicitly retries.
+Choosing a font does not change text, validation or operating-source selections.
 
 ## Configuration
 
@@ -176,6 +237,8 @@ do not restart cleanup. After five seconds the UI offers continued waiting or
 explicit Force Quit. Force Quit terminates the process without destructor waits;
 unfinished work and diagnostics can be lost. There is no tray process or automatic
 forced-exit deadline. Native-window/renderer failure still joins session cleanup.
+Beginning shutdown cancels an unapplied Appearance preview and disables reopening
+it, leaving delayed-shutdown controls accessible.
 
 ## Dependencies and verification
 
@@ -213,7 +276,7 @@ Use a Windows Rust/MSVC development environment and the pinned checkout. These
 checks require a visible desktop; headless CI is separate evidence.
 
 1. Run `cargo build --bin clacks-log --locked`. In PowerShell start
-   `target\debug\clacks-log.exe --workspace "$env:TEMP\clacks-native-46" --log-filter info`.
+   `target\debug\clacks-log.exe --workspace "$env:TEMP\clacks-desktop-ui" --log-filter info`.
    Verify the window renders, tab/keyboard and pointer controls work, and a
    standalone account reaches Ready. Record the account ID and OS/GPU/backend.
 2. Minimize it and run the same command again. Verify the second process exits
@@ -233,3 +296,20 @@ workspace. Create profiles/configurations, exercise keyboard entry and selection
 manual detachment, separate Save/Apply/Cancel boundaries, nested saves, equipment
 deletion review and close/reopen. Automated rendered/session tests are separate
 evidence; they do not establish native Windows focus, graphics or input behavior.
+
+For appearance/shared-control acceptance:
+
+- Preview and Apply/Cancel Light/Dark, UI/radio fonts and 100%/125%/150%/200%
+  scale. Resize the window; verify field values, errors and actions remain
+  reachable by reflow or scrolling. Reopen and check committed preferences.
+- With System selected, change OS appearance and verify the application follows
+  it. Check a selected installed font in radio fields; when a requested family
+  is unavailable, verify the retained choice, fallback notice and retry action.
+- Check debounced invalid-field feedback, edited markers, keyboard traversal,
+  disabled Save/Apply and corrections. Exercise nested Save followed by outer
+  Cancel, Escape, close and ignored backdrop clicks.
+- Apply power through Enter, Tab and ordinary focus departure; use Escape to
+  restore it. Check `.5`, blank and invalid values. Preview/Apply/Cancel profile,
+  equipment and operator choices without changing reusable records.
+- Close normally during a request. If cleanup is delayed, verify Continue
+  Waiting/Force Quit are accessible, including when Appearance was open.

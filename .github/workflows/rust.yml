@@ -44,11 +44,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Resolve repository Rust toolchain
         run: rustup show active-toolchain
+      - name: Cache Rust dependencies, build artifacts and installed tools
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          # Include the installed tool's version/features alongside the action's
+          # automatic OS, architecture, compiler, manifest and lockfile keys.
+          key: sqlx-cli-0.9.0-sqlite
       - name: Fetch locked Rust dependencies
         run: cargo fetch --locked
       - name: Install pinned SQLx metadata tooling
         run: cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features sqlite
-      - name: Verify checked SQL metadata against production migrations
+      - name: Verify client-store SQL metadata against production migrations
         shell: bash
         env:
           SQLX_OFFLINE: 'false'
@@ -56,7 +62,8 @@ jobs:
         run: |
           cargo sqlx database create
           cargo sqlx migrate run --source lib/clacks-client-store/migrations
-          cargo sqlx prepare --check --workspace -- --all-targets
+          # Keep metadata at the workspace root; compile only its owning crate.
+          cargo sqlx prepare --check --workspace -- --package clacks-client-store --all-targets --locked --offline
       - name: Check formatting
         run: cargo fmt --all --check
       - name: Verify desktop command-line startup without a display

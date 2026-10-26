@@ -26,7 +26,8 @@ capabilities integrate into this application. Do not create demonstration stores
 a synthetic logging UI, a second synchronization algorithm or temporary
 application components. No server connection, provider connection or enrollment
 is needed for local startup. Closing stops the client; there is no tray mode.
-Permanent panel/docking layout remains outside this specification.
+The [desktop UI contract](desktop-ui.md) owns the workbench arrangement and
+interaction requirements beyond this foundation; it does not require docking.
 
 ## 2. Selected approach and alternatives
 
