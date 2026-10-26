@@ -149,10 +149,12 @@ be zero. Canonicalization
 makes different leading-zero spellings of the same integer share one identity;
 it does not change destination qualification or record association semantics.
 
-Do not persist serialized Rust structs, enum trees, vectors or maps in JSON/blob
-columns. Opaque external bytes, when an actual domain type requires them, are
-bytes; they are not an escape hatch for relational model mapping. Arbitrary
-catalog metadata is descriptive input, not a reason to serialize QSO payloads.
+Do not persist domain records as serialized Rust structs, enum trees, vectors
+or maps in JSON/blob columns. Application preferences use the separate local
+key/value storage described in section 5.2. Opaque external bytes, when an actual
+domain type requires them, are bytes; they are not an escape hatch for relational
+model mapping. Arbitrary catalog metadata is descriptive input, not a reason to
+serialize QSO payloads.
 
 ### 2.3. Integration with existing native types
 
@@ -356,6 +358,13 @@ client edit appear accepted.
 
 ### 5.2. Client-local operating state
 
+Application preferences use shared `local_state(key, value)` storage with a
+serialized native value per key. The owning Rust type supplies decoding,
+validation and absent-key defaults. For example, `logbooks.selected_view` defaults
+to All contacts and is updated atomically with effective selected-tag deletion.
+This local preference storage does not replace relational domain records or the
+operating snapshots and comparison evidence described below.
+
 `operating_state` is a singleton referencing optional initialized
 `local_operating_value` and optional `loaded_profile_baseline` rows.
 `local_operating_value` stores the station callsign, optional recorded location
@@ -389,8 +398,22 @@ distinguishes selection of different equipment from the selected station profile
 default. Once the station is detached there is no operating profile-default
 association to compare, without changing the saved profile’s own equipment link.
 
-Keep selected tag ID, when persisted by composition, separate from station facts.
-A deleted selection cannot cause implicit reassignment of an existing QSO.
+The [logbook setup specification](logbooks.md) defines the selected-view value,
+catalog/deletion-preview reads and tag-management integration for #8.
+
+Persist the selected view in the local SQLite workspace, separately from
+synchronized records and station facts (D304/D308). Named logbooks use stable
+tag IDs; built-in views have no tag identity. Restore the last choice on restart,
+starting new workspaces in
+All contacts. A known-deleted remembered tag falls back to All contacts with an
+explanation, while temporary loading failures preserve the remembered choice.
+Apply that fallback when selected-tag deletion becomes effective during use,
+including local deletion and synchronized deletion (D307). Commit the All
+contacts fallback in the same transaction that makes the selected tag's
+deletion effective (D308). A deleted selection cannot cause implicit
+reassignment of an existing QSO or replace explicit repair of pending
+deleted-tag references. Composition uses the existing asynchronous
+session/store path rather than a second saved selection in UI preferences.
 
 Selecting or reloading a profile/equipment configuration in the operating-context
 editor reads the local working source values and stages the resulting copies
@@ -481,12 +504,12 @@ or telemetry wrapper is needed. Composition may reuse private transaction helper
 | --- | --- | --- |
 | Save new/edit/delete native record | Current client row and expected edit basis, original/working/prepared roles, relevant local reference observations; native validation | New working payload, pending original on first edit, unchanged frozen prepared/original on later edits. No invented accepted stamp or installed progress. |
 | Save selected-group tag changes | Selected local records and expected edit bases, tag identity; existing whole-QSO policy | Each QSO's complete working tag set and pending state. Groups use bounded transactions; never independent synchronized membership rows. |
-| Delete tag with chosen effects | Native deletion plan from current local membership sets and selected choice | Tag deletion plus the planned QSO deletions/membership removals in one local logical-operation transaction. Do not split this operation into partly visible effects. Transaction size is proportional to affected contacts; any future resumable bulk design must preserve the operation contract rather than silently batching it. |
+| Delete tag with chosen effects | Native deletion plan from current local membership sets and selected choice; current selected view | Tag deletion plus the planned QSO deletions/membership removals and matching selected-view fallback in one local logical-operation transaction. Do not split this operation into partly visible effects. Transaction size is proportional to affected contacts; any future resumable bulk design must preserve the operation contract rather than silently batching it. |
 | Change defaults/load profile | Current operating values and optional selected profile/equipment baselines | Values and remaining optional selections/baselines together; manual adjustments clear only the affected selection/baseline under D285. No shared-profile or old-contact edits. |
 | Prepare outgoing change | Current client row, actor, counter, native reference conditions, current baseline/lineage/witness | Core `prepare_change` result plus counter reservation and exact frozen payload/dependencies. Commit before exposing a sendable result. Existing prepared version is retried, not reallocated. |
 | Receive accepted/rejected response | Current client row, frozen change, current context; `receive_accepted`/`receive_rejection` | Resulting accepted observation and pending/original/retained/witness changes together. A response does not certify completion of an account window. |
 | Store manifest | Existing same-source/mode manifest and current interpretation | Complete immutable manifest, requirements/units, initial progress. Unequal replacement fails. |
-| Install transfer batch | Persisted manifest/progress, current client rows, support, baseline/lineage and binding conditions | `plan_batch` accepted/client updates, staged inputs, installed keys, completed units and next progress generation, all together. Never install a partial atomic unit. |
+| Install transfer batch | Persisted manifest/progress, current client rows, support, baseline/lineage and binding conditions; current selected view | `plan_batch` accepted/client updates, staged inputs, installed keys, completed units, next progress generation and any selected-view fallback caused by an effective tag deletion, all together. Never install a partial atomic unit. Staging alone does not make a deletion effective. |
 | Complete transfer window | Committed installed rows, requirements/successors, complete units and interpretation, current checkpoint/progress generation | `finish_window` conditional installed-checkpoint update. The first installation requires a full window, no existing checkpoint and the same complete-state verification; never invent an already-installed checkpoint. Commit, then reload checkpoint before returning acknowledgment evidence. |
 | Install baseline/projection | Existing interpretations, pending originals, sealed witness requirements, every touched version | New interpretation, projected contexts, required local witnesses, progress/checkpoint changes only when proven. Collect old detail only after new evidence is durable and no remaining root needs it. |
 | Resolve review | Exact current original/working/shared/retained versions compared with the basis presented for review | Core `resolve_review` result and retained dependencies. Stale review returns refreshed review input rather than applying an old choice to unseen state. Preparation/counter changes follow core results, not a parallel store algorithm. |

@@ -625,6 +625,12 @@ continues. Restore/clone resolution remains post-MVP.
 
 ### 11.2 Tags and contact deletion
 
+The [logbook setup specification](logbooks.md) defines the desktop lifecycle and
+client-local selected-view integration. All contacts and Untagged are built-in
+views, not native tag records. Their new-entry default is an empty tag set;
+named logbooks supply their tag. Unfinished new-contact input follows view
+changes without retagging saved contacts or existing-contact edits (D309).
+
 A QSO may have zero or more tags. The open logbook supplies default membership
 for new contacts and filters normal history/Worked Before; it does not change
 server work or account-wide synchronization. Individual and selected-group

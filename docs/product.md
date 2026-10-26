@@ -83,15 +83,72 @@ with [desktop composition and acceptance](desktop.md#8-observability-composition
 
 ## Contacts, logbooks and tags
 
+The [logbook setup specification](logbooks.md) defines #8's desktop/store
+integration, selection persistence, management workflow and deletion review.
+Contact entry/history and individual/selected-contact membership editing retain
+their separate delivery boundaries.
+
 The account owns each radio contact (QSO). A Clacks logbook is a tag-defined view of those contacts, not a container that owns separate copies. A QSO can have zero, one or multiple tags; its complete tag set is part of its logical record (D243). Each tag has a stable ID, name and service settings. Names may be duplicated, with enough interface context to distinguish tags; matching names never merge identities (D119/D120). The [client-store specification](client-store.md) defines the relational representation.
 
+When tag display names are duplicated, append short, collision-checked ID
+suffixes to distinguish them (D306). Unique names have no ID suffix. Manage
+logbooks makes the full tag ID available to view and copy. These labels do not
+change the underlying name or full stable identity.
+
 Opening a logbook selects its tag as the default for newly logged/captured QSOs and filters normal history and Worked Before. Selection is client-local and occurs before entry. Switching views does not change operating defaults, existing contacts, server jobs or synchronization participation. Profiles, reusable equipment and directory credentials remain account-shared. Every enrolled client synchronizes all account contacts, tags and shared synchronized data through one account scope (D248); selective synchronization is post-MVP.
+
+Include **All contacts** and **Untagged** as built-in views alongside named
+logbooks (D302). All contacts shows every active QSO once per identity; Untagged
+shows active QSOs whose tag set is empty. These are views rather than stored
+tags: they have no tag identity or automatic-upload policy. Pending deletions
+remain excluded from normal views under D181.
+
+Selecting either built-in view supplies no default tag for new QSOs (D303).
+New contacts are untagged by default in All contacts and Untagged; do not retain
+a previously selected named logbook as a hidden membership default. Selecting
+a named logbook continues to supply that tag. This selection does not rewrite
+saved contacts or change station/equipment defaults.
+
+An unfinished new-contact entry follows the currently selected view's default
+membership (D309). Changing views does not retain the previous proposed tag:
+selecting a named logbook supplies that tag, and selecting either built-in view
+makes the new entry untagged by default. Preserve the other entered values.
+This concerns new-contact input, not retagging saved contacts or changing an
+existing contact through its editor.
+
+Remember the last selected view per local workspace and restore it on restart
+(D304). Restore named logbooks by stable tag ID, so renaming does not disrupt
+selection. A new workspace starts in All contacts. If the remembered tag is
+known to be deleted, open All contacts and explain the fallback. A temporary
+loading failure must not overwrite the remembered choice or be treated as
+proof of deletion.
+
+Apply the same fallback while the application is running when the selected
+tag's deletion becomes effective locally, whether deleted on this client or
+received through synchronization (D307). Switch to All contacts and explain
+why; new QSOs then default to untagged. The selection fallback itself does not
+retag saved contacts or repair pending references. Local tag deletion retains
+its chosen contact effects under D244; pending deleted-tag references retain
+the explicit-repair requirement under D250.
+
+Persist the selected view in the local workspace's SQLite database (D308),
+separately from synchronized records and station/equipment state. When deletion
+of its tag becomes effective, commit the All contacts fallback in the same
+transaction as that deletion, including deletion installed by synchronization.
+The framework's presentation preferences are not the selected-view store.
+
+Use a compact main-window logbook/view selector with a **Manage logbooks…**
+action opening a dedicated dialog (D305). Switching the view is immediate;
+management edits use the existing Save/Cancel contract. The dialog manages
+named tags, their names and per-service automatic-upload policies. All contacts
+and Untagged are built-in choices, not editable tags. Delete opens a separate
+impact review with the existing three choices and contact counts.
 
 For example, QSO Q42 can have both Main and POTA 2026-10-17 tags. Both views show the same contact, directory snapshot, confirmation evidence and publication history. Editing through either view changes Q42. A tag name is organizational metadata, not a recorded Parks on the Air (POTA) reference or an operating-location profile.
 
 ### Membership and tag lifecycle
 
-Add or remove existing tags on individual QSOs or selected groups in MVP (D249). These operations preserve QSO identity, facts and service evidence. Removing the last tag leaves an active, untagged contact that must remain accessible; the exact layout for accessing it is not selected. To organize activity contacts into Main, add Main to the existing contacts, then remove the activity membership or delete the activity tag as desired. Export/re-import is not required to apply another tag. Broader bulk editing of contact facts remains post-MVP under D45.
+Add or remove existing tags on individual QSOs or selected groups in MVP (D249). These operations preserve QSO identity, facts and service evidence. Removing the last tag leaves an active, untagged contact accessible through All contacts and Untagged (D302). To organize activity contacts into Main, add Main to the existing contacts, then remove the activity membership or delete the activity tag as desired. Export/re-import is not required to apply another tag. Broader bulk editing of contact facts remains post-MVP under D45.
 
 Create, name, rename and delete tags offline on enrolled clients, synchronizing them and their contacts on reconnect (D118/D121). Duplicate names are allowed. Automatic tag assignment or creation based on capture source, activity references or date remains outside MVP.
 

@@ -28,6 +28,53 @@ each contact. Its callsign-prefix matching, current-logbook scope and handling o
 local working versions follow the product contract. Contact history remains a
 table of the current logbook's contacts.
 
+### Logbook selection and management
+
+The [logbook setup specification](logbooks.md) consolidates the #8 workflow,
+storage boundary and handoff to later entry/history consumers. This section
+retains the shared desktop interaction requirements.
+
+Contact navigation includes the built-in **All contacts** and **Untagged** views
+alongside named logbooks (D302). All contacts shows each active QSO once;
+Untagged shows active contacts with no tags. Neither built-in view is a stored
+tag or carries an automatic-upload policy. The [product contract](product.md)
+owns these view semantics. When either built-in view is selected, new QSOs
+default to untagged (D303); a previously selected named logbook does not remain
+as a hidden default. A named logbook supplies its own tag as before.
+
+Changing views also updates the default membership of an unfinished new-contact
+entry (D309); do not retain the old view's proposed tag. Preserve its other
+entered values. Saved contacts and existing-contact edits are not retagged by
+changing views.
+
+Restore the last selected view per workspace on restart (D304), using stable tag
+identity for named logbooks. Start new workspaces in All contacts. If the
+remembered tag is known to be deleted, open All contacts with an explanation;
+temporary loading failures preserve the remembered selection.
+
+Use the same All contacts fallback and explanation if the selected tag is
+deleted during use, whether locally or through synchronization (D307). The
+fallback changes the selected view and the default for new QSOs, rather than
+rewriting saved contacts or repairing pending deleted-tag references.
+
+The selected view is authoritative client-local SQLite state (D308). Read and
+change it through the existing asynchronous session/store path. Its deletion
+fallback commits atomically with the effective tag deletion; presentation
+preferences do not maintain another saved selection.
+
+Use a compact main-window logbook/view selector for immediate switching, with
+**Manage logbooks…** beside it (D305). Management opens a dedicated dialog for
+named-tag creation, names, per-service automatic-upload policies and deletion;
+do not add another permanent management pane. All contacts and Untagged are not
+editable tags. Use the shared Save/Cancel, validation and dismissal behavior.
+Delete opens a separate impact review showing the three agreed choices and
+distinct-contact counts before confirmation.
+
+Show short, collision-checked ID suffixes only when tag display names are
+duplicates (D306). Unique names remain unsuffixed. Manage logbooks exposes the
+full tag ID for viewing and copying. Keep display disambiguation separate from
+the stored name and the full identity used by selection and commands.
+
 ### Resizing and reset
 
 Make the divider between QSO entry and Worked Before, and the divider between
