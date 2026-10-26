@@ -16,6 +16,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Desktop workbench and interaction design](docs/desktop-ui.md)
 - [Operating settings, station profiles and equipment](docs/operating-settings.md)
 - [Offline logbook setup and view selection](docs/logbooks.md)
+- [Offline manual contact entry, editing and deletion](docs/manual-logging.md)
 - [Geographic-pipeline specification](docs/geographic-pipeline.md)
 - [Synchronization behavior](docs/synchronization.md) and [metadata model](docs/synchronization-model.md)
 - [Accounts and enrollment](docs/accounts.md)

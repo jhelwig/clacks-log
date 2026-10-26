@@ -3,16 +3,18 @@
 This document owns the agreed desktop workbench behavior. The
 [desktop foundation](desktop.md) owns runtime and lifecycle behavior;
 [operating settings](operating-settings.md) owns station, equipment and
-reusable-record semantics; the [product contract](product.md) owns contact entry,
-logbook views and Worked Before. These are design requirements for the product,
+reusable-record semantics; [manual logging](manual-logging.md) owns QSO entry,
+editing and deletion; the [product contract](product.md) owns logbook views and
+Worked Before. These are design requirements for the product,
 not a claim that every described view is already implemented.
 
 ## Workbench composition
 
-The main window is a compact workbench with four continuously available areas:
+The main window is a compact workbench with the following arrangement:
 
 - QSO entry at the upper left.
-- Worked Before for the current callsign at the upper right.
+- One shared tabbed area at the upper right, containing Worked Before for the
+  current callsign and adjacent contact details (D317).
 - The current logbook's contact history across the width below those two areas.
 - A compact summary of the active station, equipment, operator and transmit
   power above the logging areas.
@@ -35,6 +37,15 @@ arrive; reducing padding on a different arrangement does not meet this contract.
 The illustrated contact data and not-yet-delivered tools remain illustrative.
 The [light appearance reference](images/desktop-workbench-light-reference.jpg)
 uses the same composition and component hierarchy.
+
+The upper-right area holds Worked Before and additional contact details as
+alternative tabs in the same pane. Showing details replaces that pane's Worked
+Before content; it does not create a third upper pane or expand the entry form.
+Keep quick entry visible on the left and contact history below. The reference
+images establish the visual language and pane placement; the right-hand pane
+now includes this tab selection. The
+[manual-logging specification](manual-logging.md#2-workbench-and-form-boundaries)
+defines the entry fields and detail tabs, with Worked Before supplied by #10.
 
 Worked Before presents one row of data per QSO, rather than a multiline card for
 each contact. Its callsign-prefix matching, current-logbook scope and handling of
@@ -90,16 +101,67 @@ the stored name and the full identity used by selection and commands.
 
 ### Resizing and reset
 
-Make the divider between QSO entry and Worked Before, and the divider between
+Make the divider between QSO entry and the shared tabbed area, and the divider between
 the upper pair and contact history, user-resizable (D300). Remember pane sizes
 locally on the client. Provide a reset to the default arrangement, with QSO
-entry and Worked Before above full-width history. Reset changes layout, not
+entry and the shared tabbed area above full-width history. Reset changes layout, not
 operating settings, contact data, appearance, fonts or selection.
 
 Use minimum pane sizes that keep controls usable at the selected UI scale.
 Restore remembered sizes within the space available in the current window;
 old dimensions must not leave a pane inaccessible after display/window changes.
 Additional windows retain the independent-view behavior below.
+
+## Contact entry and full editing
+
+The [manual-logging specification](manual-logging.md) consolidates #9's workflow,
+validation, save/reset and storage boundaries. This section owns its shared
+presentation requirements. Worked Before arrives through #10; #9 uses the same
+adjacent area for actual Contact details and Our settings, without placeholder
+results or a nonfunctional Worked Before tab.
+
+Quick QSO entry includes an optional contact-name field (D316). Later directory
+lookup can supply the displayed name through the existing separate-source
+fallback rules; manual name entry remains recorded contact information.
+Place Name next to Callsign in quick entry. Field labels state their purpose
+without appending “(optional).” Keep start and end entry controls in quick
+entry rather than duplicating them in the adjacent details tab. Additional
+detail fields, including the contacted operator callsign, are available
+directly within their selected tab rather than behind expandable disclosures.
+
+Use this compact entry order and grouping:
+
+- Callsign and Name together at the top.
+- Frequency, Band, Mode and DX grid together on the next row.
+- Sent and received reports, then the independently controlled Start and End
+  timestamps, grouped beneath the radio fields. Each Start/End control combines
+  its UTC date and time under the same independent live/locked control.
+- A full-width Comment below those fields, followed by the save action and
+  local validation/save feedback.
+
+The adjacent area selects Worked Before, Contact details or Our settings.
+Contact details contains additional contacted-station/location/reference and
+receive information, without repeating the quick-entry identity, grid or time
+controls. Our settings keeps own-station, operator, power and equipment values
+together for contact-specific corrections. Switching tabs preserves the same
+unfinished QSO; Save QSO saves its values across both panes.
+
+Do not make a separate contacted operator callsign a routine part of quick
+entry. Retain it as optional secondary detail when independently known, without
+requiring it alongside a name or inferring a distinction from the contact call.
+
+Group our station, operator, power and equipment together as the contact's
+operating settings in full editing, using ordinary section organization rather
+than presenting them as unrelated peer workflows. Editing these contact values
+does not change the active operating context.
+
+For unfinished QSOs, use the adjacent tabbed area for additional details rather
+than an expandable entry form (D317). Worked Before is one of its selectable
+tabs, keeping the upper workbench at two panes. Switching back to Worked Before
+does not save the QSO or discard the unfinished contact's details. Quick entry
+and its adjacent details concern the same in-progress contact; tab navigation
+is distinct from saving it. Saved-contact editing remains separate from the
+unfinished new-contact form and retains the shared dialog Save/Cancel rules.
 
 ## Additional windows and shared entry
 
@@ -289,6 +351,12 @@ and independently: changing Worked Before does not reconfigure contact history.
 Provide a reset to each table's defaults. Column configuration changes the view,
 not recorded QSO values or the selected-contact set.
 
+Display a contact timestamp as one combined UTC date-and-time column, rather
+than separate Date and Time columns. Sorting that column compares complete
+timestamps, including the date, never the time of day alone. This applies to
+contact history and Worked Before. A date-only calculated/custom column would
+be a separate presentation capability, not the default timestamp column (D318).
+
 Hidden columns remain available through column configuration; hiding a field
 does not remove it from a contact. Widths and row height must respect the chosen
 font and UI scale. Use horizontal scrolling where necessary for the remaining
@@ -296,6 +364,16 @@ columns rather than squeezing values into unreadable fields. Exact default
 column lists and available fields belong to the delivered table capability.
 
 ## Operation feedback
+
+In contact entry, Enter from a single-line field saves the QSO (D311); Tab
+moves between fields. Use the same validation and submission behavior as the
+visible Save action. Dropdowns and multiline text retain their normal editing
+behavior, and unrelated dialogs do not acquire a global contact-save shortcut.
+
+While a contact-entry save is pending, make the submitted entry read-only and
+show **Saving…** (D315). Prevent duplicate submission; keep the rest of the
+workbench responsive. Success performs the agreed next-entry reset. Failure
+restores editing without discarding the entry and leaves its error visible.
 
 Use quiet feedback in the relevant tool for routine success, without a modal or
 toast for every saved QSO (D294). Distinguish saving locally from synchronization
@@ -419,6 +497,10 @@ These defaults complete the shared interaction contract:
   three existing choices and counts, with no preselected contact-handling choice.
   Put initial focus on Cancel and require explicit confirmation of the chosen
   outcome. Existing deletion semantics remain unchanged.
+- Individual QSO deletion requires a confirmation showing contacted callsign,
+  UTC start time, and band/mode (D314). State that deletion affects the contact
+  across all logbooks. Offer **Delete QSO** and **Cancel**, with initial focus
+  on Cancel; distinguish this action from removing a tag.
 
 Concrete colors and spacing are centralized in the desktop theme; the desktop
 guide describes current font selection, scale range and local preference storage.
