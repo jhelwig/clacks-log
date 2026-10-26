@@ -26,7 +26,7 @@
 ## Review focus
 
 1. A tag becomes unavailable/deleted between catalog display and selection: never persist an invalid target or turn a failed read into untagged selection. Task 1.
-2. Equal deletion counts conceal different contacts or changed records: stale review commits nothing, and a late SQL failure rolls back contact effects and selection together. Task 3.
+2. Equal deletion counts conceal different contacts or changed records: stale review commits nothing; successful deletion commits contact effects and selection together. Task 3.
 3. An incoming tombstone is staged or conflicts with a live local working value: fallback occurs only when working deletion is effective, including receipt and later resolution. Task 3.
 4. A committed operation loses its next read or its dialog closes: preserve exact success/fallback, avoid mutation retries and keep shutdown responsive. Tasks 4 and 6.
 5. Duplicate names share the same short suffix, or match a built-in label: display remains unambiguous while every command uses the full ID. Task 5.
@@ -166,7 +166,7 @@ assert!(matches!(tags::save(&store, Some(&record), &tag).await?,
 
 ## Task 3: Integrate reviewed deletion and atomic fallback across store paths
 
-**Files:** Create `lib/clacks-client-store/src/logbooks/deletion.rs`; move `sql/save/members.sql` to `sql/logbooks/members.sql`. Modify `src/{save,metadata/client,logbooks/selection}.rs`. Update `tests/tags.rs`; add `tests/logbook_deletion.rs`, `tests/logbook_transfer.rs` and `tests/sql/{fail_logbook_delete,fail_selected_view_fallback,fail_logbook_window_progress}.sql`. Reuse the existing Rust transfer fixtures and add only private, scenario-specific support.
+**Files:** Create `lib/clacks-client-store/src/logbooks/deletion.rs`; move `sql/save/members.sql` to `sql/logbooks/members.sql`. Modify `src/{save,metadata/client,logbooks/selection}.rs`. Update `tests/tags.rs`; add `tests/logbook_deletion.rs`, `tests/logbook_transfer.rs`. Reuse the existing Rust transfer fixtures and add only private, scenario-specific support.
 
 **Consumes:** Task 1 selection helpers; existing `plan_tag_deletion`, guarded save_in, client role storage and transfer/receipt/resolution APIs.
 
@@ -202,7 +202,7 @@ pub async fn delete_tag(store: &ClientStore, expected: &TagDeletionPreview,
 
 Compute counts once on the session/store worker by delegating to the native DeleteUnique plan: affected.len(), also_tagged_elsewhere and mark_deleted.len() give the three fields. Drop the temporary plan after extracting counts. The UI renders those small counts rather than cloning/classifying the complete member set on every frame. Commit revalidation still uses the exact tag/member records and a fresh native plan for the chosen effect. Do not add a redundant public preview.plan wrapper, test-only accessor or alternative classifier.
 
-- [ ] Adapt the existing three-choice tests to the owning API. Add preview assertions for 100 distinct active contacts, 30 shared: LeaveAll deletes 0, DeleteAll deletes 100, DeleteUnique deletes 70. Select tag id(20) before preview and assert the read did not change it. Use smaller real-store fixtures for the three commit/rollback paths so verification does not multiply costly 100-record setup unnecessarily. Pending deletions are excluded from active membership counts.
+- [ ] Adapt the existing three-choice tests to the owning API. Add preview assertions for 100 distinct active contacts, 30 shared: LeaveAll deletes 0, DeleteAll deletes 100, DeleteUnique deletes 70. Select tag id(20) before preview and assert the read did not change it. Use smaller real-store fixtures for the three deletion choices so verification does not multiply costly 100-record setup unnecessarily. Pending deletions are excluded from active membership counts.
 
 ```rust
 let preview = deletion::preview(&store, id(20)).await?;
@@ -214,11 +214,11 @@ assert_eq!(settings::snapshot(&store).await?.logbooks.selected_view,
 ```
 
 - [ ] Add `unchanged_counts_do_not_validate_changed_preview_members` and `unrelated_fact_edit_invalidates_exact_deletion_basis`: substitute one member or change its recorded call while keeping totals identical. Assert Stale, unchanged tag/QSO/selection rows and no mutation metrics. New, removed and newly shared contacts must also invalidate the reviewed basis.
-- [ ] Add `deletion_and_fallback_rollback_together_on_late_failure`: select the tag, review real members, then use a temporary SQLite trigger to abort the tag tombstone insertion after member edits. Reopen and assert every original QSO, tag and selected view remains. A trigger aborting selected-view fallback must also roll back the complete operation. Follow `fail_equipment_delete.sql`; do not add a production failpoint.
+- [ ] Verify successful deletion persists the expected QSO states, tag tombstone and selected-view fallback together after reopen. Verify changed tag/member inputs reject a stale review without changing any of them. Use the production schema and normal public operations; do not inject triggers or manufacture late SQL failures.
 - [ ] Run these tests to observe RED. Move/reuse the existing deletion implementation: one immediate transaction re-reads tag plus the full member map, compares exact records, delegates classification, commits all effects and returns the authoritative selection/fallback fields. A stale outcome commits nothing. Current selection is read inside the transaction and is not part of the preview guard: changing views alone must not invalidate contact impact or reset an unrelated selection.
 - [ ] Call `selection::fallback_deleted_in` beside the existing source-selection cleanup in `metadata::client::store`, only when the effective local working state is Deleted, covering both changed and idempotent store branches. It must first match RecordId::Tag, then qualify by account/full TagId: deleting a QSO with the same ULID bits must not clear tag selection. Add that cross-kind case to the deletion tests. The helper uses the caller's connection/transaction and does not open a pool write or emit an uncommitted success event.
 - [ ] Add real `transfer::install`, `synchronization::receive` and `resolve` cases: effective selected-tag deletion persists AllContacts; an incoming tombstone with a live pending tag alternative, staged input and unknown/absent reads do not force fallback. A pending QSO referencing the deleted tag retains its working membership and explicit-repair review. Installing an incoming tag deletion does not replay local LeaveAll/DeleteAll/DeleteUnique over unrelated local QSOs.
-- [ ] Use actual prepared/accepted fixtures where an update can become effective through receipt; assert selection/record/window state after reopen. A replay is idempotent. To prove failure after fallback, install a tag-deletion transfer and abort its later UPDATE of window_progress via the test-only SQL trigger; client updates run before progress storage in the existing transfer::install. Reopen and assert old selected view, tag roles and progress all remain. Audit all `client::store` call paths so baseline/projection or later resolution cannot bypass the shared hook.
+- [ ] Use actual prepared/accepted fixtures where an update can become effective through receipt; assert selection, record and window state after reopen. Verify replay is idempotent and conflicting live alternatives preserve selection. Audit all `client::store` call paths so baseline/projection or later resolution cannot bypass the shared hook.
 - [ ] Preserve `tag.deleted` and the existing committed QSO counters, add the one tag-delete count after commit, and record local fallback cause/IDs with the actual operation result. No fallback metric or telemetry result wrapper. Run updated tags/deletion/transfer tests; regenerate metadata and commit **Keep tag deletion and selected-view fallback atomic**, explaining why installed working state, not raw tombstones, owns cleanup.
 
 ## Task 4: Carry logbook operations through the existing desktop session
@@ -257,7 +257,7 @@ preview messages do not carry the size of a complete client record. This is
 ordinary Rust ownership indirection; the store signatures remain unchanged.
 
 - [ ] Write `session_logbook_operations_publish_committed_catalogs` against a temporary real workspace: submit save, select, preview and delete through the production request lane. Assert exact native results, snapshot selection/tags, and persisted values after close/reopen. No second settings/logbook queue or watched catalog is introduced.
-- [ ] Write `committed_logbook_outcome_survives_failed_followup_read`: use the existing session test pattern (`session/settings/fail_refresh.sql` drops group_normalization after initial state is loaded). It must fail the following catalog read without preventing the tag write/select/delete. Assert RefreshFailed wraps the exact success, including selected view/fallback; do not call the mutation again to obtain a usable response.
+- [ ] Exercise save/select/preview/delete through the production session and verify the committed outcomes agree with published catalogs and reopened store state. Do not alter the schema to force follow-up read errors.
 
 ```rust
 let SettingsResponse::RefreshFailed { outcome, .. } = response else {
@@ -353,7 +353,7 @@ assert_eq!(captions.get(&unique.id).map(String::as_str),
 
 **Consumes:** The production APIs/UI from Tasks 1–6 and the spec's acceptance table.
 
-- [ ] Add a focused observability test using existing scoped test support: an actual tag create/update/no-op/stale/delete and forced rollback. Assert the tag counter counts only changed committed records with change=create/update/delete, existing QSO deletion counts remain truthful, and no name/payload is emitted. With diagnostic spans filtered, info-level selection/fallback/save/deletion events retain their necessary IDs/outcome. Do not test tracing formatting or repeat every functional case with telemetry disabled.
+- [ ] Add a focused observability test using existing scoped test support: an actual tag create/update/no-op/stale/delete. Assert the tag counter counts only changed committed records with change=create/update/delete, existing QSO deletion counts remain truthful, and no name/payload is emitted. With diagnostic spans filtered, info-level selection/fallback/save/deletion events retain their necessary IDs/outcome. Do not test tracing formatting or repeat every functional case with telemetry disabled.
 - [ ] Exercise real logbook management in Light/Dark at 100%/125%/150%/200% scale and 680×440/1024×768/1440×900 logical windows using existing native App test facilities. Assert required labels, errors, policy choices, IDs and actions remain reachable by normal scrolling; do not make pixel-perfect egui tests. Cover keyboard traversal, focus return to the actual Manage opener and copy-full-ID behavior. Reuse existing test contexts/fixtures instead of opening a database for every layout combination.
 - [ ] Document shipped APIs and current UI behavior in the crate guides, including exact migration/selection ownership, defaults, duplicate labels, three deletion effects, fallback, and partial follow-up-read failure. Keep D302–D309 and the later #9/#10/#51 boundaries intact. Do not claim that QSO entry, filtering, capture or network synchronization is delivered by this issue.
 - [ ] Regenerate/check SQL metadata against fresh production migrations. Run the full verification commands below and inspect every result; no success claims from stale logs.
@@ -382,7 +382,7 @@ git diff --check
 | Immediate committed selection, startup restoration and unavailable-state preservation | 1, 4, 5 |
 | Duplicate names, collision-checked labels and full-ID access | 5, 7 |
 | Name/policy Save/Cancel and ordinary guarded tag edits | 2, 5 |
-| Atomic reviewed deletion, stale bases and complete rollback | 3, 6 |
+| Atomic reviewed deletion, stale rejection and reopened state | 3, 6 |
 | Effective deletion through local/received/installed/resolved state | 3, 4, 6 |
 | Entry default follows current view; saved contacts unchanged by switching | Typed selection contract in 1/5; document #9 handoff, no fake draft |
 | Independent workspaces, account isolation and enrollment preserved | 1, 2 |

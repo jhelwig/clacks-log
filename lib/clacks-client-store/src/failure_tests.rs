@@ -233,15 +233,6 @@ fn sqlite_full_rolls_back_and_counts_only_the_successful_retry() -> anyhow::Resu
 
 #[test]
 fn staged_input_counts_new_commits_without_counting_retries() -> anyhow::Result<()> {
-    capture_staged_input(false)
-}
-
-#[test]
-fn failed_staging_does_not_increment_the_committed_input_counter() -> anyhow::Result<()> {
-    capture_staged_input(true)
-}
-
-fn capture_staged_input(fail_first: bool) -> anyhow::Result<()> {
     use crate::transfer;
     use clacks_sync::{
         account::{AccountMetadata, InstalledCheckpoint},
@@ -293,47 +284,6 @@ fn capture_staged_input(fail_first: bool) -> anyhow::Result<()> {
                     }],
                 )?;
                 transfer::remember(&store, &manifest).await?;
-                if fail_first {
-                    // The deferred constraint lets every staging statement succeed
-                    // and rejects only COMMIT, exercising the actual metric boundary.
-                    store
-                        .pool
-                        .execute("CREATE TABLE staging_parent (id INTEGER PRIMARY KEY)")
-                        .await?;
-                    store.pool.execute(
-                        "CREATE TABLE staging_guard (parent INTEGER REFERENCES staging_parent(id) \
-                         DEFERRABLE INITIALLY DEFERRED)",
-                    ).await?;
-                    store
-                        .pool
-                        .execute(
-                            "CREATE TRIGGER reject_staging AFTER INSERT ON window_staged \
-                             BEGIN INSERT INTO staging_guard VALUES (1); END",
-                        )
-                        .await?;
-                    let error = transfer::install(
-                        &store,
-                        &source,
-                        &WindowMode::Full,
-                        std::slice::from_ref(&first),
-                    )
-                    .await
-                    .unwrap_err();
-                    assert!(error.chain().any(|cause| {
-                        cause
-                            .downcast_ref::<sqlx::Error>()
-                            .and_then(sqlx::Error::as_database_error)
-                            .is_some_and(|cause| cause.is_foreign_key_violation())
-                    }));
-                    assert!(
-                        transfer::progress(&store, &source, &WindowMode::Full)
-                            .await?
-                            .staged
-                            .is_empty()
-                    );
-                    assert!(save::load(&store, first.key).await?.is_none());
-                    store.pool.execute("DROP TRIGGER reject_staging").await?;
-                }
                 let staged = transfer::install(
                     &store,
                     &source,

@@ -719,6 +719,12 @@ lower-level spans are filtered.
 
 ## 11. Acceptance and verification
 
+Exercise normal store operations against the production schema. Do not inject
+triggers, drop tables to manufacture failures, or add test-only production
+interfaces. Use real inputs and ordinary contention/interruption conditions.
+Malformed-database rejection and authored migration transformations use explicit
+input fixtures for those contracts.
+
 Required verification for the store:
 
 1. Round-trip every native payload variant, all original/observation variants,

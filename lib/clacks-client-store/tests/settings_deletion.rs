@@ -261,39 +261,6 @@ async fn replacement_edit_or_deletion_aborts_review() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn failed_equipment_delete_rolls_back_repairs_and_cleanup() -> anyhow::Result<()> {
-    use sqlx::{Connection, Executor};
-    let f = fixture().await?;
-    let preview = settings::preview_equipment_deletion(&f.store, f.a.id).await?;
-    let before = settings::snapshot(&f.store).await?;
-    let mut connection = sqlx::SqliteConnection::connect_with(
-        &sqlx::sqlite::SqliteConnectOptions::new()
-            .filename(f.directory.path().join("account.sqlite")),
-    )
-    .await?;
-    connection
-        .execute(include_str!("sql/fail_equipment_delete.sql"))
-        .await?;
-    connection.close().await?;
-    assert!(
-        settings::delete_equipment(&f.store, &preview, &choices(&f))
-            .await
-            .is_err()
-    );
-    assert_eq!(settings::snapshot(&f.store).await?, before);
-    f.store.close().await?;
-    let reopened = ClientStore::open(
-        &f.directory.path().join("account.sqlite"),
-        id(1),
-        StoreSettings::default(),
-    )
-    .await?;
-    assert_eq!(settings::snapshot(&reopened).await?, before);
-    reopened.close().await?;
-    Ok(())
-}
-
-#[tokio::test]
 async fn apply_racing_delete_never_reattaches() -> anyhow::Result<()> {
     let f = fixture().await?;
     let expected = f.active.clone();

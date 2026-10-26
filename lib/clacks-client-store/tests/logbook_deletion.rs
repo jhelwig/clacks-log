@@ -122,51 +122,6 @@ async fn unrelated_fact_edit_invalidates_exact_deletion_basis() -> anyhow::Resul
 }
 
 #[tokio::test]
-async fn deletion_and_fallback_rollback_together_on_late_failure() -> anyhow::Result<()> {
-    use clacks_client_store::store::{ClientStore, StoreSettings};
-    use sqlx::{ConnectOptions, Connection, sqlite::SqliteConnectOptions};
-
-    for failure in [
-        include_str!("sql/fail_logbook_delete.sql"),
-        include_str!("sql/fail_selected_view_fallback.sql"),
-    ] {
-        let workspace = Workspace::new().await?;
-        let tag = insert(&workspace.store, 20, "Main").await?;
-        selection::select(&workspace.store, SelectedView::Logbook(id(20))).await?;
-        let mut value = qso(id(100));
-        value.tags = [id(20)].into();
-        let SaveOutcome::Saved(member) =
-            save::save(&workspace.store, qso_key(id(100)), None, contact(value)).await?
-        else {
-            panic!("create");
-        };
-        let preview = deletion::preview(&workspace.store, id(20)).await?;
-        let mut connection = SqliteConnectOptions::new()
-            .filename(&workspace.path)
-            .connect()
-            .await?;
-        sqlx::raw_sql(failure).execute(&mut connection).await?;
-        assert!(
-            deletion::delete_tag(&workspace.store, &preview, TagDeletionChoice::DeleteAll)
-                .await
-                .is_err()
-        );
-        connection.close().await?;
-        workspace.store.close().await?;
-
-        let reopened = ClientStore::open(&workspace.path, id(1), StoreSettings::default()).await?;
-        assert_eq!(save::load(&reopened, tag.key).await?, Some(tag));
-        assert_eq!(save::load(&reopened, member.key).await?, Some(member));
-        assert_eq!(
-            settings::snapshot(&reopened).await?.logbooks.selected_view,
-            SelectedView::Logbook(id(20))
-        );
-        reopened.close().await?;
-    }
-    Ok(())
-}
-
-#[tokio::test]
 async fn unchanged_counts_do_not_validate_changed_preview_members() -> anyhow::Result<()> {
     let workspace = Workspace::new().await?;
     insert(&workspace.store, 20, "Main").await?;

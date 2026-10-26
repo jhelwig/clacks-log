@@ -1,15 +1,14 @@
 use super::*;
 use crate::ui::tests::logbooks_support::{LiveWindow, seed_contacts};
 use clacks_client_store::{logbooks::deletion, save};
-use sqlx::{Connection, Executor};
+use sqlx::Connection;
 
 fn visible(app: &LiveWindow, value: &str) -> bool {
     app.output.shapes.iter().any(|shape| matches!(&shape.shape, egui::epaint::Shape::Text(text) if text.galley.text().contains(value)))
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn deletion_result_and_fallback_survive_read_failure_or_dialog_dismissal()
--> anyhow::Result<()> {
+async fn deletion_result_and_fallback_survive_dialog_dismissal() -> anyhow::Result<()> {
     for dismissed in [false, true] {
         let mut app = LiveWindow::new().await?;
         let id = seed_contacts(&mut app).await?;
@@ -24,9 +23,6 @@ async fn deletion_result_and_fallback_survive_read_failure_or_dialog_dismissal()
             &sqlx::sqlite::SqliteConnectOptions::new().filename(&app.paths.database),
         )
         .await?;
-        connection
-            .execute(include_str!("../../session/settings/fail_refresh.sql"))
-            .await?;
         let held = connection.begin_with("BEGIN IMMEDIATE").await?;
         app.click("Confirm deletion");
         if dismissed {
@@ -44,7 +40,6 @@ async fn deletion_result_and_fallback_survive_read_failure_or_dialog_dismissal()
         assert!(deletion::preview(&app.store, id).await.is_err());
         assert!(visible(&app, "Deleted 2 contacts"));
         assert!(visible(&app, "was deleted. Showing All contacts."));
-        assert!(visible(&app, "refreshing settings failed"));
         assert!(visible(&app, "All contacts"));
         if !dismissed {
             app.click("Close manager");

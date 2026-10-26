@@ -17,7 +17,8 @@ use crate::support::id;
 pub struct Workspace {
     /// Own the temporary files until the scenario completes.
     pub _directory: tempfile::TempDir,
-    /// Actual database used for reopen and failure fixtures.
+    /// Actual database used for reopened-workspace checks.
+    #[allow(dead_code)]
     pub path: PathBuf,
     /// Production account store under test.
     pub store: ClientStore,

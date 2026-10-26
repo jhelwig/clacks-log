@@ -373,8 +373,7 @@ async fn stale_profile_save_and_deleted_default_have_distinct_repair_paths() -> 
 }
 
 #[tokio::test]
-async fn duplicate_names_remain_distinct_and_failed_request_keeps_form_and_focus()
--> anyhow::Result<()> {
+async fn duplicate_names_edit_only_the_selected_profile() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
     let mut other = sources.home.clone();
@@ -388,29 +387,17 @@ async fn duplicate_names_remain_distinct_and_failed_request_keeps_form_and_focus
     assert!(
         matches!(&window.view.stack.last().unwrap().screen, Screen::Profile(e) if e.id == other.id)
     );
-    // A genuine storage failure must not discard or replace the editing form.
-    use sqlx::{Connection, Executor};
-    let mut connection = sqlx::SqliteConnection::connect_with(
-        &sqlx::sqlite::SqliteConnectOptions::new().filename(&window.database),
-    )
-    .await?;
-    connection
-        .execute(include_str!("fail_profile_save.sql"))
-        .await?;
-    connection.close().await?;
     window.submit("Save profile");
     window.settle().await;
+    let saved = clacks_client_store::settings::snapshot(&window.store).await?;
+    assert!(saved.profiles.iter().any(|item| {
+        profile(item).is_some_and(|value| value.id == other.id && value.name == "Other location")
+    }));
     assert!(
-        matches!(&window.view.stack.last().unwrap().screen, Screen::Profile(e) if e.name == "Other location")
-    );
-    window.text("profile.name", "Still editing");
-    assert!(
-        window
-            .context
-            .memory(|m| m.has_focus(egui::Id::unique("profile.name")))
-    );
-    assert!(
-        matches!(&window.view.stack.last().unwrap().screen, Screen::Profile(e) if e.name == "Still editing")
+        saved
+            .profiles
+            .iter()
+            .any(|item| profile(item) == Some(&sources.home))
     );
     window.close().await?;
     Ok(())

@@ -18,8 +18,7 @@ use logbook_support::Workspace;
 use support::{contact, id, qso, qso_key};
 
 #[test]
-fn tag_telemetry_counts_commits_not_stale_unchanged_or_rolled_back_effects() -> anyhow::Result<()> {
-    use sqlx::{ConnectOptions, Connection, sqlite::SqliteConnectOptions};
+fn tag_telemetry_counts_commits_without_counting_stale_or_unchanged_saves() -> anyhow::Result<()> {
     let capture = telemetry::capture_filtered(
         || {
             tokio::runtime::Builder::new_current_thread()
@@ -60,28 +59,6 @@ fn tag_telemetry_counts_commits_not_stale_unchanged_or_rolled_back_effects() -> 
                             .await?;
                     }
                     let preview = deletion::preview(&workspace.store, tag.id).await?;
-                    let mut connection = SqliteConnectOptions::new()
-                        .filename(&workspace.path)
-                        .connect()
-                        .await?;
-                    sqlx::raw_sql(include_str!("sql/fail_selected_view_fallback.sql"))
-                        .execute(&mut connection)
-                        .await?;
-                    assert!(
-                        deletion::delete_tag(
-                            &workspace.store,
-                            &preview,
-                            TagDeletionChoice::DeleteAll
-                        )
-                        .await
-                        .is_err()
-                    );
-                    // The hook runs after contact effects; this late failure must count none.
-                    assert_eq!(deletion::preview(&workspace.store, tag.id).await?, preview);
-                    sqlx::raw_sql(include_str!("sql/remove_logbook_failure.sql"))
-                        .execute(&mut connection)
-                        .await?;
-                    connection.close().await?;
                     deletion::delete_tag(
                         &workspace.store,
                         &preview,

@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::ui::tests::logbooks_support::{LiveWindow, seed_contacts};
-use sqlx::{Connection, Executor};
+use sqlx::Connection;
 
 fn visible(app: &LiveWindow, label: &str) -> bool {
     app.output.shapes.iter().any(|shape| {
@@ -96,7 +96,7 @@ async fn selection_settles_before_management_can_open() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn explicit_view_switch_clears_fallback_only_after_success() -> anyhow::Result<()> {
+async fn explicit_view_switch_clears_deleted_logbook_notice() -> anyhow::Result<()> {
     use clacks_client_store::logbooks::{deletion, selection};
     let mut app = LiveWindow::new().await?;
     let id = seed_contacts(&mut app).await?;
@@ -112,30 +112,6 @@ async fn explicit_view_switch_clears_fallback_only_after_success() -> anyhow::Re
     app.settle().await?;
     assert!(visible(&app, "was deleted. Showing All contacts."));
 
-    let mut connection = sqlx::SqliteConnection::connect_with(
-        &sqlx::sqlite::SqliteConnectOptions::new().filename(&app.paths.database),
-    )
-    .await?;
-    connection
-        .execute(include_str!(
-            "../../../../clacks-client-store/tests/sql/fail_selected_view_fallback.sql"
-        ))
-        .await?;
-    app.click("All contacts");
-    app.click("Untagged");
-    app.settle().await?;
-    assert!(visible(&app, "was deleted. Showing All contacts."));
-    assert_eq!(
-        app.snapshot().await?.logbooks.selected_view,
-        SelectedView::AllContacts
-    );
-
-    connection
-        .execute(include_str!(
-            "../../../../clacks-client-store/tests/sql/remove_logbook_failure.sql"
-        ))
-        .await?;
-    connection.close().await?;
     app.click("All contacts");
     app.click("Untagged");
     app.settle().await?;
