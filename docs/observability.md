@@ -405,3 +405,16 @@ The store disables SQL statement/bound-value logging. No recorded call, name,
 comment, provider report, secret reference, certificate/private key or workspace
 path is included in its telemetry. Runtime error boundaries decide deliberate
 logging and operator diagnostics; the library propagates concrete causes.
+
+## Manual-logging runtime
+
+Contact requests use the `desktop.contacts` span on the existing runtime. The
+store remains the owner of `record.saved` and
+`clacks_client_qso_mutations_total`; the desktop does not emit a second mutation
+counter or repeat a committed event merely to acknowledge the UI action.
+`contact.create_retry_acknowledged` reports recovery of an identical stable-ID
+create at `info`, with account and record IDs. `contact.save.stale` reports an
+expected-basis mismatch without logging contact facts or inventing a new
+conflict policy. These events retain correlation when debug spans are filtered.
+Bounded list reads use `client_store.contacts.page` at `debug`. Handling-boundary
+failures and later refresh failures remain distinct from committed writes.

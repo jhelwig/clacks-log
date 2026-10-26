@@ -195,7 +195,7 @@ where a concrete missing transaction guarantee is demonstrated.
 
 - Add `SettingsAction::Contacts(ContactAction)` and corresponding typed responses.
 - `ContactAction::{Page { query: ContactPageQuery }, Load { id: QsoId },
-  Save { expected: Option<Box<ClientRecord>>, next: Qso },
+  Save { expected: Option<Box<ClientRecord>>, next: Box<Qso> },
   Delete { expected: Box<ClientRecord> }}`.
 - `ContactResponse::{Page(ContactPage), Loaded(Option<ClientRecord>), Saved(SaveOutcome),
   Deleted(SaveOutcome)}`; retain existing `SettingsResponse::RefreshFailed`,
