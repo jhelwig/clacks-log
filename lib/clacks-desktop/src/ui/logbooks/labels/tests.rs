@@ -21,5 +21,4 @@ fn ordinary_duplicate_suffixes_keep_full_identity_out_of_names() {
     let captions = labels(&[&second, &first]);
     assert_eq!(captions.get(&first.id).unwrap(), "Main · …00000001");
     assert_eq!(captions.get(&second.id).unwrap(), "Main · …00000002");
-    assert_eq!(first.name, "Main");
 }

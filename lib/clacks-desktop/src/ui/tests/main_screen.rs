@@ -332,6 +332,19 @@ fn application_bar_and_operating_strip_follow_the_accepted_workbench_layout() {
 fn narrow_operating_strip_keeps_the_power_value_and_unit_together() {
     let mut window = Window::new();
     window.ready_main_screen();
+    let mut snapshot = (**window.app.settings_view.borrow().as_ref().unwrap()).clone();
+    snapshot.operating.current = Some(clacks_model::profile::CurrentOperatingValues {
+        station: clacks_model::contact::StationSnapshot {
+            callsign: clacks_model::scalar::RecordedCallsign::new("W7POWER").unwrap(),
+            location: None,
+            references: Default::default(),
+        },
+        equipment: None,
+        operator: None,
+        transmit_power: Some(clacks_model::scalar::Milliwatts::new(12_500).unwrap()),
+    });
+    let (_, view) = watch::channel(Some(Arc::new(snapshot)));
+    window.app.settings_view = view;
     theme::install(&window.context, &Default::default());
     window
         .main_frame_at_size(vec![], egui::vec2(680.0, 440.0))
@@ -339,9 +352,10 @@ fn narrow_operating_strip_keeps_the_power_value_and_unit_together() {
     let output = window.main_frame_at_size(vec![], egui::vec2(680.0, 440.0));
     let mut label = None;
     let mut unit = None;
+    let mut value = None;
     for shape in &output.shapes {
         if let egui::epaint::Shape::Text(text) = &shape.shape
-            && matches!(text.galley.text(), "Power" | "W")
+            && matches!(text.galley.text(), "Power" | "W" | "12.5")
         {
             let bounds = text.visual_bounding_rect();
             assert!(
@@ -351,12 +365,24 @@ fn narrow_operating_strip_keeps_the_power_value_and_unit_together() {
             );
             if text.galley.text() == "Power" {
                 label = Some(bounds);
-            } else {
+            } else if text.galley.text() == "W" {
                 unit = Some(bounds);
+            } else {
+                value = Some(bounds);
             }
         }
     }
     let label = label.unwrap();
     let unit = unit.unwrap();
+    let value = value.unwrap();
+    assert!(
+        value.top() < unit.bottom() && unit.top() < value.bottom(),
+        "power value and unit must share a row: {value:?} {unit:?}"
+    );
+    assert!(value.right() <= unit.left());
+    assert!(
+        unit.left() - value.right() < 80.0,
+        "unit must follow the compact value field"
+    );
     assert!((label.center().y - unit.center().y).abs() < label.height());
 }

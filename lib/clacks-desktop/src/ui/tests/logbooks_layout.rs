@@ -84,6 +84,7 @@ async fn manager_copy_and_keyboard_dismissal_restore_the_actual_opener() -> anyh
     let mut app = LiveWindow::new().await?;
     let tag = LogbookTag::new(Default::default(), "Main".into());
     tags::save(&app.store, None, &tag).await?;
+    app.refresh_from_controls().await?;
     app.settle().await?;
     app.click("Manage logbooks…");
     let opener = app

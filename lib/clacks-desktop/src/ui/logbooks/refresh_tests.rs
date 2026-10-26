@@ -120,6 +120,7 @@ async fn effective_deleted_selection_is_presented_once_without_repairing_pending
         transfer::finish(&app.store, &source, &WindowMode::Full).await?;
         // Matching the locally created tag acknowledges that exact initial value.
         selection::select(&app.store, SelectedView::Logbook(id)).await?;
+        app.refresh_from_controls().await?;
         app.settle().await?;
         if pending {
             let row = save::load(&app.store, key).await?.unwrap();
@@ -132,6 +133,7 @@ async fn effective_deleted_selection_is_presented_once_without_repairing_pending
         deleted.stamp.accepted_at.revision = 2;
         deleted.stamp.vector = RecordVector::from_entries([(ClockActor::Server(timeline), 2)])?;
         synchronization::receive(&app.store, &deleted).await?;
+        app.refresh_from_controls().await?;
         app.settle().await?;
         assert_eq!(
             visible(&app, "was deleted. Showing All contacts."),

@@ -97,10 +97,11 @@ async fn selection_settles_before_management_can_open() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn explicit_view_switch_clears_deleted_logbook_notice() -> anyhow::Result<()> {
-    use clacks_client_store::logbooks::{deletion, selection};
+    use clacks_client_store::logbooks::deletion;
     let mut app = LiveWindow::new().await?;
     let id = seed_contacts(&mut app).await?;
-    selection::select(&app.store, SelectedView::Logbook(id)).await?;
+    app.click("All contacts");
+    app.click("Main");
     app.settle().await?;
     let preview = deletion::preview(&app.store, id).await?;
     deletion::delete_tag(
@@ -109,6 +110,7 @@ async fn explicit_view_switch_clears_deleted_logbook_notice() -> anyhow::Result<
         clacks_model::tag::TagDeletionChoice::LeaveAll,
     )
     .await?;
+    app.refresh_from_controls().await?;
     app.settle().await?;
     assert!(visible(&app, "was deleted. Showing All contacts."));
 
@@ -121,4 +123,24 @@ async fn explicit_view_switch_clears_deleted_logbook_notice() -> anyhow::Result<
         SelectedView::Untagged
     );
     app.close().await
+}
+
+impl LiveWindow {
+    /// Drive actual pending replies and snapshots without submitting recovery work.
+    pub(in crate::ui) async fn settle(&mut self) -> anyhow::Result<()> {
+        tokio::time::timeout(std::time::Duration::from_secs(15), async {
+            loop {
+                self.frame(vec![]);
+                if !self.window.app.logbooks.is_busy()
+                    && !self.window.app.settings_view.has_changed()?
+                {
+                    self.frame(vec![]);
+                    return anyhow::Ok(());
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await??;
+        Ok(())
+    }
 }

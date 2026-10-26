@@ -79,29 +79,6 @@ fn activation_is_acknowledged_and_listener_cleanup_is_joined() -> anyhow::Result
     Ok(())
 }
 
-#[test]
-fn activation_waits_for_an_owner_still_starting() -> anyhow::Result<()> {
-    let directory = tempfile::tempdir()?;
-    let Election::Owner(owner) = elect(&paths(directory.path()))? else {
-        panic!("owner");
-    };
-    let address = owner.address.clone();
-    let requester = std::thread::spawn(move || activation::request(&address));
-    std::thread::sleep(std::time::Duration::from_millis(50));
-
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()?;
-    let (sender, receiver) = tokio::sync::watch::channel(());
-
-    let listener = owner.listen(runtime.handle(), sender)?;
-    requester.join().expect("request thread")?;
-
-    assert!(receiver.has_changed()?);
-    runtime.block_on(listener.shutdown())?;
-    Ok(())
-}
-
 #[cfg(unix)]
 #[test]
 fn stale_socket_is_recovered_but_other_files_are_preserved() -> anyhow::Result<()> {

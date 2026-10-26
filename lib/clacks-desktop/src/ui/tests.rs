@@ -194,7 +194,7 @@ fn font_selection_assigns_the_requested_radio_role() {
 }
 
 pub(in crate::ui) struct Window {
-    app: DesktopApp,
+    pub(in crate::ui) app: DesktopApp,
     context: egui::Context,
     updates: watch::Sender<SessionStatus>,
     notices: watch::Sender<()>,

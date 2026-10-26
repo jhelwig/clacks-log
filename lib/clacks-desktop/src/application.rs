@@ -62,8 +62,6 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
         telemetry,
         activation: activation.clone(),
         context: context.clone(),
-        #[cfg(test)]
-        opening_gate: None,
     };
     let (commands, input) = mpsc::channel(8);
     let (updates, status) = watch::channel(SessionStatus::Opening);

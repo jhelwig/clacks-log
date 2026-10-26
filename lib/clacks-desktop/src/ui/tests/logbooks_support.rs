@@ -119,18 +119,28 @@ impl LiveWindow {
         self.frame(vec![]);
     }
 
-    pub async fn settle(&mut self) -> anyhow::Result<()> {
-        let (reply, result) = tokio::sync::oneshot::channel();
-        self.window
-            .app
-            .settings_requests
-            .send(SettingsRequest {
-                action: crate::session::settings::SettingsAction::Refresh,
-                reply,
-            })
-            .await?;
-        tokio::time::timeout(Duration::from_secs(15), result).await??;
-        self.frame(vec![]);
+    /// Explicitly request the production refresh control after external fixture writes.
+    pub async fn refresh_from_controls(&mut self) -> anyhow::Result<()> {
+        let before = self.window.app.settings_view.borrow().clone().unwrap();
+        self.click("Saved settings");
+        self.click("Refresh settings");
+        tokio::time::timeout(Duration::from_secs(15), async {
+            loop {
+                self.frame(vec![]);
+                let changed = self
+                    .window
+                    .app
+                    .settings_view
+                    .borrow()
+                    .as_ref()
+                    .is_some_and(|snapshot| !Arc::ptr_eq(snapshot, &before));
+                if changed {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await?;
         self.frame(vec![]);
         Ok(())
     }
@@ -202,6 +212,7 @@ pub(in crate::ui) async fn seed_contacts(
         )
         .await?;
     }
+    app.refresh_from_controls().await?;
     app.settle().await?;
     Ok(tag.id)
 }

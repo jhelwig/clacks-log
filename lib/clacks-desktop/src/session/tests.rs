@@ -55,7 +55,6 @@ impl Fixture {
             telemetry,
             activation,
             context: Arc::new(OnceLock::new()),
-            opening_gate: None,
         };
         let (updates, status) = watch::channel(SessionStatus::Opening);
         let (commands, input) = mpsc::channel(8);
@@ -87,67 +86,6 @@ pub(crate) async fn next_matching(
         }
     })
     .await?
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn close_during_open_does_not_publish_ready() -> anyhow::Result<()> {
-    let mut fixture = Fixture::new()?;
-    let paths = fixture.resources.paths.clone();
-    let (release, gate) = tokio::sync::oneshot::channel();
-    fixture.resources.opening_gate = Some(gate);
-
-    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
-    fixture.commands.send(SessionCommand::BeginShutdown).await?;
-    let closing = next_matching(&mut fixture.status, |s| {
-        matches!(s, SessionStatus::Closing { .. })
-    })
-    .await?;
-    let SessionStatus::Closing { started, .. } = closing else {
-        unreachable!()
-    };
-    fixture.commands.send(SessionCommand::BeginShutdown).await?;
-    release.send(()).unwrap();
-    loop {
-        let current = fixture.status.borrow_and_update().clone();
-
-        assert!(!matches!(current, SessionStatus::Ready { .. }));
-        if let SessionStatus::Closing {
-            started: current_start,
-            ..
-        } = current
-        {
-            assert_eq!(current_start, started);
-        }
-        if matches!(current, SessionStatus::Closed) {
-            break;
-        }
-        fixture.status.changed().await?;
-    }
-    task.await??;
-    // Account provisioning admitted before close must retain all native saves.
-    let reopened = crate::workspace::open(&paths).await?;
-    let definitions = clacks_model::defaults::account_definitions()?;
-    for group in definitions.groups {
-        let key = clacks_sync::record::RecordKey {
-            account: reopened.identity.account,
-            id: clacks_sync::record::RecordId::Group(group.id),
-        };
-        let saved = clacks_client_store::save::load(&reopened.store, key)
-            .await?
-            .unwrap();
-
-        assert_eq!(
-            saved.working_state(),
-            Some(&clacks_sync::record::RecordState::Live(
-                clacks_sync::record::RecordValue::Group(Box::new(group))
-            ))
-        );
-    }
-    reopened.store.close().await?;
-    drop(fixture._owner);
-
-    crate::instance::tests::wait_for_owner(&paths)?;
-    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]

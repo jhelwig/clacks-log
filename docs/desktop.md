@@ -383,9 +383,10 @@ All delivered code and test tooling use the locked Rust toolchain. Verify:
    this native acceptance. Installer/distribution qualification remains #35.
 
 Use subprocess and headless tests for deterministic ownership/lifecycle behavior,
-and actual native interaction for window/renderer claims. Rust fixtures and
-private test seams may control delayed work; public APIs must still serve real
-application behavior. Platform checks not performed remain explicitly unverified.
+and actual native interaction for window/renderer claims. Exercise delayed work
+through ordinary production inputs and environmental conditions, without
+test-only production pause or fault hooks. Platform checks not performed remain
+explicitly unverified.
 
 ## 10. Integration references
 

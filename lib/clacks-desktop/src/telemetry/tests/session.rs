@@ -37,7 +37,6 @@ pub(super) fn complete(
         telemetry,
         activation,
         context: Arc::new(OnceLock::new()),
-        opening_gate: None,
     };
     let account = runtime.block_on(async {
         let task = tokio::spawn(session::run(resources, input, updates));
@@ -71,7 +70,10 @@ pub(super) fn complete(
 }
 
 /// Verify the workflow measurement, safe identity context and pre-flush domain milestone.
-pub(super) fn assert_wire(requests: &[super::collector::Request]) -> anyhow::Result<()> {
+pub(super) fn assert_wire(
+    requests: &[super::collector::Request],
+    account: clacks_model::ids::AccountId,
+) -> anyhow::Result<()> {
     use opentelemetry_proto::tonic::{
         collector::{logs::v1::ExportLogsServiceRequest, metrics::v1::ExportMetricsServiceRequest},
         metrics::v1::metric::Data,
@@ -125,12 +127,12 @@ pub(super) fn assert_wire(requests: &[super::collector::Request]) -> anyhow::Res
                 {
                     ready = true;
 
-                    assert!(
-                        record
-                            .attributes
-                            .iter()
-                            .any(|attribute| attribute.key == "account_id")
-                    );
+                    assert!(record.attributes.iter().any(|attribute| {
+                        attribute.key == "account_id"
+                            && attribute.value.as_ref().is_some_and(|value| {
+                                value.value == Some(Value::StringValue(account.to_string()))
+                            })
+                    }));
                 }
                 drained |= matches!(event, Some(Value::StringValue(value)) if value == "desktop.work_drained");
             }

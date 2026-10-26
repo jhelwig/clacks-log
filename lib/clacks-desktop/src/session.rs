@@ -84,9 +84,6 @@ pub(crate) struct SessionResources {
     pub settings_requests: mpsc::Receiver<settings::SettingsRequest>,
     /// Ordered committed settings view for native presentation.
     pub settings_updates: watch::Sender<Option<Arc<SettingsSnapshot>>>,
-    /// Test-only pause at the opening boundary; no shipped delay control.
-    #[cfg(test)]
-    pub opening_gate: Option<tokio::sync::oneshot::Receiver<()>>,
 }
 
 /// Publish state and wake the native loop without relying on redraws for liveness.
@@ -115,8 +112,6 @@ pub(crate) async fn run(
         context,
         mut settings_requests,
         settings_updates,
-        #[cfg(test)]
-        opening_gate,
     } = resources;
 
     let stop = CancellationToken::new();
@@ -130,12 +125,7 @@ pub(crate) async fn run(
     let mut font_work = JoinSet::new();
     let mut settings_open = true;
     let mut opening = JoinSet::new();
-    opening::begin(
-        &mut opening,
-        paths.clone(),
-        #[cfg(test)]
-        opening_gate,
-    );
+    opening::begin(&mut opening, paths.clone());
 
     let mut attempt_started = Instant::now();
     let mut opened: Option<OpenedWorkspace> = None;
@@ -166,7 +156,7 @@ pub(crate) async fn run(
                 Some(SessionCommand::RetryOpen) if closing.is_none() && opening.is_empty() && opened.is_none() => {
                     publish(&status, &context, SessionStatus::Opening);
                     attempt_started = Instant::now();
-                    opening::begin(&mut opening, paths.clone(), #[cfg(test)] None);
+                    opening::begin(&mut opening, paths.clone());
                     tracing::info!(event = "desktop.workspace_retry");
                 }
                 Some(SessionCommand::RetryOpen) => {},

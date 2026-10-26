@@ -255,11 +255,20 @@ impl Window {
                 {
                     break;
                 }
-                tokio::task::yield_now().await;
+                // Successful work publishes a settings snapshot. Failed or
+                // unchanged responses can finish without one, so also poll at
+                // the ordinary frame cadence instead of continuously rendering
+                // ready frames while the runtime and database workers need CPU.
+                tokio::select! {
+                    changed = self.settings_view.changed() => {
+                        changed.expect("settings session closed while operating work was pending");
+                    }
+                    () = tokio::time::sleep(std::time::Duration::from_secs_f64(1.0 / 60.0)) => {}
+                }
             }
         })
         .await
-        .unwrap();
+        .expect("pending operating work did not settle within 15 seconds");
     }
     pub(in crate::ui::operating) async fn close(self) -> anyhow::Result<()> {
         self.store.close().await?;

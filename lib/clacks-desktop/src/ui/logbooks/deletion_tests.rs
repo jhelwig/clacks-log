@@ -116,6 +116,7 @@ async fn every_deletion_choice_preserves_the_committed_result() -> anyhow::Resul
         app.click("Manage logbooks…");
         app.click("Delete logbook");
         app.settle().await?;
+        let reviewed = deletion::preview(&app.store, id).await?;
         app.click(label);
         app.click("Confirm deletion");
         app.settle().await?;
@@ -127,6 +128,24 @@ async fn every_deletion_choice_preserves_the_committed_result() -> anyhow::Resul
         assert!(visible(&app, &format!("Deleted {count} contacts")));
         assert!(visible(&app, "was deleted. Showing All contacts."));
         assert!(deletion::preview(&app.store, id).await.is_err());
+        for before in reviewed.members {
+            let Some(RecordState::Live(RecordValue::Qso(qso))) = before.working_state() else {
+                panic!("reviewed QSO")
+            };
+            let deleted = choice == TagDeletionChoice::DeleteAll
+                || (choice == TagDeletionChoice::DeleteUnique && qso.tags.len() == 1);
+            let after = save::load(&app.store, before.key).await?.unwrap();
+            if deleted {
+                assert_eq!(after.working_state(), Some(&RecordState::Deleted));
+            } else {
+                let mut expected = qso.clone();
+                expected.tags.remove(&id);
+                assert_eq!(
+                    after.working_state(),
+                    Some(&RecordState::Live(RecordValue::Qso(expected)))
+                );
+            }
+        }
         app.close().await?;
     }
     Ok(())

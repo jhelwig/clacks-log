@@ -110,6 +110,7 @@ async fn builtins_and_same_named_tag_remain_distinct_choices() -> anyhow::Result
     let mut app = LiveWindow::new().await?;
     let tag = LogbookTag::new(Default::default(), "All contacts".into());
     tags::save(&app.store, None, &tag).await?;
+    app.refresh_from_controls().await?;
     app.settle().await?;
     app.click("All contacts");
     app.frame(vec![]);
