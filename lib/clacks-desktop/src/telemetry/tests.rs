@@ -79,6 +79,13 @@ fn child_entry() -> anyhow::Result<()> {
         })
         .transpose()?;
 
+    if case == "session"
+        && let Some(collector) = &collector
+    {
+        // Export cancellation can close a connection before any HTTP request arrives.
+        drop(std::net::TcpStream::connect(collector.address)?);
+    }
+
     let mut values = ::config::Map::new();
     let mut env = StartupContext {
         cwd: directory.path().into(),

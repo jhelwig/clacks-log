@@ -74,7 +74,9 @@ impl Collector {
 
                 let mut reader = BufReader::new(stream);
                 let mut first = String::new();
-                reader.read_line(&mut first)?;
+                if reader.read_line(&mut first)? == 0 {
+                    continue;
+                }
                 let path = first
                     .split_whitespace()
                     .nth(1)
