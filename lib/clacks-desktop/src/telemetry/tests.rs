@@ -25,6 +25,10 @@ fn child_case(case: &str) -> anyhow::Result<()> {
         }
     }
     command.env("NO_PROXY", "*").env("no_proxy", "*");
+    if case == "enabled" {
+        // Valid SDK configuration keeps the milestone check independent of batching.
+        command.env("OTEL_BLRP_MAX_EXPORT_BATCH_SIZE", "1");
+    }
 
     let output = command
         .args([
@@ -79,6 +83,13 @@ fn child_entry() -> anyhow::Result<()> {
         })
         .transpose()?;
 
+    if case == "session"
+        && let Some(collector) = &collector
+    {
+        // Export cancellation can close a connection before any HTTP request arrives.
+        drop(std::net::TcpStream::connect(collector.address)?);
+    }
+
     let mut values = ::config::Map::new();
     let mut env = StartupContext {
         cwd: directory.path().into(),
@@ -116,6 +127,14 @@ fn child_entry() -> anyhow::Result<()> {
             endpoint
         },
     ];
+
+    if case == "filtered" {
+        arguments.extend([
+            "--log-filter".into(),
+            "warn,clacks_client_store::migration=info,clacks_client_store::store::creation=info"
+                .into(),
+        ]);
+    }
 
     if case == "secrets" {
         arguments.extend(["--log-filter".into(), "trace".into()]);
@@ -168,6 +187,35 @@ fn child_entry() -> anyhow::Result<()> {
     };
 
     assert!(paths.database.exists());
+    if matches!(case.as_str(), "slow" | "partial") {
+        let receiver = collector.as_ref().unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            let requests = receiver.requests.lock().unwrap();
+            let witnessed = if case == "slow" {
+                requests
+                    .iter()
+                    .any(|request| request.path == "/v1/traces" && request.delayed)
+            } else {
+                ["/v1/traces", "/v1/metrics", "/v1/logs"]
+                    .iter()
+                    .all(|path| {
+                        requests
+                            .iter()
+                            .any(|request| request.path == *path && request.response_sent)
+                    })
+            };
+            drop(requests);
+            if witnessed {
+                break;
+            }
+            anyhow::ensure!(
+                std::time::Instant::now() < deadline,
+                "collector response was never delivered"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
 
     if case != "unwritable" {
         let contents = std::fs::read_dir(&paths.log_directory)?
@@ -178,11 +226,41 @@ fn child_entry() -> anyhow::Result<()> {
         assert!(contents.contains("workspace.created"));
         assert!(contents.contains(&account.to_string()));
         assert!(!contents.contains("SECRET_SENTINEL"));
+        if case == "slow" {
+            assert!(
+                contents.contains("BatchSpanProcessor.ExportError"),
+                "the exporter must observe the delayed response deadline"
+            );
+        }
         if case == "secrets" {
             assert!(contents.contains("status code: 401"));
         }
         if case == "filtered" {
-            assert!(contents.contains("schema.upgraded"));
+            let records = contents
+                .lines()
+                .map(serde_json::from_str::<serde_json::Value>)
+                .collect::<Result<Vec<_>, _>>()?;
+            let milestone = records
+                .iter()
+                .find(|record| record["fields"]["event"] == "workspace.created")
+                .expect("workspace milestone");
+            assert_eq!(milestone["fields"]["account_id"], account.to_string());
+            assert!(
+                records
+                    .iter()
+                    .all(|record| record["fields"]["event"] != "record.saved"),
+                "the global level must suppress info events outside the selected modules"
+            );
+            let migration = records
+                .iter()
+                .find(|record| record["fields"]["event"] == "schema.upgraded")
+                .expect("migration milestone");
+            assert!(
+                migration["spans"].as_array().is_some_and(|spans| spans
+                    .iter()
+                    .any(|span| span["account_id"] == account.to_string())),
+                "the surviving migration event must retain its account context: {migration}"
+            );
             assert!(!contents.contains("client_store.schema.migrate"));
         }
     }
@@ -212,11 +290,11 @@ fn child_entry() -> anyhow::Result<()> {
         }
 
         if case == "session" {
-            session::assert_wire(&requests)?;
+            session::assert_wire(&requests, account)?;
         }
 
         if case == "enabled" {
-            assert_signals(&requests)?;
+            assert_signals(&requests, account)?;
         }
     }
     Ok(())
@@ -243,52 +321,61 @@ fn secret_configuration_stays_out_of_telemetry() -> anyhow::Result<()> {
 }
 
 /// Verify Clacks's actual semantic output through the real wire encodings.
-fn assert_signals(requests: &[collector::Request]) -> anyhow::Result<()> {
+fn assert_signals(
+    requests: &[collector::Request],
+    account: clacks_model::ids::AccountId,
+) -> anyhow::Result<()> {
     use opentelemetry_proto::tonic::collector::{
         logs::v1::ExportLogsServiceRequest, metrics::v1::ExportMetricsServiceRequest,
         trace::v1::ExportTraceServiceRequest,
     };
     use prost::Message;
-    let trace = requests
+    let traces = requests
         .iter()
-        .find(|request| request.path == "/v1/traces")
-        .expect("trace export");
+        .filter(|request| request.path == "/v1/traces")
+        .map(|request| ExportTraceServiceRequest::decode(request.body.as_slice()))
+        .collect::<Result<Vec<_>, _>>()?;
     let logs = requests
         .iter()
-        .find(|request| request.path == "/v1/logs")
-        .expect("log export");
+        .filter(|request| request.path == "/v1/logs")
+        .map(|request| ExportLogsServiceRequest::decode(request.body.as_slice()))
+        .collect::<Result<Vec<_>, _>>()?;
     let metrics = requests
         .iter()
-        .find(|request| request.path == "/v1/metrics")
-        .expect("metric export");
-    let trace = ExportTraceServiceRequest::decode(trace.body.as_slice())?;
+        .filter(|request| request.path == "/v1/metrics")
+        .map(|request| ExportMetricsServiceRequest::decode(request.body.as_slice()))
+        .collect::<Result<Vec<_>, _>>()?;
 
     assert!(
-        trace
-            .resource_spans
+        traces
             .iter()
+            .flat_map(|export| &export.resource_spans)
             .flat_map(|resource| &resource.scope_spans)
             .flat_map(|scope| &scope.spans)
             .any(|span| span.name == "client_store.create_with_definitions")
     );
-    let logs = ExportLogsServiceRequest::decode(logs.body.as_slice())?;
-
     assert!(
-        logs.resource_logs
-            .iter()
+        logs.iter()
+            .flat_map(|export| &export.resource_logs)
             .flat_map(|resource| &resource.scope_logs)
             .flat_map(|scope| &scope.log_records)
-            .any(|record| record
-                .attributes
-                .iter()
-                .any(|attribute| attribute.key == "event"))
+            .any(|record| {
+                use opentelemetry_proto::tonic::common::v1::any_value::Value;
+                let matches = |key: &str, expected: &str| {
+                    record.attributes.iter().any(|attribute| {
+                        attribute.key == key
+                            && attribute.value.as_ref().is_some_and(|value| {
+                                value.value == Some(Value::StringValue(expected.into()))
+                            })
+                    })
+                };
+                matches("event", "workspace.created") && matches("account_id", &account.to_string())
+            })
     );
-    let metrics = ExportMetricsServiceRequest::decode(metrics.body.as_slice())?;
-
     assert!(
         metrics
-            .resource_metrics
             .iter()
+            .flat_map(|export| &export.resource_metrics)
             .flat_map(|resource| &resource.scope_metrics)
             .flat_map(|scope| &scope.metrics)
             .any(|metric| metric.name == "clacks_client_qso_mutations_total")

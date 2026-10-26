@@ -1,4 +1,4 @@
-//! Versioned bundle metadata and producer-side encoded feature inputs.
+//! Geographic bundle manifests, layer metadata and compiled polygon features.
 
 use crate::error::{GeographyError, invalid};
 use clacks_model::location::{CqZone, ItuZone};

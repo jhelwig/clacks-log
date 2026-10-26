@@ -1,4 +1,4 @@
-//! Pure status calculations over already selected and interpreted service evidence.
+//! Determine whether upload and confirmation evidence applies to the current QSO.
 
 use super::{
     adif::AdifFields,

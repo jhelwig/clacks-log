@@ -152,300 +152,50 @@ pub(crate) async fn load(
 #[cfg(test)]
 mod tests {
     use crate::store::{ClientStore, StoreSettings};
-    use clacks_model::{
-        contact::{BandFrequency, OwnOperatingContext, Qso, StationSnapshot},
-        recognition::{
-            band::Band,
-            mode::{Mode, ModeIdentity},
-        },
-        scalar::{RecordedCallsign, UtcSecond},
-    };
-    use clacks_sync::record::{RecordId, RecordKey, RecordState, RecordValue};
-
-    fn id<T: std::str::FromStr>(n: u128) -> T
-    where
-        T::Err: std::fmt::Debug,
-    {
-        ulid::Ulid::from(n).to_string().parse().unwrap()
-    }
+    use crate::test_support as support;
+    use clacks_model::{reference::ReferenceAssociation, scalar::Milliwatts};
+    use support::id;
 
     #[tokio::test]
-    async fn shared_payloads_round_trip() -> anyhow::Result<()> {
-        use clacks_model::{
-            equipment::EquipmentValues,
-            export::{OutputProfile, OutputPurpose},
-            profile::{EquipmentConfiguration, SavedLocationProfile},
-            tag::{AutomaticUploadPolicies, AutomaticUploadPolicy, LogbookTag},
-        };
-        let dir = tempfile::tempdir()?;
-        let store = ClientStore::create(
-            &dir.path().join("workspace.sqlite"),
-            id(1),
-            StoreSettings::default(),
-        )
-        .await?;
-        let mut tx = store.write().await?;
-        for value in [
-            RecordValue::Tag(Box::new(LogbookTag::new(id(20), "Same name".into()))),
-            RecordValue::Tag(Box::new(LogbookTag {
-                id: id(23),
-                name: "Same name".into(),
-                automatic_upload: AutomaticUploadPolicies {
-                    lotw: AutomaticUploadPolicy::Enable,
-                    qrz: AutomaticUploadPolicy::Forbid,
-                },
-            })),
-            RecordValue::Tag(Box::new(LogbookTag {
-                id: id(24),
-                name: "Same name".into(),
-                automatic_upload: AutomaticUploadPolicies {
-                    lotw: AutomaticUploadPolicy::Forbid,
-                    qrz: AutomaticUploadPolicy::Enable,
-                },
-            })),
-            RecordValue::Equipment(Box::new(EquipmentConfiguration {
-                id: id(21),
-                name: "Same name".into(),
-                values: EquipmentValues::default(),
-            })),
-            RecordValue::OutputProfile(Box::new(OutputProfile {
-                id: id(22),
-                name: "Same name".into(),
-                purpose: OutputPurpose::Targeted,
-                contextual_fields: ["CONTEST_ID".into()].into(),
-            })),
-            RecordValue::OutputProfile(Box::new(OutputProfile {
-                id: id(25),
-                name: "Same name".into(),
-                purpose: OutputPurpose::OrdinaryInterchange,
-                contextual_fields: Default::default(),
-            })),
-            RecordValue::Profile(Box::new(SavedLocationProfile {
-                id: id(26),
-                name: "Same name".into(),
-                station: StationSnapshot {
-                    callsign: RecordedCallsign::new("W7HEX")?,
-                    location: None,
-                    references: Default::default(),
-                },
-                default_equipment: Some(id(99)),
-            })),
-            RecordValue::Profile(Box::new(SavedLocationProfile {
-                id: id(27),
-                name: "Same name".into(),
-                station: StationSnapshot {
-                    callsign: RecordedCallsign::new("W7HEX/P")?,
-                    location: None,
-                    references: Default::default(),
-                },
-                default_equipment: None,
-            })),
-        ] {
-            let key = RecordKey {
-                account: id(1),
-                id: value.id(),
-            };
-            let state = RecordState::Live(value);
-            let payload = super::insert(&mut tx, key, &state).await?;
-            assert_eq!(super::load(&mut tx, key, payload).await?, state);
-        }
-        tx.rollback().await?;
-        store.close().await?;
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn service_destination_round_trip() -> anyhow::Result<()> {
-        use clacks_model::service::{
-            destination::{Destination, RemoteCollection},
-            evidence::ServicePayload,
-        };
-        use clacks_sync::service::{ServiceRecord, ServiceSupport};
-        let dir = tempfile::tempdir()?;
-        let store = ClientStore::create(
-            &dir.path().join("workspace.sqlite"),
-            id(1),
-            StoreSettings::default(),
-        )
-        .await?;
-        let value = RecordValue::Service(Box::new(ServiceRecord {
-            payload: ServicePayload::Destination(Destination {
-                id: id(100),
-                collection: RemoteCollection::Qrz {
-                    book_id: Some("18446744073709551616000".parse()?),
-                },
-                description: "Historical namespace".into(),
-            }),
-            support: ServiceSupport::default(),
-        }));
-        let key = RecordKey {
-            account: id(1),
-            id: value.id(),
-        };
-        let state = RecordState::Live(value);
-        let mut tx = store.write().await?;
-        let root = super::insert(&mut tx, key, &state).await?;
-        assert_eq!(super::load(&mut tx, key, root).await?, state);
-        tx.rollback().await?;
-        store.close().await?;
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn recorded_contact_round_trip() -> anyhow::Result<()> {
-        let dir = tempfile::tempdir()?;
-        let store = ClientStore::create(
-            &dir.path().join("workspace.sqlite"),
-            id(1),
-            StoreSettings::default(),
-        )
-        .await?;
-        let station = StationSnapshot {
-            callsign: RecordedCallsign::new("W7HEX/P")?,
-            location: None,
-            references: Default::default(),
-        };
-        let qso = Qso {
-            id: id(10),
-            start: UtcSecond::from_unix_seconds(-1),
-            end: Some(UtcSecond::from_unix_seconds(1)),
-            own_station: station.clone(),
-            contacted_station: station,
-            own_context: OwnOperatingContext::default(),
-            contacted_operator: None,
-            primary: BandFrequency::from_recorded_pair(
-                None,
-                Some(Band::from_recorded_label("future-band")?),
-            )?,
-            receive_override: None,
-            mode: Mode::from_recorded_identity(ModeIdentity::Specialization {
-                label: "future-submode".into(),
-                parent: None,
-            })?,
-            sent_report: Some("+03".into()),
-            received_report: Some("599".into()),
-            comment: None,
-            tags: Default::default(),
-        };
-        let key = RecordKey {
-            account: id(1),
-            id: RecordId::Qso(qso.id),
-        };
-        let state = RecordState::Live(RecordValue::Qso(Box::new(qso.clone())));
-        let mut tx = store.write().await?;
-        let payload = super::insert(&mut tx, key, &state).await?;
-        assert_eq!(super::load(&mut tx, key, payload).await?, state);
-        use clacks_model::{
-            contact::OperatorInformation,
-            equipment::EquipmentValues,
-            location::RecordedLocation,
-            position::{Coordinates, GridLength, Locator, Position},
-            reference::ReferenceAssociation,
-            scalar::{Hertz, Milliwatts},
-        };
-        let positions =
-            [
-                "CN",
-                "CN87",
-                "CN87AA",
-                "CN87AA00",
-                "CN87AA00AA",
-                "CN87AA00AA00",
-            ]
+    async fn recorded_contacts_are_relationally_queryable_and_reject_incomplete_roots()
+    -> anyhow::Result<()> {
+        let directory = tempfile::tempdir()?;
+        let file = directory.path().join("workspace.sqlite");
+        let store = ClientStore::create(&file, id(1), StoreSettings::default()).await?;
+        let mut qso = support::qso(id(10));
+        qso.tags = [id(40), id(41)].into();
+        qso.own_context.transmit_power = Some(Milliwatts::new(100_000)?);
+        qso.own_station.references = [None, Some("ABC-1"), Some("ABC-2")]
             .into_iter()
-            .map(|value| Position::GridArea(Locator::parse(value).unwrap()))
-            .chain([-180_000_000, 180_000_000].into_iter().map(|longitude| {
-                Position::ExplicitPoint {
-                    coordinates: Coordinates::from_microdegrees(90_000_000, longitude).unwrap(),
-                    grid_length: GridLength::new(12).unwrap(),
-                }
-            }));
-        let mut payloads = vec![(payload, state)];
-        for position in positions {
-            let mut qso = qso.clone();
-            qso.own_station.location = Some(RecordedLocation {
-                position: Some(position.clone()),
-                dxcc: Some("291".into()),
-                ..Default::default()
-            });
-            qso.contacted_station.location = Some(RecordedLocation {
-                position: Some(position),
-                secondary_subdivision: Some("King".into()),
-                ..Default::default()
-            });
-            qso.own_station.references = [
-                ReferenceAssociation {
-                    group_id: id(30),
-                    identifier: None,
-                },
-                ReferenceAssociation {
-                    group_id: id(30),
-                    identifier: Some("ABC-1".into()),
-                },
-                ReferenceAssociation {
-                    group_id: id(30),
-                    identifier: Some("ABC-2".into()),
-                },
-            ]
-            .into();
-            qso.contacted_station.references = qso.own_station.references.clone();
-            qso.own_context.operator = Some(OperatorInformation {
-                callsign: Some(RecordedCallsign::new("W7HEX")?),
-                recorded_name: None,
-            });
-            qso.contacted_operator = Some(OperatorInformation {
-                callsign: None,
-                recorded_name: Some(" Name as recorded ".into()),
-            });
-            qso.own_context.equipment = Some(EquipmentValues {
-                equipment_description: Some("Rig".into()),
-                antenna_description: Some("Wire".into()),
-                notes: Some("Unchanged".into()),
-            });
-            qso.own_context.transmit_power = Some(Milliwatts::new(100_000)?);
-            qso.primary = BandFrequency::from_recorded_pair(
-                Some(Hertz::new(14_074_000)?),
-                Some(Band::from_recorded_label("old label")?),
-            )?;
-            qso.receive_override = Some(BandFrequency::from_recorded_pair(
-                None,
-                Some(Band::from_recorded_label("20m")?),
-            )?);
-            qso.tags = [id(40), id(41)].into();
-            let state = RecordState::Live(RecordValue::Qso(Box::new(qso)));
-            let payload = super::insert(&mut tx, key, &state).await?;
-            assert_eq!(super::load(&mut tx, key, payload).await?, state);
-            let group = id::<clacks_model::ids::GroupId>(30).to_string();
-            assert!(
-                sqlx::query_file!("tests/sql/duplicate_group_only.sql", group, payload)
-                    .execute(&mut *tx)
-                    .await
-                    .is_err()
-            );
-            payloads.push((payload, state));
-        }
+            .map(|identifier| ReferenceAssociation {
+                group_id: id(30),
+                identifier: identifier.map(String::from),
+            })
+            .collect();
+        let key = support::qso_key(qso.id);
+        let mut tx = store.write().await?;
+        let payload = super::insert(&mut tx, key, &support::contact(qso)).await?;
+        let group = id::<clacks_model::ids::GroupId>(30).to_string();
+        assert!(
+            sqlx::query_file!("tests/sql/duplicate_group_only.sql", group, payload)
+                .execute(&mut *tx)
+                .await
+                .is_err()
+        );
+        tx.commit().await?;
+        store.close().await?;
+
+        let store = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
+        let mut tx = store.write().await?;
         let query = sqlx::query_file!("tests/sql/contact_query.sql", 14_000_000_i64, 100_000_i64)
             .fetch_all(&mut *tx)
             .await?;
-        assert_eq!(query.len(), 8);
-        for row in query {
-            assert_eq!(
-                (row.frequency, row.power, row.tags, row.references),
-                (Some(14_074_000), Some(100_000), 2, 3)
-            );
-        }
-        tx.commit().await?;
-        store.close().await?;
-        let store = ClientStore::open(
-            &dir.path().join("workspace.sqlite"),
-            id(1),
-            StoreSettings::default(),
-        )
-        .await?;
-        let mut tx = store.write().await?;
-        for (payload, state) in payloads {
-            assert_eq!(super::load(&mut tx, key, payload).await?, state);
-        }
+        assert_eq!(query.len(), 1);
+        let row = query.first().unwrap();
+        assert_eq!(
+            (row.frequency, row.power, row.tags, row.references),
+            (Some(14_074_000), Some(100_000), 2, 3)
+        );
         sqlx::query_file!("tests/sql/remove_contact_root.sql", payload)
             .execute(&mut *tx)
             .await?;

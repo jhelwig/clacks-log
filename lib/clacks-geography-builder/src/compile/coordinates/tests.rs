@@ -1,43 +1,23 @@
-//! Independent numerical and coordinate-format acceptance cases.
-
-#![allow(clippy::indexing_slicing)]
+//! Fixed coordinate controls for the selected datum operations and input units.
 
 use super::*;
 
-/// Evaluate the published geocentric translation directly using ellipsoid equations.
-fn translated(point: Coord<f64>, delta: [f64; 3]) -> Coord<f64> {
-    let [dx, dy, dz] = delta;
-    let (lambda, phi) = (point.x.to_radians(), point.y.to_radians());
-    let a = 6_378_137.;
-    let f = 1. / 298.257222101;
-    let e2 = f * (2. - f);
-    let n = a / (1. - e2 * phi.sin().powi(2)).sqrt();
-    let x = n * phi.cos() * lambda.cos() + dx;
-    let y = n * phi.cos() * lambda.sin() + dy;
-    let z = n * (1. - e2) * phi.sin() + dz;
-    let target_f = 1. / 298.257223563;
-    let target_e2 = target_f * (2. - target_f);
-    let p = x.hypot(y);
-    let mut latitude = z.atan2(p * (1. - target_e2));
-    for _ in 0..16 {
-        let radius = a / (1. - target_e2 * latitude.sin().powi(2)).sqrt();
-        latitude = (z + target_e2 * radius * latitude.sin()).atan2(p);
-    }
-    Coord {
-        x: y.atan2(x).to_degrees(),
-        y: latitude.to_degrees(),
-    }
-}
-
 #[test]
-fn geocentric_operations_match_independent_equations_in_degrees() {
-    for (point, delta) in [
+fn selected_translations_accept_degrees_and_return_wgs84_coordinates() {
+    // NAD83/GRS80 to WGS84, zero input height, with the recipe's explicit
+    // mainland, Alaska and Hawaii translation parameters. Controls are fixed
+    // evaluations of those operations, not source-boundary accuracy claims.
+    for (point, delta, expected) in [
         (
             Coord {
                 x: -122.33,
                 y: 47.60,
             },
             [0., 0., 0.],
+            Coord {
+                x: -122.33,
+                y: 47.599_999_999_060_79,
+            },
         ),
         (
             Coord {
@@ -45,6 +25,10 @@ fn geocentric_operations_match_independent_equations_in_degrees() {
                 y: 53.87,
             },
             [-2., 0., 4.],
+            Coord {
+                x: -166.530_007_082_285_9,
+                y: 53.870_007_074_855_586,
+            },
         ),
         (
             Coord {
@@ -52,19 +36,18 @@ fn geocentric_operations_match_independent_equations_in_degrees() {
                 y: 21.31,
             },
             [1., 1., -1.],
+            Coord {
+                x: -157.860_005_295_157_32,
+                y: 21.309_995_862_388_51,
+            },
         ),
     ] {
-        let projection = Projection::translation(delta).unwrap();
-        let actual = projection.apply(point).unwrap();
-        let expected = translated(point, delta);
-        assert!(
-            (actual.x - expected.x).abs() < 1e-9,
-            "longitude {actual:?} != {expected:?}"
-        );
-        assert!(
-            (actual.y - expected.y).abs() < 1e-9,
-            "latitude {actual:?} != {expected:?}"
-        );
+        let actual = Projection::translation(delta)
+            .unwrap()
+            .apply(point)
+            .unwrap();
+        assert!((actual.x - expected.x).abs() < 1e-9, "longitude {actual:?}");
+        assert!((actual.y - expected.y).abs() < 1e-9, "latitude {actual:?}");
     }
 }
 
@@ -77,111 +60,61 @@ fn missing_corrupt_grids_and_invalid_points_fail_without_fallback() {
 }
 
 #[test]
-fn published_grid_is_loaded_only_from_verified_bytes() {
+fn verified_caribbean_grid_uses_longitude_latitude_and_rejects_outside_points() {
     let bytes = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/fixtures/us_noaa_pvhpgn.tif"
     ));
     let hash = "a6db010f956526a011ba719c45fe32e5aff987eeb1cb03f2b8338208a77c619d";
     let projection = Projection::grid(bytes, hash).unwrap();
-    let actual = projection
-        .apply(Coord {
-            x: -66.10,
-            y: 18.46,
-        })
-        .unwrap();
-    assert!(actual.x.is_finite() && actual.y.is_finite());
-    assert!(projection.apply(Coord { x: 0., y: 0. }).is_err());
-    let again = Projection::grid(bytes, hash).unwrap();
-    assert_eq!(
-        again
-            .apply(Coord {
-                x: -66.10,
-                y: 18.46
-            })
-            .unwrap(),
-        actual
-    );
-    let mut corrupt = bytes.to_vec();
-    corrupt[0] = 0;
-    assert!(Projection::grid(&corrupt, hash).is_err());
-}
 
-#[test]
-fn grid_samples_and_bilinear_values_match_published_metadata() {
-    use std::io::Cursor;
-    use tiff::{
-        decoder::{Decoder, DecodingResult},
-        tags::Tag,
-    };
-    let bytes = include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/fixtures/us_noaa_pvhpgn.tif"
-    ));
-    let mut decoder = Decoder::new(Cursor::new(bytes)).unwrap();
-    let (width, height) = decoder.dimensions().unwrap();
-    let scale = decoder.get_tag_f64_vec(Tag::ModelPixelScaleTag).unwrap();
-    let tie = decoder.get_tag_f64_vec(Tag::ModelTiepointTag).unwrap();
-    let keys = decoder.get_tag_u16_vec(Tag::GeoKeyDirectoryTag).unwrap();
-    let metadata = decoder.get_tag_ascii_string(Tag::Unknown(42112)).unwrap();
-    assert_eq!((width, height), (25, 15));
-    assert_eq!(scale, vec![0.25, 0.25, 0.]);
-    assert_eq!(tie, vec![0., 0., 0., -68., 20.5, 0.]);
-    assert!(keys.as_chunks::<4>().0.contains(&[1025, 0, 1, 2]));
-    assert!(
-        metadata.contains("latitude_offset")
-            && metadata.contains("longitude_offset")
-            && metadata.contains("east")
-            && metadata.matches("arc-second").count() == 2
-    );
-    let mut image = DecodingResult::F32(vec![]);
-    let layout = decoder.read_image_to_buffer(&mut image).unwrap();
-    let DecodingResult::F32(samples) = image else {
-        panic!("not float samples")
-    };
-    assert_eq!(samples.len() * 4, layout.complete_len);
-    assert_eq!(samples.len(), 750);
-    let projection = Projection::grid(
-        bytes,
-        "a6db010f956526a011ba719c45fe32e5aff987eeb1cb03f2b8338208a77c619d",
-    )
-    .unwrap();
-    for point in [
-        Coord { x: -66., y: 18.5 },
-        Coord {
-            x: -66.10,
-            y: 18.46,
-        },
-        Coord { x: -68., y: 20.5 },
-        Coord { x: -62., y: 17. },
+    // Fixed controls from the pinned NOAA grid's latitude/longitude offsets,
+    // in arc-seconds. Cover an interior grid node, an interpolated point and
+    // both opposite corners without implementing TIFF decoding/interpolation.
+    for (point, expected) in [
+        (
+            Coord { x: -66., y: 18.5 },
+            Coord {
+                x: -66.000_002_126_388_85,
+                y: 18.500_008_755_833_324,
+            },
+        ),
+        (
+            Coord {
+                x: -66.10,
+                y: 18.46,
+            },
+            Coord {
+                x: -66.100_002_868_842_21,
+                y: 18.460_008_699_522_266,
+            },
+        ),
+        (
+            Coord { x: -68., y: 20.5 },
+            Coord {
+                x: -68.000_002_135_555_52,
+                y: 20.500_013_506_667_067,
+            },
+        ),
+        (
+            Coord { x: -62., y: 17. },
+            Coord {
+                x: -62.000_006_247_778_01,
+                y: 16.999_998_805_277_8,
+            },
+        ),
     ] {
-        let column: f64 = (point.x + 68.) / 0.25;
-        let row: f64 = (20.5 - point.y) / 0.25;
-        let c = (column.floor() as usize).min(23);
-        let r = (row.floor() as usize).min(13);
-        let u = column - c as f64;
-        let v = row - r as f64;
-        let interpolate = |channel: usize| {
-            let sample = |r: usize, c: usize| f64::from(samples[channel * 375 + r * 25 + c]);
-            sample(r, c) * (1. - u) * (1. - v)
-                + sample(r, c + 1) * u * (1. - v)
-                + sample(r + 1, c) * (1. - u) * v
-                + sample(r + 1, c + 1) * u * v
-        };
-        let expected = Coord {
-            x: point.x + interpolate(1) / 3600.,
-            y: point.y + interpolate(0) / 3600.,
-        };
         let actual = projection.apply(point).unwrap();
-        assert!(
-            (actual.x - expected.x).abs() < 1e-9,
-            "{actual:?} != {expected:?}"
-        );
-        assert!(
-            (actual.y - expected.y).abs() < 1e-9,
-            "{actual:?} != {expected:?}"
-        );
+        assert!((actual.x - expected.x).abs() < 1e-9, "longitude {actual:?}");
+        assert!((actual.y - expected.y).abs() < 1e-9, "latitude {actual:?}");
     }
+    assert!(projection.apply(Coord { x: 0., y: 0. }).is_err());
+
+    let mut corrupt = bytes.to_vec();
+    if let Some(first) = corrupt.first_mut() {
+        *first = 0;
+    }
+    assert!(Projection::grid(&corrupt, hash).is_err());
 }
 
 #[test]

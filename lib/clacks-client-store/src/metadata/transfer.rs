@@ -404,7 +404,3 @@ pub(crate) async fn store_batch(
     }
     Ok(())
 }
-
-#[cfg(test)]
-#[path = "transfer_tests.rs"]
-mod tests;

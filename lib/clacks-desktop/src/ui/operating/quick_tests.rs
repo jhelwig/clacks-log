@@ -214,7 +214,7 @@ async fn quick_equipment_selection_preserves_station_and_cancel_has_no_effect() 
 {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Change equipment…");
+    window.quick_change("Equipment");
     window.click(&format!("Load {}", equipment_label(&sources.rig_b)));
     window.click("Cancel");
     assert_eq!(
@@ -223,7 +223,7 @@ async fn quick_equipment_selection_preserves_station_and_cancel_has_no_effect() 
             .selected_equipment,
         Some(sources.rig_a.clone())
     );
-    window.click("Change equipment…");
+    window.quick_change("Equipment");
     window.click(&format!("Load {}", equipment_label(&sources.rig_b)));
     window.submit("Apply");
     window.settle().await;
@@ -240,7 +240,7 @@ async fn quick_profiles_preserve_operator_power_and_absent_default_equipment() -
 {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Change operator…");
+    window.quick_change("Operator");
     window.text("quick.operator.call", " ve7abc/p ");
     window.text("quick.operator.name", "Operator name");
     window.submit("Apply");
@@ -262,7 +262,7 @@ async fn quick_profiles_preserve_operator_power_and_absent_default_equipment() -
     }
     window.refresh().await;
     for saved in [&field, &portable] {
-        window.click("Change profile…");
+        window.quick_change("Station");
         window.click(&format!("Load {}", profile_label(saved)));
         window.submit("Apply");
         window.settle().await;
@@ -275,7 +275,7 @@ async fn quick_profiles_preserve_operator_power_and_absent_default_equipment() -
         assert_eq!(operator.callsign.unwrap().as_str(), "VE7ABC/P");
         assert_eq!(operator.recorded_name.as_deref(), Some("Operator name"));
     }
-    window.click("Change operator…");
+    window.quick_change("Operator");
     window.text("quick.operator.call", "");
     window.submit("Apply");
     window.settle().await;
@@ -300,7 +300,7 @@ async fn quick_missing_default_does_not_partially_load_station() -> anyhow::Resu
     broken.default_equipment = Some(Default::default());
     clacks_client_store::settings::save_profile(&window.store, None, &broken).await?;
     window.refresh().await;
-    window.click("Change profile…");
+    window.quick_change("Station");
     window.click(&format!("Load {}", profile_label(&broken)));
     window.frame(vec![]);
     assert!(window.visible("Could not load profile"));
@@ -333,7 +333,7 @@ async fn quick_source_refresh_preserves_captured_values_and_concurrent_save_requ
 -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Change profile…");
+    window.quick_change("Station");
     let expected = window.snapshot.operating.clone();
     let old = window
         .snapshot
@@ -351,6 +351,7 @@ async fn quick_source_refresh_preserves_captured_values_and_concurrent_save_requ
     clacks_client_store::operating::save(&window.store, &expected, &concurrent).await?;
     publish(&mut window).await?;
     assert!(window.visible("Saved profile changed"));
+    assert!(window.visible("Station source changed"));
     let editor = window
         .view
         .stack
@@ -399,7 +400,7 @@ async fn quick_profile_can_establish_initial_complete_context() -> anyhow::Resul
     };
     clacks_client_store::settings::save_profile(&window.store, None, &saved).await?;
     window.refresh().await;
-    window.click("Change profile…");
+    window.quick_change("Station");
     window.click(&format!("Load {}", profile_label(&saved)));
     window.submit("Apply");
     window.settle().await;

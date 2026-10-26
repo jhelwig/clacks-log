@@ -22,10 +22,15 @@ application shell, demonstration editor or test-only runtime is a deliverable.
 
 This capability includes station/profile and equipment creation, editing,
 selection, explicit reload, deletion, manual geographic details and reference
-entry. It does not deliver contact entry/history (#9/#10), tags (#8), live
-synchronization/enrollment, the account-wide conflict-review interface, geographic
-autofill (Phase 4), equipment inventory, a dedicated amplifier field, contest
+entry. It does not deliver contact entry/history (#9/#10), tag setup (#8),
+contact membership editing (#51), live synchronization/enrollment, the
+account-wide conflict-review interface, geographic autofill (Phase 4), equipment
+inventory, a dedicated amplifier field, contest
 exchanges or serial assistance. Later work integrates the same components.
+
+The [logbook setup specification](logbooks.md) owns selected-view persistence and
+tag management. Its selection remains separate from operating values and saved
+profile/equipment selections.
 
 A profile, server connection, enrollment and an operating-session lifecycle are
 not prerequisites. The desktop can remain open between intermittent operating.

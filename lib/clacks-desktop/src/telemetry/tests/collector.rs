@@ -19,6 +19,10 @@ pub(super) struct Request {
     pub body: Vec<u8>,
     /// Synthetic authorization value used only by exact-byte credential tests.
     pub authorization: Option<String>,
+    /// Response bytes were successfully handed to the real HTTP connection.
+    pub response_sent: bool,
+    /// The deliberate delay finished before responding.
+    pub delayed: bool,
 }
 
 /// HTTP behavior selected by a composition regression case.
@@ -74,7 +78,9 @@ impl Collector {
 
                 let mut reader = BufReader::new(stream);
                 let mut first = String::new();
-                reader.read_line(&mut first)?;
+                if reader.read_line(&mut first)? == 0 {
+                    continue;
+                }
                 let path = first
                     .split_whitespace()
                     .nth(1)
@@ -111,16 +117,6 @@ impl Collector {
                 let mut body = vec![0; length];
                 reader.read_exact(&mut body)?;
 
-                let mut captured = captured.lock().expect("receiver mutex");
-                anyhow::ensure!(captured.len() < 100, "unexpected exporter request storm");
-                let partial = partial_response(&path);
-                captured.push(Request {
-                    path,
-                    body,
-                    authorization,
-                });
-                drop(captured);
-
                 if matches!(reply, Reply::Delayed) {
                     std::thread::sleep(Duration::from_millis(300));
                 }
@@ -128,6 +124,7 @@ impl Collector {
                 let response = match reply {
                     Reply::RejectSecret => b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 15\r\nConnection: close\r\n\r\nSECRET_SENTINEL".to_vec(),
                     Reply::PartialSecret => {
+                        let partial = partial_response(&path);
                         let mut response = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", partial.len()).into_bytes();
                         response.extend(partial);
                         response
@@ -135,7 +132,9 @@ impl Collector {
                     _ => b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec(),
                 };
 
-                if let Err(error) = reader.get_mut().write_all(&response)
+                let sent = reader.get_mut().write_all(&response);
+                let response_sent = sent.is_ok();
+                if let Err(error) = sent
                     && !matches!(
                         error.kind(),
                         std::io::ErrorKind::BrokenPipe
@@ -145,6 +144,15 @@ impl Collector {
                 {
                     return Err(error.into());
                 }
+                let mut captures = captured.lock().unwrap();
+                anyhow::ensure!(captures.len() < 100, "unexpected exporter request storm");
+                captures.push(Request {
+                    path,
+                    body,
+                    authorization,
+                    response_sent,
+                    delayed: matches!(reply, Reply::Delayed),
+                });
             }
             Ok(())
         });

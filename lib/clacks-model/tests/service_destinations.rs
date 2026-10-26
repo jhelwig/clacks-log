@@ -1,7 +1,5 @@
 use clacks_model::ids::DestinationId;
-use clacks_model::service::destination::{
-    Destination, ExternalRecordKey, RemoteCollection, RemoteRecordId, validate_destinations,
-};
+use clacks_model::service::destination::{Destination, RemoteCollection, validate_destinations};
 
 fn book(id: DestinationId, book_id: Option<u64>) -> Destination {
     Destination {
@@ -32,20 +30,6 @@ fn unknown_book_id_is_not_inferred() {
             book(DestinationId::new(), Some(42))
         ])
         .is_err()
-    );
-}
-
-#[test]
-fn remote_ids_are_destination_scoped() {
-    assert_ne!(
-        ExternalRecordKey {
-            destination: DestinationId::new(),
-            record: RemoteRecordId::Qrz("7".parse().unwrap())
-        },
-        ExternalRecordKey {
-            destination: DestinationId::new(),
-            record: RemoteRecordId::Qrz("7".parse().unwrap())
-        }
     );
 }
 

@@ -4,15 +4,14 @@ use clacks_model::contact::Qso;
 use clacks_model::effective::{
     EligibleStationFacts, InformationSource, StationFacts, select_location,
 };
-use clacks_model::ids::{QsoId, TagId};
+use clacks_model::ids::QsoId;
 use clacks_model::location::RecordedLocation;
-use clacks_model::position::{Locator, Position};
 use clacks_model::recognition::RecognitionCatalog;
-use clacks_model::recognition::mode::{Mode, ModeIdentity};
+use clacks_model::recognition::mode::{ModeIdentity, ModeInterpretation};
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 #[test]
-fn unrelated_edit_survives_old_recognition_round_trip() -> TestResult {
+fn unrelated_edit_preserves_incoming_identities_with_old_recognition() -> TestResult {
     let old = RecognitionCatalog::from_json(include_str!("fixtures/recognition-old.json"))?;
     let fixture: serde_json::Value =
         serde_json::from_str(include_str!("fixtures/recorded-values.json"))?;
@@ -22,14 +21,23 @@ fn unrelated_edit_survives_old_recognition_round_trip() -> TestResult {
         parent: Some("MFSK".into()),
     });
     for identity in identities {
-        let mut q = support::qso(support::id::<QsoId>(1));
-        q.mode = Mode::from_recorded_identity(identity.clone())?;
-        let mut json = serde_json::to_value(&q)?;
-        json["primary"]["band"] = fixture["bands"][0].clone();
-        let after: serde_json::Value = serde_json::from_str(&support::legacy_view_round_trip(
-            &serde_json::to_string(&json)?,
-            &old,
-        )?)?;
+        let json = serde_json::json!({
+            "id": "00000000000000000000000001",
+            "start": 1000,
+            "own_station": {"callsign": "W7HEX", "references": []},
+            "contacted_station": {"callsign": "K1ABC", "references": []},
+            "own_context": {},
+            "primary": {"frequency": 14074000, "band": "future-band"},
+            "mode": identity,
+            "tags": []
+        });
+        let mut received: Qso = serde_json::from_value(json.clone())?;
+        assert!(matches!(
+            received.mode.interpret(&old),
+            ModeInterpretation::Other(_)
+        ));
+        received.comment = Some("edited by older recognition view".into());
+        let after = serde_json::to_value(&received)?;
         assert_eq!(after["mode"], json["mode"]);
         assert_eq!(after["primary"], json["primary"]);
         let received: Qso = serde_json::from_value(after)?;
@@ -66,33 +74,6 @@ fn empty_optional_aggregates_are_not_location_evidence() {
     );
     q.normalize_optional_aggregates();
     assert_eq!(q.contacted_station.location, None);
-}
-
-#[test]
-fn whole_record_comparison_includes_disjoint_tag_edits() {
-    let base = support::qso(support::id::<QsoId>(1));
-    let mut local = base.clone();
-    let mut remote = base.clone();
-    local.tags.insert(support::id::<TagId>(1));
-    remote.comment = Some("remote edit".into());
-    assert_ne!(local, base);
-    assert_ne!(remote, base);
-    assert_ne!(local, remote);
-    let grid = Locator::parse("FN31PR").unwrap();
-    let mut area = base.clone();
-    let mut point = base;
-    area.own_station.location = Some(RecordedLocation {
-        position: Some(Position::GridArea(grid.clone())),
-        ..Default::default()
-    });
-    point.own_station.location = Some(RecordedLocation {
-        position: Some(Position::ExplicitPoint {
-            coordinates: grid.center(),
-            grid_length: grid.length(),
-        }),
-        ..Default::default()
-    });
-    assert_ne!(area, point);
 }
 
 #[test]

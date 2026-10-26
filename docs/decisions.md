@@ -490,7 +490,7 @@ MVP permits offline creation and naming of a logbook on an enrolled client. The 
 
 #### D119
 
-Duplicate logbook display names are allowed within an account. Logbooks remain distinct by internal identity, and the UI supplies enough context to distinguish them. Equal names do not merge independently created books. Exact contextual display remains open.
+Duplicate logbook display names are allowed within an account. Logbooks remain distinct by internal identity, and the UI supplies enough context to distinguish them. Equal names do not merge independently created books. D306 selects short ID suffixes for duplicate names and full-ID access in Manage logbooks.
 
 #### D120
 
@@ -1409,3 +1409,95 @@ Both contact history and Worked Before support column visibility, ordering,
 resizing and remembered sorting. Keep independent local settings for each table,
 with a reset to defaults. The [desktop UI contract](desktop-ui.md) owns the
 shared table-configuration contract.
+
+### Decision D302
+
+#### D302
+
+Include All contacts and Untagged as built-in views alongside named logbooks.
+All contacts shows every active QSO once per identity; Untagged shows active
+QSOs with no tags. Neither view is a stored tag, has a tag identity or carries
+an automatic-upload policy. Pending deletions remain excluded from normal
+views. The [product contract](product.md) owns view semantics, and the
+[desktop UI contract](desktop-ui.md) includes these choices in contact
+navigation.
+
+### Decision D303
+
+#### D303
+
+Default new QSOs to untagged when either All contacts or Untagged is selected.
+Neither built-in view supplies a default tag, and a previously selected named
+logbook does not remain as a hidden membership default. A named logbook supplies
+its own tag for new contacts. Saved contacts and station/equipment defaults are
+unchanged by view selection. The [product contract](product.md) owns these
+selection semantics.
+
+### Decision D304
+
+#### D304
+
+Remember the last selected view per local workspace and restore it on restart.
+Use stable tag identity for named logbooks so renaming does not disrupt
+selection. Start new workspaces in All contacts. If the remembered tag is known
+to be deleted, open All contacts and explain the fallback. Do not overwrite the
+remembered choice or infer deletion from a temporary loading failure. The
+[product contract](product.md) owns restart selection behavior.
+
+### Decision D305
+
+#### D305
+
+Provide a compact main-window logbook/view selector with immediate switching and
+a Manage logbooks action opening a dedicated dialog. The dialog manages named
+tags, their names and per-service automatic-upload policies through the existing
+Save/Cancel contract. Built-in views are not editable tags. Delete opens a
+separate impact review with the agreed three choices and contact counts. The
+[desktop UI contract](desktop-ui.md) owns this interaction boundary.
+
+### Decision D306
+
+#### D306
+
+Distinguish duplicate tag display names with short, collision-checked ID
+suffixes. Add these suffixes only when the name is duplicated; unique names
+remain unsuffixed. Make the full tag ID available to view and copy in Manage
+logbooks. Do not change stored names or substitute shortened IDs for native
+identity. This completes D119's display-disambiguation choice. The
+[desktop UI contract](desktop-ui.md) owns its presentation.
+
+### Decision D307
+
+#### D307
+
+When the selected tag's deletion becomes effective while the application is
+running, switch to All contacts and explain the fallback. Apply this to both
+local deletion and deletion received through synchronization. New QSOs then
+default to untagged under D303. The fallback itself does not retag contacts or
+repair pending references; preserve D244's chosen local-deletion effects and
+D250's explicit repair of pending deleted-tag references. This extends D304's
+restart fallback to live selection. The [product contract](product.md) owns
+these semantics.
+
+### Decision D308
+
+#### D308
+
+Persist selected-view state in the local workspace's SQLite database, separately
+from synchronized records and station/equipment state. When the selected tag's
+deletion becomes effective locally, commit the All contacts fallback in the
+same transaction as that deletion, including deletion installed through
+synchronization. Reuse the existing asynchronous session/store machinery; do
+not maintain a second saved selection in framework presentation preferences.
+The [client-store contract](client-store.md) owns the transaction boundary.
+
+### Decision D309
+
+#### D309
+
+Do not retain a new-contact entry's proposed membership when the selected view
+changes. Its default membership follows the current view even while entry is
+in progress: a named logbook supplies its tag, while All contacts and Untagged
+supply none. Preserve other entered values. This does not retag saved contacts
+or change an existing contact through its editor. The
+[product contract](product.md) owns the entry-default rule.

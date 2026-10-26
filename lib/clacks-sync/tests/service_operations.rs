@@ -14,7 +14,7 @@ use clacks_sync::{
 };
 
 #[test]
-fn simultaneous_binding_plans_carry_identical_absence_guard() -> anyhow::Result<()> {
+fn binding_plans_guard_the_external_namespace_and_selected_target() -> anyhow::Result<()> {
     let a = support::accepted(200, "q1");
     let mut b = support::accepted(200, "q2");
     let RecordId::Qso(q1) = a.key.id else {
@@ -66,7 +66,62 @@ fn simultaneous_binding_plans_carry_identical_absence_guard() -> anyhow::Result<
     else {
         panic!()
     };
-    assert_eq!(p1.guard, p2.guard);
+    for (plan, qso, association) in [(&p1, q1, &a1), (&p2, q2, &a2)] {
+        assert_eq!(
+            plan.guard,
+            clacks_sync::service::ExternalBindingGuard {
+                account: support::id(1),
+                external: ExternalRecordKey {
+                    destination: support::id(42),
+                    record: RemoteRecordId::Qrz("7".parse()?),
+                },
+                expected: None,
+            }
+        );
+        assert_eq!(
+            plan.target,
+            clacks_sync::client::VersionCondition::Is {
+                key: clacks_sync::record::RecordKey {
+                    account: support::id(1),
+                    id: RecordId::Qso(qso)
+                },
+                stamp: support::accepted(200, "q").stamp,
+            }
+        );
+        assert_eq!(&plan.association, association);
+    }
+    let other_destination = ExternalAssociation {
+        id: support::id(13),
+        external: ExternalRecordKey {
+            destination: support::id(43),
+            record: RemoteRecordId::Qrz("7".parse()?),
+        },
+        ..a1
+    };
+    let ServiceDecision::Ready(other_plan) = plan_binding(&BindingInput {
+        account: support::id(1),
+        association: &other_destination,
+        index: &ExternalBindingObservation {
+            account: support::id(1),
+            external: other_destination.external.clone(),
+            binding: None,
+        },
+        target: &Observation::Accepted(support::accepted(200, "q1")),
+    })?
+    else {
+        panic!("same remote ID in another destination is independent")
+    };
+    assert_eq!(
+        other_plan.guard,
+        clacks_sync::service::ExternalBindingGuard {
+            account: support::id(1),
+            external: ExternalRecordKey {
+                destination: support::id(43),
+                record: RemoteRecordId::Qrz("7".parse()?),
+            },
+            expected: None,
+        }
+    );
     Ok(())
 }
 

@@ -31,5 +31,4 @@ ctrlc.workspace = true
 tracing-subscriber = { workspace = true, features = ["fmt", "json", "env-filter"] }
 
 [dev-dependencies]
-tiff.workspace = true
 metrics-util.workspace = true

@@ -113,10 +113,8 @@ fn display_precision_does_not_change_point_identity() -> TestResult {
         grid_length: GridLength::new(12)?,
     };
     assert!(a.same_geographic_position(&b));
-    for _ in 0..100 {
-        assert_eq!(b.display_coordinates(), coordinates);
-        assert_eq!(b.display_locator().length(), GridLength::new(12)?);
-    }
+    assert_eq!(b.display_coordinates(), coordinates);
+    assert_eq!(b.display_locator().length(), GridLength::new(12)?);
     assert!(!a.same_geographic_position(&Position::GridArea(a.display_locator())));
     assert!(!RecordedLocation::default().has_values());
     Ok(())

@@ -1,4 +1,4 @@
-//! Reviewed local reference repair and source deletion in one transaction.
+//! Preview equipment deletion and atomically repair referring station profiles.
 
 use super::{EquipmentDeleteOutcome, EquipmentDeletionPreview, ProfileEquipmentReplacement};
 use crate::{

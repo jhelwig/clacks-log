@@ -112,7 +112,19 @@ fn font_face_is_used_by_radio_field_without_rewriting_text() {
     fonts.update(&context, &preferences, &commands, false);
     super::super::theme::install(&context, &preferences);
     let output = context.run_ui(egui::RawInput::default(), |ui| {
-        ui.add(egui::TextEdit::singleline(&mut callsign).font(egui::TextStyle::Monospace));
+        super::super::fields::text(
+            ui,
+            egui::Id::unique("radio.callsign"),
+            "Callsign",
+            &mut callsign,
+            super::super::fields::FieldPresentation {
+                edited: false,
+                read_only: false,
+                errors: &[],
+                validation_label: None,
+                radio_data: true,
+            },
+        );
     });
 
     assert_eq!(callsign, "K7ABC/P");

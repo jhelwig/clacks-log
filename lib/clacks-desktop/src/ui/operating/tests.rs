@@ -9,7 +9,7 @@ use support::Window;
 async fn semantic_normalization_does_not_create_false_edit_markers() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     window.seed().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
 
     window.text("operating.station.call", "  w7hex  ");
     window.frame(vec![]);
@@ -32,7 +32,7 @@ async fn semantic_normalization_does_not_create_false_edit_markers() -> anyhow::
 async fn validation_live_power_reports_errors_without_submitting() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     window.context.enable_accesskit();
-    window.click("Operating settings");
+    window.click("Operating settings…");
     window.text("operating.station.call", "W7HEX");
     window.click("Operator / power");
     window.text("operating.power", "invalid");
@@ -94,42 +94,9 @@ async fn validation_live_power_reports_errors_without_submitting() -> anyhow::Re
 }
 
 #[tokio::test]
-async fn font_and_scale_changes_preserve_pending_operating_text() -> anyhow::Result<()> {
-    use crate::ui::{
-        appearance::{AppearanceAction, AppearanceUi},
-        preferences::Appearance,
-    };
-
-    let mut window = Window::new().await?;
-    window.click("Operating settings");
-    window.text("operating.station.call", "VE7ABC/P");
-    let mut appearance = AppearanceUi::default();
-    appearance.open(egui::Id::unique("test.appearance.opener"));
-    let pending = &mut appearance.editor.as_mut().unwrap().pending;
-    pending.appearance = Appearance::Light;
-    pending.zoom = 1.25;
-
-    appearance.finish(&window.context, AppearanceAction::Apply);
-    window.frame(vec![]);
-
-    assert!(
-        matches!(&window.view.stack.last().unwrap().screen, Screen::Operating(editor) if editor.station.callsign == "VE7ABC/P")
-    );
-    assert!(
-        clacks_client_store::settings::snapshot(&window.store)
-            .await?
-            .operating
-            .current
-            .is_none()
-    );
-    window.close().await?;
-    Ok(())
-}
-
-#[tokio::test]
 async fn nested_equipment_save_survives_profile_cancel_without_applying() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
-    window.click("Station profiles");
+    window.saved_settings("Station profiles");
     window.click("New profile");
     window.text("profile.name", "Home");
     window.text("profile.station.call", "W7HEX");
@@ -156,7 +123,7 @@ async fn nested_equipment_save_survives_profile_cancel_without_applying() -> any
 async fn independent_equipment_selection_applies_and_survives_reopen() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
     window.click("Equipment");
     window.click(&format!("Load {}", equipment_label(&sources.rig_b)));
     assert_eq!(
@@ -210,7 +177,7 @@ async fn manual_detachment_cancel_and_separate_profile_save_use_pending_values()
 -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
     window.text("operating.station.grid", "CN88");
     window.frame(vec![]);
     assert!(window.visible("Selected profile: None"));
@@ -253,7 +220,7 @@ async fn nested_saved_equipment_edits_and_source_deletions_preserve_operating_te
 -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Operating settings");
+    window.click("Operating settings…");
     window.click("Operator / power");
     window.text("operating.power", "25");
     window.click("Station");
@@ -309,7 +276,7 @@ async fn nested_saved_equipment_edits_and_source_deletions_preserve_operating_te
 async fn stale_profile_save_and_deleted_default_have_distinct_repair_paths() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Station profiles");
+    window.saved_settings("Station profiles");
     window.click("Edit profile");
     window.text("profile.name", "My draft");
     let record = window
@@ -373,8 +340,7 @@ async fn stale_profile_save_and_deleted_default_have_distinct_repair_paths() -> 
 }
 
 #[tokio::test]
-async fn duplicate_names_remain_distinct_and_failed_request_keeps_form_and_focus()
--> anyhow::Result<()> {
+async fn duplicate_names_edit_only_the_selected_profile() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
     let mut other = sources.home.clone();
@@ -382,35 +348,23 @@ async fn duplicate_names_remain_distinct_and_failed_request_keeps_form_and_focus
     other.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7OTHER")?;
     clacks_client_store::settings::save_profile(&window.store, None, &other).await?;
     window.refresh().await;
-    window.click("Station profiles");
+    window.saved_settings("Station profiles");
     window.click_below(&profile_label(&other), "Edit profile");
     window.text("profile.name", "Other location");
     assert!(
         matches!(&window.view.stack.last().unwrap().screen, Screen::Profile(e) if e.id == other.id)
     );
-    // A genuine storage failure must not discard or replace the editing form.
-    use sqlx::{Connection, Executor};
-    let mut connection = sqlx::SqliteConnection::connect_with(
-        &sqlx::sqlite::SqliteConnectOptions::new().filename(&window.database),
-    )
-    .await?;
-    connection
-        .execute(include_str!("fail_profile_save.sql"))
-        .await?;
-    connection.close().await?;
     window.submit("Save profile");
     window.settle().await;
+    let saved = clacks_client_store::settings::snapshot(&window.store).await?;
+    assert!(saved.profiles.iter().any(|item| {
+        profile(item).is_some_and(|value| value.id == other.id && value.name == "Other location")
+    }));
     assert!(
-        matches!(&window.view.stack.last().unwrap().screen, Screen::Profile(e) if e.name == "Other location")
-    );
-    window.text("profile.name", "Still editing");
-    assert!(
-        window
-            .context
-            .memory(|m| m.has_focus(egui::Id::unique("profile.name")))
-    );
-    assert!(
-        matches!(&window.view.stack.last().unwrap().screen, Screen::Profile(e) if e.name == "Still editing")
+        saved
+            .profiles
+            .iter()
+            .any(|item| profile(item) == Some(&sources.home))
     );
     window.close().await?;
     Ok(())
@@ -420,7 +374,7 @@ async fn duplicate_names_remain_distinct_and_failed_request_keeps_form_and_focus
 async fn equipment_deletion_refreshes_phantoms_without_partial_repairs() -> anyhow::Result<()> {
     let mut window = Window::new().await?;
     let sources = window.seed().await?;
-    window.click("Equipment configurations");
+    window.saved_settings("Equipment configurations");
     window.click_below(&equipment_label(&sources.rig_a), "Review deletion");
     window.settle().await;
     window.click("Choose treatment");

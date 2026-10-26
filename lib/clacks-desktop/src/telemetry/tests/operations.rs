@@ -54,6 +54,7 @@ pub(super) async fn save_contact(paths: &WorkspacePaths) -> anyhow::Result<Accou
         comment: Some("SECRET_SENTINEL".into()),
         tags: Default::default(),
     };
+    let expected = qso.clone();
     let value = RecordValue::Qso(Box::new(qso));
     let key = RecordKey {
         account,
@@ -66,5 +67,18 @@ pub(super) async fn save_contact(paths: &WorkspacePaths) -> anyhow::Result<Accou
     ));
 
     store.close().await?;
+    let reopened = clacks_client_store::store::ClientStore::open_discovered(
+        &paths.database,
+        Default::default(),
+    )
+    .await?;
+    let saved = clacks_client_store::save::load(&reopened, key)
+        .await?
+        .unwrap();
+    assert_eq!(
+        saved.working_state(),
+        Some(&RecordState::Live(RecordValue::Qso(Box::new(expected))))
+    );
+    reopened.close().await?;
     Ok(account)
 }

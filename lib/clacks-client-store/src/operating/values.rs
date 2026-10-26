@@ -1,4 +1,4 @@
-//! Relational encoding of owned operating facts.
+//! SQLite storage for copied station, operator, power and equipment values.
 
 use crate::payload::contact;
 use clacks_model::{
@@ -9,7 +9,7 @@ use clacks_model::{
 };
 use sqlx::SqliteConnection;
 
-/// Store a validated owned operating snapshot in the caller's transaction.
+/// Store a validated copy of the operating values in the caller's transaction.
 pub(super) async fn insert_value(
     connection: &mut SqliteConnection,
     account: AccountId,
@@ -49,7 +49,7 @@ pub(super) async fn insert_value(
     .operating_id)
 }
 
-/// Restore and validate an owned operating snapshot without shared-record lookups.
+/// Load and validate copied operating values without looking up saved profiles.
 pub(super) async fn load_value(
     connection: &mut SqliteConnection,
     account: AccountId,

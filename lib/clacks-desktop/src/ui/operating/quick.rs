@@ -9,6 +9,9 @@ use crate::{
 };
 use clacks_client_store::operating::{OperatingSaveOutcome, OperatingState};
 
+/// Logical text width of inline power, excluding its labels, unit and frame.
+const POWER_FIELD_WIDTH: f32 = 64.0;
+
 /// A submitted power edit and its originating reply, independent of later typing.
 struct PowerRequest {
     /// Text submitted for this particular request.
@@ -144,24 +147,49 @@ impl QuickOperatingUi {
         }
         self.validation.request_repaint(ui.ctx(), now);
         let colors = theme::palette(ui.ctx().theme());
-        let mut response = ui
-            .add_enabled_ui(active.current.is_some(), |ui| {
-                ui.horizontal(|ui| {
-                    let label = ui.label("Power");
-                    let mut edit = egui::TextEdit::singleline(&mut self.power_text)
-                        .id(egui::Id::unique("summary.power"))
-                        .font(egui::TextStyle::Monospace)
-                        .desired_width(84.0)
-                        .hint_text("—");
-                    if self.dirty {
-                        edit = edit.background_color(colors.edited_fill);
-                    }
-                    let response = ui.add(edit).labelled_by(label.id);
-                    ui.label("W");
-                    response
-                })
-                .inner
+        let labels_width: f32 = ["Power", "W"]
+            .into_iter()
+            .map(|label| {
+                egui::WidgetText::from(label)
+                    .into_galley(
+                        ui,
+                        Some(egui::TextWrapMode::Extend),
+                        f32::INFINITY,
+                        egui::TextStyle::Small,
+                    )
+                    .size()
+                    .x
             })
+            .sum();
+        let group_width = labels_width
+            + POWER_FIELD_WIDTH
+            + 2.0 * ui.spacing().item_spacing.x
+            + ui.spacing().interact_size.y;
+        let mut response = ui
+            .allocate_ui_with_layout(
+                egui::vec2(group_width, ui.spacing().interact_size.y),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    ui.add_enabled_ui(active.current.is_some(), |ui| {
+                        ui.horizontal(|ui| {
+                            let label = ui.small(egui::RichText::new("Power").color(colors.muted));
+                            let mut edit = egui::TextEdit::singleline(&mut self.power_text)
+                                .id(egui::Id::unique("summary.power"))
+                                .font(egui::TextStyle::Monospace)
+                                .desired_width(POWER_FIELD_WIDTH)
+                                .hint_text("—");
+                            if self.dirty {
+                                edit = edit.background_color(colors.edited_fill);
+                            }
+                            let response = ui.add(edit).labelled_by(label.id);
+                            ui.small(egui::RichText::new("W").color(colors.muted));
+                            response
+                        })
+                        .inner
+                    })
+                    .inner
+                },
+            )
             .inner;
         if active.current.is_none() {
             response = response.on_disabled_hover_text(

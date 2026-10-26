@@ -7,9 +7,6 @@ use clacks_sync::record::{RecordKey, RecordState, RecordValue};
 use sqlx::{ConnectOptions, Connection, SqliteConnection, sqlite::SqliteSynchronous};
 use std::path::Path;
 
-#[cfg(test)]
-mod tests;
-
 impl ClientStore {
     /// Exclusively create an empty local-only workspace without overwriting files.
     ///

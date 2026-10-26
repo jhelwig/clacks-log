@@ -1,4 +1,4 @@
-//! Runtime sink failure degrades diagnostics while real account work continues.
+//! Clacks's sink adapter keeps failure sticky and forwards later output to fallback.
 
 use super::super::output::FallbackWriter;
 use std::{
@@ -6,87 +6,99 @@ use std::{
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
-        mpsc,
     },
-    time::Duration,
 };
 
-struct Primary {
-    fail: Arc<AtomicBool>,
-    written: mpsc::Sender<()>,
+#[derive(Default)]
+struct State {
+    bytes: Vec<u8>,
+    flushes: usize,
+    fail_write: bool,
+    fail_flush: bool,
 }
 
-impl Write for Primary {
+struct Sink(Arc<Mutex<State>>);
+
+impl Write for Sink {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        if self.fail.load(Ordering::Relaxed) {
+        let mut sink = self.0.lock().unwrap();
+        if sink.fail_write {
             return Err(io::ErrorKind::StorageFull.into());
         }
-        let _ = self.written.send(());
+        sink.bytes.extend_from_slice(bytes);
         Ok(bytes.len())
     }
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
 
-struct Fallback(Arc<Mutex<Vec<u8>>>);
-
-impl Write for Fallback {
-    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        self.0.lock().unwrap().extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
     fn flush(&mut self) -> io::Result<()> {
-        Ok(())
+        let mut sink = self.0.lock().unwrap();
+        sink.flushes += 1;
+        if sink.fail_flush {
+            Err(io::ErrorKind::StorageFull.into())
+        } else {
+            Ok(())
+        }
     }
 }
 
 #[test]
-fn runtime_write_failure_is_visible_and_preserves_account_work() -> anyhow::Result<()> {
-    let directory = tempfile::tempdir()?;
-    let paths = crate::workspace::WorkspacePaths {
-        directory: directory.path().into(),
-        database: directory.path().join("workspace.sqlite"),
-        lock_file: directory.path().join("instance.lock"),
-        log_directory: directory.path().join("logs"),
-    };
-    let fail = Arc::new(AtomicBool::new(false));
-    let degraded = Arc::new(AtomicBool::new(false));
-    let captured = Arc::new(Mutex::new(Vec::new()));
-    let (written, first_write) = mpsc::channel();
-    let (writer, guard) = tracing_appender::non_blocking(FallbackWriter::new(
-        Primary {
-            fail: fail.clone(),
-            written,
-        },
-        Fallback(captured.clone()),
-        degraded.clone(),
-    ));
-    let queue_loss = writer.error_counter();
-    let subscriber = tracing_subscriber::fmt()
-        .json()
-        .with_writer(writer)
-        .finish();
-    tracing::subscriber::with_default(subscriber, || -> anyhow::Result<()> {
-        tracing::info!(event = "test.initial_output");
-        first_write.recv_timeout(Duration::from_secs(2))?;
+fn write_failure_forwards_current_and_later_bytes_to_fallback() -> io::Result<()> {
+    let primary = Arc::new(Mutex::new(State::default()));
+    let fallback = Arc::new(Mutex::new(State::default()));
+    let failed = Arc::new(AtomicBool::new(false));
+    let mut writer = FallbackWriter::new(
+        Sink(primary.clone()),
+        Sink(fallback.clone()),
+        failed.clone(),
+    );
+    writer.write_all(b"before")?;
+    writer.flush()?;
+    assert!(!failed.load(Ordering::Relaxed));
+    assert_eq!(primary.lock().unwrap().bytes, b"before");
+    assert_eq!(primary.lock().unwrap().flushes, 1);
+    assert!(fallback.lock().unwrap().bytes.is_empty());
 
-        assert!(!degraded.load(Ordering::Relaxed));
-        fail.store(true, Ordering::Relaxed);
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()?;
-        runtime.block_on(super::operations::save_contact(&paths))?;
-        Ok(())
-    })?;
-    drop(guard);
+    primary.lock().unwrap().fail_write = true;
+    writer.write_all(b"during")?;
+    primary.lock().unwrap().fail_write = false;
+    writer.write_all(b"after")?;
+    writer.flush()?;
 
-    assert!(degraded.load(Ordering::Relaxed));
-    assert_eq!(queue_loss.dropped_lines(), 0);
-    let contents = String::from_utf8(captured.lock().unwrap().clone())?;
+    assert!(failed.load(Ordering::Relaxed));
+    assert_eq!(primary.lock().unwrap().bytes, b"before");
+    assert_eq!(fallback.lock().unwrap().bytes, b"duringafter");
+    assert_eq!(fallback.lock().unwrap().flushes, 1);
+    Ok(())
+}
 
-    assert!(contents.contains("workspace.created"));
-    assert!(!contents.contains("SECRET_SENTINEL"));
-    assert!(paths.database.exists());
+#[test]
+fn flush_failure_switches_to_fallback_and_propagates_its_error() -> io::Result<()> {
+    let primary = Arc::new(Mutex::new(State {
+        fail_flush: true,
+        ..Default::default()
+    }));
+    let fallback = Arc::new(Mutex::new(State::default()));
+    let failed = Arc::new(AtomicBool::new(false));
+    let mut writer = FallbackWriter::new(
+        Sink(primary.clone()),
+        Sink(fallback.clone()),
+        failed.clone(),
+    );
+    writer.flush()?;
+    writer.write_all(b"after flush failure")?;
+    assert!(failed.load(Ordering::Relaxed));
+    assert_eq!(primary.lock().unwrap().flushes, 1);
+    assert_eq!(fallback.lock().unwrap().flushes, 1);
+    assert_eq!(fallback.lock().unwrap().bytes, b"after flush failure");
+
+    fallback.lock().unwrap().fail_write = true;
+    assert_eq!(
+        writer.write(b"lost").unwrap_err().kind(),
+        io::ErrorKind::StorageFull
+    );
+    fallback.lock().unwrap().fail_flush = true;
+    assert_eq!(
+        writer.flush().unwrap_err().kind(),
+        io::ErrorKind::StorageFull
+    );
     Ok(())
 }

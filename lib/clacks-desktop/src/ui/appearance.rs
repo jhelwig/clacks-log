@@ -168,10 +168,7 @@ impl AppearanceUi {
                 }
                 ui.separator();
                 ui.horizontal(|ui| {
-                    if ui
-                        .add_enabled(errors.is_empty(), egui::Button::new("Apply"))
-                        .clicked()
-                    {
+                    if super::actions::primary(ui, "Apply", errors.is_empty()).clicked() {
                         action = Some(AppearanceAction::Apply);
                     }
                     if ui.button("Cancel").clicked() {

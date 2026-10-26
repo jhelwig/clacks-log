@@ -1,4 +1,4 @@
-//! Consistent hydration of account-owned settings and current operation.
+//! Read saved settings, logbook views and active operating values.
 
 use super::SettingsSnapshot;
 use crate::{metadata::client, operating, payload};
@@ -12,6 +12,7 @@ pub(crate) async fn load_in(
     account: AccountId,
 ) -> anyhow::Result<SettingsSnapshot> {
     let mut view = SettingsSnapshot {
+        logbooks: crate::logbooks::read::load_in(connection, account).await?,
         operating: operating::load_in(connection, account).await?,
         profiles: vec![],
         equipment: vec![],

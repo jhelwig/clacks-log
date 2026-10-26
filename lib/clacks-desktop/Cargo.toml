@@ -41,6 +41,7 @@ clacks-model.workspace = true
 clacks-sync.workspace = true
 
 [dev-dependencies]
+serde_json.workspace = true
 sqlx.workspace = true
 opentelemetry-proto.workspace = true
 prost.workspace = true

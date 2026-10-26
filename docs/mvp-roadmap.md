@@ -5,7 +5,7 @@ phases and observable milestones. It describes what becomes usable, the major
 dependencies and what establishes completion. Detailed implementation plans are
 separate work, prepared for the milestone being undertaken.
 
-Scope: accepted decisions D01–D256.
+Scope: the accepted MVP requirements and their subsequent recorded refinements.
 
 Delivery is tracked through [GitHub issues](https://github.com/jhelwig/clacks-log/issues) and [milestones](https://github.com/jhelwig/clacks-log/milestones).
 Each issue starts with brainstorming to produce a reviewed specification and
@@ -97,16 +97,35 @@ Milestones:
   application and the [desktop UI/shared-component contract](desktop-ui.md),
   including its appearance, validation, dialog and compact operating controls;
   installed release packaging remains in Phase 6.
+- Support offline logbook-tag setup and client-local selection before contact
+  entry: create, name, rename, configure upload policies and delete tags with
+  the agreed contact effects. Duplicate names retain distinct identities;
+  All contacts and Untagged are built-in views rather than stored tags.
 - Deliver Windows manual contact entry with the agreed timestamp behavior,
   optional operating profiles, equipment selection and historical snapshots.
+  Include the production saved-contact list needed to reopen contacts; later
+  history capabilities extend the same list and components.
 - Support editing saved contact facts and deleting individual contacts offline,
   independently of tag changes. Saved edits appear in local working history;
   pending deletions leave normal views while remaining available for review.
-- Support offline tag creation, naming, renaming, membership changes and deletion
-  choices. Contacts can belong to multiple tags or remain untagged; removing
-  membership and deleting a contact have distinct effects.
 - Provide local history and Worked Before using the saved working state, with
-  the agreed filters. Data survives normal close, restart and interrupted work.
+  the agreed filters and table selection. History includes named logbooks,
+  All contacts and Untagged. Data survives normal close, restart and interrupted
+  work.
+- Deliver individual and selected-contact membership changes through the
+  production contact editor and history selection. Contacts can belong to
+  multiple tags or remain untagged; removing membership and deleting a contact
+  have distinct effects. These workflows follow contact entry and history,
+  rather than blocking their delivery.
+
+[Tag setup](logbooks.md) supplies the selection contract for manual entry.
+Entry supplies the basic saved-contact
+list; history extends it before
+[membership editing](https://github.com/jhelwig/clacks-log/issues/51) adds the
+individual/selected-group organization workflows. No stage uses a temporary
+contact browser or requires later filtering/bulk actions merely to save a QSO.
+Tag deletion remains part of tag lifecycle, including its atomic contact effects;
+the later membership workflow changes tags on contacts that remain active.
 
 Completion means an operator can use the desktop for local logging without a
 server or provider connection and reopen the resulting log. Interaction review

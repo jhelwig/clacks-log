@@ -203,9 +203,8 @@ fn signatures_match_independent_known_answers_and_exact_wire_values() -> anyhow:
 }
 
 #[test]
-fn handles_standard_short_interrupted_zero_and_failed_writes() -> anyhow::Result<()> {
+fn writer_failure_identifies_the_batch_item_and_preserves_the_io_cause() -> anyhow::Result<()> {
     let a = support::submission();
-    let original = a.clone();
     let defs = SignatureDefinitions::bundled()?;
     let c = import_pkcs12(&support::fixture("1024/normal.p12"), "fixture-password")?;
     let items = [
@@ -220,38 +219,19 @@ fn handles_standard_short_interrupted_zero_and_failed_writes() -> anyhow::Result
             state: CredentialState::Available,
         },
     ];
-    let mut good = support::LimitedWriter {
-        bytes: Vec::new(),
-        chunk: 3,
-        fail_at: None,
-        interrupted: true,
-    };
-    let summary = write_batch(&mut good, &items, &defs, &producer(), support::now())?;
-    assert_eq!(summary.contacts, 2);
     let mut one = Vec::new();
     write_batch(&mut one, &items[..1], &defs, &producer(), support::now())?;
-    for (chunk, fail_at, want) in [
-        (0, None, ErrorKind::WriteZero),
-        (3, Some(one.len() + 10), ErrorKind::BrokenPipe),
-    ] {
-        let mut failed = support::LimitedWriter {
-            bytes: Vec::new(),
-            chunk,
-            fail_at,
-            interrupted: false,
-        };
-        let mut dispatched = false;
-        let staged = write_batch(&mut failed, &items, &defs, &producer(), support::now());
-        if staged.is_ok() {
-            dispatched = true;
-        }
-        assert!(!dispatched);
-        let error = staged.unwrap_err();
-        assert_eq!(error.downcast_ref::<std::io::Error>().unwrap().kind(), want);
-        failed.bytes.clear(); // The staging owner discards the unusable artifact.
-        assert!(failed.bytes.is_empty());
-    }
-    assert_eq!(a, original);
+    let mut failed = support::LimitedWriter {
+        bytes: Vec::new(),
+        chunk: usize::MAX,
+        fail_at: Some(one.len() + 10),
+    };
+    let error = write_batch(&mut failed, &items, &defs, &producer(), support::now()).unwrap_err();
+    assert_eq!(error.to_string(), "write batch item 1");
+    assert_eq!(
+        error.downcast_ref::<std::io::Error>().unwrap().kind(),
+        ErrorKind::BrokenPipe
+    );
     Ok(())
 }
 

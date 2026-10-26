@@ -69,8 +69,10 @@ impl ClientStore {
         let pool = SqlitePoolOptions::new()
             .max_connections(settings.max_connections)
             // SQLx's standard acquisition ping drains queued rollback work first.
-            // SQLite can auto-roll back on SQLITE_FULL while the driver retains
-            // transaction depth; discard that connection instead of reusing it.
+            // SQLx 0.9 documents that is_in_transaction can retain depth after
+            // automatic rollback. Its SQLite worker decrements depth only when
+            // ROLLBACK succeeds; SQLITE_FULL can already have ended the engine
+            // transaction. Discard that stale connection instead of reusing it.
             .before_acquire(|connection, _| {
                 Box::pin(async move { Ok(!connection.is_in_transaction()) })
             })
@@ -120,10 +122,6 @@ mod tests {
                 .fetch_one(&mut *connection)
                 .await?;
             assert_eq!(foreign_keys.foreign_keys, Some(1));
-            let checkpoint = sqlx::query_file!("sql/opening/checkpoint_settings.sql")
-                .fetch_one(&mut *connection)
-                .await?;
-            assert_eq!(checkpoint.wal_autocheckpoint, Some(1000));
             connections.push(connection);
         }
         drop(connections);

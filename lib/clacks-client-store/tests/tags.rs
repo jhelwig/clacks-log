@@ -1,6 +1,7 @@
 mod support;
 use clacks_client_store::{
-    save::{self, SaveOutcome, TagDeleteOutcome},
+    logbooks::deletion::{self, TagDeleteOutcome, TagDeletionPreview},
+    save::{self, SaveOutcome},
     store::{ClientStore, StoreSettings},
 };
 use clacks_model::tag::{LogbookTag, TagDeletionChoice};
@@ -39,7 +40,7 @@ async fn all_tag_deletion_choices_apply_to_the_complete_membership_basis() -> an
             account: id(1),
             id: RecordId::Tag(id(20)),
         };
-        let tag = saved(
+        let _tag = saved(
             &store,
             RecordState::Live(RecordValue::Tag(Box::new(LogbookTag::new(
                 id(20),
@@ -55,8 +56,10 @@ async fn all_tag_deletion_choices_apply_to_the_complete_membership_basis() -> an
         shared.tags = [id(20), id(21)].into();
         let shared = saved(&store, contact(shared), qso_key(id(11))).await?;
         let untagged = saved(&store, contact(qso(id(12))), qso_key(id(12))).await?;
-        let TagDeleteOutcome::Applied(plan) =
-            save::delete_tag(&store, &tag, &[unique, shared], choice).await?
+        let preview = deletion::preview(&store, id(20)).await?;
+        assert_eq!(preview.members, vec![unique, shared]);
+        let TagDeleteOutcome::Applied { plan, .. } =
+            deletion::delete_tag(&store, &preview, choice).await?
         else {
             panic!("tag deletion expected")
         };
@@ -115,10 +118,17 @@ async fn changed_membership_cannot_broaden_a_confirmed_tag_deletion() -> anyhow:
     q.tags = [id(20)].into();
     let second = saved(&store, contact(q), qso_key(id(11))).await?;
     assert!(matches!(
-        save::delete_tag(
+        deletion::delete_tag(
             &store,
-            &tag,
-            std::slice::from_ref(&first),
+            &TagDeletionPreview {
+                tag: tag.clone(),
+                members: vec![first.clone()],
+                counts: deletion::TagDeletionCounts {
+                    affected: 1,
+                    also_tagged_elsewhere: 0,
+                    unique: 1
+                }
+            },
             TagDeletionChoice::DeleteAll
         )
         .await?,
@@ -179,8 +189,13 @@ async fn same_named_tags_remain_distinct_across_reopen_and_deletion() -> anyhow:
         .find(|row| row.record.key.id == RecordId::Tag(id(21)))
         .unwrap();
     assert!(matches!(
-        save::delete_tag(&store, &first.record, &[], TagDeletionChoice::LeaveAll).await?,
-        TagDeleteOutcome::Applied(_)
+        deletion::delete_tag(
+            &store,
+            &deletion::preview(&store, id(20)).await?,
+            TagDeletionChoice::LeaveAll
+        )
+        .await?,
+        TagDeleteOutcome::Applied { .. }
     ));
     assert_eq!(
         save::load(&store, first.record.key)

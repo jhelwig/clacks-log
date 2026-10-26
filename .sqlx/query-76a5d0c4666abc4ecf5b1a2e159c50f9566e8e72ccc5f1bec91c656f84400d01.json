@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO local_state (key, value) VALUES (?, ?)\nON CONFLICT (key) DO UPDATE SET value = excluded.value\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "76a5d0c4666abc4ecf5b1a2e159c50f9566e8e72ccc5f1bec91c656f84400d01"
+}

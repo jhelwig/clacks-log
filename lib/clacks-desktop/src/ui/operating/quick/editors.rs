@@ -175,11 +175,7 @@ pub(in crate::ui::operating) fn show(
         }
     }
     ui.separator();
-    if ui
-        .add_enabled(
-            frame.validation.can_submit(&frame.errors),
-            egui::Button::new("Apply"),
-        )
+    if crate::ui::actions::primary(ui, "Apply", frame.validation.can_submit(&frame.errors))
         .clicked()
     {
         match edit.editor().build(definitions) {

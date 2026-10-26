@@ -132,7 +132,7 @@ fn boundary_rewrites_cycles_and_safe_reverse_cuts() {
 }
 
 #[test]
-fn root_and_deep_ancestry_survive_reloading() {
+fn root_and_deep_ancestry_are_traversable() {
     let (a, b) = AccountMetadata::initialize(id(1), id(2), id(3));
     assert_eq!(a.head.revision, 0);
     assert_eq!(b.account, a.account);

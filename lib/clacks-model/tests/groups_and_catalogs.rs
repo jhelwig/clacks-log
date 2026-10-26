@@ -1,6 +1,6 @@
 mod support;
 
-use clacks_model::catalog::{CatalogFinding, CatalogSet, ReferenceCatalog, lookup_reference};
+use clacks_model::catalog::{CatalogFinding, CatalogSet, lookup_reference};
 use clacks_model::group::{DefinitionSet, normalize_reference};
 use clacks_model::ids::GroupId;
 type TestResult = Result<(), Box<dyn std::error::Error>>;
@@ -34,9 +34,13 @@ fn explicit_normalization_does_not_rewrite_existing_references() -> TestResult {
 }
 
 #[test]
-fn a_catalog_refresh_is_not_a_qso_edit() -> TestResult {
-    let (contact, association, defs, mut catalogs, id) = support::catalog_case();
-    let before = serde_json::to_value(&contact)?;
+fn catalog_lookup_reports_updated_missing_and_unlisted_entries() -> TestResult {
+    let support::CatalogCase {
+        association,
+        definitions: defs,
+        mut catalogs,
+        id,
+    } = support::catalog_case();
     catalogs
         .get_mut(&id)
         .unwrap()
@@ -51,13 +55,7 @@ fn a_catalog_refresh_is_not_a_qso_edit() -> TestResult {
         }
         other => panic!("{other:?}"),
     }
-    assert_eq!(serde_json::to_value(&contact)?, before);
-    assert!(contact.contacted_station.location.is_none());
     let catalog = &catalogs[&id];
-    assert_eq!(
-        serde_json::from_str::<ReferenceCatalog>(&serde_json::to_string(catalog)?)?,
-        *catalog
-    );
     assert!(serde_json::to_value(catalog)?.get("version").is_none());
     assert!(matches!(
         lookup_reference(&association, &defs, &CatalogSet::new())?,
@@ -104,7 +102,12 @@ fn equivalent_groups_have_equal_capabilities_not_shared_identity() -> TestResult
 
 #[test]
 fn catalog_configuration_errors_retain_their_definition_diagnostic() {
-    let (_, association, definitions, catalogs, _) = support::catalog_case();
+    let support::CatalogCase {
+        association,
+        definitions,
+        catalogs,
+        ..
+    } = support::catalog_case();
     let mut definition = definitions.get(association.group_id).unwrap().clone();
     definition.catalog.as_mut().unwrap().lookup_key =
         clacks_model::export::rules::ValueExpression::Capture {

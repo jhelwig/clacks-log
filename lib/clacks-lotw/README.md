@@ -99,15 +99,16 @@ and restricted server-side access remain adapter obligations. Maintain the pinne
 versions and review security updates rather than suppressing the advisory.
 
 Tests consume committed independently constructed archives/certificates and
-independent cryptographic known answers. Archive coverage includes SHA-256 and
+fixed signature and wire expectations. Archive coverage includes SHA-256 and
 legacy SHA-1 integrity, both certificate/key safe orders, and bounded invalid
 private components. They check literal source-derived
 signing bytes, wire fields, producer framing, all three tested key sizes, batch
 membership, failure behavior and the real native-model projection. The dedicated Rust `clacks-lotw-fixtures` command reconstructs every input from
 fixed public test recipes and verifies exact committed bytes. It does not call
-this library's importer, signer or serializer. A separate big-integer backend
-checks signatures against explicit padding; standard cryptographic primitives
-are shared. The `clacks-lotw-data` maintenance command only reads supplied TQSL
+this library's importer, signer or serializer. Cryptographic primitives are
+provided by the existing dependencies. Tests check Clacks's expected message,
+key and emitted records without maintaining a second RSA implementation.
+The `clacks-lotw-data` maintenance command only reads supplied TQSL
 reference text. These
 checks establish
 local compatibility evidence; live LoTW acceptance requires later provider tests.

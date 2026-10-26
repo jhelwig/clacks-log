@@ -2,44 +2,12 @@ mod support;
 use clacks_sync::{
     account::{AccountMetadata, EvidenceView},
     clock::{ClockActor, RecordVector},
-    compare::{ChangePattern, RecordRelation, classify_changes, compare_records},
+    compare::{RecordRelation, compare_records},
     error::UnknownReason,
     lineage::{BoundaryKind, Coverage, TimelineBoundary},
-    record::{Position, RecordState, RecordValue},
+    record::Position,
 };
 use support::{accepted, id};
-
-#[test]
-fn whole_record_truth_table_includes_deletion_and_disjoint_fields() {
-    for (a, b, c, want) in [
-        (0, 0, 0, ChangePattern::Unchanged),
-        (0, 1, 0, ChangePattern::LocalOnly),
-        (0, 0, 1, ChangePattern::SharedOnly),
-        (0, 1, 1, ChangePattern::EqualResults),
-        (0, 1, 2, ChangePattern::BothDifferent),
-    ] {
-        assert_eq!(classify_changes(&a, &b, &c), want);
-    }
-    let a = accepted(1, "a").state;
-    let mut b = a.clone();
-    let mut c = a.clone();
-    if let RecordState::Live(RecordValue::Qso(q)) = &mut b {
-        q.tags.insert(id(20));
-    }
-    if let RecordState::Live(RecordValue::Qso(q)) = &mut c {
-        q.comment = Some("c".into());
-    }
-    assert_eq!(classify_changes(&a, &b, &c), ChangePattern::BothDifferent);
-    if let RecordState::Live(RecordValue::Qso(q)) = &mut c {
-        q.comment = Some("a".into());
-        q.tags.insert(id(21));
-    }
-    assert_eq!(classify_changes(&a, &b, &c), ChangePattern::BothDifferent);
-    assert_eq!(
-        classify_changes(&a, &RecordState::Deleted, &a),
-        ChangePattern::LocalOnly
-    );
-}
 
 #[test]
 fn record_context_can_exceed_global_recovery_prefix() {
@@ -219,4 +187,171 @@ fn projection_does_not_excuse_disagreeing_positive_components() {
         .vector
         .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 4)]).unwrap());
     assert!(compare_records(&old, &projected, &ev).is_err());
+}
+
+#[test]
+fn receipt_and_preparation_apply_whole_record_policy() {
+    use clacks_sync::{
+        client::{
+            ClientRecord, LocalCounter, OriginalBasis, PendingRecord, Preparation, ReviewReason,
+            VersionCondition, prepare_change, receive_accepted,
+        },
+        record::{Observation, RecordState, RecordValue},
+    };
+    let (_, baseline) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let baselines = [baseline.clone()];
+    let evidence = EvidenceView {
+        lineage: &baseline.lineage,
+        baselines: &baselines,
+    };
+    let original = accepted(1, "original");
+    let mut tagged = original.state.clone();
+    let RecordState::Live(RecordValue::Qso(qso)) = &mut tagged else {
+        panic!("qso")
+    };
+    qso.tags.insert(id(20));
+    let mut other_tag = original.state.clone();
+    let RecordState::Live(RecordValue::Qso(qso)) = &mut other_tag else {
+        panic!("qso")
+    };
+    qso.tags.insert(id(21));
+    let edited = accepted(1, "shared edit").state;
+    struct Case {
+        local: RecordState,
+        shared: RecordState,
+        review: bool,
+        pending: bool,
+    }
+    for Case {
+        local,
+        shared,
+        review,
+        pending,
+    } in [
+        Case {
+            local: original.state.clone(),
+            shared: original.state.clone(),
+            review: false,
+            pending: false,
+        },
+        Case {
+            local: tagged.clone(),
+            shared: original.state.clone(),
+            review: false,
+            pending: true,
+        },
+        Case {
+            local: original.state.clone(),
+            shared: edited.clone(),
+            review: false,
+            pending: false,
+        },
+        Case {
+            local: tagged.clone(),
+            shared: tagged.clone(),
+            review: false,
+            pending: false,
+        },
+        Case {
+            local: tagged.clone(),
+            shared: edited.clone(),
+            review: true,
+            pending: true,
+        },
+        Case {
+            local: tagged.clone(),
+            shared: other_tag,
+            review: true,
+            pending: true,
+        },
+        Case {
+            local: RecordState::Deleted,
+            shared: original.state.clone(),
+            review: false,
+            pending: true,
+        },
+        Case {
+            local: RecordState::Deleted,
+            shared: edited,
+            review: true,
+            pending: true,
+        },
+        Case {
+            local: tagged,
+            shared: RecordState::Deleted,
+            review: true,
+            pending: true,
+        },
+    ] {
+        let current = ClientRecord {
+            key: original.key,
+            latest: Observation::Accepted(original.clone()),
+            retained: vec![],
+            pending: Some(PendingRecord {
+                key: original.key,
+                original: OriginalBasis::Accepted(original.clone()),
+                working: local.clone(),
+                prepared: None,
+                witness: None,
+            }),
+        };
+        let mut incoming = accepted(2, "shared edit");
+        incoming.state = shared;
+        let receipt = receive_accepted(&current, &incoming, &evidence).unwrap();
+        assert_eq!(
+            receipt.record.latest,
+            Observation::Accepted(incoming.clone())
+        );
+        assert_eq!(receipt.record.pending.is_some(), pending);
+        assert_eq!(
+            receipt.review.as_ref().map(|r| &r.reason),
+            review.then_some(&ReviewReason::BothDifferent)
+        );
+        if let Some(pending) = &receipt.record.pending {
+            assert_eq!(pending.working, local);
+            assert_eq!(pending.original, OriginalBasis::Accepted(original.clone()));
+        }
+        // Preparation must apply the same policy even before a receipt update was saved.
+        let preparing = ClientRecord {
+            latest: Observation::Accepted(incoming.clone()),
+            ..current
+        };
+        let result = prepare_change(
+            &preparing,
+            id(4),
+            &LocalCounter {
+                actor: id(4),
+                high_water: 0,
+            },
+            &[],
+            &evidence,
+        )
+        .unwrap();
+        if review {
+            let Preparation::Review { record, input } = result else {
+                panic!("whole-record review")
+            };
+            assert_eq!(input.reason, ReviewReason::BothDifferent);
+            assert_eq!(input.local, local);
+            assert_eq!(input.shared, Observation::Accepted(incoming));
+            assert_eq!(record.pending.unwrap().working, local);
+        } else if pending {
+            let Preparation::Ready { change, .. } = result else {
+                panic!("local proposal")
+            };
+            assert_eq!(change.state, local);
+            assert_eq!(
+                change.expected,
+                VersionCondition::Is {
+                    key: incoming.key,
+                    stamp: incoming.stamp
+                }
+            );
+        } else {
+            let Preparation::Unchanged { record } = result else {
+                panic!("settled values")
+            };
+            assert!(record.pending.is_none());
+        }
+    }
 }

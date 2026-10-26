@@ -19,10 +19,12 @@ clients without promising those releases in this issue. Keep Rust 1.99.1 from
 `rust-toolchain.toml`, workspace-inherited dependencies and Elastic License 2.0.
 Project-owned tooling and non-trivial fixtures are Rust-only.
 
-The foundation does not deliver profile/equipment workflows (#7), tag workflows
-(#8), contact entry/editing/deletion (#9), history/Worked Before (#10), enrollment
-(#12), live service adapters or installed release packaging (#35). Those
-capabilities integrate into this application. Do not create demonstration stores,
+The foundation does not deliver profile/equipment workflows (#7), tag setup
+(#8), contact membership editing (#51), contact entry/editing/deletion (#9),
+history/Worked Before (#10), enrollment (#12), live service adapters or installed
+release packaging (#35). Those capabilities integrate into this application.
+The [logbook setup specification](logbooks.md) owns #8's selector and management
+workflow. Do not create demonstration stores,
 a synthetic logging UI, a second synchronization algorithm or temporary
 application components. No server connection, provider connection or enrollment
 is needed for local startup. Closing stops the client; there is no tray mode.
@@ -381,9 +383,10 @@ All delivered code and test tooling use the locked Rust toolchain. Verify:
    this native acceptance. Installer/distribution qualification remains #35.
 
 Use subprocess and headless tests for deterministic ownership/lifecycle behavior,
-and actual native interaction for window/renderer claims. Rust fixtures and
-private test seams may control delayed work; public APIs must still serve real
-application behavior. Platform checks not performed remain explicitly unverified.
+and actual native interaction for window/renderer claims. Exercise delayed work
+through ordinary production inputs and environmental conditions, without
+test-only production pause or fault hooks. Platform checks not performed remain
+explicitly unverified.
 
 ## 10. Integration references
 

@@ -25,17 +25,6 @@ pub enum ChangePattern {
     BothDifferent,
 }
 
-/// Classify values without merging fields or interpreting causal metadata.
-pub fn classify_changes<T: Eq>(original: &T, local: &T, shared: &T) -> ChangePattern {
-    match (original == local, original == shared, local == shared) {
-        (true, true, _) => ChangePattern::Unchanged,
-        (false, true, _) => ChangePattern::LocalOnly,
-        (true, false, _) => ChangePattern::SharedOnly,
-        (false, false, true) => ChangePattern::EqualResults,
-        (false, false, false) => ChangePattern::BothDifferent,
-    }
-}
-
 /// Established ordering of two accepted versions of one record.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RecordRelation {

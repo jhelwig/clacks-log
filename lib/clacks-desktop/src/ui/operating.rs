@@ -227,6 +227,35 @@ enum OperatingTab {
     Operator,
 }
 impl SettingsUi {
+    /// Open reusable management from the application bar without changing operation.
+    pub fn management(&mut self, ui: &mut egui::Ui, sender: &mpsc::Sender<SettingsRequest>) {
+        if self.stack.is_empty() {
+            self.stack.push(Frame::new(Screen::Home));
+        }
+        let menu = home::show(
+            ui,
+            self.stack
+                .last()
+                .is_none_or(|frame| frame.response.is_none()),
+        );
+        let next = match menu.inner {
+            Some(home::HomeAction::Profiles) => Some(Screen::Profiles),
+            Some(home::HomeAction::Equipment) => Some(Screen::Equipment),
+            Some(home::HomeAction::Refresh) => {
+                if let Some(frame) = self.stack.last_mut() {
+                    frame.send(sender, SettingsAction::Refresh);
+                }
+                None
+            }
+            None | Some(home::HomeAction::None) => None,
+        };
+        if let Some(next) = next {
+            let mut frame = Frame::new(next);
+            frame.opener = Some(menu.response.id);
+            self.stack.push(frame);
+        }
+    }
+
     /// Consume committed view updates, poll this screen's response, and render real workflows.
     pub fn show(
         &mut self,
@@ -311,42 +340,7 @@ impl SettingsUi {
                 "Accepted changes are retained. Other details are from the last successfully read state and may be out of date.",
             );
         }
-        let summary_action = summary::show(ui, &snapshot.operating, &mut self.quick, sender);
-        if let Some(selected) = &snapshot.operating.selected_profile
-            && snapshot
-                .profiles
-                .iter()
-                .filter_map(profile)
-                .any(|p| p.id == selected.id && p != selected)
-        {
-            ui.label(
-                "Active profile source changed; applied station values have not been reloaded.",
-            );
-        }
-        if let Some(selected) = &snapshot.operating.selected_equipment
-            && snapshot
-                .equipment
-                .iter()
-                .filter_map(configuration)
-                .any(|e| e.id == selected.id && e != selected)
-        {
-            ui.label(
-                "Active equipment source changed; applied equipment values have not been reloaded.",
-            );
-        }
-        let home_action = home::show(
-            ui,
-            self.stack
-                .last()
-                .is_none_or(|frame| frame.response.is_none()),
-        );
-        if matches!(home_action, home::HomeAction::Refresh)
-            && let Some(frame) = self.stack.last_mut()
-            && frame.response.is_none()
-        {
-            frame.send(sender, SettingsAction::Refresh);
-        }
-
+        let summary_action = summary::show(ui, snapshot, &mut self.quick, sender);
         let Some(frame) = self.stack.last_mut() else {
             return;
         };
@@ -377,11 +371,6 @@ impl SettingsUi {
                 Some(Screen::Quick(quick::editors::QuickEdit::Operator(editor())))
             }
         };
-        match home_action {
-            home::HomeAction::Profiles => navigation.next = Some(Screen::Profiles),
-            home::HomeAction::Equipment => navigation.next = Some(Screen::Equipment),
-            home::HomeAction::None | home::HomeAction::Refresh => {}
-        }
         let context = ui.ctx().clone();
         let modal = !matches!(frame.screen, Screen::Home);
         let title = frame.screen.title();

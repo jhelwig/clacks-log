@@ -1,7 +1,11 @@
 //! Private view-state tests without a display server.
 
 mod appearance;
+mod logbooks;
+mod logbooks_layout;
+pub(in crate::ui) mod logbooks_support;
 mod main_screen;
+mod visual_language;
 
 use super::*;
 use std::time::Instant;
@@ -189,8 +193,8 @@ fn font_selection_assigns_the_requested_radio_role() {
     );
 }
 
-struct Window {
-    app: DesktopApp,
+pub(in crate::ui) struct Window {
+    pub(in crate::ui) app: DesktopApp,
     context: egui::Context,
     updates: watch::Sender<SessionStatus>,
     notices: watch::Sender<()>,

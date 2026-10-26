@@ -9,7 +9,7 @@ use clacks_model::export::{OutputProfile, OutputPurpose, ProfileSet};
 use clacks_model::group::DefinitionSet;
 use clacks_model::ids::{CatalogId, GroupId, OutputProfileId, QsoId};
 use clacks_model::recognition::RecognitionCatalog;
-use clacks_model::recognition::mode::{Mode, ModeIdentity, ModeInterpretation};
+use clacks_model::recognition::mode::{Mode, ModeIdentity};
 use clacks_model::reference::ReferenceAssociation;
 use clacks_model::scalar::{Hertz, RecordedCallsign, UtcSecond, UtcTimestamp};
 use std::collections::BTreeSet;
@@ -74,19 +74,15 @@ pub fn definitions() -> DefinitionSet {
         .unwrap()
 }
 
-pub fn catalog_case() -> (
-    Qso,
-    ReferenceAssociation,
-    DefinitionSet,
-    CatalogSet,
-    CatalogId,
-) {
-    let mut contact = qso(id::<QsoId>(1));
+pub struct CatalogCase {
+    pub association: ReferenceAssociation,
+    pub definitions: DefinitionSet,
+    pub catalogs: CatalogSet,
+    pub id: CatalogId,
+}
+
+pub fn catalog_case() -> CatalogCase {
     let association = reference(id::<GroupId>(1), Some("US-1234"));
-    contact
-        .contacted_station
-        .references
-        .insert(association.clone());
     let id = id::<CatalogId>(1);
     let catalog = ReferenceCatalog {
         id,
@@ -110,13 +106,12 @@ pub fn catalog_case() -> (
         )]
         .into(),
     };
-    (
-        contact,
+    CatalogCase {
         association,
-        definitions(),
-        [(id, catalog)].into(),
+        definitions: definitions(),
+        catalogs: [(id, catalog)].into(),
         id,
-    )
+    }
 }
 
 pub fn profiles() -> ProfileSet {
@@ -150,18 +145,4 @@ pub fn contest_definitions() -> DefinitionSet {
     b.name = "Other contest".into();
     b.export_mappings.ordinary_interchange[0].value = ValueExpression::Literal("CONTEST-B".into());
     DefinitionSet::new(defs.iter().cloned().chain([b]).collect()).unwrap()
-}
-
-pub fn legacy_view_round_trip(
-    json: &str,
-    catalog: &RecognitionCatalog,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let mut q: Qso = serde_json::from_str(json)?;
-    let recorded_identity = match q.mode.interpret(catalog) {
-        ModeInterpretation::Known(_) => q.mode.identity(),
-        ModeInterpretation::Other(identity) => identity,
-    };
-    q.mode = Mode::from_recorded_identity(recorded_identity)?;
-    q.comment = Some("edited by older recognition view".into());
-    Ok(serde_json::to_string(&q)?)
 }

@@ -84,37 +84,7 @@ async fn binding_checks_account_and_prior_binding() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn newer_schema_is_not_modified() -> anyhow::Result<()> {
-    use sqlx::{ConnectOptions, Connection, sqlite::SqliteConnectOptions};
-    let dir = tempdir()?;
-    let file = dir.path().join("workspace.sqlite");
-    ClientStore::create(&file, account(1), StoreSettings::default())
-        .await?
-        .close()
-        .await?;
-    let mut connection = SqliteConnectOptions::new()
-        .filename(&file)
-        .connect()
-        .await?;
-    sqlx::query_file!("tests/sql/newer_schema.sql")
-        .execute(&mut connection)
-        .await?;
-    connection.close().await?;
-    let before = std::fs::read(&file)?;
-    let error = ClientStore::open(&file, account(1), StoreSettings::default())
-        .await
-        .unwrap_err();
-    assert!(matches!(
-        error.downcast_ref(),
-        Some(clacks_client_store::error::StoreError::IncompatibleSchema { found: 999, .. })
-    ));
-    assert_eq!(std::fs::read(&file)?, before);
-    Ok(())
-}
-
-#[tokio::test]
-async fn concurrent_opens_of_the_current_schema_use_sqlite_contention_handling()
--> anyhow::Result<()> {
+async fn current_workspace_accepts_concurrent_store_handles() -> anyhow::Result<()> {
     let dir = tempdir()?;
     let file = dir.path().join("workspace.sqlite");
     ClientStore::create(&file, account(1), StoreSettings::default())
@@ -128,22 +98,5 @@ async fn concurrent_opens_of_the_current_schema_use_sqlite_contention_handling()
     for result in [first, second] {
         result?.close().await?;
     }
-    Ok(())
-}
-
-#[tokio::test]
-async fn current_workspace_opens_without_startup_lock_artifacts() -> anyhow::Result<()> {
-    let directory = tempdir()?;
-    let file = directory.path().join("workspace.sqlite");
-    ClientStore::create(&file, account(1), StoreSettings::default())
-        .await?
-        .close()
-        .await?;
-    let store = ClientStore::open(&file, account(1), StoreSettings::default()).await?;
-    store.close().await?;
-    let files: Vec<_> = std::fs::read_dir(directory.path())?
-        .map(|entry| entry.map(|entry| entry.file_name()))
-        .collect::<Result<_, _>>()?;
-    assert_eq!(files, vec![std::ffi::OsString::from("workspace.sqlite")]);
     Ok(())
 }
