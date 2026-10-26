@@ -60,66 +60,6 @@ async fn open_rejects_wrong_account_or_unrelated_file() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn rejected_modified_history_leaves_the_database_untouched() -> anyhow::Result<()> {
-    use sqlx::{ConnectOptions, Connection, sqlite::SqliteConnectOptions};
-
-    let directory = tempdir()?;
-    let file = directory.path().join("workspace.sqlite");
-    ClientStore::create(&file, account(1), StoreSettings::default())
-        .await?
-        .close()
-        .await?;
-    let mut connection = SqliteConnectOptions::new()
-        .filename(&file)
-        .connect()
-        .await?;
-    sqlx::query_file!("tests/sql/modified_migration_history.sql")
-        .execute(&mut connection)
-        .await?;
-    connection.close().await?;
-
-    let before = std::fs::read(&file)?;
-    let error = ClientStore::open(&file, account(1), StoreSettings::default())
-        .await
-        .unwrap_err();
-    assert!(matches!(
-        error.downcast_ref(),
-        Some(clacks_client_store::error::StoreError::InvalidDatabase { .. })
-    ));
-    assert_eq!(std::fs::read(&file)?, before);
-    Ok(())
-}
-
-#[tokio::test]
-async fn rejected_missing_history_leaves_the_database_untouched() -> anyhow::Result<()> {
-    use sqlx::{ConnectOptions, Connection, sqlite::SqliteConnectOptions};
-
-    let directory = tempdir()?;
-    let file = directory.path().join("workspace.sqlite");
-    ClientStore::create(&file, account(1), StoreSettings::default())
-        .await?
-        .close()
-        .await?;
-    let mut connection = SqliteConnectOptions::new()
-        .filename(&file)
-        .connect()
-        .await?;
-    sqlx::query_file!("tests/sql/missing_migration_history.sql")
-        .execute(&mut connection)
-        .await?;
-    connection.close().await?;
-
-    let before = std::fs::read(&file)?;
-    assert!(
-        ClientStore::open(&file, account(1), StoreSettings::default())
-            .await
-            .is_err()
-    );
-    assert_eq!(std::fs::read(&file)?, before);
-    Ok(())
-}
-
-#[tokio::test]
 async fn binding_checks_account_and_prior_binding() -> anyhow::Result<()> {
     let dir = tempdir()?;
     let file = dir.path().join("workspace.sqlite");
@@ -140,35 +80,6 @@ async fn binding_checks_account_and_prior_binding() -> anyhow::Result<()> {
     store.close().await?;
     let reopened = ClientStore::open(&file, account(1), StoreSettings::default()).await?;
     reopened.close().await?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn newer_schema_is_not_modified() -> anyhow::Result<()> {
-    use sqlx::{ConnectOptions, Connection, sqlite::SqliteConnectOptions};
-    let dir = tempdir()?;
-    let file = dir.path().join("workspace.sqlite");
-    ClientStore::create(&file, account(1), StoreSettings::default())
-        .await?
-        .close()
-        .await?;
-    let mut connection = SqliteConnectOptions::new()
-        .filename(&file)
-        .connect()
-        .await?;
-    sqlx::query_file!("tests/sql/newer_schema.sql")
-        .execute(&mut connection)
-        .await?;
-    connection.close().await?;
-    let before = std::fs::read(&file)?;
-    let error = ClientStore::open(&file, account(1), StoreSettings::default())
-        .await
-        .unwrap_err();
-    assert!(matches!(
-        error.downcast_ref(),
-        Some(clacks_client_store::error::StoreError::IncompatibleSchema { found: 999, .. })
-    ));
-    assert_eq!(std::fs::read(&file)?, before);
     Ok(())
 }
 

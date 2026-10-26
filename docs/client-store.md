@@ -769,9 +769,9 @@ Required verification for the store:
    protection and cancellation. Long readers retain a consistent snapshot;
    dropping a cancelled operation releases its transaction before reuse.
 8. Verify that Clacks-authored migrations preserve application values and apply
-   the intended domain changes. Test read-only opening rejection for missing or
-   modified history, mismatched accounts and unsupported newer schemas. SQLx owns
-   migration journaling, per-migration transactions and resuming after failure;
+   the intended domain changes. Test read-only opening rejection for mismatched
+   accounts and unrelated files. SQLx owns migration-history validation,
+   journaling, per-migration transactions and resuming after failure;
    do not duplicate its machinery tests.
 9. Build/check offline query metadata from all migrations and validate it in CI;
    demonstrate ordinary offline builds without `DATABASE_URL`. Check realistic

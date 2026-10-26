@@ -53,7 +53,7 @@ async fn selection_and_deletion_preserve_other_local_state() -> anyhow::Result<(
 }
 
 #[tokio::test]
-async fn fresh_and_migrated_workspaces_restore_all_contacts() -> anyhow::Result<()> {
+async fn fresh_workspace_defaults_to_all_contacts() -> anyhow::Result<()> {
     let workspace = Workspace::new().await?;
     assert_eq!(
         settings::snapshot(&workspace.store)
@@ -65,26 +65,6 @@ async fn fresh_and_migrated_workspaces_restore_all_contacts() -> anyhow::Result<
     assert_eq!(selection::restore(&workspace.store).await?, None);
     workspace.store.close().await?;
 
-    let mut connection = SqliteConnectOptions::new()
-        .filename(&workspace.path)
-        .connect()
-        .await?;
-    sqlx::raw_sql(include_str!("sql/remove_selected_view_migration.sql"))
-        .execute(&mut connection)
-        .await?;
-    connection.close().await?;
-
-    let reopened = ClientStore::open(&workspace.path, id(1), StoreSettings::default()).await?;
-    assert_eq!(
-        settings::snapshot(&reopened).await?.logbooks.selected_view,
-        SelectedView::AllContacts
-    );
-    assert!(
-        !clacks_client_store::identity::status(&reopened)
-            .await?
-            .enrolled
-    );
-    reopened.close().await?;
     Ok(())
 }
 

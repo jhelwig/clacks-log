@@ -82,7 +82,7 @@ Before every task commit, run `cargo fmt --all --check`, `git diff --check`, the
 
 ## Task 1: Persist selected views and expose a consistent catalog
 
-**Files:** Create the store `logbooks.rs`, `logbooks/{selection,read}.rs`, shared `local_state.rs`, migration `0010_local_state.sql`, `sql/local_state/{get,set}.sql` and `sql/logbooks/catalog.sql`. Modify `src/{lib,settings}.rs` and `src/settings/read.rs`. Test in `lib/clacks-client-store/tests/logbooks.rs` with private `tests/support/logbooks.rs` fixtures and `tests/sql/{remove_selected_view_migration,invalid_selected_view}.sql`. Verify native preference defaults and preservation rather than SQLx journal versions, commits or retries. Update the two existing desktop `SettingsSnapshot` literals in `src/operating/tests.rs` and `src/ui/tests/main_screen.rs` with explicit empty logbook snapshots.
+**Files:** Create the store `logbooks.rs`, `logbooks/{selection,read}.rs`, shared `local_state.rs`, migration `0010_local_state.sql`, `sql/local_state/{get,set}.sql` and `sql/logbooks/catalog.sql`. Modify `src/{lib,settings}.rs` and `src/settings/read.rs`. Test in `lib/clacks-client-store/tests/logbooks.rs` with private `tests/support/logbooks.rs` fixtures and `tests/sql/invalid_selected_view.sql`. Verify native preference defaults and preservation rather than SQLx journal versions, commits or retries. Update the two existing desktop `SettingsSnapshot` literals in `src/operating/tests.rs` and `src/ui/tests/main_screen.rs` with explicit empty logbook snapshots.
 
 **Interfaces:**
 
@@ -112,7 +112,7 @@ pub(crate) async fn load_in(connection: &mut SqliteConnection, account: AccountI
 
 `restore` returns the deleted TagId only when it actually commits a repair. `fallback_deleted_in` is an internal transactional side effect, not a post-commit event or public test hook. Do not add standalone public catalog/default-tag convenience APIs without a production caller; the desktop uses `settings::snapshot` and `ReadSnapshot::settings`.
 
-- [ ] Write failing `fresh_and_migrated_workspaces_restore_all_contacts` and `selected_view_is_local_durable_and_snapshot_consistent` tests using real ClientStore create/open/close. Assert AllContacts initially, Untagged survives reopen, choosing a live tag survives rename/reopen by ID, another database stays independent, and an already-open ReadSnapshot retains its old selection/catalog while a fresh snapshot sees the committed change.
+- [ ] Write failing `fresh_workspace_defaults_to_all_contacts` and `selected_view_is_local_durable_and_snapshot_consistent` tests using real ClientStore create/open/close. Assert AllContacts initially, Untagged survives reopen, choosing a live tag survives rename/reopen by ID, another database stays independent, and an already-open ReadSnapshot retains its old selection/catalog while a fresh snapshot sees the committed change.
 
 ```rust
 assert_eq!(settings::snapshot(&store).await?.logbooks.selected_view,
