@@ -4,6 +4,7 @@ mod application;
 mod config;
 mod instance;
 mod logbooks;
+mod logging;
 mod operating;
 mod session;
 mod telemetry;
