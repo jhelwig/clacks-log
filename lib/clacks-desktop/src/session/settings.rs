@@ -1,5 +1,6 @@
 //! Typed settings requests on the existing application runtime.
 
+pub(crate) mod contacts;
 pub(crate) mod logbooks;
 
 use clacks_client_store::{
@@ -20,6 +21,8 @@ use tokio::sync::oneshot;
 
 /// An owned application operation, independent of the lifecycle command channel.
 pub(crate) enum SettingsAction {
+    /// Read or edit account-owned contact working state.
+    Contacts(contacts::ContactAction),
     /// Manage logbooks or the local view without altering operating settings.
     Logbooks(logbooks::LogbookAction),
     /// Reload the current committed settings view.
@@ -75,6 +78,8 @@ pub(crate) struct SettingsRequest {
 /// Authoritative operation outcome delivered independently from view refresh.
 #[derive(Debug)]
 pub(crate) enum SettingsResponse {
+    /// Authoritative contact result.
+    Contacts(contacts::ContactResponse),
     /// Authoritative outcome from the originating logbook workflow.
     Logbooks(logbooks::LogbookResponse),
     /// Refreshed committed state.
@@ -119,6 +124,9 @@ pub(super) struct Completion {
 pub(super) async fn execute(store: ClientStore, request: SettingsRequest) -> Completion {
     let account = store.account_id();
     let result = match request.action {
+        SettingsAction::Contacts(action) => contacts::execute(&store, action)
+            .await
+            .map(SettingsResponse::Contacts),
         SettingsAction::Logbooks(action) => logbooks::execute(&store, action)
             .await
             .map(SettingsResponse::Logbooks),
@@ -165,6 +173,9 @@ pub(super) async fn execute(store: ClientStore, request: SettingsRequest) -> Com
         }
     };
     let snapshot = match &response {
+        SettingsResponse::Contacts(
+            contacts::ContactResponse::Page(_) | contacts::ContactResponse::Loaded(_),
+        ) => None,
         SettingsResponse::Refresh(view) => Some(view.clone()),
         _ => match settings::snapshot(&store).await {
             Ok(view) => Some(view),

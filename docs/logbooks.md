@@ -203,6 +203,9 @@ D250's explicit removal/replacement workflow and unrelated sync can continue.
 
 ### 4.4. Contract consumed by contact entry
 
+The [manual-logging specification](manual-logging.md) applies this selected-view
+contract to #9's actual entry and saved-contact list.
+
 The unfinished new-contact entry follows changes to the selected view's default
 membership. Do not freeze the prior proposed membership when entry first begins.
 For Main → another named logbook, use the new tag; for Main → either built-in

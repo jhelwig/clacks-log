@@ -141,6 +141,7 @@ async fn old_baseline_migrates_by_station_values() -> anyhow::Result<()> {
         let account = legacy_operating_file(&file, change).await?;
         let store = ClientStore::open(&file, account, StoreSettings::default()).await?;
         let state = crate::operating::load(&store).await?;
+        assert_eq!(state.selected_equipment, None);
         assert_eq!(
             state.selected_profile.is_some(),
             change == "none",
@@ -154,18 +155,5 @@ async fn old_baseline_migrates_by_station_values() -> anyhow::Result<()> {
         );
         store.close().await?;
     }
-    Ok(())
-}
-
-#[tokio::test]
-async fn legacy_equipment_selection_is_not_guessed() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let file = dir.path().join("workspace.sqlite");
-    let account = legacy_operating_file(&file, "none").await?;
-    let store = ClientStore::open(&file, account, StoreSettings::default()).await?;
-    let state = crate::operating::load(&store).await?;
-    assert!(state.selected_profile.is_some());
-    assert_eq!(state.selected_equipment, None);
-    store.close().await?;
     Ok(())
 }

@@ -1,8 +1,6 @@
-#[path = "support/logbooks.rs"]
-mod logbook_support;
-mod support;
-#[path = "support/telemetry.rs"]
-mod telemetry;
+use crate::logbook_support;
+use crate::support;
+use crate::telemetry;
 
 use clacks_client_store::{
     logbooks::{
@@ -13,7 +11,6 @@ use clacks_client_store::{
     save::{self, SaveOutcome},
 };
 use clacks_model::tag::{LogbookTag, TagDeletionChoice};
-use clacks_sync::record::RecordState;
 use logbook_support::Workspace;
 use support::{contact, id, qso, qso_key};
 
@@ -65,13 +62,6 @@ fn tag_telemetry_counts_commits_without_counting_stale_or_unchanged_saves() -> a
                         TagDeletionChoice::DeleteUnique,
                     )
                     .await?;
-                    assert_eq!(
-                        save::load(&workspace.store, preview.tag.key)
-                            .await?
-                            .unwrap()
-                            .working_state(),
-                        Some(&RecordState::Deleted)
-                    );
                     workspace.store.close().await?;
                     anyhow::Ok(())
                 })

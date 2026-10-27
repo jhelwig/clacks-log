@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 
 use clacks_sync::account::{AccountMetadata, EvidenceView, InstalledCheckpoint};
 use clacks_sync::clock::{ClockActor, RecordVector};

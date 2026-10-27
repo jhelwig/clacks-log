@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 
 use clacks_model::export::rules::{
     ExpressionContext, ExpressionValue, ValueExpression, compile_definition,
@@ -102,6 +102,8 @@ fn bindings_are_group_scoped() -> TestResult {
 #[test]
 fn excessive_expression_depth_is_rejected_before_recursive_clone() {
     const CHILD_FLAG: &str = "CLACKS_TEST_DEEP_EXPRESSION";
+    // Prove that the child reached the domain assertion rather than selecting zero tests.
+    const CHILD_SUCCESS: i32 = 42;
     if std::env::var_os(CHILD_FLAG).is_some() {
         let mut definition = support::definitions().iter().next().unwrap().clone();
         let mut expression = ValueExpression::Literal("value".into());
@@ -126,19 +128,20 @@ fn excessive_expression_depth_is_rejected_before_recursive_clone() {
             Err(DefinitionError::InvalidDefinition { reason, .. })
                 if reason == "expression nesting exceeds 32"
         ));
-        return;
+        std::process::exit(CHILD_SUCCESS);
     }
     let output = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",
-            "excessive_expression_depth_is_rejected_before_recursive_clone",
+            "export_rules::excessive_expression_depth_is_rejected_before_recursive_clone",
         ])
         .env(CHILD_FLAG, "1")
         .output()
         .unwrap();
-    assert!(
-        output.status.success(),
-        "compiler subprocess failed: {}",
+    assert_eq!(
+        output.status.code(),
+        Some(CHILD_SUCCESS),
+        "compiler subprocess did not acknowledge its assertion: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 }

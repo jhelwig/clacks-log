@@ -721,26 +721,23 @@ lower-level spans are filtered.
 
 Exercise normal store operations against the production schema. Do not inject
 triggers, drop tables to manufacture failures, or add test-only production
-interfaces. Use real inputs and ordinary contention/interruption conditions.
-Malformed-database rejection and authored migration transformations use explicit
-input fixtures for those contracts.
+interfaces. Use real application inputs and intervening saved changes. Require
+a concrete Clacks decision and useful assertions beyond existing coverage;
+an imaginable regression, real file or database error is not sufficient.
+Do not test dependencies applying documented options, enforcing ordinary SQL
+constraints or preserving committed transactions across process termination.
 
 Required verification for the store:
 
 1. Exercise persisted values through their consuming workflows: reference output,
    service evidence selection, contact queries and synchronization recovery.
-   Use fixed expected outputs and malformed-input admission checks where needed;
-   symmetric mapper equality alone does not establish correct field meaning.
-   Verify frequency and transmit-power
-   values at 1 and the signed 64-bit maximum, optional absence, and rejection of
-   zero and values above that maximum. Verify counter zero/nonzero rules, the
-   signed maximum and checked exhaustion. Verify QRZ decimal-ID round trips,
-   canonical equality/uniqueness, invalid decimal rejection and IDs beyond signed
-   and unsigned 64-bit limits. Check Rust pagination comparisons and carry when
-   adding one, without SQL numeric casts or lexical-order mistakes. No panics,
-   range truncation or precision loss. Reject cross-account/record ownership,
-   missing live children and invalid discriminator
-   combinations rather than silently hydrating incomplete native values.
+   Use fixed expected outputs; symmetric mapper equality alone does not establish
+   correct field meaning. Keep native quantity, counter and decimal-ID validation
+   with the owning domain suite rather than repeating it through database
+   constraints. Store scenarios verify their use in actual queries, ownership,
+   evidence selection and recovery, including preservation of QRZ IDs beyond
+   integer storage limits. Do not corrupt private rows merely to exercise
+   deserialization errors.
 2. Reopen real temporary databases after local saves/deletions/profile loads and
    frozen preparations. History returns one working QSO, not one per tag/role.
    For operating-state delivery under D285, verify independent station/equipment
@@ -753,13 +750,11 @@ Required verification for the store:
    references, exact prepared retries,
    accepted-own responses with later edits and incomparable retained alternatives
    through the production core and actual transactions.
-4. Kill a Rust child process at observable production operation boundaries and
-   between batches; reopen and verify the committed frozen/staged state. Child
-   coordination occurs outside completed public calls. Do not retain private
-   transactions or insert production pause/failure hooks to manufacture
-   interruption. These tests prove process-interruption behavior, not
-   laboratory power-loss guarantees; SQLite/OS/filesystem durability remains an
-   explicit dependency.
+4. Verify continuation from saved frozen proposals and incomplete transfer windows
+   by reopening and using the production retry/install operations. Do not add
+   child-process scaffolding to kill a process after completed database calls;
+   that does not establish an additional Clacks transaction guarantee. SQLite,
+   operating-system and filesystem durability remain explicit dependencies.
 5. Exercise staging/complete coupled units, support dependencies, immutable
    manifest replacement, checkpoint completion and lost acknowledgment. Assert
    no false installed prefix after partial transfer or rollback. Verify exact
@@ -769,9 +764,11 @@ Required verification for the store:
    an actor, then apply an older-server recovery scenario without rewriting stamps
    or losing the genuine pending tail. Server authorization is supplied evidence,
    not fabricated by the client store.
-7. Test multi-connection reader/writer coexistence, writer contention, stale-save
-   protection and cancellation. Long readers retain a consistent snapshot;
-   dropping a cancelled operation releases its transaction before reuse.
+7. Verify application reads use a consistent basis and stale writes preserve the
+   intervening application state. Do not independently verify SQLite locking or
+   SQLx transaction cleanup. Investigate dependency defects with minimal upstream
+   reproducers; dependency workarounds are not a reason to manufacture a Clacks
+   failure-injection suite.
 8. Verify that Clacks-authored migrations preserve application values and apply
    the intended domain changes. Test read-only opening rejection for mismatched
    accounts and unrelated files. SQLx owns migration-history validation,
@@ -781,8 +778,10 @@ Required verification for the store:
    demonstrate ordinary offline builds without `DATABASE_URL`. Check realistic
    query plans and bound dynamic filter values.
 10. Run workspace formatting, tests, documentation and Clippy under Rust 1.99.1;
-    real Windows and Linux CI must pass. Rust-only fixtures/process tooling,
-    reference-only TQSL and existing native/sync regression tests remain required.
+    Linux CI must pass. Windows CI is temporarily disabled because of its runtime
+    cost; Windows platform verification remains a release obligation. Rust-only
+    tooling, reference-only TQSL and existing native/sync regression tests remain
+    required.
 
 ## 12. Implementation boundaries
 

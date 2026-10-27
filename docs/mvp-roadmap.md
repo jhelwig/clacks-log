@@ -104,7 +104,9 @@ Milestones:
 - Deliver Windows manual contact entry with the agreed timestamp behavior,
   optional operating profiles, equipment selection and historical snapshots.
   Include the production saved-contact list needed to reopen contacts; later
-  history capabilities extend the same list and components.
+  history capabilities extend the same list and components. The
+  [manual-logging specification](manual-logging.md) consolidates #9’s entry,
+  editing and individual-deletion contract.
 - Support editing saved contact facts and deleting individual contacts offline,
   independently of tag changes. Saved edits appear in local working history;
   pending deletions leave normal views while remaining available for review.

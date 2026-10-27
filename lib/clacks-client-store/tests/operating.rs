@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 
 use clacks_client_store::{
     operating::{self, OperatingSaveOutcome, OperatingState},
@@ -62,6 +62,11 @@ async fn independent_sources_survive_reopen() -> anyhow::Result<()> {
         operating::save(&store, &empty, &state).await?,
         OperatingSaveOutcome::Saved(_)
     ));
+    let profile_key = clacks_sync::record::RecordKey {
+        account: id(1),
+        id: clacks_sync::record::RecordId::Profile(id(30)),
+    };
+    assert!(save::load(&store, profile_key).await?.is_none());
     assert!(matches!(
         operating::save(&store, &state, &state).await?,
         OperatingSaveOutcome::Unchanged(_)

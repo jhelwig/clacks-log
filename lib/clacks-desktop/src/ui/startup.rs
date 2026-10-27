@@ -51,18 +51,16 @@ pub(super) fn show(app: &mut DesktopApp, ui: &mut egui::Ui, state: &SessionStatu
 
 /// Keep workspace identity and file locations available outside the operating flow.
 pub(super) fn details(app: &DesktopApp, ui: &mut egui::Ui, state: &SessionStatus) {
-    egui::CollapsingHeader::new("Workspace & diagnostics")
-        .id_salt("workspace.details")
-        .show(ui, |ui| {
-            ui.label(format!("Workspace: {}", app.paths.directory.display()));
-            ui.label(format!(
-                "Diagnostic logs: {}",
-                app.paths.log_directory.display()
-            ));
-            if let SessionStatus::Ready { identity, .. } = state {
-                ui.monospace(format!("Account: {}", identity.account));
-            }
-        });
+    ui.menu_button("Workspace & diagnostics", |ui| {
+        ui.label(format!("Workspace: {}", app.paths.directory.display()));
+        ui.label(format!(
+            "Diagnostic logs: {}",
+            app.paths.log_directory.display()
+        ));
+        if let SessionStatus::Ready { identity, .. } = state {
+            ui.monospace(format!("Account: {}", identity.account));
+        }
+    });
 }
 
 /// Present diagnostic degradation even when workspace details are collapsed.

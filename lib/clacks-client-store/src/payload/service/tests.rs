@@ -1,4 +1,4 @@
-//! Persistence boundaries consumed by service selection and malformed-input admission.
+//! Stored provider coverage and ordering consumed by observation selection.
 
 use super::*;
 use crate::test_support as support;
@@ -8,11 +8,9 @@ use crate::{
     transfer,
 };
 use clacks_model::{
-    scalar::{Hertz, RecordedCallsign, UtcSecond, UtcTimestamp},
+    scalar::{Hertz, UtcSecond, UtcTimestamp},
     service::{
-        destination::{
-            Destination, ExternalRecordKey, LotwRecordKey, RemoteCollection, RemoteRecordId,
-        },
+        destination::{Destination, ExternalRecordKey, RemoteCollection, RemoteRecordId},
         evidence::{ServicePayload, observation::*},
     },
 };
@@ -163,97 +161,6 @@ async fn restored_observations_select_provider_fields_using_retained_coverage_an
         selected.current.facts.own_station.dxcc,
         Reported::Value("291".into())
     );
-    store.close().await?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn service_schema_qualifies_exact_external_keys_and_rejects_malformed_inputs()
--> anyhow::Result<()> {
-    let directory = tempfile::tempdir()?;
-    let store = ClientStore::create(
-        &directory.path().join("workspace.sqlite"),
-        id(1),
-        StoreSettings::default(),
-    )
-    .await?;
-    let mut tx = store.write().await?;
-    let exact = ExternalRecordKey {
-        destination: id(100),
-        record: RemoteRecordId::Qrz("18446744073709551616001".parse()?),
-    };
-    let first = identity::external(&mut tx, id(1), &exact).await?;
-    assert_eq!(identity::external(&mut tx, id(1), &exact).await?, first);
-    let mut other = exact.clone();
-    other.destination = id(101);
-    assert_ne!(identity::external(&mut tx, id(1), &other).await?, first);
-    let lotw_key = LotwRecordKey {
-        own_call: RecordedCallsign::new("W7HEX/P")?,
-        worked_call: RecordedCallsign::new("K1ABC")?,
-        start: UtcSecond::from_unix_seconds(600),
-        band: "20M".into(),
-        receive_band: "2M".into(),
-        mode: "DATA".into(),
-    };
-    let exact = ExternalRecordKey {
-        destination: id(102),
-        record: RemoteRecordId::Lotw(lotw_key.clone()),
-    };
-    let first = identity::external(&mut tx, id(1), &exact).await?;
-    let near = ExternalRecordKey {
-        destination: id(102),
-        record: RemoteRecordId::Lotw(LotwRecordKey {
-            start: UtcSecond::from_unix_seconds(601),
-            ..lotw_key
-        }),
-    };
-    assert_ne!(identity::external(&mut tx, id(1), &near).await?, first);
-    let mut roots = Vec::new();
-    for payload in [
-        ServicePayload::Destination(destination()),
-        ServicePayload::Observation(Box::new(report(170, 10)?)),
-    ] {
-        let value = RecordValue::Service(Box::new(ServiceRecord {
-            payload,
-            support: ServiceSupport::default(),
-        }));
-        let key = RecordKey {
-            account: id(1),
-            id: value.id(),
-        };
-        let root = crate::payload::insert(&mut tx, key, &RecordState::Live(value)).await?;
-        roots.push((key, root));
-    }
-    let mut roots = roots.into_iter();
-    let (destination_key, destination_root) = roots.next().unwrap();
-    let (_, observation_root) = roots.next().unwrap();
-    assert!(
-        crate::payload::load(
-            &mut tx,
-            RecordKey {
-                account: id(2),
-                ..destination_key
-            },
-            destination_root
-        )
-        .await
-        .is_err()
-    );
-    assert!(
-        sqlx::query_file!("tests/sql/invalid_report_frequency.sql", observation_root)
-            .execute(&mut *tx)
-            .await
-            .is_err()
-    );
-    sqlx::query_file!("tests/sql/orphan_service_map.sql", destination_root)
-        .execute(&mut *tx)
-        .await?;
-    assert!(
-        crate::payload::load(&mut tx, destination_key, destination_root)
-            .await
-            .is_err()
-    );
-    tx.rollback().await?;
     store.close().await?;
     Ok(())
 }

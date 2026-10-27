@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 use clacks_client_store::{
     read::{self, history::HistoryQuery, review::ReviewQuery},
     save::{self, SaveOutcome},

@@ -1,6 +1,6 @@
 # Decision register
 
-This register records explicit decisions from the planning conversation through 25 October 2026 (D01–D301). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. The [desktop specification](desktop.md) consolidates D270–D279, distinguishing agreed choices from engineering defaults. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
+This register records explicit decisions from the planning conversation through 26 October 2026 (D01–D318). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. The [desktop specification](desktop.md) consolidates D270–D279, distinguishing agreed choices from engineering defaults. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
 
 ## Accepted decisions
 
@@ -1501,3 +1501,113 @@ in progress: a named logbook supplies its tag, while All contacts and Untagged
 supply none. Preserve other entered values. This does not retag saved contacts
 or change an existing contact through its editor. The
 [product contract](product.md) owns the entry-default rule.
+
+### Decision D310
+
+#### D310
+
+After successfully saving a new manual QSO, clear the contacted station's
+callsign, location, operator and references, both signal reports, and the
+contact comment. Retain primary and receive frequency/band pairs and mode.
+Use active own-station, equipment, operator and transmit-power settings for
+the next contact. Return both timestamps to live operation under D87 and use
+the current view's default membership under D309. Failed saves preserve the
+entry. The [product contract](product.md#manual-logging-and-rig-integration)
+owns this behavior.
+
+### Decision D311
+
+#### D311
+
+Enter saves the QSO from single-line contact-entry fields; Tab moves between
+fields. Keep normal dropdown and multiline-text editing behavior. Keyboard
+saving uses the same validation and submission path as the visible Save
+action. The [desktop UI contract](desktop-ui.md#operation-feedback) owns the
+interaction; this does not introduce a global shortcut in unrelated editors.
+
+### Decision D312
+
+#### D312
+
+Allow clearing a locked end-time field to record an unknown end time. Keep
+it blank while locked and save an absent end timestamp; unlocking resumes
+live updating from the current time. Start time remains required. Successful
+saving returns both fields to live operation under D87. The
+[product contract](product.md#manual-logging-and-rig-integration) owns this
+timestamp interaction.
+
+### Decision D313
+
+#### D313
+
+Unfinished manual QSOs follow active operating settings while preserving
+explicit contact-specific corrections. This applies to own-station,
+equipment, operator and transmit-power values. Contact-specific corrections
+do not change active defaults, and changes to defaults do not rewrite saved
+QSOs. The [product contract](product.md#manual-logging-and-rig-integration)
+owns this interaction.
+
+### Decision D314
+
+#### D314
+
+Confirm individual QSO deletion with the contacted callsign, UTC start time,
+and band/mode visible. State that deletion affects the contact across all
+logbooks. Use Delete QSO and Cancel, with initial focus on Cancel. This is
+contact deletion, not removal of a tag. The
+[desktop UI contract](desktop-ui.md#shared-component-contract) owns the
+confirmation interaction.
+
+### Decision D315
+
+#### D315
+
+Make the submitted contact entry read-only while saving locally, with a
+Saving indicator and duplicate submission disabled. The rest of the workbench
+remains responsive. Success performs the agreed reset; failure restores
+editing of the preserved entry and displays the error. The
+[desktop UI contract](desktop-ui.md#operation-feedback) owns this interaction.
+
+### Decision D316
+
+#### D316
+
+Include an optional contact-name field in quick QSO entry, with later
+directory names using the existing separate-source fallback rules. Keep
+the contacted operator callsign optional and secondary; knowing whether it
+differs from the contacted station is not a routine logging prerequisite.
+Group our station, operator, power and equipment as operating settings in
+the full contact editor. Provide an explicit return to quick entry that
+updates the form inputs without saving a QSO, distinct from contact saving
+and cancelling modal edits. The
+[desktop UI contract](desktop-ui.md#contact-entry-and-full-editing) owns these
+interaction requirements.
+
+### Decision D317
+
+#### D317
+
+Use adjacent contact details rather than expandable details. Worked Before
+must be one selectable tab in the same adjacent area, keeping two upper
+panes rather than adding a third section. Quick QSO entry stays visible on
+the left, with contact history below. Tab navigation preserves unfinished
+contact information without saving the QSO. This refines D288's upper-right
+area and D316's non-saving return from details. Exact tabs and any future
+dockable presentation remain design work; this does not select docking for
+MVP. The [desktop UI contract](desktop-ui.md#workbench-composition) owns the
+arrangement.
+
+### Decision D318
+
+#### D318
+
+Use combined UTC date-and-time controls for contact Start and End. Each
+control retains its independent live/locked behavior, with an absent locked
+End still permitted. Display timestamps in contact history and Worked Before
+as combined date-and-time columns and sort by the complete timestamp. Do not
+provide separate default date and time-of-day columns. A date-only
+calculated/custom column is a distinct presentation capability, not a reason
+to split the timestamp. The
+[desktop UI contract](desktop-ui.md#contact-entry-and-full-editing) owns entry
+presentation and its [column rules](desktop-ui.md#columns-and-sorting) own
+table presentation.

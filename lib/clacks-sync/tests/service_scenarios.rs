@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 #[test]
 fn collection_never_uses_acknowledgment_as_permission_to_drop_semantic_facts() -> anyhow::Result<()>
 {

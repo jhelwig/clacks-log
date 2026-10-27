@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 
 use clacks_model::contact::RecordError;
 use clacks_model::export::ExportContext;

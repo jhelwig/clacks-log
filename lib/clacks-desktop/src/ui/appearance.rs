@@ -142,12 +142,13 @@ impl AppearanceUi {
                     ui.selectable_value(&mut editor.pending.appearance, Appearance::Light, "Light");
                     ui.selectable_value(&mut editor.pending.appearance, Appearance::Dark, "Dark");
                 });
-                ui.label("UI scale");
+                let scale_label = ui.label("UI scale");
                 ui.add(
                     egui::Slider::new(&mut editor.pending.zoom, 0.75..=2.0)
                         .step_by(0.05)
                         .custom_formatter(|value, _| format!("{:.0}%", value * 100.0)),
-                );
+                )
+                .labelled_by(scale_label.id);
                 if ui.button("Reset scale to 100%").clicked() {
                     editor.pending.zoom = 1.0;
                 }

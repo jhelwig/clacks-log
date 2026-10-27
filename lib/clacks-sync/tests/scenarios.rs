@@ -1,5 +1,4 @@
-use std::collections::BTreeSet;
-mod support;
+use crate::support;
 use clacks_sync::{
     acceptance::{AcceptanceDecision, AcceptanceInput, plan_acceptance},
     account::{AccountMetadata, EvidenceView, InstalledCheckpoint},
@@ -13,6 +12,7 @@ use clacks_sync::{
     membership::{ClientMembership, MembershipSnapshot, revoke},
     record::{Observation, Position},
 };
+use std::collections::BTreeSet;
 use support::{accepted, id};
 
 fn members(ack: u64) -> MembershipSnapshot {

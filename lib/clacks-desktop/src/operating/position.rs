@@ -94,6 +94,17 @@ impl PositionForm {
 
     /// Validate own-station position input, retaining the area/point distinction.
     pub fn build(&self) -> Result<Option<Position>, String> {
+        let position = self.build_recorded()?;
+        if let Some(value) = &position {
+            value
+                .validate_operating_entry()
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(position)
+    }
+
+    /// Read recorded native positions without imposing own operating-entry precision.
+    pub fn build_recorded(&self) -> Result<Option<Position>, String> {
         let position = match self.kind {
             PositionKind::Grid if self.grid.trim().is_empty() => return Ok(None),
             PositionKind::Grid => {
@@ -113,9 +124,6 @@ impl PositionForm {
                 grid_length: self.length,
             },
         };
-        position
-            .validate_operating_entry()
-            .map_err(|e| e.to_string())?;
         Ok(Some(position))
     }
 }

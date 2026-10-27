@@ -61,7 +61,7 @@ impl SettingsUi {
             response
         };
         match response {
-            SettingsResponse::Logbooks(_) => {},
+            SettingsResponse::Logbooks(_) | SettingsResponse::Contacts(_) => {},
             SettingsResponse::Refresh(_) => frame.notice = None,
             SettingsResponse::Apply(OperatingSaveOutcome::Saved(state) | OperatingSaveOutcome::Unchanged(state)) => {
                 self.acknowledged = Some(state);

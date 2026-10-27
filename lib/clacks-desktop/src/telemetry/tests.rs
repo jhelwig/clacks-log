@@ -118,8 +118,6 @@ fn child_entry() -> anyhow::Result<()> {
     let mut arguments = vec![
         "clacks-log".to_owned(),
         format!("--otlp={exporting}"),
-        "--otlp-timeout-ms".into(),
-        "100".into(),
         "--otlp-endpoint".into(),
         if case == "secrets" {
             format!("{endpoint}/?auth=SECRET_SENTINEL")
@@ -127,6 +125,12 @@ fn child_entry() -> anyhow::Result<()> {
             endpoint
         },
     ];
+
+    // Successful composition uses normal production deadlines; only the cases
+    // exercising collector unavailability or delay need an abbreviated budget.
+    if matches!(case.as_str(), "slow" | "unavailable") {
+        arguments.extend(["--otlp-timeout-ms".into(), "100".into()]);
+    }
 
     if case == "filtered" {
         arguments.extend([
@@ -175,10 +179,19 @@ fn child_entry() -> anyhow::Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
+    let retry_key = if case == "retry" {
+        Some(runtime.block_on(operations::retry_contact(&paths))?)
+    } else {
+        None
+    };
     let account = if case == "session" {
         session::complete(&runtime, &paths, telemetry)?
     } else {
-        let account = runtime.block_on(operations::save_contact(&paths))?;
+        let account = if let Some(key) = retry_key {
+            key.account
+        } else {
+            runtime.block_on(operations::save_contact(&paths))?
+        };
         let shutdown = telemetry.shutdown();
         if !matches!(case.as_str(), "unavailable" | "secrets" | "slow") {
             shutdown?;
@@ -226,6 +239,36 @@ fn child_entry() -> anyhow::Result<()> {
         assert!(contents.contains("workspace.created"));
         assert!(contents.contains(&account.to_string()));
         assert!(!contents.contains("SECRET_SENTINEL"));
+        if let Some(key) = retry_key {
+            let event = contents
+                .lines()
+                .map(serde_json::from_str::<serde_json::Value>)
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .find(|record| {
+                    record
+                        .get("fields")
+                        .and_then(|fields| fields.get("event"))
+                        .and_then(serde_json::Value::as_str)
+                        == Some("contact.create_retry_acknowledged")
+                })
+                .expect("retry reports recovery at info with debug spans filtered");
+            let fields = event.get("fields").unwrap();
+            assert_eq!(
+                fields.get("account_id").and_then(serde_json::Value::as_str),
+                Some(key.account.to_string().as_str())
+            );
+            assert_eq!(
+                fields.get("record_id").and_then(serde_json::Value::as_str),
+                Some(key.id.to_string().as_str())
+            );
+            for callsign in ["W7HEX", "K1ABC"] {
+                assert!(
+                    !contents.contains(callsign),
+                    "recorded callsigns must not enter telemetry"
+                );
+            }
+        }
         if case == "slow" {
             assert!(
                 contents.contains("BatchSpanProcessor.ExportError"),
@@ -414,4 +457,9 @@ fn literal_file_headers_and_decoded_environment_headers_reach_the_collector_unch
 -> anyhow::Result<()> {
     child_case("headers-file")?;
     child_case("headers-env")
+}
+
+#[test]
+fn retry_acknowledgment_keeps_correlation_without_logging_contact_facts() -> anyhow::Result<()> {
+    child_case("retry")
 }

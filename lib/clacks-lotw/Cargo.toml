@@ -1,4 +1,5 @@
 [package]
+autotests = false
 name = "clacks-lotw"
 version.workspace = true
 edition.workspace = true
@@ -26,3 +27,7 @@ rand.workspace = true
 
 [dev-dependencies]
 tracing-subscriber.workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

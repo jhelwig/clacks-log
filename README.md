@@ -1,8 +1,8 @@
 # Clacks Log
 
-Clacks Log is a planned amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
+Clacks Log is an amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The client-storage library persists those values, pending work, evidence and complete-window receipts in SQLite. The desktop foundation creates or reopens a local account, presents startup diagnostics and coordinates activation and graceful shutdown. Logging workflows, server persistence and live provider adapters remain downstream capabilities.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The client-storage library persists those values, pending work, evidence and complete-window receipts in SQLite. The desktop foundation creates or reopens a local account, presents startup diagnostics and coordinates activation and graceful shutdown. The desktop supports local manual contact entry, editing and individual deletion. Server persistence and live provider adapters remain downstream capabilities.
 
 ## Documentation
 
@@ -16,6 +16,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Desktop workbench and interaction design](docs/desktop-ui.md)
 - [Operating settings, station profiles and equipment](docs/operating-settings.md)
 - [Offline logbook setup and view selection](docs/logbooks.md)
+- [Offline manual contact entry, editing and deletion](docs/manual-logging.md)
 - [Geographic-pipeline specification](docs/geographic-pipeline.md)
 - [Synchronization behavior](docs/synchronization.md) and [metadata model](docs/synchronization-model.md)
 - [Accounts and enrollment](docs/accounts.md)
@@ -53,8 +54,8 @@ selection and in-memory reference-export planning. See its crate guide for usage
 Run `cargo run --bin clacks-log -- --help`, or start a separate local workspace
 with `cargo run --bin clacks-log -- --workspace /absolute/path/to/workspace`.
 The [desktop guide](lib/clacks-desktop/README.md) covers configuration, logs,
-activation, shutdown and native Windows acceptance. This foundation does not yet
-provide contact-entry or synchronization networking workflows.
+activation, shutdown and native Windows acceptance. Manual logging works offline; synchronization networking remains a downstream
+capability.
 
 ## Synchronization library
 
@@ -113,6 +114,23 @@ cargo +1.99.1 run --release --bin clacks-lotw-fixtures --locked --offline -- --c
 Use `--help` for usage and `--write` to regenerate. The
 [fixture recipes](lib/clacks-lotw/tests/fixtures/README.md) document public test
 inputs and how the expectations are checked independently of production code.
+
+Model, synchronization, client-store and LoTW integration scenarios are modules
+of each crate's `tests/integration.rs` target. Register new cases there so shared
+fixtures compile once and the dependency graph is linked once per suite. For
+example, run the contact-page cases with:
+
+```sh
+cargo +1.99.1 test -p clacks-client-store --test integration --locked --offline contact_pages::
+```
+
+Continuous integration (CI) builds workspace applications and tests together,
+runs the resulting desktop
+executable for its command-line smoke check, then runs the full test suite.
+Compilation and execution have separate workflow steps. CI currently runs on
+Linux; Windows CI is temporarily disabled because of its runtime cost. Cargo
+timing HTML is available in the `cargo-timings-ubuntu-latest` artifact for seven
+days and reports compilation units and their dependency timelines.
 
 Verify the workspace:
 

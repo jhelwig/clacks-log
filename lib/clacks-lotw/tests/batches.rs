@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use clacks_lotw::{

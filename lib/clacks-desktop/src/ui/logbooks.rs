@@ -182,7 +182,8 @@ impl LogbooksUi {
                 .cloned()
                 .unwrap_or_else(|| format!("Unavailable logbook {id}")),
         };
-        ui.small(egui::RichText::new("Logbook").color(theme::palette(ui.ctx().theme()).muted));
+        let label =
+            ui.small(egui::RichText::new("Logbook").color(theme::palette(ui.ctx().theme()).muted));
         ui.add_enabled_ui(!self.is_busy(), |ui| {
             egui::ComboBox::from_id_salt("logbooks.selection")
                 .selected_text(caption)
@@ -216,7 +217,9 @@ impl LogbooksUi {
                             self.select(sender, SelectedView::Logbook(tag.id));
                         }
                     }
-                });
+                })
+                .response
+                .labelled_by(label.id);
         });
         if self.is_busy() {
             ui.spinner();
@@ -403,8 +406,4 @@ impl Management {
 }
 
 #[cfg(test)]
-mod admission_tests;
-#[cfg(test)]
-mod deletion_tests;
-#[cfg(test)]
-mod refresh_tests;
+mod tests;

@@ -152,6 +152,13 @@ as necessary work being placed behind an enabled-span guard or fields being
 recorded on a caller's span when the Clacks span is filtered out. Exporter failures
 belong to tests of the actual runtime/export integration once implemented.
 
+Desktop runtime reporting checks use the production telemetry initialization in
+the existing isolated-process composition tests, including its normal logging
+filter and provider lifetime. Use ordinary production export deadlines for
+successful cases; abbreviated deadlines belong to cases that explicitly test
+slow or unavailable collectors. Keep narrow library-producer captures separate
+from verification of application composition.
+
 Use ordinary existing functional tests to verify return values, domain data,
 synchronization semantics and serialization after instrumentation changes. Keep
 test collectors and fixtures in tests; no public production API exists solely
@@ -405,3 +412,16 @@ The store disables SQL statement/bound-value logging. No recorded call, name,
 comment, provider report, secret reference, certificate/private key or workspace
 path is included in its telemetry. Runtime error boundaries decide deliberate
 logging and operator diagnostics; the library propagates concrete causes.
+
+## Manual-logging runtime
+
+Contact requests use the `desktop.contacts` span on the existing runtime. The
+store remains the owner of `record.saved` and
+`clacks_client_qso_mutations_total`; the desktop does not emit a second mutation
+counter or repeat a committed event merely to acknowledge the UI action.
+`contact.create_retry_acknowledged` reports recovery of an identical stable-ID
+create at `info`, with account and record IDs. `contact.save.stale` reports an
+expected-basis mismatch without logging contact facts or inventing a new
+conflict policy. These events retain correlation when debug spans are filtered.
+Bounded list reads use `client_store.contacts.page` at `debug`. Handling-boundary
+failures and later refresh failures remain distinct from committed writes.

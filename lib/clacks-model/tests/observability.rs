@@ -1,6 +1,6 @@
 #[path = "observability/export.rs"]
 mod export;
-mod support;
+use crate::support;
 
 use clacks_model::export::ExportContext;
 use support::telemetry::capture;

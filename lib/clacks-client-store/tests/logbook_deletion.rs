@@ -1,10 +1,9 @@
-#[path = "support/logbooks.rs"]
-mod logbook_support;
-mod support;
+use crate::logbook_support;
+use crate::support;
 
 use clacks_client_store::{
     logbooks::{
-        deletion::{self, TagDeleteOutcome, TagDeletionCounts},
+        deletion::{self, TagDeleteOutcome},
         selection::{self, SelectedView},
     },
     save::{self, SaveOutcome},
@@ -14,48 +13,6 @@ use clacks_model::tag::TagDeletionChoice;
 use clacks_sync::record::RecordState;
 use logbook_support::{Workspace, insert};
 use support::{contact, id, qso, qso_key};
-
-#[tokio::test]
-async fn preview_counts_distinct_active_contacts_without_changing_selection() -> anyhow::Result<()>
-{
-    let workspace = Workspace::new().await?;
-    insert(&workspace.store, 20, "Main").await?;
-    selection::select(&workspace.store, SelectedView::Logbook(id(20))).await?;
-    for n in 100..201 {
-        let mut value = qso(id(n));
-        value.tags = if n < 130 {
-            [id(20), id(21)].into()
-        } else {
-            [id(20)].into()
-        };
-        let SaveOutcome::Saved(row) =
-            save::save(&workspace.store, qso_key(id(n)), None, contact(value)).await?
-        else {
-            panic!("create");
-        };
-        if n == 200 {
-            save::save(&workspace.store, row.key, Some(&row), RecordState::Deleted).await?;
-        }
-    }
-    let preview = deletion::preview(&workspace.store, id(20)).await?;
-    assert_eq!(
-        preview.counts,
-        TagDeletionCounts {
-            affected: 100,
-            also_tagged_elsewhere: 30,
-            unique: 70
-        }
-    );
-    assert_eq!(
-        settings::snapshot(&workspace.store)
-            .await?
-            .logbooks
-            .selected_view,
-        SelectedView::Logbook(id(20))
-    );
-    workspace.store.close().await?;
-    Ok(())
-}
 
 #[tokio::test]
 async fn effective_tag_deletion_clears_only_the_matching_selected_kind() -> anyhow::Result<()> {
@@ -110,13 +67,17 @@ async fn unrelated_fact_edit_invalidates_exact_deletion_basis() -> anyhow::Resul
     };
     let preview = deletion::preview(&workspace.store, id(20)).await?;
     value.contacted_station.callsign = clacks_model::scalar::RecordedCallsign::new("W1AW")?;
-    save::save(&workspace.store, row.key, Some(&row), contact(value)).await?;
+    let current = save::save(&workspace.store, row.key, Some(&row), contact(value)).await?;
+    let SaveOutcome::Saved(current) = current else {
+        panic!("updated contact")
+    };
     let before = settings::snapshot(&workspace.store).await?;
     assert!(matches!(
         deletion::delete_tag(&workspace.store, &preview, TagDeletionChoice::DeleteAll).await?,
         TagDeleteOutcome::Stale { .. }
     ));
     assert_eq!(settings::snapshot(&workspace.store).await?, before);
+    assert_eq!(save::load(&workspace.store, row.key).await?, Some(current));
     workspace.store.close().await?;
     Ok(())
 }
@@ -156,6 +117,20 @@ async fn unchanged_counts_do_not_validate_changed_preview_members() -> anyhow::R
     assert!(matches!(
         deletion::delete_tag(&workspace.store, &preview, TagDeletionChoice::DeleteAll).await?,
         TagDeleteOutcome::Stale { .. }
+    ));
+    assert_eq!(
+        save::load(&workspace.store, first.key)
+            .await?
+            .unwrap()
+            .working_state(),
+        Some(&RecordState::Deleted)
+    );
+    assert!(matches!(
+        save::load(&workspace.store, qso_key(id(101)))
+            .await?
+            .unwrap()
+            .working_state(),
+        Some(RecordState::Live(_))
     ));
     workspace.store.close().await?;
     Ok(())

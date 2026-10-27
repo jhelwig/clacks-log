@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 
 use clacks_model::contact::Qso;
 use clacks_model::effective::{

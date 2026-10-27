@@ -5,7 +5,6 @@ use crate::rows::definitions::ExpressionRow;
 use anyhow::Context;
 use clacks_model::export::rules::{QsoFieldPath, ValueExpression};
 use sqlx::SqliteConnection;
-use std::collections::BTreeSet;
 
 /// Store a bounded unary expression chain bottom-up using same-payload child references.
 pub(super) async fn insert(
@@ -118,13 +117,9 @@ pub(super) async fn load(
     root: i64,
 ) -> anyhow::Result<ValueExpression> {
     let mut chain = Vec::new();
-    let mut seen = BTreeSet::new();
     let mut current = root;
     loop {
-        anyhow::ensure!(
-            chain.len() <= 32 && seen.insert(current),
-            "expression cycle or excessive depth"
-        );
+        anyhow::ensure!(chain.len() <= 32, "expression cycle or excessive depth");
         let row = sqlx::query_file_as!(
             ExpressionRow,
             "sql/export/expression_select.sql",

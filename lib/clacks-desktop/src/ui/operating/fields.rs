@@ -108,23 +108,52 @@ pub(in crate::ui) fn station(
     errors: &[FieldError],
     baseline: Option<&StationForm>,
 ) -> bool {
+    station_fields(ui, id, form, definitions, errors, baseline, true)
+}
+
+/// Render additional remote facts without duplicating the quick callsign/grid fields.
+pub(in crate::ui) fn station_details(
+    ui: &mut egui::Ui,
+    id: &str,
+    form: &mut StationForm,
+    definitions: &DefinitionSet,
+    errors: &[FieldError],
+    baseline: Option<&StationForm>,
+) -> bool {
+    station_fields(ui, id, form, definitions, errors, baseline, false)
+}
+
+/// Compose the shared station editor with the quick-field ownership chosen by its caller.
+fn station_fields(
+    ui: &mut egui::Ui,
+    id: &str,
+    form: &mut StationForm,
+    definitions: &DefinitionSet,
+    errors: &[FieldError],
+    baseline: Option<&StationForm>,
+    quick_fields: bool,
+) -> bool {
     let call_changed = callsign_changed(
         &form.callsign,
         baseline.map(|value| value.callsign.as_str()),
     );
     let mut changed = false;
+    if quick_fields {
+        ui.group(|ui| {
+            ui.set_min_width(ui.available_width());
+            ui.strong("Station identity");
+            changed |= radio_text(
+                ui,
+                &format!("{id}.call"),
+                "Station callsign",
+                &mut form.callsign,
+                errors,
+                call_changed,
+            );
+        });
+    }
     ui.group(|ui| {
-        ui.strong("Station identity");
-        changed |= radio_text(
-            ui,
-            &format!("{id}.call"),
-            "Station callsign",
-            &mut form.callsign,
-            errors,
-            call_changed,
-        );
-    });
-    ui.group(|ui| {
+        ui.set_min_width(ui.available_width());
         ui.strong("Operating position");
         let position_changed = match (
             form.position.build(),
@@ -136,14 +165,16 @@ pub(in crate::ui) fn station(
             _ => baseline.is_none_or(|value| value.position != form.position),
         };
         let mut grid = form.position.grid.clone();
-        if position_text(
-            ui,
-            &format!("{id}.grid"),
-            "Grid locator (4–12 characters)",
-            &mut grid,
-            errors,
-            position_changed,
-        ) {
+        if quick_fields
+            && position_text(
+                ui,
+                &format!("{id}.grid"),
+                "Grid locator (4–12 characters)",
+                &mut grid,
+                errors,
+                position_changed,
+            )
+        {
             form.edit_grid(grid);
             changed = true;
         }
@@ -191,6 +222,7 @@ pub(in crate::ui) fn station(
         }
     });
     ui.group(|ui| {
+        ui.set_min_width(ui.available_width());
         ui.strong("Geographic details");
         let edited = text_changed(&form.dxcc, baseline.map(|value| value.dxcc.as_str()));
         changed |= radio_text(
@@ -248,6 +280,7 @@ pub(in crate::ui) fn station(
         );
     });
     ui.group(|ui| {
+        ui.set_min_width(ui.available_width());
         ui.strong("Participation / references");
         let mut remove = None;
         for (index, row) in form.references.iter_mut().enumerate() {

@@ -19,7 +19,7 @@ pub(crate) struct FieldError {
 }
 
 /// Attach native validation feedback to its editable field.
-fn issue(field: &str, message: impl std::fmt::Display) -> FieldError {
+pub(crate) fn issue(field: &str, message: impl std::fmt::Display) -> FieldError {
     FieldError {
         field: field.into(),
         message: message.to_string(),
@@ -27,6 +27,6 @@ fn issue(field: &str, message: impl std::fmt::Display) -> FieldError {
 }
 
 /// Preserve nonblank native text while treating blank optional input as absent.
-fn optional(text: &str) -> Option<String> {
+pub(crate) fn optional(text: &str) -> Option<String> {
     (!text.trim().is_empty()).then(|| text.to_owned())
 }

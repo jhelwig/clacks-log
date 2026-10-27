@@ -353,10 +353,15 @@ equipment-selection history. Start that selection absent unless existing stored
 evidence actually establishes it. Never reload newer saved values during migration.
 Exact columns, migration scripts and module/type names belong to the plan.
 
-Future contact entry copies the applied native station/operator/power/equipment
+Contact entry copies the applied native station/operator/power/equipment
 facts into each QSO. It does not copy current selections or retain configuration
 names as required historical facts. Profile/configuration edits and deletion,
 Apply, Cancel and conflict resolution do not rewrite any existing QSO payload.
+
+For unfinished manual QSOs, D313 keeps defaults following active operating
+settings while preserving explicit contact-specific corrections. The
+[manual-logging specification](manual-logging.md#3-unfinished-input-and-operating-defaults) owns
+that interaction. Unapplied operating edits remain separate from active values.
 
 ## 8. Worked workflows
 

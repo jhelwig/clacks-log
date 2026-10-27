@@ -225,11 +225,21 @@ GridTracker's Generate Messages action reaches Clacks through WS status updates;
 
 D84 places computer-aided transceiver control (CAT) integration, including direct rig frequency/mode reading, post-MVP. Live inputs continue to supply their frequency/mode; manual logging would use entered values. Exact later CAT capabilities and implementation remain open.
 
-D85 rejects separate live/historical manual-entry workflows or station-context rules triggered by QSO age. Entering contacts from paper after a five-minute pile-up is ordinary manual entry with supplied timestamps. D38 concerns historical import fallback and does not impose a corresponding manual-entry classification.
+The [manual-logging specification](manual-logging.md) consolidates offline QSO
+entry, saved-contact editing and individual deletion for #9, including
+D85–D87 and D310–D318. It owns form boundaries, combined UTC date/time controls,
+active-default tracking with contact-specific corrections, current-view tag
+defaults, save/reset behavior, validation, keyboard submission and individual
+deletion confirmation. The [desktop UI contract](desktop-ui.md) owns shared
+presentation; the [native model](native-model.md) owns recorded values.
 
-Revised manual-entry proposal, not yet accepted: one MVP entry workflow starts with current operating defaults, with editable station details, Coordinated Universal Time (UTC) start/end timestamps, frequency/mode, callsign, reports, and optional details. Adjusting QSO fields or entering an earlier timestamp does not change current operating defaults. Exact fields and validation remain open.
-
-D86 selects the LOG4OM-style time interaction described by the user: start and end fields independently update live until the lock icon beside that field is clicked. Locking freezes that field and enables manual editing. This is an accepted Clacks behavior based on the user's description, not a separately verified claim about LOG4OM versions. The proposed callsign-entry/save timing triggers were not accepted and are withdrawn. D87 returns both fields to unlocked, live-updating operation after a successful save, preserving the timestamps on the saved QSO. A failed save must not reset the unfinished entry. Other timestamp interaction details remain open.
+Manual logging is one workflow, whether entering a current contact or supplied
+historical timestamps. Incomplete entry does not create a saved record. Saving
+copies validated contact facts into account-owned local working state without
+requiring a server, provider, profile or external-upload readiness. Editing
+saved contacts does not alter active operating defaults or unfinished entry.
+The basic saved-contact list is part of #9; full history and Worked Before
+extend those components in #10, and membership editing follows in #51.
 
 D88 includes callsign-directory lookup during manual entry in MVP. D89 selects QRZ and HamQTH with a user-selected provider; field application remains open. [Directory research](../references/callsign-directory.md) distinguishes provider access requirements from logbook publication.
 
@@ -255,7 +265,7 @@ D98 excludes a reusable persistent directory-result cache for future lookups fro
 
 D99 selects user-triggered bulk directory lookup on selected/filtered QSOs using the account-selected provider, with partial-failure reporting and D209 automatic snapshot arbitration. D204 makes this an operation on separate directory snapshots, not recorded QSO fields. Recorded QSO information retains precedence in logical fallback. No automatic reconnect-driven bulk population is selected. D205 applies results to the scoped contacts’ separate directory snapshots as they arrive and provides a clear report afterward; no preview/approval stage is required. Report updated/new snapshots, unchanged results, missing directory records, failures with reasons, and unprocessed contacts. D206 replaces snapshots as a whole on successful lookup, preserves existing snapshots on failure/not found, and keeps completed updates on cancellation while reporting the remainder unprocessed. Exact supported directory fields, report presentation, and implementation mechanics remain open.
 
-D112, as refined by D252, requires both station callsigns, UTC start date/time, either a frequency or a band, and mode to save a manually entered QSO. Auto-populate band from a supplied frequency when derivable; band is not independently required, and a frequency outside recognized band ranges does not prevent local saving. End time, reports, power, and location details may remain unset; exact frequency may be unset when a band is supplied. Missing service-required station information pauses only the affected upload under existing rules, rather than preventing local saving. D166 specifies the corresponding historical-import minimum; detailed field mappings remain integration work. D128 explicitly includes optional sent/received report text supporting phone, continuous-wave Morse code (CW), and digital modes such as FT8, mapped to ADIF RST_SENT/RST_RCVD. Reports are distinct from sent/received contest exchanges. Exact field formats and defaults remain to be designed.
+D112, as refined by D252, requires both station callsigns, UTC start date/time, either a frequency or a band, and mode to save a manually entered QSO. Auto-populate band from a supplied frequency when derivable; band is not independently required, and a frequency outside recognized band ranges does not prevent local saving. End time, reports, power, and location details may remain unset; exact frequency may be unset when a band is supplied. Missing service-required station information pauses only the affected upload under existing rules, rather than preventing local saving. D166 specifies the corresponding historical-import minimum; detailed field mappings remain integration work. D128 explicitly includes optional sent/received report text supporting phone, continuous-wave Morse code (CW), and digital modes such as FT8, mapped to ADIF RST_SENT/RST_RCVD. Reports are distinct from sent/received contest exchanges. The native model defines report text; manual entry leaves reports optional and clears them after a successful new-contact save under D310.
 
 D163 applies edited-input authority to manual frequency/band entry: changing only the band clears the exact frequency; changing frequency sets the band. A derived band update must not feed back and clear the frequency just entered. Band-only saving remains permitted under D112. This follows D75's consistency principles without supplying a representative/default frequency. Historical-import validation remains separate.
 

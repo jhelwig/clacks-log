@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 
 use clacks_model::catalog::{CatalogFinding, CatalogSet, lookup_reference};
 use clacks_model::group::{DefinitionSet, normalize_reference};

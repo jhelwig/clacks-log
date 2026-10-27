@@ -68,7 +68,7 @@ cargo sqlx prepare --check --workspace -- --package clacks-client-store --all-ta
 
 `--workspace` keeps metadata in the root `.sqlx/` directory; the Cargo package
 selection limits compilation to the client store, including its test queries.
-The Windows/Linux verification workflow uses the same scoped check and caches
+The Linux verification workflow uses the same scoped check and caches
 Cargo dependencies, compiled dependency artifacts and the installed SQLx CLI.
 Cache hits do not skip metadata verification or any workspace checks.
 
@@ -151,9 +151,10 @@ actual accepted envelopes. They do not replace this store with a separate reposi
 or run server acceptance locally. Directory snapshot persistence will be added
 with its native carrier rather than a generic serialized placeholder.
 
-SQLx's standard acquisition check discards a connection whose transaction tracking
-remains active after queued rollback work drains. This covers SQLite's automatic
-rollback on storage-full errors while preserving the original concrete error.
+The pool's `before_acquire` hook discards a connection whose SQLx transaction
+tracking remains active after queued rollback work drains. This is a compatibility
+workaround for SQLx 0.9.0 after SQLite automatically rolls back a storage-full
+transaction; it is not supplied by SQLx's standard connection ping.
 
 ## Verification
 
@@ -162,10 +163,16 @@ SQLX_OFFLINE=true cargo test -p clacks-client-store --all-targets --locked --off
 SQLX_OFFLINE=true cargo clippy -p clacks-client-store --all-targets --locked --offline -- -D warnings
 ```
 
-Interruption tests spawn the Rust test binary itself, terminate it at real save,
-preparation and transfer boundaries, then reopen the file. No test harness binary,
-Python tooling, external storage service or compiled TQSL implementation is required.
-The repository workflow runs these tests natively on Windows and Linux.
+Tests assert Clacks decisions through saved values and their consuming workflows:
+stale editor rejection, frozen proposal retries, transfer staging and receipt,
+source detachment, deletion choices, query results and committed telemetry.
+Reopening verifies that Clacks retained the state needed to continue those
+workflows. It does not independently verify SQLite crash durability. Connection
+option reporting, generic constraint enforcement and dependency rollback behavior
+are not Clacks test subjects. The repository workflow runs the suite on Linux
+without child-process interruption harnesses or external services. Windows CI is
+temporarily disabled because of its runtime cost; Windows platform verification
+remains a release obligation.
 
 ## Operating settings and reusable records
 
@@ -203,3 +210,17 @@ SQLx metadata remain the schema contract. Regenerate/check metadata against a
 fresh temporary migrated database using the scoped commands above, with
 `SQLX_OFFLINE=false` and that temporary `DATABASE_URL`. Never use a real account
 workspace for query preparation.
+
+### Desktop contact pages
+
+`read::ReadSnapshot::contact_page` returns bounded current-working rows for a
+named tag, All contacts or Untagged. It orders native values in SQLite, with
+absent optional values last and stable contact-ID ties. Full UTC timestamps
+remain one comparison value. A point's displayed grid participates in grid
+sorting alongside recorded grid areas. The existing `history` keyset/filter
+reader retains its independent snapshot-consumer contract.
+
+The desktop uses pages of 100 and resets paging after known mutations or view/
+sort changes. A page's `has_more` is not an account-wide count; separate page
+reads are not represented as one immutable account snapshot. Save/edit/delete
+continues to use the existing expected-record transaction and pending metadata.

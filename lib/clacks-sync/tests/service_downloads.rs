@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 
 #[test]
 fn destination_control_identity_is_deterministic_and_destination_specific() -> anyhow::Result<()> {

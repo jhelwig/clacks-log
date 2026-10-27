@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 
 use clacks_model::ids::{AccountId, ClientActorId};
 use clacks_sync::clock::{ClockActor, RecordVector, VectorRelation};

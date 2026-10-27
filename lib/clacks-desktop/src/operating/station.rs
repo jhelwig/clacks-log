@@ -181,6 +181,23 @@ impl StationForm {
 
     /// Validate station entry while preserving existing reference values verbatim.
     pub fn build(&self, definitions: &DefinitionSet) -> Result<StationSnapshot, Vec<FieldError>> {
+        self.build_with_position(definitions, self.position.build())
+    }
+
+    /// Build recorded station facts, preserving native coarse historical areas.
+    pub fn build_recorded(
+        &self,
+        definitions: &DefinitionSet,
+    ) -> Result<StationSnapshot, Vec<FieldError>> {
+        self.build_with_position(definitions, self.position.build_recorded())
+    }
+
+    /// Validate station fields with the position policy selected by the caller.
+    fn build_with_position(
+        &self,
+        definitions: &DefinitionSet,
+        position: Result<Option<Position>, String>,
+    ) -> Result<StationSnapshot, Vec<FieldError>> {
         let mut errors = Vec::new();
         let callsign = match RecordedCallsign::new(&self.callsign) {
             Ok(v) => Some(v),
@@ -189,7 +206,7 @@ impl StationForm {
                 None
             }
         };
-        let position = match self.position.build() {
+        let position = match position {
             Ok(v) => v,
             Err(e) => {
                 errors.push(issue("Position", e));

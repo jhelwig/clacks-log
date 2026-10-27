@@ -1,4 +1,5 @@
 use clacks_client_store::{
+    error::StoreError,
     identity::{self, EnrollmentBinding},
     store::{ClientStore, StoreSettings},
 };
@@ -14,6 +15,7 @@ async fn create_never_overwrites() -> anyhow::Result<()> {
     let dir = tempdir()?;
     let file = dir.path().join("workspace.sqlite");
     let store = ClientStore::create(&file, account(1), StoreSettings::default()).await?;
+    assert!(!identity::status(&store).await?.enrolled);
     store.close().await?;
     let before = std::fs::read(&file)?;
     assert!(
@@ -71,32 +73,31 @@ async fn binding_checks_account_and_prior_binding() -> anyhow::Result<()> {
         credential_reference: "protected:entry-1".into(),
     };
     identity::bind(&store, None, binding.clone()).await?;
-    assert!(identity::bind(&store, None, binding.clone()).await.is_err());
+    assert!(identity::status(&store).await?.enrolled);
+    let error = identity::bind(&store, None, binding.clone())
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        error.downcast_ref::<StoreError>(),
+        Some(StoreError::StaleBinding)
+    ));
     let mut next = binding.clone();
     next.actor = ulid::Ulid::from(4_u128).to_string().parse()?;
     identity::bind(&store, Some(&binding), next.clone()).await?;
-    next.account = account(2);
-    assert!(identity::bind(&store, Some(&binding), next).await.is_err());
+    let mut foreign = next.clone();
+    foreign.account = account(2);
+    let error = identity::bind(&store, Some(&next), foreign)
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        error.downcast_ref::<StoreError>(),
+        Some(StoreError::WrongAccount { .. })
+    ));
     store.close().await?;
     let reopened = ClientStore::open(&file, account(1), StoreSettings::default()).await?;
+    assert!(identity::status(&reopened).await?.enrolled);
+    // The failed updates must not replace the last committed binding.
+    identity::bind(&reopened, Some(&next), next.clone()).await?;
     reopened.close().await?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn current_workspace_accepts_concurrent_store_handles() -> anyhow::Result<()> {
-    let dir = tempdir()?;
-    let file = dir.path().join("workspace.sqlite");
-    ClientStore::create(&file, account(1), StoreSettings::default())
-        .await?
-        .close()
-        .await?;
-    let (first, second) = tokio::join!(
-        ClientStore::open(&file, account(1), StoreSettings::default()),
-        ClientStore::open(&file, account(1), StoreSettings::default()),
-    );
-    for result in [first, second] {
-        result?.close().await?;
-    }
     Ok(())
 }

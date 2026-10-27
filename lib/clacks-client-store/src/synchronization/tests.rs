@@ -35,6 +35,17 @@ async fn frozen_restart_receipt_later_edit_and_rejection_preserve_their_actual_r
         credential_reference: "protected-store-reference".into(),
     };
     identity::bind(&store, None, binding.clone()).await?;
+    let unknown_key = RecordKey {
+        account: id(1),
+        id: RecordId::Tag(id(20)),
+    };
+    let new_tag = |tag_id, name: &str| {
+        RecordState::Live(RecordValue::Tag(Box::new(LogbookTag::new(
+            tag_id,
+            name.into(),
+        ))))
+    };
+    save::save(&store, unknown_key, None, new_tag(id(20), "before receipt")).await?;
     let (account, baseline) = AccountMetadata::initialize(id(1), id(2), id(3));
     let membership = MembershipSnapshot {
         account: id(1),
@@ -59,6 +70,19 @@ async fn frozen_restart_receipt_later_edit_and_rejection_preserve_their_actual_r
     transaction.commit().await?;
     assert!(observe_account(&store, None, &account, &membership).await?);
     assert!(!observe_account(&store, None, &account, &membership).await?);
+    let absent_key = RecordKey {
+        account: id(1),
+        id: RecordId::Tag(id(21)),
+    };
+    save::save(&store, absent_key, None, new_tag(id(21), "after receipt")).await?;
+    assert!(matches!(
+        prepared(&store, unknown_key).await?,
+        Preparation::Review { .. }
+    ));
+    assert!(matches!(
+        prepared(&store, absent_key).await?,
+        Preparation::Ready { .. }
+    ));
     let key = RecordKey {
         account: id(1),
         id: RecordId::Tag(id(10)),
@@ -161,7 +185,41 @@ async fn frozen_restart_receipt_later_edit_and_rejection_preserve_their_actual_r
         resolve(&store, &record, &input, state("chosen")).await?,
         SaveOutcome::Saved(_)
     ));
+
+    let mut forked = baseline.lineage.clone();
+    forked.add_boundary(clacks_sync::lineage::TimelineBoundary {
+        at: clacks_sync::record::Position {
+            timeline: id(4),
+            revision: 0,
+        },
+        includes: clacks_sync::lineage::Coverage::from(account.head),
+        kind: clacks_sync::lineage::BoundaryKind::ForkOrigin,
+    })?;
+    crate::retention::install_interpretation(&store, &checkpoint, &[], &forked).await?;
+    let alternative = clacks_sync::record::AcceptedRecord::new(
+        key,
+        state("restored branch"),
+        clacks_sync::record::VersionStamp {
+            accepted_at: clacks_sync::record::Position {
+                timeline: id(4),
+                revision: 1,
+            },
+            baseline: baseline.id,
+            vector: clacks_sync::clock::RecordVector::from_entries([(
+                clacks_sync::clock::ClockActor::Server(id(4)),
+                1,
+            )])?,
+        },
+    )?;
+    let update = receive(&store, &alternative).await?;
+    assert!(!update.record.retained.is_empty());
     store.close().await?;
+    let reopened = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
+    let Preparation::Review { input, .. } = prepared(&reopened, key).await? else {
+        panic!("retained alternative needs review")
+    };
+    assert!(!input.retained.is_empty());
+    reopened.close().await?;
     Ok(())
 }
 

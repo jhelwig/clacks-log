@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 #[test]
 fn recovered_same_id_mutation_is_checked_before_covered_shortcut() -> anyhow::Result<()> {
     use clacks_model::service::{

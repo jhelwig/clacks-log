@@ -117,6 +117,22 @@ impl ReadSnapshot {
         )
         .fetch_all(&mut *self.transaction)
         .await?;
+        let rows = rows
+            .into_iter()
+            .map(|row| crate::rows::contact::WorkingContactRow {
+                record_id: row.record_id,
+                payload_id: row.payload_id,
+                pending: row.pending,
+            })
+            .collect();
+        self.working_contacts(rows).await
+    }
+
+    /// Load working payloads with their actual pending/conflict evidence.
+    pub(super) async fn working_contacts(
+        &mut self,
+        rows: Vec<crate::rows::contact::WorkingContactRow>,
+    ) -> anyhow::Result<Vec<HistoryRow>> {
         let mut values = vec![];
         for row in rows {
             let key = RecordKey {

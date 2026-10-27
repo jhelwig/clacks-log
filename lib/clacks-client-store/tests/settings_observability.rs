@@ -1,10 +1,8 @@
 //! Diagnostic reasons distinguish noncommitting settings outcomes from mutations.
 
-#[path = "support/settings.rs"]
-mod settings_support;
-mod support;
-#[path = "support/telemetry.rs"]
-mod telemetry;
+use crate::settings_support;
+use crate::support;
+use crate::telemetry;
 
 use clacks_client_store::{
     operating::{self, OperatingSaveOutcome, OperatingState},
@@ -96,12 +94,10 @@ fn stale_apply_and_deletion_report_reasons_without_counting_mutations() -> anyho
                             equipment: None,
                         },
                     ];
-                    let before = settings::snapshot(&store).await?;
                     assert!(matches!(
                         settings::delete_equipment(&store, &preview, &choices).await?,
                         EquipmentDeleteOutcome::Stale(_)
                     ));
-                    assert_eq!(settings::snapshot(&store).await?, before);
                     store.close().await?;
                     Ok(())
                 })

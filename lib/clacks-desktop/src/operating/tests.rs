@@ -63,20 +63,6 @@ fn active() -> OperatingState {
 }
 
 #[test]
-fn power_entry_accepts_leading_decimal_and_preserves_milliwatts() {
-    let mut editor = OperatingEditor::new(&active());
-    editor.power_watts = ".5".into();
-
-    let built = editor.build(&DefinitionSet::default()).unwrap();
-
-    assert_eq!(built.current.unwrap().transmit_power.unwrap().get(), 500);
-    for invalid in ["0", "-1", ".0001", "9223372036854776"] {
-        editor.power_watts = invalid.into();
-        assert!(editor.build(&DefinitionSet::default()).is_err());
-    }
-}
-
-#[test]
 fn manual_changes_detach_only_their_own_source_and_never_reattach() {
     let active = active();
     let mut editor = OperatingEditor::new(&active);

@@ -1,5 +1,4 @@
-use std::collections::BTreeSet;
-mod support;
+use crate::support;
 use clacks_sync::{
     account::{AccountMetadata, EvidenceView, InstalledCheckpoint},
     client::{OriginalBasis, PendingRecord},
@@ -9,6 +8,7 @@ use clacks_sync::{
     membership::{ClientMembership, MembershipSnapshot, revoke},
     record::Position,
 };
+use std::collections::BTreeSet;
 use support::{accepted, id};
 
 fn checkpoint(revision: u64) -> InstalledCheckpoint {
