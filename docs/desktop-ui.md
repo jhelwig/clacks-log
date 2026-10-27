@@ -518,6 +518,53 @@ Table column definitions and pane preferences arrive with their production
 consumers. Use existing framework facilities and keep defaults centralized so
 refinement does not require restyling every screen.
 
+### UI change completion gates
+
+Apply these gates to each desktop UI change, including changes that reuse an
+existing widget. They govern implementation and acceptance; the specification
+and accepted references above remain the source of product behavior.
+
+1. **Establish the composition before coding.** Identify the affected contract
+   sections, accepted reference images and production components in the
+   implementation plan or PR description. State which containers own framing,
+   padding, width, scrolling and resizing. Check that nesting preserves the
+   agreed screen composition and control hierarchy. Framework defaults require
+   the same scrutiny as explicit styling.
+2. **Use the shared components with their intended semantics.** Keep common
+   presentation defaults in their owning theme/components. Check the composed
+   screen for duplicated frames, accumulated margins, content-sized containers
+   in expanding panes and fixed-width fields. Define what edited, pending,
+   invalid and applied mean for the particular workflow. Values inherited from
+   active operating settings are not unapplied contact corrections. Extend an
+   existing component or its layout owner when necessary; this gate does not
+   justify additional UI abstraction layers.
+3. **Inspect the assembled production application.** Compare actual application
+   screenshots with the agreed references for placement, alignment, grouping,
+   density, palette, control styling and relative typography. Exercise the
+   affected empty/populated, loaded-default, edited, validation, pending and
+   failure states. Check resizing, scrolling, both appearances and relevant UI
+   scaling. Validation feedback must not introduce transient layout shifts.
+   Use an isolated real workspace and ordinary production controls; mockups and
+   a separate test application do not establish implementation conformance.
+4. **Add focused Clacks regressions.** Assert the product decision the change
+   could violate, such as pane allocation, responsive form width, stable layout
+   during validation or truthful edit indicators. Retain meaningful functional
+   and keyboard coverage. Do not treat label presence, reachability, geometry
+   checks or dependency behavior as proof of complete visual acceptance, and do
+   not prescribe a test for every styling token or duplicate the whole suite.
+5. **Report evidence and limits before declaring completion.** Include the
+   inspected platform, window sizes/scales, exercised states and representative
+   application screenshots in the PR or delivery response. State any missing
+   visual or native-platform checks as pending. Passing CI does not satisfy an
+   unperformed visual check. Keep execution evidence with the PR/delivery, not
+   in repository review chronicles or a duplicate status document.
+
+If the production application cannot be inspected in the available environment,
+complete the implementation and automated checks that are possible, then report
+visual acceptance as pending with the specific checks still required. Do not
+claim design conformance or silently substitute headless tests. Native Windows
+graphics/input acceptance remains separate from inspection on another platform.
+
 ### Verification and delivery
 
 Verify Clacks interactions through production forms and real local state:
