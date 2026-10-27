@@ -152,6 +152,13 @@ as necessary work being placed behind an enabled-span guard or fields being
 recorded on a caller's span when the Clacks span is filtered out. Exporter failures
 belong to tests of the actual runtime/export integration once implemented.
 
+Desktop runtime reporting checks use the production telemetry initialization in
+the existing isolated-process composition tests, including its normal logging
+filter and provider lifetime. Use ordinary production export deadlines for
+successful cases; abbreviated deadlines belong to cases that explicitly test
+slow or unavailable collectors. Keep narrow library-producer captures separate
+from verification of application composition.
+
 Use ordinary existing functional tests to verify return values, domain data,
 synchronization semantics and serialization after instrumentation changes. Keep
 test collectors and fixtures in tests; no public production API exists solely

@@ -23,7 +23,39 @@ pub(super) async fn save_contact(paths: &WorkspacePaths) -> anyhow::Result<Accou
         Default::default(),
     )
     .await?;
-    let qso = Qso {
+    let qso = contact()?;
+    let expected = qso.clone();
+    let value = RecordValue::Qso(Box::new(qso));
+    let key = RecordKey {
+        account,
+        id: value.id(),
+    };
+
+    assert!(matches!(
+        clacks_client_store::save::save(&store, key, None, RecordState::Live(value)).await?,
+        clacks_client_store::save::SaveOutcome::Saved(_)
+    ));
+
+    store.close().await?;
+    let reopened = clacks_client_store::store::ClientStore::open_discovered(
+        &paths.database,
+        Default::default(),
+    )
+    .await?;
+    let saved = clacks_client_store::save::load(&reopened, key)
+        .await?
+        .unwrap();
+    assert_eq!(
+        saved.working_state(),
+        Some(&RecordState::Live(RecordValue::Qso(Box::new(expected))))
+    );
+    reopened.close().await?;
+    Ok(account)
+}
+
+/// Native recorded facts shared by actual composition operations.
+fn contact() -> anyhow::Result<Qso> {
+    Ok(Qso {
         id: QsoId::new(),
         start: UtcSecond::from_unix_seconds(1000),
         end: None,
@@ -53,32 +85,47 @@ pub(super) async fn save_contact(paths: &WorkspacePaths) -> anyhow::Result<Accou
         received_report: None,
         comment: Some("SECRET_SENTINEL".into()),
         tags: Default::default(),
-    };
-    let expected = qso.clone();
-    let value = RecordValue::Qso(Box::new(qso));
+    })
+}
+
+/// Create and acknowledge the same submitted contact through the desktop adapter.
+pub(super) async fn retry_contact(paths: &WorkspacePaths) -> anyhow::Result<RecordKey> {
+    use crate::session::settings::contacts::{self, ContactAction, ContactResponse};
+    use clacks_client_store::{save::SaveOutcome, store::ClientStore};
+
+    let store = ClientStore::create(&paths.database, AccountId::new(), Default::default()).await?;
+    let mut qso = contact()?;
+    qso.sent_report = Some("SECRET_SENTINEL".into());
+    qso.contacted_operator = Some(clacks_model::contact::OperatorInformation {
+        callsign: None,
+        recorded_name: Some("SECRET_SENTINEL".into()),
+    });
     let key = RecordKey {
-        account,
-        id: value.id(),
+        account: store.account_id(),
+        id: clacks_sync::record::RecordId::Qso(qso.id),
     };
-
     assert!(matches!(
-        clacks_client_store::save::save(&store, key, None, RecordState::Live(value)).await?,
-        clacks_client_store::save::SaveOutcome::Saved(_)
+        contacts::execute(
+            &store,
+            ContactAction::Save {
+                expected: None,
+                next: Box::new(qso.clone())
+            }
+        )
+        .await?,
+        ContactResponse::Saved(SaveOutcome::Saved(_))
     ));
-
+    assert!(matches!(
+        contacts::execute(
+            &store,
+            ContactAction::Save {
+                expected: None,
+                next: Box::new(qso)
+            }
+        )
+        .await?,
+        ContactResponse::Saved(SaveOutcome::Unchanged(_))
+    ));
     store.close().await?;
-    let reopened = clacks_client_store::store::ClientStore::open_discovered(
-        &paths.database,
-        Default::default(),
-    )
-    .await?;
-    let saved = clacks_client_store::save::load(&reopened, key)
-        .await?
-        .unwrap();
-    assert_eq!(
-        saved.working_state(),
-        Some(&RecordState::Live(RecordValue::Qso(Box::new(expected))))
-    );
-    reopened.close().await?;
-    Ok(account)
+    Ok(key)
 }
