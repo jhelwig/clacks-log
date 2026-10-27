@@ -223,7 +223,3 @@ pub(crate) async fn store_counter(
     );
     Ok(())
 }
-
-#[cfg(test)]
-#[path = "client_tests.rs"]
-mod tests;

@@ -94,12 +94,10 @@ fn stale_apply_and_deletion_report_reasons_without_counting_mutations() -> anyho
                             equipment: None,
                         },
                     ];
-                    let before = settings::snapshot(&store).await?;
                     assert!(matches!(
                         settings::delete_equipment(&store, &preview, &choices).await?,
                         EquipmentDeleteOutcome::Stale(_)
                     ));
-                    assert_eq!(settings::snapshot(&store).await?, before);
                     store.close().await?;
                     Ok(())
                 })

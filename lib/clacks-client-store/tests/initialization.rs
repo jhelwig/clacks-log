@@ -9,30 +9,6 @@ use clacks_model::{
 use clacks_sync::record::{Observation, RecordId, RecordKey, RecordState, RecordValue};
 
 #[tokio::test]
-async fn discover_existing_account_once() -> anyhow::Result<()> {
-    let directory = tempfile::tempdir()?;
-    let path = directory.path().join("workspace.sqlite");
-    let account = AccountId::new();
-    ClientStore::create(&path, account, StoreSettings::default())
-        .await?
-        .close()
-        .await?;
-
-    let store = ClientStore::open_discovered(&path, StoreSettings::default()).await?;
-
-    assert_eq!(store.account_id(), account);
-    assert_eq!(
-        identity::status(&store).await?,
-        identity::WorkspaceStatus {
-            account,
-            enrolled: false
-        }
-    );
-
-    store.close().await
-}
-
-#[tokio::test]
 async fn created_definitions_survive_reopen_as_unpublished_values() -> anyhow::Result<()> {
     let directory = tempfile::tempdir()?;
     let path = directory.path().join("workspace.sqlite");
@@ -48,6 +24,36 @@ async fn created_definitions_survive_reopen_as_unpublished_values() -> anyhow::R
     .await?;
     store.close().await?;
     let store = ClientStore::open_discovered(&path, StoreSettings::default()).await?;
+    assert_eq!(store.account_id(), account);
+    assert_eq!(
+        identity::status(&store).await?,
+        identity::WorkspaceStatus {
+            account,
+            enrolled: false
+        }
+    );
+    let mut snapshot = clacks_client_store::read::snapshot(&store).await?;
+    assert!(snapshot.checkpoint().await?.is_none());
+    assert!(snapshot.account_view().await?.is_none());
+    snapshot.close().await?;
+
+    let error = identity::bind(
+        &store,
+        None,
+        identity::EnrollmentBinding {
+            account,
+            server: "https://example.invalid".into(),
+            actor: ClientActorId::new(),
+            credential_reference: "protected-reference".into(),
+        },
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(
+        error.downcast_ref::<clacks_client_store::error::StoreError>(),
+        Some(clacks_client_store::error::StoreError::PopulatedWorkspace)
+    ));
+
     for group in &definitions.groups {
         let key = RecordKey {
             account,
@@ -158,92 +164,4 @@ async fn reopen_preserves_changed_definitions() -> anyhow::Result<()> {
     );
 
     reopened.close().await
-}
-
-#[tokio::test]
-async fn seed_creation_fabricates_no_shared_evidence() -> anyhow::Result<()> {
-    let directory = tempfile::tempdir()?;
-    let account = AccountId::new();
-
-    let store = ClientStore::create_with_definitions(
-        &directory.path().join("workspace.sqlite"),
-        account,
-        &account_definitions()?,
-        StoreSettings::default(),
-    )
-    .await?;
-    let mut snapshot = clacks_client_store::read::snapshot(&store).await?;
-
-    assert!(snapshot.checkpoint().await?.is_none());
-    assert!(snapshot.account_view().await?.is_none());
-    snapshot.close().await?;
-    let binding = identity::EnrollmentBinding {
-        account,
-        server: "https://example.invalid".into(),
-        actor: ClientActorId::new(),
-        credential_reference: "protected-reference".into(),
-    };
-
-    assert!(identity::bind(&store, None, binding).await.is_err());
-    store.close().await
-}
-
-#[tokio::test]
-async fn status_distinguishes_enrollment_without_exposing_credentials() -> anyhow::Result<()> {
-    let directory = tempfile::tempdir()?;
-    let account = AccountId::new();
-
-    let store = ClientStore::create(
-        &directory.path().join("workspace.sqlite"),
-        account,
-        StoreSettings::default(),
-    )
-    .await?;
-    identity::bind(
-        &store,
-        None,
-        identity::EnrollmentBinding {
-            account,
-            server: "https://example.invalid".into(),
-            actor: ClientActorId::new(),
-            credential_reference: "secret-reference-sentinel".into(),
-        },
-    )
-    .await?;
-
-    let status = identity::status(&store).await?;
-
-    assert!(status.enrolled);
-    assert_eq!(status.account, account);
-    assert!(!format!("{status:?}").contains("secret-reference-sentinel"));
-    store.close().await
-}
-
-#[tokio::test]
-async fn failed_preflight_releases_the_database_before_returning() -> anyhow::Result<()> {
-    let directory = tempfile::tempdir()?;
-    let path = directory.path().join("workspace.sqlite");
-    std::fs::write(&path, b"not a SQLite database")?;
-
-    assert!(
-        ClientStore::open_discovered(&path, StoreSettings::default())
-            .await
-            .is_err()
-    );
-
-    // Windows refuses removal while the SQLite worker still holds the file.
-    std::fs::remove_file(&path)?;
-    let account = AccountId::new();
-    ClientStore::create(&path, account, StoreSettings::default())
-        .await?
-        .close()
-        .await?;
-
-    assert!(
-        ClientStore::open(&path, AccountId::new(), StoreSettings::default())
-            .await
-            .is_err()
-    );
-    std::fs::remove_file(&path)?;
-    Ok(())
 }

@@ -19,7 +19,7 @@ mod payload;
 mod rows;
 
 #[cfg(test)]
-mod failure_tests;
+mod transfer_tests;
 
 #[cfg(test)]
 #[path = "../tests/support/mod.rs"]

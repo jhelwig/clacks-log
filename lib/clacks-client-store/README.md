@@ -151,9 +151,10 @@ actual accepted envelopes. They do not replace this store with a separate reposi
 or run server acceptance locally. Directory snapshot persistence will be added
 with its native carrier rather than a generic serialized placeholder.
 
-SQLx's standard acquisition check discards a connection whose transaction tracking
-remains active after queued rollback work drains. This covers SQLite's automatic
-rollback on storage-full errors while preserving the original concrete error.
+The pool's `before_acquire` hook discards a connection whose SQLx transaction
+tracking remains active after queued rollback work drains. This is a compatibility
+workaround for SQLx 0.9.0 after SQLite automatically rolls back a storage-full
+transaction; it is not supplied by SQLx's standard connection ping.
 
 ## Verification
 
@@ -162,10 +163,14 @@ SQLX_OFFLINE=true cargo test -p clacks-client-store --all-targets --locked --off
 SQLX_OFFLINE=true cargo clippy -p clacks-client-store --all-targets --locked --offline -- -D warnings
 ```
 
-Interruption tests spawn the Rust test binary itself, terminate it at real save,
-preparation and transfer boundaries, then reopen the file. No test harness binary,
-Python tooling, external storage service or compiled TQSL implementation is required.
-The repository workflow runs these tests natively on Windows and Linux.
+Tests assert Clacks decisions through saved values and their consuming workflows:
+stale editor rejection, frozen proposal retries, transfer staging and receipt,
+source detachment, deletion choices, query results and committed telemetry.
+Reopening verifies that Clacks retained the state needed to continue those
+workflows. It does not independently verify SQLite crash durability. Connection
+option reporting, generic constraint enforcement and dependency rollback behavior
+are not Clacks test subjects. The repository workflow runs the suite on Windows
+and Linux without child-process interruption harnesses or external services.
 
 ## Operating settings and reusable records
 

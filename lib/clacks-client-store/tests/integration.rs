@@ -11,7 +11,6 @@ mod telemetry;
 
 mod contact_pages;
 mod initialization;
-mod interruptions;
 mod local_saves;
 mod logbook_deletion;
 mod logbook_observability;

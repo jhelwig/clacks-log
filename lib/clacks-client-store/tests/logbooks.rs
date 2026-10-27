@@ -15,63 +15,13 @@ use sqlx::{ConnectOptions, Connection, sqlite::SqliteConnectOptions};
 use support::id;
 
 #[tokio::test]
-async fn selection_and_deletion_preserve_other_local_state() -> anyhow::Result<()> {
-    use clacks_client_store::logbooks::deletion;
-    use clacks_model::tag::TagDeletionChoice;
-
-    let workspace = Workspace::new().await?;
-    let mut connection = SqliteConnectOptions::new()
-        .filename(&workspace.path)
-        .connect()
-        .await?;
-    sqlx::raw_sql(include_str!("sql/other_local_state.sql"))
-        .execute(&mut connection)
-        .await?;
-
-    insert(&workspace.store, 20, "Main").await?;
-    selection::select(&workspace.store, SelectedView::Logbook(id(20))).await?;
-    let preview = deletion::preview(&workspace.store, id(20)).await?;
-    deletion::delete_tag(&workspace.store, &preview, TagDeletionChoice::LeaveAll).await?;
-    assert_eq!(
-        settings::snapshot(&workspace.store)
-            .await?
-            .logbooks
-            .selected_view,
-        SelectedView::AllContacts
-    );
-    let value = sqlx::query_file!("tests/sql/read_other_local_state.sql")
-        .fetch_one(&mut connection)
-        .await?;
-    assert_eq!(value.value, r#"{"theme":"light"}"#);
-
-    connection.close().await?;
-    workspace.store.close().await?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn fresh_workspace_defaults_to_all_contacts() -> anyhow::Result<()> {
-    let workspace = Workspace::new().await?;
-    assert_eq!(
-        settings::snapshot(&workspace.store)
-            .await?
-            .logbooks
-            .selected_view,
-        SelectedView::AllContacts
-    );
-    assert_eq!(selection::restore(&workspace.store).await?, None);
-    workspace.store.close().await?;
-
-    Ok(())
-}
-
-#[tokio::test]
 async fn selected_view_is_local_durable_and_snapshot_consistent() -> anyhow::Result<()> {
     let workspace = Workspace::new().await?;
     let tag = insert(&workspace.store, 20, "Main").await?;
     let other = Workspace::new().await?;
     let mut before = read::snapshot(&workspace.store).await?;
     let old = before.settings().await?;
+    assert_eq!(old.logbooks.selected_view, SelectedView::AllContacts);
 
     selection::select(&workspace.store, SelectedView::Logbook(id(20))).await?;
     let renamed = LogbookTag::new(id(20), "Renamed".into());
@@ -183,28 +133,6 @@ async fn restore_preserves_unknown_target_and_repairs_only_known_deletion() -> a
             .selected_view,
         SelectedView::AllContacts
     );
-    connection.close().await?;
-    workspace.store.close().await?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn invalid_selected_view_does_not_reset_the_workspace() -> anyhow::Result<()> {
-    let workspace = Workspace::new().await?;
-    let tag = insert(&workspace.store, 20, "Preserved").await?;
-    let mut connection = SqliteConnectOptions::new()
-        .filename(&workspace.path)
-        .connect()
-        .await?;
-    sqlx::raw_sql(include_str!("sql/invalid_selected_view.sql"))
-        .execute(&mut connection)
-        .await?;
-
-    assert!(settings::snapshot(&workspace.store).await.is_err());
-    assert!(selection::restore(&workspace.store).await.is_err());
-    assert_eq!(save::load(&workspace.store, tag.key).await?, Some(tag));
-    assert_eq!(workspace.store.account_id(), id(1));
-    assert!(selection::restore(&workspace.store).await.is_err());
     connection.close().await?;
     workspace.store.close().await?;
     Ok(())

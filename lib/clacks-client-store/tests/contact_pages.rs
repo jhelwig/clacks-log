@@ -91,9 +91,17 @@ async fn contact_pages_sort_complete_values_and_break_ties_by_id() -> anyhow::Re
     assert!(page.has_more);
     assert_eq!(page.rows.first().unwrap().qso.id, support::id(10));
     let page = snapshot
-        .contact_page(&ContactPageQuery { offset: 1, ..query })
+        .contact_page(&ContactPageQuery {
+            offset: 1,
+            ..query.clone()
+        })
         .await?;
     assert_eq!(page.rows.first().unwrap().qso.id, support::id(12));
+    let last = snapshot
+        .contact_page(&ContactPageQuery { offset: 2, ..query })
+        .await?;
+    assert_eq!(last.rows.first().unwrap().qso.id, support::id(11));
+    assert!(!last.has_more);
     snapshot.close().await?;
     store.close().await?;
     Ok(())

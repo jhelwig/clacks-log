@@ -76,7 +76,7 @@ jobs:
           else
             target/debug/clacks-log --help
           fi
-      - name: Test workspace and native filesystem behavior
+      - name: Test workspace
         run: cargo test --workspace --all-targets --locked --offline
       - name: Test documentation
         run: cargo test --workspace --doc --locked --offline

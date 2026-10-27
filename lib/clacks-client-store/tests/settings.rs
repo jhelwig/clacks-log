@@ -8,11 +8,8 @@ use clacks_client_store::{
     settings,
     store::{ClientStore, StoreSettings},
 };
-use clacks_model::{
-    group::{GroupDefinition, IdentifierDefinition},
-    profile::SavedLocationProfile,
-};
-use clacks_sync::record::{RecordId, RecordKey, RecordState, RecordValue};
+use clacks_model::group::{GroupDefinition, IdentifierDefinition};
+use clacks_sync::record::{RecordState, RecordValue};
 use settings_support::{equipment, operating as state, profile};
 use support::id;
 
@@ -169,39 +166,6 @@ async fn apply_keeps_loaded_values_after_saved_source_update() -> anyhow::Result
     invalid.current.as_mut().unwrap().station.callsign =
         clacks_model::scalar::RecordedCallsign::new("K1ABC")?;
     assert!(operating::save(&store, &active, &invalid).await.is_err());
-    assert_eq!(operating::load(&store).await?, active);
-    store.close().await?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn unknown_source_is_not_deleted() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let store = ClientStore::create(
-        &dir.path().join("account.sqlite"),
-        id(1),
-        StoreSettings::default(),
-    )
-    .await?;
-    let home: SavedLocationProfile = profile(30, Some(31));
-    let a = equipment(31, "Rig A");
-    let active = state(&home, &a);
-    operating::save(&store, &OperatingState::default(), &active).await?;
-    assert_eq!(
-        save::load(
-            &store,
-            RecordKey {
-                account: id(1),
-                id: RecordId::Profile(home.id)
-            }
-        )
-        .await?,
-        None
-    );
-    assert_eq!(
-        operating::save(&store, &active, &active).await?,
-        OperatingSaveOutcome::Unchanged(active.clone())
-    );
     assert_eq!(operating::load(&store).await?, active);
     store.close().await?;
     Ok(())

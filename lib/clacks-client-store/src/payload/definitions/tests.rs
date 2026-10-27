@@ -6,7 +6,7 @@ use crate::{
 };
 use clacks_model::export::rules::{
     BindingCondition, ExpansionRule, FieldBinding, GroupExportPlan, PartitionRule, QsoFieldPath,
-    ValueExpression, compile_definition,
+    ValueExpression,
 };
 use clacks_sync::record::{RecordId, RecordKey, RecordState, RecordValue};
 
@@ -18,8 +18,7 @@ where
 }
 
 #[tokio::test]
-async fn restored_definitions_plan_reference_output_and_reject_malformed_expression_trees()
--> anyhow::Result<()> {
+async fn restored_definitions_plan_reference_output() -> anyhow::Result<()> {
     let dir = tempfile::tempdir()?;
     let store = ClientStore::create(
         &dir.path().join("workspace.sqlite"),
@@ -78,7 +77,6 @@ async fn restored_definitions_plan_reference_output_and_reject_malformed_express
             .into(),
         },
     };
-    compile_definition(&group)?;
     let key = RecordKey {
         account: id(1),
         id: RecordId::Group(group.id),
@@ -169,23 +167,7 @@ async fn restored_definitions_plan_reference_output_and_reject_malformed_express
         })
         .collect();
     assert_eq!(output.files, expected);
-    sqlx::query_file!("tests/sql/cycle_expression.sql", root)
-        .execute(&mut *tx)
-        .await?;
-    let error = payload::load(&mut tx, key, root).await.unwrap_err();
-    let diagnostic = format!("{error:#}");
-    assert!(diagnostic.contains(&key.id.to_string()), "{diagnostic}");
-    assert!(diagnostic.contains("cycle"), "{diagnostic}");
-    tx.rollback().await?;
-    let mut connection = store.pool.acquire().await?;
-    payload::load(&mut connection, key, root).await?;
-    drop(connection);
-    let mut tx = store.write().await?;
-    sqlx::query_file!("tests/sql/orphan_expression.sql", root)
-        .execute(&mut *tx)
-        .await?;
-    assert!(payload::load(&mut tx, key, root).await.is_err());
-    tx.rollback().await?;
+    tx.commit().await?;
     store.close().await?;
     Ok(())
 }

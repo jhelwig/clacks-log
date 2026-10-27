@@ -49,12 +49,6 @@ async fn fixture() -> anyhow::Result<Fixture> {
     settings::save_profile(&store, None, &field).await?;
     let active = state(&home, &a);
     operating::save(&store, &OperatingState::default(), &active).await?;
-    let mut qso = support::qso(id(100));
-    qso.own_station = active.current.as_ref().unwrap().station.clone();
-    qso.own_context.equipment = active.current.as_ref().unwrap().equipment.clone();
-    let value = RecordValue::Qso(Box::new(qso));
-    let key = support::key(&value);
-    save::save(&store, key, None, RecordState::Live(value)).await?;
     Ok(Fixture {
         directory,
         store,
@@ -71,6 +65,10 @@ async fn historical_qso_copies_survive_source_changes_apply_collection_and_reope
 -> anyhow::Result<()> {
     let f = fixture().await?;
     let qso_key = support::qso_key(id(100));
+    let mut qso = support::qso(id(100));
+    qso.own_station = f.active.current.as_ref().unwrap().station.clone();
+    qso.own_context.equipment = f.active.current.as_ref().unwrap().equipment.clone();
+    save::save(&f.store, qso_key, None, support::contact(qso)).await?;
     let original = save::load(&f.store, qso_key).await?.unwrap();
     let home = record(&f.store, RecordId::Profile(f.home.id)).await;
     let mut changed_home = f.home.clone();
@@ -83,13 +81,28 @@ async fn historical_qso_copies_survive_source_changes_apply_collection_and_reope
     assert_eq!(operating::load(&f.store).await?, f.active);
 
     let preview = settings::preview_equipment_deletion(&f.store, f.a.id).await?;
+    assert_eq!(preview.referring_profiles.len(), 2);
     assert_eq!(
         settings::delete_equipment(&f.store, &preview, &choices(&f)).await?,
         EquipmentDeleteOutcome::Applied
     );
+    let after = settings::snapshot(&f.store).await?;
+    assert_eq!(default(&after, f.home.id), Some(f.b.id));
+    assert_eq!(default(&after, f.field.id), None);
+    assert_eq!(after.operating.current, f.active.current);
+    assert_eq!(after.operating.selected_equipment, None);
+    assert_eq!(after.operating.selected_profile, f.active.selected_profile);
+    assert_eq!(
+        record(&f.store, RecordId::Equipment(f.a.id))
+            .await
+            .working_state(),
+        Some(&RecordState::Deleted)
+    );
     let home = record(&f.store, RecordId::Profile(f.home.id)).await;
     settings::delete_profile(&f.store, &home).await?;
     let after_deletions = operating::load(&f.store).await?;
+    assert_eq!(after_deletions.current, f.active.current);
+    assert_eq!(after_deletions.selected_profile, None);
     let mut next = after_deletions.clone();
     let current = next.current.as_mut().unwrap();
     current.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7FIELD")?;
@@ -156,68 +169,6 @@ fn choices(f: &Fixture) -> Vec<ProfileEquipmentReplacement> {
             equipment: None,
         },
     ]
-}
-
-#[tokio::test]
-async fn delete_source_clears_only_matching_metadata() -> anyhow::Result<()> {
-    let f = fixture().await?;
-    let home = record(&f.store, RecordId::Profile(f.home.id)).await;
-    settings::delete_profile(&f.store, &home).await?;
-    let after = operating::load(&f.store).await?;
-    assert_eq!(after.current, f.active.current);
-    assert_eq!(after.selected_profile, None);
-    assert_eq!(after.selected_equipment, f.active.selected_equipment);
-    let preview = settings::preview_equipment_deletion(&f.store, f.a.id).await?;
-    settings::delete_equipment(
-        &f.store,
-        &preview,
-        &[ProfileEquipmentReplacement {
-            profile: f.field.id,
-            equipment: None,
-        }],
-    )
-    .await?;
-    let after = operating::load(&f.store).await?;
-    assert_eq!(after.current, f.active.current);
-    assert_eq!(after.selected_equipment, None);
-    f.store.close().await?;
-    let reopened = ClientStore::open(
-        &f.directory.path().join("account.sqlite"),
-        id(1),
-        StoreSettings::default(),
-    )
-    .await?;
-    assert_eq!(operating::load(&reopened).await?, after);
-    reopened.close().await?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn equipment_delete_repairs_all_reviewed_profiles_atomically() -> anyhow::Result<()> {
-    let f = fixture().await?;
-    let qso_key = support::qso_key(id(100));
-    let before = save::load(&f.store, qso_key).await?;
-    let preview = settings::preview_equipment_deletion(&f.store, f.a.id).await?;
-    assert_eq!(preview.referring_profiles.len(), 2);
-    assert_eq!(
-        settings::delete_equipment(&f.store, &preview, &choices(&f)).await?,
-        EquipmentDeleteOutcome::Applied
-    );
-    let after = settings::snapshot(&f.store).await?;
-    assert_eq!(default(&after, f.home.id), Some(f.b.id));
-    assert_eq!(default(&after, f.field.id), None);
-    assert_eq!(
-        record(&f.store, RecordId::Equipment(f.a.id))
-            .await
-            .working_state(),
-        Some(&RecordState::Deleted)
-    );
-    assert_eq!(after.operating.current, f.active.current);
-    assert_eq!(after.operating.selected_equipment, None);
-    assert_eq!(after.operating.selected_profile, f.active.selected_profile);
-    assert_eq!(save::load(&f.store, qso_key).await?, before);
-    f.store.close().await?;
-    Ok(())
 }
 
 #[tokio::test]
