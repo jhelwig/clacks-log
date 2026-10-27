@@ -118,8 +118,6 @@ fn child_entry() -> anyhow::Result<()> {
     let mut arguments = vec![
         "clacks-log".to_owned(),
         format!("--otlp={exporting}"),
-        "--otlp-timeout-ms".into(),
-        "100".into(),
         "--otlp-endpoint".into(),
         if case == "secrets" {
             format!("{endpoint}/?auth=SECRET_SENTINEL")
@@ -127,6 +125,12 @@ fn child_entry() -> anyhow::Result<()> {
             endpoint
         },
     ];
+
+    // Successful composition uses normal production deadlines; only the cases
+    // exercising collector unavailability or delay need an abbreviated budget.
+    if matches!(case.as_str(), "slow" | "unavailable") {
+        arguments.extend(["--otlp-timeout-ms".into(), "100".into()]);
+    }
 
     if case == "filtered" {
         arguments.extend([
