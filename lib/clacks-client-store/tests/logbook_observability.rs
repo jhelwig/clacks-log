@@ -1,8 +1,6 @@
-#[path = "support/logbooks.rs"]
-mod logbook_support;
-mod support;
-#[path = "support/telemetry.rs"]
-mod telemetry;
+use crate::logbook_support;
+use crate::support;
+use crate::telemetry;
 
 use clacks_client_store::{
     logbooks::{

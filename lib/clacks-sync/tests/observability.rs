@@ -1,5 +1,5 @@
 //! Cross-library operational context and bounded measurements through real planners.
-mod support;
+use crate::support;
 
 use clacks_model::ids::AccountId;
 use clacks_sync::{

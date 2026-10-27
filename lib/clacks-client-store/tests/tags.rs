@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 use clacks_client_store::{
     logbooks::deletion::{self, TagDeleteOutcome, TagDeletionPreview},
     save::{self, SaveOutcome},

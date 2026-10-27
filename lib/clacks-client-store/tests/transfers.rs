@@ -1,5 +1,3 @@
-mod support;
-
 #[path = "transfers/dependencies.rs"]
 mod dependencies;
 #[path = "transfers/namespaces.rs"]

@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 
 use clacks_model::effective::{
     EligibleStationFacts, InformationSource, StationFacts, select_location, select_name,

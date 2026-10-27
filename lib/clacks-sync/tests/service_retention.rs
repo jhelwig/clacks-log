@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 #[test]
 fn equal_attempts_remain_distinct_and_closed_poll_staging_can_be_collected() -> anyhow::Result<()> {
     let captured = support::telemetry::capture(|| {

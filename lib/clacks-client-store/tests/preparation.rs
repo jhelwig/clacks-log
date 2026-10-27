@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 use clacks_client_store::{
     save,
     store::{ClientStore, StoreSettings},

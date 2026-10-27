@@ -1,4 +1,5 @@
 [package]
+autotests = false
 name = "clacks-model"
 version.workspace = true
 edition.workspace = true
@@ -23,3 +24,7 @@ metrics.workspace = true
 [dev-dependencies]
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 metrics-util.workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

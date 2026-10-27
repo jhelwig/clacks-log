@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 
 use clacks_lotw::{
     certificate::{eligibility::CredentialState, import_pkcs12},

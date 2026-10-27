@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 
 use clacks_model::export::ExportContext;
 use clacks_model::export::rules::ValueExpression;

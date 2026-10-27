@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 use clacks_sync::{
     acceptance::{
         AcceptanceDecision, AcceptanceInput, ServerChange, plan_acceptance, plan_server_acceptance,

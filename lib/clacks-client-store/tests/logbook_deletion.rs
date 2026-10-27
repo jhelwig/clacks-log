@@ -1,6 +1,5 @@
-#[path = "support/logbooks.rs"]
-mod logbook_support;
-mod support;
+use crate::logbook_support;
+use crate::support;
 
 use clacks_client_store::{
     logbooks::{

@@ -168,7 +168,7 @@ the implementer. Do not expose form internals as public library APIs.
   for numeric/time values. Optional absent values sort last in both directions;
   ID ascending breaks ties. Page boundaries must not repeat/omit tied rows in
   one snapshot. Validate positive bounded page size rather than unchecked casts.
-- [x] Run `cargo test -p clacks-client-store --test contact_pages --locked --offline`
+- [x] Run `cargo test -p clacks-client-store --test integration --locked --offline contact_pages::`
   to establish the missing reader behavior.
 - [x] Implement fixed, bound SQL with an allowlisted column/direction enum and
   relational ordering. Use an extra row to determine `has_more`; never fetch all
@@ -182,7 +182,7 @@ the implementer. Do not expose form internals as public library APIs.
   The existing keyset history API remains available for snapshot consumers.
 - [x] Regenerate offline metadata against an actual disposable migrated SQLite
   database using the workflow's pinned SQLx command. Run the new tests plus
-  `cargo test -p clacks-client-store --test reads --locked --offline`.
+  `cargo test -p clacks-client-store --test integration --locked --offline reads::`.
 - [x] Commit the production reader and query metadata together.
 
 ## Task 3: Contact commands on the existing runtime

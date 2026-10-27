@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 use clacks_model::{
     ids::{AssertionId, AttemptId, QsoId, SubmissionResultId},
     scalar::UtcTimestamp,

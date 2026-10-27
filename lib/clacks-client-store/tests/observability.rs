@@ -1,6 +1,5 @@
-mod support;
-#[path = "support/telemetry.rs"]
-mod telemetry;
+use crate::support;
+use crate::telemetry;
 use clacks_client_store::{
     save::{self, SaveOutcome},
     store::{ClientStore, StoreSettings},

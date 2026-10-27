@@ -1,6 +1,5 @@
-#[path = "support/settings.rs"]
-mod settings_support;
-mod support;
+use crate::settings_support;
+use crate::support;
 
 use clacks_client_store::{
     operating::{self, OperatingSaveOutcome, OperatingState},

@@ -1,6 +1,6 @@
 #[path = "support/process.rs"]
 mod process;
-mod support;
+use crate::support;
 use clacks_client_store::{
     identity::{self, EnrollmentBinding},
     save,
@@ -198,7 +198,8 @@ fn process_death_preserves_committed_values_frozen_proposals_and_window_boundari
     for phase in ["saved", "prepared", "staged", "installed"] {
         let directory = tempfile::tempdir()?;
         let file = directory.path().join("workspace.sqlite");
-        let mut child = process::InterruptedChild::start("interruption_child", &file, phase)?;
+        let mut child =
+            process::InterruptedChild::start("interruptions::interruption_child", &file, phase)?;
         child.wait_ready(&file.with_extension("ready"))?;
         child.kill()?;
         tokio::runtime::Builder::new_current_thread()

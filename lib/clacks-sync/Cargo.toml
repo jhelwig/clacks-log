@@ -1,4 +1,5 @@
 [package]
+autotests = false
 name = "clacks-sync"
 version.workspace = true
 edition.workspace = true
@@ -20,3 +21,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 metrics-util.workspace = true
 serde_json.workspace = true
 ulid.workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 
 use clacks_model::contact::{BandFrequency, OperatorInformation, Qso};
 use clacks_model::ids::QsoId;

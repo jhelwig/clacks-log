@@ -1,10 +1,8 @@
 //! Diagnostic reasons distinguish noncommitting settings outcomes from mutations.
 
-#[path = "support/settings.rs"]
-mod settings_support;
-mod support;
-#[path = "support/telemetry.rs"]
-mod telemetry;
+use crate::settings_support;
+use crate::support;
+use crate::telemetry;
 
 use clacks_client_store::{
     operating::{self, OperatingSaveOutcome, OperatingState},

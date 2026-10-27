@@ -40,7 +40,7 @@ fn imported_claim_has_no_fabricated_attempt_or_destination() -> anyhow::Result<(
     Ok(())
 }
 
-mod support;
+use crate::support;
 #[test]
 fn source_baseline_ignores_unsubmitted_lotw_values() -> anyhow::Result<()> {
     use clacks_model::{

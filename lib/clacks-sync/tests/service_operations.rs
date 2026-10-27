@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 use clacks_model::service::{
     destination::{ExternalRecordKey, RemoteRecordId},
     evidence::processing::{AssociationState, ExternalAssociation},

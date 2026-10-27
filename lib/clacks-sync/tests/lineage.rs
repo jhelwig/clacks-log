@@ -1,4 +1,4 @@
-mod support;
+use crate::support;
 use clacks_sync::account::AccountMetadata;
 use clacks_sync::error::UnknownReason;
 use clacks_sync::lineage::{BoundaryKind, Coverage, Lineage, PositionRelation, TimelineBoundary};

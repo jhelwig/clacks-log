@@ -1,6 +1,5 @@
-#[path = "support/settings.rs"]
-mod settings_support;
-mod support;
+use crate::settings_support;
+use crate::support;
 
 use clacks_client_store::{
     operating::{self, OperatingSaveOutcome, OperatingState},
@@ -208,8 +207,7 @@ async fn unknown_source_is_not_deleted() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[path = "support/telemetry.rs"]
-mod telemetry;
+use crate::telemetry;
 
 #[test]
 fn settings_telemetry_counts_commits_without_payloads() -> anyhow::Result<()> {
