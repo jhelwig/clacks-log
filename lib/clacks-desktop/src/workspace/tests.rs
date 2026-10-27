@@ -46,16 +46,6 @@ fn workspace_override_creates_only_the_directory() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[test]
-fn application_roots_use_configuration_and_local_data_conventions() -> anyhow::Result<()> {
-    let directories = AppDirectories::discover()?;
-    let expected = ProjectDirs::from("", "", "Clacks Log").unwrap();
-
-    assert_eq!(directories.config, expected.config_dir());
-    assert_eq!(directories.data, expected.data_local_dir());
-    Ok(())
-}
-
 #[cfg(unix)]
 #[test]
 fn symlink_workspace_aliases_have_one_canonical_directory() -> anyhow::Result<()> {

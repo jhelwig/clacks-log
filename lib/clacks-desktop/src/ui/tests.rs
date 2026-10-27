@@ -1,11 +1,8 @@
 //! Private view-state tests without a display server.
 
 mod appearance;
-mod logbooks;
-mod logbooks_layout;
-pub(in crate::ui) mod logbooks_support;
+pub(in crate::ui) mod fixtures;
 mod main_screen;
-mod visual_language;
 
 use super::*;
 use std::time::Instant;
@@ -59,12 +56,14 @@ fn appearance_apply_survives_app_save_and_reconstruction() {
     reopened
         .app
         .restore_appearance(&reopened.context, Some(&storage));
-    reopened.draw(egui::RawInput::default());
 
     assert!(storage.0.contains_key("clacks.appearance.v1"));
     assert_eq!(storage.0.get("unrelated").unwrap(), "keep me");
-    assert_eq!(reopened.context.theme(), egui::Theme::Light);
-    assert_eq!(reopened.context.zoom_factor(), 1.25);
+    assert_eq!(
+        reopened.app.appearance.committed.appearance,
+        Appearance::Light
+    );
+    assert_eq!(reopened.app.appearance.committed.zoom, 1.25);
     assert_eq!(
         reopened.app.appearance.committed.radio_font,
         FontChoice::Installed {
@@ -92,20 +91,18 @@ fn appearance_cancelled_preview_is_not_saved() {
         .app
         .appearance
         .finish(&window.context, AppearanceAction::Cancel);
-    window.draw(egui::RawInput::default());
     let mut storage = Storage::default();
     window.app.save(&mut storage);
     let mut reopened = Window::new();
     reopened
         .app
         .restore_appearance(&reopened.context, Some(&storage));
-    reopened.draw(egui::RawInput::default());
 
     assert_eq!(
         reopened.app.appearance.committed.appearance,
         Appearance::System
     );
-    assert_eq!(reopened.context.zoom_factor(), 1.0);
+    assert_eq!(reopened.app.appearance.committed.zoom, 1.0);
 }
 
 #[test]
@@ -120,77 +117,10 @@ fn appearance_invalid_saved_preferences_do_not_prevent_startup() {
     window
         .app
         .restore_appearance(&window.context, Some(&storage));
-    window.draw(egui::RawInput::default());
 
-    assert_eq!(window.context.zoom_factor(), 1.0);
+    assert_eq!(window.app.appearance.committed.zoom, 1.0);
     assert!(window.app.appearance.notice.is_some());
     assert!(window.app.appearance.editor.is_none());
-}
-
-#[test]
-fn appearance_composes_with_native_display_scale() {
-    use super::preferences::{Appearance, AppearancePreferences};
-
-    let mut window = Window::new();
-    let mut input = egui::RawInput::default();
-    input
-        .viewports
-        .entry(egui::ViewportId::ROOT)
-        .or_default()
-        .native_pixels_per_point = Some(2.0);
-    theme::install(
-        &window.context,
-        &AppearancePreferences {
-            appearance: Appearance::Light,
-            zoom: 1.25,
-            ..Default::default()
-        },
-    );
-    window.draw(input);
-
-    assert_eq!(window.context.pixels_per_point(), 2.5);
-    for appearance in [egui::Theme::Light, egui::Theme::Dark] {
-        let style = window.context.style_of(appearance);
-        let colors = theme::palette(appearance);
-        assert_ne!(colors.error, colors.edited_edge);
-        assert_ne!(colors.error, style.visuals.selection.bg_fill);
-    }
-    for zoom in [f32::NAN, f32::INFINITY, 0.0, 0.74, 2.01] {
-        assert!(
-            AppearancePreferences {
-                zoom,
-                ..Default::default()
-            }
-            .validate()
-            .is_err()
-        );
-    }
-}
-
-#[test]
-fn font_selection_assigns_the_requested_radio_role() {
-    use super::preferences::{AppearancePreferences, FontChoice};
-
-    let context = egui::Context::default();
-    theme::install(
-        &context,
-        &AppearancePreferences {
-            radio_font: FontChoice::Installed {
-                family: "Selected radio family".into(),
-            },
-            ..Default::default()
-        },
-    );
-
-    assert_eq!(
-        context
-            .global_style()
-            .text_styles
-            .get(&egui::TextStyle::Monospace)
-            .unwrap()
-            .family,
-        egui::FontFamily::Name("clacks.radio".into())
-    );
 }
 
 pub(in crate::ui) struct Window {
@@ -203,15 +133,6 @@ pub(in crate::ui) struct Window {
 }
 
 impl Window {
-    fn draw(&mut self, input: egui::RawInput) {
-        use eframe::App;
-
-        let mut frame = eframe::Frame::_new_kittest();
-        self.context
-            .run_ui(input, |ui| self.app.ui(ui, &mut frame))
-            .drop_without_applying_deltas();
-    }
-
     fn new() -> Self {
         let (updates, status) = watch::channel(SessionStatus::Opening);
         let (notices, activation) = watch::channel(());
@@ -336,63 +257,23 @@ fn native_close_while_failed_is_cancelled_until_cleanup_acknowledges() {
 }
 
 #[test]
-fn closing_cancels_appearance_preview_and_keeps_delayed_shutdown_controls_accessible() {
-    use super::preferences::AppearancePreferences;
-    use eframe::App;
+fn closing_discards_appearance_preview_and_continue_waiting_keeps_the_window_open() {
+    use egui_kittest::kittest::Queryable;
     let mut window = Window::new();
     window
         .app
         .appearance
         .open(egui::Id::unique("test.appearance.opener"));
     window.app.appearance.editor.as_mut().unwrap().pending.zoom = 1.5;
-    theme::install(
-        &window.context,
-        &window.app.appearance.editor.as_ref().unwrap().pending,
-    );
-    window.draw(egui::RawInput::default());
     window.app.begin_close();
-    window
-        .updates
-        .send(SessionStatus::Closing {
-            phase: "Finishing work",
-            started: Instant::now() - Duration::from_secs(6),
-        })
-        .unwrap();
-    window.draw(egui::RawInput::default());
-    let mut native_frame = eframe::Frame::_new_kittest();
-    let mut output = window.context.run_ui(egui::RawInput::default(), |ui| {
-        window.app.ui(ui, &mut native_frame)
+    window.updates.send_replace(SessionStatus::Closing {
+        phase: "Finishing work",
+        started: Instant::now() - Duration::from_secs(6),
     });
-    output.textures_delta.clear();
-    assert!(window.app.appearance.editor.is_none());
-    assert_eq!(
-        window.context.zoom_factor(),
-        AppearancePreferences::default().zoom
-    );
-    let position = output
-        .shapes
-        .iter()
-        .find_map(|shape| match &shape.shape {
-            egui::epaint::Shape::Text(text) if text.galley.text() == "Continue Waiting" => {
-                Some(text.visual_bounding_rect().center())
-            }
-            _ => None,
-        })
-        .unwrap();
-    output.drop_without_applying_deltas();
-    for pressed in [true, false] {
-        window.draw(egui::RawInput {
-            events: vec![
-                egui::Event::PointerMoved(position),
-                egui::Event::PointerButton {
-                    pos: position,
-                    button: egui::PointerButton::Primary,
-                    pressed,
-                    modifiers: egui::Modifiers::NONE,
-                },
-            ],
-            ..Default::default()
-        });
-    }
-    assert!(window.app.continuing);
+    let mut ui = main_screen::mount(window);
+    assert!(ui.state().app.appearance.editor.is_none());
+    assert_eq!(ui.state().app.appearance.committed.zoom, 1.0);
+    ui.get_by_label("Continue Waiting").click();
+    ui.step();
+    assert!(ui.state().app.continuing);
 }

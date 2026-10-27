@@ -27,6 +27,7 @@ publish = false
 [workspace.dependencies]
 eframe = { version = "=0.37.0", default-features = false, features = ["accesskit", "clipboard", "default_fonts", "links", "persistence", "system_fonts", "wgpu", "wayland", "x11"] }
 egui_extras = { version = "=0.37.0", default-features = false }
+egui_kittest = { version = "=0.37.0", default-features = false }
 fontique = "=0.11.1"
 clacks-desktop = { path = "lib/clacks-desktop" }
 config = { version = "=0.15.27", default-features = false, features = ["toml"] }

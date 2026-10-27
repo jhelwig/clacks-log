@@ -334,7 +334,7 @@ fn selector(
     families: &[String],
     state: &RoleState,
 ) {
-    ui.label(label);
+    let label = ui.label(label);
     let current = match choice {
         FontChoice::Default => "Bundled default".to_owned(),
         FontChoice::Installed { family } => family.clone(),
@@ -352,7 +352,9 @@ fn selector(
                     family,
                 );
             }
-        });
+        })
+        .response
+        .labelled_by(label.id);
     if state.request.is_some() {
         ui.label("Loading selected font…");
     }

@@ -1,99 +1,95 @@
-use super::*;
-use crate::session::settings::contacts;
-use clacks_client_store::store::{ClientStore, StoreSettings};
-use clacks_model::{group::DefinitionSet, ids::QsoId, scalar::UtcSecond};
+//! Contact review reacts to native outcomes without re-testing store transactions.
 
-#[tokio::test]
-async fn stale_editor_cannot_overwrite_or_resurrect_a_contact() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let store = ClientStore::create(
-        &dir.path().join("edit.sqlite"),
-        Default::default(),
-        StoreSettings::default(),
-    )
-    .await?;
-    let mut form = crate::logging::form::ContactForm::empty();
-    form.own.callsign = "W7HEX".into();
-    form.dx.callsign = "OK2CQR".into();
-    form.mode = "SSB".into();
-    form.primary.band = "20m".into();
-    form.start =
-        crate::logging::time::ContactTimestamp::recorded(Some(UtcSecond::from_unix_seconds(1)));
-    let qso = form
-        .build(QsoId::new(), &DefinitionSet::default())
-        .map_err(|e| anyhow::anyhow!("{e:?}"))?;
-    let result = contacts::execute(
-        &store,
-        ContactAction::Save {
-            expected: None,
-            next: Box::new(qso),
-        },
-    )
-    .await?;
-    let ContactResponse::Saved(SaveOutcome::Saved(original)) = result else {
-        anyhow::bail!("create failed")
-    };
-    let context = egui::Context::default();
-    let mut confirmation = deletion::DeletionConfirmation {
-        expected: original.clone(),
-        first_frame: true,
-    };
-    context
-        .run_ui(egui::RawInput::default(), |ui| {
-            deletion::show(ui.ctx(), &mut confirmation, false);
-        })
-        .drop_without_applying_deltas();
-    let input = egui::RawInput {
-        events: vec![egui::Event::Key {
-            key: egui::Key::Enter,
-            physical_key: None,
-            pressed: true,
-            repeat: false,
-            modifiers: egui::Modifiers::NONE,
-        }],
-        ..Default::default()
-    };
-    let mut choice = deletion::DeletionAction::None;
-    context
-        .run_ui(input, |ui| {
-            choice = deletion::show(ui.ctx(), &mut confirmation, false);
-        })
-        .drop_without_applying_deltas();
-    assert!(
-        matches!(choice, deletion::DeletionAction::Cancel),
-        "Enter defaults to cancellation, not deletion"
-    );
-    let mut editor = editor::ContactEditor::from_record(original.clone())?;
+use super::*;
+use crate::ui::tests::fixtures;
+use clacks_sync::record::{RecordState, RecordValue};
+use egui_kittest::Harness;
+
+#[test]
+fn stale_save_preserves_the_correction_and_offers_review_without_resurrection() {
+    let original = fixtures::row(RecordValue::Qso(Box::new(fixtures::contact())));
+    let mut editor = editor::ContactEditor::from_record(original.clone()).unwrap();
     editor.form.comment = "My unsaved correction".into();
-    contacts::execute(
-        &store,
-        ContactAction::Delete {
-            expected: Box::new(original.clone()),
-        },
-    )
-    .await?;
-    let next = editor
-        .form
-        .build(editor.id()?, &DefinitionSet::default())
-        .map_err(|e| anyhow::anyhow!("{e:?}"))?;
-    let stale = contacts::execute(
-        &store,
-        ContactAction::Save {
-            expected: Some(Box::new(original)),
-            next: Box::new(next),
-        },
-    )
-    .await?;
-    let mut ui = ContactsUi {
+    let mut deleted = original;
+    deleted.pending.as_mut().unwrap().working = RecordState::Deleted;
+    let mut view = ContactsUi {
         editor: Some(editor),
         ..Default::default()
     };
-    ui.accept(stale);
+
+    view.accept(ContactResponse::Saved(SaveOutcome::Stale {
+        current: Some(deleted.clone()),
+    }));
+
     assert_eq!(
-        ui.editor.as_ref().unwrap().form.comment,
+        view.editor.as_ref().unwrap().form.comment,
         "My unsaved correction"
     );
-    assert!(ui.notice.as_ref().unwrap().contains("changed"));
-    store.close().await?;
-    Ok(())
+    assert_eq!(view.current_record, Some(deleted));
+    assert!(view.notice.as_ref().unwrap().contains("changed"));
+    assert!(view.operation.is_none());
+}
+
+#[test]
+fn enter_on_deletion_confirmation_defaults_to_cancellation() {
+    let confirmation = deletion::DeletionConfirmation {
+        expected: fixtures::row(RecordValue::Qso(Box::new(fixtures::contact()))),
+        first_frame: true,
+    };
+    struct Host {
+        confirmation: deletion::DeletionConfirmation,
+        choice: deletion::DeletionAction,
+    }
+    let mut ui = Harness::builder()
+        .with_size(egui::vec2(800.0, 500.0))
+        .build_ui_state(
+            |ui, host: &mut Host| {
+                let choice = deletion::show(ui.ctx(), &mut host.confirmation, false);
+                if !matches!(choice, deletion::DeletionAction::None) {
+                    host.choice = choice;
+                }
+            },
+            Host {
+                confirmation,
+                choice: deletion::DeletionAction::None,
+            },
+        );
+    ui.key_press(egui::Key::Enter);
+    ui.step();
+    assert!(matches!(
+        ui.state().choice,
+        deletion::DeletionAction::Cancel
+    ));
+}
+
+#[test]
+fn view_change_clears_selection_and_ignores_an_old_page_reply() {
+    let qso = fixtures::contact();
+    let (reply, receiver) = oneshot::channel();
+    let mut view = ContactsUi {
+        selected: [qso.id].into(),
+        page_request: Some(PageRequest {
+            query: ContactPageQuery::default(),
+            receiver,
+        }),
+        ..Default::default()
+    };
+    view.refresh(SelectedView::Untagged);
+    reply
+        .send(SettingsResponse::Contacts(ContactResponse::Page(
+            ContactPage {
+                rows: vec![clacks_client_store::read::history::HistoryRow {
+                    qso,
+                    pending: true,
+                    review: None,
+                }],
+                has_more: false,
+            },
+        )))
+        .unwrap();
+    view.poll();
+    assert!(view.selected.is_empty());
+    assert!(view.page.is_none());
+    assert_eq!(view.query.view, SelectedView::Untagged);
+    assert!(view.dirty);
 }

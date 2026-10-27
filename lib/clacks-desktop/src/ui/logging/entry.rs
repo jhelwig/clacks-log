@@ -208,13 +208,15 @@ pub(in crate::ui) fn show(
             );
         }
     });
-    ui.small("Comment");
-    let response = ui.add(
-        egui::TextEdit::multiline(&mut form.comment)
-            .desired_rows(1)
-            .desired_width(f32::INFINITY)
-            .id(ui.make_persistent_id("entry.comment")),
-    );
+    let label = ui.small("Comment");
+    let response = ui
+        .add(
+            egui::TextEdit::multiline(&mut form.comment)
+                .desired_rows(1)
+                .desired_width(f32::INFINITY)
+                .id(ui.make_persistent_id("entry.comment")),
+        )
+        .labelled_by(label.id);
     action.edited |= response.changed();
     action
 }

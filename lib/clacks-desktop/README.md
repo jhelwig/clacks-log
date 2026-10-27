@@ -308,8 +308,10 @@ wgpu's default Direct3D shader-compiler selection can fall back to the system
 FXC compiler; this configuration does not require shipping `dxcompiler.dll`.
 Native acceptance must still establish the actual adapter/backend works.
 
-Headless private tests exercise real SQLite work, subprocess ownership and a
-bounded Rust HTTP/protobuf receiver. They do not replace native Windows graphics,
+Headless component tests use egui_kittest with native snapshots and typed
+request/response boundaries. Store/session tests separately exercise real SQLite
+work; process and telemetry tests use actual subprocess ownership and a bounded
+Rust HTTP/protobuf receiver. These do not replace native Windows graphics,
 input, activation and delayed-close acceptance. Installer qualification belongs
 to issue #35.
 

@@ -250,11 +250,12 @@ preferences only where reuse/composition needs it.
 - Workbench composition owns split sizing using eframe presentation storage,
   not SQLite account facts; reset restores the agreed two-upper/one-lower layout.
 
-- [x] Add `detail_tabs_share_the_quick_entry_contact` and
-  `single_line_enter_saves_without_stealing_other_control_input` for one draft
-  across Contact details and Our settings; quick Call/Name placement; one combined Start and End control;
-  no duplicated timestamps or expandable detail controls. Drive actual input
-  events for Enter versus multiline Enter/dropdown consumption, Tab, and locks.
+- [x] Use egui_kittest on the production entry/details components for
+  single-line Enter versus multiline input and independent widget identities
+  between unfinished entry and saved-contact editing. Keep form/time rules in
+  the owning domain tests. Inspect the assembled workbench for quick Call/Name
+  placement, combined timestamps and the absence of duplicate/expandable fields;
+  do not substitute label/scale matrices for visual inspection.
 - [x] Add `pending_submission_preserves_its_facts_and_resets_from_current_defaults`
   and `failed_save_preserves_input_and_committed_refresh_failure_resets_once`:
   settings/view updates do not change the pending submitted contact; success resets using the latest defaults/view, retains radio/mode and clears
@@ -312,24 +313,23 @@ where needed rather than duplicating a round-trip suite.
   pane sizing and the SQLite selected view. Never persist selected IDs, draft
   values or saved-editor input as preferences.
 
-- [x] Write real-store/UI tests: create through the runtime, read selected-view
-  rows, open by stable ID, edit through `ContactForm` and reopen the workspace.
-  Check changed facts and the preserved unknown/coarse facts from Task 1.
-  Cancel/close/Escape and successful Save changes leave new entry and active
-  operating settings unchanged. An unchanged save fabricates no pending edit.
-- [x] Add `stale_editor_cannot_overwrite_or_resurrect_a_contact`: make a second
-  real edit or deletion before Save changes/Delete;
-  current state survives and the editor keeps its input with a stale result.
-  Reload replaces input only explicitly. A deleted current record is shown as
-  unavailable, not recreated or offered an MVP restore action.
+- [x] Test native form transformations at the domain boundary, typed operations
+  and durable saves at the store/session boundary, and table/editor interactions
+  with egui_kittest. Do not repeat persistence through each form or start a real
+  session to draw a component. Use native snapshots and actual request/reply
+  contracts without implementing a fake service in the component host.
+- [x] Check stale-save handling at its owning boundaries: the real store rejects
+  a changed/deleted expected basis; the contact view preserves its correction
+  when that outcome arrives and does not silently recreate the contact. Reload
+  replaces input only explicitly.
 - [x] Test sorting retains selected IDs, view changes clear them, and table
   responses for an old view/sort cannot replace the currently requested page.
   Compare replies with their actual request/query; no synthetic generation
   counter. A response arriving after an editor was cancelled must not re-open it.
-- [x] Add `confirmed_deletion_removes_contact_from_all_views_and_retains_review`:
-  confirmation shows call, combined UTC start, band/mode, account-wide effect and initial Cancel focus. Use real multi-tag
-  contacts: committed deletion hides the QSO in every view and remains present
-  in store review results with evidence. Cancellation writes nothing.
+- [x] Check that Enter on the actual deletion confirmation chooses Cancel.
+  Keep multi-tag deletion, normal-view hiding and evidence retention in the real
+  store suite. Inspect the prompt's call, UTC start, band/mode and account-wide
+  explanation rather than duplicating the persistence suite through its buttons.
 - [x] Run `cargo test -p clacks-desktop ui::contacts --locked --offline`
   and the focused store integration tests to establish missing behavior.
 - [x] Add egui_extras `=0.37.0` at workspace level and inherit it in desktop.

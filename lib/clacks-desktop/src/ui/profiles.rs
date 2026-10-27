@@ -108,6 +108,14 @@ pub(super) fn show(
                             editor.default_equipment = p.default_equipment;
                         }
                     }
+                })
+                .response
+                .widget_info(|| {
+                    egui::WidgetInfo::labeled(
+                        egui::Role::ComboBox,
+                        ui.is_enabled(),
+                        "Profile save target",
+                    )
                 });
             if editor.id != old_id {
                 frame.stale = None;

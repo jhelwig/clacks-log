@@ -1,207 +1,122 @@
-//! Contact identity, keyboard reachability and column-width ownership in the real table.
+//! Real table interactions preserve contact and column identity.
 
 use super::*;
-use crate::logging::{form::ContactForm, time::ContactTimestamp};
-use clacks_client_store::read::{
-    contacts::{ContactColumn, ContactOrder},
-    history::HistoryRow,
-};
-use clacks_model::scalar::UtcSecond;
-use eframe::egui::{Event, Key, Modifiers, PointerButton};
+use crate::ui::tests::fixtures;
+use clacks_client_store::read::{contacts::ContactColumn, history::HistoryRow};
+use egui_kittest::{Harness, kittest::Queryable};
 
-struct Window {
-    context: egui::Context,
+struct Host {
     page: ContactPage,
     preferences: preferences::ContactTablePreferences,
     selected: BTreeSet<QsoId>,
     focused: Option<QsoId>,
     pending_focus: Option<QsoId>,
+    opened: Option<QsoId>,
 }
 
-struct Frame {
-    output: egui::FullOutput,
-    action: table::TableAction,
-}
-
-impl Window {
-    fn new() -> anyhow::Result<Self> {
-        let mut rows = Vec::new();
-        for n in 0..80 {
-            let mut form = ContactForm::empty();
-            form.own.callsign = "W7HEX".into();
-            form.dx.callsign = format!("K1T{n:03}");
-            form.mode = "SSB".into();
-            form.primary.band = "20m".into();
-            form.start = ContactTimestamp::recorded(Some(UtcSecond::from_unix_seconds(n)));
-            let qso = form
-                .build(QsoId::new(), &DefinitionSet::default())
-                .map_err(|e| anyhow::anyhow!("{e:?}"))?;
-            rows.push(HistoryRow {
+fn mount() -> Harness<'static, Host> {
+    let rows = (0..40)
+        .map(|n| {
+            let mut qso = fixtures::contact();
+            qso.contacted_station.callsign =
+                clacks_model::scalar::RecordedCallsign::new(&format!("K1T{n:03}")).unwrap();
+            HistoryRow {
                 qso,
                 pending: true,
                 review: None,
-            });
-        }
-        Ok(Self {
-            context: Default::default(),
-            page: ContactPage {
-                rows,
-                has_more: false,
-            },
-            preferences: Default::default(),
-            selected: Default::default(),
-            focused: None,
-            pending_focus: None,
-        })
-    }
-
-    fn frame(&mut self, events: Vec<Event>) -> Frame {
-        let mut action = table::TableAction::default();
-        let mut output = self.context.run_ui(
-            egui::RawInput {
-                events,
-                screen_rect: Some(egui::Rect::from_min_size(
-                    egui::Pos2::ZERO,
-                    egui::vec2(1100.0, 240.0),
-                )),
-                ..Default::default()
-            },
-            |ui| {
-                action = table::show(
-                    ui,
-                    Some(&self.page),
-                    &mut self.preferences,
-                    &mut self.selected,
-                    &mut self.focused,
-                    &mut self.pending_focus,
-                );
-            },
-        );
-        output.textures_delta.clear();
-        Frame { output, action }
-    }
-
-    fn key(&mut self, key: Key) -> Frame {
-        let frame = self.frame(vec![Event::Key {
-            key,
-            physical_key: None,
-            pressed: true,
-            repeat: false,
-            modifiers: Modifiers::NONE,
-        }]);
-        self.frame(vec![Event::Key {
-            key,
-            physical_key: None,
-            pressed: false,
-            repeat: false,
-            modifiers: Modifiers::NONE,
-        }]);
-        frame
-    }
-}
-
-#[test]
-fn keyboard_navigation_scrolls_to_and_opens_the_selected_contact() -> anyhow::Result<()> {
-    let mut window = Window::new()?;
-    window.frame(vec![]);
-    let frame = window.frame(vec![]);
-    let position = frame
-        .output
-        .shapes
-        .iter()
-        .find_map(|shape| match &shape.shape {
-            egui::epaint::Shape::Text(text) if text.galley.text() == "K1T000" => {
-                Some(text.visual_bounding_rect().center())
             }
-            _ => None,
         })
-        .expect("first contact is visible");
-    window.frame(vec![
-        Event::PointerMoved(position),
-        Event::PointerButton {
-            pos: position,
-            button: PointerButton::Primary,
-            pressed: true,
-            modifiers: Modifiers::NONE,
-        },
-    ]);
-    window.frame(vec![Event::PointerButton {
-        pos: position,
-        button: PointerButton::Primary,
-        pressed: false,
-        modifiers: Modifiers::NONE,
-    }]);
-    for _ in 0..30 {
-        window.key(Key::ArrowDown);
-    }
-    let expected = window.page.rows.get(30).unwrap().qso.id;
-    assert_eq!(
-        window.focused,
-        Some(expected),
-        "actual row {:?}",
-        window
-            .focused
-            .and_then(|id| window.page.rows.iter().position(|row| row.qso.id == id))
-    );
-    assert_eq!(window.key(Key::Enter).action.open, Some(expected));
-    Ok(())
+        .collect();
+    Harness::builder()
+        .with_size(egui::vec2(1100.0, 240.0))
+        .build_ui_state(
+            |ui, host: &mut Host| {
+                let action = table::show(
+                    ui,
+                    Some(&host.page),
+                    &mut host.preferences,
+                    &mut host.selected,
+                    &mut host.focused,
+                    &mut host.pending_focus,
+                );
+                if action.open.is_some() {
+                    host.opened = action.open;
+                }
+            },
+            Host {
+                page: ContactPage {
+                    rows,
+                    has_more: false,
+                },
+                preferences: Default::default(),
+                selected: Default::default(),
+                focused: None,
+                pending_focus: None,
+                opened: None,
+            },
+        )
 }
 
 #[test]
-fn reordering_columns_preserves_widths_by_column_identity() -> anyhow::Result<()> {
-    let mut window = Window::new()?;
-    window
+fn keyboard_navigation_scrolls_to_and_opens_the_contact_by_identity() {
+    let mut ui = mount();
+    ui.get_by_label("K1T000").click();
+    ui.run();
+    for _ in 0..12 {
+        ui.key_press(egui::Key::ArrowDown);
+        ui.run();
+    }
+    let expected = ui.state().page.rows.get(12).unwrap().qso.id;
+    assert_eq!(ui.state().focused, Some(expected));
+    assert_eq!(ui.state().selected, [expected].into());
+    assert!(ui.query_by_label("K1T012").is_some());
+    ui.key_press(egui::Key::Enter);
+    ui.run();
+    assert_eq!(ui.state().opened, Some(expected));
+}
+
+#[test]
+fn reordering_columns_preserves_widths_by_column_identity() {
+    let mut ui = mount();
+    ui.state_mut()
         .preferences
         .columns
         .retain(|v| matches!(v.column, ContactColumn::Callsign | ContactColumn::Start));
-    for column in &mut window.preferences.columns {
+    for column in &mut ui.state_mut().preferences.columns {
         column.width = if column.column == ContactColumn::Start {
             250.0
         } else {
             100.0
         };
     }
-    window.preferences.order = ContactOrder::default();
-    window.frame(vec![]);
-    window.frame(vec![]);
-    let before: Vec<_> = window
-        .preferences
-        .columns
-        .iter()
-        .map(|v| (v.column, v.width))
-        .collect();
-    window.preferences.columns.swap(0, 1);
-    window.frame(vec![]);
-    window.frame(vec![]);
-    for (column, width) in before {
-        assert!(
-            (window
-                .preferences
-                .columns
-                .iter()
-                .find(|v| v.column == column)
-                .unwrap()
-                .width
-                - width)
-                .abs()
-                < 1.0,
-            "width belongs to {column:?}"
-        );
+    ui.run();
+    let before = ui.state().preferences.columns.clone();
+    ui.state_mut().preferences.columns.swap(0, 1);
+    ui.run();
+    for column in before {
+        let saved = ui
+            .state()
+            .preferences
+            .columns
+            .iter()
+            .find(|v| v.column == column.column)
+            .unwrap();
+        assert!((saved.width - column.width).abs() < 1.0);
     }
-    Ok(())
 }
 
 #[test]
-fn tab_focus_can_open_a_contact_without_a_pointer_click() -> anyhow::Result<()> {
-    let mut window = Window::new()?;
-    window.frame(vec![]);
+fn tab_focus_can_open_a_contact_without_a_pointer_click() {
+    let mut ui = mount();
     for _ in 0..24 {
-        window.key(Key::Tab);
-        if window.focused.is_some() {
+        ui.key_press(egui::Key::Tab);
+        ui.run();
+        if ui.state().focused.is_some() {
             break;
         }
     }
-    let focused = window.focused.expect("Tab reaches a contact row");
-    assert_eq!(window.key(Key::Enter).action.open, Some(focused));
-    Ok(())
+    let focused = ui.state().focused.expect("Tab reaches a contact row");
+    ui.key_press(egui::Key::Enter);
+    ui.run();
+    assert_eq!(ui.state().opened, Some(focused));
 }

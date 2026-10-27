@@ -580,6 +580,26 @@ automated tests remain noninteractive. Test Clacks's state presentation and use
 of the framework, not egui internals or a second fake application. Performance
 checks for large contact tables belong to the real table capability.
 
+Use `egui_kittest::Harness` for focused production-component interaction tests.
+Supply native snapshots and inspect the actual typed requests or callbacks at
+the component boundary. Use semantic control queries and the runner's input,
+focus and clock facilities. Do not start a session, database, activation listener
+or telemetry exporter merely to edit a field or click Apply/Cancel. Do not build
+a replacement persistence service in the test host. Persistence and runtime
+dispatch claims require real store/session tests at those owning boundaries.
+
+Keep each interaction test tied to a concrete Clacks mistake, such as sending
+the wrong record identity, submitting invalid input, losing a draft, replacing
+later typing with an old reply, or treating Cancel as Save. Do not duplicate the
+domain suite through the GUI, test every widget, or use broad appearance/scale/
+label-presence matrices as a substitute for inspecting the assembled UI. Use
+paint or geometry inspection only for a specific Clacks rendering contract that
+semantic queries cannot express, such as the allocated pane bounds or independent
+edited/error styling. Keep those checks local and bounded. Real-time waits belong
+to actual asynchronous integration; debounce tests use the runner's simulated
+clock. A pending request or perpetual live clock may require `Harness::step`
+rather than waiting for an idle UI.
+
 Follow the [observability contract](observability.md). Preserve meaningful
 operation diagnostics and data exclusion as views change. Do not log keystrokes,
 hover/focus changes or entire forms, or add telemetry

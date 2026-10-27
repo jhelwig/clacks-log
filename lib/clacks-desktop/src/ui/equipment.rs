@@ -22,7 +22,7 @@ pub(super) fn default_selector(
     records: &[ClientRecord],
     known_deletions: &std::collections::BTreeSet<clacks_sync::record::RecordId>,
 ) {
-    ui.label("Associated default equipment configuration");
+    let label = ui.label("Associated default equipment configuration");
     let text = selected
         .map(|id| {
             records
@@ -45,7 +45,9 @@ pub(super) fn default_selector(
             {
                 ui.selectable_value(selected, Some(e.id), equipment_label(e));
             }
-        });
+        })
+        .response
+        .labelled_by(label.id);
 }
 
 /// Render configuration editing and deletion without changing active operating facts.

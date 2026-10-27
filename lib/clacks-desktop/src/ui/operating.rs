@@ -1,20 +1,10 @@
 //! Navigation owns one operating edit and independent reusable-record editors.
 
-#[cfg(test)]
-mod dialog_tests;
 pub(super) mod fields;
 mod home;
-#[cfg(test)]
-mod layout_tests;
 mod pending;
 mod quick;
-#[cfg(test)]
-mod quick_tests;
-#[cfg(test)]
-mod refresh_tests;
 mod responses;
-#[cfg(test)]
-mod stale_tests;
 mod summary;
 #[cfg(test)]
 mod tests;
@@ -315,8 +305,14 @@ impl SettingsUi {
             effective.to_mut().operating.selected_equipment = None;
         }
         let snapshot = effective.as_ref();
-        if let Some(opener) = self.restore_focus.take() {
-            ui.memory_mut(|memory| memory.request_focus(opener));
+        if self.restore_focus.is_some() {
+            if self.stack.len() > 1 || ui.memory(|memory| memory.top_modal_layer().is_none()) {
+                if let Some(opener) = self.restore_focus.take() {
+                    ui.memory_mut(|memory| memory.request_focus(opener));
+                }
+            } else {
+                ui.ctx().request_repaint();
+            }
         }
         if !self.dismissed.is_empty() {
             ui.spinner();

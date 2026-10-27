@@ -1,158 +1,128 @@
-//! The workbench keeps history allocated even when no table rows are present.
+//! Pane allocation and reset are independent of database or session startup.
 
 use super::*;
-use crate::{
-    logging::{form::ContactForm, time::ContactTimestamp},
-    session::settings::{SettingsAction, SettingsResponse, contacts},
-    ui::{
-        preferences::{Appearance, AppearancePreferences},
-        theme,
-    },
-};
+use crate::ui::tests::fixtures;
 use clacks_client_store::{
-    settings,
-    store::{ClientStore, StoreSettings},
+    read::{contacts::ContactPage, history::HistoryRow},
+    settings::SettingsSnapshot,
 };
-use clacks_model::{group::DefinitionSet, ids::QsoId, scalar::UtcSecond};
+use egui_kittest::{Harness, kittest::Queryable};
 
-#[tokio::test]
-async fn history_fills_remaining_workbench_bounds_when_empty_or_populated() -> anyhow::Result<()> {
+struct Host {
+    workbench: Workbench,
+    snapshot: SettingsSnapshot,
+    sender: mpsc::Sender<SettingsRequest>,
+    requests: mpsc::Receiver<SettingsRequest>,
+    available: egui::Rect,
+}
+
+#[test]
+fn history_fills_remaining_bounds_with_empty_or_populated_rows() {
     for populated in [false, true] {
-        let directory = tempfile::tempdir()?;
-        let store = ClientStore::create(
-            &directory.path().join("bounds.sqlite"),
-            Default::default(),
-            StoreSettings::default(),
-        )
-        .await?;
-        if populated {
-            let mut form = ContactForm::empty();
-            form.own.callsign = "W7HEX".into();
-            form.dx.callsign = "K1BOUNDS".into();
-            form.primary.band = "20m".into();
-            form.mode = "SSB".into();
-            form.start = ContactTimestamp::recorded(Some(UtcSecond::from_unix_seconds(1)));
-            let qso = form
-                .build(QsoId::new(), &DefinitionSet::default())
-                .map_err(|e| anyhow::anyhow!("{e:?}"))?;
-            contacts::execute(
-                &store,
-                contacts::ContactAction::Save {
-                    expected: None,
-                    next: Box::new(qso),
+        let (sender, requests) = mpsc::channel(8);
+        let mut workbench = Workbench::default();
+        let snapshot = fixtures::snapshot();
+        workbench.previous = Some(snapshot.clone());
+        let mut ui = Harness::builder()
+            .allow_missing_glyphs()
+            .with_size(egui::vec2(1400.0, 950.0))
+            .build_ui_state(
+                |ui, host: &mut Host| {
+                    host.available = ui.available_rect_before_wrap();
+                    host.workbench.show(ui, &host.snapshot, &host.sender);
                 },
+                Host {
+                    workbench,
+                    snapshot,
+                    sender,
+                    requests,
+                    available: egui::Rect::NOTHING,
+                },
+            );
+        let request = ui.state_mut().requests.try_recv().unwrap();
+        assert!(matches!(
+            request.action,
+            crate::session::settings::SettingsAction::Contacts(
+                crate::session::settings::contacts::ContactAction::Page { .. }
             )
-            .await?;
-        }
-        let snapshot = settings::snapshot(&store).await?;
-        for appearance in [Appearance::Light, Appearance::Dark] {
-            for size in [egui::vec2(1100.0, 800.0), egui::vec2(1500.0, 1050.0)] {
-                let context = egui::Context::default();
-                theme::install(
-                    &context,
-                    &AppearancePreferences {
-                        appearance,
-                        ..Default::default()
+        ));
+        request
+            .reply
+            .send(crate::session::settings::SettingsResponse::Contacts(
+                crate::session::settings::contacts::ContactResponse::Page(ContactPage {
+                    rows: if populated {
+                        vec![HistoryRow {
+                            qso: fixtures::contact(),
+                            pending: true,
+                            review: None,
+                        }]
+                    } else {
+                        vec![]
                     },
-                );
-                let mut workbench = Workbench::default();
-                let (sender, mut requests) = mpsc::channel(8);
-                let mut available = egui::Rect::NOTHING;
-                let mut output = None;
-                for _ in 0..3 {
-                    let mut next = context.run_ui(
-                        egui::RawInput {
-                            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size)),
-                            ..Default::default()
-                        },
-                        |ui| {
-                            available = ui.available_rect_before_wrap();
-                            workbench.show(ui, &snapshot, &sender);
-                        },
-                    );
-                    next.textures_delta.clear();
-                    output = Some(next);
-                    while let Ok(request) = requests.try_recv() {
-                        let SettingsAction::Contacts(action) = request.action else {
-                            anyhow::bail!("unexpected operation")
-                        };
-                        request
-                            .reply
-                            .send(SettingsResponse::Contacts(
-                                contacts::execute(&store, action).await?,
-                            ))
-                            .map_err(|_| anyhow::anyhow!("view response dropped"))?;
+                    has_more: false,
+                }),
+            ))
+            .unwrap();
+        ui.run();
+
+        let section = |heading: &str| {
+            let label = ui.get_by_label(heading).rect();
+            ui.output()
+                .shapes
+                .iter()
+                .filter_map(|shape| match &shape.shape {
+                    egui::epaint::Shape::Rect(rect)
+                        if rect.stroke.width > 0.0 && rect.rect.contains_rect(label) =>
+                    {
+                        Some(rect.rect)
                     }
-                }
-                let output = output.unwrap();
-                let colors = theme::palette(context.theme());
-                let section = |heading: &str| {
-                    let label = output
-                        .shapes
-                        .iter()
-                        .find_map(|shape| match &shape.shape {
-                            egui::epaint::Shape::Text(text) if text.galley.text() == heading => {
-                                Some(text.visual_bounding_rect())
-                            }
-                            _ => None,
-                        })
-                        .unwrap_or_else(|| panic!("missing {heading}"));
-                    output
-                        .shapes
-                        .iter()
-                        .find_map(|shape| match &shape.shape {
-                            egui::epaint::Shape::Rect(rect)
-                                if rect.fill == colors.surface
-                                    && rect.stroke.color == colors.border
-                                    && rect.rect.contains_rect(label) =>
-                            {
-                                Some(rect.rect)
-                            }
-                            _ => None,
-                        })
-                        .unwrap_or_else(|| panic!("missing section frame for {heading}"))
-                };
-                let frame = section("Contact history");
-                let quick = section("QSO entry");
-                let details = section("Contact details");
-                for pane in [quick, details] {
-                    assert!(
-                        (pane.top() - available.top()).abs() <= 2.0,
-                        "upper pane must start at the workbench top: {pane:?}, {available:?}"
-                    );
-                    assert!(
-                        (pane.bottom() - frame.top()).abs() <= 2.0,
-                        "upper pane must extend to history: {pane:?}, {frame:?}"
-                    );
-                }
-                assert!((quick.left() - frame.left()).abs() <= 2.0);
-                assert!((details.right() - frame.right()).abs() <= 2.0);
-                assert!((quick.right() - details.left()).abs() <= 2.0);
-                assert!(
-                    (frame.left() - available.left()).abs() <= 2.0,
-                    "history left: {frame:?}, available {available:?}"
-                );
-                assert!(
-                    (frame.right() - available.right()).abs() <= 2.0,
-                    "history must span remaining width: {frame:?}, available {available:?}"
-                );
-                assert!(
-                    (frame.bottom() - available.bottom()).abs() <= 2.0,
-                    "history must fill remaining height: {frame:?}, available {available:?}"
-                );
-                assert!(
-                    (frame.top() - (available.top() + workbench.sizes.height)).abs() <= 2.0,
-                    "history starts immediately below upper panes"
-                );
-                let expected = if populated {
-                    "K1BOUNDS"
-                } else {
-                    "No contacts in this view."
-                };
-                assert!(output.shapes.iter().any(|shape| matches!(&shape.shape, egui::epaint::Shape::Text(text) if text.galley.text() == expected)));
-            }
-        }
-        store.close().await?;
+                    _ => None,
+                })
+                .min_by(|a, b| a.area().total_cmp(&b.area()))
+                .unwrap()
+        };
+        let history = section("Contact history");
+        let entry = section("QSO entry");
+        let details = section("Contact details");
+        let available = ui.state().available;
+        assert!((history.left() - available.left()).abs() <= 2.0);
+        assert!((history.right() - available.right()).abs() <= 2.0);
+        assert!((history.bottom() - available.bottom()).abs() <= 2.0);
+        assert!((entry.top() - details.top()).abs() <= 2.0);
+        assert!((entry.left() - history.left()).abs() <= 2.0);
+        assert!((details.right() - history.right()).abs() <= 2.0);
+        assert!((entry.bottom() - history.top()).abs() <= 2.0);
+        assert!((details.bottom() - history.top()).abs() <= 2.0);
+        let expected = if populated {
+            "OK2CQR"
+        } else {
+            "No contacts in this view."
+        };
+        assert!(ui.query_by_label(expected).is_some());
     }
-    Ok(())
+}
+
+#[test]
+fn layout_reset_restores_dimensions_from_the_view_menu() {
+    let workbench = Workbench {
+        sizes: PaneSizes {
+            height: 500.0,
+            width: 800.0,
+        },
+        ..Default::default()
+    };
+    let mut ui = Harness::builder().build_ui_state(
+        |ui, workbench: &mut Workbench| workbench.menu(ui),
+        workbench,
+    );
+    assert!(ui.query_by_label("Reset workbench layout").is_none());
+    ui.get_by_label("View").click();
+    ui.run();
+    ui.get_by_label("Layout").click();
+    ui.run();
+    ui.get_by_label("Reset workbench layout").click();
+    ui.run();
+    assert_eq!(ui.state().sizes.height, PaneSizes::default().height);
+    assert_eq!(ui.state().sizes.width, PaneSizes::default().width);
+    assert!(ui.state().reset);
 }
