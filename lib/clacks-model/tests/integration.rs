@@ -25,3 +25,5 @@ mod service_lotw;
 mod service_observations;
 mod service_qrz;
 mod values;
+
+mod query;

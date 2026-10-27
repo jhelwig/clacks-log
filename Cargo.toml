@@ -75,6 +75,9 @@ clacks-model = { path = "lib/clacks-model" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 regex = "1"
+winnow = "=1.0.3"
+num-bigint = "=0.4.8"
+num-integer = "=0.1.47"
 ulid = "3"
 thiserror = "2"
 anyhow = "1"
