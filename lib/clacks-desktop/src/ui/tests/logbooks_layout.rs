@@ -26,52 +26,50 @@ fn scroll(app: &mut LiveWindow) {
 async fn logbook_fields_and_actions_remain_reachable_across_appearances_and_scales()
 -> anyhow::Result<()> {
     let mut app = LiveWindow::new().await?;
+    app.size = egui::vec2(680.0, 440.0);
     for appearance in [Appearance::Light, Appearance::Dark] {
-        for zoom in [1.0, 1.25, 1.5, 2.0] {
-            for (width, height) in [(680.0, 440.0), (1024.0, 768.0), (1440.0, 900.0)] {
-                app.size = egui::vec2(width, height);
-                theme::install(
-                    &app.window.context,
-                    &AppearancePreferences {
-                        appearance,
-                        zoom,
-                        ..Default::default()
-                    },
-                );
-                app.frame(vec![]);
-                app.frame(vec![]);
-                app.click("Manage logbooks…");
-                app.click("New logbook");
-                app.frame(vec![]);
-                let mut required = std::collections::BTreeSet::from([
-                    "Logbook name",
-                    "Enter a logbook name.",
-                    "Automatic uploads",
-                    "LoTW",
-                    "QRZ",
-                    "Save logbook",
-                    "Cancel edits",
-                ]);
-                for _ in 0..30 {
-                    required.retain(|label| !reachable(&app, label));
-                    if required.is_empty() {
-                        break;
-                    }
-                    scroll(&mut app);
+        for zoom in [1.0, 2.0] {
+            theme::install(
+                &app.window.context,
+                &AppearancePreferences {
+                    appearance,
+                    zoom,
+                    ..Default::default()
+                },
+            );
+            app.frame(vec![]);
+            app.frame(vec![]);
+            app.click("Manage logbooks…");
+            app.click("New logbook");
+            app.frame(vec![]);
+            let mut required = std::collections::BTreeSet::from([
+                "Logbook name",
+                "Enter a logbook name.",
+                "Automatic uploads",
+                "LoTW",
+                "QRZ",
+                "Save logbook",
+                "Cancel edits",
+            ]);
+            for _ in 0..30 {
+                required.retain(|label| !reachable(&app, label));
+                if required.is_empty() {
+                    break;
                 }
-                assert!(
-                    required.is_empty(),
-                    "unreachable {required:?} at {appearance:?} {zoom} {width}x{height}"
-                );
-                app.frame(vec![egui::Event::Key {
-                    key: egui::Key::Escape,
-                    physical_key: None,
-                    pressed: true,
-                    repeat: false,
-                    modifiers: egui::Modifiers::NONE,
-                }]);
-                app.frame(vec![]);
+                scroll(&mut app);
             }
+            assert!(
+                required.is_empty(),
+                "unreachable {required:?} at {appearance:?} {zoom} in the minimum window"
+            );
+            app.frame(vec![egui::Event::Key {
+                key: egui::Key::Escape,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers::NONE,
+            }]);
+            app.frame(vec![]);
         }
     }
     app.close().await

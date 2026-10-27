@@ -202,23 +202,16 @@ fn main_screen_actions_and_radio_values_remain_reachable_across_scale_and_size()
                         ..Default::default()
                     },
                 );
-                let mut found = std::collections::BTreeSet::new();
-                for delta in std::iter::repeat_n(1000.0, 8).chain(std::iter::repeat_n(-35.0, 40)) {
-                    let center = window.context.content_rect().center();
-                    let output = window.main_frame_at_size(
-                        vec![
-                            egui::Event::PointerMoved(center),
-                            egui::Event::MouseWheel {
-                                unit: egui::MouseWheelUnit::Point,
-                                phase: egui::TouchPhase::Move,
-                                source: egui::MouseWheelSource::Unknown,
-                                delta: egui::vec2(0.0, delta),
-                                modifiers: egui::Modifiers::NONE,
-                            },
-                        ],
-                        size,
-                    );
-                    for shape in &output.shapes {
+                for _ in 0..2 {
+                    window
+                        .main_frame_at_size(vec![], size)
+                        .drop_without_applying_deltas();
+                }
+                let output = window.main_frame_at_size(vec![], size);
+                let found: std::collections::BTreeSet<_> = output
+                    .shapes
+                    .iter()
+                    .filter_map(|shape| {
                         if let egui::epaint::Shape::Text(text) = &shape.shape
                             && shape
                                 .clip_rect
@@ -228,11 +221,13 @@ fn main_screen_actions_and_radio_values_remain_reachable_across_scale_and_size()
                                 .content_rect()
                                 .contains(text.visual_bounding_rect().center())
                         {
-                            found.insert(text.galley.text().to_owned());
+                            Some(text.galley.text().to_owned())
+                        } else {
+                            None
                         }
-                    }
-                    output.drop_without_applying_deltas();
-                }
+                    })
+                    .collect();
+                output.drop_without_applying_deltas();
                 for required in [
                     "Appearance…",
                     "Close",
