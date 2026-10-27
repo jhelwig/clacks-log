@@ -364,3 +364,36 @@ both built-in views, cancel edits through Cancel/Escape/close, and delete select
 and unselected empty tags after explicit review. Check All contacts fallback and
 its dismissible explanation in both themes/scales. Populated and incoming deletion
 use real automated store/session tests until logging/network consumers arrive.
+
+## Manual contact logging
+
+The workbench keeps quick QSO entry beside Contact details and Our settings,
+with saved-contact history below. Both upper panes edit one unfinished contact.
+Start and End contain complete UTC dates and times, independently live until
+locked. A locked End can be blank. Enter in a single-line contact field saves;
+multiline Comment and selection controls retain their normal keyboard behavior.
+
+Save QSO writes locally without a server/provider connection. Successful saving
+clears contacted-station facts, reports and comment, retains radio information,
+and starts the next contact from current operating settings and selected view.
+Failure preserves input. Named logbooks supply their tag; All contacts and
+Untagged supply none. A committed save followed by a failed refresh remains saved.
+
+Double-click a history row or press Enter on its focused row to edit the saved
+contact. Save changes affects that record; Cancel/close/Escape discards form edits
+without changing new entry or operating defaults. Stale records require explicit
+reload before overwriting their current stored facts. Delete QSO confirms the
+contact's deletion across every logbook, with Cancel initially focused.
+
+History reads bounded pages with combined UTC timestamp sorting and configurable
+columns. Pane sizes and table presentation are local preferences with reset
+controls. Worked Before, full filtering, direct membership editing, directory
+lookup and geographic autofill retain their separate delivery scopes. The
+[manual-logging contract](../../docs/manual-logging.md) defines these boundaries.
+
+Native Windows acceptance uses the production executable with a disposable
+workspace: enter an overnight contact and one with unknown End, change active
+power/view during unfinished entry, switch detail tabs, save, restart, edit/cancel
+and individually delete a multi-tag contact. Verify layout, keyboard operation,
+combined timestamp ordering and durable local outcomes. Automated tests do not
+wait for human interaction or expose delay flags.

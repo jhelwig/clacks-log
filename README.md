@@ -1,8 +1,8 @@
 # Clacks Log
 
-Clacks Log is a planned amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
+Clacks Log is an amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The client-storage library persists those values, pending work, evidence and complete-window receipts in SQLite. The desktop foundation creates or reopens a local account, presents startup diagnostics and coordinates activation and graceful shutdown. Logging workflows, server persistence and live provider adapters remain downstream capabilities.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The client-storage library persists those values, pending work, evidence and complete-window receipts in SQLite. The desktop foundation creates or reopens a local account, presents startup diagnostics and coordinates activation and graceful shutdown. The desktop supports local manual contact entry, editing and individual deletion. Server persistence and live provider adapters remain downstream capabilities.
 
 ## Documentation
 
@@ -54,8 +54,8 @@ selection and in-memory reference-export planning. See its crate guide for usage
 Run `cargo run --bin clacks-log -- --help`, or start a separate local workspace
 with `cargo run --bin clacks-log -- --workspace /absolute/path/to/workspace`.
 The [desktop guide](lib/clacks-desktop/README.md) covers configuration, logs,
-activation, shutdown and native Windows acceptance. This foundation does not yet
-provide contact-entry or synchronization networking workflows.
+activation, shutdown and native Windows acceptance. Manual logging works offline; synchronization networking remains a downstream
+capability.
 
 ## Synchronization library
 

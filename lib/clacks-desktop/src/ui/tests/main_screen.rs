@@ -3,6 +3,33 @@
 use super::*;
 
 impl Window {
+    fn click_main(&mut self, label: &str) {
+        self.main_frame(vec![]).drop_without_applying_deltas();
+        let output = self.main_frame(vec![]);
+        let position = output
+            .shapes
+            .iter()
+            .find_map(|shape| match &shape.shape {
+                egui::epaint::Shape::Text(text) if text.galley.text() == label => {
+                    Some(text.visual_bounding_rect().center())
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("missing {label}"));
+        for pressed in [true, false] {
+            self.main_frame(vec![
+                egui::Event::PointerMoved(position),
+                egui::Event::PointerButton {
+                    pos: position,
+                    button: egui::PointerButton::Primary,
+                    pressed,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ])
+            .drop_without_applying_deltas();
+        }
+    }
+
     pub(super) fn ready_main_screen(&mut self) {
         let identity = clacks_client_store::identity::WorkspaceStatus {
             account: Default::default(),
@@ -385,4 +412,74 @@ fn narrow_operating_strip_keeps_the_power_value_and_unit_together() {
         "unit must follow the compact value field"
     );
     assert!((label.center().y - unit.center().y).abs() < label.height());
+}
+
+#[test]
+fn manual_logging_uses_the_agreed_rows_and_two_upper_panes() {
+    for appearance in [
+        preferences::Appearance::Light,
+        preferences::Appearance::Dark,
+    ] {
+        let mut window = Window::new();
+        window.ready_main_screen();
+        theme::install(
+            &window.context,
+            &preferences::AppearancePreferences {
+                appearance,
+                ..Default::default()
+            },
+        );
+        window.main_frame(vec![]).drop_without_applying_deltas();
+        let output = window.main_frame(vec![]);
+        let bounds = |label: &str| {
+            output
+                .shapes
+                .iter()
+                .find_map(|shape| match &shape.shape {
+                    egui::epaint::Shape::Text(text) if text.galley.text() == label => {
+                        Some(text.visual_bounding_rect())
+                    }
+                    _ => None,
+                })
+                .unwrap_or_else(|| panic!("missing {label}"))
+        };
+        assert!((bounds("Callsign").center().y - bounds("Name").center().y).abs() < 8.0);
+        assert!(bounds("Name").left() > bounds("Callsign").right());
+        for label in ["MHz", "Band", "Mode", "DX grid"] {
+            assert!((bounds(label).center().y - bounds("MHz").center().y).abs() < 8.0);
+        }
+        for label in ["Sent", "Received", "Start · UTC", "End · UTC"] {
+            assert!(
+                (bounds(label).center().y - bounds("Sent").center().y).abs() < 10.0,
+                "{label} belongs with the reports/timestamps row"
+            );
+        }
+        assert!(bounds("Contact details").left() > bounds("QSO entry").right());
+        assert!(bounds("Contact history").top() > bounds("Save QSO").bottom());
+        assert!(!labels(&output).contains(&"Worked Before"));
+        assert_eq!(
+            labels(&output)
+                .iter()
+                .filter(|label| **label == "Start · UTC")
+                .count(),
+            1
+        );
+    }
+}
+
+#[test]
+fn workbench_reset_is_available_only_through_view_layout_menu() {
+    let mut window = Window::new();
+    window.ready_main_screen();
+    window.main_frame(vec![]).drop_without_applying_deltas();
+    let output = window.main_frame(vec![]);
+    assert!(labels(&output).contains(&"View"));
+    assert!(!labels(&output).contains(&"Reset workbench layout"));
+    window.click_main("View");
+    window.click_main("Layout");
+    let output = window.main_frame(vec![]);
+    assert!(labels(&output).contains(&"Reset workbench layout"));
+    window.click_main("Reset workbench layout");
+    let output = window.main_frame(vec![]);
+    assert!(!labels(&output).contains(&"Reset workbench layout"));
 }

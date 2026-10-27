@@ -9,7 +9,7 @@ fn main_screen_offers_real_logbook_selection_and_management() {
     assert!(text.contains(&"Logbook"));
     assert!(text.contains(&"All contacts"));
     assert!(text.contains(&"Manage logbooks…"));
-    assert!(!text.contains(&"Contact history"));
+    assert!(text.contains(&"Contact history"));
 }
 
 use super::logbooks_support::LiveWindow;

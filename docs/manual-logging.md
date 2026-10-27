@@ -85,6 +85,10 @@ a separate operating-settings action, not a contact-save side effect.
 
 ## 3. Unfinished input and operating defaults
 
+Values copied from active operating settings are the entry's comparison baseline,
+not unapplied edits. Refresh that baseline as active defaults change, while
+continuing to distinguish explicit contact-specific corrections.
+
 Unfinished text and partially completed fields are transient desktop form state,
 not saved or synchronized QSO records. Do not persist a QSO until its complete
 submitted value passes native validation. Closing the application does not

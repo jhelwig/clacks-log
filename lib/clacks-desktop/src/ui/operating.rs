@@ -441,9 +441,6 @@ impl SettingsUi {
         frame
             .validation
             .request_repaint(ui.ctx(), ui.input(|input| input.time));
-        if frame.errors.is_empty() && !frame.validation.can_submit(&frame.errors) {
-            ui.small("Checking changes…");
-        }
         if navigation.back
             && self.stack.len() > 1
             && let Some(frame) = self.stack.pop()

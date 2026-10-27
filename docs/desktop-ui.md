@@ -104,8 +104,17 @@ the stored name and the full identity used by selection and commands.
 Make the divider between QSO entry and the shared tabbed area, and the divider between
 the upper pair and contact history, user-resizable (D300). Remember pane sizes
 locally on the client. Provide a reset to the default arrangement, with QSO
-entry and the shared tabbed area above full-width history. Reset changes layout, not
+entry and the shared tabbed area above full-width history. Put the reset action
+in **View → Layout**, rather than in the logging region. History fills the entire
+remaining width and height below the upper panes, including while loading or
+empty; its bounds do not shrink to its controls or row count. Reset changes layout, not
 operating settings, contact data, appearance, fonts or selection.
+
+Apply the same section frame and inner padding directly to all three pane
+boundaries. Align the upper panes at their top and bottom edges, with their outer
+left and right edges aligned to history. Splitter containers add no extra padding
+or nested section frames. Detail-form groups and text fields use the available
+pane width and follow pane resizing rather than retaining a fixed input width.
 
 Use minimum pane sizes that keep controls usable at the selected UI scale.
 Restore remembered sizes within the space available in the current window;
@@ -294,7 +303,8 @@ font families and unified scale consistently to these roles.
 
 Validate edited values live after a debounce, rather than waiting for the field
 to lose focus or for Save/Apply. The current desktop uses 300 ms. Validation
-reports whether input is valid; it does not itself save or apply it.
+reports whether input is valid; it does not itself save or apply it. Do not add a
+transient status row during the debounce; validation must not shift the layout.
 Dialog Save/Apply waits for current validation. Once available, the action
 revalidates the latest input before submitting rather than trusting a cached
 result. Inline-power commits validate immediately on Enter, Tab or focus departure.

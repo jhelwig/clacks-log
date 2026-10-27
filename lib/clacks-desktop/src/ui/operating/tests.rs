@@ -89,6 +89,23 @@ async fn validation_live_power_reports_errors_without_submitting() -> anyhow::Re
             .current
             .is_none()
     );
+    window.text("operating.power", ".6");
+    assert!(
+        !window.visible("Checking changes…"),
+        "the validation debounce must not add a flashing status row"
+    );
+    assert!(
+        window
+            .output
+            .platform_output
+            .accesskit_update
+            .as_ref()
+            .unwrap()
+            .nodes
+            .iter()
+            .any(|(_, node)| node.label() == Some("Apply") && node.is_disabled()),
+        "removing status text must not bypass pending validation"
+    );
     window.close().await?;
     Ok(())
 }

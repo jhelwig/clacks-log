@@ -3,12 +3,14 @@
 mod actions;
 mod appearance;
 mod closing;
+mod contacts;
 mod dialog;
 mod equipment;
 mod feedback;
 mod fields;
 pub(crate) mod fonts;
 mod logbooks;
+mod logging;
 mod operating;
 mod preferences;
 mod profiles;
@@ -17,6 +19,7 @@ mod startup;
 mod tests;
 mod theme;
 mod validation;
+mod workbench;
 
 use crate::{
     session::{SessionCommand, SessionStatus, settings::SettingsRequest},
@@ -57,6 +60,8 @@ pub(crate) struct UiResources {
 pub(crate) struct DesktopApp {
     /// Committed local appearance and an optional unapplied preview.
     appearance: appearance::AppearanceUi,
+    /// One production logging region and its transient entry.
+    workbench: workbench::Workbench,
     /// Runtime-owned lifecycle snapshot.
     status: watch::Receiver<SessionStatus>,
     /// Coalesced activation notices, including notices before window construction.
@@ -107,6 +112,7 @@ impl DesktopApp {
         } = resources;
         Self {
             appearance: Default::default(),
+            workbench: Default::default(),
             status,
             activation,
             commands,
@@ -133,6 +139,7 @@ impl DesktopApp {
         storage: Option<&dyn eframe::Storage>,
     ) {
         self.appearance = appearance::AppearanceUi::restore(storage);
+        self.workbench.restore(storage);
         theme::install(context, &self.appearance.committed);
     }
 
@@ -194,6 +201,7 @@ impl DesktopApp {
 impl eframe::App for DesktopApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         self.appearance.save(storage);
+        self.workbench.save(storage);
     }
 
     fn persist_egui_memory(&self) -> bool {
@@ -237,7 +245,9 @@ impl eframe::App for DesktopApp {
                     self.logbooks
                         .show(ui, &snapshot.logbooks, &self.settings_requests);
                     self.settings.management(ui, &self.settings_requests);
+                    self.workbench.menu(ui);
                 }
+                startup::details(self, ui, &state);
                 let appearance = ui.add_enabled(!closing, egui::Button::new("Appearance…"));
                 if appearance.clicked() {
                     self.appearance.open(appearance.id);
@@ -274,28 +284,32 @@ impl eframe::App for DesktopApp {
                     .inner_margin(12),
             )
             .show(ui, |ui| {
-                egui::ScrollArea::vertical()
-                    .id_salt("application.content")
-                    .show(ui, |ui| {
-                        if let Some(notice) = &self.appearance.notice {
-                            feedback::problem(ui, notice);
-                        }
-                        startup::diagnostics(self, ui);
-                        startup::show(self, ui, &state);
-
-                        if snapshot.is_some() {
-                            self.logbooks.feedback(ui, &self.settings_requests);
-                        }
-
-                        if let SessionStatus::Closing { phase, started } = state {
-                            theme::section_frame(ui).show(ui, |ui| {
-                                ui.heading("Closing workspace");
-                                ui.separator();
-                                closing::show(self, ui, phase, started);
+                if let Some(notice) = &self.appearance.notice {
+                    feedback::problem(ui, notice);
+                }
+                startup::diagnostics(self, ui);
+                startup::show(self, ui, &state);
+                if let Some(snapshot) = &snapshot {
+                    self.logbooks.feedback(ui, &self.settings_requests);
+                    let available = ui.available_size();
+                    if available.x < 900.0 || available.y < 580.0 {
+                        egui::ScrollArea::both()
+                            .id_salt("workbench.overflow")
+                            .show(ui, |ui| {
+                                ui.allocate_ui(available.max(egui::vec2(900.0, 580.0)), |ui| {
+                                    self.workbench.show(ui, snapshot, &self.settings_requests)
+                                });
                             });
-                        }
-                        startup::details(self, ui, &state);
+                    } else {
+                        self.workbench.show(ui, snapshot, &self.settings_requests);
+                    }
+                }
+                if let SessionStatus::Closing { phase, started } = state {
+                    theme::section_frame(ui).show(ui, |ui| {
+                        ui.heading("Closing workspace");
+                        closing::show(self, ui, phase, started);
                     });
+                }
             });
         if !closing {
             if let Some(snapshot) = &snapshot {

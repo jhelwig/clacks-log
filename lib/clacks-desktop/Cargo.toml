@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 eframe.workspace = true
+egui_extras.workspace = true
 fontique.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
