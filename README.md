@@ -115,6 +115,22 @@ Use `--help` for usage and `--write` to regenerate. The
 [fixture recipes](lib/clacks-lotw/tests/fixtures/README.md) document public test
 inputs and how the expectations are checked independently of production code.
 
+Model, synchronization, client-store and LoTW integration scenarios are modules
+of each crate's `tests/integration.rs` target. Register new cases there so shared
+fixtures compile once and the dependency graph is linked once per suite. For
+example, run the contact-page cases with:
+
+```sh
+cargo +1.99.1 test -p clacks-client-store --test integration --locked --offline contact_pages::
+```
+
+Continuous integration (CI) builds workspace applications and tests together,
+runs the resulting desktop
+executable for its command-line smoke check, then runs the full test suite.
+Compilation and execution have separate workflow steps. Cargo timing HTML is
+available in each platform's `cargo-timings-*` artifact for seven days; this
+reports actual compilation units and their dependency timelines.
+
 Verify the workspace:
 
 ```sh

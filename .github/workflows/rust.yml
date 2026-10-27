@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Resolve repository Rust toolchain
         run: rustup show active-toolchain
-      - name: Cache Rust dependencies, build artifacts and installed tools
+      - name: Cache Rust dependency artifacts and installed tools
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           # Include the installed tool's version/features alongside the action's
@@ -66,8 +66,16 @@ jobs:
           cargo sqlx prepare --check --workspace -- --package clacks-client-store --all-targets --locked --offline
       - name: Check formatting
         run: cargo fmt --all --check
+      - name: Compile workspace applications and tests
+        run: cargo build --workspace --all-targets --timings --locked --offline
       - name: Verify desktop command-line startup without a display
-        run: cargo run --bin clacks-log --locked --offline -- --help
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            target/debug/clacks-log.exe --help
+          else
+            target/debug/clacks-log --help
+          fi
       - name: Test workspace and native filesystem behavior
         run: cargo test --workspace --all-targets --locked --offline
       - name: Test documentation
@@ -78,3 +86,11 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --workspace --no-deps --document-private-items --locked --offline
+      - name: Preserve Cargo build timing reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cargo-timings-${{ matrix.os }}
+          path: target/cargo-timings/*.html
+          if-no-files-found: ignore
+          retention-days: 7
