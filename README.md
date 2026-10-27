@@ -127,9 +127,10 @@ cargo +1.99.1 test -p clacks-client-store --test integration --locked --offline 
 Continuous integration (CI) builds workspace applications and tests together,
 runs the resulting desktop
 executable for its command-line smoke check, then runs the full test suite.
-Compilation and execution have separate workflow steps. Cargo timing HTML is
-available in each platform's `cargo-timings-*` artifact for seven days; this
-reports actual compilation units and their dependency timelines.
+Compilation and execution have separate workflow steps. CI currently runs on
+Linux; Windows CI is temporarily disabled because of its runtime cost. Cargo
+timing HTML is available in the `cargo-timings-ubuntu-latest` artifact for seven
+days and reports compilation units and their dependency timelines.
 
 Verify the workspace:
 

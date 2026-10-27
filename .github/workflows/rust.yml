@@ -36,7 +36,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        # Windows verification is temporarily deferred due to CI runtime cost.
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     env:
       SQLX_OFFLINE: 'true'

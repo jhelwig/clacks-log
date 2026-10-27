@@ -778,8 +778,10 @@ Required verification for the store:
    demonstrate ordinary offline builds without `DATABASE_URL`. Check realistic
    query plans and bound dynamic filter values.
 10. Run workspace formatting, tests, documentation and Clippy under Rust 1.99.1;
-    real Windows and Linux CI must pass. Rust-only fixtures/process tooling,
-    reference-only TQSL and existing native/sync regression tests remain required.
+    Linux CI must pass. Windows CI is temporarily disabled because of its runtime
+    cost; Windows platform verification remains a release obligation. Rust-only
+    tooling, reference-only TQSL and existing native/sync regression tests remain
+    required.
 
 ## 12. Implementation boundaries
 

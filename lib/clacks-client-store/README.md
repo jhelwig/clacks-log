@@ -68,7 +68,7 @@ cargo sqlx prepare --check --workspace -- --package clacks-client-store --all-ta
 
 `--workspace` keeps metadata in the root `.sqlx/` directory; the Cargo package
 selection limits compilation to the client store, including its test queries.
-The Windows/Linux verification workflow uses the same scoped check and caches
+The Linux verification workflow uses the same scoped check and caches
 Cargo dependencies, compiled dependency artifacts and the installed SQLx CLI.
 Cache hits do not skip metadata verification or any workspace checks.
 
@@ -169,8 +169,10 @@ source detachment, deletion choices, query results and committed telemetry.
 Reopening verifies that Clacks retained the state needed to continue those
 workflows. It does not independently verify SQLite crash durability. Connection
 option reporting, generic constraint enforcement and dependency rollback behavior
-are not Clacks test subjects. The repository workflow runs the suite on Windows
-and Linux without child-process interruption harnesses or external services.
+are not Clacks test subjects. The repository workflow runs the suite on Linux
+without child-process interruption harnesses or external services. Windows CI is
+temporarily disabled because of its runtime cost; Windows platform verification
+remains a release obligation.
 
 ## Operating settings and reusable records
 
