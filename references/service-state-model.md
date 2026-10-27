@@ -65,6 +65,32 @@ An imported contact explicitly marked unsent or missing upload status becomes pe
 
 Mapped positive imported confirmation statuses immediately mark the QSO confirmed for that service without prerequisite verification or download. Retain supplied confirmation dates and source provenance; do not invent missing dates, fresh service observations, or the counterpart's submitted values. Missing confirmation data does not establish a positive confirmation. For updates to existing QSOs, selection of differing imported values follows D40-D42. Confirmation and our upload status remain independent under D32 and D50-D51. Exact service-specific flag/date mapping remains open.
 
+## Service routing and account identities
+
+Checked 27 October 2026 against provider documentation.
+
+- [QRZ multiple-logbook rules](https://www.qrz.com/docs/logbook30/multiple-logbooks)
+  prohibit overlapping date ranges for the same exact station callsign,
+  globally rather than per user. Portable prefixes/suffixes distinguish calls.
+  The [API guide](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) selects
+  a specific book through its access key and rejects out-of-range QSOs.
+- [LoTW upload documentation](https://lotw.arrl.org/lotw-help/developer-submit-qsos/)
+  describes signed payloads as self-authenticating; upload does not require a
+  logged-in account. [Multiple-callsign guidance](https://lotw.arrl.org/lotw-help/multiple-callsigns-locations/)
+  requires certificates for the station callsigns and permitted QSO dates.
+- [ARRL additional-call guidance](https://www.arrl.org/additional-calls)
+  distinguishes additional personal callsigns from club calls, whose accounts
+  must remain separate from personal accounts. Signing certificates are not
+  independent remote collections chosen through an upload account parameter.
+- [LoTW query documentation](https://lotw.arrl.org/lotw-help/developer-query-qsos-qsls/)
+  requires account login/password for downloads and offers an own-station
+  callsign filter. The login username is not necessarily the station callsign.
+  Changing download credentials does not redirect signed uploads.
+
+The accepted [query service contexts](../docs/history.md#service-context--agreed-d350)
+apply these distinctions to local upload/confirmation predicates while retaining
+the existing evidence baselines and applicability rules.
+
 ## Adapter verification boundary
 
 The [service-evidence specification](../docs/service-evidence.md) defines the chosen projections, baselines, observation procedure, recovery, transactions and semantic retention. Source-specific imported flag/date recognition, live provider processing/clearing and QRZ replacement targeting/ID continuity still need adapter verification. Raw diagnostic retention and retry timing belong with provider/observability integration. These limits do not reopen accepted evidence policies.

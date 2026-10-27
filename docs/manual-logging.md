@@ -44,6 +44,8 @@ Not delivered by this issue:
   unfinished contact under the desktop UI contract.
 
 The agreed upper-right area accommodates Worked Before when #10 delivers it.
+The [history specification](history.md) defines that capability and its
+expression-based filters, extending this issue's production list and editor.
 For #9, deliver the actual Contact details and Our settings tabs; do not add a
 nonfunctional Worked Before tab or mock results. Later work extends this same
 area and the saved-contact list.

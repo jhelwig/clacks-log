@@ -4,8 +4,8 @@ This document owns the agreed desktop workbench behavior. The
 [desktop foundation](desktop.md) owns runtime and lifecycle behavior;
 [operating settings](operating-settings.md) owns station, equipment and
 reusable-record semantics; [manual logging](manual-logging.md) owns QSO entry,
-editing and deletion; the [product contract](product.md) owns logbook views and
-Worked Before. These are design requirements for the product,
+editing and deletion; [local history](history.md) owns history, Worked Before
+and query behavior; the [product contract](product.md) owns overall scope. These are design requirements for the product,
 not a claim that every described view is already implemented.
 
 ## Workbench composition
@@ -353,6 +353,30 @@ the focused contact, rather than opening an editor for every selected contact;
 existing restrictions on bulk editing remain unchanged. Enter inside a text
 field or another control retains that control's behavior.
 
+### History-filter entry
+
+The [history specification](history.md) owns the complete expression language,
+field bindings, query execution/state, history and Worked Before integration.
+Its engineering defaults are identified separately from agreed decisions.
+
+Use an always-visible history query bar with Gmail/GitHub-style named tokens,
+Boolean expressions and automatic context-aware suggestions. Suggestions
+support keyboard selection/dismissal and are optional. Automatically apply
+valid text after a debounce. Invalid/incomplete text keeps the last valid
+query active, with inline diagnostics, unapplied styling and a clear indication
+of the query supplying results. Do not add a required filter dialog, flashing
+validation-progress text or extra toolbar-height changes.
+
+D351 preserves edited text and the last valid applied expression together as
+one shared client-local state across views and restarts. Re-evaluate current
+data rather than restoring stale rows. Selection still clears on view changes;
+other filtering/sorting preserves selected identities and the hidden count.
+
+The query bar does not control the unfinished QSO, operating defaults, Worked
+Before's callsign input or server jobs. Enter, Tab and Escape in the bar or its
+suggestions follow the query control; they must not save a QSO or open a row.
+Use the existing shared theme, fonts, scaling and field-state components.
+
 ### Columns and sorting
 
 Both contact history and Worked Before support column visibility, ordering,
@@ -360,6 +384,12 @@ resizing and remembered sorting (D301). Store each table's configuration locally
 and independently: changing Worked Before does not reconfigure contact history.
 Provide a reset to each table's defaults. Column configuration changes the view,
 not recorded QSO values or the selected-contact set.
+
+Worked Before defaults to UTC start, Callsign, Band, Mode, Contacted grid,
+and Contacted activity references, in that order (D328). Include a compact
+Today indicator and pending/conflict markers. Own-station information and
+signal reports remain available through column configuration. Keep one row
+per QSO under the existing table contract.
 
 Display a contact timestamp as one combined UTC date-and-time column, rather
 than separate Date and Time columns. Sorting that column compares complete
@@ -370,8 +400,9 @@ be a separate presentation capability, not the default timestamp column (D318).
 Hidden columns remain available through column configuration; hiding a field
 does not remove it from a contact. Widths and row height must respect the chosen
 font and UI scale. Use horizontal scrolling where necessary for the remaining
-columns rather than squeezing values into unreadable fields. Exact default
-column lists and available fields belong to the delivered table capability.
+columns rather than squeezing values into unreadable fields. The
+[history specification](history.md) defines the delivered defaults and field
+semantics; the rules above govern both tables' presentation.
 
 ## Operation feedback
 

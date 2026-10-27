@@ -470,6 +470,11 @@ selected deletion payloads from normal history/Worked Before, and expose them
 through pending/conflict review. Pending originals, prepared values and retained
 alternatives must not multiply displayed QSOs.
 
+The [history specification](history.md) defines #10's expression-query, table
+and Worked Before requirements, including client-local edited/applied query
+state in the existing preference storage. This does not replace relational
+QSO data with serialized query projections.
+
 History, prefix Worked Before, tag filters, time ranges and account-wide review
 query these relational values. Use `EXISTS` for tag/reference filters or distinct
 record identity before pagination rather than duplicating QSO rows through joins.

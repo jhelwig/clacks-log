@@ -114,6 +114,8 @@ Milestones:
   the agreed filters and table selection. History includes named logbooks,
   All contacts and Untagged. Data survives normal close, restart and interrupted
   work.
+  The [history specification](history.md) consolidates the history, Worked
+  Before and expression-query contract.
 - Deliver individual and selected-contact membership changes through the
   production contact editor and history selection. Contacts can belong to
   multiple tags or remain untagged; removing membership and deleting a contact
