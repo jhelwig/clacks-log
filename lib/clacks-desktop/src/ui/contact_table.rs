@@ -1,12 +1,18 @@
 //! Real bounded history rows with native IDs, selection and column presentation.
 
-use super::{
-    preferences::{self, ContactTablePreferences},
-    *,
-};
-use clacks_client_store::read::contacts::{ContactColumn, SortDirection};
+mod header;
+pub(super) mod preferences;
+#[cfg(test)]
+mod tests;
+
+use clacks_client_store::read::contacts::ContactColumn;
+use clacks_client_store::read::contacts::ContactPage;
+use clacks_model::ids::QsoId;
 use clacks_model::recognition::mode::ModeIdentity;
+use eframe::egui;
 use egui_extras::{Column, TableBuilder};
+use preferences::ContactTablePreferences;
+use std::collections::BTreeSet;
 
 /// A contact explicitly activated from this table.
 #[derive(Default)]
@@ -23,48 +29,14 @@ pub(super) fn show(
     selected: &mut BTreeSet<QsoId>,
     focused: &mut Option<QsoId>,
     pending_focus: &mut Option<QsoId>,
+    today: Option<i64>,
 ) -> TableAction {
     let mut action = TableAction::default();
     let mut row_ids = std::collections::BTreeMap::new();
     let mut native_focus = None;
 
-    let mut move_column = None;
-    let mut reset = false;
-    ui.menu_button("Columns", |ui| {
-        let count = preferences.columns.len();
-        for (index, column) in preferences.columns.iter_mut().enumerate() {
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut column.visible, preferences::label(column.column));
-                if ui.add_enabled(index > 0, egui::Button::new("↑")).clicked() {
-                    move_column = Some((index, index.saturating_sub(1)));
-                }
-                if ui
-                    .add_enabled(index + 1 < count, egui::Button::new("↓"))
-                    .clicked()
-                {
-                    move_column = Some((index, index + 1));
-                }
-            });
-        }
-        if ui.button("Reset table defaults").clicked() {
-            reset = true;
-        }
-    });
-    if let Some((from, to)) = move_column {
-        preferences.columns.swap(from, to);
-    }
-    if reset {
-        *preferences = ContactTablePreferences::default();
-    }
-    let Some(page) = page else {
-        ui.label("Contacts are not loaded.");
-        return action;
-    };
-    if page.rows.is_empty() {
-        ui.label("No contacts in this view.");
-        return action;
-    }
-    if pending_focus.is_some_and(|id| !page.rows.iter().any(|row| row.working.qso.id == id)) {
+    let rows = page.map_or(&[][..], |page| page.rows.as_slice());
+    if pending_focus.is_some_and(|id| !rows.iter().any(|row| row.working.qso.id == id)) {
         *pending_focus = None;
     }
     let visible: Vec<_> = preferences
@@ -74,20 +46,36 @@ pub(super) fn show(
         .cloned()
         .collect();
     if visible.is_empty() {
-        ui.label("Choose one or more columns to display.");
+        let height = ui.spacing().interact_size.y;
+        let choice = ui
+            .allocate_ui(egui::vec2(ui.available_width(), height), |ui| {
+                header::show(ui, None, preferences)
+            })
+            .inner;
+        if let Some(choice) = choice {
+            choice.apply(preferences);
+            ui.ctx().request_repaint();
+        }
         return action;
     }
-    let visible_order = visible.iter().map(|v| v.column).collect::<Vec<_>>();
-    reset |= preferences.visible_order != visible_order;
-    preferences.visible_order = visible_order;
+    let layout_id = ui.make_persistent_id("contact_table.applied_columns");
+    let applied = ui.data(|data| data.get_temp::<Vec<preferences::ColumnPreference>>(layout_id));
+    let reset = applied.as_ref() != Some(&visible);
+    let mut header_action = None;
     egui::ScrollArea::horizontal()
         .id_salt("contacts.horizontal")
         .show(ui, |ui| {
-            let row_height = ui.text_style_height(&egui::TextStyle::Monospace) + 8.0;
-            let max_height = (ui.available_height() - 65.0).max(60.0);
+            let row_height = (ui.text_style_height(&egui::TextStyle::Monospace) + 8.0)
+                .max(ui.spacing().interact_size.y);
+            let reserved = row_height
+                + ui.spacing().interact_size.y
+                + ui.spacing().item_spacing.y * 4.0
+                + ui.spacing().scroll.bar_width;
+            let max_height = (ui.available_height() - reserved).max(0.0);
             let mut table = TableBuilder::new(ui)
                 .id_salt("contacts.working")
                 .max_scroll_height(max_height)
+                .min_scrolled_height(0.0)
                 .striped(true)
                 .resizable(true)
                 .sense(egui::Sense::click());
@@ -97,8 +85,8 @@ pub(super) fn show(
             if reset {
                 table.reset();
             }
-            if let Some(index) = pending_focus
-                .and_then(|id| page.rows.iter().position(|row| row.working.qso.id == id))
+            if let Some(index) =
+                pending_focus.and_then(|id| rows.iter().position(|row| row.working.qso.id == id))
             {
                 table = table.scroll_to_row(index, Some(egui::Align::Center));
             }
@@ -106,17 +94,9 @@ pub(super) fn show(
                 .header(row_height, |mut header| {
                     for column in &visible {
                         header.col(|ui| {
-                            if ui.button(preferences::label(column.column)).clicked() {
-                                if preferences.order.column == column.column {
-                                    preferences.order.direction = match preferences.order.direction
-                                    {
-                                        SortDirection::Ascending => SortDirection::Descending,
-                                        SortDirection::Descending => SortDirection::Ascending,
-                                    };
-                                } else {
-                                    preferences.order.column = column.column;
-                                    preferences.order.direction = SortDirection::Ascending;
-                                }
+                            if let Some(choice) = header::show(ui, Some(column.column), preferences)
+                            {
+                                header_action = Some(choice);
                             }
                         });
                     }
@@ -131,8 +111,8 @@ pub(super) fn show(
                             saved.width = *width;
                         }
                     }
-                    body.rows(row_height, page.rows.len(), |mut row| {
-                        let Some(value) = page.rows.get(row.index()) else {
+                    body.rows(row_height, rows.len(), |mut row| {
+                        let Some(value) = rows.get(row.index()) else {
                             return;
                         };
                         row.set_selected(selected.contains(&value.working.qso.id));
@@ -141,8 +121,10 @@ pub(super) fn show(
                             let (_, cell_response) = row.col(|ui| {
                                 ui.add(
                                     egui::Label::new(
-                                        egui::RichText::new(cell(value, column.column)).monospace(),
+                                        egui::RichText::new(cell(value, column.column, today))
+                                            .monospace(),
                                     )
+                                    .truncate()
                                     .selectable(false),
                                 );
                             });
@@ -176,6 +158,22 @@ pub(super) fn show(
                     });
                 });
         });
+    // Each table has its own toolkit width cache. A change from the other
+    // presentation must reset this cache before it can report widths back.
+    let applied: Vec<_> = preferences
+        .columns
+        .iter()
+        .filter(|column| column.visible)
+        .cloned()
+        .collect();
+    ui.data_mut(|data| data.insert_temp(layout_id, applied));
+    if let Some(choice) = header_action {
+        choice.apply(preferences);
+        ui.ctx().request_repaint();
+    }
+    if page.is_some() && rows.is_empty() {
+        ui.label("No contacts in this view.");
+    }
     if pending_focus.is_none()
         && let Some(id) = native_focus
     {
@@ -198,10 +196,10 @@ pub(super) fn show(
         }
         if delta != 0
             && let Some(index) =
-                focused.and_then(|id| page.rows.iter().position(|row| row.working.qso.id == id))
+                focused.and_then(|id| rows.iter().position(|row| row.working.qso.id == id))
             && let Some(next) = index
                 .checked_add_signed(delta)
-                .and_then(|index| page.rows.get(index))
+                .and_then(|index| rows.get(index))
         {
             *focused = Some(next.working.qso.id);
             *pending_focus = Some(next.working.qso.id);
@@ -221,7 +219,11 @@ pub(super) fn show(
 }
 
 /// Format only the displayed native value; numeric/time ordering remains relational.
-fn cell(row: &clacks_client_store::read::contacts::ContactRow, column: ContactColumn) -> String {
+fn cell(
+    row: &clacks_client_store::read::contacts::ContactRow,
+    column: ContactColumn,
+    today: Option<i64>,
+) -> String {
     let qso = &row.working.qso;
     match column {
         ContactColumn::Callsign => qso.contacted_station.callsign.as_str().to_owned(),
@@ -269,13 +271,16 @@ fn cell(row: &clacks_client_store::read::contacts::ContactRow, column: ContactCo
             .map(|v| v.display_locator().to_string())
             .unwrap_or_default(),
         ContactColumn::Status => {
-            if row.working.review.is_some() {
-                "Conflict".into()
-            } else if row.working.pending {
-                "Pending".into()
-            } else {
-                String::new()
+            let mut markers = Vec::new();
+            if today.is_some_and(|now| qso.start.unix_seconds().div_euclid(86_400) == now) {
+                markers.push("Today");
             }
+            if row.working.review.is_some() {
+                markers.push("Conflict");
+            } else if row.working.pending {
+                markers.push("Pending");
+            }
+            markers.join(" · ")
         }
     }
 }

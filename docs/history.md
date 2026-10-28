@@ -71,6 +71,12 @@ column visibility, order, widths and sorting, with reset to defaults. Timestamp
 sorting uses the complete date and time, never time of day alone. Horizontal
 scrolling preserves readable columns instead of shrinking their text.
 
+Column configuration uses the headers' right-click context menu, including
+visibility, ordering and reset. Use full-cell table headings and a visible
+sort indicator rather than individual button frames. Headers remain available
+when results are empty or loading, including a recovery target when all columns
+are hidden. These interactions apply to history and both Worked Before views.
+
 Double-click or Enter on a focused contact row opens the existing contact
 editor directly. Enter in the query bar or suggestion list follows that
 control's behavior; it must not open a row or submit the unfinished QSO.

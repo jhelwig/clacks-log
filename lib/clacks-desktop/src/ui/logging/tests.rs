@@ -181,13 +181,13 @@ fn station_inputs_in_entry_and_saved_editor_have_independent_widget_identity() {
 fn detail_fields_follow_the_available_pane_width() {
     for width in [420.0, 1000.0] {
         let (sender, _requests) = mpsc::channel(2);
-        let mut view = ready_entry();
-        view.tab = DetailTab::OurSettings;
+        let view = ready_entry();
+
         let mut ui = Harness::builder()
             .allow_missing_glyphs()
             .with_size(egui::vec2(width, 2400.0))
             .build_ui_state(
-                move |ui, view: &mut LoggingUi| view.details(ui, &sender),
+                move |ui, view: &mut LoggingUi| view.details(ui, &sender, true),
                 view,
             );
         ui.run();
@@ -210,17 +210,14 @@ fn detail_fields_follow_the_available_pane_width() {
 #[test]
 fn applied_defaults_are_the_edit_baseline_and_contact_corrections_survive_refresh() {
     let mut snapshot = fixtures::snapshot();
-    let mut view = LoggingUi {
-        tab: DetailTab::OurSettings,
-        ..Default::default()
-    };
+    let mut view = LoggingUi::default();
     view.refresh(&snapshot);
     let (sender, _requests) = mpsc::channel(2);
     let mut ui = Harness::builder()
         .allow_missing_glyphs()
         .with_size(egui::vec2(900.0, 2400.0))
         .build_ui_state(
-            move |ui, view: &mut LoggingUi| view.details(ui, &sender),
+            move |ui, view: &mut LoggingUi| view.details(ui, &sender, true),
             view,
         );
     ui.run();

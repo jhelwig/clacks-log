@@ -3,6 +3,7 @@
 mod actions;
 mod appearance;
 mod closing;
+mod contact_table;
 mod contacts;
 mod dialog;
 mod equipment;

@@ -23,21 +23,12 @@ use clacks_sync::record::{RecordState, RecordValue};
 use eframe::egui;
 use tokio::sync::{mpsc, oneshot};
 
-/// The two delivered adjacent views; Worked Before is a later real capability.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum DetailTab {
-    Contact,
-    OurSettings,
-}
-
 /// Window-owned entry, exact submitted facts and its typed response.
 pub(super) struct LoggingUi {
     /// One unfinished contact and its stable submission identity.
     entry: NewEntry,
     /// Copied input basis for changed-field presentation.
     baseline: ContactForm,
-    /// Currently visible additional-detail view.
-    tab: DetailTab,
     /// Compiled account reference definitions used for explicit reference edits.
     definitions: DefinitionSet,
     /// Last actual group records; compile only when their stored values change.
@@ -72,7 +63,6 @@ impl Default for LoggingUi {
         Self {
             baseline: entry.form.clone(),
             entry,
-            tab: DetailTab::Contact,
             definitions: DefinitionSet::default(),
             groups: vec![],
             problem: false,
@@ -215,12 +205,12 @@ impl LoggingUi {
     }
 
     /// Present either additional contact facts or contact-specific own settings.
-    pub fn details(&mut self, ui: &mut egui::Ui, requests: &mpsc::Sender<SettingsRequest>) {
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.tab, DetailTab::Contact, "Contact details");
-            ui.selectable_value(&mut self.tab, DetailTab::OurSettings, "Our settings");
-        });
-        ui.separator();
+    pub fn details(
+        &mut self,
+        ui: &mut egui::Ui,
+        requests: &mpsc::Sender<SettingsRequest>,
+        own: bool,
+    ) {
         let before = self.entry.form.clone();
         let changed = ui
             .add_enabled_ui(self.pending.is_none(), |ui| {
@@ -233,7 +223,7 @@ impl LoggingUi {
                             &self.baseline,
                             &self.definitions,
                             &self.errors,
-                            self.tab == DetailTab::OurSettings,
+                            own,
                             "entry.details",
                         )
                     })

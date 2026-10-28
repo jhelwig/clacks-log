@@ -33,7 +33,7 @@ pub(in crate::ui) struct WorkedBeforeModel {
     /// Actionable read error without disclosing query contents in diagnostics.
     pub error: Option<String>,
     /// Current UTC calendar-day number, supplied by the application clock.
-    day: i64,
+    pub day: i64,
     /// Actual originating request, discarded on changed inputs.
     pending: Option<PendingRead>,
     /// A real mutation or changed request requires another bounded read.
@@ -126,11 +126,6 @@ impl WorkedBeforeModel {
     /// Mark actual saved-data changes without discarding usable rows while reloading.
     pub fn refresh(&mut self) {
         self.dirty = true;
-    }
-
-    /// Compare full UTC dates without excluding older prior contacts.
-    pub fn today(&self, start: UtcSecond) -> bool {
-        start.unix_seconds().div_euclid(86_400) == self.day
     }
 
     /// Move within the current prefix's complete ordered results.

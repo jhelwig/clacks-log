@@ -2,16 +2,15 @@
 
 mod deletion;
 mod editor;
-mod preferences;
 mod query;
 mod responses;
-mod table;
-#[cfg(test)]
-mod table_tests;
 #[cfg(test)]
 mod tests;
 
-use super::{feedback, theme};
+use super::{
+    contact_table::{self as table, preferences},
+    feedback, theme,
+};
 use crate::session::settings::{
     SettingsAction, SettingsRequest, SettingsResponse,
     contacts::{ContactAction, ContactResponse},
@@ -76,12 +75,19 @@ pub(super) struct ContactsUi {
     current_record: Option<ClientRecord>,
     /// Whether the first page request has been admitted.
     initialized: bool,
+    /// Committed contact change awaiting workbench-wide read invalidation.
+    pub(super) changed: bool,
 }
 
 impl ContactsUi {
+    /// Open the existing saved-contact editor from either contact table.
+    pub fn open(&mut self, id: QsoId, requests: &mpsc::Sender<SettingsRequest>) {
+        self.request(ContactAction::Load { id }, requests);
+    }
     /// Restore this table's presentation independently of appearance and pane sizes.
     pub fn restore(&mut self, storage: Option<&dyn eframe::Storage>) {
-        self.preferences = preferences::ContactTablePreferences::restore(storage);
+        self.preferences =
+            preferences::ContactTablePreferences::restore(storage, preferences::TableKind::History);
         self.query.order = self.preferences.order;
     }
 
@@ -167,6 +173,7 @@ impl ContactsUi {
                 &mut self.selected,
                 &mut self.focused,
                 &mut self.pending_focus,
+                None,
             );
             if self.query.order != self.preferences.order {
                 self.query.order = self.preferences.order;

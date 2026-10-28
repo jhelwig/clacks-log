@@ -92,12 +92,14 @@ impl ContactsUi {
                     Some("This contact is no longer available locally. Refresh contacts.".into())
             }
             ContactResponse::Saved(SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_)) => {
+                self.changed = true;
                 self.editor = None;
                 self.current_record = None;
                 self.refresh(self.query.view);
                 self.notice = Some("Changes saved locally".into());
             }
             ContactResponse::Deleted(SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_)) => {
+                self.changed = true;
                 if let Some(deletion) = &self.deletion
                     && let clacks_sync::record::RecordId::Qso(id) = deletion.expected.key.id
                 {

@@ -385,6 +385,14 @@ and independently: changing Worked Before does not reconfigure contact history.
 Provide a reset to each table's defaults. Column configuration changes the view,
 not recorded QSO values or the selected-contact set.
 
+Configure columns by right-clicking a table column header. Its context menu
+contains visibility choices, column ordering and reset; do not add a separate
+Columns button. Headers use the full column cell with the shared header surface,
+restrained separators, left-aligned titles and a sort-direction indicator.
+They retain hover/focus cues without text-sized button frames. Primary click
+sorts the column. Keep headers available with no result rows; an all-hidden
+layout retains a header context-menu target for restoring columns.
+
 Worked Before defaults to UTC start, Callsign, Band, Mode, Contacted grid,
 and Contacted activity references, in that order (D328). Include a compact
 Today indicator and pending/conflict markers. Own-station information and
