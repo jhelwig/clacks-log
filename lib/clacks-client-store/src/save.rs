@@ -1,5 +1,7 @@
 //! Guarded local saved-state operations for one account workspace.
 
+pub mod tags;
+
 use crate::{metadata::client, store::ClientStore};
 use clacks_sync::{client::ClientRecord, record::RecordKey};
 
@@ -177,60 +179,4 @@ pub async fn save(
         }
     }
     Ok(outcome)
-}
-
-/// Add/remove membership on selected contact snapshots, preserving each completed record transaction.
-#[tracing::instrument(skip_all, name = "client_store.tags.change", fields(account_id = %store.account))]
-pub async fn change_tags(
-    store: &ClientStore,
-    expected: &[ClientRecord],
-    add: &std::collections::BTreeSet<clacks_model::ids::TagId>,
-    remove: &std::collections::BTreeSet<clacks_model::ids::TagId>,
-) -> anyhow::Result<Vec<SaveOutcome>> {
-    use anyhow::Context;
-    use clacks_sync::record::{RecordId, RecordState, RecordValue};
-    anyhow::ensure!(
-        add.is_disjoint(remove),
-        "a tag cannot be both added and removed"
-    );
-    let mut keys = std::collections::BTreeSet::new();
-    for row in expected {
-        anyhow::ensure!(
-            row.key.account == store.account
-                && matches!(row.key.id, RecordId::Qso(_))
-                && keys.insert(row.key),
-            "selected contacts have duplicate or invalid keys"
-        );
-        anyhow::ensure!(
-            matches!(
-                row.working_state(),
-                Some(RecordState::Live(RecordValue::Qso(_)))
-            ),
-            "selected contact has no live working value"
-        );
-    }
-    let mut outcomes = Vec::new();
-    for row in expected {
-        let Some(RecordState::Live(RecordValue::Qso(qso))) = row.working_state() else {
-            anyhow::bail!("selected contact has no live working value")
-        };
-        let mut qso = qso.clone();
-        qso.tags.retain(|tag| !remove.contains(tag));
-        qso.tags.extend(add);
-        let outcome = save(
-            store,
-            row.key,
-            Some(row),
-            RecordState::Live(RecordValue::Qso(qso)),
-        )
-        .await
-        .with_context(|| {
-            format!(
-                "tag membership change stopped after {} completed contacts",
-                outcomes.len()
-            )
-        })?;
-        outcomes.push(outcome);
-    }
-    Ok(outcomes)
 }

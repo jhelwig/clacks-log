@@ -126,6 +126,11 @@ from the client's completed installed checkpoint. No record response advances re
 - `save` preserves the original basis and any already-frozen proposal while
   changing working values. Exact expected rows guard editor saves and tag changes.
   Tag deletion rechecks the complete preview before committing all effects together.
+- `save::tags::change_tags` applies explicit inclusion/removal to captured complete
+  QSO bases, one guarded transaction per contact. Its progress callback can stop
+  before the next save. The final report retains saved/unchanged/stale outcomes,
+  an operationally failing identity and the exact unprocessed remainder; completed
+  saves are never replayed or rolled back as a batch.
 - `operating` owns current values and independent optional profile/equipment
   source copies. Apply saves their values and selections together; later shared
   source edits do not reload them. Manual adjustments clear the affected selection.
