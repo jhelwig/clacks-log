@@ -8,7 +8,7 @@ Use **Leptos for a Rust-authored interactive web application, with Axum integrat
 
 The basis is the eventual application, not just administration: stateful logbook browsing/editing, reports with interactive filters, and potentially a logging workspace. Leptos supplies a coherent model for those browser interactions as well as server-rendered pages. [Leptos rendering/build options](https://book.leptos.dev/getting_started/index.html), [reactive components](https://book.leptos.dev/view/01_basic_component.html)
 
-Axum is the proposed Rust web routing/request layer inside the existing single Clacks server application, alongside its synchronization and background work. It is not another deployed service or an independently owned database schema. Leptos officially supports both Axum and Actix; recommending Axum follows the documented default integration, not a claim that Actix cannot meet the requirements. [Supported server integrations](https://book.leptos.dev/ssr/index.html)
+Axum is the selected Rust web routing/request layer inside the existing single Clacks server application, alongside its synchronization and background work. It is not another deployed service or an independently owned database schema. Leptos officially supports both Axum and Actix; selecting Axum follows the documented default integration, not a claim that Actix cannot meet the requirements. The [account-management proposal](../docs/account-management-proposal.md) supplies concrete #11 composition and deployment details for review. [Supported server integrations](https://book.leptos.dev/ssr/index.html)
 
 ## Requirements and comparison basis
 
