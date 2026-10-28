@@ -67,3 +67,20 @@ If provider registration completed but publication failed, the command preserves
 the returned credentials in a protected temporary file and reports its path.
 Inspect that result and provider state before retrying. Back up registration and
 cookie secrets separately from PostgreSQL through deployment secret management.
+
+## Browser runtime
+
+```sh
+cargo run -p clacks-server-app -- --config /etc/clacks/server.toml
+```
+
+Apply the deployment role/grant SQL as the database administrator/schema owner;
+use a distinct runtime URL. The server attaches the session adapter to the
+already migrated table without schema initialization. Public HTTPS terminates
+at deployment ingress; the application listener is internal.
+
+`CLACKS_TEST_RUNTIME_DATABASE_URL` supplies the restricted runtime role for HTTP
+scenarios, separately from the migration-capable test database URL. Run all
+server scenarios using `cargo test -p clacks-server --all-targets --locked`.
+The narrow provider fixture signs independent ephemeral identity tokens in Rust;
+no TQSL sources, external fixture generator or real account credentials are used.

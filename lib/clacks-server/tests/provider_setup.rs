@@ -1,6 +1,6 @@
 //! Durable provider registration is reusable and independent of database setup.
 
-mod support;
+use crate::support;
 
 use clacks_server::{
     config::{ProviderConfig, RegistrationMode},

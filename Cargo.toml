@@ -2,6 +2,7 @@
 members = [
     "lib/clacks-server",
     "bin/clacks-admin",
+    "bin/clacks-server",
     "lib/clacks-client-store",
     "lib/clacks-desktop",
     "lib/clacks-geography",
@@ -27,6 +28,10 @@ license = "Elastic-2.0"
 publish = false
 
 [workspace.dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+axum_session = "=0.22.0"
+axum_session_sqlx = { version = "=0.12.0", default-features = false, features = ["postgres", "tls-rustls"] }
+tower-http = { version = "0.7", features = ["trace", "fs"] }
 openidconnect = { version = "=4.0.1", default-features = false, features = ["reqwest", "rustls-tls", "timing-resistant-secret-traits"] }
 axum = { version = "=0.8.9", features = ["form", "query"] }
 clacks-server = { path = "lib/clacks-server" }

@@ -16,7 +16,21 @@ pub struct AccountStore {
 
 impl AccountStore {
     /// Use an existing role-appropriate pool; this does not migrate its database.
-    pub fn new(pool: PgPool) -> Self {
+    pub(crate) fn new(pool: PgPool) -> Self {
         Self { pool }
+    }
+}
+
+impl AccountStore {
+    /// Check database connectivity for runtime readiness without changing account data.
+    pub(crate) async fn ping(&self) -> anyhow::Result<()> {
+        use sqlx::Connection;
+        self.pool.acquire().await?.ping().await?;
+        Ok(())
+    }
+
+    /// Release runtime connections after admitted requests have drained.
+    pub(crate) async fn close(&self) {
+        self.pool.close().await;
     }
 }

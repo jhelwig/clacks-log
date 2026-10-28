@@ -11,3 +11,29 @@ pub struct Principal {
     /// Linked identity used to establish this login.
     pub identity_id: Ulid,
 }
+
+use crate::{auth::error::AuthError, runtime::ServerState, store::logins::LoginReference};
+use axum::{extract::FromRequestParts, http::request::Parts};
+use axum_session_sqlx::SessionPgSession;
+
+impl FromRequestParts<ServerState> for Principal {
+    type Rejection = AuthError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &ServerState,
+    ) -> Result<Self, Self::Rejection> {
+        let session = SessionPgSession::from_request_parts(parts, state)
+            .await
+            .map_err(|_| AuthError::Unavailable)?;
+        let reference = session
+            .get::<String>("login_reference")
+            .ok_or(AuthError::SignInRequired)?;
+        state
+            .store
+            .authenticate(&LoginReference::from_session(reference), state.lifetime())
+            .await
+            .map_err(|_| AuthError::Unavailable)?
+            .ok_or(AuthError::SignInRequired)
+    }
+}

@@ -30,31 +30,29 @@ async fn concurrent_sign_ins_resolve_one_account() -> anyhow::Result<()> {
     );
     let left = left?;
     let right = right?;
-    assert_eq!(left.principal, right.principal);
+    let principal = store
+        .authenticate(&left, Duration::days(14))
+        .await?
+        .unwrap();
+    assert_eq!(
+        store.authenticate(&right, Duration::days(14)).await?,
+        Some(principal.clone())
+    );
     let after = sqlx::query_file!("tests/sql/count_accounts.sql")
         .fetch_one(&store.pool)
         .await?
         .count;
     assert_eq!(after, before + 1);
-    assert_ne!(left.reference.secret(), right.reference.secret());
+    assert_ne!(left.secret(), right.secret());
     assert_eq!(
-        store
-            .authenticate(&left.reference, Duration::days(14))
-            .await?,
-        Some(left.principal.clone())
+        store.authenticate(&left, Duration::days(14)).await?,
+        Some(principal.clone())
     );
-    store.logout(&left.reference).await?;
+    store.logout(&left).await?;
+    assert_eq!(store.authenticate(&left, Duration::days(14)).await?, None);
     assert_eq!(
-        store
-            .authenticate(&left.reference, Duration::days(14))
-            .await?,
-        None
-    );
-    assert_eq!(
-        store
-            .authenticate(&right.reference, Duration::days(14))
-            .await?,
-        Some(right.principal)
+        store.authenticate(&right, Duration::days(14)).await?,
+        Some(principal)
     );
     Ok(())
 }

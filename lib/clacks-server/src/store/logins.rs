@@ -10,6 +10,11 @@ use time::Duration;
 pub(crate) struct LoginReference(String);
 
 impl LoginReference {
+    /// Resolve the reference retained in middleware data, without authorizing it.
+    pub(crate) fn from_session(value: String) -> Self {
+        Self(value)
+    }
+
     /// Generate a new opaque login reference with 256 random bits.
     pub(super) fn generate() -> Self {
         let mut bytes = [0; 32];
@@ -21,14 +26,6 @@ impl LoginReference {
     pub(crate) fn secret(&self) -> &str {
         &self.0
     }
-}
-
-/// A committed account login ready to be attached to middleware session data.
-pub(crate) struct EstablishedLogin {
-    /// Account and authenticating identity authorized by this login.
-    pub principal: Principal,
-    /// Secret reference retained only on the server.
-    pub reference: LoginReference,
 }
 
 impl AccountStore {

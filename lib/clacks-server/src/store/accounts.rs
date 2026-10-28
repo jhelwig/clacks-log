@@ -1,9 +1,6 @@
 //! Resolve verified provider identities to stable independent accounts.
 
-use super::{
-    AccountStore,
-    logins::{EstablishedLogin, LoginReference},
-};
+use super::{AccountStore, logins::LoginReference};
 use crate::auth::{oidc::VerifiedIdentity, principal::Principal};
 use clacks_model::ids::AccountId;
 use time::Duration;
@@ -32,7 +29,7 @@ impl AccountStore {
         &self,
         identity: VerifiedIdentity,
         lifetime: Duration,
-    ) -> anyhow::Result<EstablishedLogin> {
+    ) -> anyhow::Result<LoginReference> {
         anyhow::ensure!(
             lifetime.whole_seconds() > 0,
             "login lifetime must be positive"
@@ -109,10 +106,7 @@ impl AccountStore {
             .await?;
             transaction.commit().await?;
             tracing::info!(account_id = %principal.account_id, identity_id = %principal.identity_id, "Browser login established");
-            return Ok(EstablishedLogin {
-                principal,
-                reference,
-            });
+            return Ok(reference);
         }
         anyhow::bail!("identity binding changed during sign-in; restart sign-in")
     }

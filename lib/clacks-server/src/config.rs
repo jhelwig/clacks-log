@@ -62,9 +62,6 @@ pub struct ServerConfig {
     /// Maximum age of one pending provider round trip in seconds.
     #[serde(default = "default_pending_seconds")]
     pub pending_seconds: i64,
-    /// Maximum retained pending round trips per browser session.
-    #[serde(default = "default_pending_limit")]
-    pub pending_limit: usize,
     /// Explicit local development HTTP permission; production defaults to HTTPS.
     #[serde(default)]
     pub allow_http: bool,
@@ -81,10 +78,6 @@ fn default_session_days() -> i64 {
 /// Default expiry for one interrupted browser authorization step.
 fn default_pending_seconds() -> i64 {
     600
-}
-/// Default bound on unrelated simultaneous provider round trips.
-fn default_pending_limit() -> usize {
-    8
 }
 
 impl ServerConfig {
@@ -126,10 +119,7 @@ impl ServerConfig {
             self.session_days > 0 && self.session_days.checked_mul(86400).is_some(),
             "session_days must be a positive representable duration"
         );
-        anyhow::ensure!(
-            self.pending_seconds > 0 && self.pending_limit > 0,
-            "pending flow settings must be positive"
-        );
+        anyhow::ensure!(self.pending_seconds > 0, "pending_seconds must be positive");
         for key in self.providers.keys() {
             anyhow::ensure!(
                 !key.is_empty()
@@ -159,4 +149,16 @@ pub(crate) fn secret(path: &Path) -> anyhow::Result<String> {
     let value = text.trim_end_matches(['\r', '\n']);
     anyhow::ensure!(!value.is_empty(), "configured secret file is empty");
     Ok(value.to_owned())
+}
+
+/// Server startup arguments; deployment configuration remains separate from secrets.
+#[derive(clap::Parser)]
+#[command(
+    name = "clacks-server",
+    about = "Clacks Log account and synchronization server"
+)]
+pub struct ServerArgs {
+    /// Deployment configuration file.
+    #[arg(long, default_value = "clacks-server.toml")]
+    pub config: PathBuf,
 }
