@@ -27,6 +27,8 @@ license = "Elastic-2.0"
 publish = false
 
 [workspace.dependencies]
+openidconnect = { version = "=4.0.1", default-features = false, features = ["reqwest", "rustls-tls", "timing-resistant-secret-traits"] }
+axum = { version = "=0.8.9", features = ["form", "query"] }
 clacks-server = { path = "lib/clacks-server" }
 eframe = { version = "=0.37.0", default-features = false, features = ["accesskit", "clipboard", "default_fonts", "links", "persistence", "system_fonts", "wgpu", "wayland", "x11"] }
 egui_extras = { version = "=0.37.0", default-features = false }

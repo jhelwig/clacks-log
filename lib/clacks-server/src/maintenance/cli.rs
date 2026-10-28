@@ -13,10 +13,29 @@ struct Arguments {
 /// Supported operator domains.
 #[derive(Subcommand)]
 enum Command {
+    /// Register a configured identity provider for this deployment.
+    Oidc {
+        #[command(subcommand)]
+        command: OidcCommand,
+    },
     /// Install release-managed database migrations.
     Database {
         #[command(subcommand)]
         command: DatabaseCommand,
+    },
+}
+
+/// Provider deployment setup operations.
+#[derive(Subcommand)]
+enum OidcCommand {
+    /// Reuse or create a protected deployment registration.
+    Register {
+        /// Deployment configuration file.
+        #[arg(long)]
+        config: std::path::PathBuf,
+        /// Configured provider key.
+        #[arg(long)]
+        provider: String,
     },
 }
 
@@ -35,6 +54,18 @@ enum DatabaseCommand {
 pub async fn run() -> anyhow::Result<()> {
     let args = Arguments::parse();
     match args.command {
+        Command::Oidc {
+            command: OidcCommand::Register { config, provider },
+        } => {
+            let config = crate::config::ServerConfig::load(&config)?;
+            let callback = config.callback(&provider)?;
+            let provider = config
+                .providers
+                .get(&provider)
+                .ok_or_else(|| anyhow::anyhow!("provider is not configured"))?;
+            let outcome = super::registration::run(provider, &callback).await?;
+            println!("{outcome:?}");
+        }
         Command::Database {
             command: DatabaseCommand::Migrate { database_url_file },
         } => {
