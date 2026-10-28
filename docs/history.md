@@ -3,8 +3,6 @@
 This specification consolidates the accepted behavior for
 [issue #10](https://github.com/jhelwig/clacks-log/issues/10). It extends the
 production saved-contact list and editor from [manual logging](manual-logging.md).
-It is a specification for review, not an implementation plan or a claim that
-the capability is already delivered.
 
 **Agreed behavior** comes from the product decisions and existing contracts.
 **Engineering defaults** make the design concrete where the user has not
@@ -281,7 +279,6 @@ Use locale-independent Unicode simple case folding for case-insensitive text
 matching, without stripping accents, changing whitespace inside values or modifying
 saved text. Quotes preserve contiguous phrases. Query compilation must honor
 this behavior for names/comments, not rely on an ASCII-only comparison shortcut.
-The concrete Rust/database support is specified in the implementation plan.
 
 ### Dates and units — Agreed
 
@@ -439,7 +436,7 @@ and execution in agreement. Use winnow's expression parser for Boolean
 precedence, with combinators for grouping, adjacency, keyword boundaries,
 quoted/escaped tokens, comparison prefixes and decimal syntax. Located input
 retains byte ranges for diagnostics; typed-value interpretation remains separate
-from syntax. The implementation plan defines Unicode comparison support.
+from syntax.
 
 **E5 — Engineering defaults:** compile validated predicates to relational SQL
 with bound values and catalog-controlled field expressions. Never interpolate
@@ -530,8 +527,3 @@ appearance and additional-window behavior. Functional tests do not establish
 visual conformance. Keep native Windows acceptance and any unavailable checks
 explicit. Existing continuous integration (CI) is temporarily Linux-only;
 this issue does not authorize reintroducing Windows CI tests.
-
-The [implementation plan](superpowers/plans/2026-10-27-local-history.md) defines
-the parser/Unicode support, production interfaces, task ordering and meaningful
-tests. Review both documents before implementation; neither document alone
-authorizes prototype or product-code changes.
