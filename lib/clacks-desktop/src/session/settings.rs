@@ -136,6 +136,7 @@ pub(super) async fn execute(
                 contacts::ContactAction::WorkedBefore { .. } => Some("worked_before"),
                 _ => None,
             };
+            let preparation = matches!(&action, contacts::ContactAction::PrepareMembership { .. });
             let result = if let Some(kind) = kind {
                 let started = std::time::Instant::now();
                 let result = tokio::select! {
@@ -161,6 +162,11 @@ pub(super) async fn execute(
                     _ => {}
                 }
                 result
+            } else if preparation {
+                tokio::select! {
+                    _ = request.reply.closed() => return None,
+                    result = contacts::execute(&store, action) => result,
+                }
             } else {
                 contacts::execute(&store, action).await
             };
@@ -215,6 +221,7 @@ pub(super) async fn execute(
         SettingsResponse::Contacts(
             contacts::ContactResponse::Page(_)
             | contacts::ContactResponse::WorkedBefore(_)
+            | contacts::ContactResponse::MembershipPrepared(_)
             | contacts::ContactResponse::Loaded(_)
             | contacts::ContactResponse::QueryState(_)
             | contacts::ContactResponse::QueryStateSaved(_),

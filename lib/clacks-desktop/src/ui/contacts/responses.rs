@@ -70,6 +70,9 @@ impl ContactsUi {
     pub(super) fn accept(&mut self, response: ContactResponse) {
         self.problem = false;
         match response {
+            ContactResponse::MembershipPrepared(_) | ContactResponse::MembershipChanged(_) => {
+                self.notice = Some("Unexpected membership response".into());
+            }
             ContactResponse::QueryState(_) | ContactResponse::QueryStateSaved(_) => {
                 self.notice = Some("Unexpected history preference response".into());
             }
