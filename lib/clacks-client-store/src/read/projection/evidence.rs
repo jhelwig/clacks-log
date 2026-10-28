@@ -63,7 +63,8 @@ pub(super) async fn load(
             account: account_id,
             id,
         };
-        if let Some(client) = metadata::client::load(connection, key).await?
+        if matches!(id, clacks_sync::record::RecordId::Service(_))
+            && let Some(client) = metadata::client::load(connection, key).await?
             && let Some(RecordState::Live(RecordValue::Service(s))) = client.working_state()
         {
             result.working.push((**s).clone());

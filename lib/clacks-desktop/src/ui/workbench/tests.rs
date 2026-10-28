@@ -51,15 +51,21 @@ fn history_fills_remaining_bounds_with_empty_or_populated_rows() {
             .send(crate::session::settings::SettingsResponse::Contacts(
                 crate::session::settings::contacts::ContactResponse::Page(ContactPage {
                     rows: if populated {
-                        vec![HistoryRow {
-                            qso: fixtures::contact(),
-                            pending: true,
-                            review: None,
+                        vec![clacks_client_store::read::contacts::ContactRow {
+                            facts: Default::default(),
+                            working: HistoryRow {
+                                qso: fixtures::contact(),
+                                pending: true,
+                                review: None,
+                            },
                         }]
                     } else {
                         vec![]
                     },
                     has_more: false,
+                    matching_total: u64::from(populated),
+                    selected_total: 0,
+                    selected_outside_filter: 0,
                 }),
             ))
             .unwrap();

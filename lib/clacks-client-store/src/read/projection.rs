@@ -38,6 +38,8 @@ pub struct ServiceStatus {
 /// Read-only facts selected without changing the recorded QSO.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ContactFacts {
+    /// Current definition names for this QSO's recorded reference groups.
+    pub group_names: BTreeMap<clacks_model::ids::GroupId, String>,
     /// Effective contacted name and its actual source.
     pub name: Option<Sourced<String>>,
     /// Whole own-station location, including authoritative unknown geography.
@@ -176,6 +178,19 @@ pub(crate) async fn load(
         if needs.station {
             station::select(&row.qso, &context.definitions, &mut facts);
         }
+        facts.facts.group_names = row
+            .qso
+            .own_station
+            .references
+            .iter()
+            .chain(&row.qso.contacted_station.references)
+            .filter_map(|r| {
+                context
+                    .definitions
+                    .get(r.group_id)
+                    .map(|g| (g.id, g.name.clone()))
+            })
+            .collect();
         result.push(ContactProjection {
             id: row.qso.id,
             facts: facts.facts,

@@ -3,6 +3,7 @@
 pub mod contacts;
 pub mod history;
 pub mod projection;
+mod query;
 pub mod review;
 
 use crate::{

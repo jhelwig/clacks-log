@@ -1,6 +1,10 @@
 use crate::support;
 use clacks_client_store::{
-    read::{self, history::HistoryQuery, review::ReviewQuery},
+    read::{
+        self,
+        contacts::{ContactColumn, ContactOrder, ContactPageQuery, SortDirection},
+        review::ReviewQuery,
+    },
     save::{self, SaveOutcome},
     store::{ClientStore, StoreSettings},
 };
@@ -29,17 +33,22 @@ async fn working_history_is_unique_snapshot_consistent_and_deletions_are_reviewa
         panic!("save")
     };
     let mut old = read::snapshot(&store).await?;
-    let query = HistoryQuery {
-        tags: [support::id(20), support::id(21)].into(),
+    let query = ContactPageQuery {
+        view: clacks_client_store::logbooks::selection::SelectedView::Logbook(support::id(20)),
         ..Default::default()
     };
-    assert_eq!(old.history(&query).await?.len(), 1);
+    assert_eq!(old.contact_page(&query).await?.rows.len(), 1);
     save::save(&store, row.key, Some(&row), RecordState::Deleted).await?;
-    assert_eq!(old.history(&query).await?.len(), 1);
+    assert_eq!(old.contact_page(&query).await?.rows.len(), 1);
     assert!(old.record(row.key).await?.unwrap().pending.is_some());
     old.close().await?;
     let mut new = read::snapshot(&store).await?;
-    assert!(new.history(&HistoryQuery::default()).await?.is_empty());
+    assert!(
+        new.contact_page(&ContactPageQuery::default())
+            .await?
+            .rows
+            .is_empty()
+    );
     let review = new.review(&ReviewQuery::default()).await?;
     assert_eq!(review.len(), 1);
     assert_eq!(
@@ -52,7 +61,7 @@ async fn working_history_is_unique_snapshot_consistent_and_deletions_are_reviewa
 }
 
 #[tokio::test]
-async fn history_prefix_filters_and_keyset_pages_preserve_native_labels() -> anyhow::Result<()> {
+async fn expression_pages_preserve_native_labels_and_review_identity() -> anyhow::Result<()> {
     use clacks_client_store::read::review::RecordKind;
     use clacks_model::{
         contact::BandFrequency,
@@ -97,34 +106,42 @@ async fn history_prefix_filters_and_keyset_pages_preserve_native_labels() -> any
     )));
     save::save(&store, support::key(&tag), None, RecordState::Live(tag)).await?;
     let mut snapshot = read::snapshot(&store).await?;
-    let query = HistoryQuery {
-        contacted_call_prefix: Some(" k1 ".into()),
-        band: Some("future-band".into()),
-        mode: Some("future-mode".into()),
-        start: Some(UtcSecond::from_unix_seconds(-1)),
-        end: Some(UtcSecond::from_unix_seconds(-1)),
+    let query = ContactPageQuery {
+        filter: clacks_model::query::parse(
+            "k1 band:future-band mode:future-mode qso_start:1969-12-31T23:59:59Z",
+            clacks_model::recognition::RecognitionCatalog::adif_318()?,
+        )?,
+        order: ContactOrder {
+            column: ContactColumn::Start,
+            direction: SortDirection::Ascending,
+        },
         limit: 1,
         ..Default::default()
     };
-    let first = snapshot.history(&query).await?;
-    assert_eq!(first.len(), 1);
-    let row = first.first().unwrap();
-    assert_eq!(row.qso.id, support::id(10));
+    let first = snapshot.contact_page(&query).await?;
+    assert_eq!(first.rows.len(), 1);
+    let row = first.rows.first().unwrap();
+    assert_eq!(row.working.qso.id, support::id(10));
+    assert_eq!(
+        row.working.qso.primary.band().unwrap().label(),
+        "future-band"
+    );
     let second = snapshot
-        .history(&HistoryQuery {
-            after: Some((row.qso.start, row.qso.id)),
-            ..query
-        })
+        .contact_page(&ContactPageQuery { offset: 1, ..query })
         .await?;
-    assert_eq!(second.first().unwrap().qso.id, support::id(11));
+    assert_eq!(second.rows.first().unwrap().working.qso.id, support::id(11));
     for prefix in ["K%", "K_", "K!"] {
         assert!(
             snapshot
-                .history(&HistoryQuery {
-                    contacted_call_prefix: Some(prefix.into()),
+                .contact_page(&ContactPageQuery {
+                    filter: clacks_model::query::parse(
+                        prefix,
+                        clacks_model::recognition::RecognitionCatalog::adif_318()?
+                    )?,
                     ..Default::default()
                 })
                 .await?
+                .rows
                 .is_empty()
         );
     }

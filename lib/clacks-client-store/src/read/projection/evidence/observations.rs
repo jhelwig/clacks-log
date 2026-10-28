@@ -166,19 +166,18 @@ pub(super) fn evaluate(
         let baselines: Vec<_> = evidence
             .working
             .iter()
-            .filter_map(|r| {
+            .filter(|r| {
                 let ServicePayload::Disposition(d) = &r.payload else {
-                    return None;
+                    return false;
                 };
-                (d.association == Some(association.id)
+                d.association == Some(association.id)
                     && selected.confirmation_supporting.contains(&d.observation)
                     && matches!(
                         d.decision,
                         ProcessingDecision::Associated
                             | ProcessingDecision::Added
                             | ProcessingDecision::CompletedEquivalent
-                    ))
-                .then_some(r)
+                    )
             })
             .flat_map(|r| &r.support.required)
             .map(|r| r.reference())

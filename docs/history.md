@@ -419,8 +419,8 @@ identity and whole-location selection remain intact during grid matching.
 ## 7. Production integration and local persistence
 
 Extend the existing desktop `ContactsUi`/session operations and client-store
-history readers. The earlier fixed `HistoryQuery` is not the query language's
-semantic authority. Reuse real working-row/evidence selection and the existing
+history readers. Typed expressions supply the single history filtering contract.
+Reuse real working-row/evidence selection and the existing
 editor; do not build a throwaway query host, second persistence service or
 an in-memory copy of the entire account as the execution engine.
 

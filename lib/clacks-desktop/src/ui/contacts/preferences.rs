@@ -32,12 +32,28 @@ impl Default for ContactTablePreferences {
         use ContactColumn::*;
         Self {
             columns: [
-                Callsign, Start, Band, Mode, Frequency, Sent, Received, Grid, Status,
+                Callsign,
+                Start,
+                Band,
+                Mode,
+                Frequency,
+                Sent,
+                Received,
+                Grid,
+                Status,
+                End,
+                OwnCall,
+                OwnGrid,
+                OwnReferences,
+                ContactReferences,
             ]
             .into_iter()
             .map(|column| ColumnPreference {
                 column,
-                visible: true,
+                visible: !matches!(
+                    column,
+                    End | OwnCall | OwnGrid | OwnReferences | ContactReferences
+                ),
                 width: if column == Start { 180.0 } else { 90.0 },
             })
             .collect(),
@@ -91,6 +107,11 @@ pub(super) fn label(column: ContactColumn) -> &'static str {
     match column {
         Callsign => "Callsign",
         Start => "Start · UTC",
+        End => "End · UTC",
+        OwnCall => "Own call",
+        OwnGrid => "Own grid",
+        OwnReferences => "Own references",
+        ContactReferences => "Contact references",
         Band => "Band",
         Mode => "Mode",
         Frequency => "MHz",

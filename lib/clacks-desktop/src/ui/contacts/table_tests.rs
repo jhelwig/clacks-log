@@ -20,10 +20,13 @@ fn mount() -> Harness<'static, Host> {
             let mut qso = fixtures::contact();
             qso.contacted_station.callsign =
                 clacks_model::scalar::RecordedCallsign::new(&format!("K1T{n:03}")).unwrap();
-            HistoryRow {
-                qso,
-                pending: true,
-                review: None,
+            clacks_client_store::read::contacts::ContactRow {
+                facts: Default::default(),
+                working: HistoryRow {
+                    qso,
+                    pending: true,
+                    review: None,
+                },
             }
         })
         .collect();
@@ -47,6 +50,9 @@ fn mount() -> Harness<'static, Host> {
                 page: ContactPage {
                     rows,
                     has_more: false,
+                    matching_total: 40,
+                    selected_total: 0,
+                    selected_outside_filter: 0,
                 },
                 preferences: Default::default(),
                 selected: Default::default(),
@@ -66,7 +72,7 @@ fn keyboard_navigation_scrolls_to_and_opens_the_contact_by_identity() {
         ui.key_press(egui::Key::ArrowDown);
         ui.run();
     }
-    let expected = ui.state().page.rows.get(12).unwrap().qso.id;
+    let expected = ui.state().page.rows.get(12).unwrap().working.qso.id;
     assert_eq!(ui.state().focused, Some(expected));
     assert_eq!(ui.state().selected, [expected].into());
     assert!(ui.query_by_label("K1T012").is_some());

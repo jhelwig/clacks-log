@@ -1,24 +1,16 @@
 use super::projection::{self, ProjectionNeeds};
+use crate::test_support::service::imported;
 use crate::{
     read, save,
     store::{ClientStore, StoreSettings},
     test_support as support,
 };
 use clacks_model::{
-    contact::Qso,
     defaults::account_definitions,
-    export::{ExportContext, OutputPurpose},
-    group::DefinitionSet,
-    recognition::RecognitionCatalog,
     scalar::Milliwatts,
     service::{
-        adif::ProjectionContext,
         destination::Service,
-        evidence::{
-            ImportProvenance, ImportedAssertion, ImportedBaselineInput, ImportedClaim,
-            ServicePayload, imported_baseline,
-        },
-        lotw::LotwConfiguration,
+        evidence::{ImportedClaim, ServicePayload},
     },
 };
 use clacks_sync::{
@@ -30,62 +22,6 @@ use clacks_sync::{
 mod routing;
 #[path = "tests/submissions.rs"]
 mod submissions;
-
-/// Capture a real imported baseline; expected coverage flags remain literal assertions.
-fn imported(
-    qso: &Qso,
-    id: u128,
-    service: Service,
-    claim: ImportedClaim,
-) -> anyhow::Result<RecordState> {
-    let seed = account_definitions()?;
-    let definitions = DefinitionSet::new(seed.groups)?;
-    let profiles: clacks_model::export::ProfileSet = seed
-        .output_profiles
-        .into_iter()
-        .map(|p| (p.id, p))
-        .collect();
-    let ordinary = profiles
-        .values()
-        .find(|p| p.purpose == OutputPurpose::OrdinaryInterchange)
-        .unwrap();
-    let context = ProjectionContext {
-        recognition: RecognitionCatalog::adif_318()?,
-        definitions: &definitions,
-        profiles: &profiles,
-        export: &ExportContext {
-            output_profile_id: ordinary.id,
-            target_group_id: None,
-        },
-        resolutions: &Default::default(),
-    };
-    let baseline = imported_baseline(&ImportedBaselineInput {
-        qso,
-        service,
-        coverage: Default::default(),
-        lotw: &LotwConfiguration::bundled()?,
-        context: &context,
-    })?;
-    Ok(RecordState::Live(RecordValue::Service(Box::new(
-        ServiceRecord {
-            payload: ServicePayload::Imported(Box::new(ImportedAssertion {
-                id: support::id(id),
-                qso: qso.id,
-                service,
-                destination: None,
-                claim,
-                date: None,
-                provenance: ImportProvenance {
-                    source: "independent ADIF source".into(),
-                    record: "1".into(),
-                    mapping: "ordinary".into(),
-                },
-                baseline,
-            })),
-            support: Default::default(),
-        },
-    ))))
-}
 
 #[tokio::test]
 async fn retained_evidence_projects_current_service_status() -> anyhow::Result<()> {

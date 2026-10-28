@@ -64,7 +64,7 @@ pub(super) fn show(
         ui.label("No contacts in this view.");
         return action;
     }
-    if pending_focus.is_some_and(|id| !page.rows.iter().any(|row| row.qso.id == id)) {
+    if pending_focus.is_some_and(|id| !page.rows.iter().any(|row| row.working.qso.id == id)) {
         *pending_focus = None;
     }
     let visible: Vec<_> = preferences
@@ -97,8 +97,8 @@ pub(super) fn show(
             if reset {
                 table.reset();
             }
-            if let Some(index) =
-                pending_focus.and_then(|id| page.rows.iter().position(|row| row.qso.id == id))
+            if let Some(index) = pending_focus
+                .and_then(|id| page.rows.iter().position(|row| row.working.qso.id == id))
             {
                 table = table.scroll_to_row(index, Some(egui::Align::Center));
             }
@@ -135,7 +135,7 @@ pub(super) fn show(
                         let Some(value) = page.rows.get(row.index()) else {
                             return;
                         };
-                        row.set_selected(selected.contains(&value.qso.id));
+                        row.set_selected(selected.contains(&value.working.qso.id));
                         let mut has_focus = false;
                         for column in &visible {
                             let (_, cell_response) = row.col(|ui| {
@@ -149,26 +149,26 @@ pub(super) fn show(
                             has_focus |= cell_response.has_focus();
                         }
                         let response = row.response();
-                        row_ids.insert(value.qso.id, response.id);
+                        row_ids.insert(value.working.qso.id, response.id);
                         if response.clicked() {
-                            *focused = Some(value.qso.id);
+                            *focused = Some(value.working.qso.id);
                             response.request_focus();
                             if response.ctx.input(|i| i.modifiers.command) {
-                                if !selected.insert(value.qso.id) {
-                                    selected.remove(&value.qso.id);
+                                if !selected.insert(value.working.qso.id) {
+                                    selected.remove(&value.working.qso.id);
                                 }
                             } else {
                                 selected.clear();
-                                selected.insert(value.qso.id);
+                                selected.insert(value.working.qso.id);
                             }
                         }
                         if response.double_clicked() {
-                            action.open = Some(value.qso.id);
+                            action.open = Some(value.working.qso.id);
                         }
                         if has_focus {
-                            native_focus = Some(value.qso.id);
+                            native_focus = Some(value.working.qso.id);
                         }
-                        if *focused == Some(value.qso.id)
+                        if *focused == Some(value.working.qso.id)
                             && response.ctx.memory(|m| m.focused()).is_none()
                         {
                             response.request_focus();
@@ -198,15 +198,15 @@ pub(super) fn show(
         }
         if delta != 0
             && let Some(index) =
-                focused.and_then(|id| page.rows.iter().position(|row| row.qso.id == id))
+                focused.and_then(|id| page.rows.iter().position(|row| row.working.qso.id == id))
             && let Some(next) = index
                 .checked_add_signed(delta)
                 .and_then(|index| page.rows.get(index))
         {
-            *focused = Some(next.qso.id);
-            *pending_focus = Some(next.qso.id);
+            *focused = Some(next.working.qso.id);
+            *pending_focus = Some(next.working.qso.id);
             selected.clear();
-            selected.insert(next.qso.id);
+            selected.insert(next.working.qso.id);
             ui.ctx().request_repaint();
         }
     }
@@ -221,11 +221,30 @@ pub(super) fn show(
 }
 
 /// Format only the displayed native value; numeric/time ordering remains relational.
-fn cell(row: &clacks_client_store::read::history::HistoryRow, column: ContactColumn) -> String {
-    let qso = &row.qso;
+fn cell(row: &clacks_client_store::read::contacts::ContactRow, column: ContactColumn) -> String {
+    let qso = &row.working.qso;
     match column {
         ContactColumn::Callsign => qso.contacted_station.callsign.as_str().to_owned(),
         ContactColumn::Start => crate::logging::time::format(qso.start),
+        ContactColumn::End => qso
+            .end
+            .map(crate::logging::time::format)
+            .unwrap_or_default(),
+        ContactColumn::OwnCall => qso.own_station.callsign.as_str().to_owned(),
+        ContactColumn::OwnGrid => row
+            .facts
+            .own_location
+            .as_ref()
+            .and_then(|s| s.value.as_ref())
+            .and_then(|l| l.position.as_ref())
+            .map(|p| p.display_locator().to_string())
+            .unwrap_or_default(),
+        ContactColumn::OwnReferences => {
+            references(&qso.own_station.references, &row.facts.group_names)
+        }
+        ContactColumn::ContactReferences => {
+            references(&qso.contacted_station.references, &row.facts.group_names)
+        }
         ContactColumn::Band => qso
             .primary
             .band()
@@ -241,21 +260,42 @@ fn cell(row: &clacks_client_store::read::history::HistoryRow, column: ContactCol
             .unwrap_or_default(),
         ContactColumn::Sent => qso.sent_report.clone().unwrap_or_default(),
         ContactColumn::Received => qso.received_report.clone().unwrap_or_default(),
-        ContactColumn::Grid => qso
-            .contacted_station
-            .location
+        ContactColumn::Grid => row
+            .facts
+            .contact_location
             .as_ref()
+            .and_then(|s| s.value.as_ref())
             .and_then(|v| v.position.as_ref())
             .map(|v| v.display_locator().to_string())
             .unwrap_or_default(),
         ContactColumn::Status => {
-            if row.review.is_some() {
+            if row.working.review.is_some() {
                 "Conflict".into()
-            } else if row.pending {
+            } else if row.working.pending {
                 "Pending".into()
             } else {
                 String::new()
             }
         }
     }
+}
+
+/// Show recorded associations using current group names, retaining unknown identities.
+fn references(
+    values: &std::collections::BTreeSet<clacks_model::reference::ReferenceAssociation>,
+    names: &std::collections::BTreeMap<clacks_model::ids::GroupId, String>,
+) -> String {
+    values
+        .iter()
+        .map(|r| {
+            let group = names
+                .get(&r.group_id)
+                .cloned()
+                .unwrap_or_else(|| r.group_id.to_string());
+            r.identifier
+                .as_ref()
+                .map_or_else(|| group.clone(), |id| format!("{group}/{id}"))
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }

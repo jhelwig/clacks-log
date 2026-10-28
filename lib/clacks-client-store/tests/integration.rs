@@ -27,3 +27,6 @@ mod settings_deletion;
 mod settings_observability;
 mod tags;
 mod transfers;
+
+mod history_queries;
+

@@ -78,12 +78,18 @@ fn view_change_clears_selection_and_ignores_an_old_page_reply() {
     reply
         .send(SettingsResponse::Contacts(ContactResponse::Page(
             ContactPage {
-                rows: vec![clacks_client_store::read::history::HistoryRow {
-                    qso,
-                    pending: true,
-                    review: None,
+                rows: vec![clacks_client_store::read::contacts::ContactRow {
+                    facts: Default::default(),
+                    working: clacks_client_store::read::history::HistoryRow {
+                        qso,
+                        pending: true,
+                        review: None,
+                    },
                 }],
                 has_more: false,
+                matching_total: 1,
+                selected_total: 1,
+                selected_outside_filter: 0,
             },
         )))
         .unwrap();

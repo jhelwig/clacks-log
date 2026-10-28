@@ -88,7 +88,8 @@ impl ContactsUi {
         if self.query.view != view {
             self.query.view = view;
             self.selected.clear();
-            self.query.selected = None;
+            self.query.show_selected = false;
+            self.query.selected_ids.clear();
             self.focused = None;
             self.pending_focus = None;
             self.page = None;
@@ -108,6 +109,10 @@ impl ContactsUi {
         requests: &mpsc::Sender<SettingsRequest>,
         definitions: &DefinitionSet,
     ) {
+        if self.query.selected_ids != self.selected {
+            self.query.selected_ids = self.selected.clone();
+            self.dirty = true;
+        }
         self.poll();
         if self.query.view != snapshot.logbooks.selected_view {
             self.refresh(snapshot.logbooks.selected_view);
@@ -136,7 +141,7 @@ impl ContactsUi {
                 if ui.small_button("Refresh contacts").clicked() {
                     self.refresh(self.query.view);
                 }
-                let selected_view = self.query.selected.is_some();
+                let selected_view = self.query.show_selected;
                 if ui
                     .add_enabled(
                         !self.selected.is_empty() || selected_view,
@@ -148,16 +153,13 @@ impl ContactsUi {
                     )
                     .clicked()
                 {
-                    self.query.selected = if selected_view {
-                        None
-                    } else {
-                        Some(self.selected.clone())
-                    };
+                    self.query.show_selected = !selected_view;
+                    self.query.selected_ids = self.selected.clone();
                     self.refresh(self.query.view);
                 }
                 if ui.small_button("Clear selection").clicked() {
                     self.selected.clear();
-                    if self.query.selected.take().is_some() {
+                    if std::mem::take(&mut self.query.show_selected) {
                         self.refresh(self.query.view);
                     }
                 }
@@ -210,9 +212,9 @@ impl ContactsUi {
                     .selected
                     .iter()
                     .filter(|id| {
-                        self.page
-                            .as_ref()
-                            .is_none_or(|page| !page.rows.iter().any(|row| &row.qso.id == *id))
+                        self.page.as_ref().is_none_or(|page| {
+                            !page.rows.iter().any(|row| &row.working.qso.id == *id)
+                        })
                     })
                     .count();
                 ui.small(format!(
