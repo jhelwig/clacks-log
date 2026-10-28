@@ -13,7 +13,13 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+leptos.workspace = true
 clacks-server.workspace = true
 axum.workspace = true
 clap.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+clacks-web = { workspace = true, features = ["ssr"] }
+
+[features]
+ssr = []

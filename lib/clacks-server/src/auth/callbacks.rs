@@ -3,7 +3,7 @@
 use super::{
     error::AuthError,
     oidc,
-    pending::{self, PendingFlow, Purpose},
+    pending::{self, Purpose},
 };
 use crate::{runtime::ServerState, store::logins::LoginReference};
 use axum::{
@@ -11,10 +11,7 @@ use axum::{
     response::Redirect,
 };
 use axum_session_sqlx::SessionPgSession;
-use openidconnect::{
-    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, PkceCodeChallenge, TokenResponse,
-    core::CoreResponseType,
-};
+use openidconnect::{AuthorizationCode, TokenResponse};
 use serde::Deserialize;
 
 /// Provider redirect parameters; their contents are never logged.
@@ -28,90 +25,56 @@ pub(crate) struct Callback {
     error: Option<String>,
 }
 
-/// Start ordinary configured-provider sign-in without account mutation.
-#[tracing::instrument(skip_all, name = "account.login.start")]
-pub(crate) async fn start(
-    State(state): State<ServerState>,
-    session: SessionPgSession,
-    Path(key): Path<String>,
-) -> Result<Redirect, AuthError> {
-    begin(&state, &session, key, Purpose::SignIn).await
-}
-
-/// Start one standard provider request for its server-recorded Clacks purpose.
-pub(crate) async fn begin(
-    state: &ServerState,
-    session: &SessionPgSession,
-    key: String,
-    purpose: Purpose,
-) -> Result<Redirect, AuthError> {
-    let provider = state
-        .config
-        .providers
-        .get(&key)
-        .ok_or(AuthError::InvalidCallback)?;
-    let callback = state
-        .config
-        .callback(&key)
-        .map_err(|_| AuthError::InvalidCallback)?;
-    let client = oidc::discover(provider, &callback, &state.provider_http)
-        .await
-        .map_err(|_| AuthError::Provider)?;
-    let (challenge, verifier) = PkceCodeChallenge::new_random_sha256();
-    let mut request = client
-        .authorize_url(
-            AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
-            CsrfToken::new_random,
-            Nonce::new_random,
-        )
-        .set_pkce_challenge(challenge);
-    if purpose.requires_recent_authentication() {
-        request = request.set_max_age(std::time::Duration::from_secs(300));
-    }
-    if matches!(&purpose, Purpose::CompleteLink { .. }) {
-        request = request.add_prompt(openidconnect::core::CoreAuthPrompt::SelectAccount);
-    }
-    let (url, csrf, nonce) = request.url();
-    pending::insert(
-        session,
-        PendingFlow {
-            provider: key,
-            state: csrf,
-            nonce,
-            verifier,
-            created_at: time::OffsetDateTime::now_utc().unix_timestamp(),
-            purpose,
-        },
-        state.config.pending_seconds,
-    );
-    Ok(Redirect::to(url.as_str()))
-}
-
-/// Validate the protocol response before any Clacks account operation.
-#[tracing::instrument(skip_all, name = "account.login.callback")]
+/// Return provider callbacks to the account page or a safe sign-in error.
 pub(crate) async fn callback(
     State(state): State<ServerState>,
     session: SessionPgSession,
     Path(key): Path<String>,
     Query(query): Query<Callback>,
-) -> Result<Redirect, AuthError> {
-    let flow = pending::take(&session, &query.state, &key, state.config.pending_seconds)
-        .map_err(|_| AuthError::InvalidCallback)?;
-    if query.error.is_some() {
-        return Err(AuthError::Provider);
+) -> Redirect {
+    match complete(state, session, key, query).await {
+        Ok(redirect) => redirect,
+        Err(error) => {
+            let query = url::form_urlencoded::Serializer::new(String::new())
+                .append_pair("error", &error.to_string())
+                .finish();
+            Redirect::to(&format!("/sign-in?{query}"))
+        }
     }
+}
+
+/// Validate the protocol response before any Clacks account operation.
+#[tracing::instrument(skip_all, name = "account.login.callback")]
+async fn complete(
+    state: ServerState,
+    session: SessionPgSession,
+    key: String,
+    query: Callback,
+) -> Result<Redirect, AuthError> {
     let provider = state
         .config
         .providers
         .get(&key)
         .ok_or(AuthError::InvalidCallback)?;
+    let flow = pending::take(&session, &query.state, &key, state.config.pending_seconds)
+        .map_err(|_| {
+            tracing::info!(provider = %key, "Authorization context missing or expired; restart required");
+            AuthError::InvalidCallback
+        })?;
+    if query.error.is_some() {
+        tracing::info!(provider = %key, "Identity provider declined authorization");
+        return Err(AuthError::Provider);
+    }
     let callback = state
         .config
         .callback(&key)
         .map_err(|_| AuthError::InvalidCallback)?;
     let client = oidc::discover(provider, &callback, &state.provider_http)
         .await
-        .map_err(|_| AuthError::Provider)?;
+        .map_err(|error| {
+            tracing::warn!(provider = %key, reason = %error, "Identity provider client setup failed");
+            AuthError::Provider
+        })?;
     let response = client
         .exchange_code(AuthorizationCode::new(
             query.code.ok_or(AuthError::InvalidCallback)?,
@@ -120,7 +83,10 @@ pub(crate) async fn callback(
         .set_pkce_verifier(flow.verifier)
         .request_async(&state.provider_http)
         .await
-        .map_err(|_| AuthError::Provider)?;
+        .map_err(|_| {
+            tracing::warn!(provider = %key, "Identity provider code exchange failed");
+            AuthError::Provider
+        })?;
     let token = response.id_token().ok_or(AuthError::InvalidCallback)?;
     let recent = flow.purpose.requires_recent_authentication();
     let verifier = client
@@ -141,7 +107,10 @@ pub(crate) async fn callback(
         });
     let claims = token
         .claims(&verifier, &flow.nonce)
-        .map_err(|_| AuthError::InvalidCallback)?;
+        .map_err(|_| {
+            tracing::info!(provider = %key, "Identity token did not satisfy authorization requirements");
+            AuthError::InvalidCallback
+        })?;
     let identity = oidc::VerifiedIdentity {
         issuer: claims.issuer().as_str().to_owned(),
         subject: claims.subject().as_str().to_owned(),
@@ -164,13 +133,16 @@ pub(crate) async fn callback(
             new_provider,
         } => {
             super::changes::verify_authorizer(&state, &origin, &authorizer, &identity).await?;
-            begin(
-                &state,
-                &session,
-                new_provider,
-                Purpose::CompleteLink { origin, authorizer },
-            )
-            .await
+            Ok(Redirect::to(
+                oidc::authorization_url(
+                    &state,
+                    &session,
+                    new_provider,
+                    Purpose::CompleteLink { origin, authorizer },
+                )
+                .await?
+                .as_str(),
+            ))
         }
         Purpose::CompleteLink { origin, authorizer } => {
             state
@@ -207,20 +179,4 @@ pub(crate) async fn callback(
             }
         }
     }
-}
-
-/// End this Clacks browser login without affecting provider or other-device logins.
-pub(crate) async fn logout(
-    State(state): State<ServerState>,
-    session: SessionPgSession,
-) -> Result<Redirect, AuthError> {
-    if let Some(reference) = session.get::<String>("login_reference") {
-        state
-            .store
-            .logout(&LoginReference::from_session(reference))
-            .await
-            .map_err(AuthError::from_store)?;
-    }
-    session.destroy();
-    Ok(Redirect::to("/sign-in"))
 }

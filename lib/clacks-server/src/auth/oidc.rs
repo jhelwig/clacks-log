@@ -73,3 +73,64 @@ pub(crate) async fn discover(
     Ok(CoreClient::from_provider_metadata(metadata, id, secret)
         .set_redirect_uri(RedirectUrl::new(callback.to_string())?))
 }
+
+use crate::{
+    auth::{
+        error::AuthError,
+        pending::{self, PendingFlow, Purpose},
+    },
+    runtime::ServerState,
+};
+use axum_session_sqlx::SessionPgSession;
+use openidconnect::{
+    AuthenticationFlow, CsrfToken, Nonce, PkceCodeChallenge, core::CoreResponseType,
+};
+
+/// Start one standard provider request for its server-recorded Clacks purpose.
+pub(crate) async fn authorization_url(
+    state: &ServerState,
+    session: &SessionPgSession,
+    key: String,
+    purpose: Purpose,
+) -> Result<url::Url, AuthError> {
+    let provider = state
+        .config
+        .providers
+        .get(&key)
+        .ok_or(AuthError::InvalidCallback)?;
+    let callback = state
+        .config
+        .callback(&key)
+        .map_err(|_| AuthError::InvalidCallback)?;
+    let client = discover(provider, &callback, &state.provider_http)
+        .await
+        .map_err(|_| AuthError::Provider)?;
+    let (challenge, verifier) = PkceCodeChallenge::new_random_sha256();
+    let mut request = client
+        .authorize_url(
+            AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
+            CsrfToken::new_random,
+            Nonce::new_random,
+        )
+        .set_pkce_challenge(challenge);
+    if purpose.requires_recent_authentication() {
+        request = request.set_max_age(std::time::Duration::from_secs(300));
+    }
+    if matches!(&purpose, Purpose::CompleteLink { .. }) {
+        request = request.add_prompt(openidconnect::core::CoreAuthPrompt::SelectAccount);
+    }
+    let (url, csrf, nonce) = request.url();
+    pending::insert(
+        session,
+        PendingFlow {
+            provider: key,
+            state: csrf,
+            nonce,
+            verifier,
+            created_at: time::OffsetDateTime::now_utc().unix_timestamp(),
+            purpose,
+        },
+        state.config.pending_seconds,
+    );
+    Ok(url)
+}

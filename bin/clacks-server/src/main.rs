@@ -6,5 +6,7 @@ async fn main() -> anyhow::Result<()> {
     clacks_server::telemetry::init()?;
     let config = clacks_server::config::ServerConfig::load(&arguments.config)?;
     let state = clacks_server::runtime::ServerState::connect(config).await?;
-    clacks_server::runtime::serve(state, axum::Router::new()).await
+    let options = leptos::config::get_configuration(None)?.leptos_options;
+    let pages = clacks_web::routes(state.clone(), options);
+    clacks_server::runtime::serve(state, pages).await
 }

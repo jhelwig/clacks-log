@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "lib/clacks-web",
     "lib/clacks-server",
     "bin/clacks-admin",
     "bin/clacks-server",
@@ -28,6 +29,12 @@ license = "Elastic-2.0"
 publish = false
 
 [workspace.dependencies]
+leptos = { version = "=0.8.22", default-features = false }
+leptos_axum = "=0.8.10"
+leptos_meta = "0.8"
+leptos_router = "0.8"
+wasm-bindgen = "0.2"
+clacks-web = { path = "lib/clacks-web" }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 axum_session = "=0.22.0"
 axum_session_sqlx = { version = "=0.12.0", default-features = false, features = ["postgres", "tls-rustls"] }
@@ -122,3 +129,19 @@ cbc = { version = "0.2", features = ["alloc", "block-padding"] }
 des = "0.9"
 rc2 = "0.9"
 hex = "0.4"
+
+[[workspace.metadata.leptos]]
+name = "clacks-web"
+bin-package = "clacks-server-app"
+bin-target = "clacks-server"
+bin-exe-name = "clacks-server"
+lib-package = "clacks-web"
+output-name = "clacks-web"
+site-root = "target/site"
+site-pkg-dir = "pkg"
+style-file = "lib/clacks-web/style/account.css"
+assets-dir = "lib/clacks-web/public"
+bin-features = ["ssr"]
+bin-default-features = false
+lib-features = ["hydrate"]
+lib-default-features = false

@@ -1,7 +1,6 @@
 //! Identity actions bound to a current account and an identity that remains linked.
 
 use super::{
-    callbacks,
     error::AuthError,
     oidc::VerifiedIdentity,
     pending::{OriginatingLogin, Purpose},
@@ -14,26 +13,25 @@ use crate::{
         logins::LoginReference,
     },
 };
-use axum::{Form, extract::State, response::Redirect};
 use axum_session_sqlx::SessionPgSession;
 use serde::Deserialize;
 
 /// Account-owner selection for a new provider identity.
 #[derive(Deserialize)]
-pub(crate) struct LinkForm {
+pub struct LinkForm {
     /// Configured provider key for the additional identity.
-    provider: String,
+    pub provider: String,
     /// Existing identity selected to authorize this action.
-    authorizing_identity: String,
+    pub authorizing_identity: String,
 }
 
 /// Account-owner selection for removal through an identity that remains linked.
 #[derive(Deserialize)]
-pub(crate) struct UnlinkForm {
+pub struct UnlinkForm {
     /// Selected identity belonging to this account.
-    target: String,
+    pub target: String,
     /// Different existing identity selected for recent authentication.
-    authorizing_identity: String,
+    pub authorizing_identity: String,
 }
 
 /// Find a selected owned identity; another account's ID is never authority.
@@ -77,47 +75,47 @@ fn origin(
     })
 }
 
-/// Start link authorization through an already-linked identity.
-pub(crate) async fn link(
-    State(state): State<ServerState>,
-    session: SessionPgSession,
-    principal: Principal,
-    Form(form): Form<LinkForm>,
-) -> Result<Redirect, AuthError> {
-    let authorizer = owned(&state, &principal, &form.authorizing_identity).await?;
+/// Begin a specific link operation from an authenticated browser request.
+pub async fn request_link(
+    state: &ServerState,
+    session: &SessionPgSession,
+    principal: &Principal,
+    form: LinkForm,
+) -> Result<url::Url, AuthError> {
+    let authorizer = owned(state, principal, &form.authorizing_identity).await?;
     if !state.config.providers.contains_key(&form.provider) {
         return Err(AuthError::InvalidCallback);
     }
-    let provider = provider_for(&state, &authorizer)?;
+    let provider = provider_for(state, &authorizer)?;
     let purpose = Purpose::AuthorizeLink {
-        origin: origin(&session, &principal)?,
+        origin: origin(session, principal)?,
         authorizer: form.authorizing_identity,
         new_provider: form.provider,
     };
-    callbacks::begin(&state, &session, provider, purpose).await
+    super::oidc::authorization_url(state, session, provider, purpose).await
 }
 
-/// Start removal authorization through an owned identity that remains linked.
-pub(crate) async fn unlink(
-    State(state): State<ServerState>,
-    session: SessionPgSession,
-    principal: Principal,
-    Form(form): Form<UnlinkForm>,
-) -> Result<Redirect, AuthError> {
-    owned(&state, &principal, &form.target).await?;
-    let authorizer = owned(&state, &principal, &form.authorizing_identity).await?;
+/// Begin removal of one owned identity through a different remaining identity.
+pub async fn request_unlink(
+    state: &ServerState,
+    session: &SessionPgSession,
+    principal: &Principal,
+    form: UnlinkForm,
+) -> Result<url::Url, AuthError> {
+    owned(state, principal, &form.target).await?;
+    let authorizer = owned(state, principal, &form.authorizing_identity).await?;
     if form.target == form.authorizing_identity {
         return Err(AuthError::Conflict(
             "Choose an identity that will remain linked.".into(),
         ));
     }
-    let provider = provider_for(&state, &authorizer)?;
+    let provider = provider_for(state, &authorizer)?;
     let purpose = Purpose::AuthorizeUnlink {
-        origin: origin(&session, &principal)?,
+        origin: origin(session, principal)?,
         authorizer: form.authorizing_identity,
         target: form.target,
     };
-    callbacks::begin(&state, &session, provider, purpose).await
+    super::oidc::authorization_url(state, session, provider, purpose).await
 }
 
 /// Recheck a verified authorizing identity and the original live login.

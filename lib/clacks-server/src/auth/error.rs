@@ -39,7 +39,7 @@ impl IntoResponse for AuthError {
 
 impl AuthError {
     /// Explain domain refusals without exposing database or provider payloads.
-    pub(crate) fn from_store(error: anyhow::Error) -> Self {
+    pub fn from_store(error: anyhow::Error) -> Self {
         match error.downcast_ref::<crate::store::identities::IdentityError>() {
             Some(error) => {
                 tracing::info!(reason = %error, "Identity action refused");

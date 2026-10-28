@@ -7,4 +7,6 @@ pub(crate) mod callbacks;
 pub mod error;
 pub(crate) mod pending;
 
-pub(crate) mod changes;
+pub mod changes;
+
+pub mod browser;
