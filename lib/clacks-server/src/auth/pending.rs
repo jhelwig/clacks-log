@@ -11,11 +11,47 @@ const PENDING: &str = "oidc.pending";
 /// Maximum number of pending provider round trips retained per browser session.
 const MAXIMUM_PENDING: usize = 8;
 
+/// Browser login to which an identity action must remain bound.
+#[derive(Serialize, Deserialize)]
+pub(crate) struct OriginatingLogin {
+    /// Account originally authenticated by the browser request.
+    pub account_id: clacks_model::ids::AccountId,
+    /// Secret authoritative login reference, never a reusable freshness proof.
+    pub login_reference: String,
+}
+
 /// Purpose bound to one validated callback, not chosen by callback query data.
 #[derive(Serialize, Deserialize)]
 pub(crate) enum Purpose {
     /// Resolve or provision an account through ordinary sign-in.
     SignIn,
+    /// Authenticate a remaining identity before starting a specific link action.
+    AuthorizeLink {
+        origin: OriginatingLogin,
+        authorizer: String,
+        new_provider: String,
+    },
+    /// Authenticate the additional identity for an already authorized link action.
+    CompleteLink {
+        origin: OriginatingLogin,
+        authorizer: String,
+    },
+    /// Authenticate a remaining identity before removing a specific target.
+    AuthorizeUnlink {
+        origin: OriginatingLogin,
+        authorizer: String,
+        target: String,
+    },
+}
+
+impl Purpose {
+    /// Whether this round trip requests the provider's recent-authentication policy.
+    pub(crate) fn requires_recent_authentication(&self) -> bool {
+        matches!(
+            self,
+            Self::AuthorizeLink { .. } | Self::AuthorizeUnlink { .. }
+        )
+    }
 }
 
 /// OIDC request values needed to validate one provider round trip.

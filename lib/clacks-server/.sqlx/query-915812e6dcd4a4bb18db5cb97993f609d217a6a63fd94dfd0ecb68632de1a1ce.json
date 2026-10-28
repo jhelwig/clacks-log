@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.server_administrators WHERE account_id = $1\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "915812e6dcd4a4bb18db5cb97993f609d217a6a63fd94dfd0ecb68632de1a1ce"
+}

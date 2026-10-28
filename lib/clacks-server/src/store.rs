@@ -34,3 +34,6 @@ impl AccountStore {
         self.pool.close().await;
     }
 }
+
+mod administrators;
+pub mod identities;

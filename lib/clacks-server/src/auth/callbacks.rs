@@ -1,4 +1,4 @@
-//! Standard OIDC request/callback wiring and authoritative login admission.
+//! Standard OIDC request/callback wiring and account admission.
 
 use super::{
     error::AuthError,
@@ -22,18 +22,28 @@ use serde::Deserialize;
 pub(crate) struct Callback {
     /// Standard browser request correlation value.
     state: String,
-    /// Authorization code exchanged only with the configured provider.
+    /// Code exchanged only with the configured provider.
     code: Option<String>,
-    /// Provider refusal/error indication; do not expose its untrusted text.
+    /// Provider refusal/error indication; untrusted text is not exposed.
     error: Option<String>,
 }
 
-/// Start an ordinary configured-provider sign-in without account mutation.
+/// Start ordinary configured-provider sign-in without account mutation.
 #[tracing::instrument(skip_all, name = "account.login.start")]
 pub(crate) async fn start(
     State(state): State<ServerState>,
     session: SessionPgSession,
     Path(key): Path<String>,
+) -> Result<Redirect, AuthError> {
+    begin(&state, &session, key, Purpose::SignIn).await
+}
+
+/// Start one standard provider request for its server-recorded Clacks purpose.
+pub(crate) async fn begin(
+    state: &ServerState,
+    session: &SessionPgSession,
+    key: String,
+    purpose: Purpose,
 ) -> Result<Redirect, AuthError> {
     let provider = state
         .config
@@ -48,23 +58,29 @@ pub(crate) async fn start(
         .await
         .map_err(|_| AuthError::Provider)?;
     let (challenge, verifier) = PkceCodeChallenge::new_random_sha256();
-    let (url, csrf, nonce) = client
+    let mut request = client
         .authorize_url(
             AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
             CsrfToken::new_random,
             Nonce::new_random,
         )
-        .set_pkce_challenge(challenge)
-        .url();
+        .set_pkce_challenge(challenge);
+    if purpose.requires_recent_authentication() {
+        request = request.set_max_age(std::time::Duration::from_secs(300));
+    }
+    if matches!(&purpose, Purpose::CompleteLink { .. }) {
+        request = request.add_prompt(openidconnect::core::CoreAuthPrompt::SelectAccount);
+    }
+    let (url, csrf, nonce) = request.url();
     pending::insert(
-        &session,
+        session,
         PendingFlow {
             provider: key,
             state: csrf,
             nonce,
             verifier,
             created_at: time::OffsetDateTime::now_utc().unix_timestamp(),
-            purpose: Purpose::SignIn,
+            purpose,
         },
         state.config.pending_seconds,
     );
@@ -106,7 +122,23 @@ pub(crate) async fn callback(
         .await
         .map_err(|_| AuthError::Provider)?;
     let token = response.id_token().ok_or(AuthError::InvalidCallback)?;
-    let verifier = client.id_token_verifier();
+    let recent = flow.purpose.requires_recent_authentication();
+    let verifier = client
+        .id_token_verifier()
+        .set_auth_time_verifier_fn(move |auth_time| {
+            if !recent {
+                return Ok(());
+            }
+            let now = time::OffsetDateTime::now_utc().unix_timestamp();
+            match auth_time {
+                Some(value)
+                    if value.timestamp() <= now && now.saturating_sub(value.timestamp()) <= 300 =>
+                {
+                    Ok(())
+                }
+                _ => Err("provider did not establish recent authentication".into()),
+            }
+        });
     let claims = token
         .claims(&verifier, &flow.nonce)
         .map_err(|_| AuthError::InvalidCallback)?;
@@ -117,14 +149,62 @@ pub(crate) async fn callback(
     };
     match flow.purpose {
         Purpose::SignIn => {
-            let established = state
+            let reference = state
                 .store
                 .provision_login(identity, state.lifetime())
                 .await
-                .map_err(|_| AuthError::Unavailable)?;
-            session.set("login_reference", established.secret());
+                .map_err(AuthError::from_store)?;
+            session.set("login_reference", reference.secret());
             session.renew();
             Ok(Redirect::to("/account/identities"))
+        }
+        Purpose::AuthorizeLink {
+            origin,
+            authorizer,
+            new_provider,
+        } => {
+            super::changes::verify_authorizer(&state, &origin, &authorizer, &identity).await?;
+            begin(
+                &state,
+                &session,
+                new_provider,
+                Purpose::CompleteLink { origin, authorizer },
+            )
+            .await
+        }
+        Purpose::CompleteLink { origin, authorizer } => {
+            state
+                .store
+                .link_identity(&super::changes::action(origin, authorizer)?, identity)
+                .await
+                .map_err(AuthError::from_store)?;
+            Ok(Redirect::to("/account/identities"))
+        }
+        Purpose::AuthorizeUnlink {
+            origin,
+            authorizer,
+            target,
+        } => {
+            super::changes::verify_authorizer(&state, &origin, &authorizer, &identity).await?;
+            let target = target.parse().map_err(|_| AuthError::InvalidCallback)?;
+            let reference = origin.login_reference.clone();
+            state
+                .store
+                .unlink_identity(&super::changes::action(origin, authorizer)?, target)
+                .await
+                .map_err(AuthError::from_store)?;
+            let live = state
+                .store
+                .authenticate(&LoginReference::from_session(reference), state.lifetime())
+                .await
+                .map_err(AuthError::from_store)?
+                .is_some();
+            if live {
+                Ok(Redirect::to("/account/identities"))
+            } else {
+                session.destroy();
+                Ok(Redirect::to("/sign-in"))
+            }
         }
     }
 }
@@ -139,7 +219,7 @@ pub(crate) async fn logout(
             .store
             .logout(&LoginReference::from_session(reference))
             .await
-            .map_err(|_| AuthError::Unavailable)?;
+            .map_err(AuthError::from_store)?;
     }
     session.destroy();
     Ok(Redirect::to("/sign-in"))

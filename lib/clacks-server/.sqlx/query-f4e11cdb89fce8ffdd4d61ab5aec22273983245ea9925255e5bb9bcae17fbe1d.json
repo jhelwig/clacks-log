@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.server_administrators (account_id) VALUES ($1) ON CONFLICT DO NOTHING\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f4e11cdb89fce8ffdd4d61ab5aec22273983245ea9925255e5bb9bcae17fbe1d"
+}

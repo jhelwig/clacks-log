@@ -10,7 +10,11 @@ pub fn init() -> anyhow::Result<()> {
         .add_directive("axum_session=off".parse()?);
     tracing_subscriber::registry()
         .with(filter)
-        .with(tracing_subscriber::fmt::layer().json())
+        .with(
+            tracing_subscriber::fmt::layer()
+                .json()
+                .with_writer(std::io::stderr),
+        )
         .try_init()
         .map_err(|error| anyhow::anyhow!("could not initialize operator logging: {error}"))?;
     Ok(())

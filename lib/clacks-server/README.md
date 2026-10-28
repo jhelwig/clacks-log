@@ -84,3 +84,26 @@ scenarios, separately from the migration-capable test database URL. Run all
 server scenarios using `cargo test -p clacks-server --all-targets --locked`.
 The narrow provider fixture signs independent ephemeral identity tokens in Rust;
 no TQSL sources, external fixture generator or real account credentials are used.
+
+## Roles and exceptional recovery
+
+Role operations require a maintenance connection with administrator-membership
+write grants, not migration privileges or provider/cookie credentials:
+
+```sh
+cargo run -p clacks-admin -- role grant --account ACCOUNT_ID --database-url-file /run/secrets/maintenance-url
+cargo run -p clacks-admin -- role revoke --account ACCOUNT_ID --database-url-file /run/secrets/maintenance-url
+```
+
+For loss of every accessible login identity, verify the owner and replacement
+issuer/subject out of band. Ensure the provider is configured for normal sign-in.
+Do this before the replacement identity signs in and provisions another account:
+
+```sh
+cargo run -p clacks-admin -- identity recover --account ACCOUNT_ID --issuer https://identity.example --subject VERIFIED_SUBJECT --database-url-file /run/secrets/maintenance-url
+```
+
+Recovery adds the binding without removing existing identities, browser logins
+or desktop clients. An identity owned elsewhere is refused, never transferred.
+Suspected compromise needs separate explicit revocation, not implicit changes
+hidden inside recovery. There is no automatic email linking or account merge.

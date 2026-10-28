@@ -36,7 +36,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"
 metrics.workspace = true
 
 [dev-dependencies]
-reqwest = { workspace = true, features = ["cookies"] }
+reqwest = { workspace = true, features = ["cookies", "json"] }
 rsa.workspace = true
 chrono = "0.4"
 

@@ -48,6 +48,15 @@ impl Drop for Provider {
 
 impl Provider {
     pub fn authorize(&self, url: &url::Url, subject: &str) -> anyhow::Result<IssuedCallback> {
+        self.authorize_at(url, subject, chrono::Utc::now())
+    }
+
+    pub fn authorize_at(
+        &self,
+        url: &url::Url,
+        subject: &str,
+        authenticated_at: chrono::DateTime<chrono::Utc>,
+    ) -> anyhow::Result<IssuedCallback> {
         let query: BTreeMap<_, _> = url.query_pairs().into_owned().collect();
         let nonce = query
             .get("nonce")
@@ -68,7 +77,7 @@ impl Provider {
             EmptyAdditionalClaims {},
         )
         .set_nonce(Some(Nonce::new(nonce.to_owned())))
-        .set_auth_time(Some(now));
+        .set_auth_time(Some(authenticated_at));
         let token = CoreIdToken::new(
             claims,
             self.signing.as_ref(),

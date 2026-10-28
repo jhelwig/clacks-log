@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.login_identities WHERE account_id = $1 AND identity_id = $2\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ee8dca153cb2814b1c8d8c65fd540e0e1d3a361bb7b970ef73c96a749bd3ccf7"
+}

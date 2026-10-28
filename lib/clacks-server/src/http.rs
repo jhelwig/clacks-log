@@ -41,6 +41,11 @@ pub fn router(state: ServerState, pages: Router<ServerState>) -> Router {
         .route("/auth/start/{provider}", post(callbacks::start))
         .route("/auth/callback/{provider}", get(callbacks::callback))
         .route("/auth/logout", post(callbacks::logout))
+        .route("/account/identities/link", post(crate::auth::changes::link))
+        .route(
+            "/account/identities/unlink",
+            post(crate::auth::changes::unlink),
+        )
         .route("/health/ready", get(ready))
         .route("/health/live", get(|| async { StatusCode::OK }))
         .route_layer(middleware::from_fn_with_state(state.clone(), same_origin))

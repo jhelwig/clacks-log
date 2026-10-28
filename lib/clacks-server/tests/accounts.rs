@@ -37,9 +37,7 @@ async fn logout_rejects_stale_cookie_on_another_instance() -> anyhow::Result<()>
     let state = ServerState::connect(config.clone()).await?;
     let pages = axum::Router::new().route(
         "/protected",
-        axum::routing::get(|_: clacks_server::auth::principal::Principal| async {
-            axum::http::StatusCode::OK
-        }),
+        axum::routing::get(|principal: clacks_server::auth::principal::Principal| async move { axum::Json(serde_json::json!({"account_id": principal.account_id.to_string(), "identity_id": principal.identity_id.to_string()})) }),
     );
     let router = clacks_server::http::router(state.clone(), pages);
     let server = tokio::spawn(async move {
@@ -87,6 +85,93 @@ async fn logout_rejects_stale_cookie_on_another_instance() -> anyhow::Result<()>
             .status(),
         reqwest::StatusCode::OK
     );
+    let before: serde_json::Value = client
+        .get(format!("{base}/protected"))
+        .send()
+        .await?
+        .json()
+        .await?;
+    let principal = clacks_server::auth::principal::Principal {
+        account_id: before["account_id"].as_str().unwrap().parse()?,
+        identity_id: before["identity_id"].as_str().unwrap().parse()?,
+    };
+    let authorizer = principal.identity_id.to_string();
+    let link = client
+        .post(format!("{base}/account/identities/link"))
+        .header("Origin", &base)
+        .form(&[("provider", "test"), ("authorizing_identity", &authorizer)])
+        .send()
+        .await?;
+    let authorization = url::Url::parse(link.headers().get("location").unwrap().to_str()?)?;
+    assert!(
+        authorization
+            .query_pairs()
+            .any(|(key, value)| key == "max_age" && value == "300")
+    );
+    let old = provider.authorize_at(
+        &authorization,
+        "first-operator",
+        chrono::Utc::now() - chrono::Duration::minutes(6),
+    )?;
+    let stale = client
+        .get(format!("{base}/auth/callback/test"))
+        .query(&[("code", old.code), ("state", old.state)])
+        .send()
+        .await?;
+    assert_eq!(stale.status(), reqwest::StatusCode::BAD_REQUEST);
+    let wrong = client
+        .post(format!("{base}/account/identities/link"))
+        .header("Origin", &base)
+        .form(&[("provider", "test"), ("authorizing_identity", &authorizer)])
+        .send()
+        .await?;
+    let wrong = return_from_provider(&client, &provider, wrong, "wrong-operator").await?;
+    assert_eq!(wrong.status(), reqwest::StatusCode::CONFLICT);
+    let link = client
+        .post(format!("{base}/account/identities/link"))
+        .header("Origin", &base)
+        .form(&[("provider", "test"), ("authorizing_identity", &authorizer)])
+        .send()
+        .await?;
+    let next = return_from_provider(&client, &provider, link, "first-operator").await?;
+    assert_eq!(next.status(), reqwest::StatusCode::SEE_OTHER);
+    let linked = return_from_provider(&client, &provider, next, "second-operator").await?;
+    assert_eq!(linked.status(), reqwest::StatusCode::SEE_OTHER);
+    let after: serde_json::Value = client
+        .get(format!("{base}/protected"))
+        .send()
+        .await?
+        .json()
+        .await?;
+    assert_eq!(after, before);
+    assert_eq!(state.store.identities(&principal).await?.len(), 2);
+    let pending = client
+        .post(format!("{base}/account/identities/link"))
+        .header("Origin", &base)
+        .form(&[("provider", "test"), ("authorizing_identity", &authorizer)])
+        .send()
+        .await?;
+    let pending = return_from_provider(&client, &provider, pending, "first-operator").await?;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+    let other = format!("http://{}", listener.local_addr()?);
+    let second_state = ServerState::connect(config).await?;
+    let pages = axum::Router::new().route(
+        "/protected",
+        axum::routing::get(|principal: clacks_server::auth::principal::Principal| async move { axum::Json(serde_json::json!({"account_id": principal.account_id.to_string(), "identity_id": principal.identity_id.to_string()})) }),
+    );
+    let second = clacks_server::http::router(second_state, pages);
+    let second_server = tokio::spawn(async move {
+        axum::serve(listener, second).await.unwrap();
+    });
+    assert_eq!(
+        client
+            .get(format!("{other}/protected"))
+            .header("Cookie", &cookie)
+            .send()
+            .await?
+            .status(),
+        reqwest::StatusCode::OK
+    );
     let logout = client
         .post(format!("{base}/auth/logout"))
         .header("Origin", &base)
@@ -94,19 +179,9 @@ async fn logout_rejects_stale_cookie_on_another_instance() -> anyhow::Result<()>
         .send()
         .await?;
     assert_eq!(logout.status(), reqwest::StatusCode::SEE_OTHER);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
-    let other = format!("http://{}", listener.local_addr()?);
-    let second_state = ServerState::connect(config).await?;
-    let pages = axum::Router::new().route(
-        "/protected",
-        axum::routing::get(|_: clacks_server::auth::principal::Principal| async {
-            axum::http::StatusCode::OK
-        }),
-    );
-    let second = clacks_server::http::router(second_state, pages);
-    let second_server = tokio::spawn(async move {
-        axum::serve(listener, second).await.unwrap();
-    });
+    let cancelled = return_from_provider(&client, &provider, pending, "never-linked").await?;
+    assert_ne!(cancelled.status(), reqwest::StatusCode::SEE_OTHER);
+    assert_eq!(state.store.identities(&principal).await?.len(), 2);
     assert_eq!(
         client
             .get(format!("{other}/protected"))
@@ -125,4 +200,26 @@ async fn logout_rejects_stale_cookie_on_another_instance() -> anyhow::Result<()>
     server.abort();
     second_server.abort();
     Ok(())
+}
+
+/// Simulate provider approval while exercising the application's real callback.
+async fn return_from_provider(
+    client: &reqwest::Client,
+    provider: &support::provider::Provider,
+    redirect: reqwest::Response,
+    subject: &str,
+) -> anyhow::Result<reqwest::Response> {
+    let authorization = url::Url::parse(redirect.headers().get("location").unwrap().to_str()?)?;
+    let callback_url = authorization
+        .query_pairs()
+        .find(|(key, _)| key == "redirect_uri")
+        .unwrap()
+        .1
+        .into_owned();
+    let callback = provider.authorize(&authorization, subject)?;
+    Ok(client
+        .get(callback_url)
+        .query(&[("code", callback.code), ("state", callback.state)])
+        .send()
+        .await?)
 }
