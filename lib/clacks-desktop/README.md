@@ -71,7 +71,8 @@ Debounced validation and unapplied highlights use the shared controls. Cancel,
 Escape and the dialog close discard unapplied edits. Admitted operations settle
 even after dismissal. Their exact committed results remain visible if the next
 catalog read fails; a failed refresh never retries a mutation. Use **Refresh
-logbooks** to retry the read. Individual/group membership editing belongs to #51.
+logbooks** to retry the read. Saved-contact assignment uses the separate
+[membership workflow](../../docs/contact-membership.md).
 
 ## Operating settings
 
@@ -400,9 +401,21 @@ window-local scrolling/focus. Clearing the call clears the list. Row activation
 uses the existing saved-contact editor; opening or closing the extra window
 does not create another draft or change the workbench's selected tab.
 Pane sizes and table presentation are local preferences with reset controls.
-History and Worked Before column choices are independent. Direct membership
-editing, directory lookup and geographic autofill retain their separate scopes. The
+History and Worked Before column choices are independent. Directory lookup and
+geographic autofill retain their separate scopes. The
 [manual-logging contract](../../docs/manual-logging.md) defines these boundaries.
+
+The contact editor's **Assigned logbooks** summary opens a bounded searchable
+picker through **Edit…**. Checkbox changes remain pending in the form until
+**Save changes**; dismissing the picker preserves them, while cancelling the
+editor discards them. No separate membership Apply step is required.
+
+History shows **Edit assigned logbooks…** only when contacts are selected. Its
+picker includes off-page/outside-filter selected IDs, preserving untouched mixed
+memberships. **Apply** submits guarded membership changes. **Cancel processing**
+stops between contact saves; retained results distinguish saved, unchanged, stale
+and unprocessed contacts from a failed acknowledgment or subsequent refresh.
+Removing the last membership leaves the contact active and untagged.
 
 Native Windows acceptance uses the production executable with a disposable
 workspace: enter an overnight contact and one with unknown End, change active

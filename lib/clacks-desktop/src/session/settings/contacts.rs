@@ -1,5 +1,7 @@
 //! Execute actual contact reads and guarded edits on the workspace runtime.
 
+pub(crate) mod membership;
+
 #[cfg(test)]
 mod tests;
 
@@ -36,6 +38,12 @@ pub(crate) enum ContactAction {
         expected: Option<Box<ClientRecord>>,
         next: Box<Qso>,
     },
+    /// Read selected contacts and catalog from one snapshot.
+    PrepareMembership {
+        ids: std::collections::BTreeSet<QsoId>,
+    },
+    /// Apply the captured membership intent.
+    ChangeMembership(membership::MembershipSubmission),
     /// Delete the reviewed account-owned contact under its expected basis.
     Delete { expected: Box<ClientRecord> },
 }
@@ -55,6 +63,10 @@ pub(crate) enum ContactResponse {
     Loaded(Option<ClientRecord>),
     /// Committed, unchanged or stale contact facts.
     Saved(SaveOutcome),
+    /// Captured contact bases and catalog.
+    MembershipPrepared(membership::MembershipBasis),
+    /// Record-specific membership results.
+    MembershipChanged(clacks_client_store::save::tags::TagChangeReport),
     /// Committed or stale contact deletion.
     Deleted(SaveOutcome),
 }
@@ -113,6 +125,12 @@ pub(crate) async fn execute(
             }
             Ok(ContactResponse::Saved(outcome))
         }
+        ContactAction::PrepareMembership { ids } => Ok(ContactResponse::MembershipPrepared(
+            membership::prepare(store, &ids).await?,
+        )),
+        ContactAction::ChangeMembership(submission) => Ok(ContactResponse::MembershipChanged(
+            membership::apply(store, submission).await?,
+        )),
         ContactAction::Delete { expected } => {
             anyhow::ensure!(
                 matches!(expected.key.id, RecordId::Qso(_)),

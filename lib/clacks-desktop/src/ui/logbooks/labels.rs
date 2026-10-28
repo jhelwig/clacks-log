@@ -7,7 +7,7 @@ use clacks_model::{ids::TagId, tag::LogbookTag};
 use std::collections::BTreeMap;
 
 /// Label the complete catalog, extending duplicate-name suffixes until distinct.
-pub(super) fn labels(tags: &[&LogbookTag]) -> BTreeMap<TagId, String> {
+pub(in crate::ui) fn labels(tags: &[&LogbookTag]) -> BTreeMap<TagId, String> {
     tags.iter()
         .map(|tag| {
             let peers: Vec<_> = tags

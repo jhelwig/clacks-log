@@ -2,6 +2,7 @@
 
 mod deletion;
 mod editor;
+mod membership;
 mod query;
 mod responses;
 #[cfg(test)]
@@ -53,6 +54,8 @@ pub(super) struct ContactsUi {
     /// One saved-contact operation whose acknowledgment remains owned here.
     operation: Option<oneshot::Receiver<SettingsResponse>>,
 
+    /// Selected-contact assignment retained independently of popup lifetime.
+    membership: Option<membership::BulkMembership>,
     /// Independent saved-contact form, absent when dismissed.
     editor: Option<editor::ContactEditor>,
     /// Exact record awaiting individual deletion confirmation.
@@ -99,6 +102,7 @@ impl ContactsUi {
     /// Invalidate actual view-dependent results after a committed change.
     pub fn refresh(&mut self, view: SelectedView) {
         if self.query.view != view {
+            self.membership_view_changed();
             self.query.view = view;
             self.selected.clear();
             self.query.show_selected = false;
@@ -128,6 +132,10 @@ impl ContactsUi {
         self.filter.advance(ui.ctx(), requests, false);
         self.update_query();
         self.poll();
+        self.poll_membership();
+        if self.membership.is_none() {
+            egui::Popup::close_id(ui.ctx(), egui::Id::unique("contacts.membership"));
+        }
         let history = egui::CentralPanel::default().frame(theme::section_frame(ui));
         history.show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
@@ -135,6 +143,7 @@ impl ContactsUi {
                 if ui.small_button("Refresh contacts").clicked() {
                     self.refresh(self.query.view);
                 }
+                self.membership_action(ui, requests);
                 let selected_view = self.query.show_selected;
                 if ui
                     .add_enabled(
@@ -165,6 +174,7 @@ impl ContactsUi {
                     ui.small(notice);
                 }
             }
+            self.membership_feedback(ui);
             self.filter.show(ui, snapshot, definitions);
             let action = table::show(
                 ui,
@@ -219,7 +229,7 @@ impl ContactsUi {
         self.filter.advance(ui.ctx(), requests, false);
         self.update_query();
         self.read_page(requests);
-        self.show_editor(ui.ctx(), definitions, requests);
+        self.show_editor(ui.ctx(), definitions, requests, &snapshot.logbooks);
         self.show_deletion(ui.ctx(), requests);
     }
 
@@ -301,147 +311,6 @@ impl ContactsUi {
             Err(error) => {
                 self.notice = Some(format!("Unable to request contact operation: {error}"))
             }
-        }
-    }
-
-    /// Render the saved editor, retaining its expected record until an explicit reload.
-    fn show_editor(
-        &mut self,
-        context: &egui::Context,
-        definitions: &DefinitionSet,
-        requests: &mpsc::Sender<SettingsRequest>,
-    ) {
-        let Some(editor) = &mut self.editor else {
-            return;
-        };
-        let busy = self.operation.is_some();
-        let mut save = None;
-        let mut delete = false;
-        let mut cancel = false;
-        let mut reload = false;
-        let result = super::dialog::show(
-            context,
-            egui::Id::unique("contacts.editor"),
-            "Edit contact",
-            |ui| {
-                let now = ui.input(|i| i.time);
-                if editor.validation.due(now) {
-                    editor.errors = editor
-                        .id()
-                        .map_err(|e| vec![crate::operating::issue("QSO", e)])
-                        .and_then(|id| editor.form.build(id, definitions))
-                        .err()
-                        .unwrap_or_default();
-                    editor.validation.validated();
-                }
-                editor.validation.request_repaint(ui.ctx(), now);
-                let mut enter = false;
-                ui.add_enabled_ui(!busy, |ui| {
-                    let quick = super::logging::entry::show(
-                        ui,
-                        &mut editor.form,
-                        &editor.baseline,
-                        &editor.errors,
-                        false,
-                        false,
-                    );
-                    enter = quick.save;
-                    let mut changed = quick.edited;
-                    ui.strong("Contact details");
-                    let detail = super::logging::details::show(
-                        ui,
-                        &mut editor.form,
-                        &editor.baseline,
-                        definitions,
-                        &editor.errors,
-                        false,
-                        "saved.contact",
-                    );
-                    changed |= detail.edited;
-                    enter |= detail.save;
-                    ui.strong("Our operating settings");
-                    let detail = super::logging::details::show(
-                        ui,
-                        &mut editor.form,
-                        &editor.baseline,
-                        definitions,
-                        &editor.errors,
-                        true,
-                        "saved.contact",
-                    );
-                    changed |= detail.edited;
-                    enter |= detail.save;
-                    if changed {
-                        editor.validation.edited(now);
-                    }
-                });
-                for error in &editor.errors {
-                    ui.colored_label(
-                        ui.visuals().error_fg_color,
-                        format!("{}: {}", error.field, error.message),
-                    );
-                }
-                if let Some(notice) = &self.notice {
-                    if self.problem {
-                        feedback::problem(ui, notice);
-                    } else {
-                        ui.small(notice);
-                    }
-                }
-                ui.horizontal_wrapped(|ui| {
-                    cancel = ui.button("Cancel").clicked();
-                    let clicked = ui
-                        .add_enabled(
-                            !busy && editor.validation.can_submit(&editor.errors),
-                            egui::Button::new("Save changes"),
-                        )
-                        .clicked();
-                    if !busy && (clicked || enter) {
-                        match editor
-                            .id()
-                            .map_err(|e| vec![crate::operating::issue("QSO", e)])
-                            .and_then(|id| editor.form.build(id, definitions))
-                        {
-                            Ok(next) => {
-                                save = Some(ContactAction::Save {
-                                    expected: Some(Box::new(editor.expected.clone())),
-                                    next: Box::new(next),
-                                })
-                            }
-                            Err(errors) => editor.errors = errors,
-                        }
-                    }
-                    delete = ui
-                        .add_enabled(!busy, egui::Button::new("Delete QSO…"))
-                        .clicked();
-                    if self.current_record.is_some() {
-                        reload = ui
-                            .add_enabled(!busy, egui::Button::new("Reload current contact"))
-                            .clicked();
-                    }
-                    if busy {
-                        ui.label("Saving…");
-                    }
-                });
-            },
-        );
-        if delete {
-            self.deletion = Some(deletion::DeletionConfirmation {
-                expected: editor.expected.clone(),
-                first_frame: true,
-            });
-        }
-        if reload && let Some(record) = self.current_record.take() {
-            match editor::ContactEditor::from_record(record) {
-                Ok(value) => self.editor = Some(value),
-                Err(error) => self.notice = Some(error.to_string()),
-            }
-        }
-        if cancel || result.cancel_requested {
-            self.editor = None;
-            self.deletion = None;
-        } else if let Some(action) = save {
-            self.request(action, requests);
         }
     }
 

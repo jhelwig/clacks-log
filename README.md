@@ -15,6 +15,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Desktop application specification](docs/desktop.md)
 - [Desktop workbench and interaction design](docs/desktop-ui.md)
 - [Local contact history, Worked Before and queries](docs/history.md)
+- [Contact logbook membership editing](docs/contact-membership.md)
 - [Operating settings, station profiles and equipment](docs/operating-settings.md)
 - [Offline logbook setup and view selection](docs/logbooks.md)
 - [Offline manual contact entry, editing and deletion](docs/manual-logging.md)

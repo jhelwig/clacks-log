@@ -125,7 +125,7 @@ Milestones:
 [Tag setup](logbooks.md) supplies the selection contract for manual entry.
 Entry supplies the basic saved-contact
 list; history extends it before
-[membership editing](https://github.com/jhelwig/clacks-log/issues/51) adds the
+[membership editing](contact-membership.md) adds the
 individual/selected-group organization workflows. No stage uses a temporary
 contact browser or requires later filtering/bulk actions merely to save a QSO.
 Tag deletion remains part of tag lifecycle, including its atomic contact effects;
