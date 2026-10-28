@@ -9,8 +9,15 @@ impl ContactsUi {
             match pending.receiver.try_recv() {
                 Ok(response) => {
                     let query = pending.query.clone();
+                    let expression = pending.expression.clone();
                     self.page_request = None;
                     if query == self.query && !self.dirty {
+                        if matches!(
+                            &response,
+                            SettingsResponse::Contacts(ContactResponse::Page(_))
+                        ) {
+                            self.filter.applied(expression);
+                        }
                         self.response(response);
                     }
                 }
@@ -88,6 +95,11 @@ impl ContactsUi {
                 self.notice = Some("Changes saved locally".into());
             }
             ContactResponse::Deleted(SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_)) => {
+                if let Some(deletion) = &self.deletion
+                    && let clacks_sync::record::RecordId::Qso(id) = deletion.expected.key.id
+                {
+                    self.selected.remove(&id);
+                }
                 self.editor = None;
                 self.deletion = None;
                 self.current_record = None;

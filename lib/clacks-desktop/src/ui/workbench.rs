@@ -45,6 +45,24 @@ pub(super) struct Workbench {
 }
 
 impl Workbench {
+    /// Finish local query persistence before the runtime stops admitting work.
+    pub fn flush_query(
+        &mut self,
+        context: &egui::Context,
+        requests: &mpsc::Sender<SettingsRequest>,
+    ) -> bool {
+        self.contacts.flush_query(context, requests)
+    }
+
+    /// Surface a failed final query write while shutdown is still recoverable.
+    pub fn query_save_error(&self) -> Option<&str> {
+        self.contacts.filter.error.as_deref()
+    }
+
+    /// Retry the pending local preference write without discarding the edit.
+    pub fn retry_query_save(&mut self) {
+        self.contacts.filter.retry();
+    }
     /// Restore only pane sizes, never unfinished contact input.
     pub fn restore(&mut self, storage: Option<&dyn eframe::Storage>) {
         self.contacts.restore(storage);

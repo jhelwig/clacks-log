@@ -39,6 +39,20 @@ fn history_fills_remaining_bounds_with_empty_or_populated_rows() {
                     available: egui::Rect::NOTHING,
                 },
             );
+        let restore = ui.state_mut().requests.try_recv().unwrap();
+        assert!(matches!(
+            restore.action,
+            crate::session::settings::SettingsAction::Contacts(
+                crate::session::settings::contacts::ContactAction::LoadQueryState
+            )
+        ));
+        restore
+            .reply
+            .send(crate::session::settings::SettingsResponse::Contacts(
+                crate::session::settings::contacts::ContactResponse::QueryState(Default::default()),
+            ))
+            .unwrap();
+        ui.step();
         let request = ui.state_mut().requests.try_recv().unwrap();
         assert!(matches!(
             request.action,
