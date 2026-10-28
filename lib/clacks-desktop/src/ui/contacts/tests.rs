@@ -158,3 +158,83 @@ fn query_replies_follow_current_inputs_and_failures_keep_complete_rows() -> anyh
     assert!(view.notice.as_ref().unwrap().contains("Cannot read"));
     Ok(())
 }
+
+#[test]
+fn editor_membership_uses_the_existing_save_boundary() {
+    use egui_kittest::kittest::Queryable;
+    struct Host {
+        view: ContactsUi,
+        snapshot: SettingsSnapshot,
+        requests: mpsc::Sender<SettingsRequest>,
+        definitions: DefinitionSet,
+    }
+    let record = fixtures::row(RecordValue::Qso(Box::new(fixtures::contact())));
+    let tag =
+        clacks_model::tag::LogbookTag::new(clacks_model::ids::TagId::new(), "Field day".into());
+    let mut snapshot = fixtures::snapshot();
+    snapshot
+        .logbooks
+        .tags
+        .push(fixtures::row(RecordValue::Tag(Box::new(tag.clone()))));
+    let mut editor = editor::ContactEditor::from_record(record.clone()).unwrap();
+    editor.form.comment = "Corrected fact".into();
+    let (requests, mut receiver) = mpsc::channel(32);
+    let host = Host {
+        view: ContactsUi {
+            editor: Some(editor),
+            ..Default::default()
+        },
+        snapshot,
+        requests,
+        definitions: DefinitionSet::new(vec![]).unwrap(),
+    };
+    let mut ui = Harness::builder()
+        .with_size(egui::vec2(1100.0, 1000.0))
+        .build_ui_state(
+            |ui, host: &mut Host| {
+                host.view
+                    .show(ui, &host.snapshot, &host.requests, &host.definitions);
+            },
+            host,
+        );
+    ui.get_by_label("Edit…").click();
+    ui.run();
+    ui.get_by_label("Field day").click();
+    ui.run();
+    ui.key_press(egui::Key::Escape);
+    ui.run();
+    assert!(ui.state().view.editor.is_some());
+    assert_eq!(
+        ui.state().view.editor.as_ref().unwrap().form.tags,
+        [tag.id].into()
+    );
+    while let Ok(request) = receiver.try_recv() {
+        assert!(!matches!(
+            request.action,
+            SettingsAction::Contacts(ContactAction::Save { .. })
+        ));
+    }
+    ui.run_steps(30);
+    assert!(ui.state().view.editor.as_ref().unwrap().errors.is_empty());
+    assert!(
+        ui.state()
+            .view
+            .editor
+            .as_ref()
+            .unwrap()
+            .validation
+            .can_submit(&[])
+    );
+    assert!(ui.state().view.operation.is_none());
+    ui.get_by_label("Save changes").scroll_to_me();
+    ui.run();
+    ui.get_by_label("Save changes").click();
+    ui.run();
+    let request = receiver.try_recv().unwrap();
+    let SettingsAction::Contacts(ContactAction::Save { expected, next }) = request.action else {
+        panic!("save")
+    };
+    assert_eq!(expected.as_deref(), Some(&record));
+    assert_eq!(next.tags, [tag.id].into());
+    assert_eq!(next.comment.as_deref(), Some("Corrected fact"));
+}

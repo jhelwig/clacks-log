@@ -2,7 +2,7 @@
 
 mod deletion;
 mod editor;
-mod labels;
+pub(super) mod labels;
 mod responses;
 
 use super::{dialog, feedback, theme, validation::ValidationState};

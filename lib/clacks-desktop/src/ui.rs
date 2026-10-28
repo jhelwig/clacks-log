@@ -16,8 +16,10 @@ mod operating;
 mod preferences;
 mod profiles;
 mod startup;
+mod tag_picker;
 #[cfg(test)]
 mod tests;
+
 mod theme;
 mod validation;
 mod workbench;
