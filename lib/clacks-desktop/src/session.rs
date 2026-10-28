@@ -248,7 +248,7 @@ pub(crate) async fn run(
             },
             completion = work.join_next(), if !work.is_empty() => {
                 match completion {
-                    Some(Ok(completion)) => {
+                    Some(Ok(Some(completion))) => {
                         if let Some(snapshot) = completion.snapshot {
                             if let Some(previous) = settings_updates.borrow().as_ref() {
                                 if let Some(profile) = &previous.operating.selected_profile
@@ -267,6 +267,7 @@ pub(crate) async fn run(
                         let _ = completion.reply.send(completion.response);
                         if let Some(context) = context.get() { context.request_repaint(); }
                     }
+                    Some(Ok(None)) => {},
                     Some(Err(_)) => tracing::error!(event = "desktop.settings_task_failed"),
                     None => {},
                 }

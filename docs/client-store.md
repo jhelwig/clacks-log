@@ -475,6 +475,16 @@ and Worked Before requirements, including client-local edited/applied query
 state in the existing preference storage. This does not replace relational
 QSO data with serialized query projections.
 
+The implemented contact-page reader compiles typed model expressions using
+closed field identifiers and bound values. Complete matching and selected
+counts, current working rows and native service/whole-location projections
+share its snapshot. Native-derived query facts occupy a transaction-local
+temporary relation, with evidence candidates processed in bounded batches;
+they are neither authoritative payloads nor a durable parallel index store.
+History query text uses one versioned `history.query` local-state value for
+edited/applied expressions across all selected views. Worked Before supplies
+its literal prefix separately and reuses the same relational reader.
+
 History, prefix Worked Before, tag filters, time ranges and account-wide review
 query these relational values. Use `EXISTS` for tag/reference filters or distinct
 record identity before pagination rather than duplicating QSO rows through joins.

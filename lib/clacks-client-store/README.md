@@ -217,10 +217,28 @@ workspace for query preparation.
 named tag, All contacts or Untagged. It orders native values in SQLite, with
 absent optional values last and stable contact-ID ties. Full UTC timestamps
 remain one comparison value. A point's displayed grid participates in grid
-sorting alongside recorded grid areas. The existing `history` keyset/filter
-reader retains its independent snapshot-consumer contract.
+sorting alongside recorded grid areas. `clacks-model::query` owns expression
+parsing, typed values and field help; the store compiles those closed structures
+to SQL with bound literals. `history` supplies the shared working-row type.
 
 The desktop uses pages of 100 and resets paging after known mutations or view/
 sort changes. A page's `has_more` is not an account-wide count; separate page
 reads are not represented as one immutable account snapshot. Save/edit/delete
 continues to use the existing expected-record transaction and pending metadata.
+
+Rows, matching totals, selected totals and selections outside the expression
+share the same snapshot. Show selected changes the row restriction without
+changing the expression used for those counts. Current service applicability
+and whole-source location/name fallback use the existing native rules. An
+operation-local temporary relation holds only required native-derived facts;
+it is rolled back with its nested transaction, not retained as another cache.
+Evidence-bearing candidates are processed in batches of at most 256. Queries
+over derived service facts cost more than predicates over recorded values.
+
+`read::worked_before::WorkedBeforeQuery` supplies an independent literal prefix,
+view and order. Empty input returns no contacts, and the desktop admits no
+empty-prefix read. `read::query_state` stores edited/applied text together in
+the shared local key/value relation under `history.query`. An absent key has
+empty defaults; unsupported versions are errors. These preferences do not
+create pending synchronized changes. Directory fallback remains a producer
+integration boundary until its native snapshot carrier is implemented.

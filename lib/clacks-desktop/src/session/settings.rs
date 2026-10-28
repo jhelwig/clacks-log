@@ -1,5 +1,8 @@
 //! Typed settings requests on the existing application runtime.
 
+#[cfg(test)]
+mod query_tests;
+
 pub(crate) mod contacts;
 pub(crate) mod logbooks;
 
@@ -121,12 +124,48 @@ pub(super) struct Completion {
 
 /// Execute admitted domain work off the native UI thread and retain committed outcomes.
 #[tracing::instrument(skip_all, name = "desktop.settings")]
-pub(super) async fn execute(store: ClientStore, request: SettingsRequest) -> Completion {
+pub(super) async fn execute(
+    store: ClientStore,
+    mut request: SettingsRequest,
+) -> Option<Completion> {
     let account = store.account_id();
     let result = match request.action {
-        SettingsAction::Contacts(action) => contacts::execute(&store, action)
-            .await
-            .map(SettingsResponse::Contacts),
+        SettingsAction::Contacts(action) => {
+            let kind = match &action {
+                contacts::ContactAction::Page { .. } => Some("history"),
+                contacts::ContactAction::WorkedBefore { .. } => Some("worked_before"),
+                _ => None,
+            };
+            let result = if let Some(kind) = kind {
+                let started = std::time::Instant::now();
+                let result = tokio::select! {
+                    biased;
+                    _ = request.reply.closed() => {
+                        tracing::debug!(event = "contact_query.cancelled", account_id = %account, kind);
+                        return None;
+                    }
+                    result = contacts::execute(&store, action) => result,
+                };
+                metrics::histogram!("client_store.contact_query.duration_seconds", "kind" => kind)
+                    .record(started.elapsed().as_secs_f64());
+                match &result {
+                    Ok(
+                        contacts::ContactResponse::Page(page)
+                        | contacts::ContactResponse::WorkedBefore(page),
+                    ) => {
+                        tracing::debug!(event = "contact_query.completed", account_id = %account, kind, matching_count = page.matching_total, returned_count = page.rows.len());
+                    }
+                    Err(_) => {
+                        metrics::counter!("client_store.contact_query.failures_total", "kind" => kind).increment(1);
+                    }
+                    _ => {}
+                }
+                result
+            } else {
+                contacts::execute(&store, action).await
+            };
+            result.map(SettingsResponse::Contacts)
+        }
         SettingsAction::Logbooks(action) => logbooks::execute(&store, action)
             .await
             .map(SettingsResponse::Logbooks),
@@ -165,11 +204,11 @@ pub(super) async fn execute(store: ClientStore, request: SettingsRequest) -> Com
         Ok(value) => value,
         Err(error) => {
             tracing::error!(event = "desktop.settings_failed", account_id = %account);
-            return Completion {
+            return Some(Completion {
                 reply: request.reply,
                 response: SettingsResponse::Failed(format!("{error:#}")),
                 snapshot: None,
-            };
+            });
         }
     };
     let snapshot = match &response {
@@ -195,9 +234,9 @@ pub(super) async fn execute(store: ClientStore, request: SettingsRequest) -> Com
             }
         },
     };
-    Completion {
+    Some(Completion {
         reply: request.reply,
         response,
         snapshot,
-    }
+    })
 }

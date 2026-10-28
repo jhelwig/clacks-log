@@ -914,6 +914,7 @@ dependencies = [
  "libc",
  "metrics",
  "metrics-opentelemetry",
+ "metrics-util",
  "opentelemetry",
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",

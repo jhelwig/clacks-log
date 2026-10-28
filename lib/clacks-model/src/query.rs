@@ -11,7 +11,7 @@ use diagnostic::QueryDiagnostic;
 use field::Field;
 use value::Value;
 
-/// A validated restriction on one operator-facing field.
+/// A typed restriction on one operator-facing field.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Predicate {
     /// Public field identity, independent of storage layout.
@@ -41,5 +41,11 @@ pub enum Query {
 /// query. Callers retain the last applied expression on failure.
 #[tracing::instrument(skip_all, name = "model.query.parse", level = "debug")]
 pub fn parse(text: &str, catalog: &RecognitionCatalog) -> Result<Query, QueryDiagnostic> {
-    syntax::parse(text, catalog)
+    match syntax::parse(text, catalog) {
+        Ok(query) => Ok(query),
+        Err(error) => {
+            tracing::debug!(event = "query.rejected", span_start = error.span.start, span_end = error.span.end, reason = %error.message);
+            Err(error)
+        }
+    }
 }

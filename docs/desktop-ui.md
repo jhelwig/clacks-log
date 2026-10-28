@@ -47,6 +47,12 @@ now includes this tab selection. The
 [manual-logging specification](manual-logging.md#2-workbench-and-form-boundaries)
 defines the entry fields and detail tabs, with Worked Before supplied by #10.
 
+The delivered history query bar stays inside the history section, below its
+toolbar. Its diagnostic/status row retains a fixed line of space during edits;
+completion overlays the workbench without resizing its panes. Table headers
+and single-line cells fit their allocated rows under the installed theme.
+Populating or refreshing a table must not enlarge the user-sized logging pane.
+
 Worked Before presents one row of data per QSO, rather than a multiline card for
 each contact. Its callsign-prefix matching, current-logbook scope and handling of
 local working versions follow the product contract. Contact history remains a
