@@ -103,6 +103,11 @@ pub struct SelectedObservations {
     pub supporting: Vec<ObservationId>,
     /// Observations whose supplied fields are all undominated and established.
     pub current_supporting: Vec<ObservationId>,
+    /// Observations establishing the selected confirmation field specifically.
+    ///
+    /// Use these to locate the confirmed QSO baseline even when independently
+    /// ordered receipt fields have newer supporting observations.
+    pub confirmation_supporting: Vec<ObservationId>,
     /// Paths for which current ordering/value cannot be established.
     pub uncertain: Vec<String>,
 }
@@ -276,7 +281,20 @@ pub fn select_observations(
     field!(frequency, false);
     field!(receive_frequency, false);
     field!(mode, false);
-    field!(confirmation, true);
+    let mut confirmation_supporting = std::collections::BTreeSet::new();
+    facts.contact.confirmation = select(
+        reports
+            .iter()
+            .map(|(o, s)| (*o, *s, &o.facts.contact.confirmation))
+            .collect(),
+        true,
+        "contact.confirmation",
+        view,
+        &mut uncertain,
+        &mut confirmation_supporting,
+        &mut superseded,
+    )?;
+    current_supporting.extend(&confirmation_supporting);
     facts.own_station = select_station(
         &reports,
         false,
@@ -313,6 +331,7 @@ pub fn select_observations(
             .difference(&superseded)
             .copied()
             .collect(),
+        confirmation_supporting: confirmation_supporting.into_iter().collect(),
         uncertain,
     })
 }

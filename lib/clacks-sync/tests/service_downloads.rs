@@ -671,6 +671,19 @@ fn qso_and_confirmation_timestamps_select_fields_independently() -> anyhow::Resu
     let ServiceDecision::Ready(c) = f.observe(&a, "A", (Some(100), Some(300)))? else {
         panic!()
     };
+    let confirmation_observation = c
+        .accepted
+        .iter()
+        .find_map(|r| {
+            if let clacks_model::service::evidence::ServicePayload::Observation(o) =
+                &service_payload(r)?.payload
+            {
+                Some(o.id)
+            } else {
+                None
+            }
+        })
+        .unwrap();
     f.install(c)?;
     f.close(&a, true)?;
     let b = f.start()?;
@@ -694,6 +707,10 @@ fn qso_and_confirmation_timestamps_select_fields_independently() -> anyhow::Resu
         Reported::Value(ConfirmationStatus::Confirmed)
     );
     assert!(current.uncertain.is_empty());
+    assert_eq!(
+        current.confirmation_supporting,
+        vec![confirmation_observation]
+    );
     Ok(())
 }
 
