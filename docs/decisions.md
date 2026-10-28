@@ -1,6 +1,6 @@
 # Decision register
 
-This register records explicit decisions from the planning conversation through 26 October 2026 (D01–D318). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. The [desktop specification](desktop.md) consolidates D270–D279, distinguishing agreed choices from engineering defaults. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
+This register records explicit decisions from the planning conversation through 28 October 2026 (D01–D352). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. The [desktop specification](desktop.md) consolidates D270–D279, distinguishing agreed choices from engineering defaults. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
 
 ## Accepted decisions
 
@@ -1872,3 +1872,22 @@ clear indication of the applied query, evaluating results against the current
 view and saved data. Existing view-change selection clearing remains in
 force. The [query contract](history.md#shared-query-state--agreed-d351)
 owns this behavior.
+
+### Decision D352
+
+#### D352
+
+Use a Gmail-style searchable checkbox picker for individual and selected-contact
+logbook membership editing. In the contact editor, keep a compact Assigned
+logbooks summary with Edit opening a bounded picker; do not permanently list the
+account's full catalog. Its changes remain pending until the editor's existing
+Save changes action, with no additional membership Apply/Done step. In history,
+show Edit assigned logbooks only when QSOs are selected, without an unlabeled
+numeric suffix; retain the existing selection count and identify the selected
+scope within the picker. Its Apply action changes that selected set, including
+hidden selected contacts. Checked, mixed and blank represent all, some and none;
+untouched mixed membership stays unchanged, checking requests inclusion on all
+targets and clearing requests removal from all. Preserve existing Save/Cancel,
+whole-QSO reconciliation, stale-save and bulk-operation contracts. The
+[desktop UI contract](desktop-ui.md#editing-assigned-logbooks-d352) owns the
+interaction and scalability requirements.

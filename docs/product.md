@@ -148,7 +148,14 @@ For example, QSO Q42 can have both Main and POTA 2026-10-17 tags. Both views sho
 
 ### Membership and tag lifecycle
 
-Add or remove existing tags on individual QSOs or selected groups in MVP (D249). These operations preserve QSO identity, facts and service evidence. Removing the last tag leaves an active, untagged contact accessible through All contacts and Untagged (D302). To organize activity contacts into Main, add Main to the existing contacts, then remove the activity membership or delete the activity tag as desired. Export/re-import is not required to apply another tag. Broader bulk editing of contact facts remains post-MVP under D45.
+Add or remove existing tags on individual QSOs or selected groups in MVP (D249).
+The [membership specification](contact-membership.md) owns these editing workflows.
+These operations preserve QSO identity, facts and service evidence. Removing the
+last tag leaves an active, untagged contact accessible through All contacts and
+Untagged (D302). To organize activity contacts into Main, add Main to the existing
+contacts, then remove the activity membership or delete the activity tag as
+desired. Export/re-import is not required to apply another tag. Broader bulk
+editing of contact facts remains post-MVP under D45.
 
 Create, name, rename and delete tags offline on enrolled clients, synchronizing them and their contacts on reconnect (D118/D121). Duplicate names are allowed. Automatic tag assignment or creation based on capture source, activity references or date remains outside MVP.
 

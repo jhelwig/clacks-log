@@ -115,7 +115,9 @@ The selected view supplies new-contact tag membership:
   input. Do not retain the previous named logbook as a hidden default.
 
 An edit to a saved contact retains its tags regardless of current view changes.
-This issue does not introduce membership editing.
+Explicit membership editing follows the #51
+[membership specification](contact-membership.md),
+with changes participating in the same pending contact form and Save/Cancel.
 
 ## 4. Recorded values and validation
 

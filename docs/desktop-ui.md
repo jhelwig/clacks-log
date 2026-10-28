@@ -342,9 +342,11 @@ selected count and an explicit count outside the current filter. Provide
 or cleared. Sorting/filtering must not silently change which records a selected-
 contact operation targets.
 
-Bulk-action labels state the selected count. Distinguish an action on selected
-contacts from selecting all matching contacts. Keep selection separate from
-pending/conflict status; selection highlighting must not hide those indicators.
+Bulk operations identify their selected-contact scope and count. Membership
+editing uses the existing selection status and an explicitly scoped picker,
+without repeating an unlabeled count in its launcher (D352). Distinguish an action
+on selected contacts from selecting all matching contacts. Keep selection separate
+from pending/conflict status; selection highlighting must not hide those indicators.
 This does not add unrestricted bulk editing of recorded QSO facts or change the
 existing export, tag-assignment or deletion contracts.
 
@@ -358,6 +360,48 @@ editor directly (D296). Do not interpose a read-only detail view. This activates
 the focused contact, rather than opening an editor for every selected contact;
 existing restrictions on bulk editing remain unchanged. Enter inside a text
 field or another control retains that control's behavior.
+
+### Editing assigned logbooks (D352)
+
+The [membership specification](contact-membership.md) consolidates the workflows,
+save boundaries and integration requirements. This section owns their presentation.
+
+Use the Gmail-style searchable checkbox picker for individual and selected-contact
+membership editing in [issue #51](https://github.com/jhelwig/clacks-log/issues/51).
+Keep its surfaces, typography, control treatment and unapplied-change indicators
+consistent with the shared Clacks components.
+
+In the saved-contact editor, show a compact **Assigned logbooks** summary with
+**Edit…** opening the picker. Bound the summary and picker height independently
+of the account's number of logbooks; use search and a scrollable choice list.
+Do not embed the full catalog as a permanent section of the form. The interaction
+must remain usable with hundreds of logbooks and many years of accumulated data.
+
+Picker changes edit the existing pending QSO form. Dismissing that picker does
+not save the contact; its choices remain pending in the editor. **Save changes**
+commits membership with the other edited contact fields. Cancelling the editor
+discards its unapplied changes. Do not add a separate membership Apply/Done step
+inside the individual contact editor.
+
+In history, show **Edit assigned logbooks…** only while at least one QSO is
+selected, as part of the contextual selection actions. Omit the numeric suffix;
+the table's selection status already supplies that count. The action edits
+membership, not the logbook/view from which contacts are displayed. Its picker
+identifies the selected-contact scope, including selected contacts outside the
+current filter. **Apply** submits changes to that selected set; dismissing the
+picker before submission discards its unapplied choices.
+
+The checklist shows checked for membership on all targets, a dash for some,
+and blank for none. An untouched mixed state preserves each contact's existing
+membership. Choosing checked requests membership on every target; choosing blank
+requests removal from every target. Other memberships remain unchanged. Search
+filters choices without discarding pending changes or changing the QSO targets.
+Duplicate names use the existing short-ID disambiguation and retain distinct IDs.
+
+These controls edit existing tags under D249. Tag management, ordinary whole-QSO
+save/reconciliation, stale-save handling, bulk progress/cancellation and
+record-specific outcome reporting retain their existing contracts. Membership
+removal does not delete a QSO; removing its last tag leaves it active and untagged.
 
 ### History-filter entry
 
