@@ -396,3 +396,15 @@ fn publication_coverage_identifies_support_without_exposing_submission_values() 
     }
     Ok(())
 }
+
+#[test]
+fn invalid_query_reports_the_edit_range_without_the_query_text() -> anyhow::Result<()> {
+    let catalog = clacks_model::recognition::RecognitionCatalog::adif_318()?;
+    let captured =
+        capture(|| clacks_model::query::parse("comment:PRIVATE_QUERY_SENTINEL OR", catalog));
+    assert!(captured.result.is_err());
+    let event = captured.event("query.rejected");
+    assert!(event.fields.contains_key("span_start"));
+    assert!(!format!("{:?}", captured.observations).contains("PRIVATE_QUERY_SENTINEL"));
+    Ok(())
+}

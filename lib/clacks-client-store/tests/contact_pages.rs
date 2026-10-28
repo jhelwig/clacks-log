@@ -40,18 +40,22 @@ async fn selected_views_show_each_working_contact_once() -> anyhow::Result<()> {
     };
     let page = snapshot.contact_page(&query).await?;
     assert_eq!(page.rows.len(), 1);
-    assert_eq!(page.rows.first().unwrap().qso.id, support::id(11));
+    assert_eq!(page.rows.first().unwrap().working.qso.id, support::id(11));
     let all = snapshot.contact_page(&ContactPageQuery::default()).await?;
     assert_eq!(all.rows.len(), 2);
     let selected = snapshot
         .contact_page(&ContactPageQuery {
             view: SelectedView::Logbook(tag),
-            selected: Some([support::id(10), support::id(11)].into()),
+            selected_ids: [support::id(10), support::id(11)].into(),
+            show_selected: true,
             ..Default::default()
         })
         .await?;
     assert_eq!(selected.rows.len(), 1);
-    assert_eq!(selected.rows.first().unwrap().qso.id, support::id(10));
+    assert_eq!(
+        selected.rows.first().unwrap().working.qso.id,
+        support::id(10)
+    );
     snapshot.close().await?;
     store.close().await?;
     Ok(())
@@ -89,18 +93,18 @@ async fn contact_pages_sort_complete_values_and_break_ties_by_id() -> anyhow::Re
     };
     let page = snapshot.contact_page(&query).await?;
     assert!(page.has_more);
-    assert_eq!(page.rows.first().unwrap().qso.id, support::id(10));
+    assert_eq!(page.rows.first().unwrap().working.qso.id, support::id(10));
     let page = snapshot
         .contact_page(&ContactPageQuery {
             offset: 1,
             ..query.clone()
         })
         .await?;
-    assert_eq!(page.rows.first().unwrap().qso.id, support::id(12));
+    assert_eq!(page.rows.first().unwrap().working.qso.id, support::id(12));
     let last = snapshot
         .contact_page(&ContactPageQuery { offset: 2, ..query })
         .await?;
-    assert_eq!(last.rows.first().unwrap().qso.id, support::id(11));
+    assert_eq!(last.rows.first().unwrap().working.qso.id, support::id(11));
     assert!(!last.has_more);
     snapshot.close().await?;
     store.close().await?;
@@ -157,7 +161,10 @@ async fn grid_sort_orders_recorded_areas_and_point_display_locators_together() -
     };
     let page = snapshot.contact_page(&query).await?;
     assert_eq!(
-        page.rows.iter().map(|r| r.qso.id).collect::<Vec<_>>(),
+        page.rows
+            .iter()
+            .map(|r| r.working.qso.id)
+            .collect::<Vec<_>>(),
         vec![
             support::id(10),
             support::id(13),

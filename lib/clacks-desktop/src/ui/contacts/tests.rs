@@ -70,6 +70,7 @@ fn view_change_clears_selection_and_ignores_an_old_page_reply() {
         selected: [qso.id].into(),
         page_request: Some(PageRequest {
             query: ContactPageQuery::default(),
+            expression: String::new(),
             receiver,
         }),
         ..Default::default()
@@ -78,12 +79,18 @@ fn view_change_clears_selection_and_ignores_an_old_page_reply() {
     reply
         .send(SettingsResponse::Contacts(ContactResponse::Page(
             ContactPage {
-                rows: vec![clacks_client_store::read::history::HistoryRow {
-                    qso,
-                    pending: true,
-                    review: None,
+                rows: vec![clacks_client_store::read::contacts::ContactRow {
+                    facts: Default::default(),
+                    working: clacks_client_store::read::history::HistoryRow {
+                        qso,
+                        pending: true,
+                        review: None,
+                    },
                 }],
                 has_more: false,
+                matching_total: 1,
+                selected_total: 1,
+                selected_outside_filter: 0,
             },
         )))
         .unwrap();
@@ -92,4 +99,62 @@ fn view_change_clears_selection_and_ignores_an_old_page_reply() {
     assert!(view.page.is_none());
     assert_eq!(view.query.view, SelectedView::Untagged);
     assert!(view.dirty);
+}
+
+#[test]
+fn query_replies_follow_current_inputs_and_failures_keep_complete_rows() -> anyhow::Result<()> {
+    let (sender, mut requests) = mpsc::channel(8);
+    let mut view = ContactsUi::default();
+    let catalog = clacks_model::recognition::RecognitionCatalog::adif_318()?;
+    view.filter.desired = Some(clacks_model::query::parse("mode:SSB", catalog)?);
+    view.filter.desired_text = "mode:SSB".into();
+    view.update_query();
+    view.read_page(&sender);
+    let old = requests.try_recv()?;
+    let SettingsAction::Contacts(ContactAction::Page { query }) = &old.action else {
+        anyhow::bail!("missing page")
+    };
+    assert_eq!(
+        query.filter,
+        clacks_model::query::parse("mode:SSB", catalog)?
+    );
+
+    view.filter.desired = Some(clacks_model::query::parse("mode:CW", catalog)?);
+    view.filter.desired_text = "mode:CW".into();
+    view.update_query();
+    view.read_page(&sender);
+    assert!(old.reply.is_closed());
+    let current = requests.try_recv()?;
+    current
+        .reply
+        .send(SettingsResponse::Contacts(ContactResponse::Page(
+            ContactPage {
+                rows: vec![],
+                matching_total: 7,
+                selected_total: 0,
+                selected_outside_filter: 0,
+                has_more: false,
+            },
+        )))
+        .unwrap();
+    view.poll();
+    assert_eq!(view.page.as_ref().unwrap().matching_total, 7);
+    assert_eq!(view.filter.state.applied, "mode:CW");
+
+    view.refresh(view.query.view);
+    view.update_query();
+    view.read_page(&sender);
+    requests
+        .try_recv()?
+        .reply
+        .send(SettingsResponse::Failed(
+            "Cannot read current contacts".into(),
+        ))
+        .unwrap();
+    view.poll();
+    assert_eq!(view.page.as_ref().unwrap().matching_total, 7);
+    assert_eq!(view.filter.state.applied, "mode:CW");
+    assert!(view.problem);
+    assert!(view.notice.as_ref().unwrap().contains("Cannot read"));
+    Ok(())
 }

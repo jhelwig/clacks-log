@@ -2,15 +2,15 @@
 
 mod deletion;
 mod editor;
-mod preferences;
+mod query;
 mod responses;
-mod table;
-#[cfg(test)]
-mod table_tests;
 #[cfg(test)]
 mod tests;
 
-use super::{feedback, theme};
+use super::{
+    contact_table::{self as table, preferences},
+    feedback, theme,
+};
 use crate::session::settings::{
     SettingsAction, SettingsRequest, SettingsResponse,
     contacts::{ContactAction, ContactResponse},
@@ -32,6 +32,8 @@ struct PageRequest {
     /// Submitted query, used to reject obsolete view responses.
     /// Current selected-view page and SQL ordering.
     query: ContactPageQuery,
+    /// Expression text associated with this exact request.
+    expression: String,
     /// Runtime acknowledgment.
     receiver: oneshot::Receiver<SettingsResponse>,
 }
@@ -39,7 +41,11 @@ struct PageRequest {
 /// Independent contact history and saved-edit state.
 #[derive(Default)]
 pub(super) struct ContactsUi {
+    /// Shared persisted expression editor and validated desired scope.
+    pub(super) filter: query::HistoryQueryUi,
     query: ContactPageQuery,
+    /// Expression text bound to the current requested page inputs.
+    query_text: String,
     /// Last successfully read bounded page.
     page: Option<ContactPage>,
     /// Originating page request used to reject obsolete results.
@@ -69,12 +75,19 @@ pub(super) struct ContactsUi {
     current_record: Option<ClientRecord>,
     /// Whether the first page request has been admitted.
     initialized: bool,
+    /// Committed contact change awaiting workbench-wide read invalidation.
+    pub(super) changed: bool,
 }
 
 impl ContactsUi {
+    /// Open the existing saved-contact editor from either contact table.
+    pub fn open(&mut self, id: QsoId, requests: &mpsc::Sender<SettingsRequest>) {
+        self.request(ContactAction::Load { id }, requests);
+    }
     /// Restore this table's presentation independently of appearance and pane sizes.
     pub fn restore(&mut self, storage: Option<&dyn eframe::Storage>) {
-        self.preferences = preferences::ContactTablePreferences::restore(storage);
+        self.preferences =
+            preferences::ContactTablePreferences::restore(storage, preferences::TableKind::History);
         self.query.order = self.preferences.order;
     }
 
@@ -88,7 +101,8 @@ impl ContactsUi {
         if self.query.view != view {
             self.query.view = view;
             self.selected.clear();
-            self.query.selected = None;
+            self.query.show_selected = false;
+            self.query.selected_ids.clear();
             self.focused = None;
             self.pending_focus = None;
             self.page = None;
@@ -108,27 +122,12 @@ impl ContactsUi {
         requests: &mpsc::Sender<SettingsRequest>,
         definitions: &DefinitionSet,
     ) {
-        self.poll();
         if self.query.view != snapshot.logbooks.selected_view {
             self.refresh(snapshot.logbooks.selected_view);
         }
-        if (self.dirty || !self.initialized) && self.page_request.is_none() {
-            let (reply, receiver) = oneshot::channel();
-            let query = self.query.clone();
-            if requests
-                .try_send(SettingsRequest {
-                    action: SettingsAction::Contacts(ContactAction::Page {
-                        query: query.clone(),
-                    }),
-                    reply,
-                })
-                .is_ok()
-            {
-                self.page_request = Some(PageRequest { query, receiver });
-                self.dirty = false;
-                self.initialized = true;
-            }
-        }
+        self.filter.advance(ui.ctx(), requests, false);
+        self.update_query();
+        self.poll();
         let history = egui::CentralPanel::default().frame(theme::section_frame(ui));
         history.show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
@@ -136,7 +135,7 @@ impl ContactsUi {
                 if ui.small_button("Refresh contacts").clicked() {
                     self.refresh(self.query.view);
                 }
-                let selected_view = self.query.selected.is_some();
+                let selected_view = self.query.show_selected;
                 if ui
                     .add_enabled(
                         !self.selected.is_empty() || selected_view,
@@ -148,16 +147,13 @@ impl ContactsUi {
                     )
                     .clicked()
                 {
-                    self.query.selected = if selected_view {
-                        None
-                    } else {
-                        Some(self.selected.clone())
-                    };
+                    self.query.show_selected = !selected_view;
+                    self.query.selected_ids = self.selected.clone();
                     self.refresh(self.query.view);
                 }
                 if ui.small_button("Clear selection").clicked() {
                     self.selected.clear();
-                    if self.query.selected.take().is_some() {
+                    if std::mem::take(&mut self.query.show_selected) {
                         self.refresh(self.query.view);
                     }
                 }
@@ -169,6 +165,7 @@ impl ContactsUi {
                     ui.small(notice);
                 }
             }
+            self.filter.show(ui, snapshot, definitions);
             let action = table::show(
                 ui,
                 self.page.as_ref(),
@@ -176,6 +173,7 @@ impl ContactsUi {
                 &mut self.selected,
                 &mut self.focused,
                 &mut self.pending_focus,
+                None,
             );
             if self.query.order != self.preferences.order {
                 self.query.order = self.preferences.order;
@@ -206,28 +204,83 @@ impl ContactsUi {
                     self.query.offset = self.query.offset.saturating_add(self.query.limit);
                     self.dirty = true;
                 }
-                let hidden = self
-                    .selected
-                    .iter()
-                    .filter(|id| {
-                        self.page
-                            .as_ref()
-                            .is_none_or(|page| !page.rows.iter().any(|row| &row.qso.id == *id))
-                    })
-                    .count();
+                let matching = self.page.as_ref().map_or(0, |p| p.matching_total);
+                let selected = self.page.as_ref().map_or(0, |p| p.selected_total);
+                let hidden = self.page.as_ref().map_or(0, |p| p.selected_outside_filter);
                 ui.small(format!(
-                    "Page {} · {} selected · {} not on this page",
-                    self.query.offset / self.query.limit + 1,
-                    self.selected.len(),
-                    hidden
+                    "Page {} · {matching} matching · {selected} selected · {hidden} outside filter",
+                    self.query.offset / self.query.limit + 1
                 ));
                 if self.page_request.is_some() {
                     ui.small("Loading…");
                 }
             });
         });
+        self.filter.advance(ui.ctx(), requests, false);
+        self.update_query();
+        self.read_page(requests);
         self.show_editor(ui.ctx(), definitions, requests);
         self.show_deletion(ui.ctx(), requests);
+    }
+
+    /// Align request inputs before accepting replies, including selection-only changes.
+    fn update_query(&mut self) {
+        if let Some(filter) = &self.filter.desired
+            && (self.query.filter != *filter || self.query_text != self.filter.desired_text)
+        {
+            self.query.filter = filter.clone();
+            self.query_text = self.filter.desired_text.clone();
+            self.query.offset = 0;
+            self.dirty = true;
+        }
+        if self.query.selected_ids != self.selected {
+            self.query.selected_ids = self.selected.clone();
+            self.dirty = true;
+        }
+        if self.page_request.as_ref().is_some_and(|p| {
+            p.query != self.query || p.expression != self.filter.desired_text || self.dirty
+        }) {
+            self.page_request = None;
+            self.dirty = true;
+        }
+    }
+
+    /// Admit a page only after the applied query has been restored successfully.
+    fn read_page(&mut self, requests: &mpsc::Sender<SettingsRequest>) {
+        if self.filter.desired.is_none()
+            || !(self.dirty || !self.initialized)
+            || self.page_request.is_some()
+        {
+            return;
+        }
+        let (reply, receiver) = oneshot::channel();
+        let query = self.query.clone();
+        if requests
+            .try_send(SettingsRequest {
+                action: SettingsAction::Contacts(ContactAction::Page {
+                    query: query.clone(),
+                }),
+                reply,
+            })
+            .is_ok()
+        {
+            self.page_request = Some(PageRequest {
+                query,
+                expression: self.filter.desired_text.clone(),
+                receiver,
+            });
+            self.dirty = false;
+            self.initialized = true;
+        }
+    }
+
+    /// Acknowledge the latest unfinished text before session admission closes.
+    pub fn flush_query(
+        &mut self,
+        context: &egui::Context,
+        requests: &mpsc::Sender<SettingsRequest>,
+    ) -> bool {
+        self.filter.flush(context, requests)
     }
 
     /// Admit one saved-contact operation without replacing a pending acknowledgment.

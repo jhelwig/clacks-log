@@ -71,8 +71,7 @@ Debounced validation and unapplied highlights use the shared controls. Cancel,
 Escape and the dialog close discard unapplied edits. Admitted operations settle
 even after dismissal. Their exact committed results remain visible if the next
 catalog read fails; a failed refresh never retries a mutation. Use **Refresh
-logbooks** to retry the read. QSO entry/basic contact presentation, richer history,
-and ordinary individual/group membership editing belong to #9, #10 and #51.
+logbooks** to retry the read. Individual/group membership editing belongs to #51.
 
 ## Operating settings
 
@@ -388,9 +387,21 @@ reload before overwriting their current stored facts. Delete QSO confirms the
 contact's deletion across every logbook, with Cancel initially focused.
 
 History reads bounded pages with combined UTC timestamp sorting and configurable
-columns. Pane sizes and table presentation are local preferences with reset
-controls. Worked Before, full filtering, direct membership editing, directory
-lookup and geographic autofill retain their separate delivery scopes. The
+columns. Its always-visible expression bar applies valid input after 250 ms;
+invalid or unfinished input retains the last complete results and identifies
+their applied expression. Suggestions use the shared field catalog and current
+mode/band, tag and group data. Enter/Tab accepts a suggestion; Escape dismisses
+it. Literal query text, including unfinished edits, survives restart independently
+of the last applied expression. Normal shutdown awaits the final local write.
+
+Worked Before occupies the adjacent tab or an optional dedicated window. Both
+use the same unfinished entry callsign, view, rows and column choices, with
+window-local scrolling/focus. Clearing the call clears the list. Row activation
+uses the existing saved-contact editor; opening or closing the extra window
+does not create another draft or change the workbench's selected tab.
+Pane sizes and table presentation are local preferences with reset controls.
+History and Worked Before column choices are independent. Direct membership
+editing, directory lookup and geographic autofill retain their separate scopes. The
 [manual-logging contract](../../docs/manual-logging.md) defines these boundaries.
 
 Native Windows acceptance uses the production executable with a disposable

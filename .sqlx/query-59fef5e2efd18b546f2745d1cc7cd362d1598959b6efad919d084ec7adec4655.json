@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT a.envelope_id, a.kind, a.record_id\nFROM accepted_record a\nJOIN json_each(?2) k ON json_extract(k.value, '$.kind') = a.kind\n AND json_extract(k.value, '$.record_id') = a.record_id\nWHERE a.account = ?1\nORDER BY a.envelope_id DESC\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "envelope_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "accepted_record",
+            "name": "envelope_id"
+          }
+        }
+      },
+      {
+        "name": "kind",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "accepted_record",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "record_id",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "accepted_record",
+            "name": "record_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "59fef5e2efd18b546f2745d1cc7cd362d1598959b6efad919d084ec7adec4655"
+}

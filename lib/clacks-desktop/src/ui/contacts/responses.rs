@@ -9,8 +9,15 @@ impl ContactsUi {
             match pending.receiver.try_recv() {
                 Ok(response) => {
                     let query = pending.query.clone();
+                    let expression = pending.expression.clone();
                     self.page_request = None;
                     if query == self.query && !self.dirty {
+                        if matches!(
+                            &response,
+                            SettingsResponse::Contacts(ContactResponse::Page(_))
+                        ) {
+                            self.filter.applied(expression);
+                        }
                         self.response(response);
                     }
                 }
@@ -63,6 +70,12 @@ impl ContactsUi {
     pub(super) fn accept(&mut self, response: ContactResponse) {
         self.problem = false;
         match response {
+            ContactResponse::QueryState(_) | ContactResponse::QueryStateSaved(_) => {
+                self.notice = Some("Unexpected history preference response".into());
+            }
+            ContactResponse::WorkedBefore(_) => {
+                self.notice = Some("Unexpected Worked Before response".into());
+            }
             ContactResponse::Page(page) => self.page = Some(page),
             ContactResponse::Loaded(Some(record)) => {
                 match editor::ContactEditor::from_record(record) {
@@ -79,12 +92,19 @@ impl ContactsUi {
                     Some("This contact is no longer available locally. Refresh contacts.".into())
             }
             ContactResponse::Saved(SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_)) => {
+                self.changed = true;
                 self.editor = None;
                 self.current_record = None;
                 self.refresh(self.query.view);
                 self.notice = Some("Changes saved locally".into());
             }
             ContactResponse::Deleted(SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_)) => {
+                self.changed = true;
+                if let Some(deletion) = &self.deletion
+                    && let clacks_sync::record::RecordId::Qso(id) = deletion.expected.key.id
+                {
+                    self.selected.remove(&id);
+                }
                 self.editor = None;
                 self.deletion = None;
                 self.current_record = None;

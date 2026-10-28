@@ -1,8 +1,10 @@
 //! Bounded selected-view pages for the desktop contact table.
 
-use super::{ReadSnapshot, history::HistoryRow};
-use crate::{logbooks::selection::SelectedView, rows::contact::WorkingContactRow};
+use super::{history::HistoryRow, projection::ContactFacts};
+use crate::logbooks::selection::SelectedView;
+use clacks_model::{ids::QsoId, query::Query};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 
 /// Native value used by a contact table column.
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -25,6 +27,16 @@ pub enum ContactColumn {
     Grid,
     /// Pending/conflict status.
     Status,
+    /// Full UTC end, when recorded.
+    End,
+    /// Recorded own station callsign.
+    OwnCall,
+    /// Effective own station grid.
+    OwnGrid,
+    /// Recorded own participation and references.
+    OwnReferences,
+    /// Recorded contacted participation and references.
+    ContactReferences,
 }
 
 /// Direction for present values, with absent values always last.
@@ -59,8 +71,12 @@ impl Default for ContactOrder {
 pub struct ContactPageQuery {
     /// Selected tag or built-in view.
     pub view: SelectedView,
-    /// Optional explicit selected-ID subset within this view.
-    pub selected: Option<std::collections::BTreeSet<clacks_model::ids::QsoId>>,
+    /// Validated expression applied independently of view and selection.
+    pub filter: Query,
+    /// Stable selected identities, including contacts off this page.
+    pub selected_ids: BTreeSet<QsoId>,
+    /// Inspect selected active contacts instead of restricting rows by expression.
+    pub show_selected: bool,
     /// Native ordering and deterministic ties.
     pub order: ContactOrder,
     /// Rows preceding this page.
@@ -73,7 +89,9 @@ impl Default for ContactPageQuery {
     fn default() -> Self {
         Self {
             view: SelectedView::AllContacts,
-            selected: None,
+            filter: Query::All,
+            selected_ids: BTreeSet::new(),
+            show_selected: false,
             order: Default::default(),
             offset: 0,
             limit: 100,
@@ -85,64 +103,22 @@ impl Default for ContactPageQuery {
 #[derive(Debug)]
 pub struct ContactPage {
     /// Unique working contacts with pending/review metadata.
-    pub rows: Vec<HistoryRow>,
+    pub rows: Vec<ContactRow>,
+    /// All matches in the applied view/expression, independent of paging.
+    pub matching_total: u64,
+    /// Active selected identities within the current view.
+    pub selected_total: u64,
+    /// Selected identities outside the expression, not merely off this page.
+    pub selected_outside_filter: u64,
     /// Another page follows; not an account-wide count.
     pub has_more: bool,
 }
 
-impl ReadSnapshot {
-    /// Read one selected-view page without loading or sorting the entire account in memory.
-    #[tracing::instrument(skip_all, name = "client_store.contacts.page", level = "debug", fields(account_id = %self.account, limit = query.limit, offset = query.offset))]
-    pub async fn contact_page(&mut self, query: &ContactPageQuery) -> anyhow::Result<ContactPage> {
-        anyhow::ensure!(
-            (1..=1000).contains(&query.limit),
-            "Contact page size must be between 1 and 1000"
-        );
-        let account = self.account.to_string();
-        let tag = match query.view {
-            SelectedView::Logbook(id) => Some(id.to_string()),
-            _ => None,
-        };
-        let untagged = matches!(query.view, SelectedView::Untagged);
-        let column = match query.order.column {
-            ContactColumn::Callsign => "call",
-            ContactColumn::Start => "start",
-            ContactColumn::Band => "band",
-            ContactColumn::Mode => "mode",
-            ContactColumn::Frequency => "frequency",
-            ContactColumn::Sent => "sent",
-            ContactColumn::Received => "received",
-            ContactColumn::Grid => "grid",
-            ContactColumn::Status => "status",
-        };
-        let descending = matches!(query.order.direction, SortDirection::Descending);
-        let limit = i64::from(query.limit) + 1;
-        let offset = i64::from(query.offset);
-        let selected = query.selected.as_ref().map(|ids| {
-            ids.iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-                .join(",")
-        });
-        let mut rows = sqlx::query_file_as!(
-            WorkingContactRow,
-            "sql/read/contacts.sql",
-            account,
-            tag,
-            untagged,
-            column,
-            descending,
-            limit,
-            offset,
-            selected
-        )
-        .fetch_all(&mut *self.transaction)
-        .await?;
-        let has_more = rows.len() > usize::try_from(query.limit)?;
-        rows.truncate(usize::try_from(query.limit)?);
-        Ok(ContactPage {
-            rows: self.working_contacts(rows).await?,
-            has_more,
-        })
-    }
+/// One saved working contact with separate effective read information.
+#[derive(Clone, Debug)]
+pub struct ContactRow {
+    /// Saved native values and pending/conflict context.
+    pub working: HistoryRow,
+    /// Native-selected fallback information and service evidence.
+    pub facts: ContactFacts,
 }

@@ -347,8 +347,23 @@ D134 requires geographic data to be independently versioned/replaceable and upda
 
 ## Contact-history search
 
-D114 requires MVP filters in the current logbook by worked callsign, UTC date/time range, band/mode, own-station callsign, grid/POTA references, and per-service upload/confirmation status. Filtered/selected results support the already accepted export and bulk-directory actions. Exact matching semantics, field availability, presentation, and sorting remain open; this does not add award tracking.
+The [history specification](history.md) consolidates #10's local history,
+Worked Before, and expression-based query behavior, separating accepted
+requirements from engineering defaults. History searches the selected named
+logbook, All contacts, or Untagged view using this client's saved working values.
+D114's callsign, UTC timestamp, band/mode, own-station, grid/activity-reference
+and per-service status searches use the same extensible typed query language.
 
+D329–D342 define the always-visible query bar, Boolean/token syntax,
+case-insensitive matching, units, presence tests, suggestions and tag-name
+behavior. D343 excludes scoped collection-member syntax. D344 selects effective
+ordinary fields with explicit recorded variants without changing fallback;
+D345–D348 define operator-facing mode, geographic grid and activity/reference
+matching. D349/D350 keep publication and confirmation independent with
+service-specific evidence contexts. D351 preserves shared edited/last-valid
+query state across views and restarts. Filtering/sorting preserve selection;
+view changes clear it. Selected/filtered contacts support the existing export
+and bulk-directory capabilities without controlling server jobs.
 
 ## Saved contact values in history (D180)
 
@@ -363,9 +378,9 @@ Provide account-wide review of this client's pending and conflicted work, with t
 - A today indicator uses the **UTC calendar day**, not a rolling 24-hour window.
 - Prior contact information must not be restricted to today.
 - Show available grid and POTA reference information so multiple park activations by the same operator remain distinguishable.
-- D100 scopes Worked Before to the current Clacks logbook, showing all matching contacts across saved own-station callsigns. The account may have multiple logbooks under D101. D115 makes Worked Before follow the effective Clacks callsign using local contact history independently of directory lookup, including GridTracker Generate Messages via WS DX-call status; D180 selects local saved working values for pending/conflicting contacts, with status indicators and one entry per QSO identity. D181 hides pending deletions from normal views while preserving access through pending/conflict review. Exact filter presentation remains open.
-- D117 makes Worked Before a prefix search using the text in Clacks's call field against recorded worked callsigns in the current book. W7HEX can match W7HEX/P; W7HEX/P does not match plain W7HEX. The base/portable-variant expansion proposal was replaced. Empty input clears the view under D116; do not interpret it as a request for every contact. Retain recorded callsigns and grid/POTA details. Case/format normalization remains open. This does not change canonical QSO identity or import/service matching rules.
-- Selection-driven access from the existing operating workflow matters. D115 identifies GridTracker Generate Messages → WS DX-call status → Clacks as the selection path. Actual forwarding/source setup and exact UI layout remain to be specified.
+- D100 scopes Worked Before to the current Clacks logbook, showing all matching contacts across saved own-station callsigns. The account may have multiple logbooks under D101. D115 makes Worked Before follow the effective Clacks callsign using local contact history independently of directory lookup, including GridTracker Generate Messages via WS DX-call status; D180 selects local saved working values for pending/conflicting contacts, with status indicators and one entry per QSO identity. D181 hides pending deletions from normal views while preserving access through pending/conflict review. The [history specification](history.md) defines the table and query presentation.
+- D117 makes Worked Before a prefix search using the text in Clacks's call field against recorded worked callsigns in the current book. W7HEX can match W7HEX/P; W7HEX/P does not match plain W7HEX. The base/portable-variant expansion proposal was replaced. Empty input clears the view under D116; do not interpret it as a request for every contact. Retain recorded callsigns and grid/POTA details. Use the recorded-callsign trim/uppercase conventions for prefix input, preserving slash components. This does not change canonical QSO identity or import/service matching rules.
+- Selection-driven access from the existing operating workflow matters. D115 identifies GridTracker Generate Messages → WS DX-call status → Clacks as the selection path. Live forwarding/source setup belongs to capture integration; #10 supplies the local callsign-driven view and the agreed workbench layout.
 
 D127 makes POTA references and contest identifiers share a typed activity/reference context pattern, carried into QSO snapshots, with field-specific ADIF mapping and correct own-station/contacted-station reference sets on each QSO. A contest identifier alone does not imply a separate contest subsystem, scoring, or contest-management workflow. D129 places dedicated sent/received contest-exchange recording post-MVP, with general QSO comments available for free-text exchange information. D128 optional signal reports remain in MVP. D254 and issue #1 refinements define data-driven peer groups, two station-side unordered reference sets, and group-ID-plus-optional-identifier associations. Exact historical import mappings remain interchange work.
 
@@ -381,7 +396,7 @@ D126 places manually recorded paper-contact confirmation (QSL) sent/received sta
 
 ## MVP boundaries
 
-Established MVP scope includes independent offline QSO use, reconciliation, WS Suite logging integration, and LoTW and QRZ publication/confirmation workflows. The Worked Before workflow is a central operating requirement; its detailed first-release interaction design is not complete.
+Established MVP scope includes independent offline QSO use, reconciliation, WS Suite logging integration, and LoTW and QRZ publication/confirmation workflows. The Worked Before workflow is a central operating requirement; its first-release interaction and query design is specified in [local history](history.md).
 
 Certificate import is in MVP; certificate requests and renewals are later scope. D53 supports multiple QRZ logbooks and LoTW certificates, routing each QSO by its saved station callsign and date; missing/ambiguous routing pauses only affected uploads. A server connection is required for certificate import.
 

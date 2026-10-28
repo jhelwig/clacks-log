@@ -3,6 +3,7 @@
 mod actions;
 mod appearance;
 mod closing;
+mod contact_table;
 mod contacts;
 mod dialog;
 mod equipment;
@@ -20,6 +21,7 @@ mod tests;
 mod theme;
 mod validation;
 mod workbench;
+mod worked_before;
 
 use crate::{
     session::{SessionCommand, SessionStatus, settings::SettingsRequest},
@@ -88,6 +90,8 @@ pub(crate) struct DesktopApp {
     shutdown_pending: bool,
     /// Prevent repeated close requests from restarting shutdown.
     close_requested: bool,
+    /// Original close deadline also covers final preference acknowledgment.
+    close_started: Option<std::time::Instant>,
     /// Emit a delayed-shutdown warning once.
     delayed_reported: bool,
     /// Hide the choice after explicitly selecting continued waiting.
@@ -126,6 +130,7 @@ impl DesktopApp {
             logbooks: Default::default(),
             shutdown_pending: false,
             close_requested: false,
+            close_started: None,
             delayed_reported: false,
             continuing: false,
             command_error: None,
@@ -148,6 +153,7 @@ impl DesktopApp {
         if !self.close_requested {
             self.shutdown_pending = true;
             self.close_requested = true;
+            self.close_started = Some(std::time::Instant::now());
         }
     }
 
@@ -172,7 +178,7 @@ impl DesktopApp {
             self.continuing = false;
         }
 
-        if self.shutdown_pending {
+        if self.shutdown_pending && self.workbench.flush_query(context, &self.settings_requests) {
             match self.commands.try_send(SessionCommand::BeginShutdown) {
                 Ok(()) => self.shutdown_pending = false,
                 Err(mpsc::error::TrySendError::Full(_)) => {}
@@ -308,6 +314,19 @@ impl eframe::App for DesktopApp {
                     theme::section_frame(ui).show(ui, |ui| {
                         ui.heading("Closing workspace");
                         closing::show(self, ui, phase, started);
+                    });
+                } else if self.shutdown_pending
+                    && let Some(started) = self.close_started
+                {
+                    theme::section_frame(ui).show(ui, |ui| {
+                        ui.heading("Closing workspace");
+                        if let Some(error) = self.workbench.query_save_error() {
+                            feedback::problem(ui, error);
+                            if ui.button("Retry saving history query").clicked() {
+                                self.workbench.retry_query_save();
+                            }
+                        }
+                        closing::show(self, ui, "Saving history query…", started);
                     });
                 }
             });

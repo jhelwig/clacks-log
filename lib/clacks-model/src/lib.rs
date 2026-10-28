@@ -52,3 +52,5 @@ pub mod group;
 pub mod effective;
 
 pub mod service;
+
+pub mod query;

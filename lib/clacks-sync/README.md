@@ -199,6 +199,11 @@ retained input used by selection. Ordering-only refreshes reuse a disposition
 only when its reviewed occurrence represents the current facts; an older
 rejection of different content cannot suppress new review work.
 
+`SelectedObservations.confirmation_supporting` identifies the occurrences
+establishing the selected confirmation specifically. Read adapters use those
+occurrences to locate retained confirmed-QSO baselines; newer receipt fields
+do not imply that their observation also supplied the current confirmation.
+
 ## Observability
 
 The [production observability contract](../../docs/observability.md) applies to

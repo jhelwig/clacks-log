@@ -36,6 +36,36 @@ async fn repeated_create_acknowledges_only_the_same_submitted_contact() -> anyho
         created,
         ContactResponse::Saved(SaveOutcome::Saved(_))
     ));
+    let state = QueryState {
+        edited: "mode:SSB OR".into(),
+        applied: "mode:SSB".into(),
+    };
+    assert!(matches!(
+        execute(&store, ContactAction::SaveQueryState { state: state.clone() }).await?,
+        ContactResponse::QueryStateSaved(saved) if saved == state
+    ));
+    assert!(matches!(
+        execute(&store, ContactAction::LoadQueryState).await?,
+        ContactResponse::QueryState(saved) if saved == state
+    ));
+    let page = execute(
+        &store,
+        ContactAction::Page {
+            query: ContactPageQuery {
+                filter: clacks_model::query::parse(
+                    &state.applied,
+                    clacks_model::recognition::RecognitionCatalog::adif_318()?,
+                )?,
+                ..Default::default()
+            },
+        },
+    )
+    .await?;
+    let ContactResponse::Page(page) = page else {
+        anyhow::bail!("missing query page")
+    };
+    assert_eq!(page.matching_total, 1);
+    assert_eq!(page.rows.first().unwrap().working.qso.id, qso.id);
     let repeated = execute(
         &store,
         ContactAction::Save {

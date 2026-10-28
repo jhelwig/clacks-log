@@ -29,6 +29,18 @@ impl Default for PaneSizes {
     }
 }
 
+/// Adjacent tools share one pane without changing the unfinished QSO.
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+enum DetailTab {
+    /// Prior contacts for the current call.
+    #[default]
+    WorkedBefore,
+    /// Additional contacted-station facts.
+    Contact,
+    /// Contact-specific own operating settings.
+    OurSettings,
+}
+
 /// Real logging-region owner, retaining one entry across pane navigation.
 #[derive(Default)]
 pub(super) struct Workbench {
@@ -36,18 +48,49 @@ pub(super) struct Workbench {
     pub entry: LoggingUi,
     /// Actual bounded local contact list and saved editor.
     contacts: super::contacts::ContactsUi,
+    /// One prior-contact data owner, independent of the history expression.
+    worked_before: super::worked_before::WorkedBeforeUi,
     /// Last committed settings view used for actual mutation invalidation.
     previous: Option<SettingsSnapshot>,
     /// Local presentation preferences.
     sizes: PaneSizes,
+    /// Current adjacent tool, independent of an optional native window.
+    tab: DetailTab,
     /// Apply reset dimensions for one frame, then resume ordinary resizing.
     reset: bool,
 }
 
 impl Workbench {
+    /// Invalidate both contact consumers after a committed data or definition change.
+    pub fn invalidate_contacts(
+        &mut self,
+        view: clacks_client_store::logbooks::selection::SelectedView,
+    ) {
+        self.contacts.refresh(view);
+        self.worked_before.refresh();
+    }
+    /// Finish local query persistence before the runtime stops admitting work.
+    pub fn flush_query(
+        &mut self,
+        context: &egui::Context,
+        requests: &mpsc::Sender<SettingsRequest>,
+    ) -> bool {
+        self.contacts.flush_query(context, requests)
+    }
+
+    /// Surface a failed final query write while shutdown is still recoverable.
+    pub fn query_save_error(&self) -> Option<&str> {
+        self.contacts.filter.error.as_deref()
+    }
+
+    /// Retry the pending local preference write without discarding the edit.
+    pub fn retry_query_save(&mut self) {
+        self.contacts.filter.retry();
+    }
     /// Restore only pane sizes, never unfinished contact input.
     pub fn restore(&mut self, storage: Option<&dyn eframe::Storage>) {
         self.contacts.restore(storage);
+        self.worked_before.restore(storage);
         self.sizes = storage
             .and_then(|s| eframe::get_value(s, "clacks.workbench.panes.v1"))
             .unwrap_or_default();
@@ -59,6 +102,7 @@ impl Workbench {
     /// Persist local dimensions through the application storage lifecycle.
     pub fn save(&self, storage: &mut dyn eframe::Storage) {
         self.contacts.save(storage);
+        self.worked_before.save(storage);
         eframe::set_value(storage, "clacks.workbench.panes.v1", &self.sizes);
     }
 
@@ -85,7 +129,7 @@ impl Workbench {
         self.entry.refresh(snapshot);
         let contact_changed = std::mem::take(&mut self.entry.changed);
         if self.previous.as_ref() != Some(snapshot) || contact_changed {
-            self.contacts.refresh(snapshot.logbooks.selected_view);
+            self.invalidate_contacts(snapshot.logbooks.selected_view);
             self.previous = Some(snapshot.clone());
         }
         let available = ui.available_size();
@@ -122,13 +166,46 @@ impl Workbench {
                     .show(ui, |ui| self.entry.show(ui, requests));
             });
             self.sizes.width = left.response.rect.width();
+            self.worked_before.update(
+                ui.ctx(),
+                self.entry.contact_call(),
+                snapshot.logbooks.selected_view,
+                crate::logging::time::now(),
+                requests,
+            );
             egui::CentralPanel::default()
                 .frame(theme::section_frame(ui))
-                .show(ui, |ui| self.entry.details(ui, requests));
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(
+                            &mut self.tab,
+                            DetailTab::WorkedBefore,
+                            "Worked Before",
+                        );
+                        ui.selectable_value(&mut self.tab, DetailTab::Contact, "Contact details");
+                        ui.selectable_value(&mut self.tab, DetailTab::OurSettings, "Our settings");
+                    });
+                    ui.separator();
+                    match self.tab {
+                        DetailTab::WorkedBefore => {
+                            if let Some(id) = self.worked_before.show(ui) {
+                                self.contacts.open(id, requests);
+                            }
+                        }
+                        DetailTab::Contact => self.entry.details(ui, requests, false),
+                        DetailTab::OurSettings => self.entry.details(ui, requests, true),
+                    }
+                });
         });
         self.sizes.height = top.response.rect.height();
         self.reset = false;
         self.contacts
             .show(ui, snapshot, requests, self.entry.definitions());
+        if let Some(id) = self.worked_before.show_window(ui.ctx()) {
+            self.contacts.open(id, requests);
+        }
+        if std::mem::take(&mut self.contacts.changed) {
+            self.invalidate_contacts(snapshot.logbooks.selected_view);
+        }
     }
 }

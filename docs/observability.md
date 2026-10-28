@@ -423,5 +423,20 @@ counter or repeat a committed event merely to acknowledge the UI action.
 create at `info`, with account and record IDs. `contact.save.stale` reports an
 expected-basis mismatch without logging contact facts or inventing a new
 conflict policy. These events retain correlation when debug spans are filtered.
-Bounded list reads use `client_store.contacts.page` at `debug`. Handling-boundary
+Bounded list reads use `client_store.contact_query` at `debug`. Handling-boundary
 failures and later refresh failures remain distinct from committed writes.
+
+History parsing emits `query.rejected` at `debug`, with a source range and safe
+validation reason, excluding the query itself. The desktop request boundary
+emits `contact_query.completed` at `debug` with account correlation, bounded
+`kind=history|worked_before`, matching count and returned count. Dismissed reads
+emit `contact_query.cancelled`; they do not count as failures. Admitted writes
+continue after their receiving dialog is dismissed.
+
+`client_store.contact_query.duration_seconds{kind}` measures completed desktop
+contact reads from snapshot acquisition through release, including failed reads.
+`client_store.contact_query.failures_total{kind}` counts read errors at that same
+boundary. Cancelled reads have no completed sample. These answer whether
+history or prefix reads are slow/failing without per-query metric dimensions.
+Result counts belong to the structured event, not labels. There is no latency
+metric per widget or parser invocation and no second mutation counter.

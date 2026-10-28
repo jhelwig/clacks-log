@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+pub mod service;
+
 use clacks_model::{
     contact::{BandFrequency, OwnOperatingContext, Qso, StationSnapshot},
     ids::QsoId,

@@ -2,7 +2,10 @@
 
 use super::*;
 use crate::ui::tests::fixtures;
-use clacks_client_store::read::{contacts::ContactColumn, history::HistoryRow};
+use clacks_client_store::read::{
+    contacts::{ContactColumn, SortDirection},
+    history::HistoryRow,
+};
 use egui_kittest::{Harness, kittest::Queryable};
 
 struct Host {
@@ -20,10 +23,13 @@ fn mount() -> Harness<'static, Host> {
             let mut qso = fixtures::contact();
             qso.contacted_station.callsign =
                 clacks_model::scalar::RecordedCallsign::new(&format!("K1T{n:03}")).unwrap();
-            HistoryRow {
-                qso,
-                pending: true,
-                review: None,
+            clacks_client_store::read::contacts::ContactRow {
+                facts: Default::default(),
+                working: HistoryRow {
+                    qso,
+                    pending: true,
+                    review: None,
+                },
             }
         })
         .collect();
@@ -31,13 +37,14 @@ fn mount() -> Harness<'static, Host> {
         .with_size(egui::vec2(1100.0, 240.0))
         .build_ui_state(
             |ui, host: &mut Host| {
-                let action = table::show(
+                let action = show(
                     ui,
                     Some(&host.page),
                     &mut host.preferences,
                     &mut host.selected,
                     &mut host.focused,
                     &mut host.pending_focus,
+                    None,
                 );
                 if action.open.is_some() {
                     host.opened = action.open;
@@ -47,6 +54,9 @@ fn mount() -> Harness<'static, Host> {
                 page: ContactPage {
                     rows,
                     has_more: false,
+                    matching_total: 40,
+                    selected_total: 0,
+                    selected_outside_filter: 0,
                 },
                 preferences: Default::default(),
                 selected: Default::default(),
@@ -66,7 +76,7 @@ fn keyboard_navigation_scrolls_to_and_opens_the_contact_by_identity() {
         ui.key_press(egui::Key::ArrowDown);
         ui.run();
     }
-    let expected = ui.state().page.rows.get(12).unwrap().qso.id;
+    let expected = ui.state().page.rows.get(12).unwrap().working.qso.id;
     assert_eq!(ui.state().focused, Some(expected));
     assert_eq!(ui.state().selected, [expected].into());
     assert!(ui.query_by_label("K1T012").is_some());
@@ -119,4 +129,85 @@ fn tab_focus_can_open_a_contact_without_a_pointer_click() {
     ui.key_press(egui::Key::Enter);
     ui.run();
     assert_eq!(ui.state().opened, Some(focused));
+}
+
+#[test]
+fn full_cell_headers_sort_and_configure_columns_even_without_contacts() {
+    let mut ui = mount();
+    ui.set_size(egui::vec2(1100.0, 650.0));
+    ui.state_mut().page.rows.clear();
+    ui.state_mut().page.matching_total = 0;
+    ui.run();
+    assert!(ui.query_by_label("Columns").is_none());
+    let start = ui
+        .get_by_role_and_label(egui::Role::ColumnHeader, "Start · UTC")
+        .rect();
+    assert!(
+        start.width() >= 175.0,
+        "the entire column header is interactive"
+    );
+    ui.get_by_role_and_label(egui::Role::ColumnHeader, "Start · UTC")
+        .click();
+    ui.run();
+    assert_eq!(
+        ui.state().preferences.order.direction,
+        SortDirection::Ascending
+    );
+    assert!(ui.state().selected.is_empty());
+
+    ui.get_by_label("Callsign").click_secondary();
+    ui.run();
+    ui.get_by_label("Own call").click();
+    ui.run();
+    assert!(
+        ui.state()
+            .preferences
+            .columns
+            .iter()
+            .find(|c| c.column == ContactColumn::OwnCall)
+            .unwrap()
+            .visible
+    );
+    ui.key_press(egui::Key::Escape);
+    ui.run();
+    assert!(ui.query_by_label("Own call").is_some());
+
+    ui.get_by_label("Callsign").click_secondary();
+    ui.run();
+    ui.get_by_label("Move column right").click();
+    ui.run();
+    assert_eq!(
+        ui.state().preferences.columns.first().unwrap().column,
+        ContactColumn::Start
+    );
+    ui.get_by_label("Callsign").click_secondary();
+    ui.run();
+    ui.get_by_label("Reset table defaults").click();
+    ui.run();
+    assert_eq!(
+        ui.state().preferences.columns.first().unwrap().column,
+        ContactColumn::Callsign
+    );
+    assert!(
+        !ui.state()
+            .preferences
+            .columns
+            .iter()
+            .find(|c| c.column == ContactColumn::OwnCall)
+            .unwrap()
+            .visible
+    );
+
+    // A previously saved all-hidden layout must still have a recovery target.
+    for column in &mut ui.state_mut().preferences.columns {
+        column.visible = false;
+    }
+    ui.run();
+    ui.get_by_label("Right-click to choose columns")
+        .click_secondary();
+    ui.run();
+    ui.get_by_label("Own call").click();
+    ui.key_press(egui::Key::Escape);
+    ui.run();
+    assert!(ui.query_by_label("Own call").is_some());
 }

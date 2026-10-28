@@ -7,6 +7,8 @@ use clacks_client_store::{
     read::{
         self,
         contacts::{ContactPage, ContactPageQuery},
+        query_state::{self, QueryState},
+        worked_before::WorkedBeforeQuery,
     },
     save::{self, SaveOutcome},
     store::ClientStore,
@@ -19,6 +21,12 @@ use clacks_sync::{
 
 /// Owned contact work admitted through the existing session channel.
 pub(crate) enum ContactAction {
+    /// Read prior contacts for the current literal contacted-callsign prefix.
+    WorkedBefore { query: WorkedBeforeQuery },
+    /// Restore unfinished and applied history expressions.
+    LoadQueryState,
+    /// Save local history text without changing shared settings.
+    SaveQueryState { state: QueryState },
     /// Read one bounded selected-view page.
     Page { query: ContactPageQuery },
     /// Load an actual record and expected editing basis.
@@ -35,6 +43,12 @@ pub(crate) enum ContactAction {
 /// An authoritative contact result, independent of any following settings refresh.
 #[derive(Debug)]
 pub(crate) enum ContactResponse {
+    /// Working contacts supplying the shared Worked Before view.
+    WorkedBefore(ContactPage),
+    /// Stored expression text, independent of parsing and current rows.
+    QueryState(QueryState),
+    /// The exact preference pair durably acknowledged by the store.
+    QueryStateSaved(QueryState),
     /// Real local working rows.
     Page(ContactPage),
     /// Current stored record, absent when unavailable locally.
@@ -52,6 +66,22 @@ pub(crate) async fn execute(
     action: ContactAction,
 ) -> anyhow::Result<ContactResponse> {
     match action {
+        ContactAction::WorkedBefore { query } => {
+            let mut snapshot = read::snapshot(store).await?;
+            let page = snapshot.worked_before(&query).await?;
+            snapshot.close().await?;
+            Ok(ContactResponse::WorkedBefore(page))
+        }
+        ContactAction::LoadQueryState => {
+            let mut snapshot = read::snapshot(store).await?;
+            let state = snapshot.history_query_state().await?;
+            snapshot.close().await?;
+            Ok(ContactResponse::QueryState(state))
+        }
+        ContactAction::SaveQueryState { state } => {
+            query_state::save(store, &state).await?;
+            Ok(ContactResponse::QueryStateSaved(state))
+        }
         ContactAction::Page { query } => {
             let mut snapshot = read::snapshot(store).await?;
             let page = snapshot.contact_page(&query).await?;

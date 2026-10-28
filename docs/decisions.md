@@ -412,7 +412,7 @@ MVP bulk directory lookup is user-triggered on selected or filtered QSOs and rep
 
 #### D100
 
-Worked Before searches the current Clacks logbook and shows all matching contacts within it across saved own-station callsigns, retaining D18's UTC-today and earlier grid/POTA context. Do not extend the default search to other logbooks in the account. Exact filters/presentation and GridTracker integration remain open.
+Worked Before searches the current Clacks logbook and shows all matching contacts within it across saved own-station callsigns, retaining D18's UTC-today and earlier grid/POTA context. Named-logbook searches do not extend to other logbooks; D302 also provides the selected All contacts and Untagged views. The [history specification](history.md) defines local matching/presentation; live GridTracker forwarding remains capture-integration work.
 
 ### Decisions D101–D125
 
@@ -470,7 +470,7 @@ Do not persist/restore unfinished manual QSO entries across closing or restartin
 
 #### D114
 
-MVP contact-history filters cover worked callsign, UTC date/time range, band/mode, own-station callsign, grid/POTA references, and per-service upload/confirmation status within the current logbook. This set is sufficient for MVP. Selected/filtered results support existing export and bulk-directory operations; exact matching/presentation remains open.
+MVP contact-history filters cover worked callsign, UTC date/time range, band/mode, own-station callsign, grid/POTA references, and per-service upload/confirmation status within the current logbook. This set is sufficient for MVP. Selected/filtered results support existing export and bulk-directory operations. The [history specification](history.md) consolidates expression matching and presentation under D329–D351, with engineering defaults identified separately.
 
 #### D115
 
@@ -482,7 +482,7 @@ Empty incoming WS DX calls are authoritative too: clear Clacks's call and associ
 
 #### D117
 
-Worked Before treats text in the Clacks call field as a prefix match against recorded worked callsigns in the current logbook. Do not replace this with automatic base/portable-variant expansion. For example, W7HEX can match W7HEX/P, while W7HEX/P does not match plain W7HEX. An empty call still clears the display under D116. Case/format normalization and exact presentation remain open.
+Worked Before treats text in the Clacks call field as a prefix match against recorded worked callsigns in the current logbook. Do not replace this with automatic base/portable-variant expansion. For example, W7HEX can match W7HEX/P, while W7HEX/P does not match plain W7HEX. An empty call still clears the display under D116. The [history specification](history.md) defines prefix input and presentation, distinguishing engineering defaults from agreed behavior.
 
 #### D118
 
@@ -1288,8 +1288,8 @@ Provide quick profile, equipment and operator changes from the summary, preservi
 the existing loading, selection and reusable-record boundaries. Edit power inline:
 Enter, Tab or leaving the field commits valid input; Escape restores committed
 power. Use an explicit Operating settings… action beside the summary controls.
-The [desktop UI contract](desktop-ui.md) owns the detailed behavior. Colors,
-typography, exact dimensions and the shared component system remain under design.
+The [desktop UI contract](desktop-ui.md) owns the detailed behavior. The shared contract defines colors, typography and component behavior;
+exact layout dimensions remain implementation choices.
 
 ### Decision D289
 
@@ -1611,3 +1611,264 @@ to split the timestamp. The
 [desktop UI contract](desktop-ui.md#contact-entry-and-full-editing) owns entry
 presentation and its [column rules](desktop-ui.md#columns-and-sorting) own
 table presentation.
+
+### Decision D328
+
+#### D328
+
+Worked Before defaults to UTC start, Callsign, Band, Mode, Contacted grid,
+and Contacted activity references, with a compact Today indicator and
+pending/conflict markers. Own-station information and signal reports remain
+available through column configuration. Preserve one row per QSO and the
+independent table preferences. The
+[desktop UI contract](desktop-ui.md#columns-and-sorting) owns these defaults.
+
+### Decision D329
+
+#### D329
+
+Expose history filters without requiring a dialog, using an always-visible
+query bar with Gmail/GitHub-style named tokens and support for more complex
+expressions. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns this direction;
+the concrete expression grammar and editing behavior remain to be specified.
+
+### Decision D330
+
+#### D330
+
+Default unqualified history-query text to worked-callsign matching. Provide
+explicit `name:` and `comment:` tokens for contact-name and comment searches.
+Unqualified text uses prefix matching against recorded worked callsigns,
+without automatic base-call or portable-variant expansion. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns this behavior.
+
+### Decision D331
+
+#### D331
+
+Valid history-query expressions automatically update results after a
+debounce, without requiring Enter to apply them. Invalid or incomplete
+expressions retain the applied query and its results while inline validation
+identifies the issue. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns this behavior.
+
+### Decision D332
+
+#### D332
+
+Use case-insensitive substring matching for `name:` and `comment:` history
+tokens. Quoted values preserve multiword phrases. For example, `name:alice`
+matches Alice Smith and `comment:"first contact"` matches My first contact
+on 40 m. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns these rules.
+
+### Decision D333
+
+#### D333
+
+Adjacent history-query predicates mean AND, even when they refer to the same
+field. OR must be explicit; parentheses group alternatives and a leading
+minus negates a predicate. Predicate combination is independent of field. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns this behavior.
+
+### Decision D334
+
+#### D334
+
+Use `field:value` tokens with optional comparison prefixes inside the value.
+For example, `qso_start:>2026-10-27T18:00:00Z` means strictly after that
+timestamp; `qso_start:>=2026-10-27T18:00:00Z` includes it. Keep named tokens
+without prefixes, such as `mode:CW` and `name:alice`, under their matching
+rules. Do not require users to write SQL-like comparison expressions. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns this syntax.
+
+### Decision D335
+
+#### D335
+
+History-query precedence is NOT, then AND (including adjacency), then OR.
+Parentheses override precedence. The `NOT` keyword and leading minus express
+negation. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns this grammar.
+
+### Decision D336
+
+#### D336
+
+Date-only values in timestamp query tokens denote complete UTC days.
+`qso_start:2026-10-27` matches starts anywhere on that day;
+`qso_start:>=2026-10-27` includes that day and later times;
+`qso_start:>2026-10-27` begins after that day ends. Full timestamps retain
+exact comparisons. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns this behavior.
+
+### Decision D337
+
+#### D337
+
+Include `has:<field>` for optional-field presence tests. Ordinary negation
+finds missing values. For example, `has:comment` finds contacts with comments
+and `-has:qso_end` finds contacts without a recorded end time. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns this behavior.
+
+### Decision D338
+
+#### D338
+
+Provide automatic context-aware history-query suggestions with keyboard
+selection and dismissal. Suggest field names, supported comparison prefixes
+and appropriate values, with brief field descriptions. Suggestions assist
+entry without requiring users to select them. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns this behavior.
+
+### Decision D339
+
+#### D339
+
+The `tag:` query token matches exact tag names, including all tags with an
+identical name. Return each matching QSO once. Disambiguating individual
+same-name tags through query tokens is deferred. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns this behavior.
+
+### Decision D340
+
+#### D340
+
+Use case-insensitive whole-value matching for `=` on text fields. For
+example, `name:=alice` matches Alice but not Alice Smith. Apply this prefix
+consistently to callsigns and other text fields while retaining each token's
+default matching when no prefix is supplied. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns this behavior.
+
+### Decision D341
+
+#### D341
+
+Default query frequency values to MHz and transmit-power values to watts.
+Accept explicit compatible unit suffixes, including Hz/kHz/MHz for frequency
+and mW/W for power. Suggestions show each field's default unit. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns query units;
+saved native values and their resolution remain unchanged.
+
+### Decision D342
+
+#### D342
+
+Use dotted names for nested query fields, while retaining established short
+tokens. Examples include `own.call`, `contact.call`, `own.grid`,
+`contact.grid`, `receive.frequency`, and `lotw.confirmed`. Naming does not
+implicitly determine matching behavior. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns this convention.
+
+### Decision D343
+
+#### D343
+
+Scoped collection-member query groups are unnecessary for this pass and are
+excluded from the current query scope. This does not commit to adding them
+later. The
+[desktop UI contract](desktop-ui.md#history-filter-entry) owns this boundary.
+
+### Decision D344
+
+#### D344
+
+Query ordinary name/location fields as effective displayed values, with
+explicit `recorded.` variants for saved QSO facts. Preserve the existing
+fallback order, eligibility and whole-location selection rules. Station
+callsigns and operator information remain recorded facts. Primary radio
+fields query the primary pair; receive fields use the native effective
+receive pair, while recorded receive variants inspect the optional override.
+`has:` follows the target field's binding. Power, reports, comments and
+equipment query saved QSO values. The
+[query contract](history.md#field-source-bindings--agreed-d344) owns this
+mapping.
+
+### Decision D345
+
+#### D345
+
+For mode queries, `mode:SSB` and `mode:=SSB` have the same meaning. An
+explicit equality prefix does not select a different mode interpretation.
+The [query contract](history.md) owns the mapping; D346 defines the
+mode-family matching behavior.
+
+### Decision D346
+
+#### D346
+
+`mode:SSB` includes USB and LSB contacts, while `mode:USB` narrows to USB.
+Use data-driven mode-family relationships without requiring users to
+navigate parent/submode projections. An explicit `=` retains the same
+meaning under D345. Querying does not change saved mode identity. The
+[query contract](history.md#mode-matching--agreed-d345d346) owns this
+behavior.
+
+### Decision D347
+
+#### D347
+
+Grid query tokens mean known to be within the specified grid: include
+explicit points inside it and grid areas equal to or wholly contained within
+it. Broader or merely overlapping areas do not qualify; a grid area's center
+does not establish an exact position. An explicit `=` retains the same
+geographic meaning. Ordinary fields use the effective location; `recorded.`
+variants apply the same predicate to recorded location information. The
+[query contract](history.md#grid-matching--agreed-d347) owns this rule.
+
+### Decision D348
+
+#### D348
+
+Use `own.activity:` and `contact.activity:` to search activity participation.
+Use `own.reference:` and `contact.reference:` with group-qualified values,
+such as `POTA/US-0001`, to search particular references. Group names resolve
+through ordinary synchronized definitions without special behavior for POTA.
+Activity queries also cover groups without individual reference identifiers.
+No collection-member syntax is required. The
+[query contract](history.md#activity-and-reference-searches--agreed-d348)
+owns this mapping.
+
+### Decision D349
+
+#### D349
+
+Use Boolean `lotw.uploaded`, `lotw.confirmed`, `qrz.uploaded`, and
+`qrz.confirmed` predicates. Uploaded means positive evidence covers current
+service-relevant values; confirmed means positive confirmation applies to the
+current QSO. `false` is ordinary negation, including missing or inapplicable
+evidence, not an assertion of provider rejection or explicit unconfirmed
+status. Upload and confirmation remain independent; preserve historical
+evidence and existing imported-positive/applicability rules. The
+[query contract](history.md#upload-and-confirmation-searches--agreed-d349)
+owns this mapping.
+
+### Decision D350
+
+#### D350
+
+Apply service-specific contexts to upload/confirmation queries. QRZ uses the
+QSO's applicable book, identified by its saved station callsign/date and
+existing association. Do not aggregate unrelated books or replace historical
+book context with the currently open book. Preserve evidence and report
+inconsistent book metadata/associations rather than inventing a migration.
+LoTW evidence applies to the QSO's saved station identity; certificates are
+signing inputs, not separate remote logbooks, and changing a download login
+does not invalidate retained evidence. Accept applicable imported positives
+without requiring destination provenance. Credential changes, upload pauses,
+disabled automatic uploads and failed downloads do not invalidate existing
+positives. Query status is distinct from upload-job eligibility. The
+[query contract](history.md#service-context--agreed-d350) owns these rules.
+
+### Decision D351
+
+#### D351
+
+Preserve one shared client-local history-query state across views and
+application restarts. Retain unfinished/invalid edited text and the last
+valid applied query. Restore the edited text with inline diagnostics and a
+clear indication of the applied query, evaluating results against the current
+view and saved data. Existing view-change selection clearing remains in
+force. The [query contract](history.md#shared-query-state--agreed-d351)
+owns this behavior.

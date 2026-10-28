@@ -1,0 +1,45 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT q.record_id, q.payload_id, q.pending AS \"pending!: bool\"\nFROM local_qso q\nWHERE q.account = ?1 AND q.record_id IN (SELECT value FROM json_each(?2))\nORDER BY q.record_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "record_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "name": "payload_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "payload_id"
+          }
+        }
+      },
+      {
+        "name": "pending!: bool",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "946397131359280ad0fa20b96ae11d0eccd7896ffe7aae576f0e09807384cc47"
+}

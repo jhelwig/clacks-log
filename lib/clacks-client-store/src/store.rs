@@ -46,6 +46,7 @@ pub(crate) fn options(path: &Path, settings: &StoreSettings) -> SqliteConnectOpt
         .filename(path)
         .busy_timeout(settings.busy_timeout)
         .disable_statement_logging()
+        .with_regexp()
 }
 
 impl ClientStore {

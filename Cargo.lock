@@ -914,6 +914,7 @@ dependencies = [
  "libc",
  "metrics",
  "metrics-opentelemetry",
+ "metrics-util",
  "opentelemetry",
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",
@@ -1053,6 +1054,8 @@ dependencies = [
  "deunicode",
  "metrics",
  "metrics-util",
+ "num-bigint",
+ "num-integer",
  "regex",
  "serde",
  "serde_json",
@@ -1061,6 +1064,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "ulid",
+ "winnow",
 ]
 
 [[package]]
@@ -5813,6 +5817,7 @@ dependencies = [
  "libsqlite3-sys",
  "log",
  "percent-encoding",
+ "regex",
  "serde",
  "sqlx-core",
  "thiserror 2.0.21",
