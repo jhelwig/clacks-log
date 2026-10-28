@@ -175,6 +175,7 @@ pub(super) async fn execute(store: ClientStore, request: SettingsRequest) -> Com
     let snapshot = match &response {
         SettingsResponse::Contacts(
             contacts::ContactResponse::Page(_)
+            | contacts::ContactResponse::WorkedBefore(_)
             | contacts::ContactResponse::Loaded(_)
             | contacts::ContactResponse::QueryState(_)
             | contacts::ContactResponse::QueryStateSaved(_),

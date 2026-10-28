@@ -36,6 +36,8 @@ pub(super) struct Workbench {
     pub entry: LoggingUi,
     /// Actual bounded local contact list and saved editor.
     contacts: super::contacts::ContactsUi,
+    /// One prior-contact data owner, independent of the history expression.
+    worked_before: super::worked_before::model::WorkedBeforeModel,
     /// Last committed settings view used for actual mutation invalidation.
     previous: Option<SettingsSnapshot>,
     /// Local presentation preferences.
@@ -104,6 +106,7 @@ impl Workbench {
         let contact_changed = std::mem::take(&mut self.entry.changed);
         if self.previous.as_ref() != Some(snapshot) || contact_changed {
             self.contacts.refresh(snapshot.logbooks.selected_view);
+            self.worked_before.refresh();
             self.previous = Some(snapshot.clone());
         }
         let available = ui.available_size();
@@ -140,6 +143,14 @@ impl Workbench {
                     .show(ui, |ui| self.entry.show(ui, requests));
             });
             self.sizes.width = left.response.rect.width();
+            self.worked_before.update(
+                ui.ctx(),
+                self.entry.contact_call(),
+                snapshot.logbooks.selected_view,
+                Default::default(),
+                crate::logging::time::now(),
+                requests,
+            );
             egui::CentralPanel::default()
                 .frame(theme::section_frame(ui))
                 .show(ui, |ui| self.entry.details(ui, requests));

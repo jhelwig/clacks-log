@@ -90,6 +90,10 @@ impl Default for LoggingUi {
 }
 
 impl LoggingUi {
+    /// Borrow the unfinished contacted call for Worked Before without exposing the draft.
+    pub fn contact_call(&self) -> &str {
+        &self.entry.form.dx.callsign
+    }
     /// Follow current defaults when editable, preserving the submitted value while busy.
     pub fn refresh(&mut self, snapshot: &SettingsSnapshot) {
         let defaults_changed =

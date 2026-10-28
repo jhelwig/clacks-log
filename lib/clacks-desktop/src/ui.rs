@@ -20,6 +20,7 @@ mod tests;
 mod theme;
 mod validation;
 mod workbench;
+mod worked_before;
 
 use crate::{
     session::{SessionCommand, SessionStatus, settings::SettingsRequest},

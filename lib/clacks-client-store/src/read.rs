@@ -6,6 +6,7 @@ pub mod projection;
 mod query;
 pub mod query_state;
 pub mod review;
+pub mod worked_before;
 
 use crate::{
     metadata,

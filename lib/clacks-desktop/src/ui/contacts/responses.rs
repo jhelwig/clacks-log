@@ -73,6 +73,9 @@ impl ContactsUi {
             ContactResponse::QueryState(_) | ContactResponse::QueryStateSaved(_) => {
                 self.notice = Some("Unexpected history preference response".into());
             }
+            ContactResponse::WorkedBefore(_) => {
+                self.notice = Some("Unexpected Worked Before response".into());
+            }
             ContactResponse::Page(page) => self.page = Some(page),
             ContactResponse::Loaded(Some(record)) => {
                 match editor::ContactEditor::from_record(record) {
