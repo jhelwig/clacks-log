@@ -199,8 +199,28 @@ fn editor_membership_uses_the_existing_save_boundary() {
         );
     ui.get_by_label("Edit…").click();
     ui.run();
-    ui.get_by_label("Field day").click();
+    ui.get_by_role_and_label(egui::accesskit::Role::CheckBox, "Field day")
+        .click();
     ui.run();
+    ui.get_by_role_and_label(egui::accesskit::Role::CheckBox, "Field day")
+        .focus();
+    ui.key_press(egui::Key::Enter);
+    ui.run();
+    assert!(ui.state().view.editor.is_some());
+    if !ui
+        .state()
+        .view
+        .editor
+        .as_ref()
+        .unwrap()
+        .form
+        .tags
+        .contains(&tag.id)
+    {
+        ui.get_by_role_and_label(egui::accesskit::Role::CheckBox, "Field day")
+            .click();
+        ui.run();
+    }
     ui.key_press(egui::Key::Escape);
     ui.run();
     assert!(ui.state().view.editor.is_some());
@@ -214,7 +234,28 @@ fn editor_membership_uses_the_existing_save_boundary() {
             SettingsAction::Contacts(ContactAction::Save { .. })
         ));
     }
-    ui.run_steps(30);
+    ui.get_by_label("Cancel").scroll_to_me();
+    ui.run();
+    ui.get_by_label("Cancel").click();
+    ui.run();
+    assert!(ui.state().view.editor.is_none());
+    assert!(receiver.try_recv().is_err());
+    let mut editor = editor::ContactEditor::from_record(record.clone()).unwrap();
+    editor.form.comment = "Corrected fact".into();
+    ui.state_mut().view.editor = Some(editor);
+    ui.run();
+    ui.get_by_label("Edit…").scroll_to_me();
+    ui.run();
+    ui.get_by_label("Edit…").click();
+    ui.run();
+    ui.get_by_role_and_label(egui::accesskit::Role::CheckBox, "Field day")
+        .click();
+    ui.run();
+    ui.key_press(egui::Key::Escape);
+    ui.run();
+    let now = ui.ctx.input(|input| input.time);
+    ui.input_mut().time = Some(now + 0.31);
+    ui.step();
     assert!(ui.state().view.editor.as_ref().unwrap().errors.is_empty());
     assert!(
         ui.state()
@@ -237,4 +278,169 @@ fn editor_membership_uses_the_existing_save_boundary() {
     assert_eq!(expected.as_deref(), Some(&record));
     assert_eq!(next.tags, [tag.id].into());
     assert_eq!(next.comment.as_deref(), Some("Corrected fact"));
+}
+
+#[test]
+fn history_membership_request_uses_all_selected_ids() {
+    use crate::session::settings::contacts::membership::MembershipBasis;
+    use clacks_client_store::save::tags::{TagChangeEntry, TagChangeReport, TagChangeStop};
+    use egui_kittest::kittest::Queryable;
+    struct Host {
+        view: ContactsUi,
+        snapshot: SettingsSnapshot,
+        requests: mpsc::Sender<SettingsRequest>,
+        definitions: DefinitionSet,
+    }
+    let ids: BTreeSet<QsoId> = [QsoId::new(), QsoId::new(), QsoId::new()].into();
+    let (requests, mut receiver) = mpsc::channel(32);
+    let host = Host {
+        view: ContactsUi {
+            selected: ids.clone(),
+            ..Default::default()
+        },
+        snapshot: fixtures::snapshot(),
+        requests,
+        definitions: DefinitionSet::new(vec![]).unwrap(),
+    };
+    let mut ui = Harness::builder()
+        .with_size(egui::vec2(1200.0, 900.0))
+        .build_ui_state(
+            |ui, host: &mut Host| {
+                host.view
+                    .show(ui, &host.snapshot, &host.requests, &host.definitions);
+            },
+            host,
+        );
+    ui.get_by_label("Edit assigned logbooks…").click();
+    ui.run();
+    let mut prepare = None;
+    while let Ok(request) = receiver.try_recv() {
+        if let SettingsAction::Contacts(ContactAction::PrepareMembership { ids: submitted }) =
+            &request.action
+        {
+            assert_eq!(submitted, &ids);
+            prepare = Some(request.reply);
+        }
+    }
+    let tag =
+        clacks_model::tag::LogbookTag::new(clacks_model::ids::TagId::new(), "Portable".into());
+    let records: Vec<_> = ids
+        .iter()
+        .map(|id| {
+            let mut qso = fixtures::contact();
+            qso.id = *id;
+            fixtures::row(RecordValue::Qso(Box::new(qso)))
+        })
+        .collect();
+    let mut catalog = fixtures::snapshot().logbooks;
+    catalog.tags = vec![fixtures::row(RecordValue::Tag(Box::new(tag.clone())))];
+    prepare
+        .unwrap()
+        .send(SettingsResponse::Contacts(
+            ContactResponse::MembershipPrepared(MembershipBasis {
+                records: records.clone(),
+                catalog,
+            }),
+        ))
+        .unwrap();
+    ui.run();
+    ui.get_by_label("Portable").click();
+    ui.run();
+    ui.get_by_label("Apply").click();
+    ui.run();
+    let request = receiver.try_recv().unwrap();
+    let SettingsAction::Contacts(ContactAction::ChangeMembership(submission)) = request.action
+    else {
+        panic!("assignment")
+    };
+    assert_eq!(submission.basis, records);
+    assert_eq!(submission.add, [tag.id].into());
+    assert!(submission.remove.is_empty());
+    ui.state_mut()
+        .view
+        .refresh(clacks_client_store::logbooks::selection::SelectedView::Untagged);
+    ui.state_mut().view.selected.clear();
+    ui.run();
+    assert!(ui.query_by_label("Edit assigned logbooks…").is_none());
+    ui.get_by_label("Cancel processing").click();
+    ui.run();
+    assert!(submission.cancel.is_cancelled());
+    let mut rows = records.into_iter();
+    let first = rows.next().unwrap();
+    let second = rows.next().unwrap();
+    let third = rows.next().unwrap();
+    let clacks_sync::record::RecordId::Qso(first_id) = first.key.id else {
+        panic!("qso")
+    };
+    let clacks_sync::record::RecordId::Qso(second_id) = second.key.id else {
+        panic!("qso")
+    };
+    let clacks_sync::record::RecordId::Qso(third_id) = third.key.id else {
+        panic!("qso")
+    };
+    request
+        .reply
+        .send(SettingsResponse::RefreshFailed {
+            outcome: Box::new(SettingsResponse::Contacts(
+                ContactResponse::MembershipChanged(TagChangeReport {
+                    entries: vec![
+                        TagChangeEntry {
+                            id: first_id,
+                            outcome: SaveOutcome::Saved(first),
+                        },
+                        TagChangeEntry {
+                            id: second_id,
+                            outcome: SaveOutcome::Stale {
+                                current: Some(second),
+                            },
+                        },
+                    ],
+                    stop: Some(TagChangeStop::Cancelled),
+                    unprocessed: vec![third_id],
+                }),
+            )),
+            message: "Refresh failed after local changes".into(),
+        })
+        .unwrap();
+    ui.run();
+    assert!(
+        ui.query_by_label_contains("1 saved · 0 unchanged · 1 stale · 1 unprocessed")
+            .is_some()
+    );
+    assert!(
+        ui.query_by_label_contains("Refresh failed after local changes")
+            .is_some()
+    );
+    assert!(ui.state().view.changed);
+    ui.get_by_label("Assignment results").click();
+    ui.run();
+    assert!(
+        ui.query_by_label_contains(&format!("{third_id} · Unprocessed"))
+            .is_some()
+    );
+    ui.get_by_label("Dismiss assignment results").click();
+    ui.run();
+    ui.state_mut().view.selected = ids;
+    ui.run();
+    ui.get_by_label("Edit assigned logbooks…").click();
+    ui.run();
+    let mut late = None;
+    while let Ok(request) = receiver.try_recv() {
+        if matches!(
+            request.action,
+            SettingsAction::Contacts(ContactAction::PrepareMembership { .. })
+        ) {
+            late = Some(request.reply);
+        }
+    }
+    ui.state_mut()
+        .view
+        .refresh(clacks_client_store::logbooks::selection::SelectedView::Untagged);
+    ui.run();
+    assert!(
+        late.unwrap()
+            .send(SettingsResponse::Failed("obsolete read".into()))
+            .is_err()
+    );
+    assert!(ui.state().view.membership.is_none());
 }

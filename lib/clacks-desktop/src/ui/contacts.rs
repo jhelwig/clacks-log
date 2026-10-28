@@ -2,6 +2,7 @@
 
 mod deletion;
 mod editor;
+mod membership;
 mod query;
 mod responses;
 #[cfg(test)]
@@ -53,6 +54,8 @@ pub(super) struct ContactsUi {
     /// One saved-contact operation whose acknowledgment remains owned here.
     operation: Option<oneshot::Receiver<SettingsResponse>>,
 
+    /// Selected-contact assignment retained independently of popup lifetime.
+    membership: Option<membership::BulkMembership>,
     /// Independent saved-contact form, absent when dismissed.
     editor: Option<editor::ContactEditor>,
     /// Exact record awaiting individual deletion confirmation.
@@ -99,6 +102,7 @@ impl ContactsUi {
     /// Invalidate actual view-dependent results after a committed change.
     pub fn refresh(&mut self, view: SelectedView) {
         if self.query.view != view {
+            self.membership_view_changed();
             self.query.view = view;
             self.selected.clear();
             self.query.show_selected = false;
@@ -128,6 +132,10 @@ impl ContactsUi {
         self.filter.advance(ui.ctx(), requests, false);
         self.update_query();
         self.poll();
+        self.poll_membership();
+        if self.membership.is_none() {
+            egui::Popup::close_id(ui.ctx(), egui::Id::unique("contacts.membership"));
+        }
         let history = egui::CentralPanel::default().frame(theme::section_frame(ui));
         history.show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
@@ -135,6 +143,7 @@ impl ContactsUi {
                 if ui.small_button("Refresh contacts").clicked() {
                     self.refresh(self.query.view);
                 }
+                self.membership_action(ui, requests);
                 let selected_view = self.query.show_selected;
                 if ui
                     .add_enabled(
@@ -165,6 +174,7 @@ impl ContactsUi {
                     ui.small(notice);
                 }
             }
+            self.membership_feedback(ui);
             self.filter.show(ui, snapshot, definitions);
             let action = table::show(
                 ui,

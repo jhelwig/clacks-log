@@ -100,7 +100,7 @@ checking its returned stop request before starting the next transaction. Never
 cancel a save future in flight. All counts are derived from returned outcomes.
 After the last target settles, completion wins over a late cancellation request.
 
-- [ ] Extend the shared store suite with `membership_preserves_per_contact_values`
+- [x] Extend the shared store suite with `membership_preserves_per_contact_values`
   and `membership_retains_stale_and_cancelled_results`. Build A with Main/Activity,
   B with Main, and an unrelated contact. Add Portable/remove Main: A retains
   Activity, B does not acquire it; facts and non-membership record roles remain
@@ -108,29 +108,29 @@ After the last target settles, completion wins over a late cancellation request.
   Remove all tags from one contact and assert its live identity in All contacts
   and Untagged using existing read contracts. Do not add another fixture solely
   to duplicate generic persistence coverage.
-- [ ] In the second scenario, change B's comment after capturing its basis, then
+- [x] In the second scenario, change B's comment after capturing its basis, then
   submit A/B/C. Assert B is Stale and its newer comment survives. In another run
   cancel through the production progress callback after the first completed save;
   assert that entry is retained and the precise remaining IDs are unprocessed.
   Include an ordinary deleted-record stale outcome without resurrecting it.
   Assert unchanged results preserve the complete record without artificial edits.
-- [ ] Run `cargo test -p clacks-client-store --test integration membership --locked`.
+- [x] Run `cargo test -p clacks-client-store --test integration membership --locked`.
   Confirm the new assertions fail for the missing report/cancellation contract,
   rather than expecting a failure in SQLite or SQLx.
-- [ ] Move the existing helper into `save/tags.rs` and implement the interface.
+- [x] Move the existing helper into `save/tags.rs` and implement the interface.
   Validate all supplied bases, account/key uniqueness and disjoint intent before
   the first write. Preserve input order; desktop preparation will sort by QSO ID.
   Transform each captured QSO's tags and call existing `save::save` once per target.
   Continue after Saved/Unchanged/Stale. On operational error retain prior entries,
   identify the failing ID separately, and put only not-yet-attempted IDs in
   `unprocessed`. A failure to acknowledge a commit is not proof of rollback.
-- [ ] Keep preflight validation errors as the outer `Err` before mutations.
+- [x] Keep preflight validation errors as the outer `Err` before mutations.
   After processing starts, operational errors belong in the report. Use existing
   save events/counters; do not duplicate mutation telemetry in the batch loop.
   Keep error sources through `anyhow`, not string-only store failures.
-- [ ] Rerun the focused command; inspect each test's Clacks requirement and actual
+- [x] Rerun the focused command; inspect each test's Clacks requirement and actual
   mistake caught. Do not manufacture a failure just to exercise the Failed arm.
-- [ ] Commit the focused store capability with motivation and a wrapped body.
+- [x] Commit the focused store capability with motivation and a wrapped body.
 
 ## Task 2: Integrate preparation, progress and cancellation with the runtime
 
@@ -153,43 +153,43 @@ runtime tests. Add a child `membership/tests.rs` only if it keeps ownership clea
   `ContactResponse::MembershipPrepared(MembershipBasis)` and
   `MembershipChanged(TagChangeReport)`.
 
-- [ ] Add a runtime scenario `membership_preparation_captures_the_selected_basis`:
+- [x] Add a runtime scenario `membership_preparation_captures_the_selected_basis`:
   save real contacts, prepare a stable selected-ID set, assert each returned
   complete record and the catalog. Modify one record before applying and assert
   the runtime returns its Stale result while other captured targets can save.
   Extend this scenario with a missing/deleted target at preparation: produce an
   actionable preparation error and no mutation, not a reduced silent target set.
-- [ ] Run `cargo test -p clacks-desktop session::settings::contacts --locked` and
+- [x] Run `cargo test -p clacks-desktop session::settings::contacts --locked` and
   establish the missing runtime behavior before implementing it.
-- [ ] Implement `prepare` with one existing `read::snapshot`: use `record` for
+- [x] Implement `prepare` with one existing `read::snapshot`: use `record` for
   selected keys and `settings().logbooks` for the catalog. Reject an empty target
   set or unavailable/non-live target with its ID in diagnostics. Read all selected
   IDs once in stable order; a page limit must not truncate selection. Close the
   snapshot before returning; no database transaction survives operator interaction.
-- [ ] Implement `apply` through Task 1. Its callback publishes progress using
+- [x] Implement `apply` through Task 1. Its callback publishes progress using
   `watch::Sender::send_replace` and returns Break when the existing Tokio
   cancellation token is cancelled. Closing a watch receiver alone must not cancel
   writes or lose the final result. No new cancellation dependency in the store.
-- [ ] Treat preparation as a read in `settings::execute`: no follow-up settings
+- [x] Treat preparation as a read in `settings::execute`: no follow-up settings
   refresh, and an abandoned preparation receiver may cancel obsolete read work.
   Treat changes as admitted writes: retain the final response and existing
   commit-versus-refresh separation even if the popup is dismissed. Preserve the
   current session admission/drain path; do not spawn a second scheduler.
-- [ ] Add a focused reporting assertion to the existing runtime scenario: use a
+- [x] Add a focused reporting assertion to the existing runtime scenario: use a
   pre-cancelled submission, verify zero changed entries and the complete unprocessed
   scope. Verify the watch's final counts agree with the authoritative report.
   Store Task 1 owns the after-first-commit case; do not recreate it through the UI.
-- [ ] Instrument this runtime operation with `#[instrument(skip_all, ...)]` and
+- [x] Instrument this runtime operation with `#[instrument(skip_all, ...)]` and
   default module targets. Emit a focused outcome event with truthful changed,
   unchanged, stale and unprocessed counts, and cancellation/failure status. Use
   info for completed user work, deliberate error reporting for operational failure,
   and existing save counters for commits. Do not add an overall latency metric
   unless an operational use beyond the trace is identified.
-- [ ] Extend the runtime scenario's existing capture with an assertion on the
+- [x] Extend the runtime scenario's existing capture with an assertion on the
   focused membership outcome event: counts agree with the report and do not
   describe stale/unprocessed contacts as saved. Reuse telemetry test support;
   do not repeat the functional scenario solely to exercise an exporter.
-- [ ] Rerun the focused tests; commit the production request integration.
+- [x] Rerun the focused tests; commit the production request integration.
 
 ## Task 3: Build and use the shared picker in the saved-contact editor
 
@@ -207,21 +207,21 @@ runtime tests. Add a child `membership/tests.rs` only if it keeps ownership clea
   whether membership choices changed. Callers own popup lifetime and Save/Apply.
   Expose the existing `logbooks::labels::labels` only to sibling UI modules.
 
-- [ ] Add one component scenario `picker_preserves_mixed_intent_through_search`
+- [x] Add one component scenario `picker_preserves_mixed_intent_through_search`
   using native egui_kittest semantic queries. With A Main/Activity and B Main,
   assert untouched Activity yields no operation; checking then clearing it yields
   add then remove; returning to mixed yields none. Add Portable while Activity is
   hidden by search and assert only Portable is added. Exercise actual callbacks/
   resulting intent, not the dependency's checkbox mechanics in isolation.
-- [ ] Run `cargo test -p clacks-desktop ui::tag_picker --locked` and verify the
+- [x] Run `cargo test -p clacks-desktop ui::tag_picker --locked` and verify the
   missing Clacks intent/presentation boundary fails before implementing it.
-- [ ] Implement native `Checkbox::indeterminate` presentation and E2 cycling.
+- [x] Implement native `Checkbox::indeterminate` presentation and E2 cycling.
   Uniform rows toggle two states; initially mixed rows cycle Some → All → None
   → Some. Only changed rows generate intent. Match search by case-insensitive
   literal substring of the full displayed label and sort name then ID.
   Derive labels from the complete live catalog before filtering, reusing existing
   collision handling. Built-in views are never checkbox entries.
-- [ ] Use egui's native Popup, vertical ScrollArea, focus and checkbox semantics.
+- [x] Use egui's native Popup, vertical ScrollArea, focus and checkbox semantics.
   Start with preferred width 360 logical points, clamped to available viewport;
   cap the list at 240 logical points, with search and actions outside scrolling.
   Use existing theme tokens. Summaries show at most three assigned labels plus
@@ -229,24 +229,24 @@ runtime tests. Add a child `membership/tests.rs` only if it keeps ownership clea
   layout defaults subject to actual production visual inspection, not new design
   language. Keep unknown/deleted memberships identifiable and explicitly removable,
   but unavailable as new assignment choices; do not treat a catalog error as empty.
-- [ ] Move `ContactsUi::show_editor` into its editor child owner and insert the
+- [x] Move `ContactsUi::show_editor` into its editor child owner and insert the
   compact Assigned logbooks summary/Edit… before the other detail sections.
   Build single-contact picker state from the form's current pending tags when
   opened. Apply choice changes to that form immediately using the opening copied
   tag set plus picker intent. Dismissal preserves form input; reopening reflects
   it. Never mutate the saved expected record or form baseline for highlighting.
-- [ ] Add `editor_membership_uses_the_existing_save_boundary` to contact component
+- [x] Add `editor_membership_uses_the_existing_save_boundary` to contact component
   tests: change tags and a fact, dismiss picker, assert no runtime save request;
   Save changes submits both together with the original complete expected basis.
   Cancel discards input. Verify Escape closes the picker before the modal and
   Enter while operating a checkbox does not accidentally submit the contact.
   Extend existing stale-input assertions rather than duplicate store transactions.
-- [ ] Show membership changes using existing unapplied styling without adding
+- [x] Show membership changes using existing unapplied styling without adding
   catalog-size-dependent sections. Disable picker editing while saving. Keep
   new-entry draft/defaults untouched and existing modal backdrop blocking intact.
-- [ ] Run `cargo test -p clacks-desktop ui::contacts --locked` plus the picker tests;
+- [x] Run `cargo test -p clacks-desktop ui::contacts --locked` plus the picker tests;
   retain duplicate-name label tests in their current owner, not a copied suite.
-- [ ] Commit the shared picker and its working individual-editor integration.
+- [x] Commit the shared picker and its working individual-editor integration.
 
 ## Task 4: Deliver selected-contact assignment and retained result feedback
 
@@ -259,42 +259,42 @@ final report. Keep these named fields, not tuple states. Implement its presentat
 and polling in the membership child module through `ContactsUi` methods; do not
 export a second contact controller or public workflow framework.
 
-- [ ] Add `history_membership_request_uses_all_selected_ids`: build the existing
+- [x] Add `history_membership_request_uses_all_selected_ids`: build the existing
   contacts UI with one visible selected ID and selected IDs off-page/outside the
   filter; click Edit assigned logbooks… and assert PrepareMembership carries the
   precise deduplicated selection. With no selection, assert the action is absent.
   Use the existing lightweight component request channel, not a fake database.
-- [ ] Run the focused contact tests and verify this missing request boundary fails.
-- [ ] Render the exact contextual action without a numeric suffix. Capture IDs on
+- [x] Run the focused contact tests and verify this missing request boundary fails.
+- [x] Render the exact contextual action without a numeric suffix. Capture IDs on
   opening and show Loading/error rather than an empty picker until preparation
   succeeds. Verify originating scope before accepting replies; discard obsolete
   preparation on view switch. Filtering/search must not change target IDs.
   Present the selected count and known outside-filter count in the picker; retain
   the normal history status. Do not require targets to be present in the page.
-- [ ] Instantiate Task 3's picker from the prepared per-contact working sets. Apply
+- [x] Instantiate Task 3's picker from the prepared per-contact working sets. Apply
   enabled only for changed intent; Cancel/Escape/outside dismissal discards the
   unsubmitted bulk state. Apply submits Task 2's captured bases and intent once.
   Preserve a submitted operation through view changes/popup dismissal, without
   retargeting it or allowing duplicate submission.
-- [ ] Display read-only submitted choices and progress; Cancel processing calls
+- [x] Display read-only submitted choices and progress; Cancel processing calls
   the token, not task abort or transaction cancellation. Keep the final report
   receiver until acknowledgment even if its popup closes. While awaiting progress,
   request ordinary bounded repaints (100 ms); do not add a custom frame driver.
-- [ ] Retain a dismissible record-specific report in the history feedback area:
+- [x] Retain a dismissible record-specific report in the history feedback area:
   saved, unchanged, stale, failed/unacknowledged and unprocessed identities are
   distinct. Show useful existing contact context where available; IDs remain the
   stable identity. No persistent job/history table. A failed acknowledgment does
   not justify blind replay; require current-state review before another attempt.
-- [ ] Extend contact response assertions with a report containing saved/stale/
+- [x] Extend contact response assertions with a report containing saved/stale/
   cancelled-tail outcomes. Assert preserved report, truthful counts and changed
   invalidation only after actual saves. Mark history dirty and set the existing
   workbench `changed` flag for affected Worked Before refresh. Retain selection
   for identities leaving the filter; do not alter the unfinished QSO/defaults.
   Keep reports on SettingsResponse::RefreshFailed and offer refresh, not re-Apply.
-- [ ] Verify a catalog/read failure retains input and errors; changing views
+- [x] Verify a catalog/read failure retains input and errors; changing views
   discards an unsubmitted picker, and a late old preparation cannot reopen it.
   Build these into existing component scenarios rather than one host per case.
-- [ ] Run the focused contact/runtime tests and inspect the integration in the
+- [x] Run the focused contact/runtime tests and inspect the integration in the
   actual application. Commit the working bulk capability and feedback together.
 
 ## Task 5: Verify the assembled application and reconcile usage documentation
@@ -304,10 +304,10 @@ integration details; adjust crate README usage where it helps callers. Keep the
 product spec separate from verification chronology. Record evidence in delivery/
 PR notes, not a checked-in review report.
 
-- [ ] Run focused store, desktop picker/contact and runtime tests once more after
+- [x] Run focused store, desktop picker/contact and runtime tests once more after
   integration. Audit changed tests against requirement + concrete Clacks mistake
   + cost. Remove redundant scaffolding instead of defending it with coverage.
-- [ ] Run `cargo fmt --all --check`, `cargo test --workspace --all-targets --locked`,
+- [x] Run `cargo fmt --all --check`, `cargo test --workspace --all-targets --locked`,
   `cargo test --workspace --doc --locked`,
   `cargo clippy --workspace --all-targets --locked -- -D warnings`, and
   `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --document-private-items --locked`.
@@ -326,7 +326,7 @@ PR notes, not a checked-in review report.
   reference/mockup as the visual comparison. Component tests do not substitute
   for this inspection. State Windows native acceptance as unavailable unless the
   user provides results; do not create human-operated cargo test harnesses.
-- [ ] Check docs/links and `git diff --check`; review the final diff for accidental
+- [x] Check docs/links and `git diff --check`; review the final diff for accidental
   schema/protocol/CI changes, unrelated edits, public test APIs and generic helpers.
   Fold branch-introduced corrections into their owning commits if requested.
 - [ ] Prepare a final delivery summary with actual checks and remaining limits.
