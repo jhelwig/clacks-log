@@ -4,6 +4,7 @@ pub mod contacts;
 pub mod history;
 pub mod projection;
 mod query;
+pub mod query_state;
 pub mod review;
 
 use crate::{
