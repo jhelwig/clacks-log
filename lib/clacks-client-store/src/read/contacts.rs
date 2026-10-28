@@ -141,7 +141,8 @@ impl ReadSnapshot {
         let has_more = rows.len() > usize::try_from(query.limit)?;
         rows.truncate(usize::try_from(query.limit)?);
         Ok(ContactPage {
-            rows: self.working_contacts(rows).await?,
+            rows: super::history::working_contacts(&mut self.transaction, self.account, rows)
+                .await?,
             has_more,
         })
     }

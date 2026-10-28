@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "-- Select only this batch's evidence, then its transitive interpretation support.\nWITH RECURSIVE\nids AS (SELECT value AS id FROM json_each(?2)),\nattempts AS (\n SELECT w.record_id, a.payload_id FROM local_working w\n JOIN service_attempt a ON a.payload_id = w.payload_id\n JOIN payload p ON p.payload_id = w.payload_id\n WHERE w.account = ?1 AND p.deleted = 0 AND a.qso_id IN (SELECT id FROM ids)\n), associations AS (\n SELECT w.record_id, a.payload_id, a.external_id FROM local_working w\n JOIN service_association a ON a.payload_id = w.payload_id\n JOIN payload p ON p.payload_id = w.payload_id\n WHERE w.account = ?1 AND p.deleted = 0 AND a.qso_id IN (SELECT id FROM ids)\n), roots(kind, record_id) AS (\n SELECT 'qso', id FROM ids\n UNION\n SELECT w.kind, w.record_id FROM local_working w\n JOIN service_assertion a ON a.payload_id = w.payload_id\n JOIN payload p ON p.payload_id = w.payload_id\n WHERE w.account = ?1 AND p.deleted = 0 AND a.qso_id IN (SELECT id FROM ids)\n UNION SELECT 'attempt', record_id FROM attempts\n UNION SELECT 'association', record_id FROM associations\n UNION\n SELECT w.kind, w.record_id FROM local_working w\n JOIN result_member r ON r.payload_id = w.payload_id\n JOIN payload p ON p.payload_id = w.payload_id\n WHERE w.account = ?1 AND p.deleted = 0 AND r.attempt_id IN (SELECT record_id FROM attempts)\n UNION\n SELECT w.kind, w.record_id FROM local_working w\n JOIN service_observation o ON o.payload_id = w.payload_id\n JOIN payload p ON p.payload_id = w.payload_id\n WHERE w.account = ?1 AND p.deleted = 0 AND o.external_id IN (SELECT external_id FROM associations)\n UNION\n SELECT w.kind, w.record_id FROM local_working w\n JOIN service_disposition d ON d.payload_id = w.payload_id\n JOIN payload p ON p.payload_id = w.payload_id\n WHERE w.account = ?1 AND p.deleted = 0 AND d.association_id IN (SELECT record_id FROM associations)\n UNION\n SELECT 'destination', d.destination_id FROM destination_descriptor d JOIN roots r\n ON d.payload_id = (SELECT w.payload_id FROM local_working w WHERE w.account = ?1 AND w.kind = r.kind AND w.record_id = r.record_id)\n), needed(kind, record_id) AS (\n SELECT kind, record_id FROM roots\n UNION\n SELECT r.kind, r.record_id FROM needed n\n JOIN local_working w ON w.account = ?1 AND w.kind = n.kind AND w.record_id = n.record_id\n JOIN support_requirement r ON r.payload_id = w.payload_id\n)\nSELECT kind, record_id FROM needed ORDER BY kind, record_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "kind",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "support_requirement",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "record_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "support_requirement",
+            "name": "record_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "100f8e2ad99400e3789690409653fa3617a36837b1d59967f24c5739271d13b7"
+}

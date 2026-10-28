@@ -2,6 +2,7 @@
 
 pub mod contacts;
 pub mod history;
+pub mod projection;
 pub mod review;
 
 use crate::{
@@ -83,3 +84,7 @@ impl ReadSnapshot {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "read/projection/tests.rs"]
+mod history_projection;

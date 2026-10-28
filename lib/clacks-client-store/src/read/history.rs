@@ -125,31 +125,32 @@ impl ReadSnapshot {
                 pending: row.pending,
             })
             .collect();
-        self.working_contacts(rows).await
+        working_contacts(&mut self.transaction, self.account, rows).await
     }
+}
 
-    /// Load working payloads with their actual pending/conflict evidence.
-    pub(super) async fn working_contacts(
-        &mut self,
-        rows: Vec<crate::rows::contact::WorkingContactRow>,
-    ) -> anyhow::Result<Vec<HistoryRow>> {
-        let mut values = vec![];
-        for row in rows {
-            let key = RecordKey {
-                account: self.account,
-                id: RecordId::Qso(row.record_id.parse()?),
-            };
-            let RecordState::Live(RecordValue::Qso(qso)) =
-                crate::payload::load(&mut self.transaction, key, row.payload_id).await?
-            else {
-                anyhow::bail!("history selected a non-live QSO")
-            };
-            values.push(HistoryRow {
-                qso: *qso,
-                pending: row.pending,
-                review: crate::metadata::review::load(&mut self.transaction, key).await?,
-            });
-        }
-        Ok(values)
+/// Load working payloads with their actual pending/conflict evidence.
+pub(super) async fn working_contacts(
+    connection: &mut sqlx::SqliteConnection,
+    account: clacks_model::ids::AccountId,
+    rows: Vec<crate::rows::contact::WorkingContactRow>,
+) -> anyhow::Result<Vec<HistoryRow>> {
+    let mut values = vec![];
+    for row in rows {
+        let key = RecordKey {
+            account,
+            id: RecordId::Qso(row.record_id.parse()?),
+        };
+        let RecordState::Live(RecordValue::Qso(qso)) =
+            crate::payload::load(connection, key, row.payload_id).await?
+        else {
+            anyhow::bail!("history selected a non-live QSO")
+        };
+        values.push(HistoryRow {
+            qso: *qso,
+            pending: row.pending,
+            review: crate::metadata::review::load(connection, key).await?,
+        });
     }
+    Ok(values)
 }

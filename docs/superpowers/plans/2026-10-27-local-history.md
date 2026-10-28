@@ -197,13 +197,16 @@ carry a byte range and actionable category/message; derive `thiserror::Error`.
 ## Task 2: Native read projections for effective and service-aware values
 
 **Files:** Create `lib/clacks-client-store/src/read/projection.rs` and focused
-`projection/{evidence,station}.rs`, fixed selection files under
+`projection/{evidence,station}.rs` and `projection/evidence/{observations,status}.rs`, fixed selection files under
 `sql/read/projection/`, and named row types under `src/rows/`. Modify
 `src/read.rs`, relevant existing payload readers only as required for reuse,
-and `.sqlx/`. Create `tests/history_projection.rs`, registered in integration.
+and `.sqlx/`. Test private projections in `src/read/projection/tests.rs` and
+its focused `tests/{routing,submissions}.rs` children using the real store.
+Extend the existing independent-timestamp scenario in
+`lib/clacks-sync/tests/service_downloads.rs` for confirmation-specific provenance.
 
 **Interfaces:** Keep implementation crate-private:
-`projection::load(snapshot: &mut ReadSnapshot, ids: &[QsoId],
+`projection::load(connection: &mut SqliteConnection, account: AccountId, ids: &[QsoId],
 needs: ProjectionNeeds) -> anyhow::Result<Vec<ContactProjection>>`.
 `ProjectionNeeds` identifies requested name/location/service facts;
 `ContactProjection` has named QSO identity, effective contacted name, whole
@@ -227,7 +230,7 @@ native override. Expose only the display portion later through `ContactRow`.
   location-bearing participation suppresses directory/provider geography,
   eligible LoTW outranks QRZ, and inapplicable/wrong-side observations do not
   become fallback. Include name fallback independently of location selection.
-- [ ] Run `cargo test -p clacks-client-store --test integration history_projection
+- [ ] Run `cargo test -p clacks-client-store --lib history_projection
   --locked` red, then implement scoped selection with current working roles,
   `select_observations`, `publication_coverage`, `confirmation_applicability`,
   `eligible_station_facts`, `select_name` and `select_location`. Reuse retained

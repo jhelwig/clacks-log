@@ -1,0 +1,45 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT w.kind, w.record_id, w.payload_id AS \"payload_id!\"\nFROM local_working w JOIN payload p ON p.payload_id = w.payload_id\nWHERE w.account = ?1 AND w.kind IN ('group', 'output_profile') AND p.deleted = 0\nORDER BY w.kind, w.record_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "kind",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "client_record",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "record_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "client_record",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "name": "payload_id!",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "4f7a6e3aec80053006a2ec5cd8b5ebab4f6322b3bb4c46088e8bc517b072d1c1"
+}
