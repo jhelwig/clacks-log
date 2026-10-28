@@ -124,7 +124,7 @@ async fn change_role(target: RoleTarget, enabled: bool) -> anyhow::Result<()> {
 /// Run one operator operation without loading web-runtime credentials or starting HTTP.
 pub async fn run() -> anyhow::Result<()> {
     let args = Arguments::parse();
-    crate::telemetry::init()?;
+    let telemetry = crate::telemetry::init(false)?;
     match args.command {
         Command::Oidc {
             command: OidcCommand::Register { config, provider },
@@ -175,5 +175,6 @@ pub async fn run() -> anyhow::Result<()> {
             pool.close().await;
         }
     }
+    tokio::task::spawn_blocking(move || telemetry.shutdown()).await??;
     Ok(())
 }

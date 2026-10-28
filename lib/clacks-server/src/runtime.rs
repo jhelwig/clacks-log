@@ -81,6 +81,7 @@ pub async fn serve(state: ServerState, pages: axum::Router<ServerState>) -> anyh
     tracing::info!(listen = %listener.local_addr()?, "Clacks server listening");
     #[cfg(unix)]
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    let (requested, notified) = tokio::sync::oneshot::channel();
     let shutdown = async move {
         #[cfg(unix)]
         tokio::select! { _ = tokio::signal::ctrl_c() => {}, _ = terminate.recv() => {} }
@@ -89,10 +90,25 @@ pub async fn serve(state: ServerState, pages: axum::Router<ServerState>) -> anyh
             let _ = tokio::signal::ctrl_c().await;
         }
         tracing::info!("Server shutdown requested");
+        let _ = requested.send(());
     };
-    axum::serve(listener, crate::http::router(state.clone(), pages))
+    use std::future::IntoFuture;
+    let serving = axum::serve(listener, crate::http::router(state.clone(), pages))
         .with_graceful_shutdown(shutdown)
-        .await?;
+        .into_future();
+    tokio::pin!(serving);
+    tokio::select! {
+        result = &mut serving => result?,
+        _ = notified => {
+            match tokio::time::timeout(std::time::Duration::from_secs(state.config.shutdown_seconds), &mut serving).await {
+                Ok(result) => result?,
+                Err(_) => {
+                    tracing::warn!("Request drain deadline reached");
+                    anyhow::bail!("request drain deadline reached");
+                }
+            }
+        }
+    }
     state.store.close().await;
     tracing::info!("Server requests drained");
     Ok(())

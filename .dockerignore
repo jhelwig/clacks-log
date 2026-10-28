@@ -1,0 +1,11 @@
+.git
+.worktrees
+.superpowers
+target
+references
+.sqlx/*.sqlite
+**/*.sqlite
+**/*.sqlite-shm
+**/*.sqlite-wal
+deploy/server/secrets
+deploy/server/config.toml

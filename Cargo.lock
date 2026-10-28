@@ -1356,7 +1356,13 @@ dependencies = [
  "clap",
  "config",
  "metrics",
+ "metrics-opentelemetry",
  "openidconnect",
+ "opentelemetry",
+ "opentelemetry-appender-tracing",
+ "opentelemetry-http",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
  "rand 0.8.8",
  "serde",
  "serde_json",
@@ -1367,6 +1373,7 @@ dependencies = [
  "tokio",
  "tower-http 0.7.1",
  "tracing",
+ "tracing-opentelemetry",
  "tracing-subscriber",
  "ulid",
  "url",
@@ -1382,7 +1389,9 @@ dependencies = [
  "clacks-web",
  "clap",
  "leptos",
+ "opentelemetry",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

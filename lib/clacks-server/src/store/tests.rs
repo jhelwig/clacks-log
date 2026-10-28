@@ -161,6 +161,21 @@ async fn concurrent_sign_ins_resolve_one_account() -> anyhow::Result<()> {
         store.authenticate(&second, Duration::days(14)).await?,
         second_live
     );
+    let recovered = store
+        .provision_login(
+            VerifiedIdentity {
+                issuer: "https://test-provider.example".into(),
+                subject: format!("{subject}-recovery"),
+                display_name: None,
+            },
+            Duration::days(14),
+        )
+        .await?;
+    let recovered_principal = store
+        .authenticate(&recovered, Duration::days(14))
+        .await?
+        .unwrap();
+    assert_eq!(recovered_principal.account_id, survivor.account_id);
     assert!(
         store
             .recover_identity(

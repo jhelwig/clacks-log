@@ -18,7 +18,13 @@ pub fn router(state: ServerState, pages: Router<ServerState>) -> Router {
             .get::<axum::extract::MatchedPath>()
             .map(axum::extract::MatchedPath::as_str)
             .unwrap_or("unmatched");
-        tracing::info_span!("http.request", method = %request.method(), route)
+        use tracing_opentelemetry::OpenTelemetrySpanExt;
+        let span = tracing::info_span!("http.request", method = %request.method(), route);
+        let parent = opentelemetry::global::get_text_map_propagator(|propagator| {
+            propagator.extract(&opentelemetry_http::HeaderExtractor(request.headers()))
+        });
+        let _ = span.set_parent(parent);
+        span
     };
     let on_response = |response: &Response, latency: std::time::Duration, _: &tracing::Span| {
         let status_class = match response.status().as_u16() / 100 {
@@ -70,10 +76,29 @@ async fn same_origin(
                 .and_then(|value| url::Url::parse(value).ok())
         };
         if source.as_ref().map(url::Url::origin) != Some(state.config.public_url.origin()) {
+            tracing::info!("Browser mutation origin refused");
             return Err(StatusCode::FORBIDDEN);
         }
     }
-    Ok(next.run(request).await)
+    let private = !request.uri().path().starts_with("/pkg/");
+    let mut response = next.run(request).await;
+    use axum::http::HeaderValue;
+    if private {
+        response
+            .headers_mut()
+            .insert("cache-control", HeaderValue::from_static("no-store"));
+    }
+    response
+        .headers_mut()
+        .insert("referrer-policy", HeaderValue::from_static("no-referrer"));
+    response.headers_mut().insert(
+        "x-content-type-options",
+        HeaderValue::from_static("nosniff"),
+    );
+    response
+        .headers_mut()
+        .insert("x-frame-options", HeaderValue::from_static("DENY"));
+    Ok(response)
 }
 
 /// Report whether configured account storage can serve requests.

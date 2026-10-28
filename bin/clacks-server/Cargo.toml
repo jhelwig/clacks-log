@@ -10,6 +10,8 @@ publish.workspace = true
 [[bin]]
 name = "clacks-server"
 path = "src/main.rs"
+# The library owns API documentation; this thin command supplies --help.
+doc = false
 
 [dependencies]
 anyhow.workspace = true
@@ -17,6 +19,8 @@ leptos.workspace = true
 clacks-server.workspace = true
 axum.workspace = true
 clap.workspace = true
+tracing.workspace = true
+opentelemetry.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
 clacks-web = { workspace = true, features = ["ssr"] }

@@ -114,6 +114,7 @@ pub async fn start() -> anyhow::Result<Provider> {
     let keys = CoreJsonWebKeySet::new(vec![signing.as_verification_key()]);
     let registrations = Arc::new(AtomicUsize::new(0));
     let count = registrations.clone();
+    let token_registrations = registrations.clone();
     let grants: Arc<Mutex<BTreeMap<String, TokenGrant>>> = Default::default();
     let token_grants = grants.clone();
     let router = Router::new()
@@ -124,13 +125,18 @@ pub async fn start() -> anyhow::Result<Provider> {
                 "token_endpoint": format!("{base}/token"), "jwks_uri": format!("{base}/keys"),
                 "registration_endpoint": format!("{base}/register"),
                 "response_types_supported": ["code"], "subject_types_supported": ["public"],
+                "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post", "none"],
                 "id_token_signing_alg_values_supported": ["RS256"]
             })) }
         }))
         .route("/keys", get(move || { let keys = keys.clone(); async move { Json(keys) } }))
         .route("/token", post(move |Form(form): Form<BTreeMap<String, String>>| {
+            let requires_post_secret = token_registrations.load(Ordering::SeqCst) > 0;
             let grant = form.get("code").and_then(|code| token_grants.lock().unwrap().remove(code));
             async move {
+                if requires_post_secret && form.get("client_secret").map(String::as_str) != Some("fixture-secret") {
+                    return (axum::http::StatusCode::BAD_REQUEST, Json(json!({"error":"invalid_client"})));
+                }
                 if let Some(grant) = grant {
                     let verifier = form.get("code_verifier").map(|value| PkceCodeVerifier::new(value.clone()));
                     if verifier.as_ref().is_some_and(|value| PkceCodeChallenge::from_code_verifier_sha256(value).as_str() == grant.challenge) {
@@ -145,6 +151,8 @@ pub async fn start() -> anyhow::Result<Provider> {
             async move {
                 metadata.as_object_mut().unwrap().insert("client_id".into(), json!("registered-clacks"));
                 metadata.as_object_mut().unwrap().insert("client_secret".into(), json!("fixture-secret"));
+                metadata.as_object_mut().unwrap().insert("client_secret_expires_at".into(), json!(0));
+                metadata.as_object_mut().unwrap().insert("token_endpoint_auth_method".into(), json!("client_secret_post"));
                 (axum::http::StatusCode::CREATED, Json(metadata))
             }
         }));

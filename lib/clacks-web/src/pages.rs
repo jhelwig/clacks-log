@@ -7,10 +7,12 @@ use leptos::prelude::*;
 /// Offer the deployment's configured providers without exposing credentials.
 #[component]
 pub fn SignIn() -> impl IntoView {
+    let query = leptos_router::hooks::use_query_map();
     let providers = Resource::new(|| (), |_| actions::providers());
     let action = ServerAction::<StartSignIn>::new();
     view! {
         <section class="section sign-in"><h1>"Sign in"</h1>
+            <p class="error" role="alert">{move || query.with(|params| params.get("error"))}</p>
             <p>"Use a configured identity provider to sign in or create your Clacks account."</p>
             <Suspense fallback=|| view! { <p role="status">"Loading providers…"</p> }>
                 {move || providers.get().map(|result| match result {

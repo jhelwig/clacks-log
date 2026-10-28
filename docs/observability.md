@@ -167,10 +167,11 @@ to support telemetry tests.
 The current-library producer interfaces and instrumentation schema are defined
 below. The [desktop specification](desktop.md) defines desktop composition and
 engineering defaults. Concrete dependency/feature verification belongs to its
-implementation plan. Server propagation, sampling, collection/visualization,
-access, retention and deployment choices still require engineering specification;
-server export protocols remain open. No vendor or additional application service topology is selected
-by this contract. Desktop diagnostics and any telemetry export must respect the
+implementation plan. Server composition uses standard W3C trace-context
+propagation and opt-in OTLP HTTP/protobuf export of all three signals over
+Rustls; see [Linux deployment](../deploy/server/README.md). Collection/visualization,
+access, sampling and retention remain deployment responsibilities. No vendor or
+additional application service topology is selected by this contract. Desktop diagnostics and any telemetry export must respect the
 existing offline-operation and credential-handling requirements; this requirement
 does not introduce automatic upload of desktop diagnostics to a hosted service.
 

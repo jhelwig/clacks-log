@@ -1,11 +1,13 @@
-# Account management: schema, workflows and deployment proposal
+# Account management: schema, workflows and deployment
 
-This is the engineering proposal for [issue #11](https://github.com/jhelwig/clacks-log/issues/11),
-not an implementation plan or authorization to build. [accounts.md](accounts.md)
-owns accepted behavior. D231–D233 and D353–D369 settle account identity,
-authentication, recovery, sessions, deployment and transaction policy. Names,
-physical representations, routes and defaults below are engineering proposals;
-they are not additional approved product requirements.
+This contract defines the schema, workflows and deployment boundaries for
+[issue #11](https://github.com/jhelwig/clacks-log/issues/11).
+[accounts.md](accounts.md) owns accepted behavior. D231–D233 and D353–D369 settle
+account identity, authentication, recovery, sessions, deployment and transaction
+policy. Concrete representations and tuning defaults below are engineering
+choices rather than additional product requirements. The
+[server guide](../lib/clacks-server/README.md) owns executable usage, and
+[Linux deployment](../deploy/server/README.md) owns release operations.
 
 OpenID Connect is abbreviated OIDC. A nonce is a random request-binding value
 that the provider returns in its identity token for verification.
@@ -20,7 +22,7 @@ synchronization, credential and service capabilities extend. No disposable
 identity server, simulated persistence, independently deployed management service
 or placeholder implementations of later capabilities.
 
-Proposed production boundaries:
+Production boundaries:
 
 - `lib/clacks-server`: configuration, PostgreSQL account operations, OIDC
   integration, request authentication, maintenance operations and application
@@ -41,7 +43,7 @@ for `clacks-admin`; no command registry or generic task-execution framework.
 
 Use a dedicated application schema, with SQLx's migration history and the
 session adapter's own table structure maintained through release migrations.
-There is no parallel schema-version table. PostgreSQL representation proposals:
+There is no parallel schema-version table. PostgreSQL representation:
 native account IDs as canonical 26-character ULID text, opaque login references
 as random 256-bit tokens, and instants as `timestamptz`. ULID means Universally
 Unique Lexicographically Sortable Identifier; its ordering is not authorization.
@@ -52,7 +54,7 @@ Unique Lexicographically Sortable Identifier; its ordering is not authorization.
 | `login_identities` | `identity_id` primary key, `account_id` foreign key, `issuer`, `subject`, optional `display_name`, `created_at`; unique `(issuer, subject)`; unique `(account_id, identity_id)` | A verified external identity belongs to exactly one account. Display claims are labels, never linking authority. |
 | `login_sessions` | `login_reference` primary key, `account_id`, `identity_id`, `created_at`, `expires_at`; composite foreign key `(account_id, identity_id)` to the identity binding, with delete cascade | Authoritative browser authentication, bound to its authenticating identity. Deleting a binding invalidates precisely those login sessions. |
 | `server_administrators` | `account_id` primary/foreign key, `granted_at` | Live out-of-band role assignment. Ordinary users need no row here. |
-| middleware session table | Adapter-defined ID, serialized session data and expiration columns | Managed through `axum_session_sqlx`, not a second application session implementation. |
+| `clacks.browser_sessions` | Adapter-defined ID, serialized session data and expiration columns | Managed through `axum_session_sqlx`, not a second application session implementation. |
 
 Index identities by account and login sessions by identity/account and expiration.
 The login reference is a bearer secret: generate with an established random-number
@@ -82,7 +84,7 @@ only explicitly implemented administrator operations, not automatic access to
 other accounts' log data.
 
 Do not use PostgreSQL row-level security or connection-local tenant settings in
-this proposal. Authentication and account-scoped query construction enforce the
+this contract. Authentication and account-scoped query construction enforce the
 accepted boundary without tenant credentials or pooled-connection tenant state.
 Maintenance commands use deployment-controlled access; do not expose equivalent
 unauthenticated HTTP endpoints. Later jobs and synchronization derive their
@@ -133,11 +135,11 @@ facilities creates the Clacks identity-binding rules automatically.
 Pending context belongs in ordinary middleware session data: expected provider,
 nonce, verifier, purpose and the originating account/login for identity changes.
 Store separate typed entries keyed by request state rather than one overwritten
-"current login" slot. Proposed expiry is ten minutes per provider round trip;
+"current login" slot. Default expiry is ten minutes per provider round trip;
 expired or missing context requires restarting that action. Bound retained
-entries to a small configured limit and remove expired entries when handling
-authentication operations. The precise limit is implementation tuning, not an
-account/session eligibility policy.
+entries to a small internal limit and remove expired entries when handling
+authentication operations. The precise limit is an internal implementation
+default, not an account/session eligibility policy or deployment setting.
 
 Retrieve/remove the matching entry using native session APIs, compare secrets
 using the library's supported timing-resistant facility, and validate the
@@ -149,7 +151,7 @@ bindings. Do not log query strings containing authorization codes or state.
 `get_remove` is process-local, not a distributed consume transaction. Duplicate
 callbacks must still exchange their code successfully and pass all validation
 before reaching Clacks mutations; the provider rejects repeated redemption.
-A stale middleware save is not authority to bypass these checks. This proposal
+A stale middleware save is not authority to bypass these checks. This contract
 adds no pending-flow database, global consume guarantee or workflow framework.
 Concurrent flows may lose cached middleware changes; fail closed and offer a
 restart rather than promising loss-free multi-instance session editing. This
@@ -163,18 +165,22 @@ cache or an alternative to the provider round trip.
 
 ### Routes and workflows
 
-Proposed route names below describe behavior, not a separate public web API.
-Leptos server functions may implement form actions using ordinary Axum extraction.
+Route names below describe browser behavior, not a separate public web API.
+Leptos server functions implement form actions using ordinary Axum extraction.
+They are the browser mutation interface; there are no parallel hand-written
+start, logout, link or unlink endpoints. The provider callback redirects to the
+account page on success or sign-in with a safe error on failure, independently
+of the request's Accept header.
 
 | Entry point | Behavior |
 | --- | --- |
 | `GET /sign-in` | Show configured providers and a clear provider-failure/retry state. |
-| `POST /auth/start/{provider}` | Start normal sign-in using a configured provider. |
+| Sign-in form action | Start normal sign-in using a configured provider. |
 | `GET /auth/callback/{provider}` | Validate the pending flow and library response; dispatch only its recorded purpose. |
 | `GET /account/identities` | Show linked identities and the current authenticating identity; offer link/unlink actions. |
 | Link form action | Start recent authentication through an existing identity, then authenticate the additional identity. |
 | Unlink form action | Identify target and authorizing remaining identity, then perform recent authentication and atomic removal. |
-| `POST /auth/logout` | End this Clacks login; do not imply logout from the identity provider or other devices. |
+| Sign-out form action | End this Clacks login; do not imply logout from the identity provider or other devices. |
 
 **Normal sign-in:** validate → resolve or provision identity/account → insert
 login record → store its reference in middleware data → call middleware `renew`
@@ -342,6 +348,31 @@ No rollback-surviving logout/revocation guarantee is claimed. Release changes
 follow D361's compatible expansion and later cleanup; do not use automatic down
 migrations or database restoration for ordinary application rollback.
 
+## Engineering defaults and current limitations
+
+These choices implement the agreed behavior; they are not additional user-approved
+product requirements:
+
+- The agreed browser-session policy is fourteen-day sliding expiration. A pending
+  provider round trip instead expires after ten minutes by default, configurable
+  with `pending_seconds`.
+- At most eight pending requests are retained per browser session. This internal
+  bound removes expired entries and then the oldest when necessary. It is not a
+  deployment tuning surface.
+- First-sign-in identity contention is retried at most three times. This is a
+  local database admission bound, not an external-service retry policy.
+- The runtime connection pool permits ten connections. Request draining defaults
+  to thirty seconds (`shutdown_seconds`); each enabled telemetry signal has a
+  five-second shutdown bound. These are resource and deployment defaults.
+- The current routes, assets and redirects require hosting at the origin root.
+  Consequently `public_url` rejects a path prefix. This is an implementation
+  limitation, not a requirement of origin validation or an agreed prohibition on
+  subpath deployments. Supporting a prefix requires consistent integration across
+  those routes, assets and redirects.
+- SQL metadata checking and account tests share one disposable PostgreSQL database
+  with production migrations. Separate migration/runtime credentials enforce the
+  agreed privilege boundary; separate databases are not required.
+
 ## 5. Observability and verification
 
 Follow [observability.md](observability.md). Retain structured operator outcomes
@@ -373,12 +404,14 @@ protocol fixtures only for Clacks callback wiring; live provider interoperabilit
 is separate acceptance evidence. No injected database triggers, test-only
 production APIs, mock account stores or coverage targets.
 
-The exact intended tsidp version/configuration still needs interoperability
-verification for registration, PKCE and `max_age`/`auth_time`. Do not claim that
-source/docs inspection proves a working provider or add a workaround for a
-provider that fails the agreed standard flow. Dependency feature resolution,
-Rust/WebAssembly builds and actual container execution are implementation
-verification, not demonstrated by this proposal.
+Live-provider acceptance distinguishes discovery, registration/reuse and normal
+PKCE sign-in from recent-authentication verification with `max_age`/`auth_time`.
+Successful normal sign-in does not establish the identity-change requirement or
+compatibility with other provider versions/configurations. Record the exercised
+paths in the implementation plan/PR rather than inferring them from source/docs
+inspection or adding a workaround for a provider that fails the agreed flow. Dependency feature resolution,
+Rust/WebAssembly builds and actual container execution require release
+verification; source inspection alone does not establish either.
 
 ## Sources for integration responsibilities
 

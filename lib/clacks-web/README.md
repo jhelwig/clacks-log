@@ -6,6 +6,9 @@ server's session, mutation-origin and request-observability policies. Account
 operations live in `clacks-server`; only explicit display values cross into
 browser hydration. A browser-supplied account ID never authorizes an operation.
 
+For local PostgreSQL, OIDC credentials and the cargo-leptos watch loop, use the
+[server development workflow](../../docs/server-development.md).
+
 The `ssr` feature means server-side rendering. It enables the server dependencies.
 The `hydrate` feature builds the Rust WebAssembly browser runtime without them.
 Use these features in separate builds, as cargo-leptos does:

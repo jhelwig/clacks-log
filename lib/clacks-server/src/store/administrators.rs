@@ -20,7 +20,7 @@ impl AccountStore {
     }
 
     /// Grant or revoke a role using deployment-controlled maintenance access.
-    #[tracing::instrument(skip_all, name = "account.role.change", fields(%account_id, enabled))]
+    #[tracing::instrument(skip_all, name = "account.role.change", fields(%account_id, enabled = enabled))]
     pub(crate) async fn set_administrator(
         &self,
         account_id: AccountId,

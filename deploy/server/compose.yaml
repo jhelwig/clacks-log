@@ -1,0 +1,50 @@
+name: clacks
+services:
+  postgres:
+    image: postgres@sha256:b994732fcf33f73776c65d3a5bf1f80c00120ba5007e8ab90307b1a743c1fc16
+    environment:
+      POSTGRES_DB: clacks
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+    secrets:
+      - postgres-password
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U postgres -d clacks']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+  app:
+    image: clacks-log:local
+    build:
+      context: ../..
+      dockerfile: deploy/server/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      # HTTPS ingress runs on this host; do not expose the application publicly.
+      - '127.0.0.1:3000:3000'
+    volumes:
+      - ./config.toml:/etc/clacks/server.toml:ro
+      - ./secrets/oidc-primary.json:/run/secrets/oidc-primary.json:ro
+    secrets:
+      - runtime-database-url
+      - browser-cookie-key
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    stop_grace_period: 50s
+    restart: unless-stopped
+volumes:
+  database:
+secrets:
+  postgres-password:
+    file: ./secrets/postgres-password
+  runtime-database-url:
+    file: ./secrets/runtime-database-url
+  browser-cookie-key:
+    file: ./secrets/browser-cookie-key

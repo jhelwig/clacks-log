@@ -33,3 +33,10 @@ axum_session_sqlx.workspace = true
 tower-http.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"] }
 metrics.workspace = true
+opentelemetry.workspace = true
+opentelemetry_sdk.workspace = true
+opentelemetry-otlp.workspace = true
+opentelemetry-http.workspace = true
+tracing-opentelemetry.workspace = true
+opentelemetry-appender-tracing.workspace = true
+metrics-opentelemetry.workspace = true

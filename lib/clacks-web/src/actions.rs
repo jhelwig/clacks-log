@@ -57,18 +57,7 @@ pub async fn providers() -> Result<Vec<ProviderChoice>, ServerFnError> {
 #[server]
 pub async fn load_account() -> Result<Account, ServerFnError> {
     let state = state()?;
-    let principal = match leptos_axum::extract_with_state::<
-        clacks_server::auth::principal::Principal,
-        _,
-    >(&state)
-    .await
-    {
-        Ok(principal) => principal,
-        Err(_) => {
-            leptos_axum::redirect("/sign-in");
-            return Err(ServerFnError::new("Sign in to manage login identities."));
-        }
-    };
+    let principal = principal(&state).await?;
     let identities = state
         .store
         .identities(&principal)
@@ -113,9 +102,7 @@ pub async fn start_link(
 ) -> Result<(), ServerFnError> {
     let state = state()?;
     let session = leptos_axum::extract::<axum_session_sqlx::SessionPgSession>().await?;
-    let principal =
-        leptos_axum::extract_with_state::<clacks_server::auth::principal::Principal, _>(&state)
-            .await?;
+    let principal = principal(&state).await?;
     let url = clacks_server::auth::changes::request_link(
         &state,
         &session,
@@ -138,9 +125,7 @@ pub async fn start_unlink(
 ) -> Result<(), ServerFnError> {
     let state = state()?;
     let session = leptos_axum::extract::<axum_session_sqlx::SessionPgSession>().await?;
-    let principal =
-        leptos_axum::extract_with_state::<clacks_server::auth::principal::Principal, _>(&state)
-            .await?;
+    let principal = principal(&state).await?;
     let url = clacks_server::auth::changes::request_unlink(
         &state,
         &session,
@@ -169,4 +154,25 @@ pub async fn sign_out() -> Result<(), ServerFnError> {
 #[cfg(feature = "ssr")]
 fn state() -> Result<clacks_server::runtime::ServerState, ServerFnError> {
     use_context().ok_or_else(|| ServerFnError::new("Account service unavailable."))
+}
+
+/// Redirect expired browser logins while preserving availability failures as errors.
+#[cfg(feature = "ssr")]
+async fn principal(
+    state: &clacks_server::runtime::ServerState,
+) -> Result<clacks_server::auth::principal::Principal, ServerFnError> {
+    use axum::extract::FromRequestParts;
+    use clacks_server::auth::{error::AuthError, principal::Principal};
+
+    let mut parts = use_context::<axum::http::request::Parts>()
+        .ok_or_else(|| ServerFnError::new("Account request context is unavailable."))?;
+    match Principal::from_request_parts(&mut parts, state).await {
+        Ok(principal) => Ok(principal),
+        Err(error) => {
+            if matches!(error, AuthError::SignInRequired) {
+                leptos_axum::redirect("/sign-in");
+            }
+            Err(ServerFnError::new(error.to_string()))
+        }
+    }
 }

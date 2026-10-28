@@ -55,7 +55,8 @@ pub(crate) fn load(
     );
     if let Some(expires) = saved.response.client_secret_expires_at() {
         anyhow::ensure!(
-            expires.timestamp() > time::OffsetDateTime::now_utc().unix_timestamp(),
+            expires.timestamp() == 0
+                || expires.timestamp() > time::OffsetDateTime::now_utc().unix_timestamp(),
             "registered client secret has expired; operator action required"
         );
     }
@@ -78,6 +79,12 @@ pub async fn run(provider: &ProviderConfig, callback: &Url) -> anyhow::Result<Re
         load(registration_file, provider, callback)?;
         return Ok(RegistrationOutcome::Reused);
     }
+    let parent = registration_file
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| std::path::Path::new("."));
+    // Establish the protected output before the remote registration can commit.
+    let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
     let client = http_client()?;
     let metadata = CoreProviderMetadata::discover_async(provider.issuer.clone(), &client)
         .await
@@ -107,14 +114,10 @@ pub async fn run(provider: &ProviderConfig, callback: &Url) -> anyhow::Result<Re
         callback: callback.clone(),
         response,
     };
-    let parent = registration_file
-        .parent()
-        .filter(|p| !p.as_os_str().is_empty())
-        .unwrap_or_else(|| std::path::Path::new("."));
-    let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
-    serde_json::to_writer(temporary.as_file_mut(), &saved)?;
-    temporary.flush()?;
-    temporary.as_file().sync_all()?;
+    serde_json::to_writer(temporary.as_file_mut(), &saved)
+        .context("registration completed but encoding/saving credentials failed; inspect provider state before retrying")?;
+    temporary.flush().context("registration completed but flushing credentials failed; inspect provider state before retrying")?;
+    temporary.as_file().sync_all().context("registration completed but syncing credentials failed; inspect provider state before retrying")?;
     if let Err(error) = temporary.persist_noclobber(registration_file) {
         let (_, recovery_path) = error.file.keep().map_err(|_| anyhow::anyhow!("registration completed but saving its credentials failed; inspect provider state before retrying"))?;
         anyhow::bail!(

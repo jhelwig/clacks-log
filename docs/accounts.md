@@ -75,8 +75,9 @@ D368 selects `axum_session` with `axum_session_sqlx` for PostgreSQL persistence,
 retaining the middleware's cookie handling, session identifiers, renewal and
 general session storage. Use ordinary Axum request authentication to resolve the
 login-session reference against authoritative PostgreSQL state under D367.
-Middleware caching is not an authentication-validity cache. Concrete schema and
-transaction integration remain specification work.
+Middleware caching is not an authentication-validity cache. The [account-management contract](account-management-proposal.md) defines
+the concrete schema and transaction integration; the
+[server guide](../lib/clacks-server/README.md) documents the runtime.
 
 Initialize middleware storage through release-managed migrations under D361;
 ordinary application startup uses the runtime database role without executing

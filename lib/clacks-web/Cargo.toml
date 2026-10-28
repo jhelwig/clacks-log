@@ -37,7 +37,7 @@ openidconnect.workspace = true
 rsa.workspace = true
 rand.workspace = true
 ulid.workspace = true
-chrono = "0.4"
+chrono.workspace = true
 url.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"] }

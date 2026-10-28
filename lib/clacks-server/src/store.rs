@@ -3,6 +3,8 @@
 use sqlx::PgPool;
 
 pub(crate) mod accounts;
+mod administrators;
+pub mod identities;
 pub(crate) mod logins;
 
 #[cfg(test)]
@@ -19,13 +21,12 @@ impl AccountStore {
     pub(crate) fn new(pool: PgPool) -> Self {
         Self { pool }
     }
-}
 
-impl AccountStore {
-    /// Check database connectivity for runtime readiness without changing account data.
+    /// Check account-schema usability under the runtime role without changing data.
     pub(crate) async fn ping(&self) -> anyhow::Result<()> {
-        use sqlx::Connection;
-        self.pool.acquire().await?.ping().await?;
+        sqlx::query_file!("sql/readiness.sql")
+            .fetch_optional(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -34,6 +35,3 @@ impl AccountStore {
         self.pool.close().await;
     }
 }
-
-mod administrators;
-pub mod identities;

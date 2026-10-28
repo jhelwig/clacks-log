@@ -39,6 +39,7 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 axum_session = "=0.22.0"
 axum_session_sqlx = { version = "=0.12.0", default-features = false, features = ["postgres", "tls-rustls"] }
 tower-http = { version = "0.7", features = ["trace", "fs"] }
+chrono = "0.4"
 openidconnect = { version = "=4.0.1", default-features = false, features = ["reqwest", "rustls-tls", "timing-resistant-secret-traits"] }
 axum = { version = "=0.8.9", features = ["form", "query"] }
 clacks-server = { path = "lib/clacks-server" }
@@ -53,6 +54,7 @@ url = "2"
 http = "1"
 tracing-appender = "=0.2.5"
 opentelemetry = { version = "=0.33.1", default-features = false, features = ["trace", "metrics", "logs", "internal-logs"] }
+opentelemetry-http = "=0.33.1"
 opentelemetry_sdk = { version = "=0.33.1", default-features = false, features = ["trace", "metrics", "logs", "internal-logs"] }
 opentelemetry-otlp = { version = "=0.33.1", default-features = false, features = ["http-proto", "reqwest-blocking-client", "reqwest-rustls", "trace", "metrics", "logs", "internal-logs"] }
 tracing-opentelemetry = { version = "=0.34.0", default-features = false }
@@ -69,7 +71,7 @@ sha2 = "=0.11.1"
 percent-encoding = "2"
 clacks-client-store = { path = "lib/clacks-client-store" }
 clacks-sync = { path = "lib/clacks-sync" }
-sqlx = { version = "=0.9.0", default-features = false, features = ["runtime-tokio", "sqlite-bundled", "macros", "migrate", "regexp"] }
+sqlx = { version = "=0.9.0", default-features = false, features = ["runtime-tokio", "macros", "migrate"] }
 tokio = { version = "=1.54.1", default-features = false, features = ["rt", "sync", "time"] }
 clacks-geography = { path = "lib/clacks-geography" }
 clacks-geography-builder = { path = "lib/clacks-geography-builder" }
@@ -140,8 +142,9 @@ output-name = "clacks-web"
 site-root = "target/site"
 site-pkg-dir = "pkg"
 style-file = "lib/clacks-web/style/account.css"
-assets-dir = "lib/clacks-web/public"
 bin-features = ["ssr"]
 bin-default-features = false
+bin-cargo-args = ["--locked"]
 lib-features = ["hydrate"]
 lib-default-features = false
+lib-cargo-args = ["--locked"]

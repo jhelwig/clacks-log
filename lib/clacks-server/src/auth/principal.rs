@@ -1,5 +1,8 @@
 //! The account and login identity authorized for a request.
 
+use crate::{auth::error::AuthError, runtime::ServerState, store::logins::LoginReference};
+use axum::{extract::FromRequestParts, http::request::Parts};
+use axum_session_sqlx::SessionPgSession;
 use clacks_model::ids::AccountId;
 use ulid::Ulid;
 
@@ -11,10 +14,6 @@ pub struct Principal {
     /// Linked identity used to establish this login.
     pub identity_id: Ulid,
 }
-
-use crate::{auth::error::AuthError, runtime::ServerState, store::logins::LoginReference};
-use axum::{extract::FromRequestParts, http::request::Parts};
-use axum_session_sqlx::SessionPgSession;
 
 impl FromRequestParts<ServerState> for Principal {
     type Rejection = AuthError;
@@ -33,7 +32,7 @@ impl FromRequestParts<ServerState> for Principal {
             .store
             .authenticate(&LoginReference::from_session(reference), state.lifetime())
             .await
-            .map_err(|_| AuthError::Unavailable)?
+            .map_err(AuthError::from_store)?
             .ok_or(AuthError::SignInRequired)
     }
 }

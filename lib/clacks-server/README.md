@@ -1,8 +1,13 @@
 # Clacks server library
 
-Production account persistence and operator operations for Clacks Log. PostgreSQL
+Production account persistence, OpenID Connect (OIDC) and operator operations for
+Clacks Log. PostgreSQL
 is the server store; its schema is independent of the SQLite desktop store.
 The account contract is in [accounts.md](../../docs/accounts.md).
+
+For a running local instance, follow the
+[complete development workflow](../../docs/server-development.md). The sections
+below describe individual operations and test setup.
 
 ## Release migrations
 
@@ -20,6 +25,12 @@ read-only to ordinary requests.
 ## SQL query metadata
 
 Fixed PostgreSQL queries use external SQL files and compile-time SQLx checking.
+Install the pinned CLI with both workspace backends and Rustls:
+
+```sh
+cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features sqlite,postgres,rustls
+```
+
 Generate metadata against a disposable database with the production migrations
 applied, from this crate's directory:
 
@@ -28,8 +39,9 @@ SQLX_OFFLINE=false cargo sqlx prepare -- --all-targets --locked
 SQLX_OFFLINE=false cargo sqlx prepare --check -- --all-targets --locked
 ```
 
-Set `DATABASE_URL` to the query-preparation PostgreSQL database. Commit this
-crate's `.sqlx/` files with query/schema changes. Client SQLite metadata remains
+Set `DATABASE_URL` to the same disposable PostgreSQL database used for tests,
+with the migration role. Commit this crate's `.sqlx/` files with query/schema
+changes. Client SQLite metadata remains
 at the workspace root; do not regenerate that directory against PostgreSQL.
 Ordinary builds use `SQLX_OFFLINE=true`.
 
@@ -59,6 +71,9 @@ cargo run -p clacks-admin -- oidc register --config /etc/clacks/server.toml --pr
 
 This subcommand does not read runtime database/cookie credentials or open a
 PostgreSQL connection. Repeated setup reuses a matching saved registration.
+New registrations provide `client_name = "Clacks Log"` through standard OIDC
+client metadata. Reuse does not rename an existing provider client; change an
+existing display name through the provider's administration interface.
 Keep the registration file protected and distribute the same read-only file to
 all application instances. An issuer/callback mismatch or expired client secret
 requires operator action; do not automatically register again.
@@ -81,7 +96,9 @@ at deployment ingress; the application listener is internal.
 
 `CLACKS_TEST_RUNTIME_DATABASE_URL` supplies the restricted runtime role for HTTP
 scenarios, separately from the migration-capable test database URL. Run all
-server scenarios using `cargo test -p clacks-server --all-targets --locked`.
+store scenarios using `cargo test -p clacks-server --lib --locked`.
+Browser/provider scenarios run in `clacks-web` through production Leptos actions
+and the provider callback; see the [web guide](../clacks-web/README.md).
 The narrow provider fixture signs independent ephemeral identity tokens in Rust;
 no TQSL sources, external fixture generator or real account credentials are used.
 
@@ -107,3 +124,47 @@ Recovery adds the binding without removing existing identities, browser logins
 or desktop clients. An identity owned elsewhere is refused, never transferred.
 Suspected compromise needs separate explicit revocation, not implicit changes
 hidden inside recovery. There is no automatic email linking or account merge.
+
+## Disposable local PostgreSQL
+
+One disposable PostgreSQL database serves both metadata preparation and account
+scenarios. Its trust authentication is exclusively for synthetic local tests:
+
+```sh
+docker run --rm --name clacks-tests --tmpfs /var/lib/postgresql -e POSTGRES_HOST_AUTH_METHOD=trust -p 127.0.0.1:5432:5432 postgres@sha256:b994732fcf33f73776c65d3a5bf1f80c00120ba5007e8ab90307b1a743c1fc16
+```
+
+In another terminal, create roles and the database, then apply release
+migrations once:
+
+```sh
+docker exec -i clacks-tests psql -U postgres -v ON_ERROR_STOP=1 < deploy/server/database-roles.sql
+docker exec clacks-tests createdb -U postgres -O clacks_migrator clacks
+```
+
+Write the `postgres://clacks_migrator@127.0.0.1:5432/clacks`
+URL to a temporary file and run `clacks-admin database migrate` with that file.
+Apply `deploy/server/database-grants.sql` as the schema owner to that database.
+Set these test inputs (adjust the port if already occupied):
+
+```sh
+export DATABASE_URL=postgres://clacks_migrator@127.0.0.1:5432/clacks
+export CLACKS_TEST_DATABASE_URL=postgres://clacks_migrator@127.0.0.1:5432/clacks
+export CLACKS_TEST_RUNTIME_DATABASE_URL=postgres://clacks_runtime@127.0.0.1:5432/clacks
+export LEPTOS_OUTPUT_NAME=clacks-web
+```
+
+The two environment variables are deliberately different: store/maintenance
+scenarios exercise their production operations, and HTTP/web scenarios use the
+restricted runtime role. Unit scenarios may invoke the normal SQLx migrator on
+the same database, but no scenario creates a new database per assertion or
+injects schema behavior. Stop only this service with `docker stop clacks-tests`
+and remove temporary synthetic credential files when done.
+
+For the image, ingress, health, shutdown and backup procedures, see
+[Linux deployment](../../deploy/server/README.md). The server currently provides
+account management, not the later sync/upload endpoints.
+
+Run the client and server metadata checks sequentially. Their committed caches
+are separate, but SQLx uses one `target/sqlx-prepare-check` scratch directory;
+concurrent preparations against that directory interfere with each other.

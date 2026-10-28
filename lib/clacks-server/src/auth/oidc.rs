@@ -1,4 +1,22 @@
-//! Identity information passed from protocol verification to account admission.
+//! OpenID Connect client setup and verified identity values.
+
+use crate::config::{ProviderConfig, RegistrationMode};
+use crate::{
+    auth::{
+        error::AuthError,
+        pending::{self, PendingFlow, Purpose},
+    },
+    runtime::ServerState,
+};
+use axum_session_sqlx::SessionPgSession;
+use openidconnect::{
+    AuthType, ClientId, ClientSecret, EndpointMaybeSet, EndpointNotSet, EndpointSet, RedirectUrl,
+    core::{CoreClient, CoreClientAuthMethod, CoreProviderMetadata},
+};
+use openidconnect::{
+    AuthenticationFlow, CsrfToken, Nonce, PkceCodeChallenge, core::CoreResponseType,
+};
+use url::Url;
 
 /// External identity claims after successful provider verification.
 pub(crate) struct VerifiedIdentity {
@@ -10,13 +28,6 @@ pub(crate) struct VerifiedIdentity {
     pub display_name: Option<String>,
 }
 
-use crate::config::{ProviderConfig, RegistrationMode};
-use openidconnect::{
-    ClientId, ClientSecret, EndpointMaybeSet, EndpointNotSet, EndpointSet, RedirectUrl,
-    core::{CoreClient, CoreProviderMetadata},
-};
-use url::Url;
-
 /// Client endpoint states returned by standard provider discovery.
 pub(crate) type DiscoveredClient = CoreClient<
     EndpointSet,
@@ -27,35 +38,85 @@ pub(crate) type DiscoveredClient = CoreClient<
     EndpointMaybeSet,
 >;
 
+/// Client identity, secret and authentication method retained together for setup.
+pub(crate) struct ClientCredentials {
+    /// Provider-issued application identity.
+    id: ClientId,
+    /// Confidential-client secret, absent for public clients.
+    secret: Option<ClientSecret>,
+    /// Native OAuth request authentication selected from registration metadata.
+    auth_type: AuthType,
+}
+
+impl ClientCredentials {
+    /// Accept supported standard methods only when their secret requirements match.
+    fn new(
+        id: ClientId,
+        secret: Option<ClientSecret>,
+        method: CoreClientAuthMethod,
+    ) -> anyhow::Result<Self> {
+        let auth_type = match &method {
+            CoreClientAuthMethod::ClientSecretBasic => AuthType::BasicAuth,
+            CoreClientAuthMethod::ClientSecretPost | CoreClientAuthMethod::None => {
+                AuthType::RequestBody
+            }
+            _ => anyhow::bail!(
+                "unsupported token_endpoint_auth_method; use client_secret_basic, client_secret_post or none; preserve the registration and fix provider configuration"
+            ),
+        };
+        let requires_secret = !matches!(method, CoreClientAuthMethod::None);
+        anyhow::ensure!(
+            secret.is_some() == requires_secret,
+            "token_endpoint_auth_method and client secret are inconsistent; fix provider configuration without automatically registering again"
+        );
+        Ok(Self {
+            id,
+            secret,
+            auth_type,
+        })
+    }
+}
+
 /// Resolve the selected provider's existing credentials without network mutation.
 pub(crate) fn credentials(
     config: &ProviderConfig,
     callback: &Url,
-) -> anyhow::Result<(ClientId, Option<ClientSecret>)> {
+) -> anyhow::Result<ClientCredentials> {
     match &config.registration {
         RegistrationMode::Preconfigured {
             client_id,
             client_secret_file,
+            token_endpoint_auth_method,
         } => {
             anyhow::ensure!(!client_id.is_empty(), "configured client_id is empty");
-            Ok((
-                ClientId::new(client_id.clone()),
-                client_secret_file
-                    .as_deref()
-                    .map(crate::config::secret)
-                    .transpose()?
-                    .map(ClientSecret::new),
-            ))
+            let secret = client_secret_file
+                .as_deref()
+                .map(crate::config::secret)
+                .transpose()?
+                .map(ClientSecret::new);
+            let method = token_endpoint_auth_method.clone().unwrap_or_else(|| {
+                if secret.is_some() {
+                    CoreClientAuthMethod::ClientSecretBasic
+                } else {
+                    CoreClientAuthMethod::None
+                }
+            });
+            ClientCredentials::new(ClientId::new(client_id.clone()), secret, method)
         }
         RegistrationMode::Dynamic {
             registration_file, ..
         } => {
             let saved =
                 crate::maintenance::registration::load(registration_file, config, callback)?;
-            Ok((
+            ClientCredentials::new(
                 saved.response.client_id().clone(),
                 saved.response.client_secret().cloned(),
-            ))
+                saved
+                    .response
+                    .token_endpoint_auth_method()
+                    .cloned()
+                    .unwrap_or(CoreClientAuthMethod::ClientSecretBasic),
+            )
         }
     }
 }
@@ -66,25 +127,16 @@ pub(crate) async fn discover(
     callback: &Url,
     http: &openidconnect::reqwest::Client,
 ) -> anyhow::Result<DiscoveredClient> {
-    let (id, secret) = credentials(config, callback)?;
+    let credentials = credentials(config, callback)?;
     let metadata = CoreProviderMetadata::discover_async(config.issuer.clone(), http)
         .await
         .map_err(|_| anyhow::anyhow!("configured provider discovery failed"))?;
-    Ok(CoreClient::from_provider_metadata(metadata, id, secret)
-        .set_redirect_uri(RedirectUrl::new(callback.to_string())?))
+    Ok(
+        CoreClient::from_provider_metadata(metadata, credentials.id, credentials.secret)
+            .set_auth_type(credentials.auth_type)
+            .set_redirect_uri(RedirectUrl::new(callback.to_string())?),
+    )
 }
-
-use crate::{
-    auth::{
-        error::AuthError,
-        pending::{self, PendingFlow, Purpose},
-    },
-    runtime::ServerState,
-};
-use axum_session_sqlx::SessionPgSession;
-use openidconnect::{
-    AuthenticationFlow, CsrfToken, Nonce, PkceCodeChallenge, core::CoreResponseType,
-};
 
 /// Start one standard provider request for its server-recorded Clacks purpose.
 pub(crate) async fn authorization_url(
@@ -104,7 +156,10 @@ pub(crate) async fn authorization_url(
         .map_err(|_| AuthError::InvalidCallback)?;
     let client = discover(provider, &callback, &state.provider_http)
         .await
-        .map_err(|_| AuthError::Provider)?;
+        .map_err(|error| {
+            tracing::warn!(provider = %key, reason = %error, "Identity provider client setup failed");
+            AuthError::Provider
+        })?;
     let (challenge, verifier) = PkceCodeChallenge::new_random_sha256();
     let mut request = client
         .authorize_url(
