@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    "lib/clacks-server",
+    "bin/clacks-admin",
     "lib/clacks-client-store",
     "lib/clacks-desktop",
     "lib/clacks-geography",
@@ -25,6 +27,7 @@ license = "Elastic-2.0"
 publish = false
 
 [workspace.dependencies]
+clacks-server = { path = "lib/clacks-server" }
 eframe = { version = "=0.37.0", default-features = false, features = ["accesskit", "clipboard", "default_fonts", "links", "persistence", "system_fonts", "wgpu", "wayland", "x11"] }
 egui_extras = { version = "=0.37.0", default-features = false }
 egui_kittest = { version = "=0.37.0", default-features = false }

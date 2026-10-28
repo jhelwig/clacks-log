@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.accounts (account_id) VALUES ($1)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3daaf12ccb9e5baba2a733680a2200ce02d0f38c34078d100d6e36bcda421666"
+}

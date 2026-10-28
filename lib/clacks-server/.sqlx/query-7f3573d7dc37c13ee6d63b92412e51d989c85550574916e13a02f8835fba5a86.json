@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.login_sessions (login_reference, account_id, identity_id, expires_at)\nVALUES ($1, $2, $3, CURRENT_TIMESTAMP + $4::bigint * INTERVAL '1 second')\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7f3573d7dc37c13ee6d63b92412e51d989c85550574916e13a02f8835fba5a86"
+}
