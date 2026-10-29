@@ -2305,3 +2305,16 @@ from an authorized running server or database-plus-key compromise. Retention
 cleanup does not erase older backups. Evaluate additional controls against
 realistic exposure and remediation costs rather than inventing stronger security
 requirements. See [credential storage](accounts.md#credential-storage-d380).
+
+### Decision D381
+
+#### D381
+
+Include deployment wrapping-key rotation and individual account encryption-key
+rotation in MVP through the existing `clacks-admin` command. Wrapping-key
+rotation rewraps account keys; account-key rotation re-encrypts the protected
+values belonging to that account. Deployment automation may invoke these
+operations; no internal automatic rotation schedule is required. Retain the key
+versions needed by supported backups and restores. Concrete commands,
+transaction boundaries and interruption recovery belong to issue #13's design.
+See [encryption-key lifecycle](accounts.md#encryption-key-lifecycle-d236d381).

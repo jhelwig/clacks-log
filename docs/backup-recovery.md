@@ -81,6 +81,15 @@ code receipts. All application instances need the same version-to-key mapping.
 Changing the active version does not rewrap existing account keys or retire old
 versions. Do not remove an old wrapping key while any account envelope uses it.
 
+D381 includes wrapping-key rotation and individual account-key rotation through
+`clacks-admin` in MVP. Rewrapping or re-encrypting current database contents does
+not rewrite existing backups. Preserve the older wrapping-key material needed
+to decrypt the account keys in every supported backup, even after current rows
+have migrated. Rotation procedures must identify the retained recovery material.
+The proposed online migration and retry procedures are in the
+[credential-protection proposal](credential-protection-proposal.md); operational
+defaults there remain subject to review.
+
 An older database restore can lose client enrollments or restore authorization
 that was revoked after the backup. This is the ordinary rollback boundary,
 not rollback-proof revocation. Reapply known revocations after restoration.

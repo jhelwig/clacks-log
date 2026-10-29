@@ -72,7 +72,7 @@ in-memory production authorization store, parallel session implementation,
 introspection-to-self request, generic workflow engine or new acknowledgment
 protocol. Fixed SQL stays in checked query files with offline metadata.
 
-#12 delivers real enrollment and admission persistence that #13 extends with
+#12 delivers real enrollment and admission persistence that #14 extends with
 record transport and complete shared-state installation. Do not simulate a
 successful synchronization or replace these components later.
 
@@ -113,11 +113,11 @@ account/baseline ID, root timeline and selected membership generation;
 `sync_baseline_coverage` holds baseline/timeline/revision coordinates. Include
 the root timeline identity needed to materialize the initial lineage. These are
 the real initial subset of `AccountMetadata` and baseline persistence, not a
-second synchronization representation. #13 adds retained ancestry boundaries,
+second synchronization representation. #14 adds retained ancestry boundaries,
 additional baseline interpretations and installed-coverage relations as needed.
 `desktop_clients` supplies `MembershipSnapshot`, with creation/closure positions
 and nullable acknowledgment reference. Its acknowledgment stays absent in #12;
-the referenced checkpoint/coverage tables arrive with actual receipt in #13.
+the referenced checkpoint/coverage tables arrive with actual receipt in #14.
 Reuse the logical schema families in client-store.md; the server does not copy
 SQLite's physical row IDs or store JSON copies of model structs.
 
@@ -127,7 +127,7 @@ under the actual head and generation conditions. A new member has no durable
 acknowledgment; a browser callback and token response are not installed coverage.
 Closed actors retain the metadata required by the existing compaction rules.
 
-#13 adds accepted records, transfer manifests, journals and complete installation,
+#14 adds accepted records, transfer manifests, journals and complete installation,
 using these same heads/membership rows. It installs the existing native default
 group data as ordinary server-authored account records before exposing shared
 state; #12 does not claim that reference data or an initial snapshot was received.
@@ -263,7 +263,7 @@ Database failure is unavailable, not successful anonymous access or unknown-toke
 success. `GET /api/client` is this same production boundary, not a fixture.
 
 Later change-admission transactions recheck membership while committing the change,
-ordered against revocation through the same account lock. #13 must also close or
+ordered against revocation through the same account lock. #14 must also close or
 deny work on already-open WebSocket sessions after revocation, rather than relying
 only on token expiry or a handshake. Notifications may accelerate closure but are
 not admission authority. There are no WebSocket sessions to simulate in #12.
@@ -331,7 +331,7 @@ are never overwritten or accepted merely because their path looks right.
 Bind SQLite only after the native bundle is durably saved. Use the existing exact
 prior-binding guard and one immediate transaction. SQLite stores only the native
 reference plus non-secret server/account/actor values. Request the actual initial
-state through #13 when available; before then show enrolled/awaiting initial
+state through #14 when available; before then show enrolled/awaiting initial
 synchronization, not a fake last-successful-sync time.
 
 ### Interrupted local completion
