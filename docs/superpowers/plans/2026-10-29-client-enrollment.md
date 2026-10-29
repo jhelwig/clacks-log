@@ -69,7 +69,7 @@ These are implementation defaults, not new decision-register entries:
 | Encryption | RustCrypto AES-256-GCM authenticated encryption; 32-byte keys, fresh random 12-byte nonces, 16-byte tags |
 | Cleanup scheduling | Tokio interval every 60 seconds; bounded batches, no active-client idle expiry |
 | Destination | `data_local_dir()/accounts/<AccountId>/<ClientActorId>`, with directory override |
-| Native entry | Service `org.clacks.log.desktop`; random opaque user/reference; Windows Local persistence |
+| Native entry | Service `org.clacks-log.desktop.authorization`; random opaque user/reference; Windows Local persistence |
 
 Initial dependency pins: `oauth-as =1.0.0` (`default-features=false`,
 `dpop,jwt-p256,http`), `huskarl =0.11.9` (`authorization-flow-loopback,tracing`),
@@ -335,7 +335,7 @@ operations and row types; `sql/enrollment/`; existing integration target modules
 **Interfaces:**
 - `EnrollmentAttempt` has `credential_reference: String`, `server: String`,
   `destination: Option<PathBuf>`, `expected: Option<EnrollmentBinding>` and
-  `phase: EnrollmentPhase::{KeySaved, CredentialSaved, DestinationBound}`.
+  `phase: EnrollmentPhase::{KeySaved, CredentialSaved, NeedsDestination, DestinationBound}`.
   This is non-secret serializable state in the existing local-state key/value
   (KV) table, not another credential store.
 - `enrollment::attempt(&ClientStore) -> anyhow::Result<Option<EnrollmentAttempt>>`,
@@ -432,8 +432,10 @@ restart safely through saved attempt state without changing the original workspa
 workspace integration and existing UI/session scenario modules.
 
 **Interfaces:**
-- `EnrollmentCommand::{Begin, Resume, Cancel}` carries only non-secret user input
+- `EnrollmentCommand::{Begin, Resume, AuthorizeAgain, SetDestination, Cancel, Discard}` carries only non-secret user input
   or the opaque saved attempt; it is owned by the existing session runtime.
+  Discard applies only to an uninstalled `KeySaved` attempt and does not revoke
+  an already approved remote authorization.
 - `EnrollmentStatus::{Idle, Authorizing, Saving, Ready, Failed}` is a typed,
   non-secret UI snapshot with actionable failure text and no credential payloads.
 - `completion::finish(initiating_store, authorized, cancellation)` uses Task 5
@@ -445,6 +447,10 @@ workspace integration and existing UI/session scenario modules.
   complete the binding. Assert the same verified actor, intact source workspace
   and no second approval/actor. Stop at normal operation boundaries; no failure
   injection or fake DB triggers. Existing destination/wrong identity remains intact.
+  Include a saved refresh credential with a still-`KeySaved` SQLite phase: the
+  form must not offer discard, and the removal operation must preserve that
+  credential. With an occupied destination, completion and browser restart must
+  activate its existing window and return an actionable error without writes.
 - [ ] Add one native component interaction scenario using egui_kittest: empty
   invalid server disables Connect; valid inputs submit one request; Saving blocks
   duplicate submission; Cancel sends one cancellation; modal blocks background
@@ -459,6 +465,12 @@ workspace integration and existing UI/session scenario modules.
   through the empty `ClientStore::create` path. Never call standalone seeding.
   For same-account recovery, install into the existing store instead: do not
   relocate its directory when its actor changes or allocate another local account.
+  Check the actual native bundle before offering or executing discard; SQLite's
+  phase alone cannot establish that refresh persistence has not completed.
+- [ ] Return terminal outcomes from the worker and publish them only after the
+  session joins it. Preserve in-progress updates and cancellation while busy;
+  do not enable retries before task admission is available. Verify that worker
+  failure returns an actionable outcome without publishing an early terminal state.
 - [ ] Acquire existing workspace ownership before destination writes. If another
   process owns it, activate that process and preserve the attempt instead of
   racing a write. If created but binding is incomplete, reopen through ordinary

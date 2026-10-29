@@ -113,8 +113,8 @@ pub(crate) fn request(address: &ActivationAddress) -> anyhow::Result<()> {
     runtime.block_on(request_async(address))
 }
 
-/// Retry listener-readiness races within one bounded secondary-launch deadline.
-async fn request_async(address: &ActivationAddress) -> anyhow::Result<()> {
+/// Activate an existing workspace from an async task, allowing three seconds for startup.
+pub(crate) async fn request_async(address: &ActivationAddress) -> anyhow::Result<()> {
     tokio::time::timeout(ACTIVATION_TIMEOUT, async {
         loop {
             let attempt = async {

@@ -54,7 +54,10 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
     let context = Arc::new(OnceLock::new());
     let (settings_requests, requests) = mpsc::channel(8);
     let (settings_updates, settings_view) = watch::channel(None);
+    let (enrollment_updates, enrollment_view) =
+        watch::channel(crate::enrollment::EnrollmentStatus::default());
     let resources = SessionResources {
+        enrollment_updates,
         settings_requests: requests,
         settings_updates,
         paths: paths.clone(),
@@ -81,6 +84,7 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
         Box::new(move |creation| {
             let _ = context.set(creation.egui_ctx.clone());
             let mut app = DesktopApp::new(UiResources {
+                enrollment_view,
                 status,
                 activation,
                 commands: ui_commands,

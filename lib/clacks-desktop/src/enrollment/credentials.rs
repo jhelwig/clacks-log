@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
 /// Native-store namespace, separate from ordinary application preferences.
+#[cfg(any(target_os = "macos", windows))]
 const SERVICE: &str = "org.clacks-log.desktop.authorization";
 
 /// Secret-bearing native entry; never format it for logs or UI state.

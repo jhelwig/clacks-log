@@ -83,11 +83,10 @@ pub(crate) async fn authorize(
     );
     let http = transport()?;
     let adapter = ReqwestClient::from(http.clone());
-    let metadata = AuthorizationServerMetadata::fetch()
-        .http_client(&adapter)
-        .issuer(selected.trim_end_matches('/'))
-        .call()
-        .await?;
+    let metadata = tokio::select! {
+        _ = cancellation.cancelled() => anyhow::bail!("Authorization cancelled; the saved attempt is available for retry"),
+        result = AuthorizationServerMetadata::fetch().http_client(&adapter).issuer(selected.trim_end_matches('/')).call() => result?,
+    };
     let listener = bind_loopback(0).await?;
     let callback = format!("http://{}/oauth/callback", listener.local_addr()?);
     let key = signer(&bundle)?;

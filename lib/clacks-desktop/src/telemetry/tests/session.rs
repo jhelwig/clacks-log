@@ -30,6 +30,7 @@ pub(super) fn complete(
     let (_settings_requests, requests) = mpsc::channel(8);
     let (settings_updates, _settings_view) = watch::channel(None);
     let resources = SessionResources {
+        enrollment_updates: tokio::sync::watch::channel(Default::default()).0,
         settings_requests: requests,
         settings_updates,
         paths: paths.clone(),

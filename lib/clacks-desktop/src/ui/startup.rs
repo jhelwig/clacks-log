@@ -9,7 +9,7 @@ pub(super) fn status(ui: &mut egui::Ui, state: &SessionStatus) {
     let label = match state {
         SessionStatus::Opening => "Opening local workspace…",
         SessionStatus::Ready { identity, .. } if identity.enrolled => {
-            "Local workspace ready · Enrolled account"
+            "Local workspace ready · Awaiting initial sync"
         }
         SessionStatus::Ready { .. } => "Local workspace ready · Standalone account",
         SessionStatus::Failed { .. } => "Workspace needs attention",

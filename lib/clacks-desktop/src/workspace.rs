@@ -114,13 +114,20 @@ pub(crate) struct WorkspacePaths {
 impl WorkspacePaths {
     /// Establish the selected workspace directory without touching its database.
     pub fn resolve(config: &crate::config::DesktopConfig) -> anyhow::Result<Self> {
-        std::fs::create_dir_all(&config.workspace)?;
-        let directory = config.workspace.canonicalize()?;
+        let mut paths = Self::at(&config.workspace)?;
+        paths.log_directory = config.logs.directory.clone();
+        Ok(paths)
+    }
+
+    /// Resolve an account destination before ownership election without creating a database.
+    pub fn at(directory: &Path) -> anyhow::Result<Self> {
+        std::fs::create_dir_all(directory)?;
+        let directory = directory.canonicalize()?;
 
         Ok(Self {
             database: directory.join("workspace.sqlite"),
             lock_file: directory.join("instance.lock"),
-            log_directory: config.logs.directory.clone(),
+            log_directory: directory.join("logs"),
             directory,
         })
     }

@@ -33,7 +33,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"
 percent-encoding.workspace = true
 
 interprocess.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-util", "net", "sync", "time", "fs"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-util", "net", "sync", "time", "fs", "process"] }
 tokio-util.workspace = true
 sha2.workspace = true
 hex.workspace = true

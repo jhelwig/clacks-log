@@ -359,6 +359,21 @@ No installation registry or public test-only API is needed.
 An abandoned committed server enrollment remains visible
 in the account client list and can be explicitly revoked; no inactivity expiry.
 
+Before credentials have been saved or a destination bound, the connection dialog
+also offers **Discard saved attempt**. Availability and removal check the native
+entry as well as SQLite's phase: a saved refresh credential may precede the phase
+update after an interruption. An unreadable entry does not establish that removal
+is safe; an already absent entry can be cleared as unfinished local state.
+Discard removes only its uninstalled native key and local attempt, allowing
+correction of a mistaken server address. It
+does not revoke any authorization already approved remotely. Installed bindings
+and attempts with saved credentials must use completion recovery instead.
+
+The session owns terminal status publication after joining the enrollment worker.
+Progress may update while it runs, but retry actions become available only after
+the previous task has left admission. An occupied destination is activated using
+the existing asynchronous activation exchange; no nested runtime is started.
+
 ## 7. Reauthorization and revoked work
 
 | Verified server situation | Proposed workflow preserving the existing contracts |

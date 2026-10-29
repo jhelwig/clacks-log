@@ -8,6 +8,7 @@ pub(crate) mod tests;
 
 use crate::{
     application::STARTUP_DURATION_METRIC,
+    enrollment::{EnrollmentCommand, EnrollmentStatus, worker},
     instance::activation::ActivationListener,
     telemetry::TelemetryGuard,
     workspace::{OpenedWorkspace, WorkspacePaths},
@@ -29,9 +30,11 @@ use tracing::instrument::WithSubscriber;
 /// Bound blocking font discovery/loading so rapid preference changes cannot grow workers indefinitely.
 const MAX_FONT_TASKS: usize = 4;
 
-/// Lifecycle requests; ordinary domain work does not pass through this channel.
+/// Lifecycle, presentation and enrollment requests owned by one workspace session.
 #[derive(Debug)]
 pub(crate) enum SessionCommand {
+    /// Request an enrollment workflow on the owning workspace session.
+    Enrollment(crate::enrollment::EnrollmentCommand),
     /// Resolve presentation fonts on session-owned workers, without touching account data.
     Font(crate::ui::fonts::FontOperation),
     /// Retry only after the previous failed open has settled.
@@ -70,6 +73,8 @@ pub(crate) enum SessionStatus {
 
 /// Resources transferred to the runtime while outer composition retains ownership.
 pub(crate) struct SessionResources {
+    /// Nonsecret enrollment progress delivered to the native connection dialog.
+    pub enrollment_updates: watch::Sender<crate::enrollment::EnrollmentStatus>,
     /// Selected physical workspace and output locations.
     pub paths: WorkspacePaths,
     /// Bound endpoint, already accepting before database initialization.
@@ -105,6 +110,7 @@ pub(crate) async fn run(
     status: watch::Sender<SessionStatus>,
 ) -> anyhow::Result<()> {
     let SessionResources {
+        enrollment_updates,
         paths,
         listener,
         telemetry,
@@ -123,6 +129,9 @@ pub(crate) async fn run(
 
     let mut work = JoinSet::new();
     let mut font_work = JoinSet::new();
+    let mut enrollment_work = JoinSet::new();
+    let mut enrollment_progress = enrollment_updates.subscribe();
+    let mut enrollment_stop = CancellationToken::new();
     let mut settings_open = true;
     let mut opening = JoinSet::new();
     opening::begin(&mut opening, paths.clone());
@@ -138,13 +147,38 @@ pub(crate) async fn run(
     let mut loss_check = tokio::time::interval(Duration::from_secs(5));
 
     loop {
-        if closing.is_some() && opening.is_empty() && work.is_empty() && font_work.is_empty() {
+        if closing.is_some()
+            && opening.is_empty()
+            && work.is_empty()
+            && font_work.is_empty()
+            && enrollment_work.is_empty()
+        {
             break;
         }
 
         tokio::select! {
             biased;
             command = commands.recv(), if commands_open => match command {
+                Some(SessionCommand::Enrollment(EnrollmentCommand::Cancel)) => {
+                    enrollment_stop.cancel();
+                },
+                Some(SessionCommand::Enrollment(command)) if closing.is_none() && enrollment_work.is_empty() => {
+                    if let Some(workspace) = &opened {
+                        enrollment_stop = CancellationToken::new();
+                        enrollment_work.spawn(
+                            worker::execute(
+                                workspace.store.clone(),
+                                paths.clone(),
+                                command,
+                                enrollment_updates.clone(),
+                                enrollment_stop.clone(),
+                            )
+                            .in_current_span()
+                            .with_current_subscriber(),
+                        );
+                    }
+                }
+                Some(SessionCommand::Enrollment(_)) => {},
                 Some(SessionCommand::Font(operation)) if closing.is_none() && font_work.len() < MAX_FONT_TASKS => {
                     let span = tracing::Span::current();
                     let dispatcher = tracing::dispatcher::get_default(Clone::clone);
@@ -164,6 +198,7 @@ pub(crate) async fn run(
                     if closing.is_none() {
                         let started = Instant::now();
                         closing = Some(started);
+                        enrollment_stop.cancel();
                         settings_requests.close();
                         while let Ok(request) = settings_requests.try_recv() { let _ = request.reply.send(settings::SettingsResponse::Closing); }
                         tracing::info!(event = "desktop.shutdown_requested");
@@ -186,6 +221,25 @@ pub(crate) async fn run(
                 if matches!(result, Some(Err(_))) { tracing::error!(event = "desktop.font_task_failed"); }
                 if let Some(context) = context.get() { context.request_repaint(); }
             },
+            result = enrollment_work.join_next(), if !enrollment_work.is_empty() => {
+                if let Some(result) = result {
+                    let outcome = match result {
+                        Ok(outcome) => outcome,
+                        Err(_) => EnrollmentStatus::Failed {
+                            message: "The enrollment worker stopped unexpectedly; retry the saved attempt.".into(),
+                            resume_available: true,
+                            discard_available: false,
+                            destination: None,
+                            destination_change_available: false,
+                        },
+                    };
+                    enrollment_updates.send_replace(outcome);
+                }
+            },
+            _ = enrollment_progress.changed() => {
+                enrollment_progress.borrow_and_update();
+                if let Some(context) = context.get() {context.request_repaint();}
+            },
             result = opening.join_next(), if !opening.is_empty() => {
                 if let Some(result) = result {
                     let result = result.map_err(anyhow::Error::from).and_then(std::convert::identity);
@@ -202,6 +256,17 @@ pub(crate) async fn run(
                     match result {
                         Ok(workspace) => {
                             if closing.is_none() {
+                                let enrollment = match worker::inspect(&workspace.store).await {
+                                    Ok(enrollment) => enrollment,
+                                    Err(error) => EnrollmentStatus::Failed {
+                                        message: error.to_string(),
+                                        resume_available: false,
+                                        discard_available: false,
+                                        destination: None,
+                                        destination_change_available: false,
+                                    },
+                                };
+                                enrollment_updates.send_replace(enrollment);
                                 settings_updates.send_replace(Some(Arc::new(workspace.settings.clone())));
                                 tracing::info!(
                                     event = "desktop.workspace_ready",

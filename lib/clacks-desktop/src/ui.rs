@@ -6,6 +6,7 @@ mod closing;
 mod contact_table;
 mod contacts;
 mod dialog;
+mod enrollment;
 mod equipment;
 mod feedback;
 mod fields;
@@ -40,6 +41,8 @@ use tracing_appender::non_blocking::ErrorCounter;
 
 /// Runtime handles and diagnostic resources transferred to the native window.
 pub(crate) struct UiResources {
+    /// Nonsecret enrollment context and progress from the owning session.
+    pub enrollment_view: watch::Receiver<crate::enrollment::EnrollmentStatus>,
     /// Workspace lifecycle notifications.
     pub status: watch::Receiver<SessionStatus>,
     /// Existing-instance activation notifications.
@@ -62,6 +65,10 @@ pub(crate) struct UiResources {
 
 /// Window-owned view state and standard communication handles.
 pub(crate) struct DesktopApp {
+    /// Connection dialog, independent of logging and saved-settings editors.
+    enrollment: enrollment::EnrollmentUi,
+    /// Latest authoritative enrollment progress from the runtime.
+    enrollment_view: watch::Receiver<crate::enrollment::EnrollmentStatus>,
     /// Committed local appearance and an optional unapplied preview.
     appearance: appearance::AppearanceUi,
     /// One production logging region and its transient entry.
@@ -106,6 +113,7 @@ impl DesktopApp {
     /// Attach the actual session and diagnostic state to one native window.
     pub fn new(resources: UiResources) -> Self {
         let UiResources {
+            enrollment_view,
             status,
             activation,
             commands,
@@ -117,6 +125,8 @@ impl DesktopApp {
             file_failure,
         } = resources;
         Self {
+            enrollment: Default::default(),
+            enrollment_view,
             appearance: Default::default(),
             workbench: Default::default(),
             status,
@@ -256,6 +266,9 @@ impl eframe::App for DesktopApp {
                     self.workbench.menu(ui);
                 }
                 startup::details(self, ui, &state);
+                if snapshot.is_some() {
+                    self.enrollment.opener(ui, &self.enrollment_view.borrow());
+                }
                 let appearance = ui.add_enabled(!closing, egui::Button::new("Appearance…"));
                 if appearance.clicked() {
                     self.appearance.open(appearance.id);
@@ -338,6 +351,8 @@ impl eframe::App for DesktopApp {
                     .dialog(ui.ctx(), &snapshot.logbooks, &self.settings_requests);
             }
             self.appearance.show(ui.ctx());
+            self.enrollment
+                .show(ui.ctx(), &self.commands, &mut self.enrollment_view);
         }
     }
 }
