@@ -26,3 +26,5 @@ pub fn run() -> anyhow::Result<()> {
 #[cfg(test)]
 #[path = "logbooks/tests.rs"]
 mod logbook_tests;
+
+pub(crate) mod enrollment;

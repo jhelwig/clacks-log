@@ -322,6 +322,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 
 [[package]]
+name = "apple-native-keyring-store"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b350bfd03649e07aa05c0a81b3e15934374e585c98204a57e20b9d49f49bb9a"
+dependencies = [
+ "keyring-core",
+ "log",
+ "security-framework",
+]
+
+[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1206,9 +1217,14 @@ name = "clacks-desktop"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "apple-native-keyring-store",
+ "axum",
+ "chrono",
  "clacks-client-store",
  "clacks-model",
+ "clacks-server",
  "clacks-sync",
+ "clacks-web",
  "clap",
  "config",
  "directories",
@@ -1218,11 +1234,18 @@ dependencies = [
  "fontique",
  "hex",
  "http",
+ "huskarl",
+ "huskarl-core",
+ "huskarl-crypto-native",
+ "huskarl-reqwest",
  "interprocess",
+ "keyring-core",
+ "leptos",
  "libc",
  "metrics",
  "metrics-opentelemetry",
  "metrics-util",
+ "openidconnect",
  "opentelemetry",
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",
@@ -1230,6 +1253,10 @@ dependencies = [
  "opentelemetry_sdk",
  "percent-encoding",
  "prost",
+ "rand 0.8.8",
+ "reqwest 0.12.28",
+ "reqwest 0.13.5",
+ "rsa 0.9.10",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -1243,9 +1270,12 @@ dependencies = [
  "tracing-appender",
  "tracing-opentelemetry",
  "tracing-subscriber",
+ "ulid",
  "url",
  "widestring",
+ "windows-native-keyring-store",
  "windows-sys 0.61.2",
+ "zeroize",
 ]
 
 [[package]]
@@ -3883,6 +3913,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
+name = "huskarl"
+version = "0.11.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f145b4ad1ae54ada84cd10bd56f14a4fe03cd7f16c939647ad11f8e0bc1ff72"
+dependencies = [
+ "arc-swap",
+ "base64 0.23.1",
+ "bon",
+ "bytes",
+ "form_urlencoded",
+ "futures-util",
+ "getrandom 0.4.3",
+ "gloo-timers",
+ "http",
+ "huskarl-core",
+ "huskarl-crypto-native",
+ "huskarl-crypto-webcrypto",
+ "huskarl-macros",
+ "jiff",
+ "rand 0.10.3",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "snafu",
+ "subtle",
+ "tokio",
+ "tracing",
+ "url",
+ "web-time",
+]
+
+[[package]]
 name = "huskarl-core"
 version = "0.10.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3910,6 +3972,7 @@ dependencies = [
  "strum",
  "subtle",
  "tokio",
+ "tracing",
  "url",
  "web-time",
  "zeroize",
@@ -3970,6 +4033,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
+]
+
+[[package]]
+name = "huskarl-reqwest"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e15c727814d9e2694581812bdbe3edc7633c5c652f6f11f1cff2681917f53bd0"
+dependencies = [
+ "bon",
+ "bytes",
+ "http",
+ "huskarl-core",
+ "huskarl-macros",
+ "reqwest 0.13.5",
+ "snafu",
 ]
 
 [[package]]
@@ -4522,6 +4600,15 @@ dependencies = [
  "cfg-if",
  "futures-util",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "keyring-core"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29fbf4b551298c67925f38cf341a1ada797a75f1837bdf8ae1fc8e2ebc6efb59"
+dependencies = [
+ "log",
 ]
 
 [[package]]
@@ -6986,6 +7073,9 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "rustls-platform-verifier",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
  "sync_wrapper",
  "tokio",
  "tokio-rustls",
@@ -9730,6 +9820,18 @@ name = "windows-link"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
+
+[[package]]
+name = "windows-native-keyring-store"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "063426e76fdec7438d56bb777f67e318a84a25c707b07e575cb8b78e10c028f8"
+dependencies = [
+ "byteorder",
+ "keyring-core",
+ "windows-sys 0.61.2",
+ "zeroize",
+]
 
 [[package]]
 name = "windows-numerics"
