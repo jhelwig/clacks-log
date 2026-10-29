@@ -167,7 +167,7 @@ pub async fn install(
         }
     }
     let local: Vec<_> = local.into_values().collect();
-    let batch =
+    let mut batch =
         clacks_sync::transfer::plan_batch(&manifest, &progress, incoming, &local, &context.view())?;
     let staged_count = u64::try_from(
         batch
@@ -180,12 +180,17 @@ pub async fn install(
         binding::remove(&mut transaction, update.record.key).await?;
     }
     let mut installed_count = 0_u64;
-    for update in &batch.client_updates {
+    for update in &mut batch.client_updates {
         let previous = synchronization::current(&mut transaction, update.record.key).await?;
         if previous.latest != update.record.latest {
             installed_count += 1;
         }
         synchronization::store_update(&mut transaction, &previous, update).await?;
+        if let Some(review) =
+            crate::enrollment::holds::review_in(&mut transaction, &update.record).await?
+        {
+            update.review = Some(review);
+        }
     }
     for update in &batch.client_updates {
         binding::insert(&mut transaction, update.record.key).await?;
@@ -256,6 +261,12 @@ pub async fn finish(
         )?,
     };
     lineage::set_checkpoint(&mut transaction, &next).await?;
+    crate::enrollment::holds::completed_in(
+        &mut transaction,
+        &next,
+        matches!(mode, WindowMode::Full),
+    )
+    .await?;
     transaction.commit().await?;
     let mut transaction = store.pool.begin().await?;
     let checkpoint = lineage::current_checkpoint(&mut transaction, store.account)

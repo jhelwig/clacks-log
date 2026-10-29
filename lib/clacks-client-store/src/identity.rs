@@ -6,7 +6,7 @@ use clacks_model::ids::{AccountId, ClientActorId};
 use sqlx::SqliteConnection;
 
 /// Verified server enrollment and a reference to protected local credential storage.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EnrollmentBinding {
     /// Native account selected during authentication.
     pub account: AccountId,
@@ -70,12 +70,32 @@ pub(crate) async fn load(
 /// Install enrollment under an exact prior-binding check.
 ///
 /// First enrollment requires an empty workspace. Explicit same-account reauthorization
-/// changes the binding without rewriting prior authors or pending work.
+/// changes the binding while preserving prior authors and holding old pending
+/// work when the authorized actor changes.
 #[tracing::instrument(skip_all, name = "client_store.enrollment.bind")]
 pub async fn bind(
     store: &ClientStore,
     expected: Option<&EnrollmentBinding>,
     binding: EnrollmentBinding,
+) -> anyhow::Result<()> {
+    let outcome = match expected {
+        None => crate::enrollment::RecoveryDisposition::New,
+        Some(previous) if previous.actor == binding.actor => {
+            crate::enrollment::RecoveryDisposition::SameActor
+        }
+        Some(previous) => crate::enrollment::RecoveryDisposition::FreshActor {
+            former_actor: previous.actor,
+        },
+    };
+    crate::enrollment::install(store, expected, binding, outcome).await
+}
+
+/// Validate and replace the binding within the caller's enrollment transaction.
+pub(crate) async fn bind_in(
+    store: &ClientStore,
+    connection: &mut SqliteConnection,
+    expected: Option<&EnrollmentBinding>,
+    binding: &EnrollmentBinding,
 ) -> anyhow::Result<()> {
     if binding.account != store.account {
         return Err(StoreError::WrongAccount {
@@ -91,8 +111,7 @@ pub async fn bind(
         }
     );
 
-    let mut transaction = store.write().await?;
-    let current = load(&mut transaction)
+    let current = load(connection)
         .await?
         .ok_or_else(|| StoreError::InvalidDatabase {
             detail: "account row is missing".into(),
@@ -104,7 +123,7 @@ pub async fn bind(
 
     if current.binding.is_none() {
         let row = sqlx::query_file!("sql/workspace/populated.sql")
-            .fetch_one(&mut *transaction)
+            .fetch_one(&mut *connection)
             .await?;
         anyhow::ensure!(row.populated == 0, StoreError::PopulatedWorkspace);
     }
@@ -118,12 +137,20 @@ pub async fn bind(
         binding.credential_reference,
         account
     )
-    .execute(&mut *transaction)
+    .execute(connection)
     .await?;
 
-    transaction.commit().await?;
-    tracing::info!(event = "workspace.enrollment.bound", account_id = %store.account);
     Ok(())
+}
+
+/// Read the installed non-secret binding for verified credential recovery or completion.
+pub async fn binding(store: &ClientStore) -> anyhow::Result<Option<EnrollmentBinding>> {
+    let mut transaction = store.pool.begin().await?;
+    let identity = load(&mut transaction)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("workspace identity is missing"))?;
+    transaction.commit().await?;
+    Ok(identity.binding)
 }
 
 /// Non-secret native workspace identity for local application presentation.

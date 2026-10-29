@@ -21,6 +21,11 @@ use sqlx::SqliteConnection;
 pub enum PrepareOutcome {
     /// No authorized actor is enrolled; no counter was allocated.
     NotEnrolled,
+    /// Old pending work requires comparison before it can use a replacement writer.
+    AuthorizationReview {
+        /// Former writer whose work remains frozen and unsubmitted.
+        former_actor: clacks_model::ids::ClientActorId,
+    },
     /// Native outcome whose returned state has committed before it is exposed.
     Core(Box<Preparation>),
 }
@@ -79,8 +84,9 @@ pub(crate) async fn current(
 pub(crate) async fn store_update(
     connection: &mut SqliteConnection,
     previous: &ClientRecord,
-    update: &ClientUpdate,
+    update: &mut ClientUpdate,
 ) -> anyhow::Result<()> {
+    crate::enrollment::holds::preserve_in(connection, previous, update).await?;
     client::store(connection, &update.record).await?;
     if update.review.is_some() || update.record != *previous {
         review::store(connection, update.record.key, update.review.as_ref()).await?;
@@ -102,6 +108,19 @@ pub async fn prepare(store: &ClientStore, key: RecordKey) -> anyhow::Result<Prep
     let Some(binding) = identity.binding else {
         return Ok(PrepareOutcome::NotEnrolled);
     };
+    if let Some(former_actor) = crate::enrollment::holds::actor_in(&mut transaction, key).await? {
+        let record = current(&mut transaction, key).await?;
+        if let Some(input) = review::load(&mut transaction, key).await?
+            && input.reason == clacks_sync::client::ReviewReason::ExcludedActor(former_actor)
+        {
+            transaction.commit().await?;
+            return Ok(PrepareOutcome::Core(Box::new(Preparation::Review {
+                record,
+                input,
+            })));
+        }
+        return Ok(PrepareOutcome::AuthorizationReview { former_actor });
+    }
     let context = evidence(&mut transaction, store.account).await?;
     let row = current(&mut transaction, key).await?;
     let counter = client::counter(&mut transaction, key, binding.actor).await?;
@@ -124,11 +143,11 @@ pub async fn prepare(store: &ClientStore, key: RecordKey) -> anyhow::Result<Prep
                     .into());
                 }
                 _ => {
-                    let update = clacks_sync::client::receive_rejection(
+                    let mut update = clacks_sync::client::receive_rejection(
                         &row,
                         &RejectionReason::MissingReference { key },
                     )?;
-                    store_update(&mut transaction, &row, &update).await?;
+                    store_update(&mut transaction, &row, &mut update).await?;
                     let input = update.review.ok_or_else(|| {
                         anyhow::anyhow!("missing-reference transition did not produce review")
                     })?;
@@ -182,8 +201,13 @@ pub async fn receive(
     let mut transaction = store.write().await?;
     let context = evidence(&mut transaction, store.account).await?;
     let row = current(&mut transaction, incoming.key).await?;
-    let update = clacks_sync::client::receive_accepted(&row, incoming, &context.view())?;
-    store_update(&mut transaction, &row, &update).await?;
+    let mut update = clacks_sync::client::receive_accepted(&row, incoming, &context.view())?;
+    store_update(&mut transaction, &row, &mut update).await?;
+    if let Some(review) =
+        crate::enrollment::holds::review_in(&mut transaction, &update.record).await?
+    {
+        update.review = Some(review);
+    }
     metadata::binding::remove(&mut transaction, incoming.key).await?;
     metadata::binding::insert(&mut transaction, incoming.key).await?;
     if matches!(incoming.key.id, clacks_sync::record::RecordId::Service(_)) {
@@ -203,8 +227,8 @@ pub async fn reject(
     check_account(store, key)?;
     let mut transaction = store.write().await?;
     let row = current(&mut transaction, key).await?;
-    let update = clacks_sync::client::receive_rejection(&row, reason)?;
-    store_update(&mut transaction, &row, &update).await?;
+    let mut update = clacks_sync::client::receive_rejection(&row, reason)?;
+    store_update(&mut transaction, &row, &mut update).await?;
     transaction.commit().await?;
     Ok(update)
 }
@@ -234,6 +258,9 @@ pub async fn resolve(
     let record = clacks_sync::client::resolve_review(shown, chosen, &context.view())?;
     client::store(&mut transaction, &record).await?;
     review::store(&mut transaction, expected.key, None).await?;
+    if let clacks_sync::client::ReviewReason::ExcludedActor(former) = shown.reason {
+        crate::enrollment::holds::clear_in(&mut transaction, expected.key, former).await?;
+    }
     transaction.commit().await?;
     tracing::info!(event="record.resolved",account_id=%store.account,record_id=%expected.key.id,review_reason=?shown.reason);
     Ok(SaveOutcome::Saved(record))

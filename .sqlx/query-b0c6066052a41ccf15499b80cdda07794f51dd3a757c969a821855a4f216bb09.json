@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM local_state WHERE key=? AND value=?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "b0c6066052a41ccf15499b80cdda07794f51dd3a757c969a821855a4f216bb09"
+}
