@@ -13,7 +13,7 @@ mod tests;
 /// Concrete PostgreSQL access shared by account requests and maintenance work.
 #[derive(Clone)]
 pub struct AccountStore {
-    pool: PgPool,
+    pub(crate) pool: PgPool,
 }
 
 impl AccountStore {

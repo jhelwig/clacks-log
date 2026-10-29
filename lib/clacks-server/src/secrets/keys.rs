@@ -134,8 +134,8 @@ pub(crate) async fn account_key(
 }
 
 /// Load the exact key version referenced by a retained encrypted record.
-pub(crate) async fn load_version(
-    pool: &PgPool,
+pub(crate) async fn load_version<'e>(
+    executor: impl sqlx::Executor<'e, Database = sqlx::Postgres>,
     wrapping: &WrappingKeys,
     account: AccountId,
     version: i64,
@@ -146,7 +146,7 @@ pub(crate) async fn load_version(
         account.to_string(),
         version
     )
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await?;
     unwrap_key(wrapping, account, row)
 }

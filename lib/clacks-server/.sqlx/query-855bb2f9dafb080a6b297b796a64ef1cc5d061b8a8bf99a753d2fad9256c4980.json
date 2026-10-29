@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.desktop_grants\n(account_id, family_id, client_id, grant_established_at, key_thumbprint, state, provisional_until)\nVALUES ($1,$2,$3,$4,$5,'provisional', CURRENT_TIMESTAMP + INTERVAL '5 minutes')\nON CONFLICT (family_id) DO NOTHING\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "855bb2f9dafb080a6b297b796a64ef1cc5d061b8a8bf99a753d2fad9256c4980"
+}

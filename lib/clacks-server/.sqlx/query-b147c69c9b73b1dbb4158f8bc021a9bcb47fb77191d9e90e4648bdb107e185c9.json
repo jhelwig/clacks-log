@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.desktop_client_grants WHERE client_id=$1\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b147c69c9b73b1dbb4158f8bc021a9bcb47fb77191d9e90e4648bdb107e185c9"
+}

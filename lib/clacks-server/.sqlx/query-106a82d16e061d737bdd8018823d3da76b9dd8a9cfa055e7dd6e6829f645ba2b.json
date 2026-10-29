@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (SELECT 1 FROM clacks.oauth_revocations\nWHERE (scope = 'family' AND target = $1) OR\n(scope = 'client' AND target = $2 AND recorded_at >= $3)) AS \"revoked!\"\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "revoked!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "106a82d16e061d737bdd8018823d3da76b9dd8a9cfa055e7dd6e6829f645ba2b"
+}

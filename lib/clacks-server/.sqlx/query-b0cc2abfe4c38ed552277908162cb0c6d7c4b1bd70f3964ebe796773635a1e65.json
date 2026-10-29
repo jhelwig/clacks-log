@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE clacks.desktop_clients SET closed_at=CURRENT_TIMESTAMP, closed_timeline=$3, closed_revision=$4 WHERE account_id=$1 AND actor_id=$2 AND closed_at IS NULL\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b0cc2abfe4c38ed552277908162cb0c6d7c4b1bd70f3964ebe796773635a1e65"
+}

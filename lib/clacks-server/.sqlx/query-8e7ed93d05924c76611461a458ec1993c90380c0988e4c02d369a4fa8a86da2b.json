@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.desktop_code_resources WHERE code_digest=$1\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8e7ed93d05924c76611461a458ec1993c90380c0988e4c02d369a4fa8a86da2b"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.desktop_access_tokens WHERE access_digest = $1\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d0f4db422b508fc7b025c1cc76984c2404b9ddd28e0052caa2602b2a26693f59"
+}

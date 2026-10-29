@@ -87,6 +87,42 @@ pub struct MembershipUpdate {
     pub next_account: AccountMetadata,
 }
 
+/// Admit a new writer without claiming that it has installed any shared checkpoint.
+///
+/// Commit the returned head and membership together under the observed guards.
+/// Existing identities cannot be reopened through this operation.
+pub fn enroll(
+    actor: ClientActorId,
+    account: &AccountMetadata,
+    membership: &MembershipSnapshot,
+) -> anyhow::Result<MembershipUpdate> {
+    membership.validate(account)?;
+    anyhow::ensure!(
+        !membership
+            .clients
+            .iter()
+            .any(|client| client.actor == actor),
+        "client actor already has an admission history"
+    );
+    let mut next_account = account.advance()?;
+    next_account.membership_generation =
+        crate::error::next_counter(membership.generation, "membership generation")?;
+    let mut next = membership.clone();
+    next.generation = next_account.membership_generation;
+    next.clients.push(ClientMembership {
+        actor,
+        created_at: next_account.head,
+        closed_at: None,
+        acknowledged: None,
+    });
+    Ok(MembershipUpdate {
+        expected_head: account.head,
+        expected_generation: membership.generation,
+        next,
+        next_account,
+    })
+}
+
 /// Close automatic admission without expiring other clients or deleting accepted data.
 ///
 /// Save the returned account and membership rows in one conditional transaction.

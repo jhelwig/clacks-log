@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.desktop_refresh_resources WHERE refresh_digest=$1\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "870e84c9fe0336f2f2c969ee7cfd1293448b55a8acaef30cdbee2351fb68e3e5"
+}

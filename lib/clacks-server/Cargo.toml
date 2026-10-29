@@ -8,6 +8,12 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+oauth-as.workspace = true
+clacks-sync.workspace = true
+huskarl-resource-server.workspace = true
+huskarl-crypto-native.workspace = true
+fluent-uri.workspace = true
+http.workspace = true
 aes-gcm.workspace = true
 zeroize.workspace = true
 sha2.workspace = true
@@ -43,3 +49,6 @@ opentelemetry-http.workspace = true
 tracing-opentelemetry.workspace = true
 opentelemetry-appender-tracing.workspace = true
 metrics-opentelemetry.workspace = true
+
+[dev-dependencies]
+huskarl-core.workspace = true

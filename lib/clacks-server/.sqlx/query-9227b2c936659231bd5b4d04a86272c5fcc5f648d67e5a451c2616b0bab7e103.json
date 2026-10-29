@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.oauth_replay_claims WHERE replay_id IN (SELECT replay_id FROM clacks.oauth_replay_claims WHERE expires_at <= $1 LIMIT 500)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9227b2c936659231bd5b4d04a86272c5fcc5f648d67e5a451c2616b0bab7e103"
+}

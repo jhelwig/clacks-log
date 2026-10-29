@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT family_id FROM clacks.desktop_grants WHERE client_id=$1 ORDER BY account_id,family_id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "family_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_grants",
+            "name": "family_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8223519e79efd70125c0160aac327d804104c8b05c6d16a01b9ce57cd9464f65"
+}

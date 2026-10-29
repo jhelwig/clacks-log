@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.desktop_refresh_scopes WHERE refresh_digest=$1\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "397e74b11f1fe14d37ccfbd8df54f06332cd5a8c8295ff7ed17406e869ea2a85"
+}

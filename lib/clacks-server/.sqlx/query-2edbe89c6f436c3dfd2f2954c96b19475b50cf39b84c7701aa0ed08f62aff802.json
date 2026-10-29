@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.oauth_replay_claims (replay_id, expires_at) VALUES ($1,$2) ON CONFLICT DO NOTHING RETURNING replay_id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "replay_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.oauth_replay_claims",
+            "name": "replay_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2edbe89c6f436c3dfd2f2954c96b19475b50cf39b84c7701aa0ed08f62aff802"
+}
