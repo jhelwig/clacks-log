@@ -19,11 +19,13 @@ async fn account_page_and_direct_server_function_require_the_same_login() -> any
         std::env::var("CLACKS_TEST_RUNTIME_DATABASE_URL")?,
     )?;
     std::fs::write(&key, [42; 64])?;
+    let wrapping_file = directory.path().join("wrapping-key");
+    std::fs::write(&wrapping_file, [19; 32])?;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let base = format!("http://{}", listener.local_addr()?);
     let config = serde_json::from_value(serde_json::json!({
         "public_url": base, "allow_http": true, "database_url_file": database,
-        "cookie_key_file": key, "providers": {"test": {"issuer": provider.issuer,
+        "cookie_key_file": key, "wrapping_keys":{"active":"test","files":{"test":wrapping_file}}, "providers": {"test": {"issuer": provider.issuer,
         "label": "OIDC Provider Name", "mode": "preconfigured", "client_id": "registered-clacks"}}
     }))?;
     let state = clacks_server::runtime::ServerState::connect(config).await?;

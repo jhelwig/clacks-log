@@ -17,5 +17,6 @@ pub(crate) fn issuer(store: OAuthStore, origin: &Url) -> AuthorizationServer<OAu
     config.refresh_token_ttl = None;
     config.refresh_rotation = RefreshRotation::Reuse;
     config.refresh_retry_window = Duration::ZERO;
+    config.jws_alg_allow_list = oauth_as::jwt::AlgAllowList::only(&[oauth_as::jwt::JwsAlg::Es256]);
     AuthorizationServer::new(config, store)
 }

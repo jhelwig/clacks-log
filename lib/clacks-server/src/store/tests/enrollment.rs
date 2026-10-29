@@ -105,6 +105,88 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
     let first = issued.next().context("missing first issuance")?;
     let second = issued.next().context("missing second issuance")?;
     assert_ne!(first.actor, second.actor);
+
+    let database_file = directory.path().join("database-url");
+    let cookie_file = directory.path().join("cookies");
+    std::fs::write(&database_file, std::env::var("CLACKS_TEST_DATABASE_URL")?)?;
+    std::fs::write(&cookie_file, [42; 64])?;
+    let server_config: crate::config::ServerConfig = serde_json::from_value(serde_json::json!({
+        "public_url": "https://clacks.example", "database_url_file": database_file,
+        "cookie_key_file": cookie_file, "wrapping_keys": {"active":"test", "files":{"test":directory.path().join("wrapping")}}
+    }))?;
+    let mut instances = Vec::new();
+    let mut tasks = Vec::new();
+    for _ in 0..2 {
+        let state = crate::runtime::ServerState::connect(server_config.clone()).await?;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+        instances.push(format!("http://{}", listener.local_addr()?));
+        let router = crate::http::router(state, axum::Router::new());
+        tasks.push(tokio::spawn(
+            async move { axum::serve(listener, router).await },
+        ));
+    }
+    let target: Uri = "https://clacks.example/api/client".parse()?;
+    let access = huskarl_core::secrets::SecretString::from(second.response.access_token.clone());
+    let proof = huskarl_core::dpop::ResourceServerDPoP::proof(
+        &dpop.to_resource_server_dpop(),
+        &Method::GET,
+        &target,
+        &access,
+        &thumbprint,
+    )
+    .await?
+    .context("resource proof missing")?;
+    let http = openidconnect::reqwest::Client::new();
+    let instance = instances.first().context("missing application instance")?;
+    let token_target: Uri = "https://clacks.example/oauth/token".parse()?;
+    let refresh_proof = dpop
+        .proof(&Method::POST, &token_target, Some(&thumbprint))
+        .await?
+        .context("refresh proof missing")?;
+    let refreshed = http
+        .post(format!("{instance}/oauth/token"))
+        .header("dpop", refresh_proof.expose_secret())
+        .form(&[
+            ("grant_type", "refresh_token"),
+            ("client_id", "clacks-desktop"),
+            (
+                "refresh_token",
+                second
+                    .response
+                    .refresh_token
+                    .as_deref()
+                    .context("refresh credential missing")?,
+            ),
+        ])
+        .send()
+        .await?;
+    assert_eq!(refreshed.status(), http::StatusCode::OK);
+    assert_eq!(
+        refreshed
+            .headers()
+            .get("cache-control")
+            .context("missing cache policy")?,
+        "no-store"
+    );
+
+    let mut statuses = Vec::new();
+    for instance in &instances {
+        statuses.push(
+            http.get(format!("{instance}/api/client"))
+                .header(
+                    "authorization",
+                    format!("DPoP {}", second.response.access_token),
+                )
+                .header("dpop", proof.expose_secret())
+                .send()
+                .await?
+                .status(),
+        );
+    }
+    assert_eq!(
+        statuses,
+        [http::StatusCode::OK, http::StatusCode::UNAUTHORIZED]
+    );
     let stale = store
         .get_token(&second.response.access_token)
         .await?
@@ -140,6 +222,30 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
             .await?
             .is_none()
     );
+    let proof = huskarl_core::dpop::ResourceServerDPoP::proof(
+        &dpop.to_resource_server_dpop(),
+        &Method::GET,
+        &target,
+        &access,
+        &thumbprint,
+    )
+    .await?
+    .context("post-revocation proof missing")?;
+    assert_eq!(
+        http.get(format!("{instance}/api/client"))
+            .header(
+                "authorization",
+                format!("DPoP {}", second.response.access_token)
+            )
+            .header("dpop", proof.expose_secret())
+            .send()
+            .await?
+            .status(),
+        http::StatusCode::UNAUTHORIZED
+    );
+    for task in tasks {
+        task.abort();
+    }
     pool.close().await;
     Ok(())
 }

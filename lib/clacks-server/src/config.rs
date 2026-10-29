@@ -67,6 +67,8 @@ pub struct ServerConfig {
     pub database_url_file: Option<PathBuf>,
     /// Durable middleware cookie-key file, required only when serving requests.
     pub cookie_key_file: Option<PathBuf>,
+    /// Deployment keys protecting account encryption keys; required when serving.
+    pub wrapping_keys: Option<WrappingKeyConfig>,
     /// Deployment-configured providers keyed by local route identifier.
     #[serde(default)]
     pub providers: BTreeMap<String, ProviderConfig>,

@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.resource_replay_claims (key_thumbprint, proof_id, expires_at)\nVALUES ($1,$2,$3) ON CONFLICT DO NOTHING RETURNING proof_id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "proof_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.resource_replay_claims",
+            "name": "proof_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c35bad5ca40444341f911f876de6c1e453d3ff511be716dcb856e013394c345e"
+}
