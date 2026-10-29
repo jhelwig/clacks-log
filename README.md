@@ -2,7 +2,7 @@
 
 Clacks Log is an amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The client-storage library persists those values, pending work, evidence and complete-window receipts in SQLite. The desktop foundation creates or reopens a local account, presents startup diagnostics and coordinates activation and graceful shutdown. The desktop supports local manual contact entry, editing and individual deletion. Server persistence and live provider adapters remain downstream capabilities.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The client-storage library persists those values, pending work, evidence and complete-window receipts in SQLite. The desktop foundation creates or reopens a local account, presents startup diagnostics and coordinates activation and graceful shutdown. The desktop supports local manual contact entry, editing and individual deletion. The server provides PostgreSQL-backed accounts and OIDC login/identity management; synchronization networking and external-service adapters remain downstream capabilities.
 
 ## Documentation
 
@@ -94,6 +94,10 @@ license and notice checks.
 
 ## Development
 
+For a running server and web interface, follow the complete
+[server development setup](docs/server-development.md), including local PostgreSQL,
+role/password setup, secret-file formats, OIDC configuration and the watch loop.
+
 Use the pinned Rust 1.99.1 compiler and committed lockfile. Project-owned
 maintenance tooling and non-trivial fixture generation are Rust too; Python is
 not used, including for uncommitted fixture authoring.
@@ -133,6 +137,14 @@ Compilation and execution have separate workflow steps. CI currently runs on
 Linux; Windows CI is temporarily disabled because of its runtime cost. Cargo
 timing HTML is available in the `cargo-timings-ubuntu-latest` artifact for seven
 days and reports compilation units and their dependency timelines.
+
+The [account server](lib/clacks-server/README.md),
+[web interface](lib/clacks-web/README.md) and
+[Linux deployment](deploy/server/README.md) provide the production account,
+identity-management and release-operations foundation. Synchronization endpoints
+remain later capability work. Full workspace tests require the disposable
+PostgreSQL database and role-specific environment variables documented in the
+server guide; they never skip silently when that configuration is missing.
 
 Verify the workspace:
 

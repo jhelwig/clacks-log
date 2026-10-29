@@ -10,7 +10,7 @@ publish.workspace = true
 [dependencies]
 clacks-model.workspace = true
 clacks-sync.workspace = true
-sqlx.workspace = true
+sqlx = { workspace = true, features = ["sqlite-bundled", "regexp"] }
 tokio.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true

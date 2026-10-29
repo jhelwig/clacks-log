@@ -12,6 +12,8 @@ on:
       - 'rust-toolchain.toml'
       - 'lib/**'
       - 'bin/**'
+      - 'deploy/server/**'
+      - '.dockerignore'
       - '.github/workflows/rust.yml'
   pull_request:
     paths:
@@ -22,6 +24,8 @@ on:
       - 'rust-toolchain.toml'
       - 'lib/**'
       - 'bin/**'
+      - 'deploy/server/**'
+      - '.dockerignore'
       - '.github/workflows/rust.yml'
 
 permissions:
@@ -39,8 +43,22 @@ jobs:
         # Windows verification is temporarily deferred due to CI runtime cost.
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    services:
+      postgres:
+        image: postgres@sha256:b994732fcf33f73776c65d3a5bf1f80c00120ba5007e8ab90307b1a743c1fc16
+        env:
+          POSTGRES_DB: clacks
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d clacks"
+          --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       SQLX_OFFLINE: 'true'
+      LEPTOS_OUTPUT_NAME: clacks-web
+      CLACKS_TEST_DATABASE_URL: postgres://clacks_migrator@127.0.0.1:5432/clacks
+      CLACKS_TEST_RUNTIME_DATABASE_URL: postgres://clacks_runtime@127.0.0.1:5432/clacks
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Resolve repository Rust toolchain
@@ -50,11 +68,23 @@ jobs:
         with:
           # Include the installed tool's version/features alongside the action's
           # automatic OS, architecture, compiler, manifest and lockfile keys.
-          key: sqlx-cli-0.9.0-sqlite
+          key: sqlx-cli-0.9.0-sqlite-postgres-rustls-leptos-0.3.11
+          workspaces: |
+            . -> target
+            . -> target/front
       - name: Fetch locked Rust dependencies
         run: cargo fetch --locked
       - name: Install pinned SQLx metadata tooling
-        run: cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features sqlite
+        run: cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features sqlite,postgres,rustls
+      - name: Prepare PostgreSQL roles and release-managed schema
+        shell: bash
+        run: |
+          psql postgres://postgres@127.0.0.1:5432/clacks -v ON_ERROR_STOP=1 -f deploy/server/database-roles.sql
+          psql postgres://postgres@127.0.0.1:5432/clacks -v ON_ERROR_STOP=1 -c 'ALTER DATABASE clacks OWNER TO clacks_migrator'
+          printf '%s' 'postgres://clacks_migrator@127.0.0.1:5432/clacks' > "$RUNNER_TEMP/clacks-migration-url"
+          cargo run -p clacks-admin --locked --offline -- database migrate --database-url-file "$RUNNER_TEMP/clacks-migration-url"
+          psql postgres://clacks_migrator@127.0.0.1:5432/clacks -v ON_ERROR_STOP=1 -f deploy/server/database-grants.sql
+          rm "$RUNNER_TEMP/clacks-migration-url"
       - name: Verify client-store SQL metadata against production migrations
         shell: bash
         env:
@@ -65,6 +95,12 @@ jobs:
           cargo sqlx migrate run --source lib/clacks-client-store/migrations
           # Keep metadata at the workspace root; compile only its owning crate.
           cargo sqlx prepare --check --workspace -- --package clacks-client-store --all-targets --locked --offline
+      - name: Verify server SQL metadata against production migrations
+        working-directory: lib/clacks-server
+        env:
+          SQLX_OFFLINE: 'false'
+          DATABASE_URL: postgres://clacks_migrator@127.0.0.1:5432/clacks
+        run: cargo sqlx prepare --check -- --all-targets --locked --offline
       - name: Check formatting
         run: cargo fmt --all --check
       - name: Compile workspace applications and tests
@@ -87,6 +123,12 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --workspace --no-deps --document-private-items --locked --offline
+      - name: Install pinned Rust web build tooling
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install cargo-leptos --version 0.3.11 --locked
+      - name: Build release server and hydrated browser assets
+        run: cargo leptos build --release
       - name: Preserve Cargo build timing reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

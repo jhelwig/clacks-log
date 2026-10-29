@@ -1,14 +1,29 @@
 # Accounts and client enrollment
 
-D62-D63 establish individual-client revocation and independent account isolation in minimum viable product (MVP). D64’s earlier statement was permissive scope language; D191 now selects automatic account provisioning on first successful OpenID Connect (OIDC) sign-in. D65 selects browser-based client authorization and a deployment-provided web user interface (UI). D190 selects configurable OIDC for web sign-in. D191 selects first-sign-in provisioning, while D231 clarifies that multiple external login identities can link to one independent Clacks account; D192 accepts manual out-of-band administrator assignment. D193 selects browser-callback desktop authorization for MVP, with device authorization as a post-MVP fallback. Exact protocol integration, assignment mechanism, and binding storage remain to be designed.
+D62-D63 establish individual-client revocation and independent account isolation in minimum viable product (MVP). D64’s earlier statement was permissive scope language; D191 now selects automatic account provisioning on first successful OpenID Connect (OIDC) sign-in. D65 selects browser-based client authorization and a deployment-provided web user interface (UI). D190 selects configurable OIDC for web sign-in. D191 selects first-sign-in provisioning, while D231 clarifies that multiple external login identities can link to one independent Clacks account; D192 accepts manual out-of-band administrator assignment. D193 selects browser-callback desktop authorization for MVP, with device authorization as a post-MVP fallback. D357/D358 select maintenance commands for role assignment and recovery; the #11 proposal below supplies concrete schema and integration details. Desktop enrollment remains separate capability work.
+
+The [account-management proposal](account-management-proposal.md) supplies the
+concrete #11 schema, workflows and deployment design for review. It carries
+forward the accepted decisions here; its physical schema, routes and engineering
+defaults are proposals rather than additional accepted product decisions.
 
 ## Web-interface architectural scope (D222)
 
 The web interface is intended to grow beyond the MVP account, setup and diagnostic workflows to logbook browsing/editing, reporting and potentially logging. D223 selects Leptos/Axum with server-rendered initial pages and Rust/WebAssembly browser interactivity through hydration, evaluated against that broader direction. This does not expand MVP scope, require browser offline operation or desktop feature parity. Exact component versions, styling and layouts remain open.
 
+## Server persistence access (D360)
+
+Use SQLx for server PostgreSQL access as well as client SQLite access. Keep fixed
+server queries in separate `.sql` files using `query_file!` or `query_file_as!`,
+with compile-time checking and committed offline query metadata. Reuse tooling
+and conventions while keeping the PostgreSQL schema, migrations and queries
+independent of the client's SQLite schema. D361 defines release-managed server
+migration execution below; exact dependency integration remains specification
+work.
+
 ## Accepted boundaries
 
-One server can host multiple independent accounts in MVP. Each account's log data, profiles, enrolled clients, and external-service credentials are isolated. Apply that boundary to storage access, synchronization negotiation/streams, job execution, credential access, diagnostics, and client revocation. Guessing another account's object identifier must not authorize access. Exact enforcement mechanisms and storage layout remain unselected.
+One server can host multiple independent accounts in MVP. Each account's log data, profiles, enrolled clients, and external-service credentials are isolated. Apply that boundary to storage access, synchronization negotiation/streams, job execution, credential access, diagnostics, and client revocation. Guessing another account's object identifier must not authorize access. The #11 proposal uses explicit authenticated-account predicates/joins and account-scoped reference constraints, without PostgreSQL row-level security or connection-local tenant settings; its concrete storage/access design is under review.
 
 An owner can revoke an individual client's server access without deleting shared radio contacts (QSOs), erasing the offline client, or affecting other clients. An enrolled client does not lose eligibility simply because it has been offline indefinitely (D60). Enrollment credential mechanisms and manual reauthorization workflows remain integration work; the synchronization model defines the admission cutoff.
 
@@ -32,19 +47,192 @@ A Clacks account can have multiple external login identities, from the same or d
 
 Adding or removing a provider binding changes the available authentication methods rather than migrating the internal account. D232 includes self-service linking/unlinking in the MVP web interface with the safeguards below. Automatic email-based linking and account merging are not selected. D233 makes documented administrator-assisted recovery sufficient for MVP when all linked identities are inaccessible.
 
+## Browser sessions (D353)
+
+Use PostgreSQL-backed browser sessions with an opaque random session identifier
+in a secure, HTTP-only cookie. Server-side session state resolves to the stable
+Clacks account and records the linked identity used to authenticate, so unlinking
+can invalidate the appropriate sessions. Session expiration remains ordinary
+session management; do not maintain custom provider-authentication freshness
+state in the browser session.
+
+D367 separates authoritative authentication validity from general middleware
+session data. Successful OIDC sign-in creates a server-side login-session record
+tied to the Clacks account and the linked identity used to authenticate. The
+middleware session holds a reference to it, not sufficient authentication proof
+by itself. Every authenticated request resolves that reference against current
+PostgreSQL state and checks the login session's validity; do not rely on a cached
+positive authentication decision across requests or application instances.
+
+Logout invalidates the authoritative login session. Unlinking an identity
+invalidates the login sessions established through that identity, preserving
+other identities' sessions and enrolled desktop clients. Ordinary middleware
+saves cannot create or reactivate authoritative login sessions. Stale middleware
+data may survive or be recreated without restoring authenticated access. D366's
+14-day sliding expiration applies to authoritative login validity; retention or
+refresh of middleware data/cookies cannot independently extend authentication.
+D368 selects `axum_session` with `axum_session_sqlx` for PostgreSQL persistence,
+retaining the middleware's cookie handling, session identifiers, renewal and
+general session storage. Use ordinary Axum request authentication to resolve the
+login-session reference against authoritative PostgreSQL state under D367.
+Middleware caching is not an authentication-validity cache. The [account-management contract](account-management-proposal.md) defines
+the concrete schema and transaction integration; the
+[server guide](../lib/clacks-server/README.md) documents the runtime.
+
+Initialize middleware storage through release-managed migrations under D361;
+ordinary application startup uses the runtime database role without executing
+schema initialization. The evaluated dependency baseline is `axum_session`
+0.22.0 and `axum_session_sqlx` 0.12.0, compatible with SQLx 0.9. Keep this
+integration within the libraries' public APIs rather than replacing cookie or
+general session machinery. See the
+[session-store API](https://docs.rs/axum_session/0.22.0/axum_session/struct.SessionStore.html)
+and [PostgreSQL adapter](https://docs.rs/axum_session_sqlx/0.12.0/axum_session_sqlx/).
+
+Browser sessions are separate from independently revocable
+desktop-client credentials. This choice does not select PostgreSQL
+row-level security or connection-local account settings.
+
+D354 makes unlinking a login identity invalidate browser sessions authenticated
+through that identity. Sessions authenticated through identities still linked to
+the account remain usable. Enrolled desktop clients retain their independently
+revocable account-bound credentials. The unlinking action still requires recent
+authentication through an identity that will remain linked under D232.
+
+D366 selects a deployment-configurable 14-day sliding browser-session expiration
+window in place of D356's earlier 30-day absolute expiration policy. The sliding
+duration is shorter than that earlier absolute duration; this does not require
+both deadlines simultaneously or establish a separate mandatory absolute cap.
+Session activity can extend the sliding deadline. Do not show idle-expiration
+warning dialogs under this default. Explicit logout immediately invalidates the
+server-side session; D354 identity-unlink invalidation and D355 recent
+authentication for identity changes remain in force. Browser expiration does not
+affect desktop enrollment. This sliding policy is not a claim of compliance with
+NIST's overall reauthentication-timeout guidance.
+
 ## Self-service login-identity management (D232)
 
 An authenticated user can add another login identity from a deployment-configured provider. Require recent authentication to the existing account and authenticate the additional identity. Link it to that account rather than running D191 new-account provisioning. If the identity is already bound to a different Clacks account, refuse the link; do not transfer ownership or merge accounts automatically.
 
 Unlinking requires recent authentication through an identity that will remain linked. Prevent removing the last login identity through ordinary account settings. Account data and enrolled clients remain attached to the stable internal account under D231. D233 makes documented administrator-assisted recovery sufficient for MVP when no linked identity is accessible; automated self-service recovery is post-MVP.
 
-Exact authentication-freshness thresholds, callback/session binding, atomic uniqueness enforcement and interface layout remain specification work. [OWASP authentication guidance](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#require-re-authentication-for-sensitive-features) supports reauthentication for sensitive account changes; D232 selects the Clacks workflow rather than a particular authentication library.
+D355 uses the standard OIDC flow for recent authentication. Whenever linking or
+unlinking requires recent authentication to the existing account, redirect the
+browser to its provider with `max_age=300`. The provider determines whether its
+existing authentication satisfies that age, performs any necessary
+reauthentication using its own authentication methods, and returns through the
+normal callback. If already satisfied, the round trip can complete without
+additional user interaction.
+
+Use the OIDC library for standard response validation, including the returned
+`auth_time` claim for the requested maximum age, then check that the returned
+issuer/subject belongs to the intended account. Linking uses an already-linked
+identity for this step, separately from authenticating the new identity;
+unlinking uses an identity that will remain linked. Do not use local freshness
+timers, cached authentication proofs to bypass this round trip, or
+provider-specific substitutes for the standard flow. Authentication methods and
+reauthentication decisions belong to the provider, not Clacks. Five minutes is
+the selected Clacks policy, not a duration prescribed by OIDC. See
+[OIDC authentication requests](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest)
+and [response validation](https://openid.net/specs/openid-connect-core-1_0.html#IDTokenValidation).
+
+Verify provider interoperability with this standard flow during integration,
+including tsidp. Unsupported protocol behavior is a
+provider compatibility issue, not a reason to implement replacement
+authentication semantics in Clacks.
+
+### Identity-management transactions (D369)
+
+Serialize changes to an existing account's identity bindings by locking that
+account's row within a short PostgreSQL transaction. All identity-binding
+mutation paths, including administrator-assisted recovery, follow this rule.
+After acquiring the lock, recheck the applicable account, identity and
+authentication requirements against current state. In particular, concurrent
+unlink operations must not collectively remove the last identity or remove the
+identity required to authorize another operation.
+
+Commit the binding change and affected authoritative login-session invalidation
+atomically. Retain database uniqueness enforcement for the issuer/subject pair
+across accounts; an account-row lock alone does not enforce that constraint.
+Complete provider authentication and other network requests outside the
+transaction. This coordinates identity management, not ordinary account-wide
+requests or future QSO writes.
+
+Concrete callback integration, schema and interface layout remain specification
+work. [OWASP authentication guidance](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#require-re-authentication-for-sensitive-features)
+supports reauthentication for sensitive account changes; D232 selects the Clacks
+workflow rather than a particular authentication library.
+
+### Standard callback integration facilities
+
+The engineering baseline is the standard authorization-code flow composed from
+the selected libraries, not a separately designed callback protocol. The
+[`openidconnect` asynchronous example](https://docs.rs/openidconnect/4.0.1/openidconnect/#asynchronous-api)
+generates the authorization URL, random `state` and nonce, and a Proof Key for
+Code Exchange (PKCE) challenge/verifier. It supplies asynchronous code exchange
+and ID-token verification. The application retains the expected values, checks
+the returned state, supplies the verifier during exchange, and passes the
+expected nonce into token verification. Configure the library's supported
+timing-resistant secret comparisons rather than inventing a comparison scheme.
+
+`axum_session` supplies the request extractor, typed `set`/`get`/`get_remove`
+session values, persistence, cookies and session-ID renewal. Its ordinary
+session data can hold pending callback context. Clacks supplies the routes and
+binds that context to the expected provider and intended sign-in or identity
+management action. Only after successful protocol validation may it perform the
+account operation and establish authoritative login validity under D367. Use
+the middleware's `renew` facility for session-ID renewal after sign-in.
+
+D355's `max_age=300` request uses the library's authentication-time verification
+hook to require and check the returned `auth_time`. In `openidconnect` 4.0.1,
+the default hook accepts that claim without checking its age; sending `max_age`
+alone does not configure response enforcement. Supplying this policy through
+the existing hook is ordinary integration, not local authentication-freshness
+bookkeeping. See the
+[verifier API](https://docs.rs/openidconnect/4.0.1/openidconnect/struct.IdTokenVerifier.html#method.set_auth_time_verifier_fn).
+
+`axum_session` 0.22.0 removes values from its process-local session data through
+`get_remove` and persists changes during response handling. This is not a
+cross-instance atomic consume operation. Do not infer such a guarantee or add
+dedicated workflow tables merely to obtain it. The provider already enforces
+single-use authorization codes under
+[OAuth section 4.1.2](https://www.rfc-editor.org/rfc/rfc6749#section-4.1.2).
+That protects against repeated exchange of the same code; it does not make
+middleware state removal globally atomic. Any additional coordination must be
+justified by a concrete Clacks requirement beyond the standard flow. Dedicated
+pending-operation records and a general callback-workflow abstraction are not
+selected requirements.
 
 ## Recovery without an accessible login identity (D233)
 
 A documented administrator-assisted procedure is sufficient for MVP. Establish ownership of the existing Clacks account out of band and explicitly link a newly verified external identity to that account. Preserve its internal ID, data, service credentials and enrolled clients. Record the recovery in operator security logs under D230. Respect D231’s uniqueness rule for external identity bindings.
 
-Automated self-service account recovery is post-MVP. This exceptional procedure does not replace D232 self-service linking/unlinking for users who can still authenticate. Exact ownership verification, trusted administration access and administration tooling remain specification work; no particular command or database-editing procedure is selected.
+D358 selects `clacks-admin identity recover` for recovery. Identify the existing
+account by its Clacks account ID and add the newly verified identity using its
+exact OIDC issuer and subject. Refuse an identity already bound to another
+account. The operator verifies account ownership and the replacement identity
+through a documented out-of-band procedure; the command performs the authorized
+binding change without email-based ownership inference or account merging.
+Preserve account data, service credentials and enrolled clients, and record the
+recovery in operator logs. No web recovery-request system is required for MVP.
+
+D359 defines this recovery as loss of access to every linked login identity,
+without assuming compromise. The operator adds the newly verified identity to
+the existing account; leave existing login bindings and browser sessions intact,
+along with enrolled clients. A working Clacks browser session may still exist
+even though the owner can no longer authenticate through its provider. Suspected
+compromise requires separate, explicit revocation actions rather than implicit
+revocation during recovery.
+
+Verify the replacement identity out of band before ordinary Clacks sign-in:
+normal sign-in with an unbound identity provisions a separate account under D191.
+If that has already happened, the recovery command refuses the bound identity;
+it does not transfer the identity or merge the accounts. The documented procedure
+must explain this distinction.
+
+Automated self-service account recovery is post-MVP. This exceptional procedure
+does not replace D232 self-service linking/unlinking for users who can still
+authenticate. Exact ownership-verification procedures and command interface
+details remain specification work.
 
 ## Browser-based client authorization (D65)
 
@@ -58,7 +246,7 @@ Reference: [GitHub CLI login](https://cli.github.com/manual/gh_auth_login) docum
 
 ## Accepted MVP web-UI scope (D66)
 
-Provide account sign-in, D232 self-service login-identity linking/unlinking, client authorization, enrolled-client listing/revocation, administrator account creation, external-service configuration, and upload diagnostics in the MVP web UI. Administrator account creation is restricted to server administrators; account-specific management and diagnostics follow D63 isolation.
+Provide account sign-in, D232 self-service login-identity linking/unlinking, client authorization, enrolled-client listing/revocation, external-service configuration, and upload diagnostics in the MVP web UI. D191 provisions accounts at normal first sign-in; administrator account creation is not a required web workflow. Administrator-role assignment is out of band under D357. Account-specific management and diagnostics follow D63 isolation. Issue #11 delivers the account/identity web workflows; later capabilities add enrollment, service setup and diagnostics.
 
 Publication/confirmation-service configuration uses the server-owned configuration and credentials; diagnostics describe the server's actual jobs, attempts, outcomes, and pauses. The web UI, synchronization endpoints and background workers are internal parts of the same Clacks application and use its account-scoped configuration and publication state. Routine logbook operation remains native desktop scope under D06. D67 places full external-service setup in the web UI, opened from the desktop; station defaults/profiles remain native. Exact layout, native diagnostic detail and deployment tooling remain engineering work within that selected topology.
 
@@ -96,19 +284,142 @@ D179 permits requiring an incompatible client to upgrade before synchronization 
 
 Provide a documented Linux container deployment for the MVP server. Native Windows server hosting is not required for MVP; this is distinct from D162 Windows desktop support. D213 selects one Clacks server application containing the web interface, synchronization and background workers, alongside PostgreSQL. Independently deployed application services sharing tables are not the topology. Exact runtime/orchestration, image architectures and packaging remain engineering work.
 
+## Public HTTPS boundary (D362)
+
+Use deployment-managed HTTPS termination and certificates at a reverse proxy or
+load balancer. Axum listens on a restricted internal endpoint; protect the
+upstream connection appropriately for the deployment network. No built-in public
+HTTPS/certificate-management implementation is required for MVP. Do not prescribe
+a particular proxy, load balancer or orchestrator.
+
+Configure the externally visible public base URL explicitly and derive OIDC
+callback URLs from that configuration rather than arbitrary incoming host
+headers. Accept forwarded client information only through an explicitly trusted
+proxy configuration. Serve the web interface and application endpoints under
+the same public origin. This boundary accommodates production SaaS ingress and
+small self-hosted reverse proxies using the same application architecture.
+
+## Release-managed server migrations (D361)
+
+Design the core server deployment contract for a production software as a
+service (SaaS), with simpler self-hosted operation using the same architecture.
+Run schema migrations as an explicit deployment step, not as a side effect of
+ordinary application startup. The release's immutable artifact provides the
+`clacks-admin database migrate` command, which deployment automation can run as
+a one-off job. This is
+not another independently deployed application service.
+
+Use a separate authorized database role for schema changes. Normal server
+processes do not need schema-changing privileges. Use SQLx migration execution,
+history, validation and locking rather than parallel migration/version machinery.
+These facilities do not establish compatibility between application versions or
+make a migration nonblocking.
+
+Use expand–migrate–contract for changes that need staged deployment: apply
+schema additions compatible with the running release, deploy compatible
+application changes, perform substantial data conversions in resumable bounded
+batches, then remove obsolete schema after old versions are retired and the
+supported application-rollback window closes. Compatibility covers data written
+by both versions as well as query/schema shape, including background work and
+existing connections. Exact supported version windows remain release-design work.
+
+Application rollback normally redeploys the previous compatible application
+against current database contents. Do not automatically reverse schema
+migrations or restore an old database as an application rollback; restoring data
+has the separate recovery/loss implications already documented. Migration plans
+must address lock waits, expensive operations, transaction boundaries and
+appropriate online operations, including their failure/retry behavior. Record
+migration execution and outcomes through production operator observability.
+
+Establish the entry point, privilege separation and deployment contract in #11.
+Do not build a generic backfill framework, select an orchestrator or require
+multiple application replicas merely to establish this contract. Self-hosted
+deployment may stop Clacks, run the same migration command, and restart. The
+architecture must still support release-managed compatibility and ordering.
+See [AWS schema/deployment guidance](https://docs.aws.amazon.com/whitepapers/latest/blue-green-deployments/best-practices-for-managing-data-synchronization-and-schema-changes.html)
+and [GitLab staged migrations](https://docs.gitlab.com/development/database/avoiding_downtime_in_migrations/).
+
 ## OIDC web sign-in and provider interoperability (D190)
 
 Use a deployment-configured OpenID Connect provider for MVP web sign-in. Clacks integrates through standard discovery/authentication endpoints without requiring a particular provider. The earlier built-in password proposal was not accepted and is withdrawn; no local password implementation is required for MVP.
 
 Checked 16 October 2026: [Tailscale's tsidp documentation](https://tailscale.com/docs/features/tsidp) describes standard OIDC discovery/endpoints and provider-issued identity tokens. Exact tsidp version/configuration and live interoperability still need verification during implementation; documentation inspection is not a completed integration test.
 
-Keep external authentication identity distinct from the Clacks account ID and each enrolled client's identity. [OpenID Connect section 5.7](https://openid.net/specs/openid-connect-core-1_0.html#ClaimStability) specifies the issuer/subject pair (iss, sub) as the stable external identity; display name/email are not stable account identifiers. Bind verified external identities explicitly to the appropriate Clacks account rather than deriving internal identity from mutable labels. D231 permits multiple verified external identities to link to one stable Clacks account, including identities from multiple providers. Each issuer/subject pair is linked to at most one Clacks account. D191 provisions an account during normal sign-in for an unbound identity and otherwise resolves its existing binding; linking an additional identity to an existing account is a separate workflow, not ordinary new-account provisioning. There is no administrator pre-creation or second Clacks approval step. D192 accepts manual out-of-band administrator role assignment, including initial administrator setup; exact administrator-assignment and D233 exceptional account-recovery mechanisms remain specification work. D232 selects self-service identity-linking/unlinking safeguards. Signing in alone does not grant server-administrator privileges.
+Keep external authentication identity distinct from the Clacks account ID and each enrolled client's identity. [OpenID Connect section 5.7](https://openid.net/specs/openid-connect-core-1_0.html#ClaimStability) specifies the issuer/subject pair (iss, sub) as the stable external identity; display name/email are not stable account identifiers. Bind verified external identities explicitly to the appropriate Clacks account rather than deriving internal identity from mutable labels. D231 permits multiple verified external identities to link to one stable Clacks account, including identities from multiple providers. Each issuer/subject pair is linked to at most one Clacks account. D191 provisions an account during normal sign-in for an unbound identity and otherwise resolves its existing binding; linking an additional identity to an existing account is a separate workflow, not ordinary new-account provisioning. There is no administrator pre-creation or second Clacks approval step. D357/D358 select maintenance commands for role assignment and exceptional identity recovery; the #11 proposal supplies their deployment and transaction boundaries. D232 selects self-service identity-linking/unlinking safeguards. Signing in alone does not grant server-administrator privileges.
 
 The OIDC browser login is separate from D65 desktop authorization and D62 independently revocable client access. D193 separately selects browser-callback desktop authorization for MVP. The long-lived client credential remains to be designed; provider client secrets are not distributed to desktop applications.
 
+## OIDC protocol library (D365)
+
+Use `openidconnect` with asynchronous `reqwest` and Rustls for server OIDC
+integration, including standard discovery, authorization-code authentication,
+maximum-authentication-age requests, response validation and dynamic client
+registration. Connect the library's protocol operations to Clacks account
+provisioning/linking and Axum routes rather than implementing the protocol in
+Clacks. Configure the HTTP client according to the library's security guidance,
+including disabling automatic redirects. D368 separately selects `axum_session`
+with its PostgreSQL adapter. Concrete composition and dependency feature
+resolution belong to the #11 proposal and implementation plan; no
+provider-specific authentication workarounds are selected.
+
+## OIDC Dynamic Client Registration (D363)
+
+Support OpenID Connect Dynamic Client Registration (DCR) for configured identity
+providers in MVP, including tsidp. Clacks acts as the
+registering OIDC client; this does not introduce an OIDC provider or a public
+client-registration endpoint in Clacks. Register the deployment's callback URLs
+under D362. This registration identifies the Clacks deployment to its provider;
+it is distinct from account provisioning, linked user identities and desktop
+enrollment.
+
+Use the standard registration protocol and provider discovery metadata, including
+the `registration_endpoint`, and the provider's registration authorization
+requirements. Protect any returned client credentials and registration-management
+tokens as deployment secrets. D364 selects explicit preconfigured-client and
+dynamic-registration modes per configured provider. Dynamic registration runs
+through `clacks-admin oidc register`, an automatable deployment-setup operation
+using the configured public
+callback URL, separately from SQL schema migrations. Persist and protect the
+returned registration so application restarts, replicas and releases reuse it.
+Registration credential failures or expiration must produce clear diagnostics,
+not silently create another registration. The #11 proposal uses a protected
+deployment registration file, separate from account-owned service credentials. See
+[OIDC discovery](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata)
+and [OAuth dynamic registration](https://www.rfc-editor.org/rfc/rfc7591.html).
+
+[tsidp documents DCR support](https://tailscale.com/docs/features/tsidp#set-up-an-application-capability-grant)
+and requires appropriate Tailscale application-capability grants for its
+registration endpoints; this is deployment configuration, not Clacks-specific
+authentication behavior.
+
+## Operator command
+
+Use one `clacks-admin` command for `role grant`, `role revoke`, `identity recover`,
+`oidc register` and `database migrate`, with standard nested `--help`. This is a
+thin interface to production server-library operations, not a general task
+runner. Resolve credentials only for the chosen subcommand: migration database
+access for schema changes, maintenance database access for role/recovery work,
+and provider registration authorization for OIDC setup. Runtime database access
+remains separate. Registration requires no PostgreSQL connection; database
+maintenance requires no provider or cookie secrets. See the
+[credential requirements](account-management-proposal.md#release-and-operator-procedures).
+
 ## Server-administrator role assignment (D192)
 
-Manual, out-of-band assignment of the server-administrator role is sufficient for MVP. No in-application role-management interface or automatic OIDC claim-to-role mapping is required. The exact deployment configuration/command method remains open; this does not mandate a specific tool or hand-editing the database. Keep role assignment independent of D191 first-sign-in provisioning: ordinary users do not await role assignment or administrator approval.
+Manual, out-of-band assignment of the server-administrator role is sufficient for
+MVP. D357 selects server maintenance commands to grant or revoke that role for
+an existing Clacks account ID. Run these commands with deployment-controlled
+database access and record role changes in operator logs. For initial setup, the
+first administrator signs in through normal provisioning before the operator
+grants the role to that account. Store role assignments in the database rather
+than a deployment-configured allowlist of administrator IDs. Use
+`clacks-admin role grant` and `clacks-admin role revoke`; the shared operator
+command does not change the required maintenance privileges.
+
+No in-application role-management interface or automatic OIDC claim-to-role
+mapping is required. Keep role assignment independent of D191 first-sign-in
+provisioning: ordinary users do not await role assignment or administrator
+approval.
 
 ## Browser-callback authorization (D193)
 

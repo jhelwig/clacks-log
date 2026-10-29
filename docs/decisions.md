@@ -274,7 +274,7 @@ Client authentication/enrollment uses a browser-based authorization experience l
 
 #### D66
 
-The MVP web UI includes account sign-in, client authorization, enrolled-client listing/revocation, administrator account creation, external-service configuration, and upload diagnostics. Account isolation applies throughout. Exact desktop/web division of service controls remains open.
+The MVP web UI includes account sign-in, self-service identity linking/unlinking, client authorization, enrolled-client listing/revocation, external-service configuration, and upload diagnostics. D191 selects normal first-sign-in account provisioning rather than requiring administrator account creation; D357 makes administrator-role assignment an out-of-band maintenance operation. Account isolation applies throughout. D67 defines the desktop/web division of service setup and diagnostics.
 
 #### D67
 
@@ -1891,3 +1891,238 @@ targets and clearing requests removal from all. Preserve existing Save/Cancel,
 whole-QSO reconciliation, stale-save and bulk-operation contracts. The
 [desktop UI contract](desktop-ui.md#editing-assigned-logbooks-d352) owns the
 interaction and scalability requirements.
+
+### Decision D353
+
+#### D353
+
+Use PostgreSQL-backed browser sessions with an opaque random session identifier
+in a secure, HTTP-only cookie. Keep account binding and authenticating login
+identity in server-side session state. D366 selects expiration, D367 separates
+authoritative login validity, and D368 selects `axum_session` with its PostgreSQL
+adapter. D354 defines identity-unlink invalidation. Browser sessions remain separate
+from independently revocable desktop-client credentials. See
+[browser sessions](accounts.md#browser-sessions-d353).
+
+### Decision D354
+
+#### D354
+
+When a login identity is unlinked, invalidate browser sessions authenticated
+through that identity. Preserve sessions authenticated through identities still
+linked to the account and preserve enrolled desktop clients' independently
+revocable account-bound credentials. Retain D232's requirement for recent
+authentication through an identity that will remain linked. See
+[browser sessions](accounts.md#browser-sessions-d353).
+
+### Decision D355
+
+#### D355
+
+For login-identity linking and unlinking, perform a standard OIDC round trip with
+`max_age=300` whenever recent authentication to the existing account is required.
+The provider determines whether existing authentication satisfies the request
+and handles any necessary reauthentication. Use the OIDC library for standard
+response validation, including `auth_time`, and verify the returned identity's
+account binding. Linking authenticates an already-linked identity separately
+from the new identity; unlinking authenticates an identity that will remain
+linked. Do not implement custom freshness bookkeeping, reuse cached proofs to
+bypass the round trip, or add provider-specific workarounds. Provider
+interoperability remains an integration obligation. See
+[login-identity management](accounts.md#self-service-login-identity-management-d232).
+
+### Decision D356
+
+#### D356
+
+Default browser sessions to 30 days between authentications, with no separate
+inactivity timeout; allow deployment administrators to configure these limits.
+The expiration policy is superseded by D366's 14-day sliding window; the earlier
+30-day absolute limit is not a continuing mandatory cap.
+Ordinary activity does not extend the overall authentication lifetime. Do not
+introduce idle-warning dialogs under the default policy. Explicit logout
+invalidates the server-side session immediately. Preserve D354 invalidation on
+identity unlinking, D355's five-minute authentication requirement for identity
+changes, and independently revocable desktop enrollment. See
+[browser sessions](accounts.md#browser-sessions-d353).
+
+### Decision D357
+
+#### D357
+
+Use server maintenance commands to grant or revoke the server-administrator role
+for an existing Clacks account ID, with deployment-controlled database access and
+operator logging. Initial administrator setup follows normal sign-in/account
+provisioning, then explicit role assignment. Store assignments in the database
+rather than a deployment-configured administrator allowlist. Ordinary account
+provisioning remains independent of role assignment; no web role-management
+interface or automatic provider-claim mapping is required. See
+[administrator-role assignment](accounts.md#server-administrator-role-assignment-d192).
+
+### Decision D358
+
+#### D358
+
+Use a server maintenance command for administrator-assisted recovery. Identify
+the existing Clacks account by its internal ID and add a newly verified OIDC
+issuer/subject identity, refusing identities bound to another account. Require
+documented out-of-band operator verification of account ownership and the
+replacement identity; do not infer ownership from email or merge accounts.
+Preserve account data, service credentials and enrolled clients, and log the
+recovery for operators. No web recovery-request system is required for MVP. See
+[account recovery](accounts.md#recovery-without-an-accessible-login-identity-d233).
+
+### Decision D359
+
+#### D359
+
+Administrator-assisted recovery addresses lost access to all linked login
+identities without assuming compromise. Add the newly verified identity while
+preserving existing bindings, browser sessions and enrolled clients. Any
+compromise-related revocation is a separate explicit action. Verify the
+replacement identity out of band before normal Clacks sign-in, which would
+otherwise provision a separate account. Refuse an identity already bound to
+another account rather than transferring it or merging accounts. Explain this
+distinction in the recovery procedure. See
+[account recovery](accounts.md#recovery-without-an-accessible-login-identity-d233).
+
+### Decision D360
+
+#### D360
+
+Use SQLx for server PostgreSQL persistence as well as client SQLite persistence.
+Keep fixed queries in separate `.sql` files through `query_file!` or
+`query_file_as!`, with compile-time checking and committed offline query metadata.
+Reuse tooling and conventions without coupling the independent server and client
+schemas, migrations or queries. See
+[server persistence access](accounts.md#server-persistence-access-d360).
+
+### Decision D361
+
+#### D361
+
+Use release-managed server migrations designed for production software as a
+service (SaaS). Provide a migration command in the immutable release artifact for
+deployment automation, separate from normal application startup, using a
+schema-changing role unavailable to normal server processes. Use SQLx's existing
+migration machinery. Stage compatible schema additions, application deployment,
+substantial resumable/bounded data conversion and later removal of obsolete
+schema through expand–migrate–contract. Preserve compatibility during supported
+old/new application overlap, including writes and background work. Normally
+roll back the application to a compatible version against current database
+contents rather than automatically reversing migrations or restoring old data.
+Plan lock/operation bounds and observe migration outcomes. #11 establishes this
+contract without requiring an orchestrator, multiple replicas or a generic
+backfill framework. Self-hosting may stop the app, run the same migration command
+and restart. See [server migrations](accounts.md#release-managed-server-migrations-d361).
+
+### Decision D362
+
+#### D362
+
+Use deployment-managed public HTTPS termination and certificates at a reverse
+proxy or load balancer, with Axum on a restricted internal endpoint and upstream
+transport protected appropriately for the deployment network. Configure the
+public base URL explicitly for OIDC callbacks instead of deriving it from
+arbitrary host headers. Trust forwarded client information only through an
+explicitly trusted proxy configuration. Serve web and application endpoints
+under one public origin. No particular ingress product or built-in public
+HTTPS/certificate management is required for MVP. See
+[HTTPS boundary](accounts.md#public-https-boundary-d362).
+
+### Decision D363
+
+#### D363
+
+Support OpenID Connect Dynamic Client Registration (DCR) for configured providers
+in MVP. Clacks registers as an OIDC
+client for its deployment, distinct from user-account provisioning, identity
+linking and desktop enrollment. Use standard provider discovery/registration and
+protect returned registration credentials as deployment secrets. Concrete
+registration lifecycle and provisioning mechanics remain engineering work. See
+[dynamic registration](accounts.md#oidc-dynamic-client-registration-d363).
+
+### Decision D364
+
+#### D364
+
+Support explicit preconfigured-client and dynamic-registration modes per OIDC
+provider. Run DCR through an automatable deployment-setup operation, separately
+from SQL schema migrations, using the configured public callback URL. Persist
+and protect returned registration credentials for durable reuse across restarts,
+application replicas and releases. Report invalid or expired credentials clearly
+rather than silently creating another registration after authentication failures.
+See [dynamic registration](accounts.md#oidc-dynamic-client-registration-d363).
+
+### Decision D365
+
+#### D365
+
+Use `openidconnect` with asynchronous `reqwest` and Rustls for server OIDC
+integration, including discovery, authorization-code authentication, standard
+maximum-authentication-age requests and response validation, and DCR. Clacks
+supplies account behavior and Axum integration rather than a protocol
+implementation. Follow the library's HTTP-client security guidance, including
+disabling automatic redirects. D368 selects session middleware; concrete
+integration remains specification work. See
+[OIDC protocol library](accounts.md#oidc-protocol-library-d365).
+
+### Decision D366
+
+#### D366
+
+Use a deployment-configurable 14-day sliding browser-session expiration window
+in place of D356's earlier 30-day absolute expiration policy. The sliding
+duration must be smaller than that previously selected absolute duration; this
+does not require retaining an independent absolute deadline. Activity can extend
+the sliding deadline. Do not introduce idle-warning dialogs or change the
+standard OIDC recent-authentication flow for identity changes. D368 selects the
+middleware, with authoritative login validity separated under D367. See
+[browser sessions](accounts.md#browser-sessions-d353).
+
+### Decision D367
+
+#### D367
+
+Separate authoritative login validity from general middleware session data.
+Successful OIDC sign-in creates a PostgreSQL login-session record tied to the
+account and authenticating linked identity; middleware data holds a reference.
+Every authenticated request checks the live authoritative record. Logout
+invalidates it, and unlinking invalidates login sessions established through the
+removed identity. Ordinary middleware saves cannot create or reactivate those
+records. Apply D366's 14-day sliding expiration to authoritative login validity;
+middleware retention/refresh cannot extend authentication independently. Preserve
+other identities' sessions and desktop enrollment, and retain library cookie
+handling and general session machinery. D368 selects the middleware; concrete
+schema and transaction integration remain specification work. See
+[browser sessions](accounts.md#browser-sessions-d353).
+
+### Decision D368
+
+#### D368
+
+Use `axum_session` with `axum_session_sqlx` for PostgreSQL-backed browser
+sessions, retaining native cookie handling and general session machinery.
+Apply D367's separation: middleware stores a reference, while every authenticated
+request checks authoritative PostgreSQL login validity. Middleware cache or
+stale saves cannot restore authorization. Initialize middleware tables through
+D361 release-managed migrations rather than schema creation by the runtime
+database role. The evaluated dependency baseline is `axum_session` 0.22.0 and
+`axum_session_sqlx` 0.12.0 with SQLx 0.9; concrete schema and transaction
+integration remain specification work. See
+[browser sessions](accounts.md#browser-sessions-d353).
+
+### Decision D369
+
+#### D369
+
+Use account-row locking in short PostgreSQL transactions for changes to an
+existing account's identity bindings, including administrator-assisted recovery.
+After locking, recheck the applicable identity and authentication requirements,
+including preservation of a remaining login identity. Commit binding changes
+and affected authoritative login-session invalidation atomically. Keep provider
+authentication and other network requests outside the transaction. Retain
+issuer/subject uniqueness across accounts through database constraints; the
+account lock does not replace that enforcement. This does not serialize ordinary
+account requests or QSO writes. See
+[identity-management transactions](accounts.md#identity-management-transactions-d369).

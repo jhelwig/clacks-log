@@ -53,3 +53,21 @@ The comparison keeps PostgreSQL physical recovery separate from Clacks timeline 
 Plan an explicit desktop-client backup/restore process covering local database/state, enrollment and causal identity, pending work and comparison evidence, and protected credential handling. Implementing it is not an MVP requirement; documented recovery under D57 remains the MVP scope. The contents and format of a backup, inclusion or reprovisioning of protected credentials, and the identity handling on restore are not yet selected.
 
 Copying all relevant directories can create another copy of the same logical client state. A different physical computer does not inherently make that copy distinguishable to Clacks, and two writable copies can also exist on one computer. Physical relocation alone does not require fresh enrollment. Do not assume a backup contains credentials held in an operating-system store, or assume such a store reliably distinguishes copies. The future explicit process must account for these cases without losing contacts, pending work or their comparison evidence. Existing revocation/manual-reconciliation and server-rollback decisions remain in force; this scope decision selects no new causal mechanism or mandatory clone-detection workflow.
+
+## Browser account recovery
+
+The account server stores stable accounts, linked identities, current login
+validity and administrator membership in PostgreSQL. Back up these tables
+consistently, along with protected provider registrations, the durable cookie
+key and deployment configuration. Cookie-key replacement invalidates browser
+cookies without removing account/identity data. An older database restore can
+restore previously revoked login/role state; a later revocation cannot survive
+rollback without separately retained evidence.
+
+Administrator-assisted identity recovery is an additive, explicit maintenance
+operation. Verify the account owner and exact replacement issuer/subject out of
+band before running it, and before that identity's first ordinary sign-in creates
+another account. It preserves existing identities/logins and refuses an identity
+owned elsewhere. See [Linux deployment](../deploy/server/README.md) and the
+[operator commands](../lib/clacks-server/README.md#roles-and-exceptional-recovery).
+These operations do not implement desktop enrollment or service-upload recovery.

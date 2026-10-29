@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT l.identity_id FROM clacks.login_sessions l\nJOIN clacks.login_identities a ON a.account_id = l.account_id AND a.identity_id = $3\nWHERE l.account_id = $1 AND l.login_reference = $2 AND l.expires_at > CURRENT_TIMESTAMP\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "identity_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.login_sessions",
+            "name": "identity_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2b1f31029eb43fd0510e1e460d4dc36ec2ca2e7d4d4541203d796baaf57ef625"
+}

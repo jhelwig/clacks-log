@@ -1,0 +1,26 @@
+# Public origin supplied by the deployment's HTTPS ingress.
+public_url = "https://clacks.example"
+listen = "0.0.0.0:3000"
+# Runtime secrets are not required by clacks-admin oidc register.
+database_url_file = "/run/secrets/runtime-database-url"
+cookie_key_file = "/run/secrets/browser-cookie-key"
+session_days = 14
+pending_seconds = 600
+shutdown_seconds = 30
+# Standard OTEL_EXPORTER_OTLP_* environment variables configure the collector.
+otlp = false
+
+[providers.primary]
+label = "OIDC Provider Name"
+issuer = "https://identity.example"
+mode = "dynamic"
+registration_file = "/run/secrets/oidc-primary.json"
+# Omit if the provider does not require registration authorization.
+initial_access_token_file = "/run/secrets/oidc-registration-token"
+
+# For an already registered provider client, use mode = "preconfigured",
+# client_id = "..." and client_secret_file = "/run/secrets/oidc-client-secret"
+# instead of the dynamic registration fields.
+# token_endpoint_auth_method = "client_secret_post" selects POST authentication
+# when required. With a secret, the default is client_secret_basic; without one,
+# it is none. Dynamic mode uses the method returned in the saved registration.
