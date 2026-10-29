@@ -106,7 +106,7 @@ reuse a version number.
 | --- | --- |
 | `AccountId` | Existing account boundary; every lookup and comparison is account-scoped |
 | `RecordKey` | Native record kind and its stable ID; deletion does not free that identity for reuse |
-| `ClientActorId` | Current enrolled-client admission identity; also the client's vector key. Reauthorization allocates a fresh admission identity |
+| `ClientActorId` | Current enrolled-client admission identity; also the client's vector key. Reauthorization after closure or loss of that identity from restored server state allocates a fresh identity; credential recovery alone does not establish actor revocation under D378 |
 | `TimelineId` | Identity of one accepted server history within an account |
 | `Position` | `(TimelineId, revision)`; revisions increase through durable accepted mutations and synchronization metadata changes |
 | `ClockActor` | Either `Client(ClientActorId)` or `Server(TimelineId)`; the server has an explicit vector component |

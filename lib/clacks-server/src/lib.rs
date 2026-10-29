@@ -9,3 +9,5 @@ pub mod http;
 pub mod runtime;
 
 pub mod telemetry;
+
+pub(crate) mod secrets;

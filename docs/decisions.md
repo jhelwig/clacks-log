@@ -792,7 +792,7 @@ Manual, out-of-band server-administrator role assignment is sufficient. MVP does
 
 #### D193
 
-Use browser-callback desktop authorization for MVP: the desktop opens the browser for sign-in/client approval and receives completion through a callback. Device authorization is a post-MVP fallback option. Both require client/server reachability; a separate computer is not required. Preserve D62 individually revocable client authorization and D190/D191 provider-based web sign-in/account provisioning. Exact callback mechanism, standard protocol/library integration, and per-client credential lifecycle remain to be specified.
+Use browser-callback desktop authorization for MVP: the desktop opens the browser for sign-in/client approval and receives completion through a callback. Device authorization is a post-MVP fallback option. Both require client/server reachability; a separate computer is not required. Preserve D62 individually revocable client authorization and D190/D191 provider-based web sign-in/account provisioning. D370 subsequently selects the temporary loopback callback; standard protocol/library integration and per-client credential lifecycle remain to be specified.
 
 #### D194
 
@@ -2126,3 +2126,182 @@ issuer/subject uniqueness across accounts through database constraints; the
 account lock does not replace that enforcement. This does not serialize ordinary
 account requests or QSO writes. See
 [identity-management transactions](accounts.md#identity-management-transactions-d369).
+
+### Decision D370
+
+#### D370
+
+Use a temporary loopback listener on an operating-system-assigned port for the
+MVP desktop browser-authorization callback. The initiating desktop process
+receives completion directly, without an application-specific URL-handler
+registration or another computer. Keep the listener limited to the authorization
+attempt. D193's browser sign-in/client approval and post-MVP device-authorization
+fallback remain unchanged. This settles callback transport; authorization-server
+library integration and ongoing per-client credential format, storage and renewal
+remain engineering decisions. See
+[browser-callback authorization](accounts.md#browser-callback-authorization-d193).
+
+### Decision D371
+
+#### D371
+
+Use short-lived access tokens with a persistent per-client refresh credential
+for desktop authorization. An authorized client can obtain a fresh access token
+without another browser sign-in after an indefinite offline period; inactivity
+alone does not expire its refresh authorization. Keep desktop credentials separate
+from browser sessions and external-provider credentials. Revocation blocks refresh
+and authorized access without waiting for access-token expiration, preserving
+other clients and local work. D374 selects opaque access tokens. D378 selects
+persistent refresh credentials bound through Demonstrating Proof of Possession
+(DPoP) and binds access tokens as well, superseding the earlier rotation and
+retry-grace choices.
+Refresh-token representation, protected storage, library integration and exact
+access-token lifetimes remain engineering choices. See
+[desktop credentials](accounts.md#desktop-access-and-refresh-credentials-d371).
+
+### Decision D372
+
+#### D372
+
+Superseded by D378. Ordinary refresh retains the persistent key-bound refresh
+credential rather than rotating it. See
+[desktop credentials](accounts.md#desktop-access-and-refresh-credentials-d371).
+
+### Decision D373
+
+#### D373
+
+The rotation-specific retry grace and its deadline are superseded by D378.
+Retry an interrupted refresh with the same key-bound credential and a fresh
+proof. Preserving local data/comparison evidence and distinguishing credential
+recovery from explicit actor revocation remain required. See
+[desktop credentials](accounts.md#desktop-access-and-refresh-credentials-d371).
+
+### Decision D374
+
+#### D374
+
+Use opaque access tokens backed by server-side authorization records for desktop
+access. Resolve the credential and current enrolled-client authorization through
+PostgreSQL, retaining immediate individual-client revocation rather than relying
+on token expiration. Existing stream enforcement and admission checks remain
+required. This avoids access-token signing-key management in the single-server
+application architecture; it does not change provider-issued identity tokens,
+indefinite offline eligibility or rollback limitations. D378 adds DPoP binding. Exact
+storage schema and refresh-token representation remain engineering choices. See
+[desktop credentials](accounts.md#desktop-access-and-refresh-credentials-d371).
+
+### Decision D375
+
+#### D375
+
+Superseded by D379's Huskarl client and oauth-as embedded authorization server
+selection for D378's full DPoP requirement.
+Preserve required PKCE, the standard loopback-IP/variable-port redirect policy,
+SQLx persistence and the existing external-provider `openidconnect` integration.
+The authorization server is embedded in the Clacks application; a separate
+authorization-server service is excluded. Exact compatible dependency selection
+and integration belong to the concrete specification and plan. See
+[desktop credentials](accounts.md#desktop-access-and-refresh-credentials-d371).
+
+### Decision D376
+
+#### D376
+
+Use `keyring-core` with native macOS and Windows backends for desktop credential
+storage: `apple-native-keyring-store` with its `keychain` feature on macOS, and
+`windows-native-keyring-store` on Windows. Deliver both integrations during MVP;
+macOS is the primary development platform and cannot defer its credential path
+until the post-MVP macOS release. Keep enrollment secrets in protected OS storage
+and only non-secret references in SQLite. Linux desktop release support remains
+post-MVP; headless server secret storage is a separate concern. Exact dependency
+pins, entry naming and integration mechanics belong to the specification and
+plan. See [desktop credentials](accounts.md#desktop-access-and-refresh-credentials-d371).
+
+### Decision D377
+
+#### D377
+
+The replacement-credential retry policy is superseded by D378's persistent
+key-bound refresh credential. The prohibition on retaining recoverable replacement
+credentials or replayable successful responses for retry recovery remains. See
+[desktop credentials](accounts.md#desktop-access-and-refresh-credentials-d371).
+
+### Decision D378
+
+#### D378
+
+Use persistent refresh credentials bound through Demonstrating Proof of
+Possession (DPoP), and bind access tokens as well. Ordinary refresh issues a
+fresh short-lived opaque access token while retaining the same key-bound refresh
+credential. Require proof of the bound private key for code exchange, refresh
+and access-token use, with standard request binding, freshness and replay checks.
+Share replay protection across application instances.
+
+Retry interrupted refreshes and lost responses with the same refresh credential
+and a fresh proof. Supersede D372's rotation, D373's rotation-retry grace deadline
+and D377's replacement-credential retry policy. Do not retain recoverable
+replacement credentials or cached successful token responses for retry recovery.
+
+Preserve indefinite offline eligibility, immediate individual-client revocation,
+account isolation and local pending work/comparison evidence. Credential recovery
+alone does not establish explicit actor revocation; D145/D152 still govern
+revoked-actor reauthorization. DPoP does not protect a client when both its key
+and credentials are compromised. D379 selects Huskarl with oauth-as and the
+bounded loopback-port patch required by the evaluated oauth-as release.
+See [desktop credentials](accounts.md#desktop-access-and-refresh-credentials-d371).
+
+### Decision D379
+
+#### D379
+
+Use Huskarl for desktop authorization and oauth-as for the authorization server
+embedded in Clacks, superseding D375. Preserve D370's temporary variable-port
+loopback callback, D374's opaque access tokens, D376's native credential stores
+and D378's persistent DPoP-bound refresh credentials and bound access tokens.
+External-provider sign-in remains on the existing `openidconnect` integration.
+
+Accept the required oauth-as loopback-port correction as a pinned, reviewed patch
+until a compatible upstream release is available. Permit the callback port to
+vary without relaxing the remaining redirect matching, and require the exact
+granted redirect URI at code redemption. Track upstream issue #26; acceptance
+does not assume upstream delivery or authorize an unrestricted fork.
+
+Use standard Huskarl client facilities. Clacks owns protected credential
+persistence, relational SQLx issuer storage, current account/client authorization,
+transaction boundaries and direct PostgreSQL resource authorization. Huskarl's
+complete opaque-token validator requires HTTP introspection; its lower-level
+proof validator leaves Clacks responsible for request/key/token binding checks
+and shared replay exclusion. Preserve immediate revocation at admission and on
+existing streams. Do not adopt the unpublished reference PostgreSQL adapter.
+
+Accept the evaluated dependency cost: a larger graph, unused crypto algorithms,
+parallel RustCrypto generations and release-candidate crypto dependencies.
+Keep accepted proof algorithms explicit; compiled support does not widen policy.
+Concrete dependency pins, storage security and transaction integration belong to
+the specification and plan. See
+[library integration costs](accounts.md#selected-libraries-and-integration-costs-d379).
+
+### Decision D380
+
+#### D380
+
+Hash ordinary authorization-code and access/refresh credential lookup values
+where oauth-as's existing interface supports it. Protect the recoverable issued
+credential references in consumed/replayed authorization-code records with the
+per-account encryption/deployment-wrapping-key arrangement from D236. These
+short-lived receipts are not refresh-response recovery caches. The desktop keeps
+its usable refresh credential and signing key in D376's native credential store.
+
+Preserve oauth-as's existing code-replay rejection and grant-revocation behavior,
+including its consequence for a repeated initial exchange after a lost response.
+Do not add a grant-reference patch, alternate token-handle convention or modified
+replay policy to obtain fully hash-only persistence. D379's bounded loopback-port
+patch remains the only selected dependency correction.
+
+Apply normal secret-handling, infrastructure and incident-remediation practices.
+Encryption limits a database-only disclosure; it does not protect credentials
+from an authorized running server or database-plus-key compromise. Retention
+cleanup does not erase older backups. Evaluate additional controls against
+realistic exposure and remediation costs rather than inventing stronger security
+requirements. See [credential storage](accounts.md#credential-storage-d380).
