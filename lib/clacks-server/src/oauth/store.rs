@@ -38,7 +38,8 @@ impl OAuthStore {
 
 /// Preserve diagnostics at the handling boundary while returning the library's opaque store error.
 fn error(error: anyhow::Error) -> StorageError {
-    StorageError::new(error.to_string())
+    tracing::error!(event="oauth.storage.failed", reason=%error, "Issuer persistence failed");
+    StorageError::new("issuer persistence failed")
 }
 
 impl Storage for OAuthStore {

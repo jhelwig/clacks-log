@@ -26,7 +26,7 @@ The prior proposal to require an explicitly declared reset, suspend normal sync,
 
 D59 uses symmetric negotiation/transfer of synchronized state, coalescing working edits at synchronization boundaries without requiring every edit as a history event. It does not select a logbook-wide commit, branch, or QSO-as-file model. D60 requires retention/representation sufficient for enrolled clients to return after indefinite offline periods without export or re-enrollment. The [metadata model](synchronization-model.md) defines revision identity, retained ordering evidence and reconstruction; database and service-evidence integration must preserve those contracts. The protocol must not mistake reused server counters for identical revisions. Service state recovery also needs design: an older backup may lack later upload success or download-processing information. Preserve and reconcile surviving synchronized evidence rather than treating rollback as proof of upload failure or a new download event. Protected server-only credential material still needs D57's documented backup/recovery procedures; normal sync does not imply copying private keys onto clients.
 
-D140 requires recovery-relevant publication outcomes, remote observations, and processing decisions to reach enrolled clients in MVP, alongside the existing evidence needed to interpret them. This makes client-held service evidence eligible for normal rollback repair. Recovery must preserve the association between a publication and its actual sent values/destination, and between an observation, its processing decision, and any resulting accepted edit. Missing or uncertain results must not be fabricated. Exact retention and reconciliation remain open.
+D140 requires recovery-relevant publication outcomes, remote observations, and processing decisions to reach enrolled clients in MVP, alongside the existing evidence needed to interpret them. This makes client-held service evidence eligible for normal rollback repair. Recovery must preserve the association between a publication and its actual sent values/destination, and between an observation, its processing decision, and any resulting accepted edit. Missing or uncertain results must not be fabricated. The [service-evidence contract](service-evidence.md) defines retention and combination; persistence and transport must preserve it.
 
 Recovery includes account-owned QSOs with their complete tag sets, tag definitions/deletion state and service associations in the single account synchronization scope (D243/D248). Restore must distinguish active untagged contacts from QSOs marked deleted. A surviving pending QSO with a deleted-tag reference remains local for explicit membership removal/replacement; it must not recreate the tag (D250). Recovered external associations must preserve the one-local-QSO-per-external-record invariant within each account/service destination (D251); divergent claims require resolution rather than duplicate binding or silent replacement.
 
@@ -70,4 +70,26 @@ band before running it, and before that identity's first ordinary sign-in create
 another account. It preserves existing identities/logins and refuses an identity
 owned elsewhere. See [Linux deployment](../deploy/server/README.md) and the
 [operator commands](../lib/clacks-server/README.md#roles-and-exceptional-recovery).
-These operations do not implement desktop enrollment or service-upload recovery.
+These operations do not implement service-upload recovery.
+
+## Desktop authorization recovery
+
+Back up account encryption-key rows and desktop authorization tables in the
+same consistent PostgreSQL backup. Retain every referenced deployment wrapping
+key in the protected secret backup; ciphertext alone cannot recover the consumed
+code receipts. All application instances need the same version-to-key mapping.
+Changing the active version does not rewrap existing account keys or retire old
+versions. Do not remove an old wrapping key while any account envelope uses it.
+
+An older database restore can lose client enrollments or restore authorization
+that was revoked after the backup. This is the ordinary rollback boundary,
+not rollback-proof revocation. Reapply known revocations after restoration.
+Missing/closed actors require browser approval for a fresh identity; existing
+authorized actors retain their identity when replacing credentials. Local old-
+actor pending work remains held for explicit reconciliation after catch-up.
+
+Desktop credentials live in the native macOS/Windows credential store, not in
+SQLite or the workspace directory. A database copy alone does not copy them.
+Use the workbench connection workflow to authorize again when needed. Interrupted
+local completion can resume from the original workspace's saved attempt without
+reassigning standalone contacts or inventing a synchronization checkpoint.

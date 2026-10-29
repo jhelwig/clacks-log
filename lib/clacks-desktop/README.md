@@ -441,8 +441,10 @@ replaces an unusable credential while preserving any installed destination and
 its existing actor hint. An uninstalled key-only attempt can
 be discarded to correct the server address; this does not revoke any approval
 already committed on the server. Saved credentials and installed destinations
-use completion recovery instead. A rejected, uninstalled destination can be
-corrected with **Use this destination**, then resumed without another browser
+use completion recovery instead. Discard checks the native entry even when
+SQLite still records only key creation; unreadable credentials are preserved.
+A rejected, uninstalled destination can be corrected with **Use this destination**,
+then resumed without another browser
 approval. Completed or uncertain bindings retain their saved destination.
 Until synchronization is implemented, an
 enrolled workspace is awaiting its initial synchronization.

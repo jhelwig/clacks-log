@@ -120,3 +120,13 @@ adds a binding, preserving existing identities and logins; separate compromise
 response must explicitly revoke affected access. Never transfer an already-owned
 identity or infer ownership from email. See [backup/recovery](../../docs/backup-recovery.md)
 for the separate future synchronization/publication restore procedures.
+
+Desktop enrollment also requires the versioned `[wrapping_keys]` configuration.
+Use `clacks-admin keys generate --output PATH` in a protected directory to create
+an exact 32-byte raw key. Mount it read-only at the configured path, alongside
+but separate from browser-cookie/provider secrets. Share retained versions across
+all instances and back them up with the database. New active versions do not
+rewrap existing account keys; retain any key still referenced by an envelope.
+The [server guide](../../lib/clacks-server/README.md#desktop-authorization) covers
+issuer operations and the [recovery contract](../../docs/backup-recovery.md)
+explains rollback and native desktop credential recovery.

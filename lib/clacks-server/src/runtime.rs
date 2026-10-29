@@ -119,23 +119,30 @@ pub async fn serve(state: ServerState, pages: axum::Router<ServerState>) -> anyh
         tracing::info!("Server shutdown requested");
         let _ = requested.send(());
     };
+    let mut maintenance = tokio::task::JoinSet::new();
+    maintenance.spawn(crate::oauth::cleanup::run(state.store.pool.clone()));
     use std::future::IntoFuture;
     let serving = axum::serve(listener, crate::http::router(state.clone(), pages))
         .with_graceful_shutdown(shutdown)
         .into_future();
     tokio::pin!(serving);
-    tokio::select! {
-        result = &mut serving => result?,
-        _ = notified => {
-            match tokio::time::timeout(std::time::Duration::from_secs(state.config.shutdown_seconds), &mut serving).await {
-                Ok(result) => result?,
-                Err(_) => {
-                    tracing::warn!("Request drain deadline reached");
-                    anyhow::bail!("request drain deadline reached");
+    let result: anyhow::Result<()> = async {
+        tokio::select! {
+            result = &mut serving => result?,
+            _ = notified => {
+                match tokio::time::timeout(std::time::Duration::from_secs(state.config.shutdown_seconds), &mut serving).await {
+                    Ok(result) => result?,
+                    Err(_) => {
+                        tracing::warn!("Request drain deadline reached");
+                        anyhow::bail!("request drain deadline reached");
+                    }
                 }
             }
         }
-    }
+        Ok(())
+    }.await;
+    maintenance.shutdown().await;
+    result?;
     state.store.close().await;
     tracing::info!("Server requests drained");
     Ok(())

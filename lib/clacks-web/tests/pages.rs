@@ -211,6 +211,51 @@ async fn account_page_and_direct_server_function_require_the_same_login() -> any
         .error_for_status()?
         .json()
         .await?;
+    // Recovery hints cannot authorize another account, even in a live browser session.
+    let wrong_account = ulid::Ulid::generate().to_string();
+    let actor = identity
+        .get("actor")
+        .and_then(serde_json::Value::as_str)
+        .context("missing actor")?;
+    let recovery = client
+        .get(format!("{base}/oauth/authorize"))
+        .query(&[
+            ("client_id", "clacks-desktop"),
+            ("response_type", "code"),
+            ("redirect_uri", "http://127.0.0.1:49125/oauth/callback"),
+            ("scope", "sync"),
+            ("state", "wrong-account-recovery"),
+            ("client_label", "Wrong account"),
+            ("code_challenge_method", "S256"),
+            (
+                "code_challenge",
+                "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+            ),
+            ("dpop_jkt", thumbprint.as_str()),
+            ("clacks_account", &wrong_account),
+            ("clacks_actor", actor),
+        ])
+        .send()
+        .await?;
+    assert!(recovery.status().is_redirection());
+    let refused = client
+        .post(format!("{base}{approve_path}"))
+        .header("origin", &base)
+        .header("accept", "application/json")
+        .form(&[
+            ("request", "wrong-account-recovery"),
+            ("decision", "approve"),
+        ])
+        .send()
+        .await?;
+    assert!(refused.headers().get("location").is_none());
+    assert!(
+        refused
+            .text()
+            .await?
+            .contains("Sign in to the account associated with this desktop workspace")
+    );
+
     let page = client
         .get(format!("{base}/account/identities"))
         .send()

@@ -126,7 +126,7 @@ pub(crate) async fn remember_approval(
 pub(crate) async fn activate_in(
     connection: &mut PgConnection,
     code: &AuthorizationCodeRecord,
-) -> anyhow::Result<bool> {
+) -> anyhow::Result<Option<ClientActorId>> {
     membership::activate(connection, code).await
 }
 

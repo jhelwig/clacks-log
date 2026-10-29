@@ -181,11 +181,13 @@ pub(crate) async fn compare(
     if current.state != *expected {
         return Ok(false);
     }
-    if !crate::enrollment::activate_in(&mut transaction, &record).await? {
+    let Some(actor) = crate::enrollment::activate_in(&mut transaction, &record).await? else {
         return Ok(false);
-    }
+    };
     put_in(&mut transaction, &record, receipt.as_ref()).await?;
     transaction.commit().await?;
+    metrics::counter!("clacks_client_authorizations_total").increment(1);
+    tracing::info!(event="client.authorization.activated", account_id=%record.subject, actor_id=%actor, "Client authorization committed");
     Ok(true)
 }
 

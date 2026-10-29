@@ -32,6 +32,7 @@ services:
     secrets:
       - runtime-database-url
       - browser-cookie-key
+      - account-wrapping-key
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777
@@ -48,3 +49,5 @@ secrets:
     file: ./secrets/runtime-database-url
   browser-cookie-key:
     file: ./secrets/browser-cookie-key
+  account-wrapping-key:
+    file: ./secrets/account-wrapping-key

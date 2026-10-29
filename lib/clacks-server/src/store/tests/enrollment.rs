@@ -31,6 +31,14 @@ struct IssuedClient {
 #[tokio::test]
 async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() -> anyhow::Result<()>
 {
+    let _cache_guard = tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default());
+    let output = tempfile::NamedTempFile::new()?;
+    let subscriber = tracing_subscriber::fmt()
+        .json()
+        .without_time()
+        .with_writer(output.reopen()?)
+        .finish();
+    let _guard = tracing::subscriber::set_default(subscriber);
     let pool = PgPoolOptions::new()
         .max_connections(1)
         .acquire_timeout(std::time::Duration::from_secs(1))
@@ -68,47 +76,52 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
     let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
     let mut issued = Vec::new();
     for label in ["First desktop", "Second desktop"] {
-        let request = AuthorizationRequest::from_pairs([
-            ("response_type", "code".to_owned()),
-            ("client_id", "clacks-desktop".to_owned()),
-            ("redirect_uri", callback.to_owned()),
-            ("scope", "sync".to_owned()),
-            ("code_challenge_method", "S256".to_owned()),
-            (
-                "code_challenge",
-                oauth_as::pkce::code_challenge_s256(verifier),
-            ),
-            ("dpop_jkt", thumbprint.clone()),
-        ]);
-        let validated = issuer.validate_authorization_request(&request).await?;
-        let code = issuer
-            .issue_authorization_code(UserApproval::granted(
-                &validated,
-                principal.account_id.to_string(),
-            ))
-            .await?;
-        remember_approval(&store, &principal, &code.code, label, ApprovalPurpose::New).await?;
-        let response = exchange(&issuer, &dpop, &code.code, callback, verifier).await?;
-        let authorized = store
-            .authorized(&response.access_token)
-            .await?
-            .context("issued token not activated")?;
-        assert_eq!(authorized.account, principal.account_id);
-        issued.push(IssuedClient {
-            code: code.code,
-            response,
-            actor: authorized.actor,
-        });
+        issued.push(
+            approve(
+                &issuer,
+                &store,
+                &principal,
+                &dpop,
+                label,
+                ApprovalPurpose::New,
+            )
+            .await?,
+        );
     }
 
     let mut issued = issued.into_iter();
     let first = issued.next().context("missing first issuance")?;
     let second = issued.next().context("missing second issuance")?;
     assert_ne!(first.actor, second.actor);
+    let recovered = approve(
+        &issuer,
+        &store,
+        &principal,
+        &dpop,
+        "First desktop",
+        ApprovalPurpose::RecoverActive { actor: first.actor },
+    )
+    .await?;
+    assert_eq!(recovered.actor, first.actor);
+    assert!(
+        store
+            .authorized(&first.response.access_token)
+            .await?
+            .is_none()
+    );
+    assert!(
+        store
+            .authorized(&recovered.response.access_token)
+            .await?
+            .is_some()
+    );
 
     let database_file = directory.path().join("database-url");
     let cookie_file = directory.path().join("cookies");
-    std::fs::write(&database_file, std::env::var("CLACKS_TEST_DATABASE_URL")?)?;
+    std::fs::write(
+        &database_file,
+        std::env::var("CLACKS_TEST_RUNTIME_DATABASE_URL")?,
+    )?;
     std::fs::write(&cookie_file, [42; 64])?;
     let server_config: crate::config::ServerConfig = serde_json::from_value(serde_json::json!({
         "public_url": "https://clacks.example", "database_url_file": database_file,
@@ -187,12 +200,36 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
         statuses,
         [http::StatusCode::OK, http::StatusCode::UNAUTHORIZED]
     );
+    let wrong_key = PrivateKey::generate(GenerateAlgorithm::Es256, None)?;
+    let wrong_thumbprint = wrong_key.as_private_jwk().thumbprint();
+    let wrong_dpop = DPoP::builder().signer(wrong_key).build();
+    let wrong_proof = huskarl_core::dpop::ResourceServerDPoP::proof(
+        &wrong_dpop.to_resource_server_dpop(),
+        &Method::GET,
+        &target,
+        &access,
+        &wrong_thumbprint,
+    )
+    .await?
+    .context("wrong-key proof missing")?;
+    assert_eq!(
+        http.get(format!("{instance}/api/client"))
+            .header(
+                "authorization",
+                format!("DPoP {}", second.response.access_token)
+            )
+            .header("dpop", wrong_proof.expose_secret())
+            .send()
+            .await?
+            .status(),
+        http::StatusCode::UNAUTHORIZED
+    );
     let stale = store
         .get_token(&second.response.access_token)
         .await?
         .context("missing live record")?;
     assert!(
-        exchange(&issuer, &dpop, &first.code, callback, verifier)
+        exchange(&issuer, &dpop, &recovered.code, callback, verifier)
             .await
             .is_err()
     );
@@ -214,7 +251,26 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
             .iter()
             .all(|client| client.closed_at.is_none())
     );
+    assert!(
+        store
+            .authorized(&recovered.response.access_token)
+            .await?
+            .is_none()
+    );
+    assert!(
+        store
+            .get_refresh_token(
+                recovered
+                    .response
+                    .refresh_token
+                    .as_deref()
+                    .context("recovery refresh missing")?
+            )
+            .await?
+            .is_none()
+    );
     revoke_in_store(&pool, &principal, second.actor).await?;
+
     assert!(store.put_token((*stale).clone()).await?.is_refused());
     assert!(
         store
@@ -246,7 +302,105 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
     for task in tasks {
         task.abort();
     }
+    let replaced = approve(
+        &issuer,
+        &store,
+        &principal,
+        &dpop,
+        "Recovered second desktop",
+        ApprovalPurpose::ReplaceClosed {
+            actor: second.actor,
+        },
+    )
+    .await?;
+    assert_ne!(replaced.actor, second.actor);
+    let clients = crate::enrollment::client_rows(&pool, principal.account_id).await?;
+    assert_eq!(clients.len(), 3);
+    assert!(
+        clients
+            .iter()
+            .any(|client| client.actor == second.actor && client.closed_at.is_some())
+    );
+    assert!(
+        store
+            .authorized(&replaced.response.access_token)
+            .await?
+            .is_some()
+    );
+
+    let captured = std::fs::read_to_string(output.path())?;
+    let events: Vec<serde_json::Value> = captured
+        .lines()
+        .filter_map(|line| serde_json::from_str(line).ok())
+        .collect();
+    let activated = events
+        .iter()
+        .find(|event| {
+            event["fields"]["event"] == "client.authorization.activated"
+                && event["fields"]["actor_id"] == second.actor.to_string()
+        })
+        .context("missing committed activation")?;
+    assert_eq!(activated["level"], "INFO");
+    assert_eq!(
+        activated["fields"]["account_id"],
+        principal.account_id.to_string()
+    );
+    assert!(
+        events
+            .iter()
+            .any(|event| event["fields"]["event"] == "client.revoked"
+                && event["fields"]["actor_id"] == second.actor.to_string())
+    );
+    assert!(
+        events
+            .iter()
+            .any(|event| event["fields"]["event"] == "oauth.code.replay")
+    );
+    for secret in [
+        &first.code,
+        &second.code,
+        &first.response.access_token,
+        &second.response.access_token,
+        second
+            .response
+            .refresh_token
+            .as_ref()
+            .context("refresh missing")?,
+        &thumbprint,
+    ] {
+        assert!(
+            !captured.contains(secret),
+            "credential or proof material was logged"
+        );
+    }
+    // Expiring short-lived issuance evidence must not expire an active client or
+    // its deliberately persistent proof-bound refresh credential.
+    assert!(
+        store
+            .sweep_expired(std::time::SystemTime::now() + std::time::Duration::from_secs(600))
+            .await?
+            > 0
+    );
+    assert!(
+        store
+            .get_refresh_token(
+                replaced
+                    .response
+                    .refresh_token
+                    .as_deref()
+                    .context("recovery refresh missing")?
+            )
+            .await?
+            .is_some()
+    );
+    assert_eq!(
+        crate::enrollment::client_rows(&pool, principal.account_id)
+            .await?
+            .len(),
+        3
+    );
     pool.close().await;
+
     Ok(())
 }
 
@@ -280,4 +434,52 @@ async fn exchange(
             context,
         )
         .await?)
+}
+
+/// Approve through the actual account-bound issuer and read its committed writer.
+async fn approve(
+    issuer: &oauth_as::server::AuthorizationServer<OAuthStore>,
+    store: &OAuthStore,
+    principal: &crate::auth::principal::Principal,
+    dpop: &DPoP,
+    label: &str,
+    purpose: ApprovalPurpose,
+) -> anyhow::Result<IssuedClient> {
+    let callback = "http://127.0.0.1:49123/oauth/callback";
+    let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+    let thumbprint = dpop
+        .get_current_thumbprint()
+        .await
+        .context("proof key missing")?;
+    let request = AuthorizationRequest::from_pairs([
+        ("response_type", "code".to_owned()),
+        ("client_id", "clacks-desktop".to_owned()),
+        ("redirect_uri", callback.to_owned()),
+        ("scope", "sync".to_owned()),
+        ("code_challenge_method", "S256".to_owned()),
+        (
+            "code_challenge",
+            oauth_as::pkce::code_challenge_s256(verifier),
+        ),
+        ("dpop_jkt", thumbprint),
+    ]);
+    let validated = issuer.validate_authorization_request(&request).await?;
+    let code = issuer
+        .issue_authorization_code(UserApproval::granted(
+            &validated,
+            principal.account_id.to_string(),
+        ))
+        .await?;
+    remember_approval(store, principal, &code.code, label, purpose).await?;
+    let response = exchange(issuer, dpop, &code.code, callback, verifier).await?;
+    let authorized = store
+        .authorized(&response.access_token)
+        .await?
+        .context("issued token not activated")?;
+    assert_eq!(authorized.account, principal.account_id);
+    Ok(IssuedClient {
+        code: code.code,
+        response,
+        actor: authorized.actor,
+    })
 }

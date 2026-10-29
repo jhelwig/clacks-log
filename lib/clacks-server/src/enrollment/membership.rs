@@ -159,19 +159,19 @@ async fn save_account(
 pub(super) async fn activate(
     connection: &mut PgConnection,
     code: &AuthorizationCodeRecord,
-) -> anyhow::Result<bool> {
+) -> anyhow::Result<Option<ClientActorId>> {
     let hash = digest(CredentialKind::Code, &code.code);
     let Some(approval) = sqlx::query_file!("sql/oauth/approval_select.sql", hash.as_slice())
         .fetch_optional(&mut *connection)
         .await?
     else {
-        return Ok(false);
+        return Ok(None);
     };
     if approval.account_id != code.subject || approval.expires_at <= OffsetDateTime::now_utc() {
-        return Ok(false);
+        return Ok(None);
     }
     let Some((Some(access), Some(refresh))) = code.state.minted() else {
-        return Ok(false);
+        return Ok(None);
     };
     let access_hash = digest(CredentialKind::Access, access);
     let refresh_hash = digest(CredentialKind::Refresh, refresh);
@@ -183,7 +183,7 @@ pub(super) async fn activate(
     .fetch_optional(&mut *connection)
     .await?
     else {
-        return Ok(false);
+        return Ok(None);
     };
     let Some(refresh) = sqlx::query_file_as!(
         TokenRow,
@@ -193,7 +193,7 @@ pub(super) async fn activate(
     .fetch_optional(&mut *connection)
     .await?
     else {
-        return Ok(false);
+        return Ok(None);
     };
     let scope = ScopeSet::parse(&access.scope)?;
     if access.account_id != code.subject
@@ -213,7 +213,7 @@ pub(super) async fn activate(
             .iter()
             .all(|resource| code.resource.contains(resource))
     {
-        return Ok(false);
+        return Ok(None);
     }
     let account_id: AccountId = code.subject.parse()?;
     let account = account_in(connection, account_id).await?;
@@ -231,7 +231,7 @@ pub(super) async fn activate(
                 .iter()
                 .any(|member| member.actor == actor && member.closed_at.is_none())
             {
-                return Ok(false);
+                return Ok(None);
             }
             invalidate_families(connection, account_id, actor).await?;
             actor
@@ -243,7 +243,7 @@ pub(super) async fn activate(
                 .iter()
                 .any(|member| member.actor == target && member.closed_at.is_none())
             {
-                return Ok(false);
+                return Ok(None);
             }
             new_actor(connection, &account, &members, &approval.label).await?
         }
@@ -257,7 +257,7 @@ pub(super) async fn activate(
     .execute(connection)
     .await?
     .rows_affected();
-    Ok(activated == 1)
+    Ok((activated == 1).then_some(actor))
 }
 
 /// Plan and store one fresh actor without assigning a fictional installed checkpoint.
@@ -351,6 +351,7 @@ pub(super) async fn revoke(
     save_account(&mut transaction, &update.next_account).await?;
     invalidate_families(&mut transaction, principal.account_id, actor).await?;
     transaction.commit().await?;
+    metrics::counter!("clacks_client_revocations_total").increment(1);
     tracing::info!(event="client.revoked", account_id=%principal.account_id, actor_id=%actor);
     Ok(())
 }

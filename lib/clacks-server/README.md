@@ -44,6 +44,8 @@ with the migration role. Commit this crate's `.sqlx/` files with query/schema
 changes. Client SQLite metadata remains
 at the workspace root; do not regenerate that directory against PostgreSQL.
 Ordinary builds use `SQLX_OFFLINE=true`.
+Run PostgreSQL and SQLite preparation serially when sharing a Cargo target
+directory: SQLx uses a shared `sqlx-tmp` scratch directory during preparation.
 
 ## Account scenarios
 
@@ -55,8 +57,11 @@ variable at a personal or production database.
 SQLX_OFFLINE=true cargo test -p clacks-server --lib --locked
 ```
 
-The scenario checks Clacks account admission, concurrent identity resolution and
-login invalidation. It does not test SQLx migration validation, PostgreSQL
+The scenarios check Clacks account admission, concurrent identity resolution,
+login invalidation, desktop membership activation/recovery and shared replay
+rejection. Set `CLACKS_TEST_RUNTIME_DATABASE_URL` to the restricted runtime role
+on that same disposable database for HTTP and native-client scenarios.
+They do not test SQLx migration validation, PostgreSQL
 constraint semantics or cryptographic dependencies independently.
 
 ## Provider deployment setup
@@ -168,3 +173,42 @@ account management, not the later sync/upload endpoints.
 Run the client and server metadata checks sequentially. Their committed caches
 are separate, but SQLx uses one `target/sqlx-prepare-check` scratch directory;
 concurrent preparations against that directory interfere with each other.
+
+## Desktop authorization
+
+The embedded oauth-as issuer serves authorization-code and persistent refresh
+flows, with opaque access tokens and Demonstrating Proof of Possession (DPoP)
+binding on both credentials. Browser approval chooses the authenticated account;
+`/api/client` returns the currently authorized account/actor directly from
+PostgreSQL. This does not implement the WebSocket synchronization transport.
+
+A deployment wrapping key encrypts each account's independently generated
+encryption key before that account key is stored in PostgreSQL. The account key
+currently encrypts token references retained briefly so the server can revoke
+issued credentials when an authorization code is replayed. The wrapping key
+stays in a deployment secret file, outside the database.
+
+Generate a deployment wrapping key in a protected, existing directory:
+
+```sh
+cargo run -p clacks-admin -- keys generate --output /run/secrets/account-wrapping-key
+```
+
+Configure `[wrapping_keys]` and `[wrapping_keys.files]` as in the deployment
+example. Files contain exactly 32 raw bytes, with no encoding. The generation
+command refuses replacement; protect directory access on all platforms. Unix
+key files are created with owner-only access. All application instances need
+the same retained keys. Missing keys are errors, never a reason to regenerate.
+Independent account keys protect short-lived consumed-code reference receipts;
+ordinary credential lookup values are one-way hashes. This key hierarchy is
+separate from browser cookies and OIDC provider credentials.
+
+The runtime reclaims expired issuer/proof records in bounded passes every minute.
+Active client memberships and persistent refresh grants have no idle expiry.
+Shutdown stops the cleanup task before closing the shared database pool.
+Committed authorization/revocation events identify account and actor. Token
+issuance counters distinguish library grant types; expected refusals are debug
+and code replay is a warning, with containment failures reported as errors.
+Credentials, proofs, key material and callback query strings are excluded.
+Restore PostgreSQL and retained wrapping keys together; see
+[backup and recovery](../../docs/backup-recovery.md#desktop-authorization-recovery).

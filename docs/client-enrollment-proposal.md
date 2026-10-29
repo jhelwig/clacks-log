@@ -1,9 +1,8 @@
 # Desktop enrollment: schema, transactions and workflows
 
-Proposal for [issue #12](https://github.com/jhelwig/clacks-log/issues/12).
-This is for review, not an implementation plan or a claim of delivered behavior.
+The client-enrollment contract for [issue #12](https://github.com/jhelwig/clacks-log/issues/12).
 The [implementation plan](superpowers/plans/2026-10-29-client-enrollment.md)
-maps this proposal to concrete tasks and verification.
+maps this contract to implementation and verification.
 [accounts.md](accounts.md) owns accepted account behavior;
 [synchronization-model.md](synchronization-model.md) owns admission and recovery.
 
@@ -13,7 +12,7 @@ Rust database library. Compare-and-swap is CAS. A grant family
 is oauth-as's non-secret identifier linking credentials issued from one approval.
 It is distinct from a Clacks client actor, account and application registration.
 
-## 1. Accepted requirements and proposed defaults
+## 1. Accepted requirements and engineering defaults
 
 Carry forward D56, D60, D62–D63, D65–D66, D143, D145/D152, D155–D156,
 D193, D236 and D370–D380:
@@ -33,7 +32,7 @@ D193, D236 and D370–D380:
 - Hash ordinary credential lookups and encrypt code-replay receipt secrets.
   Preserve oauth-as's existing replay policy and its limitations.
 
-Engineering defaults proposed here, rather than new product decisions:
+Engineering defaults, rather than additional product requirements:
 
 | Item | Proposed default and rationale |
 | --- | --- |
@@ -83,7 +82,7 @@ Extend the existing `clacks` schema through release-managed migrations. Preserve
 #11's accounts, identities, sessions and account-row locking. IDs are canonical
 native text IDs, counters PostgreSQL `BIGINT` within the checked Clacks domain,
 instants `timestamptz`, digests/ciphertext `bytea`. All account-owned references
-are account-qualified. Table names below are concrete proposed names.
+are account-qualified. Table names below identify the production schema.
 
 | Table | Fields, references and constraints |
 | --- | --- |
@@ -242,7 +241,7 @@ patch or new acknowledgment endpoint. No shared records or installed checkpoint
 are invented. A failed conditional transition returns false; the library performs
 its existing issuance cleanup and does not return a successful token response.
 Unactivated provisional families and their token rows are cleaned after their
-own proposed five-minute issuance deadline, without an assumed code link. A
+own five-minute issuance deadline, without an assumed code link. A
 final transition after collection fails instead of recreating the family. These
 are not indefinitely offline enrolled clients. Once activation committed,
 loss of the response does not silently un-enroll the actor or start an idle timer.
@@ -345,7 +344,10 @@ This is local completion state, not a server acknowledgment protocol.
 
 On retry/restart, a saved native credential can refresh and read its actual
 identity, then finish the guarded binding. A missing/unusable bundle requires
-browser authorization again. A database commit failure preserves the saved
+browser authorization again. The saved-attempt dialog offers explicit
+**Authorize again in browser**, preserving an already installed destination and
+its actor hint while saving a fresh native key. It never turns a network failure
+into an automatic browser loop. A database commit failure preserves the saved
 credential for retry and the previous binding. After a replacement binding commits,
 remove the obsolete native entry; failure to remove it is reported/retryable,
 not a reason to roll back committed data or close the actor.
@@ -356,6 +358,13 @@ native reference. After binding the destination, clear that initiating state;
 if cleanup was interrupted, recheck the destination's exact saved binding before
 retrying and never allocate another actor merely to finish local completion.
 No installation registry or public test-only API is needed.
+A first-enrollment destination rejected before binding can be corrected through
+**Use this destination**, then resumed with the same saved native credential.
+`NeedsDestination` records that known pre-binding rejection. A completed or
+uncertain binding is not permission to relocate the workspace. Invalid directory
+input is checked before creating the initial key, and a recorded completed
+binding is never downgraded merely because completion is retried.
+
 An abandoned committed server enrollment remains visible
 in the account client list and can be explicitly revoked; no inactivity expiry.
 
@@ -450,19 +459,17 @@ the real development environment. No injected database triggers, manufactured
 schema failures, alternate production interfaces for tests, Python tooling or
 coverage target. Assert the Clacks consequence of each scenario.
 
-The prior macOS spike supports feasibility, not completion of these checks.
 Windows CI is currently disabled and CI availability is separately constrained;
 do not claim Windows execution or a green CI run without fresh evidence.
 
 ### Boundaries and review points
 
-The material proposal choices are workspace creation rather than remapping,
+The principal boundaries are workspace creation rather than remapping,
 same-actor credential recovery versus closed/unknown-actor reauthorization,
 activation in the final code transition, and retaining existing review semantics.
-Concrete adapter handling of host approval context, native-store interruption
-state and the minimum #12 membership schema must be checked against actual APIs
-before the implementation plan. They are not permission to add a new protocol,
-hidden global state or a second pending-work model.
+The adapters use immutable host approval context, native-store interruption
+state and the minimum #12 membership schema. These do not introduce a new
+protocol, hidden global state or a second pending-work model.
 
 The existing rollback limitations remain: restoring an older database can restore
 older credentials/membership, omit later enrollments or lose later revocations.
