@@ -3,6 +3,8 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
+pub mod clients;
+
 /// A deployment-configured sign-in choice without client credentials.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ProviderChoice {
@@ -86,10 +88,19 @@ pub async fn load_account() -> Result<Account, ServerFnError> {
 
 /// Begin a standard provider sign-in through the browser's session.
 #[server]
-pub async fn start_sign_in(provider: String) -> Result<(), ServerFnError> {
+pub async fn start_sign_in(
+    provider: String,
+    enrollment: Option<String>,
+) -> Result<(), ServerFnError> {
     let state = state()?;
     let session = leptos_axum::extract::<axum_session_sqlx::SessionPgSession>().await?;
-    let url = clacks_server::auth::browser::sign_in(&state, &session, provider).await?;
+    let url = clacks_server::auth::browser::sign_in(
+        &state,
+        &session,
+        provider,
+        enrollment.filter(|value| !value.is_empty()),
+    )
+    .await?;
     leptos_axum::redirect(url.as_str());
     Ok(())
 }

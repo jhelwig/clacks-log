@@ -4,6 +4,8 @@ use crate::actions::{self, Account, SignOut, StartLink, StartSignIn, StartUnlink
 use leptos::form::ActionForm;
 use leptos::prelude::*;
 
+pub mod clients;
+
 /// Offer the deployment's configured providers without exposing credentials.
 #[component]
 pub fn SignIn() -> impl IntoView {
@@ -18,6 +20,7 @@ pub fn SignIn() -> impl IntoView {
                 {move || providers.get().map(|result| match result {
                     Ok(providers) => view! {
                         <ActionForm action>
+                            <input type="hidden" name="enrollment" value=move || query.with(|params| params.get("enrollment")).unwrap_or_default()/>
                             <label>"Identity provider"<select name="provider" required>
                                 {providers.into_iter().map(|provider| view! { <option value=provider.key>{provider.label}</option> }).collect_view()}
                             </select></label>

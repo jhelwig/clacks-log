@@ -47,9 +47,12 @@ async fn registration_reuses_saved_client_and_preserves_it_on_mismatch() -> anyh
         std::env::var("CLACKS_TEST_RUNTIME_DATABASE_URL")?,
     )?;
     std::fs::write(&cookie_key, [42; 64])?;
+    let wrapping_file = directory.path().join("wrapping-key");
+    std::fs::write(&wrapping_file, [19; 32])?;
     let runtime: ServerConfig = serde_json::from_value(serde_json::json!({
         "public_url": base, "allow_http": true,
         "database_url_file": database, "cookie_key_file": cookie_key,
+        "wrapping_keys":{"active":"test","files":{"test":wrapping_file}},
         "providers": {"test": {"issuer": provider.issuer, "label": "Fixture",
         "mode": "dynamic", "registration_file": path}}
     }))?;

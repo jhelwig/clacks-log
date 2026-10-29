@@ -10,8 +10,16 @@ pub async fn sign_in(
     state: &ServerState,
     session: &SessionPgSession,
     provider: String,
+    enrollment: Option<String>,
 ) -> Result<url::Url, AuthError> {
-    oidc::authorization_url(state, session, provider, Purpose::SignIn).await
+    if let Some(request) = enrollment.as_deref() {
+        crate::enrollment::approval::require_pending(
+            session,
+            request,
+            state.config.pending_seconds,
+        )?;
+    }
+    oidc::authorization_url(state, session, provider, Purpose::SignIn { enrollment }).await
 }
 
 /// End only this browser's Clacks login and discard its middleware session.

@@ -20,14 +20,23 @@ use time::OffsetDateTime;
 
 /// Persisted client lifecycle fields shared by browser listings and membership snapshots.
 struct MemberRow {
+    /// Account owning this admission.
     account_id: String,
+    /// Stable writer identity.
     actor_id: String,
+    /// User-visible client label.
     label: String,
+    /// Actual admission time.
     authorized_at: OffsetDateTime,
+    /// Explicit closure time, if revoked.
     closed_at: Option<OffsetDateTime>,
+    /// Timeline carrying the admission event.
     created_timeline: String,
+    /// Revision carrying the admission event.
     created_revision: i64,
+    /// Timeline carrying the closure event, if revoked.
     closed_timeline: Option<String>,
+    /// Revision carrying the closure event, if revoked.
     closed_revision: Option<i64>,
 }
 

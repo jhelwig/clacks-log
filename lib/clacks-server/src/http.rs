@@ -45,6 +45,7 @@ pub fn router(state: ServerState, pages: Router<ServerState>) -> Router {
     Router::new()
         .merge(pages)
         .route("/auth/callback/{provider}", get(callbacks::callback))
+        .route("/oauth/authorize", get(crate::enrollment::approval::start))
         .route("/health/ready", get(ready))
         .route("/health/live", get(|| async { StatusCode::OK }))
         .route_layer(middleware::from_fn_with_state(state.clone(), same_origin))

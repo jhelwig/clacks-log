@@ -1,6 +1,8 @@
 //! Browser-approved desktop membership, separate from OAuth application registration.
 
+pub mod approval;
 mod membership;
+mod recovery;
 
 use crate::{
     auth::principal::Principal,
@@ -35,9 +37,15 @@ pub enum ApprovalPurpose {
     /// Enroll a new installation into an empty account workspace.
     New,
     /// Replace credentials while retaining an authorized writer identity.
-    RecoverActive { actor: ClientActorId },
+    RecoverActive {
+        /// Authorized writer whose credentials will be replaced.
+        actor: ClientActorId,
+    },
     /// Approve a fresh identity for a closed or no-longer-known writer.
-    ReplaceClosed { actor: ClientActorId },
+    ReplaceClosed {
+        /// Former writer retained only as recovery context.
+        actor: ClientActorId,
+    },
 }
 
 /// Non-secret account-owned client information for browser management.
@@ -84,6 +92,16 @@ pub(crate) async fn remember_approval(
         ApprovalPurpose::RecoverActive { actor } => ("recover_active", Some(actor.to_string())),
         ApprovalPurpose::ReplaceClosed { actor } => ("replace_closed", Some(actor.to_string())),
     };
+    if let Some(target) = target.as_deref() {
+        let active = sqlx::query_file!("sql/enrollment/client_lock.sql", account, target)
+            .fetch_optional(&mut *transaction)
+            .await?
+            .is_some_and(|client| client.closed_at.is_none());
+        anyhow::ensure!(
+            active == (kind == "recover_active"),
+            "client recovery eligibility changed; review the request again"
+        );
+    }
     let hash = digest(CredentialKind::Code, code);
     let changed = sqlx::query_file!(
         "sql/oauth/approval_put.sql",
