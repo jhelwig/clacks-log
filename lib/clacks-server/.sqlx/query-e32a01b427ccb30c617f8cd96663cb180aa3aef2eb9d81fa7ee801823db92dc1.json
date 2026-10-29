@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.desktop_code_scopes (code_digest,scope) SELECT $1, unnest($2::text[])\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e32a01b427ccb30c617f8cd96663cb180aa3aef2eb9d81fa7ee801823db92dc1"
+}

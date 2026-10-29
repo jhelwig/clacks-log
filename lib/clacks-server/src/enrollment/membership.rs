@@ -1,0 +1,378 @@
+//! Account-locked admission transitions coupled to OAuth grant activation.
+
+use super::{ClientSummary, Principal};
+use crate::oauth::{
+    digest::{CredentialKind, digest},
+    revocation,
+    rows::TokenRow,
+};
+use anyhow::Context;
+use clacks_model::ids::{AccountId, BaselineId, ClientActorId, TimelineId};
+use clacks_sync::{
+    account::AccountMetadata,
+    lineage::Coverage,
+    membership::{ClientMembership, MembershipSnapshot},
+    record::Position,
+};
+use oauth_as::{authorization::AuthorizationCodeRecord, scope::ScopeSet, store::RevocationWindow};
+use sqlx::{PgConnection, PgPool};
+use time::OffsetDateTime;
+
+/// Persisted client lifecycle fields shared by browser listings and membership snapshots.
+struct MemberRow {
+    /// Account owning this admission.
+    account_id: String,
+    /// Stable writer identity.
+    actor_id: String,
+    /// User-visible client label.
+    label: String,
+    /// Actual admission time.
+    authorized_at: OffsetDateTime,
+    /// Explicit closure time, if revoked.
+    closed_at: Option<OffsetDateTime>,
+    /// Timeline carrying the admission event.
+    created_timeline: String,
+    /// Revision carrying the admission event.
+    created_revision: i64,
+    /// Timeline carrying the closure event, if revoked.
+    closed_timeline: Option<String>,
+    /// Revision carrying the closure event, if revoked.
+    closed_revision: Option<i64>,
+}
+
+/// Load the real account metadata, initializing only the initial admission representation.
+async fn account_in(
+    connection: &mut PgConnection,
+    account: AccountId,
+) -> anyhow::Result<AccountMetadata> {
+    let account_text = account.to_string();
+    let row = sqlx::query_file!("sql/enrollment/state_select.sql", account_text)
+        .fetch_optional(&mut *connection)
+        .await?;
+    if let Some(row) = row {
+        let head = Position {
+            timeline: row.timeline_id.parse()?,
+            revision: row.revision.try_into()?,
+        };
+        return Ok(AccountMetadata {
+            account,
+            head,
+            baseline: row.baseline_id.parse()?,
+            installed: Coverage::from(head),
+            membership_generation: row.membership_generation.try_into()?,
+        });
+    }
+    let timeline = TimelineId::new();
+    let baseline = BaselineId::new();
+    sqlx::query_file!(
+        "sql/enrollment/baseline_insert.sql",
+        account_text,
+        baseline.to_string(),
+        timeline.to_string()
+    )
+    .execute(&mut *connection)
+    .await?;
+    sqlx::query_file!(
+        "sql/enrollment/coverage_insert.sql",
+        account_text,
+        baseline.to_string(),
+        timeline.to_string()
+    )
+    .execute(&mut *connection)
+    .await?;
+    sqlx::query_file!(
+        "sql/enrollment/state_insert.sql",
+        account_text,
+        timeline.to_string(),
+        baseline.to_string()
+    )
+    .execute(connection)
+    .await?;
+    Ok(AccountMetadata::initialize(account, timeline, baseline).0)
+}
+
+/// Materialize a membership view from the same guarded connection as the account head.
+async fn snapshot(
+    connection: &mut PgConnection,
+    account: &AccountMetadata,
+) -> anyhow::Result<MembershipSnapshot> {
+    let rows = sqlx::query_file_as!(
+        MemberRow,
+        "sql/enrollment/client_select.sql",
+        account.account.to_string()
+    )
+    .fetch_all(connection)
+    .await?;
+    let mut clients = Vec::new();
+    for row in rows {
+        anyhow::ensure!(
+            row.account_id == account.account.to_string(),
+            "membership crossed account boundary"
+        );
+        let closed_at = match (row.closed_timeline, row.closed_revision) {
+            (None, None) => None,
+            (Some(timeline), Some(revision)) => Some(Position {
+                timeline: timeline.parse()?,
+                revision: revision.try_into()?,
+            }),
+            _ => anyhow::bail!("partial membership closure position"),
+        };
+        clients.push(ClientMembership {
+            actor: row.actor_id.parse()?,
+            created_at: Position {
+                timeline: row.created_timeline.parse()?,
+                revision: row.created_revision.try_into()?,
+            },
+            closed_at,
+            acknowledged: None,
+        });
+    }
+    let result = MembershipSnapshot {
+        account: account.account,
+        generation: account.membership_generation,
+        clients,
+    };
+    result.validate(account)?;
+    Ok(result)
+}
+
+/// Save an already planned head/admission generation inside the owning transaction.
+async fn save_account(
+    connection: &mut PgConnection,
+    account: &AccountMetadata,
+) -> anyhow::Result<()> {
+    let revision = i64::try_from(account.head.revision)?;
+    let generation = i64::try_from(account.membership_generation)?;
+    sqlx::query_file!(
+        "sql/enrollment/state_update.sql",
+        account.account.to_string(),
+        account.head.timeline.to_string(),
+        revision,
+        generation
+    )
+    .execute(connection)
+    .await?;
+    Ok(())
+}
+
+/// Activate only the issued family identified by this code's successful conditional transition.
+pub(super) async fn activate(
+    connection: &mut PgConnection,
+    code: &AuthorizationCodeRecord,
+) -> anyhow::Result<Option<ClientActorId>> {
+    let hash = digest(CredentialKind::Code, &code.code);
+    let Some(approval) = sqlx::query_file!("sql/oauth/approval_select.sql", hash.as_slice())
+        .fetch_optional(&mut *connection)
+        .await?
+    else {
+        return Ok(None);
+    };
+    if approval.account_id != code.subject || approval.expires_at <= OffsetDateTime::now_utc() {
+        return Ok(None);
+    }
+    let Some((Some(access), Some(refresh))) = code.state.minted() else {
+        return Ok(None);
+    };
+    let access_hash = digest(CredentialKind::Access, access);
+    let refresh_hash = digest(CredentialKind::Refresh, refresh);
+    let Some(access) = sqlx::query_file_as!(
+        TokenRow,
+        "sql/oauth/access_select.sql",
+        access_hash.as_slice()
+    )
+    .fetch_optional(&mut *connection)
+    .await?
+    else {
+        return Ok(None);
+    };
+    let Some(refresh) = sqlx::query_file_as!(
+        TokenRow,
+        "sql/oauth/refresh_select.sql",
+        refresh_hash.as_slice()
+    )
+    .fetch_optional(&mut *connection)
+    .await?
+    else {
+        return Ok(None);
+    };
+    let scope = ScopeSet::parse(&access.scope)?;
+    if access.account_id != code.subject
+        || refresh.account_id != code.subject
+        || access.family_id != refresh.family_id
+        || access.client_id != code.client_id.as_str()
+        || refresh.client_id != access.client_id
+        || access.key_thumbprint != refresh.key_thumbprint
+        || Some(access.key_thumbprint.as_str()) != code.dpop_jkt.as_deref()
+        || access.family_state != "provisional"
+        || refresh.family_state != "provisional"
+        || scope != ScopeSet::parse(&refresh.scope)?
+        || !scope.is_subset(&code.scope)
+        || access.resources != refresh.resources
+        || !access
+            .resources
+            .iter()
+            .all(|resource| code.resource.contains(resource))
+    {
+        return Ok(None);
+    }
+    let account_id: AccountId = code.subject.parse()?;
+    let account = account_in(connection, account_id).await?;
+    let members = snapshot(connection, &account).await?;
+    let target = approval
+        .target_actor
+        .map(|actor| actor.parse::<ClientActorId>())
+        .transpose()?;
+    let actor = match approval.purpose.as_str() {
+        "new" => new_actor(connection, &account, &members, &approval.label).await?,
+        "recover_active" => {
+            let actor = target.context("credential recovery target is missing")?;
+            if !members
+                .clients
+                .iter()
+                .any(|member| member.actor == actor && member.closed_at.is_none())
+            {
+                return Ok(None);
+            }
+            invalidate_families(connection, account_id, actor).await?;
+            actor
+        }
+        "replace_closed" => {
+            let target = target.context("reauthorization target is missing")?;
+            if members
+                .clients
+                .iter()
+                .any(|member| member.actor == target && member.closed_at.is_none())
+            {
+                return Ok(None);
+            }
+            new_actor(connection, &account, &members, &approval.label).await?
+        }
+        _ => anyhow::bail!("invalid enrollment approval purpose"),
+    };
+    let activated = sqlx::query_file!(
+        "sql/enrollment/grant_activate.sql",
+        access.family_id,
+        actor.to_string()
+    )
+    .execute(connection)
+    .await?
+    .rows_affected();
+    Ok((activated == 1).then_some(actor))
+}
+
+/// Plan and store one fresh actor without assigning a fictional installed checkpoint.
+async fn new_actor(
+    connection: &mut PgConnection,
+    account: &AccountMetadata,
+    members: &MembershipSnapshot,
+    label: &str,
+) -> anyhow::Result<ClientActorId> {
+    let actor = ClientActorId::new();
+    let update = clacks_sync::membership::enroll(actor, account, members)?;
+    let revision = i64::try_from(update.next_account.head.revision)?;
+    sqlx::query_file!(
+        "sql/enrollment/client_insert.sql",
+        account.account.to_string(),
+        actor.to_string(),
+        label,
+        update.next_account.head.timeline.to_string(),
+        revision
+    )
+    .execute(&mut *connection)
+    .await?;
+    save_account(connection, &update.next_account).await?;
+    Ok(actor)
+}
+
+/// Invalidate replaced grant authority while retaining the client's admission history.
+async fn invalidate_families(
+    connection: &mut PgConnection,
+    account: AccountId,
+    actor: ClientActorId,
+) -> anyhow::Result<()> {
+    let families = sqlx::query_file!(
+        "sql/enrollment/actor_families.sql",
+        account.to_string(),
+        actor.to_string()
+    )
+    .fetch_all(&mut *connection)
+    .await?;
+    for family in families {
+        revocation::family_in(connection, &family.family_id, window()).await?;
+    }
+    Ok(())
+}
+
+/// Keep library revocation evidence through the maximum in-flight issuer horizon.
+fn window() -> RevocationWindow {
+    let now = std::time::SystemTime::now();
+    RevocationWindow {
+        recorded_at: now,
+        until: now + std::time::Duration::from_secs(30 * 86400),
+    }
+}
+
+/// Close actual membership and all actor-owned authorization in one account transaction.
+pub(super) async fn revoke(
+    pool: &PgPool,
+    principal: &Principal,
+    actor: ClientActorId,
+) -> anyhow::Result<()> {
+    let mut transaction = pool.begin().await?;
+    let account_text = principal.account_id.to_string();
+    sqlx::query_file!("sql/account_lock.sql", account_text)
+        .fetch_one(&mut *transaction)
+        .await?;
+    let valid = sqlx::query_file!(
+        "sql/enrollment/principal.sql",
+        account_text,
+        principal.identity_id.to_string()
+    )
+    .fetch_one(&mut *transaction)
+    .await?
+    .valid;
+    anyhow::ensure!(valid, "authorizing identity is no longer linked");
+    let account = account_in(&mut transaction, principal.account_id).await?;
+    let members = snapshot(&mut transaction, &account).await?;
+    let update = clacks_sync::membership::revoke(actor, &account, &members)?;
+    if update.next_account == account {
+        return Ok(());
+    }
+    let revision = i64::try_from(update.next_account.head.revision)?;
+    sqlx::query_file!(
+        "sql/enrollment/client_close.sql",
+        account_text,
+        actor.to_string(),
+        update.next_account.head.timeline.to_string(),
+        revision
+    )
+    .execute(&mut *transaction)
+    .await?;
+    save_account(&mut transaction, &update.next_account).await?;
+    invalidate_families(&mut transaction, principal.account_id, actor).await?;
+    transaction.commit().await?;
+    metrics::counter!("clacks_client_revocations_total").increment(1);
+    tracing::info!(event="client.revoked", account_id=%principal.account_id, actor_id=%actor);
+    Ok(())
+}
+
+/// Return account-owned labels and actual lifecycle times for browser management.
+pub(super) async fn list(pool: &PgPool, account: AccountId) -> anyhow::Result<Vec<ClientSummary>> {
+    let rows = sqlx::query_file_as!(
+        MemberRow,
+        "sql/enrollment/client_select.sql",
+        account.to_string()
+    )
+    .fetch_all(pool)
+    .await?;
+    rows.into_iter()
+        .map(|row| {
+            Ok(ClientSummary {
+                actor: row.actor_id.parse()?,
+                label: row.label,
+                authorized_at: row.authorized_at,
+                closed_at: row.closed_at,
+            })
+        })
+        .collect()
+}

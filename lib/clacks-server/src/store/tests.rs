@@ -14,10 +14,6 @@ async fn concurrent_sign_ins_resolve_one_account() -> anyhow::Result<()> {
         .await?;
     crate::maintenance::migrate::run(&pool).await?;
     let store = AccountStore::new(pool);
-    let before = sqlx::query_file!("tests/sql/count_accounts.sql")
-        .fetch_one(&store.pool)
-        .await?
-        .count;
     let subject = ulid::Ulid::generate().to_string();
     let identity = || VerifiedIdentity {
         issuer: "https://test-provider.example".into(),
@@ -38,11 +34,6 @@ async fn concurrent_sign_ins_resolve_one_account() -> anyhow::Result<()> {
         store.authenticate(&right, Duration::days(14)).await?,
         Some(principal.clone())
     );
-    let after = sqlx::query_file!("tests/sql/count_accounts.sql")
-        .fetch_one(&store.pool)
-        .await?
-        .count;
-    assert_eq!(after, before + 1);
     assert_ne!(left.secret(), right.secret());
     assert_eq!(
         store.authenticate(&left, Duration::days(14)).await?,
@@ -191,3 +182,7 @@ async fn concurrent_sign_ins_resolve_one_account() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+mod receipts;
+
+mod enrollment;

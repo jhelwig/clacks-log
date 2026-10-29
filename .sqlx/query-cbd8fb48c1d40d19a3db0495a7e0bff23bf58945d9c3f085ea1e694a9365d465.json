@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE client_record SET authorization_hold=NULL WHERE account=? AND kind=? AND record_id=? AND authorization_hold=?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "cbd8fb48c1d40d19a3db0495a7e0bff23bf58945d9c3f085ea1e694a9365d465"
+}

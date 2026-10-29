@@ -1,0 +1,554 @@
+[package]
+name = "oauth-as"
+version = "1.0.0"
+edition = "2021"
+# MEASURED, not declared. 1.74 fails on return-position impl Trait in the Storage trait (RPITIT,
+# stabilised in 1.75); 1.75 compiles and tests clean. Going lower would mean Box<dyn Future> in
+# Storage, a heap allocation on every storage call, paid forever by every consumer to support
+# toolchains older than December 2023. A dependency that raises its own `rust-version` raises this
+# floor with it, which is why `--locked` is used on every gate: `base64ct` and `zeroize` have both
+# done exactly that, and an unlocked resolve would move the floor without a line of code changing.
+rust-version = "1.75"
+description = "An embeddable OAuth 2.1 Authorization Server library: spec-mirroring types (RFC 6749, RFC 8628, RFC 7636), a full device-authorization-grant state machine, and a storage trait the host implements. Deliberately host-agnostic with a tiny dependency set; nothing is allocated until the host constructs an AuthorizationServer, so an embedding host pays zero memory until its config enables the feature."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/MattJackson/oauth-as"
+homepage = "https://github.com/MattJackson/oauth-as"
+documentation = "https://docs.rs/oauth-as"
+readme = "../../README.md"
+keywords = ["oauth", "oauth2", "authorization", "device-flow", "pkce"]
+categories = ["authentication", "web-programming"]
+
+# conformance-serve.sh is launched by scripts/oauth-conformance.sh from a git checkout and
+# resolves the workspace root as ../.., which does not exist in an unpacked tarball. It is broken
+# by construction for a consumer, so shipping it would only mislead. The EXAMPLE it runs is kept,
+# because it is the only worked demonstration of wiring the optional http service.
+#
+# `benches` is excluded so that adding a benchmark suite left `cargo package --list` BYTE FOR BYTE
+# unchanged, which is the property the pre-publish review rests on: a reviewer who has read
+# `cargo package --list` once should not have to re-read it because somebody added a timing harness. The
+# suite is also the one part of this repository a consumer genuinely cannot use, since the numbers
+# only mean anything measured against the machine and the profile stated beside them in
+# benches/README.md, and a tarball is not the place a reader finds either.
+#
+# CONSEQUENCE, so it is not a surprise at release time: `cargo package` prints one
+# "ignoring benchmark `x` as `benches/x.rs` is not included in the published package" warning per
+# bench target. That is cargo doing exactly what is being asked of it. Deleting the word "benches"
+# from this line is all it takes to ship them instead, at the cost of six lines in the package
+# list and about 65 KB in the tarball.
+exclude = ["conformance-serve.sh", "benches"]
+
+# DOCS.RS BUILDS THE WHOLE CRATE, and it has to be told to, because `default = []` here means a
+# docs.rs build with no configuration would render the core library and NOTHING ELSE: no HTTP
+# service, no JWT, no DPoP, no PAR, no consent, and none of the crate-root re-exports behind them.
+# That is most of what this crate is, and a reader evaluating it from docs.rs would conclude the
+# feature table in README.md was aspirational.
+#
+# `--cfg docsrs` is what turns on the `doc_cfg` attributes in src/lib.rs, so every item that needs
+# a feature says which one on its own page. Without it an all-features build renders everything
+# unlabelled, which is a different lie: the reader cannot tell what a default build would give
+# them.
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+# FEATURES. The default set is EMPTY and stays that way. A consumer who wants only the library
+# gets no HTTP stack and no async runtime: the whole premise of this crate is that the host owns
+# the listener, so an optional feature is the only place a web framework may appear.
+[features]
+default = []
+# `http` adds an HTTP service over AuthorizationServer, for hosts that want the RFC-shaped wire
+# surface rather than writing it themselves, and for the black-box conformance harness (which
+# needs an external process to talk to). Nothing in the library depends on it.
+#
+# NO WEB FRAMEWORK, and that is the point. It is `http` 1.x and `http-body` 1.x, both 1.0 and
+# both the vocabulary every Rust HTTP server already speaks, so the public signature is
+# `async fn handle(http::Request<B>) -> http::Response<Body>` and a host mounts it under whatever
+# it already runs. No async runtime is pulled in either: the service never touches a socket.
+#
+# WHY IT IS NOT axum ANY MORE. Through 0.9 this feature returned an `axum::Router`, which put a
+# 0.x major in the ONLY entry point the feature had: a host on a different axum major could not
+# turn the feature on at all, and an axum major bump would have been a breaking change to this
+# crate for reasons unconnected to OAuth. See the `axum` feature below.
+http = ["dep:http", "dep:http-body", "dep:bytes", "dep:serde_json"]
+# The axum ADAPTER: `impl From<AuthorizationService<..>> for axum::Router`, plus the tokio a host
+# needs to bind a listener with `axum::serve`. About thirty lines, and the whole of this crate's
+# exposure to a pre-1.0 framework. A host on axum 0.7, or on 0.9 when it lands, leaves this off
+# and mounts `http` directly; nothing else in the crate changes.
+axum = ["http", "dep:axum", "dep:tokio"]
+# RFC 9068 `at+jwt` access tokens signed with ES256, plus the RFC 7517 JWKS document that lets a
+# resource server verify them without calling this server. Opaque tokens remain the DEFAULT: JWT
+# is an optional profile, not an OAuth 2.1 requirement, and it earns its keep only when resource
+# servers are separate processes that should not have to call introspection on every request.
+#
+# NO CRYPTO DEPENDENCY. This feature is the JWT SURFACE plus the two traits the host implements
+# (`JwsSigner`, `JwsVerifier`); the ES256 arithmetic itself is a BACKEND, and `jwt-p256` below
+# is the one this crate ships. Through 0.9.0 the two were the same feature, which structurally
+# required the private signing key to live in this process: an authorization server could not be
+# deployed with its key in a cloud KMS or an HSM, which is the one property a regulated deployment
+# is required to have. Splitting them is also what stops `jwt` adding a COMPLETE SECOND elliptic
+# curve implementation (measured: +20 packages) to the many hosts that already have one through
+# `rustls`.
+#
+# With no backend installed, the crate REFUSES: no signer means no token is minted, and no
+# verifier means no DPoP proof, request object or `private_key_jwt` client assertion is accepted.
+# `client_secret_jwt` is HS256 over the registered secret (RFC 7518 section 3.2), there is no
+# elliptic curve on that path, and it is accepted with no backend at all. That is this
+# crate's established posture (an absent consent resolver refuses, an absent registration policy
+# refuses) and the reason generalises: a server that cannot check a signature must never behave as
+# though it had checked one.
+jwt = ["dep:serde_json"]
+# THE BUILT-IN ES256 BACKEND: `EcdsaP256Key` (a `JwsSigner` over `p256`) and `P256Verifier`.
+# What every consumer of `jwt` had before the seam existed, and what a host that has no opinion
+# about where its key lives should still enable.
+#
+# ADDITIVE, like every cargo feature and unlike the mutually exclusive backend flags this design
+# rejected: a tree that enables `jwt-p256` AND installs a host's own signer compiles, and the
+# host's signer wins because it was INSTALLED rather than because a feature was picked. Feature
+# unification across a dependency graph therefore cannot break anybody's build.
+#
+# Enabling it INSTALLS the verifier as the default: `AuthorizationServer` falls back to
+# `P256Verifier` when the host installs none, so a consumer who enables `jwt-p256` sees exactly
+# the behaviour, the tokens, the JWKS and the `kid` they had before.
+jwt-p256 = ["jwt", "dep:p256"]
+# THE BUILT-IN RS256 BACKEND: `RsaSigner` (a `JwsSigner` over `rsa`, RSASSA-PKCS1-v1.5 + SHA-256 ==
+# RS256, RFC 7518 s3.3) and `RsaVerifier`. Additive beside `jwt-p256`, exactly like it: a tree that
+# enables both compiles and a host's installed signer still wins. Enables `jwt` (the seam + traits)
+# and pulls the pure-Rust `rsa` crate as the arithmetic backend.
+#
+# WHY IT IS OPT-IN AND NOT DEFAULT: an RS256 signature is 256 bytes against ES256's 64 and an
+# RSA-2048 public key is ~259 against P-256's 64, paid on every token and every JWKS fetch, so
+# ES256 stays the recommended profile; RS256 exists for interop with resource servers and IdPs
+# that only accept RSA. See `RsaSigner`'s docs for the RUSTSEC-2023-0071 (Marvin) note: the
+# advisory is a timing side channel on in-process RSA *signing*, so a regulated deployment should
+# prefer an out-of-process/KMS async `JwsSigner` and use this backend's verifier-only path.
+jwt-rsa = ["jwt", "dep:rsa"]
+# THE BUILT-IN EdDSA (Ed25519) BACKEND: `Ed25519Signer` (a `JwsSigner`, `alg = EdDSA`) and
+# `Ed25519Verifier`, over `ed25519-dalek`. Additive in exactly the way `jwt-p256` is: enabling it
+# installs an EdDSA verifier alongside (never instead of) whatever ES256 backend is present, and a
+# host that installs its own EdDSA signer/verifier still wins because it was INSTALLED. It hangs off
+# `jwt` (the seam and its traits), not off `jwt-p256`: EdDSA and ES256 are independent curves and a
+# deployment may want either, both, or neither.
+#
+# `EdDSA` here means Ed25519 ONLY (RFC 8037 `OKP`/`Ed25519`). Ed448 shares the `EdDSA` JOSE
+# algorithm name but is a different curve this crate does not implement; see `backends/ed25519.rs`.
+jwt-ed25519 = ["jwt", "dep:ed25519-dalek"]
+# RFC 8705 mutual-TLS client authentication and certificate-bound access tokens.
+# OFF by default, and it adds NO dependency: TLS termination is the host's job in this
+# crate (it never sees a socket), so the host hands in a certificate it has already
+# verified and parsed, and the only arithmetic RFC 8705 defines on it is the section 3.1
+# SHA-256 thumbprint. `sha2` and `base64` are already here for RFC 7636 PKCE. An X.509
+# parser would add attack surface to recompute what the host must already know.
+mtls = ["dep:serde_json"]
+# RFC 9126 pushed authorization requests: the client POSTs the authorization request to a
+# back-channel endpoint and gets a single-use `request_uri` handle, so the parameters (the PKCE
+# challenge above all) never traverse the browser. Adds no dependency: it is storage plus the
+# validation the authorization endpoint already performs.
+par = []
+# RFC 9101 JWT-secured authorization requests: a signed request object, verified against the key
+# the client registered. Enables `jwt` for the JWS primitives and the `JwsVerifier` seam, which
+# is where this crate's ONE copy of signature verification lives; it does NOT enable a backend, so
+# a host that installs its own verifier takes no p256 for this.
+jar = ["jwt"]
+# RFC 7523 JWT client authentication: `private_key_jwt` (asymmetric, ES256) and `client_secret_jwt`
+# (HMAC, HS256), so that a deployment whose security policy forbids transmitting a shared secret can
+# use this crate at all. It is also required by FAPI 2.0.
+#
+# IMPLIES `jwt`, and that is a decision rather than an accident. This and `dpop` both rest on JWS
+# VERIFICATION, and this crate holds exactly ONE copy of that code (see the VERIFICATION banner in
+# src/jwt.rs). Two half-built verifiers behind two independent feature flags is how a codebase ends
+# up with an algorithm-confusion bug in whichever half nobody reviewed. Neither feature adds a
+# dependency: ES256 verification goes through the `JwsVerifier` seam (enable `jwt-p256`, or
+# install your own), and HMAC-SHA-256 is twenty lines over the `sha2` that PKCE already required.
+client-assertion = ["jwt"]
+# RFC 9449 DPoP: sender-constrained access tokens, bound to a key the client proves possession of on
+# every request. Without it every token this crate issues is a bearer token, so a stolen one is
+# usable by whoever stole it; this changes what a leak costs. IMPLIES `jwt` for the reason above.
+dpop = ["jwt"]
+# PKCS#8 key loading for the `jwt` signing key, so a host can hand this crate the DER its KMS or
+# its `openssl` already emits rather than a raw 32-byte scalar.
+#
+# Separate from `jwt` for the DEPENDENCY, not for the bytes, and the difference matters because the
+# obvious claim is the false one. Measured on aarch64-apple-darwin under this workspace's release
+# profile (`lto = "fat"`, `codegen-units = 1`): a build with this feature ON but the two
+# constructors never CALLED is byte for byte identical to one with the feature off. LTO already
+# deletes what nothing reaches, so a host loading a raw scalar was never paying for the DER
+# decoder. Called, it is about 30 KiB, which is the honest number and is a cost only the host that
+# uses it pays.
+#
+# What the split actually buys is one CRATE off a `--features jwt` dependency tree, `pkcs8` itself:
+# `der`, `spki`, `const_oid`, `base64ct` and `zeroize` are already there via `sec1`/`elliptic-curve`.
+# That is compile time and audit surface, not binary size.
+#
+# It hangs off `jwt-p256` rather than `jwt`, and has to: `EcdsaP256Key` is the p256 backend's type,
+# so its constructors cannot exist in a build that has no p256.
+#
+# ONE PKCS#8 STORY, THREE BACKENDS, and it is deliberately NOT symmetric, because the three
+# arithmetic crates are not symmetric about where `pkcs8` sits:
+#   - ES256: `jwt-pkcs8` (this feature) enables `p256/pkcs8`. `p256` gates its PKCS#8 decoder behind
+#     an OPTIONAL cargo feature, so a split feature is what keeps the `pkcs8` crate off a plain
+#     `--features jwt-p256` tree.
+#   - Ed25519: `jwt-ed25519-pkcs8` (below) enables `ed25519-dalek/pkcs8`, for the SAME reason —
+#     `ed25519-dalek` also gates PKCS#8 behind an optional feature, so a plain `--features
+#     jwt-ed25519` build stays free of `pkcs8`/`der`/`spki`.
+#   - RS256: there is NO `jwt-rsa-pkcs8`, and there cannot be a useful one. `rsa` 0.9 has no `pkcs8`
+#     cargo feature at all: it depends on the `pkcs8` crate UNCONDITIONALLY, so `RsaSigner::
+#     from_pkcs8_der` ships with `jwt-rsa` itself and a split would gate a constructor while saving
+#     zero dependencies. See `RsaSigner::from_pkcs8_der`.
+jwt-pkcs8 = ["jwt-p256", "p256/pkcs8"]
+# PKCS#8 DER loading for the Ed25519 (`jwt-ed25519`) signing key: `Ed25519Signer::from_pkcs8_der`,
+# the EdDSA sibling of `jwt-pkcs8`. Same rationale as `jwt-pkcs8`: separate from `jwt-ed25519` for
+# the DEPENDENCY, not the bytes. `ed25519-dalek` gates PKCS#8 behind its own `pkcs8` cargo feature
+# (which pulls the pure-Rust `pkcs8`/`der`/`spki` crates), so a host that never loads DER — it hands
+# in a raw 32-byte seed via `from_seed_bytes` — keeps them off its tree by leaving this off.
+#
+# DER ONLY, NO PEM: `ed25519-dalek`'s `pkcs8` feature is exactly the DER codec; its separate `pem`
+# feature (which would drag `base64`/`pem-rfc7468` in for a text wrapper this crate does not accept)
+# is deliberately NOT enabled. It hangs off `jwt-ed25519` rather than `jwt`, and has to: the
+# constructor is a method on `Ed25519Signer`, the ed25519 backend's type.
+jwt-ed25519-pkcs8 = ["jwt-ed25519", "ed25519-dalek/pkcs8"]
+# RFC 9728 protected resource metadata. This crate is an AUTHORIZATION SERVER, not a
+# resource server, so what this feature adds is the TYPE a host publishes for its OWN
+# resource, plus the section 4 `protected_resources` member on the AS metadata document.
+# It does not make this crate a resource server and does not serve anything by itself.
+# No dependency: it is serde shapes over the serde that is already here.
+resource-metadata = []
+# RFC 8693 token exchange: delegation and impersonation for service-to-service calls.
+# OFF by default because it is a grant that mints a token from a token, and a deployment
+# that has not decided its delegation policy should not have the endpoint compiled in.
+token-exchange = []
+# Consent records, consent withdrawal with a revocation cascade, and RFC 9470 step-up
+# authentication. OFF by default because it changes what a host is expected to tell the
+# server: with it on the host REPORTS when and how it authenticated the user, and the
+# library enforces the client's `max_age` and `acr_values` against that report. A
+# deployment that has not decided how to answer that question should not have the seam
+# compiled in. No dependency: serde shapes and comparisons over what is already here.
+consent = []
+# RFC 9396 rich authorization requests: the `authorization_details` parameter, which says
+# what a client is asking for as structure rather than as a scope string. OFF by default
+# because a deployment that has not defined any authorization details TYPE has nothing to
+# express with it, and because the parameter is unauthenticated attacker-supplied JSON at
+# the authorization endpoint: a server that has not decided it needs this should not be
+# parsing it.
+#
+# The one dependency it needs is `serde_json`, which is optional now (it was not when this
+# feature landed, and the comment here said in as many words that this line would have to gain
+# `dep:serde_json` on the day that changed; this is that day).
+rar = ["dep:serde_json"]
+# draft-ietf-oauth-client-id-metadata-document-01 client identifier metadata documents: a client
+# identifies itself with an HTTPS URL, and the metadata that would otherwise have come from an RFC
+# 7591 registration is fetched from that URL instead.
+#
+# VALIDATION ONLY, AND THE HOST FETCHES. This crate makes no outbound HTTP request, by design and
+# for the same reason it holds no signer, no clock and no consent resolver: a library embedded in
+# somebody else's server does not open sockets on its own initiative. The host GETs the document
+# and hands this crate the bytes; this crate decides whether they are a client. What that split
+# leaves with the host (redirects, status codes, DNS resolution and rebinding, TLS, and the
+# caching rules) is written out in `src/cimd.rs` rather than implied, because a validated
+# document is not a correctly fetched one.
+#
+# `dep:serde_json` because the document is JSON, on the same line as `rar` above.
+cimd = ["dep:serde_json"]
+# A RUNNABLE conformance harness for the `Storage` contract, for a HOST to call from its
+# own test suite against its own implementation (crates/oauth-as/src/storage_conformance.rs).
+#
+# It is a cargo feature rather than a separate crate because it tests a trait whose
+# semantics live here, and because a host already depends on this crate. OFF by default and
+# it adds NO dependency: the concurrency primitives it needs are hand-written over std, so a
+# default build pays nothing for it, in code or in tree.
+#
+# WHY IT EXISTS AT ALL: `Storage::take_*` is documented as an ATOMIC remove-and-return, and
+# that clause is the only thing making single-use artifacts single use. A host that
+# implements it as read-then-delete compiles, type-checks, and passes a single-node test
+# suite, while a multi-node deployment silently double-spends refresh tokens and stops
+# detecting authorization code replay. Nothing inside this crate can see that, so the check
+# has to be runnable where the host's store is.
+test-util = []
+
+# DEPENDENCY POLICY: the runtime dependency set is deliberately tiny, and none of these
+# implies an async runtime, an HTTP stack, or a persistence layer; the HOST owns all three.
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# OPTIONAL, and pulled in by every feature that actually parses or emits JSON: `http`, `jwt`
+# (and therefore `jar`, `dpop`, `client-assertion`), `mtls`, `rar`.
+#
+# It was unconditional through 0.9.0, and MEASURED, that was three crates (itoa, ryu, memchr)
+# compiled by every default build that reaches none of them: the crate's own JSON use sites are
+# all behind those features, and `#[derive(Serialize)]` needs `serde` only, never a format crate.
+# Zero LINKED bytes were at stake, because the linker already dropped what nothing called; what
+# was at stake is the sentence a default consumer can check, which is now FOUR direct dependencies
+# rather than five, and four fewer crates in their audit.
+#
+# Both figures RE-DERIVED on 2026-08-09, because this comment said "three rather than five" and
+# that was wrong by one. `cargo tree -p oauth-as --no-default-features -e normal --depth 1` lists
+# exactly four: base64, getrandom, serde, sha2. Whole tree, same invocation without `--depth 1`
+# and de-duplicated: 19 packages, so 18 besides oauth-as itself. The counterfactual measured the
+# same way, `--features rar` (which is `["dep:serde_json"]` and nothing else): five direct and 23
+# packages. Four fewer, not three, because serde_json itself counts alongside itoa, ryu and
+# memchr.
+serde_json = { version = "1", optional = true }
+getrandom = "0.3"
+sha2 = "0.10"              # PKCE S256 (RFC 7636); verified against the RFC's appendix B vector
+base64 = "0.22"            # BASE64URL-without-padding, the exact PKCE challenge encoding
+
+# OPTIONAL, feature `http` only. The HTTP vocabulary, and nothing above it.
+#
+# All three are 1.0 with a major that has never moved, which is the property the `http` feature
+# now rests on: they may appear in this crate's public signatures without making a framework
+# upgrade in a host's tree a breaking change here. `http-body` 1.x is what makes `handle` generic
+# over the request body, so hyper, axum and a test harness holding a String all fit.
+http = { version = "1", optional = true }
+http-body = { version = "1", optional = true }
+bytes = { version = "1", optional = true }
+
+# OPTIONAL, feature `axum` only: the adapter, and the runtime a host needs to bind a listener.
+# `default-features = false` keeps the pulled-in tree to what the adapter actually uses: no JSON
+# extractor (bodies are serialized in src/http.rs so the RFC-mandated headers are set on the same
+# response), no tracing, no multipart. Nothing in the `http` feature depends on either of these.
+axum = { version = "0.8", optional = true, default-features = false, features = ["http1", "tokio"] }
+tokio = { version = "1", optional = true, default-features = false, features = ["io-util", "macros", "net", "rt", "rt-multi-thread"] }
+
+# OPTIONAL, feature `jwt-p256` only (NOT `jwt`, which carries the traits and no arithmetic). The
+# built-in ES256 backend: signing for RFC 9068 access tokens and verification for RFC 9449 DPoP,
+# RFC 9101 request objects and RFC 7523 client assertions.
+#
+# WHY p256 AND NOTHING ELSE: it is pure Rust (no cc, no bindgen, no OpenSSL), it is the RustCrypto
+# P-256 implementation the ecosystem already audits, and with default features off it pulls only
+# elliptic-curve/ecdsa/sha2 primitives; sha2 is ALREADY a dependency here for PKCE. No general JOSE
+# framework is used: this crate emits exactly one token shape, so the JWS compact serialization
+# lives in src/jwt.rs on top of serde_json and base64, both already present. A JOSE framework would
+# add a parser, a validator and a key-format zoo that an ISSUER never executes.
+#
+# WHY ES256 AND NOT RS256: RFC 9068 fixes neither, but an ES256 signature is 64 bytes against
+# RSA-2048's 256, and a P-256 public key is 64 bytes against 259. That difference is paid on every
+# token issued and every JWKS fetch.
+#
+# `pkcs8` is NOT here: it is behind this crate's own `jwt-pkcs8` feature. See that feature's note
+# for the measurement, and in particular for what it does NOT buy: a host that never calls the two
+# PKCS#8 constructors pays zero bytes for them either way, because LTO deletes them. The split is
+# for the dependency tree.
+p256 = { version = "0.13", default-features = false, features = [
+    "ecdsa",  # ECDSA/P-256/SHA-256 signing, which is ES256 (RFC 7518 s3.4)
+    "std",    # this crate is std anyway; adds no crate to the tree, only alloc/error impls
+], optional = true }
+
+# OPTIONAL, feature `jwt-rsa` only (NOT `jwt`, which carries the traits and no arithmetic). The
+# RS256 backend: RSASSA-PKCS1-v1.5 with SHA-256 (RFC 8017 / RFC 7518 s3.3) for signing RFC 9068
+# access tokens, and verification for RFC 9449 DPoP, RFC 9101 request objects and RFC 7523 client
+# assertions that arrive RS256-signed.
+#
+# PURE RUST, NO C TOOLCHAIN: RustCrypto `rsa` 0.9.x is `num-bigint-dig` bignum arithmetic with no
+# `-sys` crate and no cc/bindgen build step, so `#![forbid(unsafe_code)]` remains satisfiable.
+# `default-features = false` drops `pem`/`u64_digit`; `std` is re-added (this crate is std
+# throughout) and `sha2` is the feature that pulls in `rsa::pkcs1v15::{SigningKey,VerifyingKey}`
+# parameterised over SHA-256. `sha2` the crate is already in this tree for PKCE. rsa's own MSRV
+# (1.65) is under this crate's 1.75 floor.
+#
+# SECURITY: RUSTSEC-2023-0071 (the "Marvin Attack") is a timing side channel in this crate's RSA
+# *decryption/signing* private-key operation with no fix in the 0.9 line. It does NOT affect
+# verification (public-key only). See `RsaSigner`'s docs.
+rsa = { version = "0.9", default-features = false, features = ["std", "sha2"], optional = true }
+
+# OPTIONAL, feature `jwt-ed25519` only (NOT `jwt`, which carries the traits and no arithmetic). The
+# built-in EdDSA backend: Ed25519 signing (RFC 8032, deterministic — no `rand` at sign time) and
+# verification via `verify_strict` (canonical-encoding + small-order-point rejection, the ZIP215
+# hardening the bare RFC 8032 check omits).
+#
+# PIN IS `~2.1` (i.e. >=2.1.0, <2.2.0), NOT a bare "2", and that is load bearing for the MSRV:
+#   - 2.1.1 declares MSRV 1.60 (its `curve25519-dalek 4.x` is 1.60 too) — comfortably under this
+#     crate's 1.75 floor.
+#   - 2.2.0 raises its own MSRV to 1.81, and 3.0.0 to 1.85 (edition 2024). BOTH are ABOVE 1.75, so
+#     an unlocked resolve taking a bare "2" to 2.2.0 would move this crate's floor with no code
+#     change — the exact silent-MSRV-bump failure mode `base64ct`/`zeroize` already caused once (see
+#     the `rust-version` comment at the top of this manifest). `~2.1` forbids that resolve.
+#
+# `default-features = false` + `std`: verification needs nothing more. `rand_core` is NOT enabled —
+# it is only for `SigningKey::generate` (key generation); RFC 8032 signing is deterministic and
+# consumes no randomness. No `*-sys` crate and no C/asm toolchain is pulled (curve25519-dalek is
+# pure Rust with default features), so `#![forbid(unsafe_code)]` in this crate stays satisfiable.
+ed25519-dalek = { version = "~2.1", default-features = false, features = ["std"], optional = true }
+
+[dev-dependencies]
+# DEV-ONLY, for the RS256 standalone vector test (tests/rsa_rfc7515_a2.rs). An integration-test
+# crate cannot reach the library's OPTIONAL `rsa` dependency, so the same crate is listed here
+# (non-optional) to make it available to the test target. Same version and feature set as the
+# optional dependency above. The test body is `#![cfg(feature = "jwt-rsa")]`, so it is inert unless
+# that feature is on.
+rsa = { version = "0.9", default-features = false, features = ["std", "sha2"] }
+# DEV-ONLY, for the EdDSA test vector (tests/ed25519_rfc8037_vector.rs), which drives
+# `ed25519-dalek` DIRECTLY. Same `~2.1` pin and reasoning as the runtime entry above.
+ed25519-dalek = { version = "~2.1", default-features = false, features = ["std"] }
+tokio = { version = "1", features = ["rt", "macros", "time"] }
+# A DEV dependency now that the runtime one is optional: the test suite and the examples build JSON
+# fixtures by hand on paths where the library itself does not need a JSON crate at all.
+serde_json = "1"
+# The FAPI 2.0 fixture's protected resource computes the RFC 9449 s4.3(11) `ath` (the base64url
+# SHA-256 of the presented access token) itself, because `dpop::verify_proof` deliberately does not
+# — there is no access token in a proof's own signature, so the RS is the only party that can bind
+# the proof to the token. Both crates are already in the library's normal tree (base64 and sha2 back
+# PKCE), so declaring them dev-only adds nothing to a consumer's build.
+base64 = "0.22"
+sha2 = "0.10"
+# IN-TREE CONFORMANCE CHECKS (dev-only; never in any shipped binary):
+#   - `oauth2` is a widely used third-party OAuth 2 CLIENT. tests/third_party_client.rs drives it
+#     against this AS as a black box through its pluggable HTTP-client seam, so the CLIENT library
+#     (not our own assertions) decides whether our device-flow responses and error bodies are
+#     spec-legal. Pinned exactly: a silent client upgrade must never change what "conformant" means.
+#   - tests/conformance_schema.rs validates every emitted body against the RFC 6749 section 5 and
+#     RFC 8628 section 3.2 / 3.5 clauses, transcribed as plain Rust.
+#
+# NO JSON SCHEMA VALIDATOR HERE, and that is deliberate. `jsonschema` used to hold that last job.
+# It is taken with default features (resolve-http, resolve-file, tls-aws-lc-rs) merely to check
+# in-memory serde_json::Values, so it pulled a SECOND reqwest alongside the harness's, plus hyper,
+# h2, rustls and the aws-lc-sys C/asm build, for a validator that never resolves a remote $ref and
+# never opens a socket. MEASURED: dropping it removed 88 packages from Cargo.lock and took
+# `cargo tree -e normal,dev -p oauth-as` from 407 lines to 157. It also declares
+# rust-version = 1.85, which was the loudest of the reasons the MSRV job could only BUILD rather
+# than TEST at this crate's 1.75 floor; it was not the only one, and that job's comment records
+# what still blocks it. Every clause it checked is now checked in Rust, with a red-proof per
+# clause; see that test's module docs for the one clause that was dropped (format: "uri", an
+# ANNOTATION in Draft 2020-12, which asserted nothing).
+# The INDEPENDENT harness (written without sight of this crate) lives in
+# crates/oauth-as-conformance in this repository.
+oauth2 = { version = "=5.0.0", default-features = false }
+http = "1"
+url = "2"
+# TLS for the FAPI 2.0 conformance fixture (examples/fapi2_conformance_server.rs) ONLY, and dev-only
+# for the same reason axum is: this crate never owns a listener, so a TLS stack has no place in the
+# library. The FAPI 2.0 Security Profile forbids the `http` scheme off-loopback (s5.3.2.2-8) and the
+# OIDF suite trusts all server certificates (EXTERNAL-TOOLING.md s2.2), so the fixture serves HTTPS
+# under a self-signed certificate it generates at boot.
+#
+# `tls-rustls-no-provider` + an explicitly installed `ring` provider, rather than the default
+# `tls-rustls` feature, so no `aws-lc-rs` C toolchain is dragged into a dev build: `ring` is already
+# in this workspace's tree, and `p256` (the crate's own signing backend) is pure Rust, so the
+# fixture keeps that property.
+axum-server = { version = "0.7.3", default-features = false, features = ["tls-rustls-no-provider"] }
+# The self-signed certificate the fixture presents. Default features (pem + ring), NOT the optional
+# `aws_lc_rs` backend, for the reason above.
+rcgen = { version = "0.14", default-features = false, features = ["pem", "ring"] }
+# Present so the fixture can install the `ring` crypto provider as rustls' process default before
+# `RustlsConfig::from_pem` builds the server config over it. No default features, so the `aws-lc-rs`
+# provider is never compiled.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+
+# The conformance serve shim (crates/oauth-as/conformance-serve.sh) runs this example. It carries
+# the deterministic fixtures the black-box harness's launch contract asks for; the LIBRARY must
+# never ship conformance fixtures, so they live here and nowhere else.
+#
+# `jwt-p256` is required as well as `axum` because the harness verifies the issued access token as
+# an RFC 9068 `at+jwt` against the advertised jwks_uri, and the fixture therefore has to SIGN: the
+# `jwt` feature is the seam and carries no key implementation. Requiring it, rather than degrading to opaque
+# tokens when the feature is off, keeps the failure at build time and legible: a conformance
+# fixture that quietly stops exercising signing is worse than one that refuses to build.
+#
+# `client-assertion` plus the `jwt-rsa` and `jwt-ed25519` backends are required for the same
+# reason: the fixture registers two RFC 7523 `private_key_jwt` clients (one RS256, one EdDSA) that
+# the Go second judge (interop/go, driven by scripts/oauth-interop.sh) authenticates as, and the
+# AS can only VERIFY those assertions if the matching `RsaVerifier` / `Ed25519Verifier` backends
+# are compiled in for it to auto-install. Building the example without them would silently drop the
+# RS256/EdDSA interop clients, which is exactly the quiet loss of coverage the build-time
+# requirement exists to prevent.
+[[example]]
+name = "conformance_server"
+required-features = ["axum", "jwt-p256", "client-assertion", "jwt-rsa", "jwt-ed25519"]
+
+# The WORKED PRODUCTION WIRING: what a real host must do at every seam this crate deliberately
+# leaves open (storage atomicity, rate limiting, consent, CSRF, session-backed subject
+# resolution, the expiry sweep, audit, and signing key management). It is documentation that
+# compiles, and it is compiled in CI so it cannot rot into advice that no longer builds.
+#
+# `axum` (which implies `http`) but NOT `jwt`: the example binds a listener, and `axum::serve` is
+# how it does that. Opaque access tokens are this crate's default and the right choice for most
+# deployments, so requiring `jwt` to read the production example would imply the opposite. The
+# signing section inside it is behind `#[cfg(feature = "jwt-p256")]`, since it loads a key from a
+# PKCS#8 file and so needs the built-in backend rather than the seam; an all-features build
+# exercises it and a plain `--features axum` build still gets the example.
+[[example]]
+name = "production_server"
+required-features = ["axum"]
+
+# The RFC 9728 fixture resource (see the example's own module docs for why an AUTHORIZATION SERVER
+# crate ships a resource-server example, and for what it deliberately is not). `axum` for the
+# listener, `resource-metadata` for the type it serves.
+[[example]]
+name = "protected_resource_fixture"
+required-features = ["axum", "resource-metadata"]
+
+# The FAPI 2.0 Security Profile conformance fixture: an HTTPS authorization server plus a
+# DPoP-verifying protected resource, built to be driven headless to green by the OpenID Foundation
+# FAPI 2.0 suite (openid=plain_oauth, client_auth_type=private_key_jwt, sender_constrain=dpop). See
+# crates/oauth-as-conformance/EXTERNAL-TOOLING.md s2.2/s2.3 for the requirements list this answers.
+#
+# Every feature is load-bearing: `axum` binds the listener, `jwt-p256` signs the RFC 9068 access
+# tokens the resource verifies (and installs the ES256 backend that checks DPoP proofs and
+# `private_key_jwt` assertions), `dpop` sender-constrains those tokens, `par` makes PAR mandatory,
+# and `client-assertion` is the `private_key_jwt` the two static clients authenticate with.
+[[example]]
+name = "fapi2_conformance_server"
+required-features = ["axum", "jwt-p256", "dpop", "par", "client-assertion"]
+
+# BENCHMARKS. `cargo bench -p oauth-as --all-features`; see benches/README.md for the machine, the
+# profile, and what these numbers do NOT mean.
+#
+# `harness = false` on every one of them, because the suite uses a HAND-ROLLED timing harness
+# (benches/harness/mod.rs) rather than criterion or divan. That was measured, not preferred:
+# criterion 0.8 declares rust-version 1.86 and criterion 0.5 resolves an edition-2024 `clap_lex`
+# that cargo 1.75 cannot parse, and divan 0.1.21 declares 1.80 and resolves the same crate. Either
+# one would drag a DEV-dependency floor above the 1.75 the library builds at, for a charting
+# library. The full reasoning and the measured package counts are in the module docs of
+# benches/harness/mod.rs.
+#
+# `test = false` on every one of them too. Without it, `cargo test --workspace` runs the bench
+# binaries in test mode on every commit, which would add minutes to the gate in CONTRIBUTING.md
+# for no assertion.
+#
+# WHAT ACTUALLY PROTECTS THESE TARGETS FROM ROT, corrected on 2026-08-09: `cargo clippy
+# --workspace --all-targets --locked -- -D warnings`, which runs in the steps named `clippy (deny
+# warnings)` and `clippy (all features)` in .github/workflows/dev.yml and qa.yml, and inside `Full
+# gate before publish (...)` in publish.yml.
+#
+# CITED BY STEP NAME, and the line numbers that stood here until 2026-08-12 were ALL WRONG -- every
+# one of the five, in all three files. The root manifest says in as many words that CI should be
+# named by step rather than by line because line numbers go stale silently, and this comment was
+# the counterexample sitting in the same tree: nothing checks a line number, so it rots on the
+# first unrelated edit and then reads as precision. A step name is a string a `grep` can find and a
+# rename is a deliberate act.
+#
+# `--all-targets` includes `[[bench]]` targets, so a bench that stops
+# compiling after a signature moves is a RED on every push. It TYPE-CHECKS them; it never RUNS
+# them, so a bench that compiles and measures nothing meaningful would not be caught.
+#
+# This comment claimed until 2026-08-09 that rot protection came from `cargo bench --no-run`,
+# "which CI runs". It does not, and never did: `grep -rn 'cargo bench' .github/ scripts/` returns
+# NOTHING. Whether a bench step belongs in CI at all is an owner decision, not one this manifest
+# should make by asserting a step into existence, so nothing was added; the recommendation is
+# recorded in the report that found this.
+[[bench]]
+name = "token"
+harness = false
+test = false
+
+[[bench]]
+name = "scaling"
+harness = false
+test = false
+
+[[bench]]
+name = "parsing"
+harness = false
+test = false
+
+[[bench]]
+name = "constant_time"
+harness = false
+test = false
+
+[[bench]]
+name = "extensions"
+harness = false
+test = false
+
+[[bench]]
+name = "http_surface"
+harness = false
+test = false

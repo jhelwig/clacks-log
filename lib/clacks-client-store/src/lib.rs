@@ -1,5 +1,6 @@
 //! Durable relational storage for one local account workspace.
 
+pub mod enrollment;
 pub mod error;
 pub mod identity;
 pub mod logbooks;

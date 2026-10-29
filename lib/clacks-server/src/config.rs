@@ -9,6 +9,16 @@ use std::{
 };
 use url::Url;
 
+/// Deployment-key configuration for encrypting account encryption keys
+/// stored in PostgreSQL.
+#[derive(Clone, Deserialize)]
+pub struct WrappingKeyConfig {
+    /// ID of the deployment key used to encrypt newly generated account keys.
+    pub active: String,
+    /// Raw 32-byte key files indexed by the IDs recorded with encrypted account keys.
+    pub files: BTreeMap<String, PathBuf>,
+}
+
 /// One deployment-configured provider and its client-registration source.
 #[derive(Clone, Deserialize)]
 pub struct ProviderConfig {
@@ -57,6 +67,8 @@ pub struct ServerConfig {
     pub database_url_file: Option<PathBuf>,
     /// Durable middleware cookie-key file, required only when serving requests.
     pub cookie_key_file: Option<PathBuf>,
+    /// Deployment keys protecting account encryption keys; required when serving.
+    pub wrapping_keys: Option<WrappingKeyConfig>,
     /// Deployment-configured providers keyed by local route identifier.
     #[serde(default)]
     pub providers: BTreeMap<String, ProviderConfig>,

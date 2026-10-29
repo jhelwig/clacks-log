@@ -27,11 +27,13 @@ async fn logout_rejects_stale_cookie_on_another_instance() -> anyhow::Result<()>
     )?;
     let cookie_file = directory.path().join("cookie-key");
     std::fs::write(&cookie_file, [42; 64])?;
+    let wrapping_file = directory.path().join("wrapping-key");
+    std::fs::write(&wrapping_file, [19; 32])?;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let base = format!("http://{}", listener.local_addr()?);
     let config: ServerConfig = serde_json::from_value(serde_json::json!({
         "public_url": base, "allow_http": true, "database_url_file": url_file,
-        "cookie_key_file": cookie_file, "providers": {"test": {
+        "cookie_key_file": cookie_file, "wrapping_keys":{"active":"test","files":{"test":wrapping_file}}, "providers": {"test": {
             "issuer": provider.issuer, "label": "Fixture", "mode": "preconfigured",
             "client_id": "registered-clacks"
         }}

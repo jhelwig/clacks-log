@@ -45,10 +45,13 @@ pub fn router(state: ServerState, pages: Router<ServerState>) -> Router {
     Router::new()
         .merge(pages)
         .route("/auth/callback/{provider}", get(callbacks::callback))
+        .route("/oauth/authorize", get(crate::enrollment::approval::start))
         .route("/health/ready", get(ready))
         .route("/health/live", get(|| async { StatusCode::OK }))
         .route_layer(middleware::from_fn_with_state(state.clone(), same_origin))
         .layer(state.sessions.clone())
+        .merge(crate::oauth::http::router())
+        .layer(middleware::from_fn(response_policy))
         .layer(request_trace)
         .with_state(state)
 }
@@ -80,6 +83,11 @@ async fn same_origin(
             return Err(StatusCode::FORBIDDEN);
         }
     }
+    Ok(next.run(request).await)
+}
+
+/// Apply non-disclosure response headers to browser and native request paths.
+async fn response_policy(request: Request, next: Next) -> Response {
     let private = !request.uri().path().starts_with("/pkg/");
     let mut response = next.run(request).await;
     use axum::http::HeaderValue;
@@ -98,7 +106,7 @@ async fn same_origin(
     response
         .headers_mut()
         .insert("x-frame-options", HeaderValue::from_static("DENY"));
-    Ok(response)
+    response
 }
 
 /// Report whether configured account storage can serve requests.

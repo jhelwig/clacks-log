@@ -1,0 +1,929 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (C) 2026 Matthew Jackson
+
+//! Unit tests for [`crate::server`], kept out of the implementation file. These reach
+//! private items, so they live in the crate rather than in `tests/`.
+
+use super::*;
+
+#[test]
+fn user_codes_use_the_alphabet_and_are_unbiased_in_shape() {
+    let code = random_user_code(8).expect("the OS provides randomness in a test process");
+    assert_eq!(code.len(), 8);
+    assert!(code.bytes().all(|b| USER_CODE_ALPHABET.contains(&b)));
+}
+
+#[test]
+fn display_form_hyphenates_even_lengths() {
+    assert_eq!(display_user_code("WDJBMJHT"), "WDJB-MJHT");
+    assert_eq!(display_user_code("ABCDEF"), "ABC-DEF");
+    assert_eq!(display_user_code("ABCDE"), "ABCDE");
+}
+
+/// RFC 8628 section 5.1: the user code is short because a human types it, and its entropy is only
+/// sufficient in combination with host rate limiting. That makes every bit of it worth defending,
+/// so the byte-to-symbol mapping must be exactly uniform rather than approximately so.
+///
+/// Checked EXHAUSTIVELY over all 256 byte values, which is why `user_code_symbol` exists as a
+/// separate function: uniformity is not observable in any single generated code, and a test that
+/// could only look at sampled output would have to be a statistical argument instead of a proof.
+/// The three facts below are what "unbiased rejection sampling" actually means:
+///
+/// 1. exactly 240 of the 256 byte values are accepted (240 is the largest multiple of the 20
+///    symbol alphabet that fits in a byte),
+/// 2. every accepted value maps into the alphabet, and
+/// 3. every symbol has exactly the same number of preimages, so no symbol is more likely.
+///
+/// Widening the accepted range by even one value (`<` becoming `<=`) breaks fact 3 by giving the
+/// first symbol a thirteenth preimage; narrowing or inverting it breaks facts 1 and 3; replacing
+/// the modulo with a division breaks fact 3 by making the last eight symbols unreachable.
+#[test]
+fn the_user_code_symbol_draw_is_exactly_uniform_over_the_alphabet() {
+    let mut counts = std::collections::BTreeMap::new();
+    let mut accepted = 0usize;
+    for byte in 0u8..=255 {
+        match user_code_symbol(byte) {
+            Some(symbol) => {
+                accepted += 1;
+                assert!(
+                    USER_CODE_ALPHABET.contains(&symbol),
+                    "byte {byte} produced {symbol}, which is outside the RFC 8628 s6.1 alphabet"
+                );
+                *counts.entry(symbol).or_insert(0usize) += 1;
+            }
+            None => assert!(
+                byte >= USER_CODE_REJECT_AT,
+                "byte {byte} is below the rejection bound and must have been accepted"
+            ),
+        }
+    }
+
+    assert_eq!(
+        accepted, 240,
+        "exactly the 240 values below the rejection bound may be folded into the alphabet"
+    );
+    assert_eq!(
+        counts.len(),
+        USER_CODE_ALPHABET.len(),
+        "every symbol in the alphabet must be reachable"
+    );
+    for (symbol, count) in &counts {
+        assert_eq!(
+            *count, 12,
+            "symbol {} has {count} preimages, not the uniform 12: the draw is biased",
+            *symbol as char
+        );
+    }
+}
+
+/// The generator itself, on top of the mapping above: it must keep drawing until it has exactly
+/// `len` symbols (a rejected byte costs a redraw, never a short code), and never emit anything
+/// outside the RFC 8628 section 6.1 alphabet.
+#[test]
+fn random_user_code_redraws_rejections_rather_than_shortening_the_code() {
+    for len in [MIN_USER_CODE_LENGTH, 9, 16] {
+        let code = random_user_code(len).expect("the OS provides randomness in a test process");
+        assert_eq!(code.len(), len, "a rejected byte must cost a redraw");
+        assert!(code.bytes().all(|b| USER_CODE_ALPHABET.contains(&b)));
+    }
+}
+
+#[test]
+fn random_hex_has_the_stated_entropy_width() {
+    let h = try_random_hex(32).expect("the OS provides randomness in a test process");
+    assert_eq!(h.len(), 64);
+    assert!(h.bytes().all(|b| b.is_ascii_hexdigit()));
+    assert_ne!(h, try_random_hex(32).unwrap());
+}
+
+/// C13: every credential a token request carries is a credential in the RFC's own terms
+/// (`client_secret` is a password per RFC 6749 section 2.3.1; `code`, `refresh_token` and
+/// `device_code` are bearer artifacts per sections 4.1.2 and 6 and RFC 8628 section 3.4), so none
+/// of them may appear in a debug format. Pins that `{:?}` cannot become a credential leak for a
+/// host that debug-prints the request it just parsed.
+#[test]
+fn c13_token_request_debug_redacts_every_credential() {
+    let cases = vec![
+        TokenRequest::AuthorizationCode {
+            client_id: ClientId::new("app"),
+            client_secret: Some("secret-value".into()),
+            code: "code-value".into(),
+            redirect_uri: Some("https://app.example/cb".into()),
+            code_verifier: Some("verifier-value".into()),
+        },
+        TokenRequest::ClientCredentials {
+            client_id: ClientId::new("app"),
+            client_secret: Some("secret-value".into()),
+            scope: None,
+        },
+        TokenRequest::DeviceCode {
+            client_id: ClientId::new("app"),
+            client_secret: Some("secret-value".into()),
+            device_code: "device-value".into(),
+        },
+        TokenRequest::RefreshToken {
+            client_id: ClientId::new("app"),
+            client_secret: Some("secret-value".into()),
+            refresh_token: "refresh-value".into(),
+            scope: None,
+        },
+    ];
+    for request in &cases {
+        let printed = format!("{request:?}");
+        for leaked in [
+            "secret-value",
+            "code-value",
+            "verifier-value",
+            "device-value",
+            "refresh-value",
+        ] {
+            assert!(
+                !printed.contains(leaked),
+                "debug format leaked {leaked}: {printed}"
+            );
+        }
+        assert!(
+            printed.contains("[redacted]"),
+            "debug format should say what was redacted: {printed}"
+        );
+        // client_id is explicitly NOT a secret (RFC 6749 section 2.2), so it must stay visible or
+        // the redaction has made the type useless to debug.
+        assert!(
+            printed.contains("app"),
+            "client_id must stay visible: {printed}"
+        );
+    }
+}
+
+/// C13: redaction must not erase the SHAPE of the request. Whether a secret or a PKCE verifier was
+/// presented at all is the difference between an `invalid_client` and a missing-credential
+/// rejection (RFC 6749 section 5.2), and it is not itself a secret, so `Some` and `None` must stay
+/// distinguishable.
+#[test]
+fn c13_token_request_debug_keeps_the_some_none_distinction() {
+    let with_secret = TokenRequest::AuthorizationCode {
+        client_id: ClientId::new("app"),
+        client_secret: Some("secret-value".into()),
+        code: "code-value".into(),
+        redirect_uri: None,
+        code_verifier: Some("verifier-value".into()),
+    };
+    let without_secret = TokenRequest::AuthorizationCode {
+        client_id: ClientId::new("app"),
+        client_secret: None,
+        code: "code-value".into(),
+        redirect_uri: None,
+        code_verifier: None,
+    };
+    let with = format!("{with_secret:?}");
+    let without = format!("{without_secret:?}");
+    assert_ne!(
+        with, without,
+        "a presented secret and an absent one must not debug-print identically"
+    );
+    assert!(with.contains("Some(\"[redacted]\")"), "{with}");
+    assert!(without.contains("client_secret: None"), "{without}");
+    assert!(without.contains("code_verifier: None"), "{without}");
+}
+
+/// C13: the variant name says which grant is being redeemed and is not a secret, so redaction must
+/// leave it readable.
+#[test]
+fn c13_token_request_debug_still_names_the_grant() {
+    let request = TokenRequest::RefreshToken {
+        client_id: ClientId::new("app"),
+        client_secret: None,
+        refresh_token: "refresh-value".into(),
+        scope: Some(ScopeSet::parse("read").unwrap()),
+    };
+    let printed = format!("{request:?}");
+    assert!(printed.starts_with("RefreshToken"), "{printed}");
+    // The requested scope is a permission boundary the operator must be able to read.
+    assert!(printed.contains("read"), "{printed}");
+}
+
+/// The replay-set key is what makes RFC 7523 s3 and RFC 9449 s4.3 single use MEAN single use, and
+/// its shape is not observable through either endpoint: any injective function of the three parts
+/// gives the same accept/refuse answers. So the shape is pinned here, directly.
+///
+/// INJECTIVITY is the property, and a separator alone did not buy it: `jti` and the client id are
+/// both caller-chosen and neither is restricted to a charset that excludes the separator. The
+/// length prefix is what makes the split unambiguous whatever they contain. See `replay_key` for
+/// the argument, and `tests/replay_key_collision.rs` for the attack the old encoding admitted.
+#[cfg(any(feature = "client-assertion", feature = "dpop"))]
+#[test]
+fn a_replay_key_separates_its_three_parts() {
+    assert_eq!(replay_key("ca", "client-1", "jti-1"), "ca:8:client-1jti-1");
+    assert_eq!(replay_key("dpop", "thumb", "jti-1"), "dpop:5:thumbjti-1");
+    // The two mechanisms never share a key even when the owner and the `jti` are identical: a
+    // captured DPoP proof's `jti` must not be spendable as a client assertion's, or the two replay
+    // caches would lock each other out.
+    assert_ne!(replay_key("ca", "x", "j"), replay_key("dpop", "x", "j"));
+    // The prefix collision the old encoding was already asserted against.
+    assert_ne!(replay_key("ca", "ab", "c"), replay_key("ca", "a", "bc"));
+    // The one it was NOT: a separator inside the caller's own values. Both of these produced
+    // `ca:urn:client:foo:42` before the length prefix.
+    assert_ne!(
+        replay_key("ca", "urn", "client:foo:42"),
+        replay_key("ca", "urn:client:foo", "42")
+    );
+    // The same shape one part along, for a `jti` that ends where the next field begins.
+    assert_ne!(
+        replay_key("dpop", "thumb", ":x"),
+        replay_key("dpop", "thumb:", "x")
+    );
+}
+
+/// The decimal width the capacity arithmetic depends on. Off by one here is a reallocation on
+/// every DPoP-carrying token request, which is exactly what the exactness test below would catch,
+/// so this pins the boundaries it would otherwise only catch by accident.
+#[cfg(any(feature = "client-assertion", feature = "dpop"))]
+#[test]
+fn the_decimal_width_is_the_number_of_digits() {
+    for (n, width) in [
+        (0usize, 1usize),
+        (1, 1),
+        (9, 1),
+        (10, 2),
+        (99, 2),
+        (100, 3),
+        (999, 3),
+        (1000, 4),
+    ] {
+        assert_eq!(decimal_width(n), width, "{n}");
+    }
+}
+
+/// The capacity hint is EXACT, so building a replay key is one allocation with no slack.
+///
+/// This is bought on the hottest path a DPoP deployment has: one of these is built for every single
+/// token request, and it is thrown away immediately. A hint that is too small makes `push_str`
+/// reallocate (two allocations and a copy for a string that was sized in advance); a hint that is
+/// too large asks the allocator for bytes that are never written. `String::with_capacity` allocates
+/// exactly what it is asked for, so both are visible as the pair of facts below: the capacity is
+/// what the arithmetic in `replay_key` computes, and the string ends up exactly full.
+#[cfg(any(feature = "client-assertion", feature = "dpop"))]
+#[test]
+fn a_replay_key_is_built_in_exactly_one_correctly_sized_allocation() {
+    for (kind, owner, jti) in [
+        ("ca", "client-1", "jti-1"),
+        ("dpop", "0OXy9SbXe0Y7YQ8Xw3sYQ2h1lKQ", "01234567-89ab-cdef"),
+        ("ca", "", ""),
+    ] {
+        let key = replay_key(kind, owner, jti);
+        let exact = kind.len() + owner.len() + jti.len() + 2 + decimal_width(owner.len());
+        assert_eq!(
+            key.len(),
+            exact,
+            "the two separators and the length prefix are the whole of the difference between \
+             the parts and the key"
+        );
+        assert_eq!(
+            key.capacity(),
+            exact,
+            "the hint must be exactly the final length: smaller reallocates, larger over-asks"
+        );
+    }
+}
+
+/// The three request-reachable randomness draws are FALLIBLE, not panicking.
+///
+/// `getrandom` failing is a real runtime condition — an exhausted descriptor table on the platforms
+/// where it opens `/dev/urandom`, a seccomp policy, a container without the syscall — and every
+/// other fallible step on these paths becomes `ErrorCode::ServerError` and returns. Panicking makes
+/// a library abort its host's request handler, and in a host built with `panic = "abort"` it
+/// takes the whole process with it: an authorization server that stops serving the requests it
+/// could still serve because one of them could not be given thirty-two bytes.
+///
+/// This is a TYPE-LEVEL guard rather than a behavioural one, deliberately, and it is the only kind
+/// available: a test cannot make the OS refuse randomness, so what can be pinned is that the
+/// signature admits the refusal at all. It does not compile against the `expect`-ing forms these
+/// replaced, which is exactly the regression worth catching.
+#[test]
+fn the_request_reachable_randomness_draws_report_failure_rather_than_panicking() {
+    let hex: Option<String> = try_random_hex(32);
+    assert_eq!(
+        hex.expect("the OS provides randomness in a test process")
+            .len(),
+        64
+    );
+    let code: Option<String> = random_user_code(MIN_USER_CODE_LENGTH);
+    assert_eq!(
+        code.expect("the OS provides randomness in a test process")
+            .len(),
+        MIN_USER_CODE_LENGTH
+    );
+    // And the refusal they map to is the same opaque `server_error` a storage failure becomes, so
+    // a caller cannot tell which internal thing went wrong.
+    assert_eq!(randomness_error().error, ErrorCode::ServerError);
+    assert!(randomness_error().error_description.is_none());
+}
+
+// ------------------------------------------------- what the installed RateLimiter is told, exactly
+
+/// A limiter that ALLOWS the first `allow` checks and denies everything after, keeping every
+/// `record` it is handed. The two halves are what the tests below read: which attempt was refused,
+/// and what the limiter was subsequently told about it.
+#[cfg(test)]
+struct CountingLimiter {
+    allow: usize,
+    checks: std::sync::Mutex<usize>,
+    records: std::sync::Mutex<Vec<AttemptOutcome>>,
+}
+
+impl RateLimiter for std::sync::Arc<CountingLimiter> {
+    fn check(&self, _attempt: Attempt<'_>) -> RateLimitDecision {
+        let mut checks = self.checks.lock().expect("no panic while held");
+        *checks += 1;
+        if *checks <= self.allow {
+            RateLimitDecision::Allow
+        } else {
+            RateLimitDecision::Deny
+        }
+    }
+
+    fn record(&self, _attempt: Attempt<'_>, outcome: AttemptOutcome) {
+        self.records
+            .lock()
+            .expect("no panic while held")
+            .push(outcome);
+    }
+}
+
+fn limited_server(
+    limiter: std::sync::Arc<CountingLimiter>,
+) -> AuthorizationServer<crate::store::MemoryStorage> {
+    AuthorizationServer::new(
+        ServerConfig::new("https://as.example", "https://as.example/device"),
+        crate::store::MemoryStorage::new(),
+    )
+    .with_rate_limiter(Box::new(limiter))
+}
+
+fn limited_client() -> Client {
+    Client {
+        client_id: ClientId::new("app"),
+        auth: crate::client::ClientAuth::Public,
+        grant_types: vec![GrantType::AuthorizationCode, GrantType::RefreshToken],
+        redirect_uris: vec!["https://app.example/cb".to_string()],
+        allowed_scopes: ScopeSet::parse("read").unwrap(),
+        default_scopes: ScopeSet::parse("read").unwrap(),
+        name: None,
+        registration: None,
+    }
+}
+
+/// RFC 7636 appendix B's worked example verifier, which is 43 characters: the minimum the RFC
+/// permits, and what this crate's integration suite uses.
+#[cfg(test)]
+const RFC7636_VERIFIER: &str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+
+fn limited_request(challenge: &str) -> AuthorizationRequest<'static> {
+    AuthorizationRequest::from_pairs([
+        ("response_type", "code".to_string()),
+        ("client_id", "app".to_string()),
+        ("redirect_uri", "https://app.example/cb".to_string()),
+        ("scope", "read".to_string()),
+        ("code_challenge", challenge.to_string()),
+        ("code_challenge_method", "S256".to_string()),
+    ])
+}
+
+/// [`RateLimiter::record`] is documented as reporting "how an ALLOWED attempt turned out", and a
+/// denied one never became an attempt at all. Reporting the deny back as
+/// [`AttemptOutcome::Failed`] drives the failure count with traffic the limiter itself refused,
+/// which is a feedback loop: a client that merely exceeded its ceiling then reads, to a host
+/// alerting on failure rate (which this crate tells hosts to do), exactly like a caller walking
+/// the redirect-URI space.
+///
+/// Every other classification site in this crate returns after a `Deny` WITHOUT recording —
+/// `authenticate_client`, `validate_direct_authorization_request`, `pending_grant_by_user_code`,
+/// `register_dynamic_client` — and says so in a comment. The second charge on the issuance path
+/// was the one that did not.
+#[tokio::test]
+async fn a_denied_authorization_request_is_never_reported_back_as_a_failure() {
+    // One allowance: the validation's charge. The issuance's second charge is the one denied.
+    let limiter = std::sync::Arc::new(CountingLimiter {
+        allow: 1,
+        checks: std::sync::Mutex::new(0),
+        records: std::sync::Mutex::new(Vec::new()),
+    });
+    let srv = limited_server(limiter.clone());
+    srv.register_client(limited_client()).await.unwrap();
+
+    let challenge = crate::pkce::code_challenge_s256(RFC7636_VERIFIER);
+    let validated = srv
+        .validate_authorization_request(&limited_request(&challenge))
+        .await
+        .expect("the first charge is allowed");
+    let refused = srv
+        .issue_authorization_code(crate::server::UserApproval::granted(&validated, "user-1"))
+        .await
+        .expect_err("the second charge is denied");
+    assert!(
+        matches!(refused, AuthorizationError::Redirect(_)),
+        "the refusal shape is unchanged: RFC 6749 s4.1.2.1 sends it to the validated redirect URI"
+    );
+
+    let records = limiter.records.lock().expect("no panic while held").clone();
+    assert_eq!(
+        records,
+        vec![AttemptOutcome::Succeeded],
+        "the only outcome is the ALLOWED validation's; a deny must be reported to nobody"
+    );
+}
+
+/// `SystemTime + Duration` PANICS on overflow, and [`ServerConfig::refresh_reuse_window`] is a
+/// plain public field with no validating constructor, so an absurd value from a host's config file
+/// is a panic inside the host's request handler rather than a startup failure. Every other TTL
+/// addition on a request path goes through [`saturating_deadline`]; the spent marker written by a
+/// refresh rotation was the one that did not.
+///
+/// The branch is the DEFAULT configuration's: `refresh_token_ttl` is `None`, so the chain has no
+/// absolute expiry and every rotation takes the `or_else`.
+#[tokio::test]
+async fn a_rotation_survives_an_absurd_reuse_window_rather_than_panicking() {
+    let mut config = ServerConfig::new("https://as.example", "https://as.example/device");
+    // The shape a config file holding a nonsense number produces. `refresh_token_ttl` stays at its
+    // default `None`, which is what makes the rotation read this field at all.
+    config.refresh_reuse_window = Duration::MAX;
+    assert!(config.refresh_token_ttl.is_none());
+    let srv = AuthorizationServer::new(config, crate::store::MemoryStorage::new());
+    srv.register_client(limited_client()).await.unwrap();
+
+    let verifier = RFC7636_VERIFIER;
+    let challenge = crate::pkce::code_challenge_s256(verifier);
+    let validated = srv
+        .validate_authorization_request(&limited_request(&challenge))
+        .await
+        .unwrap();
+    let code = srv
+        .issue_authorization_code(crate::server::UserApproval::granted(&validated, "user-1"))
+        .await
+        .unwrap();
+    let issued = srv
+        .token(TokenRequest::AuthorizationCode {
+            client_id: ClientId::new("app"),
+            client_secret: None,
+            code: code.code,
+            redirect_uri: Some("https://app.example/cb".to_string()),
+            code_verifier: Some(verifier.to_string()),
+        })
+        .await
+        .unwrap();
+
+    let rotated = srv
+        .token(TokenRequest::RefreshToken {
+            client_id: ClientId::new("app"),
+            client_secret: None,
+            refresh_token: issued.refresh_token.expect("the grant mints one"),
+            scope: None,
+        })
+        .await
+        .expect("a rotation must not panic on a host-configured duration");
+    assert!(rotated.refresh_token.is_some(), "the chain continues");
+}
+
+/// The dummy assertion verification must be a COMPLETE one, or it does not cost what it is there
+/// to cost. A signature that is malformed, or a public key whose coordinates are not a point on
+/// P-256, is refused in the parse for a fraction of the work of a real verification, which is the
+/// timing leak `dummy_assertion_verify` exists to close, reintroduced at half the size and much
+/// harder to see. Checked against the crate's own backend: the constants verify, so the operation
+/// runs to the end.
+#[cfg(all(feature = "client-assertion", feature = "jwt-p256"))]
+#[test]
+fn the_dummy_assertion_material_costs_a_complete_es256_verification() {
+    use crate::jwt::JwsVerifier as _;
+    assert!(
+        crate::jwt::P256Verifier.verify(
+            &dummy_assertion_key(),
+            DUMMY_ASSERTION_SIGNING_INPUT.as_bytes(),
+            &DUMMY_ASSERTION_SIGNATURE,
+        ),
+        "the dummy signature must verify under the dummy key, or the verification short-circuits"
+    );
+}
+
+/// The per-algorithm dummy material must reach the FULL verification for each wired algorithm, the
+/// same property the ES256 test above checks: a signature of the wrong WIDTH, or a key of the wrong
+/// KIND, is refused in a length or format guard for a fraction of the real cost, which is the timing
+/// leak `dummy_assertion_verify` exists to close, reintroduced one algorithm at a time. The RS256
+/// signature is the 2048-bit modulus width (256 bytes) so the verifier's `sig.len() == modulus`
+/// guard passes and the modular exponentiation runs; the EdDSA signature is a real 64-byte one so
+/// `verify_strict` reaches the scalar multiplication. Neither is ACCEPTED — the material is a COST,
+/// not a credential — so the shape is what is checked here, plus a no-panic drive through the
+/// crate's own backend wherever one is compiled.
+#[cfg(feature = "client-assertion")]
+#[test]
+fn the_per_algorithm_dummy_material_has_the_width_each_verifier_requires() {
+    use crate::jwt::{Jwk, JwsAlg};
+
+    let (es_key, es_sig) = dummy_assertion_material(JwsAlg::Es256);
+    assert!(matches!(es_key, Jwk::Ec { .. }));
+    assert_eq!(es_sig.len(), 64, "an ES256 signature is the 64-byte r||s");
+
+    let (rs_key, rs_sig) = dummy_assertion_material(JwsAlg::Rs256);
+    assert!(matches!(rs_key, Jwk::Rsa { .. }));
+    assert_eq!(
+        rs_sig.len(),
+        256,
+        "an RS256 signature is the 2048-bit modulus width"
+    );
+
+    let (ed_key, ed_sig) = dummy_assertion_material(JwsAlg::EdDsa);
+    assert!(matches!(ed_key, Jwk::Okp { .. }));
+    assert_eq!(ed_sig.len(), 64, "an Ed25519 signature is 64 bytes");
+
+    // Where the backend is compiled, drive it: the material must run to a (false) answer without
+    // panicking, which is "complete verification" observed at runtime.
+    #[cfg(feature = "jwt-rsa")]
+    {
+        use crate::jwt::JwsVerifier as _;
+        assert!(
+            !crate::backends::rsa::RsaVerifier.verify(
+                &rs_key,
+                DUMMY_ASSERTION_SIGNING_INPUT.as_bytes(),
+                &rs_sig,
+            ),
+            "the RS256 dummy is a cost, not a credential: it must not verify"
+        );
+    }
+    #[cfg(feature = "jwt-ed25519")]
+    {
+        use crate::jwt::JwsVerifier as _;
+        assert!(
+            !crate::backends::ed25519::Ed25519Verifier.verify(
+                &ed_key,
+                DUMMY_ASSERTION_SIGNING_INPUT.as_bytes(),
+                &ed_sig,
+            ),
+            "the EdDSA dummy is a cost, not a credential: it must not verify"
+        );
+    }
+}
+
+/// The dummy verification a refused assertion pays must go through the verifier for the algorithm
+/// the PRESENTED assertion header names, not a hardcoded one. Timing cannot be unit tested, so this
+/// is the STRUCTURAL check underneath it: two counting verifiers are installed, and the dummy is
+/// driven for each algorithm in turn; each call must land on exactly the verifier for the algorithm
+/// it was handed. A regression to the old ES256-hardcoded shape sends the RS256 call to the ES256
+/// verifier and this goes red.
+#[cfg(all(feature = "client-assertion", feature = "jwt"))]
+#[test]
+fn the_dummy_assertion_verification_uses_the_presented_algorithms_verifier() {
+    use crate::jwt::{Jwk, JwsAlg, JwsVerifier};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    struct CountingVerifier {
+        alg: JwsAlg,
+        count: Arc<AtomicUsize>,
+    }
+    impl JwsVerifier for CountingVerifier {
+        fn alg(&self) -> JwsAlg {
+            self.alg
+        }
+        fn verify(&self, _key: &Jwk, _signing_input: &[u8], _signature: &[u8]) -> bool {
+            self.count.fetch_add(1, Ordering::SeqCst);
+            false
+        }
+    }
+
+    let es = Arc::new(AtomicUsize::new(0));
+    let rs = Arc::new(AtomicUsize::new(0));
+    let srv = AuthorizationServer::new(
+        ServerConfig::new("https://as.example", "https://as.example/device"),
+        crate::store::MemoryStorage::new(),
+    )
+    .with_jws_verifier(Arc::new(CountingVerifier {
+        alg: JwsAlg::Es256,
+        count: es.clone(),
+    }))
+    .with_jws_verifier(Arc::new(CountingVerifier {
+        alg: JwsAlg::Rs256,
+        count: rs.clone(),
+    }));
+
+    // An RS256 header must drive the RS256 dummy and nothing else.
+    srv.dummy_assertion_verify(Some(JwsAlg::Rs256));
+    assert_eq!(
+        rs.load(Ordering::SeqCst),
+        1,
+        "an RS256 assertion must pay an RS256 verification"
+    );
+    assert_eq!(
+        es.load(Ordering::SeqCst),
+        0,
+        "the presented alg, not a hardcoded ES256, decides the dummy"
+    );
+
+    // An ES256 header drives the ES256 dummy and does not re-run the RS256 one.
+    srv.dummy_assertion_verify(Some(JwsAlg::Es256));
+    assert_eq!(es.load(Ordering::SeqCst), 1, "an ES256 header drives ES256");
+    assert_eq!(rs.load(Ordering::SeqCst), 1, "and leaves RS256 untouched");
+
+    // A None (HS256 / client_secret_jwt, or an alg with no installed verifier) touches neither
+    // asymmetric verifier: it pays the HMAC fallback instead.
+    srv.dummy_assertion_verify(None);
+    assert_eq!(
+        (es.load(Ordering::SeqCst), rs.load(Ordering::SeqCst)),
+        (1, 1),
+        "the HMAC fallback goes through no installed JwsVerifier"
+    );
+}
+
+/// [`AuthorizationServer::presented_assertion_alg`] reads the header's `alg` and routes exactly the
+/// four wired asymmetric algorithms, refusing everything a `JwsVerifier` cannot: an HMAC, `none`,
+/// an unwired value, and an assertion past the size cap (refused before it is parsed, on the same
+/// terms as `verify_assertion`).
+#[cfg(feature = "client-assertion")]
+#[test]
+fn presented_assertion_alg_reads_the_header_and_refuses_the_unroutable() {
+    use crate::jwt::JwsAlg;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    use base64::Engine as _;
+
+    let assertion_with_alg = |alg: &str| {
+        let header = URL_SAFE_NO_PAD.encode(format!(r#"{{"alg":"{alg}","typ":"JWT"}}"#));
+        let payload = URL_SAFE_NO_PAD.encode("{}");
+        format!("{header}.{payload}.AA")
+    };
+    let alg_of = |assertion: &str| {
+        AuthorizationServer::<crate::store::MemoryStorage>::presented_assertion_alg(assertion)
+    };
+
+    assert_eq!(alg_of(&assertion_with_alg("ES256")), Some(JwsAlg::Es256));
+    assert_eq!(alg_of(&assertion_with_alg("RS256")), Some(JwsAlg::Rs256));
+    assert_eq!(alg_of(&assertion_with_alg("EdDSA")), Some(JwsAlg::EdDsa));
+    assert_eq!(alg_of(&assertion_with_alg("PS256")), Some(JwsAlg::Ps256));
+
+    // Unroutable: an HMAC and the unsecured `none` both fall to None, which is the HMAC-fallback path
+    // in `dummy_assertion_verify`. (`PS256` is a WIRED algorithm now — routable, above.)
+    assert_eq!(alg_of(&assertion_with_alg("HS256")), None);
+    assert_eq!(alg_of(&assertion_with_alg("none")), None);
+    assert_eq!(alg_of(&assertion_with_alg("ES384")), None);
+
+    // A garbage string is not a compact JWS: None, never a panic.
+    assert_eq!(alg_of("not-a-jws"), None);
+
+    // Past the size cap: refused before the parse, so an oversized assertion cannot make the dummy
+    // do more work than the known-id path (which checks the same cap first).
+    let oversized =
+        assertion_with_alg("ES256") + &"A".repeat(crate::client_assertion::MAX_ASSERTION_BYTES);
+    assert!(oversized.len() > crate::client_assertion::MAX_ASSERTION_BYTES);
+    assert_eq!(alg_of(&oversized), None);
+}
+
+/// The server-level [`AlgAllowList`] (FAPI subset) forbids RS256 at BOTH verifier-resolution
+/// chokepoints and in the advertised metadata, while leaving ES256 and PS256 fully available. This
+/// is the load-bearing proof of the allow-list: gate #1 (`jws_verifier`, the Registered path) hands
+/// out no RS256 verifier, gate #2 (`resolved_jws_verifiers`, the DPoP `AnyInstalled` path) clears the
+/// RS256 slot so a self-carried proof key cannot reintroduce it, and the RFC 8414 document never
+/// advertises RS256. Red-before-green: dropping the `is_allowed` guard in `jws_verifier` or the
+/// `restrict_to` call in `resolved_jws_verifiers` turns one of the `is_none()` assertions to `Some`.
+// `client-assertion` is in the gate because the test asserts on
+// `token_endpoint_auth_signing_alg_values_supported`, which the metadata document only carries when
+// `client-assertion` is compiled; without it that member is `None` and the assertion would panic.
+#[cfg(all(
+    feature = "dpop",
+    feature = "jwt-rsa",
+    feature = "jwt-p256",
+    feature = "client-assertion"
+))]
+#[test]
+fn the_fapi_alg_allow_list_forbids_rs256_at_both_chokepoints_and_in_metadata() {
+    use crate::jwt::{AlgAllowList, JwsAlg};
+
+    let fapi = AuthorizationServer::new(
+        ServerConfig::new("https://as.example", "https://as.example/device")
+            .with_jws_alg_allow_list(AlgAllowList::fapi()),
+        crate::store::MemoryStorage::new(),
+    );
+
+    // Gate #1 — Registered path: RS256 resolves to no verifier; ES256 and PS256 both do.
+    assert!(fapi.jws_verifier(JwsAlg::Rs256).is_none());
+    assert!(fapi.jws_verifier(JwsAlg::Es256).is_some());
+    assert!(fapi.jws_verifier(JwsAlg::Ps256).is_some());
+
+    // Gate #2 — DPoP AnyInstalled path: the jwt-rsa fallback would fill the RS256 slot, but
+    // `restrict_to` clears it, so `expect_alg(AnyInstalled)` reads it as NotInstalled.
+    let resolved = fapi.resolved_jws_verifiers();
+    assert!(resolved.get(JwsAlg::Rs256).is_none());
+    assert!(resolved.get(JwsAlg::Es256).is_some());
+    assert!(resolved.get(JwsAlg::Ps256).is_some());
+
+    // Advertising: the metadata omits RS256 from every signing-alg list but keeps ES256 and PS256.
+    let doc = serde_json::to_value(fapi.metadata()).unwrap();
+    for member in [
+        "token_endpoint_auth_signing_alg_values_supported",
+        "dpop_signing_alg_values_supported",
+    ] {
+        let algs = doc[member]
+            .as_array()
+            .unwrap_or_else(|| panic!("{member} is present"));
+        let has = |name: &str| algs.iter().any(|a| a == name);
+        assert!(has("ES256"), "{member} must advertise ES256");
+        assert!(has("PS256"), "{member} must advertise PS256");
+        assert!(
+            !has("RS256"),
+            "{member} must NOT advertise RS256 under fapi()"
+        );
+    }
+
+    // The RFC 9101 request-object member rides the SAME allow-list machinery (metadata's
+    // `baseline_algs` filter plus the per-alg `jws_verifier(alg).is_some()` gate in
+    // `mark_alg_verifiable`), but only exists when JAR is configured. Prove it does not leak RS256.
+    #[cfg(feature = "jar")]
+    {
+        let mut cfg = ServerConfig::new("https://as.example", "https://as.example/device")
+            .with_jws_alg_allow_list(AlgAllowList::fapi());
+        cfg.jar = Some(Box::new(crate::par::JarConfig::new()));
+        let jar_fapi = AuthorizationServer::new(cfg, crate::store::MemoryStorage::new());
+        let doc = serde_json::to_value(jar_fapi.metadata()).unwrap();
+        let algs = doc["request_object_signing_alg_values_supported"]
+            .as_array()
+            .expect("request_object_signing_alg_values_supported is present with JAR configured");
+        let has = |name: &str| algs.iter().any(|a| a == name);
+        assert!(has("ES256"), "request-object member must advertise ES256");
+        assert!(has("PS256"), "request-object member must advertise PS256");
+        assert!(
+            !has("RS256"),
+            "request-object member must NOT advertise RS256 under fapi()"
+        );
+    }
+
+    // Backward compatibility: the default `all()` list keeps RS256 verifiable on both paths.
+    let default = AuthorizationServer::new(
+        ServerConfig::new("https://as.example", "https://as.example/device"),
+        crate::store::MemoryStorage::new(),
+    );
+    assert!(default.jws_verifier(JwsAlg::Rs256).is_some());
+    assert!(default
+        .resolved_jws_verifiers()
+        .get(JwsAlg::Rs256)
+        .is_some());
+}
+
+/// A PS256-ONLY allow-list (`AlgAllowList::only(&[Ps256])`, which FORBIDS ES256) proves the gate is
+/// genuinely per-slot — each algorithm checked against its OWN slot — rather than a coarse "is this
+/// the FAPI {ES256,PS256} pair" shortcut. It is also the one configuration that exercises the ES256
+/// suppression path (metadata gate #3): ES256 has a STATIC metadata baseline that the other algs do
+/// not, so a PS256-only list is the only way to prove that baseline is filtered too. Red-before-green:
+/// a refactor that keyed the gate off `fapi()` rather than `allowed[alg.slot()]` would still resolve
+/// an ES256 verifier here (ES256 is in the FAPI pair) and this test's `is_none()` would flip to `Some`.
+// `client-assertion` gated for the same reason as the sibling test above: the metadata assertion on
+// `token_endpoint_auth_signing_alg_values_supported` needs that member to be present.
+#[cfg(all(
+    feature = "dpop",
+    feature = "jwt-rsa",
+    feature = "jwt-p256",
+    feature = "client-assertion"
+))]
+#[test]
+fn a_ps256_only_allow_list_forbids_es256_per_slot_and_suppresses_its_static_metadata_baseline() {
+    use crate::jwt::{AlgAllowList, JwsAlg};
+
+    let ps_only = AuthorizationServer::new(
+        ServerConfig::new("https://as.example", "https://as.example/device")
+            .with_jws_alg_allow_list(AlgAllowList::only(&[JwsAlg::Ps256])),
+        crate::store::MemoryStorage::new(),
+    );
+
+    // Per-slot at both chokepoints: PS256 allowed, ES256 AND RS256 forbidden.
+    assert!(ps_only.jws_verifier(JwsAlg::Ps256).is_some());
+    assert!(ps_only.jws_verifier(JwsAlg::Es256).is_none());
+    assert!(ps_only.jws_verifier(JwsAlg::Rs256).is_none());
+    let resolved = ps_only.resolved_jws_verifiers();
+    assert!(resolved.get(JwsAlg::Ps256).is_some());
+    assert!(resolved.get(JwsAlg::Es256).is_none());
+    assert!(resolved.get(JwsAlg::Rs256).is_none());
+
+    // Metadata: ES256's STATIC baseline is suppressed (gate #3), and only PS256 remains — no ES256,
+    // no RS256. This is the assertion the {ES256,PS256}-only tests cannot make.
+    let doc = serde_json::to_value(ps_only.metadata()).unwrap();
+    for member in [
+        "token_endpoint_auth_signing_alg_values_supported",
+        "dpop_signing_alg_values_supported",
+    ] {
+        let algs = doc[member]
+            .as_array()
+            .unwrap_or_else(|| panic!("{member} is present"));
+        let has = |name: &str| algs.iter().any(|a| a == name);
+        assert!(has("PS256"), "{member} must advertise PS256");
+        assert!(
+            !has("ES256"),
+            "{member} must NOT advertise ES256 under a PS256-only list (gate #3)"
+        );
+        assert!(!has("RS256"), "{member} must NOT advertise RS256");
+    }
+}
+
+/// The DPoP `AnyInstalled` verifier set is built ONCE and cached, not rebuilt per request. Proven by
+/// identity: two calls to `resolved_jws_verifiers` return the SAME reference, so the up-to-four `Arc`
+/// fallback installs happen once for the life of the server rather than on every DPoP-bound request.
+/// This is a deterministic gate (pointer identity), not an allocation count — it cannot flake.
+/// Red-before-green: reverting `resolved_jws_verifiers` to build and return an owned set makes the
+/// two references point at different stack temporaries and the `ptr::eq` assertion fails to compile
+/// or fails at runtime.
+#[cfg(feature = "dpop")]
+#[test]
+fn the_dpop_verifier_set_is_resolved_once_and_cached() {
+    let server = AuthorizationServer::new(
+        ServerConfig::new("https://as.example", "https://as.example/device"),
+        crate::store::MemoryStorage::new(),
+    );
+    let first = server.resolved_jws_verifiers();
+    let second = server.resolved_jws_verifiers();
+    assert!(
+        std::ptr::eq(first, second),
+        "resolved_jws_verifiers must return the same cached set on every call"
+    );
+}
+
+/// The largest `SystemTime` this platform can represent: the point beyond which `checked_add`
+/// returns `None`. Found rather than hardcoded, because the ceiling differs by platform (a 64-bit
+/// `timespec` on one host, a 128-bit intermediate on another), and the whole subject of the test
+/// below is what [`saturating_deadline`] does when it reaches that ceiling.
+#[cfg(test)]
+fn system_time_ceiling() -> SystemTime {
+    use std::time::{Duration, UNIX_EPOCH};
+
+    // Largest whole second still representable as an offset from the epoch.
+    let mut lo: u64 = 0;
+    let mut hi: u64 = u64::MAX;
+    while lo < hi {
+        let mid = lo + (hi - lo) / 2 + 1;
+        if UNIX_EPOCH.checked_add(Duration::from_secs(mid)).is_some() {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    let secs = lo;
+    // Then the largest sub-second remainder that still fits on top of it.
+    let mut nlo: u32 = 0;
+    let mut nhi: u32 = 999_999_999;
+    while nlo < nhi {
+        let mid = nlo + (nhi - nlo) / 2 + 1;
+        if UNIX_EPOCH.checked_add(Duration::new(secs, mid)).is_some() {
+            nlo = mid;
+        } else {
+            nhi = mid - 1;
+        }
+    }
+    UNIX_EPOCH
+        .checked_add(Duration::new(secs, nlo))
+        .expect("the searched value is representable by construction")
+}
+
+/// KILLS the three `saturating_deadline` mutants on the halving loop's guard (`server.rs`
+/// `while span > Duration::from_secs(1)`): `>` replaced by `==`, by `<`, and by `>=`.
+///
+/// The loop only runs when `base.checked_add(span)` has ALREADY overflowed the platform ceiling,
+/// so nothing on any ordinary request path exercises it — every caller adds a sane TTL to `now`,
+/// which fits, and the function returns on its first line. The existing coverage
+/// (`tests/mutation_gaps_091.rs`) drives the fits-exactly path and so never enters the loop at all.
+///
+/// To reach it we place `base` a hair below the ceiling and add a span that cannot fit, so the
+/// function must fall back to halving. With `base = ceiling - 7.75s` and `span = 8s`:
+///
+/// - `ceiling` is unreachable, so `checked_add(8s)` overflows and the loop is entered.
+/// - The real guard `span > 1s` halves `8s -> 4s -> 2s -> 1s`, accumulating `+4s +2s +1s` onto
+///   `base` and stopping the instant `span` reaches `1s`. The result is `base + 7s`.
+/// - `==` and `<` are both false for the initial `8s`, so the loop body never runs and the result
+///   is `base` unchanged — a deadline in the PAST relative to the real one, which for an expiry
+///   means a token that is born already expired.
+/// - `>=` runs one extra iteration at `span == 1s`, adding another `+0.5s`, giving `base + 7.5s`:
+///   a deadline half a second later than the real one, observable through `unix_seconds` whenever
+///   it crosses a second boundary.
+///
+/// The exact `base + 7s` is asserted, which distinguishes the real result from all three mutants at
+/// once.
+#[test]
+fn saturating_deadline_halves_toward_the_ceiling_when_the_sum_overflows() {
+    use std::time::Duration;
+
+    let ceiling = system_time_ceiling();
+    // A hair below the ceiling: close enough that `+ 8s` cannot fit (forcing the halving fallback),
+    // but with enough headroom that every partial add the real loop makes DOES fit, and so does the
+    // extra half-second the `>=` mutant would add — otherwise that add would overflow and be
+    // silently skipped, hiding the mutant.
+    let base = ceiling
+        .checked_sub(Duration::from_millis(7_750))
+        .expect("7.75s below the ceiling is representable");
+
+    assert!(
+        base.checked_add(Duration::from_secs(8)).is_none(),
+        "the fixture is only meaningful if the 8s span genuinely overflows and forces the halving \
+         path"
+    );
+
+    let deadline = saturating_deadline(base, Duration::from_secs(8));
+    assert_eq!(
+        deadline,
+        base + Duration::from_secs(7),
+        "the halving loop must accumulate 4s + 2s + 1s and stop the instant the remaining span \
+         reaches one second: a loop that never runs leaves the deadline in the past, and one that \
+         runs a step too far pushes it half a second beyond where the real code lands"
+    );
+}

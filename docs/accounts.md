@@ -240,13 +240,13 @@ The desired experience follows Tailscale/GitHub command-line interface (CLI): th
 
 The deployment provides the Clacks web UI and enrollment/management endpoints within the single Clacks application containing synchronization and background workers, alongside PostgreSQL (D213/D223). The external OIDC identity provider supplies authentication; it is distinct from the Clacks management endpoints. D190 selects configurable OIDC web sign-in without requiring a particular provider or local password registration. D191 selects automatic local provisioning after successful configured-provider authentication.
 
-D190 selects OIDC for web sign-in. D193 selects the browser-callback flow for MVP. Exact standard protocol/library integration, callback mechanism, per-client credential format/storage/renewal, binding storage mechanics, and interrupted-enrollment handling remain open. Use standard supported mechanisms once selected, not a bespoke OAuth-like token exchange inferred from the user experience (UX) analogy.
+D190 selects OIDC for web sign-in. D193 selects the browser-callback flow for MVP, and D370 selects a temporary loopback listener on an operating-system-assigned port. D371 selects short-lived access tokens with a persistent per-client refresh credential. D374 selects opaque access tokens. D378 binds both credential types through Demonstrating Proof of Possession (DPoP) and retains the refresh credential across ordinary refreshes. D376 selects `keyring-core` with native macOS and Windows credential backends. D379 selects Huskarl for the desktop and oauth-as for the embedded authorization server, superseding D375. The [client-enrollment contract](client-enrollment-proposal.md) defines hashed issuer storage, native credential persistence and interrupted local completion. Use standard supported mechanisms once selected, not a bespoke OAuth-like token exchange inferred from the user experience (UX) analogy.
 
 Reference: [GitHub CLI login](https://cli.github.com/manual/gh_auth_login) documents browser authentication; [OAuth device authorization, Request for Comments (RFC) 8628](https://www.rfc-editor.org/rfc/rfc8628.html) specifies a device/user-code browser authorization flow. D193 defers device authorization to a post-MVP fallback; it is not the selected MVP flow.
 
 ## Accepted MVP web-UI scope (D66)
 
-Provide account sign-in, D232 self-service login-identity linking/unlinking, client authorization, enrolled-client listing/revocation, external-service configuration, and upload diagnostics in the MVP web UI. D191 provisions accounts at normal first sign-in; administrator account creation is not a required web workflow. Administrator-role assignment is out of band under D357. Account-specific management and diagnostics follow D63 isolation. Issue #11 delivers the account/identity web workflows; later capabilities add enrollment, service setup and diagnostics.
+Provide account sign-in, D232 self-service login-identity linking/unlinking, client authorization, enrolled-client listing/revocation, external-service configuration, and upload diagnostics in the MVP web UI. D191 provisions accounts at normal first sign-in; administrator account creation is not a required web workflow. Administrator-role assignment is out of band under D357. Account-specific management and diagnostics follow D63 isolation. Issue #11 delivers the account/identity web workflows; issue #12 adds desktop enrollment and client revocation; later capabilities add external-service setup and diagnostics.
 
 Publication/confirmation-service configuration uses the server-owned configuration and credentials; diagnostics describe the server's actual jobs, attempts, outcomes, and pauses. The web UI, synchronization endpoints and background workers are internal parts of the same Clacks application and use its account-scoped configuration and publication state. Routine logbook operation remains native desktop scope under D06. D67 places full external-service setup in the web UI, opened from the desktop; station defaults/profiles remain native. Exact layout, native diagnostic detail and deployment tooling remain engineering work within that selected topology.
 
@@ -423,13 +423,155 @@ approval.
 
 ## Browser-callback authorization (D193)
 
-For MVP, the desktop opens the browser for sign-in and client approval, then receives completion through a callback. Device authorization is a post-MVP fallback option. Exact callback transport and standard protocol/library integration remain open; a temporary loopback listener is an option, not a separately accepted requirement. See [OAuth for native applications, RFC 8252](https://www.rfc-editor.org/rfc/rfc8252).
+For MVP, the desktop opens the browser for sign-in and client approval, then receives completion through a temporary listener bound to a loopback interface on an operating-system-assigned port (D370). The initiating desktop process receives the callback without installing an application-specific URL handler. The listener exists only for the authorization attempt. Device authorization is a post-MVP fallback option. D371 selects the access-token/refresh-credential model, D378 requires DPoP binding for access and refresh credentials, and D379 selects Huskarl with oauth-as. See [OAuth for native applications, RFC 8252](https://www.rfc-editor.org/rfc/rfc8252#section-7.3).
 
-Both flows require the Clacks client to reach the server. Device authorization can use a browser on the same computer or another permitted device and polls for completion; browser-callback authorization returns completion through the callback. This distinction is not about sync-server reachability. Keep browser sign-in and per-client enrollment/credentials distinct; D193 does not settle credential format, renewal, or expiry policy.
+Both flows require the Clacks client to reach the server. Device authorization can use a browser on the same computer or another permitted device and polls for completion; browser-callback authorization returns completion through the callback. This distinction is not about sync-server reachability. Keep browser sign-in and per-client enrollment/credentials distinct; D193 alone did not settle the ongoing credential model; D371 now selects short-lived access tokens and persistent refresh authorization.
+
+## Desktop access and refresh credentials (D371)
+
+Issue short-lived access tokens with a persistent per-client refresh credential.
+An authorized installation obtains a replacement access token after expiration
+without repeating browser sign-in, including after an indefinite offline period.
+Do not impose refresh-authorization expiration solely because the client has
+been inactive. This preserves D60; it does not adopt the browser-session lifetime
+for desktop enrollment.
+
+Keep desktop authorization bound to its Clacks account and enrolled client,
+separate from provider credentials and browser login sessions. Individual-client
+revocation prevents further refresh and authorized access without waiting for an
+access token to expire. It preserves other clients and local work under D62,
+D145 and D152.
+
+D378 selects persistent DPoP-bound refresh credentials and binds access tokens
+as well. DPoP is the standard application-layer proof mechanism defined in
+[RFC 9449](https://www.rfc-editor.org/rfc/rfc9449.html). The client proves
+possession of its private key when exchanging the authorization code, refreshing
+access and presenting a bound access token. A token alone does not authorize
+use; verify the proof and its binding to the credential, request and permitted
+freshness window, with replay protection shared across application instances.
+
+Ordinary refresh issues a fresh short-lived access token and retains the same
+key-bound refresh credential. After an interrupted refresh or lost response,
+retry with that credential and a fresh proof. There is no replacement refresh
+credential to recover and no rotation-retry grace deadline. D378 supersedes
+D372, D373 and D377's rotation-specific behavior. Do not retain recoverable
+replacement credentials or cached successful token responses for retry recovery.
+
+Preserve local data and pending comparison evidence during credential recovery;
+credential recovery does not by itself establish explicit actor revocation.
+Revoked-actor reauthorization and admission remain governed by D145/D152. DPoP
+does not protect a client whose private key and credentials are both compromised.
+
+D374 selects opaque access tokens backed by server-side authorization records.
+Resolve the presented credential and current enrolled-client authorization through
+PostgreSQL. Do not rely on token expiration alone for revocation. Enforcement on
+existing synchronization streams and at change admission remains required under
+either token format. No access-token signing key is required by this choice.
+
+Use the standard authorization-code flow with required Proof Key for Code
+Exchange (PKCE), the loopback-IP/variable-port redirect policy and full DPoP
+binding. D379 selects Huskarl for the desktop client and oauth-as for the
+embedded authorization server, superseding D375's Oxide Auth selection. Use an embedded Rust integration in the
+Clacks server application; a separate authorization-server service is excluded.
+Clacks owns account/enrolled-client authorization, SQLx persistence, transaction
+boundaries and current authorization enforcement. Prefer the libraries' standard
+protocol and HTTP facilities. Keep external-provider sign-in on the existing
+`openidconnect` integration and HTTPS termination at the deployment boundary.
+
+D376 selects `keyring-core` with `apple-native-keyring-store` using its `keychain`
+feature on macOS and `windows-native-keyring-store` on Windows. Both native
+integrations are required during MVP: macOS is the primary development platform.
+SQLite retains non-secret credential references, not plaintext enrollment secrets.
+Linux desktop release support remains post-MVP.
+
+Refresh-token representation, access-token lifetime, proof-validation parameters,
+binding/key lifecycle, interrupted-enrollment handling and concrete integration
+remain engineering work. Do not introduce a custom acknowledgment exchange.
+No exact token/proof lifetime or additional recovery protocol is selected.
+The [client-enrollment proposal](client-enrollment-proposal.md) supplies the
+concrete schema, transactions and workflows for review; its engineering defaults
+are not additional accepted product decisions.
+
+### Selected libraries and integration costs (D379)
+
+Use Huskarl's standard discovery, PKCE, loopback callback, token acquisition,
+refresh, access-token cache and DPoP proof generation. Persist the signing key and
+refresh credential through D376's native credential stores. Keep application
+credential persistence separate from the library's in-memory access-token cache.
+
+oauth-as 1.0.0 requires a loopback redirect-port correction for D370: permit the
+port to vary for an otherwise matching registered loopback IP redirect, retain
+the actual requested URI in the authorization grant, and require that exact URI
+at code redemption. Preserve host, path and query matching; this is not a general
+redirect wildcard. Track [upstream issue #26](https://github.com/MattJackson/oauth-as/issues/26).
+Until a compatible upstream release is available, use a pinned, reviewed patch;
+selection accepts that bounded maintenance cost, not an unrestricted fork.
+
+Clacks supplies the oauth-as storage integration using its relational PostgreSQL
+schema, checked SQLx queries and transaction boundaries. The unpublished upstream
+PostgreSQL reference adapter is not selected: its serialized payload schema and
+recoverable token storage do not establish Clacks's production storage contract.
+D380 selects hashed ordinary lookups and encrypted short-lived code receipts
+against the library's existing storage interface.
+
+Direct resource authorization resolves the credential and current account/client
+authorization in PostgreSQL. Huskarl's complete opaque-token validator uses HTTP
+introspection and does not expose a local lookup callback. Its public lower-level
+proof validator supplies cryptographic and structural checks; Clacks must enforce
+the proof's key, HTTP method, target URI and access-token hash bindings, scope,
+expiry and shared replay exclusion. Use standard URI normalization and library
+cryptography. Do not add server-to-itself HTTP introspection to avoid this boundary.
+Admission transactions and already-open synchronization streams must still enforce
+current revocation; successful handshake authorization is not sufficient.
+
+The selected native crypto backend has no algorithm-specific feature switches.
+Using ES256 therefore also brings unused algorithm implementations, parallel
+RustCrypto dependency generations and release-candidate RSA/PKCS dependencies.
+These are dependency maintenance and build costs, not evidence of a vulnerability
+or permission to accept additional algorithms. The evaluated macOS desktop/server
+normal/build dependency graph grew from 474 to 523 package/version entries, with
+28 new package names; those counts depend on the selected versions and features.
+No cold-build or shipped-binary-size benefit/cost has been established. reqwest
+0.13 and Rustls's AWS-LC backend were already present in Clacks; they are not new
+dependency families introduced by this choice. No OpenSSL backend is selected.
+
+The evaluated versions are Huskarl 0.11.9, huskarl-core 0.10.10,
+huskarl-crypto-native 0.11.3, huskarl-reqwest 0.9.3,
+huskarl-resource-server 0.11.12 and oauth-as 1.0.0. Resolve concrete pins and
+feature choices in the implementation plan, preserving the required behavior.
+macOS interoperability establishes feasibility, not Windows credential-store
+verification, production transaction correctness or a security audit.
+
+### Credential storage (D380)
+
+Hash ordinary code and access/refresh credential lookup values. Reconstruct the
+credential field of an ordinary library lookup result from the current request's
+presented value; do not persist another recoverable copy in the token tables.
+oauth-as's consumed/replayed code record also contains the issued token strings
+so replay can find and revoke the grant. Encrypt those references using D236's
+per-account keys protected by a deployment wrapping key. Retain relational
+metadata and native lifecycle state rather than serializing entire library
+records into the database. Short-lived code-replay evidence is distinct from
+the rejected cache of successful refresh responses.
+
+Preserve the existing library policy: a repeated code exchange is rejected and
+attempts to revoke the grant issued from that code. A lost initial token response
+therefore requires restarting browser authorization. Ordinary persistent refresh
+can be retried with the same refresh credential and a fresh proof. Do not change
+either policy or add another dependency patch to enforce fully hash-only storage.
+OAuth grant revocation does not itself close a synchronization actor: D152's
+explicit individual-client revocation remains a separate operation.
+
+The retained receipt can be recovered by an authorized server or someone holding
+both its ciphertext and decryption keys. Expiry cleanup removes current rows,
+not historical backup copies. This is an accepted bounded exposure, alongside
+normal TLS, secret-exclusion, infrastructure and incident-remediation practices;
+DPoP still requires the client's private key to use the recovered credentials.
+Do not claim protection against complete endpoint or authorized-server compromise.
 
 ## Local log and credential protection (D194)
 
-The local log itself does not require separate application-level encryption or an unlock/passphrase workflow for MVP. Directory credentials are sensitive and require protected local storage, separate from ordinary contact data. D96/D97 still require direct offline-capable client lookup and secure credential provisioning; exact operating-system credential-store integration remains open. Protect synchronization credentials and server-held service secrets according to their own requirements rather than treating them as ordinary log data.
+The local log itself does not require separate application-level encryption or an unlock/passphrase workflow for MVP. Directory credentials are sensitive and require protected local storage, separate from ordinary contact data. D96/D97 still require direct offline-capable client lookup and secure credential provisioning; D376 selects `keyring-core` with native macOS and Windows backends for desktop credential storage; service-specific provisioning and lifecycle integration remain capability work. Protect synchronization credentials and server-held service secrets according to their own requirements rather than treating them as ordinary log data.
 
 ## Directory authentication failures (D195)
 

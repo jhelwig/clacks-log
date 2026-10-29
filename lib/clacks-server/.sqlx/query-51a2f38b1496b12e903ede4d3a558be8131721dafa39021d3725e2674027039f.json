@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE clacks.desktop_grants SET actor_id=$2, state='active', provisional_until=NULL WHERE family_id=$1 AND state='provisional' AND provisional_until > CURRENT_TIMESTAMP\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "51a2f38b1496b12e903ede4d3a558be8131721dafa39021d3725e2674027039f"
+}

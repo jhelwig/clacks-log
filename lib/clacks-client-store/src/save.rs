@@ -104,6 +104,17 @@ pub(crate) async fn save_in(
         });
     }
     client::store(connection, &record).await?;
+    if crate::metadata::review::load(connection, key)
+        .await?
+        .is_some_and(|review| {
+            matches!(
+                review.reason,
+                clacks_sync::client::ReviewReason::ExcludedActor(_)
+            )
+        })
+    {
+        crate::enrollment::holds::review_in(connection, &record).await?;
+    }
     Ok(SaveOutcome::Saved(record))
 }
 

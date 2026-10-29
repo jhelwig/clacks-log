@@ -15,6 +15,12 @@ struct Arguments {
 /// Supported operator domains, not a general task registry.
 #[derive(Subcommand)]
 enum Command {
+    /// Create deployment encryption key files.
+    Keys {
+        #[command(subcommand)]
+        command: KeysCommand,
+    },
+
     /// Register a provider client for this deployment.
     Oidc {
         #[command(subcommand)]
@@ -37,7 +43,19 @@ enum Command {
     },
 }
 
+/// Deployment secret creation without database or provider credentials.
+#[derive(Subcommand)]
+enum KeysCommand {
+    /// Generate a protected 32-byte wrapping key without overwriting an existing file.
+    Generate {
+        /// Destination in a private, existing secret directory.
+        #[arg(long)]
+        output: PathBuf,
+    },
+}
+
 /// Provider deployment setup operations.
+
 #[derive(Subcommand)]
 enum OidcCommand {
     /// Reuse or create a protected deployment registration.
@@ -126,6 +144,13 @@ pub async fn run() -> anyhow::Result<()> {
     let args = Arguments::parse();
     let telemetry = crate::telemetry::init(false)?;
     match args.command {
+        Command::Keys {
+            command: KeysCommand::Generate { output },
+        } => {
+            super::keys::generate(&output)?;
+            println!("Wrapping key created at {}", output.display());
+        }
+
         Command::Oidc {
             command: OidcCommand::Register { config, provider },
         } => {

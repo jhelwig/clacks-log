@@ -148,6 +148,7 @@ impl Window {
         let (_settings_updates, settings_view) = watch::channel(None);
         Self {
             app: DesktopApp::new(UiResources {
+                enrollment_view: watch::channel(Default::default()).1,
                 status,
                 activation,
                 commands,

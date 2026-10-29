@@ -117,7 +117,7 @@ async fn complete(
         display_name: None,
     };
     match flow.purpose {
-        Purpose::SignIn => {
+        Purpose::SignIn { enrollment } => {
             let reference = state
                 .store
                 .provision_login(identity, state.lifetime())
@@ -125,7 +125,11 @@ async fn complete(
                 .map_err(AuthError::from_store)?;
             session.set("login_reference", reference.secret());
             session.renew();
-            Ok(Redirect::to("/account/identities"))
+            let location = enrollment
+                .as_deref()
+                .map(crate::enrollment::approval::location)
+                .unwrap_or_else(|| "/account/identities".into());
+            Ok(Redirect::to(&location))
         }
         Purpose::AuthorizeLink {
             origin,

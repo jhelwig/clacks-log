@@ -35,6 +35,21 @@ immediate transaction. Initial enrollment requires an empty local workspace;
 reauthorization of the same account preserves prior data and author identities.
 Authentication and protected credential access belong to runtime composition.
 
+`enrollment::install` distinguishes same-actor credential replacement from a
+fresh actor. A fresh actor atomically places existing pending records on a local
+admission hold. Original values, frozen proposals and old counters remain intact;
+unrelated new records are not held. Preparation reports the hold before loading
+missing comparison evidence or allocating a counter. Existing actor-exclusion
+reviews remain usable; incoming shared observations create that normal review
+when comparison becomes available. Only exact-basis explicit resolution clears
+the corresponding hold, including a choice of the shared version.
+
+`enrollment::attempt`, `save_attempt` and `clear_attempt` persist completion
+boundaries in the shared local-state key/value table. These values contain only
+the native credential reference, origin, destination and expected binding.
+Clearing an old attempt cannot remove a newer one. No signing key or usable
+access/refresh credential is stored in SQLite.
+
 ## Checked SQL
 
 Crate-internal types in `src/rows/` group the relational schema by record family.
@@ -247,3 +262,8 @@ the shared local key/value relation under `history.query`. An absent key has
 empty defaults; unsupported versions are errors. These preferences do not
 create pending synchronized changes. Directory fallback remains a producer
 integration boundary until its native snapshot carrier is implemented.
+
+A completed transfer window creates ordinary actor-exclusion reviews for held
+pending work, including records absent from a full account view. Certified
+absence uses that completed checkpoint. Originals and prepared proposals stay
+intact, and only explicit exact-basis resolution releases the authorization hold.

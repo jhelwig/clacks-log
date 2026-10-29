@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE client_record SET authorization_hold=COALESCE(authorization_hold, ?) WHERE account=? AND pending_id IS NOT NULL\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "d677c6784beb34464787ca2a1e523c557494c5db5af3d73de3f24a9dd4b9393a"
+}

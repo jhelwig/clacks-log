@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT receipt_key_version AS \"key_version!\", receipt_nonce AS \"nonce!\",\n       receipt_ciphertext AS \"ciphertext!\"\nFROM clacks.desktop_authorization_codes WHERE code_digest = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key_version!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_authorization_codes",
+            "name": "receipt_key_version"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "nonce!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_authorization_codes",
+            "name": "receipt_nonce"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "ciphertext!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_authorization_codes",
+            "name": "receipt_ciphertext"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "fed78515ab411e9cf9af5cca870ac928db1f219f243f800bd498256b987b43b2"
+}

@@ -9,3 +9,7 @@ pub mod http;
 pub mod runtime;
 
 pub mod telemetry;
+
+pub mod enrollment;
+pub(crate) mod oauth;
+pub(crate) mod secrets;

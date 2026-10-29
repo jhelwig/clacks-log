@@ -24,7 +24,10 @@ pub(crate) struct OriginatingLogin {
 #[derive(Serialize, Deserialize)]
 pub(crate) enum Purpose {
     /// Resolve or provision an account through ordinary sign-in.
-    SignIn,
+    SignIn {
+        /// Optional retained desktop authorization correlation to resume.
+        enrollment: Option<String>,
+    },
     /// Authenticate a remaining identity before starting a specific link action.
     AuthorizeLink {
         origin: OriginatingLogin,

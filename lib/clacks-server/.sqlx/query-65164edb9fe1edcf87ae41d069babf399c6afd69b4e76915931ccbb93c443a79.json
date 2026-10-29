@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.desktop_authorization_codes WHERE code_digest = $1\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "65164edb9fe1edcf87ae41d069babf399c6afd69b4e76915931ccbb93c443a79"
+}

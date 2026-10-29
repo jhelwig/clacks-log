@@ -30,3 +30,5 @@ pub mod compaction;
 pub mod recovery;
 
 pub mod service;
+
+pub mod protocol;

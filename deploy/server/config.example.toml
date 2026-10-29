@@ -10,6 +10,17 @@ shutdown_seconds = 30
 # Standard OTEL_EXPORTER_OTLP_* environment variables configure the collector.
 otlp = false
 
+[wrapping_keys]
+# Deployment keys encrypt each account's encryption key before it is stored in
+# PostgreSQL. Account keys currently encrypt token references that let the server
+# revoke issued credentials when an authorization code is replayed.
+# Each file contains exactly 32 raw random bytes.
+# active selects the key used to encrypt newly generated account keys.
+active = "deployment-1"
+[wrapping_keys.files]
+# Retain older entries while stored account keys still reference their IDs.
+deployment-1 = "/run/secrets/account-wrapping-key"
+
 [providers.primary]
 label = "OIDC Provider Name"
 issuer = "https://identity.example"

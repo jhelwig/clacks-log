@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.oauth_revocations (scope, target, recorded_at, until_at)\nVALUES ($1,$2,$3,$4) ON CONFLICT (scope, target) DO UPDATE SET\nrecorded_at=GREATEST(clacks.oauth_revocations.recorded_at, EXCLUDED.recorded_at),\nuntil_at=GREATEST(clacks.oauth_revocations.until_at, EXCLUDED.until_at)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c639749dd3f1c511ed575b6580059ccb586a3ab136c333badf19f0de0e9c7cde"
+}

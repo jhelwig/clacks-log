@@ -59,6 +59,8 @@ for credential in postgres migrator runtime maintenance; do
     > "$CLACKS_DEV_DIR/secrets/$credential-password"
 done
 head -c 64 /dev/urandom > "$CLACKS_DEV_DIR/secrets/browser-cookie-key"
+SQLX_OFFLINE=true cargo run -p clacks-admin --locked -- keys generate \
+  --output "$CLACKS_DEV_DIR/secrets/account-wrapping-key"
 
 printf 'postgres://clacks_migrator:%s@127.0.0.1:55432/clacks\n' \
   "$(cat "$CLACKS_DEV_DIR/secrets/migrator-password")" \
@@ -84,6 +86,12 @@ The commands generate hexadecimal passwords, so URL escaping is unnecessary. If
 you choose other passwords, percent-encode reserved URL characters. A trailing
 newline in a URL file is accepted. The cookie-key file instead contains 64 raw
 random bytes, not hexadecimal/Base64 text. Keep these files between restarts.
+The account-wrapping-key file contains exactly 32 raw random bytes. It encrypts
+each account's independently generated encryption key before that key is stored
+in PostgreSQL. Account keys currently encrypt token references retained briefly
+so the server can revoke issued credentials when an authorization code is replayed.
+`keys generate` requires no database or provider configuration and refuses to
+replace an existing file.
 
 ### 2. Start persistent development PostgreSQL
 
@@ -153,6 +161,11 @@ allow_http = true
 database_url_file = "$CLACKS_DEV_DIR/secrets/runtime-database-url"
 cookie_key_file = "$CLACKS_DEV_DIR/secrets/browser-cookie-key"
 otlp = false
+
+[wrapping_keys]
+active = "development-1"
+[wrapping_keys.files]
+development-1 = "$CLACKS_DEV_DIR/secrets/account-wrapping-key"
 
 [providers.primary]
 label = "OIDC Provider Name"

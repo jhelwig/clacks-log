@@ -48,6 +48,7 @@ impl Fixture {
         let (settings, requests) = mpsc::channel(8);
         let (settings_updates, settings_view) = watch::channel(None);
         let resources = SessionResources {
+            enrollment_updates: watch::channel(Default::default()).0,
             settings_requests: requests,
             settings_updates,
             paths,

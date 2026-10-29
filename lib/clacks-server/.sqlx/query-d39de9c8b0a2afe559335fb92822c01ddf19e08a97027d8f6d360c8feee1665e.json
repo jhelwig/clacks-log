@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE clacks.desktop_grants SET state='revoked' WHERE family_id=$1\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d39de9c8b0a2afe559335fb92822c01ddf19e08a97027d8f6d360c8feee1665e"
+}

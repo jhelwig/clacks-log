@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT redirect_uri AS value FROM clacks.desktop_client_redirects WHERE client_id = $1 ORDER BY redirect_uri\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "value",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_client_redirects",
+            "name": "redirect_uri"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "128dbe08389fbf2a3eb0162542a7956704cbb430992c328eefefe256aaf17490"
+}

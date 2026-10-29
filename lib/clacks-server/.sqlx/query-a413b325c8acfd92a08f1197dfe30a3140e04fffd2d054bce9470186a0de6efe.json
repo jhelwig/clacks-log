@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.resource_replay_claims WHERE (key_thumbprint,proof_id) IN (SELECT key_thumbprint,proof_id FROM clacks.resource_replay_claims WHERE expires_at <= $1 LIMIT 500)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a413b325c8acfd92a08f1197dfe30a3140e04fffd2d054bce9470186a0de6efe"
+}

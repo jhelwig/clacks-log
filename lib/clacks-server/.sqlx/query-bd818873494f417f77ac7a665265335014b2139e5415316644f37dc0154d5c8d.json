@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.oauth_revocations WHERE (scope,target) IN (SELECT scope,target FROM clacks.oauth_revocations WHERE until_at <= $1 LIMIT 500)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bd818873494f417f77ac7a665265335014b2139e5415316644f37dc0154d5c8d"
+}

@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT authorization_hold FROM client_record WHERE account=? AND kind=? AND record_id=?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "authorization_hold",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "client_record",
+            "name": "authorization_hold"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "6fc1af8167a4251aa6f3beab8457c2afc35c5d9ea40f13a1b5373734db2fce7e"
+}

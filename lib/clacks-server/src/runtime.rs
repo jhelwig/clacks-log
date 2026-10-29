@@ -19,6 +19,18 @@ pub struct ServerState {
     pub(crate) sessions: SessionLayer<SessionPgPool>,
     /// Bounded provider HTTP client with redirects disabled.
     pub(crate) provider_http: openidconnect::reqwest::Client,
+    /// Embedded issuer over the same authoritative runtime database.
+    pub(crate) issuer: Arc<oauth_as::server::AuthorizationServer<crate::oauth::store::OAuthStore>>,
+    /// Standard token/revocation wire handling.
+    pub(crate) oauth_http: Arc<
+        oauth_as::http::AuthorizationService<
+            crate::oauth::store::OAuthStore,
+            oauth_as::server::SystemClock,
+        >,
+    >,
+    /// Application proof-age and signature policy for native resources.
+    pub(crate) proof_validator:
+        Arc<huskarl_resource_server::validator::dpop_proof::DPoPProofValidator>,
 }
 
 impl ServerState {
@@ -61,11 +73,26 @@ impl ServerState {
         for (key, provider) in &config.providers {
             crate::auth::oidc::credentials(provider, &config.callback(key)?)?;
         }
+        let keys = Arc::new(crate::secrets::keys::WrappingKeys::load(
+            config
+                .wrapping_keys
+                .as_ref()
+                .context("runtime wrapping_keys configuration is required")?,
+        )?);
+        let issuer = Arc::new(crate::oauth::config::issuer(
+            crate::oauth::store::OAuthStore::new(pool.clone(), keys),
+            &config.public_url,
+        ));
+        let oauth_http = Arc::new(oauth_as::http::ServiceBuilder::new(issuer.clone()).build()?);
+
         Ok(Self {
             config: Arc::new(config),
             store: AccountStore::new(pool),
             sessions: SessionLayer::new(sessions),
             provider_http: crate::maintenance::registration::http_client()?,
+            issuer,
+            oauth_http,
+            proof_validator: Arc::new(crate::oauth::resource::validator()),
         })
     }
 
@@ -92,23 +119,30 @@ pub async fn serve(state: ServerState, pages: axum::Router<ServerState>) -> anyh
         tracing::info!("Server shutdown requested");
         let _ = requested.send(());
     };
+    let mut maintenance = tokio::task::JoinSet::new();
+    maintenance.spawn(crate::oauth::cleanup::run(state.store.pool.clone()));
     use std::future::IntoFuture;
     let serving = axum::serve(listener, crate::http::router(state.clone(), pages))
         .with_graceful_shutdown(shutdown)
         .into_future();
     tokio::pin!(serving);
-    tokio::select! {
-        result = &mut serving => result?,
-        _ = notified => {
-            match tokio::time::timeout(std::time::Duration::from_secs(state.config.shutdown_seconds), &mut serving).await {
-                Ok(result) => result?,
-                Err(_) => {
-                    tracing::warn!("Request drain deadline reached");
-                    anyhow::bail!("request drain deadline reached");
+    let result: anyhow::Result<()> = async {
+        tokio::select! {
+            result = &mut serving => result?,
+            _ = notified => {
+                match tokio::time::timeout(std::time::Duration::from_secs(state.config.shutdown_seconds), &mut serving).await {
+                    Ok(result) => result?,
+                    Err(_) => {
+                        tracing::warn!("Request drain deadline reached");
+                        anyhow::bail!("request drain deadline reached");
+                    }
                 }
             }
         }
-    }
+        Ok(())
+    }.await;
+    maintenance.shutdown().await;
+    result?;
     state.store.close().await;
     tracing::info!("Server requests drained");
     Ok(())

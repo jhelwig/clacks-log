@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.desktop_refresh_tokens WHERE refresh_digest IN (SELECT refresh_digest FROM clacks.desktop_refresh_tokens WHERE account_id=$1 AND expires_at <= $2 LIMIT 500)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7b2065e1cf9e6a00cd04597801f942b82d9abac2e8c616ac34bf7819b4fc3c7b"
+}

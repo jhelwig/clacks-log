@@ -8,6 +8,15 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+huskarl.workspace = true
+huskarl-core.workspace = true
+huskarl-crypto-native.workspace = true
+huskarl-reqwest.workspace = true
+reqwest-oauth.workspace = true
+keyring-core.workspace = true
+serde_json.workspace = true
+zeroize.workspace = true
+ulid.workspace = true
 eframe.workspace = true
 egui_extras.workspace = true
 fontique.workspace = true
@@ -24,7 +33,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"
 percent-encoding.workspace = true
 
 interprocess.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-util", "net", "sync", "time", "fs"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-util", "net", "sync", "time", "fs", "process"] }
 tokio-util.workspace = true
 sha2.workspace = true
 hex.workspace = true
@@ -55,6 +64,21 @@ tempfile.workspace = true
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
 
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store.workspace = true
+
 [target.'cfg(windows)'.dependencies]
+windows-native-keyring-store.workspace = true
 windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading", "Win32_System_SystemServices", "Win32_Storage_FileSystem"] }
 widestring.workspace = true
+
+[target.'cfg(any(target_os = "macos", windows))'.dev-dependencies]
+axum.workspace = true
+clacks-server.workspace = true
+clacks-web = { workspace = true, features = ["ssr"] }
+leptos.workspace = true
+openidconnect.workspace = true
+reqwest = { workspace = true, features = ["cookies", "json"] }
+rsa.workspace = true
+rand.workspace = true
+chrono.workspace = true
