@@ -12,9 +12,6 @@ choices rather than additional product requirements. The
 OpenID Connect is abbreviated OIDC. A nonce is a random request-binding value
 that the provider returns in its identity token for verification.
 
-The [#11 implementation plan](superpowers/plans/2026-10-28-account-management.md)
-maps this design to production modules, task boundaries and verification.
-
 ## 1. Scope and composition
 
 Deliver a real Axum/Leptos application and PostgreSQL account store that later
