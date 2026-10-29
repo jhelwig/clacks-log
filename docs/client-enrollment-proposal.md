@@ -1,8 +1,8 @@
 # Desktop enrollment: schema, transactions and workflows
 
 The client-enrollment contract for [issue #12](https://github.com/jhelwig/clacks-log/issues/12).
-The [implementation plan](superpowers/plans/2026-10-29-client-enrollment.md)
-maps this contract to implementation and verification.
+The completed implementation plan and verification are retained in
+[PR #57](https://github.com/jhelwig/clacks-log/pull/57) and Git history.
 [accounts.md](accounts.md) owns accepted account behavior;
 [synchronization-model.md](synchronization-model.md) owns admission and recovery.
 
@@ -49,8 +49,8 @@ Engineering defaults, rather than additional product requirements:
 | Workspace destination | A new account workspace under the managed data directory, with a directory override. Keep the current workspace intact; do not repurpose the running database. |
 
 No schema/protocol/crypto compatibility guarantee is inferred from package names.
-Use the evaluated versions from accounts.md as the starting dependency set and
-commit exact resolution in the implementation plan. Production features are
+The selected libraries are described in accounts.md; Cargo.lock records exact
+dependency resolution. Production oauth-as features are
 `dpop`, `jwt-p256`, `http`; defaults are empty. Leave other grants, desktop dynamic
 registration, JSON Web Token (JWT) access tokens and refresh response caching disabled.
 
@@ -146,8 +146,9 @@ Use authenticated encryption for the key envelope and code-receipt secret pair.
 Bind the receipt to its account, code digest, purpose and format version through
 associated data. Preserve that binding when Consumed becomes Replayed. The
 nonce and ciphertext are storage fields, not application-generated crypto formats
-or telemetry. The implementation plan must specify library encoding and nonce
-uniqueness; do not improvise a nonce counter across application instances.
+or telemetry. RustCrypto AES-256-GCM uses a fresh OS-random 12-byte nonce for each
+encryption and appends its 16-byte authentication tag to the ciphertext. Store
+these bytes directly; no nonce counter is coordinated across application instances.
 
 Receipt metadata remains queryable and relational. On read, restore the code
 string from the presented code; decrypt the token-reference pair only when the
