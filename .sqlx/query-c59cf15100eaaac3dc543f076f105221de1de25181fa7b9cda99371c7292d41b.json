@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO service_assertion (payload_id, account, qso_id, service, destination_id, claim, date, source, source_record, mapping, native_end, fields, has_location, coverage) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 14
+    },
+    "nullable": []
+  },
+  "hash": "c59cf15100eaaac3dc543f076f105221de1de25181fa7b9cda99371c7292d41b"
+}

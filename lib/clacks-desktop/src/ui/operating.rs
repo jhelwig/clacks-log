@@ -271,38 +271,22 @@ impl SettingsUi {
             effective.to_mut().operating = acknowledged.clone();
         }
         for record in self.acknowledged_records.values() {
-            let rows = match record.key.id {
+            let rows = match record.key().id {
                 RecordId::Profile(_) => &mut effective.to_mut().profiles,
                 RecordId::Equipment(_) => &mut effective.to_mut().equipment,
                 _ => continue,
             };
-            if let Some(previous) = rows.iter_mut().find(|previous| previous.key == record.key) {
+            if let Some(previous) = rows
+                .iter_mut()
+                .find(|previous| previous.key() == record.key())
+            {
                 *previous = record.clone();
             } else {
                 rows.push(record.clone());
             }
         }
-        if effective
-            .operating
-            .selected_profile
-            .as_ref()
-            .is_some_and(|profile| {
-                self.known_deletions
-                    .contains(&RecordId::Profile(profile.id))
-            })
-        {
-            effective.to_mut().operating.selected_profile = None;
-        }
-        if effective
-            .operating
-            .selected_equipment
-            .as_ref()
-            .is_some_and(|equipment| {
-                self.known_deletions
-                    .contains(&RecordId::Equipment(equipment.id))
-            })
-        {
-            effective.to_mut().operating.selected_equipment = None;
+        for id in &self.known_deletions {
+            effective.to_mut().operating.forget_source(*id);
         }
         let snapshot = effective.as_ref();
         if self.restore_focus.is_some() {
@@ -490,10 +474,10 @@ impl SettingsUi {
         for record in snapshot.profiles.iter().chain(&snapshot.equipment) {
             match record.working_state() {
                 Some(RecordState::Deleted) => {
-                    self.known_deletions.insert(record.key.id);
+                    self.known_deletions.insert(record.key().id);
                 }
                 Some(RecordState::Live(_)) => {
-                    self.known_deletions.remove(&record.key.id);
+                    self.known_deletions.remove(&record.key().id);
                 }
                 None => {}
             }
@@ -526,9 +510,14 @@ pub(super) fn configuration(record: &ClientRecord) -> Option<&EquipmentConfigura
 }
 /// Distinguish duplicate profile names with the saved native identity.
 pub(super) fn profile_label(p: &SavedLocationProfile) -> String {
-    format!("{} · {} · {}", p.name, p.station.callsign.as_str(), p.id)
+    format!(
+        "{} · {} · {}",
+        p.name(),
+        p.station().callsign.as_str(),
+        p.id()
+    )
 }
 /// Distinguish duplicate equipment names with the saved native identity.
 pub(super) fn equipment_label(e: &EquipmentConfiguration) -> String {
-    format!("{} · {}", e.name, e.id)
+    format!("{} · {}", e.name(), e.id())
 }

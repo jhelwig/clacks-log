@@ -20,14 +20,24 @@ async fn worked_before_follows_prefix_scope_and_working_state() -> anyhow::Resul
     .await?;
     for (n, call) in [(10, "W7HEX"), (11, "W7HEX/P"), (12, "OK2CQR")] {
         let mut qso = support::qso(support::id(n));
-        qso.contacted_station.callsign = RecordedCallsign::new(call)?;
-        qso.own_station.callsign = RecordedCallsign::new(if n == 10 { "W1AW" } else { "W2AW" })?;
+        support::edit(&mut qso, |qso| {
+            qso.contacted_station.callsign = RecordedCallsign::new(call)?;
+            Ok(())
+        });
+        support::edit(&mut qso, |qso| {
+            qso.own_station.callsign =
+                RecordedCallsign::new(if n == 10 { "W1AW" } else { "W2AW" })?;
+            Ok(())
+        });
         if n == 10 {
-            qso.tags.insert(support::id(20));
+            support::edit(&mut qso, |qso| {
+                qso.tags.insert(support::id(20));
+                Ok(())
+            });
         }
         save::save(
             &store,
-            support::qso_key(qso.id),
+            support::qso_key(qso.id()),
             None,
             support::contact(qso),
         )
@@ -72,7 +82,10 @@ async fn worked_before_follows_prefix_scope_and_working_state() -> anyhow::Resul
     let key = support::qso_key(support::id(10));
     let original = save::load(&store, key).await?.unwrap();
     let mut qso = support::qso(support::id(10));
-    qso.contacted_station.callsign = RecordedCallsign::new("W7HEX/QRP")?;
+    support::edit(&mut qso, |qso| {
+        qso.contacted_station.callsign = RecordedCallsign::new("W7HEX/QRP")?;
+        Ok(())
+    });
     save::save(&store, key, Some(&original), support::contact(qso)).await?;
     let mut snapshot = read::snapshot(&store).await?;
     let page = snapshot.worked_before(&query).await?;
@@ -80,7 +93,7 @@ async fn worked_before_follows_prefix_scope_and_working_state() -> anyhow::Resul
     assert!(
         page.rows
             .iter()
-            .any(|r| r.working.qso.contacted_station.callsign.as_str() == "W7HEX/QRP")
+            .any(|r| r.working.qso.contacted_station().callsign.as_str() == "W7HEX/QRP")
     );
     snapshot.close().await?;
     let current = save::load(&store, key).await?.unwrap();

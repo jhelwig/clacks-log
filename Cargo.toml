@@ -33,6 +33,7 @@ license = "Elastic-2.0"
 publish = false
 
 [workspace.dependencies]
+shlex = "2.0.1"
 oauth-as = { version = "=1.0.0", default-features = false, features = ["dpop", "jwt-p256", "http"] }
 huskarl = { version = "=0.11.9", features = ["authorization-flow-loopback", "tracing"] }
 huskarl-core = "=0.10.10"
@@ -114,7 +115,7 @@ regex = "1"
 winnow = "=1.0.3"
 num-bigint = "=0.4.8"
 num-integer = "=0.1.47"
-ulid = "3"
+ulid = { version = "3", features = ["serde"] }
 thiserror = "2"
 anyhow = "1"
 
@@ -165,3 +166,6 @@ bin-cargo-args = ["--locked"]
 lib-features = ["hydrate"]
 lib-default-features = false
 lib-cargo-args = ["--locked"]
+
+[workspace.lints.rust]
+dead_code = "deny"

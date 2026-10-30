@@ -125,8 +125,8 @@ pub struct MappingSelection {
 /// Check group participation on a station side, including group-only associations.
 pub(crate) fn has_association(qso: &Qso, group: GroupId, side: StationSide) -> bool {
     let station = match side {
-        StationSide::Own => &qso.own_station,
-        StationSide::Contacted => &qso.contacted_station,
+        StationSide::Own => &qso.own_station(),
+        StationSide::Contacted => &qso.contacted_station(),
     };
     station.references.iter().any(|r| r.group_id == group)
 }
@@ -139,7 +139,7 @@ pub(crate) fn evaluate_fields(
     fields: &[FieldBinding],
     context: &ExpressionContext<'_>,
 ) -> anyhow::Result<BTreeMap<String, String>> {
-    let group_id = compiled.definition().id;
+    let group_id = compiled.definition().id();
     let mut output = BTreeMap::new();
     for binding in fields {
         let enabled = match &binding.when {
@@ -227,16 +227,16 @@ pub(crate) fn select_mappings_with_compiled<'a>(
     }
     if profile.purpose == OutputPurpose::Targeted && context.target_group_id.is_none() {
         return Err(ExportError::NotReady {
-            qso_id: qso.id,
+            qso_id: qso.id(),
             reason: "targeted output requires a target group".into(),
         }
         .into());
     }
     let group_ids: BTreeSet<_> = qso
-        .own_station
+        .own_station()
         .references
         .iter()
-        .chain(&qso.contacted_station.references)
+        .chain(&qso.contacted_station().references)
         .map(|r| r.group_id)
         .collect();
     let mut selection = MappingSelection::default();
@@ -253,7 +253,7 @@ pub(crate) fn select_mappings_with_compiled<'a>(
         }
         let Some(definition) = definitions.get(group_id) else {
             selection.warnings.push(ExportWarning::UnsupportedGroup {
-                qso_id: qso.id,
+                qso_id: qso.id(),
                 group_id,
             });
             continue;
@@ -264,16 +264,16 @@ pub(crate) fn select_mappings_with_compiled<'a>(
         };
         let mut plan = match profile.purpose {
             OutputPurpose::OrdinaryInterchange => GroupExportPlan {
-                fields: definition.export_mappings.ordinary_interchange.clone(),
+                fields: definition.export_mappings().ordinary_interchange.clone(),
                 ..Default::default()
             },
             OutputPurpose::Targeted => definition
-                .export_mappings
+                .export_mappings()
                 .targeted
                 .get(&profile.id)
                 .cloned()
                 .ok_or_else(|| ExportError::NotReady {
-                    qso_id: qso.id,
+                    qso_id: qso.id(),
                     reason: "target has no mapping for output profile".into(),
                 })?,
         };
@@ -301,7 +301,7 @@ pub(crate) fn select_mappings_with_compiled<'a>(
     }
     if profile.purpose == OutputPurpose::Targeted && selection.groups.is_empty() {
         return Err(ExportError::NotReady {
-            qso_id: qso.id,
+            qso_id: qso.id(),
             reason: "contact does not participate in target group".into(),
         }
         .into());
@@ -313,7 +313,7 @@ pub(crate) fn select_mappings_with_compiled<'a>(
     if let Some(ContextResolution::ChooseTarget(id)) = resolution {
         if context.target_group_id.is_some() || !ambiguous.iter().any(|(_, c)| c.contains_key(id)) {
             return Err(ExportError::InvalidResolution {
-                qso_id: qso.id,
+                qso_id: qso.id(),
                 reason: "choice is not an ambiguous candidate".into(),
             }
             .into());
@@ -332,7 +332,7 @@ pub(crate) fn select_mappings_with_compiled<'a>(
     }
     if resolution.is_some() && ambiguous.is_empty() {
         return Err(ExportError::InvalidResolution {
-            qso_id: qso.id,
+            qso_id: qso.id(),
             reason: "no ambiguous field to omit".into(),
         }
         .into());
@@ -343,7 +343,7 @@ pub(crate) fn select_mappings_with_compiled<'a>(
         }
         if resolution == Some(&ContextResolution::OmitReported) {
             selection.warnings.push(ExportWarning::OmittedContextField {
-                qso_id: qso.id,
+                qso_id: qso.id(),
                 field,
                 candidates,
             });
@@ -351,7 +351,7 @@ pub(crate) fn select_mappings_with_compiled<'a>(
             selection
                 .decisions
                 .push(ExportDecision::AmbiguousContextField {
-                    qso_id: qso.id,
+                    qso_id: qso.id(),
                     field,
                     candidates,
                 });

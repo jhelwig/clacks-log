@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT k.key_version AS version, k.active, k.wrapping_key_reference,\n       (SELECT count(*) FROM clacks.desktop_authorization_codes c WHERE c.account_id = k.account_id AND c.receipt_key_version = k.key_version) AS \"receipts!\"\nFROM clacks.account_encryption_keys k WHERE k.account_id = $1 ORDER BY k.key_version\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.account_encryption_keys",
+            "name": "key_version"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "active",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "clacks.account_encryption_keys",
+            "name": "active"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "wrapping_key_reference",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.account_encryption_keys",
+            "name": "wrapping_key_reference"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "receipts!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "26adef2865b25a763974d6ecde56198cb7385de4c774eaff23e4bb4801ee9794"
+}

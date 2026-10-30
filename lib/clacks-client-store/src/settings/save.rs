@@ -16,7 +16,7 @@ use clacks_sync::{
 fn check_basis(key: RecordKey, expected: Option<&ClientRecord>) -> anyhow::Result<()> {
     if let Some(expected) = expected {
         anyhow::ensure!(
-            expected.key == key,
+            expected.key() == key,
             "editor basis belongs to another record or account"
         );
     }
@@ -29,10 +29,9 @@ pub(super) async fn profile(
     expected: Option<&ClientRecord>,
     next: &SavedLocationProfile,
 ) -> anyhow::Result<ProfileSaveResult> {
-    anyhow::ensure!(!next.name.trim().is_empty(), "profile name is required");
     let key = RecordKey {
         account: store.account,
-        id: RecordId::Profile(next.id),
+        id: RecordId::Profile(next.id()),
     };
     check_basis(key, expected)?;
     let mut transaction = store.write().await?;
@@ -45,7 +44,7 @@ pub(super) async fn profile(
     .await?;
     let mut missing_equipment = None;
     if !matches!(outcome, SaveOutcome::Stale { .. })
-        && let Some(id) = next.default_equipment
+        && let Some(id) = next.default_equipment()
     {
         let equipment = client::load(
             &mut transaction,
@@ -74,7 +73,7 @@ pub(super) async fn profile(
         } else {
             "create"
         };
-        tracing::info!(event = "profile.saved", account_id = %store.account, profile_id = %next.id, missing_equipment = ?missing_equipment);
+        tracing::info!(event = "profile.saved", account_id = %store.account, profile_id = %next.id(), missing_equipment = ?missing_equipment);
         metrics::counter!("clacks_client_profile_mutations_total", "change" => change).increment(1);
     }
     Ok(ProfileSaveResult {
@@ -89,13 +88,9 @@ pub(super) async fn equipment(
     expected: Option<&ClientRecord>,
     next: &EquipmentConfiguration,
 ) -> anyhow::Result<SaveOutcome> {
-    anyhow::ensure!(
-        !next.name.trim().is_empty(),
-        "equipment configuration name is required"
-    );
     let key = RecordKey {
         account: store.account,
-        id: RecordId::Equipment(next.id),
+        id: RecordId::Equipment(next.id()),
     };
     check_basis(key, expected)?;
     save::save(

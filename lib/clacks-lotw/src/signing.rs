@@ -86,10 +86,10 @@ pub fn write_batch<W: Write>(
         let input = input::prepare_input(item.submission, item.credential.metadata(), definitions)
             .with_context(|| format!("prepare batch item {index}"))?;
         let date =
-            OffsetDateTime::from_unix_timestamp(item.submission.key.start.unix_seconds())?.date();
+            OffsetDateTime::from_unix_timestamp(item.submission.key().start.unix_seconds())?.date();
         let issues = eligibility(
             item.credential.metadata(),
-            &item.submission.signing_identity,
+            item.submission.signing_identity(),
             date,
             item.state,
             now,

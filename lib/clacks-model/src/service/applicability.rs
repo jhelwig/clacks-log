@@ -308,7 +308,7 @@ pub fn eligible_station_facts(
     let Some(s) = input.station else {
         return Ok(None);
     };
-    let location = RecordedLocation {
+    let location = crate::location::RecordedLocationFields {
         position: reported(&s.position),
         dxcc: reported(&s.dxcc),
         primary_subdivision: reported(&s.primary_subdivision),
@@ -316,7 +316,9 @@ pub fn eligible_station_facts(
         cq_zone: reported(&s.cq_zone),
         itu_zone: reported(&s.itu_zone),
     }
-    .normalized();
+    .normalized()
+    .map(RecordedLocation::try_from)
+    .transpose()?;
     Ok(Some(StationFacts {
         name: reported(&s.name),
         location,
@@ -337,17 +339,17 @@ pub fn submitted_fields(projection: &SubmissionProjection) -> AdifFields {
     match projection {
         SubmissionProjection::Qrz(v) => v.fields.clone(),
         SubmissionProjection::Lotw(v) => {
-            let mut fields = v.contact_fields.clone();
+            let mut fields = v.contact_fields().clone();
             fields.extend(
-                v.station_fields
+                v.station_fields()
                     .iter()
                     .map(|(k, v)| (format!("STATION:{k}"), v.clone())),
             );
             fields.insert(
                 "STATION:CALL".into(),
-                v.signing_identity.callsign.as_str().into(),
+                v.signing_identity().callsign.as_str().into(),
             );
-            fields.insert("STATION:DXCC".into(), v.signing_identity.dxcc.clone());
+            fields.insert("STATION:DXCC".into(), v.signing_identity().dxcc.clone());
             fields
         }
     }

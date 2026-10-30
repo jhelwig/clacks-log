@@ -5,13 +5,7 @@ use clacks_client_store::{
     operating::OperatingState,
     settings::SettingsSnapshot,
 };
-use clacks_model::{
-    contact::StationSnapshot,
-    equipment::EquipmentValues,
-    ids::AccountId,
-    profile::{CurrentOperatingValues, EquipmentConfiguration, SavedLocationProfile},
-    scalar::RecordedCallsign,
-};
+use clacks_model::{ids::AccountId, scalar::RecordedCallsign};
 use clacks_sync::{
     client::{ClientRecord, OriginalBasis, PendingRecord},
     error::UnknownReason,
@@ -23,7 +17,7 @@ pub(in crate::ui) fn row(value: RecordValue) -> ClientRecord {
         account: "00000000000000000000000001".parse::<AccountId>().unwrap(),
         id: value.id(),
     };
-    ClientRecord {
+    clacks_sync::client::ClientRecordFields {
         key,
         latest: Observation::Unavailable {
             key,
@@ -41,21 +35,23 @@ pub(in crate::ui) fn row(value: RecordValue) -> ClientRecord {
             witness: None,
         }),
     }
+    .try_into()
+    .expect("coherent client fixture")
 }
 
 pub(in crate::ui) fn snapshot() -> SettingsSnapshot {
-    let equipment = EquipmentConfiguration {
+    let equipment = clacks_model::profile::EquipmentConfigurationFields {
         id: Default::default(),
         name: "Rig A".into(),
-        values: EquipmentValues {
+        values: clacks_model::equipment::EquipmentValuesFields {
             equipment_description: Some("IC-7300".into()),
             ..Default::default()
         },
     };
-    let home = SavedLocationProfile {
+    let home = clacks_model::profile::SavedLocationProfileFields {
         id: Default::default(),
         name: "Home".into(),
-        station: StationSnapshot {
+        station: clacks_model::contact::StationSnapshot {
             callsign: RecordedCallsign::new("W7HEX").unwrap(),
             location: None,
             references: Default::default(),
@@ -67,18 +63,31 @@ pub(in crate::ui) fn snapshot() -> SettingsSnapshot {
             selected_view: SelectedView::AllContacts,
             tags: vec![],
         },
-        operating: OperatingState {
-            current: Some(CurrentOperatingValues {
+        operating: OperatingState::new(
+            Some(clacks_model::profile::CurrentOperatingValues {
                 station: home.station.clone(),
-                equipment: Some(equipment.values.clone()),
+                equipment: Some(
+                    (equipment.values.clone())
+                        .try_into()
+                        .expect("valid native fixture"),
+                ),
                 operator: None,
                 transmit_power: None,
             }),
-            selected_profile: Some(home.clone()),
-            selected_equipment: Some(equipment.clone()),
-        },
-        profiles: vec![row(RecordValue::Profile(Box::new(home)))],
-        equipment: vec![row(RecordValue::Equipment(Box::new(equipment)))],
+            Some((home.clone()).try_into().expect("valid native fixture")),
+            Some(
+                (equipment.clone())
+                    .try_into()
+                    .expect("valid native fixture"),
+            ),
+        )
+        .expect("coherent operating fixture"),
+        profiles: vec![row(RecordValue::Profile(Box::new(
+            (home).try_into().expect("valid native fixture"),
+        )))],
+        equipment: vec![row(RecordValue::Equipment(Box::new(
+            (equipment).try_into().expect("valid native fixture"),
+        )))],
         groups: vec![],
     }
 }

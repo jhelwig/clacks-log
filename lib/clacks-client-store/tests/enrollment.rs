@@ -114,12 +114,15 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
         matches!(synchronization::prepare(&store,key).await?,PrepareOutcome::AuthorizationReview { former_actor } if former_actor == old.actor)
     );
     let mut edited = support::qso(support::id(10));
-    edited.comment = Some("Keep this correction".into());
+    support::edit(&mut edited, |edited| {
+        edited.comment = Some("Keep this correction".into());
+        Ok(())
+    });
     save::save(&store, key, Some(&frozen), support::contact(edited)).await?;
     let pending = save::load(&store, key).await?.unwrap();
     assert_eq!(
-        pending.pending.as_ref().unwrap().prepared,
-        frozen.pending.as_ref().unwrap().prepared
+        pending.pending().as_ref().unwrap().prepared,
+        frozen.pending().as_ref().unwrap().prepared
     );
     assert!(matches!(
         synchronization::prepare(&store, key).await?,
@@ -128,7 +131,7 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
 
     let accepted = support::accepted(1, support::contact(support::qso(support::id(10))));
     let source = InstalledCheckpoint {
-        coverage: Coverage::from(accepted.stamp.accepted_at),
+        coverage: Coverage::from(accepted.stamp.accepted_at()),
         ..checkpoint
     };
     let window = WindowManifest::new(
@@ -157,27 +160,27 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
     let reviews = snapshot.review(&Default::default()).await?;
     let shown = reviews
         .iter()
-        .find(|row| row.record.key == key)
+        .find(|row| row.record.key() == key)
         .and_then(|row| row.review.as_ref())
         .unwrap();
     assert_eq!(shown.reason, ReviewReason::ExcludedActor(old.actor));
     let absent_review = reviews
         .iter()
-        .find(|row| row.record.key == unsubmitted)
+        .find(|row| row.record.key() == unsubmitted)
         .and_then(|row| row.review.as_ref())
         .cloned()
         .expect("unsubmitted contact has no resolvable authorization review");
     assert_eq!(absent_review.reason, ReviewReason::ExcludedActor(old.actor));
     let unsent = save::load(&store, unsubmitted).await?.unwrap();
     assert!(matches!(
-        unsent.latest,
+        unsent.latest(),
         clacks_sync::record::Observation::Absent { .. }
     ));
 
     let current = save::load(&store, key).await?.unwrap();
     assert_eq!(
-        current.pending.as_ref().unwrap().prepared,
-        frozen.pending.as_ref().unwrap().prepared
+        current.pending().as_ref().unwrap().prepared,
+        frozen.pending().as_ref().unwrap().prepared
     );
     let chosen = current.working_state().unwrap().clone();
     let shown = shown.clone();
@@ -193,7 +196,7 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
         SaveOutcome::Saved(_)
     ));
 
-    account.head = accepted.stamp.accepted_at;
+    account.head = accepted.stamp.accepted_at();
     account.installed = source.coverage;
     account.membership_generation = 1;
     let next = MembershipSnapshot {
@@ -239,7 +242,7 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
 
 #[tokio::test]
 async fn completion_attempt_and_binding_are_guarded_across_restart() -> anyhow::Result<()> {
-    use enrollment::{EnrollmentAttempt, EnrollmentPhase};
+    use enrollment::EnrollmentAttempt;
     let directory = tempfile::tempdir()?;
     let path = directory.path().join("account.sqlite");
     let store = ClientStore::create(&path, support::id(1), StoreSettings::default()).await?;
@@ -249,21 +252,24 @@ async fn completion_attempt_and_binding_are_guarded_across_restart() -> anyhow::
         server: "https://clacks.example".into(),
         credential_reference: "saved-native-entry".into(),
     };
-    let saved = EnrollmentAttempt {
-        credential_reference: binding.credential_reference.clone(),
-        server: binding.server.clone(),
-        destination: Some(directory.path().into()),
-        expected: None,
-        phase: EnrollmentPhase::CredentialSaved,
-    };
+    let mut saved = EnrollmentAttempt::new(
+        binding.credential_reference.clone(),
+        binding.server.clone(),
+        Some(directory.path().into()),
+        None,
+    )?;
+    saved.credential_saved();
     enrollment::save_attempt(&store, &saved).await?;
     store.close().await?;
     let store = ClientStore::open(&path, support::id(1), StoreSettings::default()).await?;
     assert_eq!(enrollment::attempt(&store).await?, Some(saved.clone()));
-    let stale = EnrollmentAttempt {
-        credential_reference: "superseded-native-entry".into(),
-        ..saved.clone()
-    };
+    let mut stale = EnrollmentAttempt::new(
+        "superseded-native-entry".into(),
+        binding.server.clone(),
+        Some(directory.path().into()),
+        None,
+    )?;
+    stale.credential_saved();
     enrollment::clear_attempt(&store, &stale).await?;
     assert_eq!(enrollment::attempt(&store).await?, Some(saved.clone()));
     let wrong = EnrollmentBinding {

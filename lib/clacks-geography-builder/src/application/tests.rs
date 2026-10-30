@@ -35,8 +35,6 @@ fn build_and_verify_are_explicit_discoverable_commands() {
 }
 
 use crate::publication_recipe;
-#[allow(dead_code)]
-#[path = "../../../clacks-model/tests/support/telemetry.rs"]
 mod telemetry;
 
 #[test]

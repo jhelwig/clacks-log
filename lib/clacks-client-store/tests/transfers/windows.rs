@@ -80,7 +80,7 @@ async fn partial_unit_is_durable_and_cannot_be_acknowledged_or_replaced() -> any
     let source = InstalledCheckpoint {
         account: support::id(1),
         baseline: baseline.id,
-        coverage: Coverage::from(tag.stamp.accepted_at),
+        coverage: Coverage::from(tag.stamp.accepted_at()),
     };
     let manifest = WindowManifest::new(
         source.account,
@@ -89,7 +89,7 @@ async fn partial_unit_is_durable_and_cannot_be_acknowledged_or_replaced() -> any
         [&qso, &tag]
             .into_iter()
             .map(|value| RecordRequirement {
-                key: value.key,
+                key: value.key(),
                 stamp: value.stamp.clone(),
                 deleted: false,
             })
@@ -116,7 +116,7 @@ async fn partial_unit_is_durable_and_cannot_be_acknowledged_or_replaced() -> any
     )
     .await?;
     assert!(batch.accepted.is_empty());
-    assert!(save::load(&store, qso.key).await?.is_none());
+    assert!(save::load(&store, qso.key()).await?.is_none());
     assert!(
         transfer::finish(&store, &source, &WindowMode::Full)
             .await
@@ -135,7 +135,7 @@ async fn partial_unit_is_durable_and_cannot_be_acknowledged_or_replaced() -> any
     .await?;
     assert_eq!(batch.accepted.len(), 2);
     assert!(batch.staged.is_empty());
-    assert!(save::load(&store, qso.key).await?.is_some());
+    assert!(save::load(&store, qso.key()).await?.is_some());
     assert_eq!(
         transfer::finish(&store, &source, &WindowMode::Full).await?,
         source

@@ -14,7 +14,7 @@ explains the representation and examples.
 | --- | --- |
 | `clock`, `record`, `account` | Typed record domains, checked writer counters, native envelopes and complete installed checkpoints |
 | `lineage`, `compare` | Position-dependent ancestry, explained missing evidence and whole-record change attribution |
-| `client` | Prepare/retry one frozen version, incorporate accepted own versions, retain later edits, resolve client review |
+| `client`, `client::preparation` | Prepare/retry one frozen version, incorporate accepted own versions, retain later edits, resolve client review |
 | `acceptance` | Check client admission or server-origin changes; return envelope, journal, account and reference guards |
 | `transfer` | Validate immutable manifests, plan bounded batches and verify every version/deletion before checkpoint advance |
 | `membership`, `compaction` | Close admission, select common authorized coverage, preserve original-value witnesses and project eligible closed writers |
@@ -31,10 +31,20 @@ proposal. This set holds unresolved alternatives, not a per-edit history.
 Native equality and causality are separate: metadata bookkeeping alone
 does not change recorded facts or request an external upload.
 
-Composite saved rows expose fields for ordinary Rust serialization.
-`ClientRecord::validate` checks restored native values, record keys, frozen
-conditions and retained witness structure. Causal comparison still requires
-the actual retained interpretation and the relevant transition operation.
+`VersionStamp::new` checks the accepted server component before exposing causal
+context. `AcceptedRecord::new` binds native state to its record key. Deserialize
+accepted envelopes through these same boundaries; their native wire fields remain
+unchanged. A stamp is independently checked and can be replaced as a whole during
+compaction, without changing the envelope's key or saved values.
+
+Construct or restore local state through `ClientRecordFields::try_into` and frozen
+proposals through `PreparedChangeFields::try_into`. Ordinary callers borrow the
+saved state; complete edits use `ClientRecord::into_fields` and checked replacement.
+Pending input belongs to the checked client record and cannot be mutated through
+its saved view. Sealed `BasisWitness` restoration reestablishes same-version or
+before ordering from its supplied lineage and baselines. These checks do not prove
+that current account authority or transaction guards still hold.
+
 `Lineage::initial_timeline` and `boundaries` expose the complete snapshot for
 durable restoration without inferring its root from current heads. Native errors remain
 concrete causes through `anyhow::Error`; metadata diagnostics use `thiserror`.

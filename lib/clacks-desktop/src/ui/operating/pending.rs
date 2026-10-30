@@ -23,10 +23,10 @@ pub(super) fn show(
     });
     match &frame.tab {
         OperatingTab::Station => {
-            let baseline =
-                editor.expected.current.as_ref().map(|value| {
-                    crate::operating::station::StationForm::from_snapshot(&value.station)
-                });
+            let baseline = editor
+                .expected
+                .current()
+                .map(|value| crate::operating::station::StationForm::from_snapshot(&value.station));
             ui.label(format!(
                 "Selected profile: {}",
                 editor
@@ -38,21 +38,21 @@ pub(super) fn show(
             for record in snapshot
                 .profiles
                 .iter()
-                .filter(|r| !known_deletions.contains(&r.key.id))
+                .filter(|r| !known_deletions.contains(&r.key().id))
             {
                 if let Some(profile) = profile(record) {
-                    ui.push_id(profile.id, |ui| {
+                    ui.push_id(profile.id(), |ui| {
                         if ui
                             .button(format!("Load {}", profile_label(profile)))
                             .clicked()
                         {
-                            let equipment = profile.default_equipment.and_then(|id| {
+                            let equipment = profile.default_equipment().and_then(|id| {
                                 snapshot
                                     .equipment
                                     .iter()
-                                    .filter(|r| !known_deletions.contains(&r.key.id))
+                                    .filter(|r| !known_deletions.contains(&r.key().id))
                                     .filter_map(configuration)
-                                    .find(|e| e.id == id)
+                                    .find(|e| e.id() == id)
                             });
                             if let Err(error) = editor.stage_profile(profile, equipment) {
                                 frame.notice = Some(format!("Could not load profile: {error:#}"));
@@ -68,7 +68,7 @@ pub(super) fn show(
                     .profiles
                     .iter()
                     .filter_map(profile)
-                    .any(|p| p.id == selected.id && p != selected)
+                    .any(|p| p.id() == selected.id() && p != selected)
             {
                 ui.label("Selected profile has changed. Values remain as copied; explicitly load it to refresh.");
             }
@@ -98,8 +98,7 @@ pub(super) fn show(
             let baseline = crate::operating::equipment::EquipmentForm::from_values(
                 editor
                     .expected
-                    .current
-                    .as_ref()
+                    .current()
                     .and_then(|value| value.equipment.as_ref()),
             );
             ui.label(format!(
@@ -113,10 +112,10 @@ pub(super) fn show(
             for equipment in snapshot
                 .equipment
                 .iter()
-                .filter(|r| !known_deletions.contains(&r.key.id))
+                .filter(|r| !known_deletions.contains(&r.key().id))
                 .filter_map(configuration)
             {
-                ui.push_id(equipment.id, |ui| {
+                ui.push_id(equipment.id(), |ui| {
                     if ui
                         .button(format!("Load {}", equipment_label(equipment)))
                         .clicked()
@@ -131,7 +130,7 @@ pub(super) fn show(
                     .equipment
                     .iter()
                     .filter_map(configuration)
-                    .any(|e| e.id == selected.id && e != selected)
+                    .any(|e| e.id() == selected.id() && e != selected)
             {
                 ui.label("Selected configuration has changed. Values remain as copied; explicitly load it to refresh.");
             }
@@ -162,13 +161,12 @@ pub(super) fn show(
         OperatingTab::Operator => {
             let original = editor
                 .expected
-                .current
-                .as_ref()
+                .current()
                 .and_then(|value| value.operator.as_ref());
             let call_changed = fields::callsign_changed(
                 &editor.operator_callsign,
                 original
-                    .and_then(|value| value.callsign.as_ref())
+                    .and_then(|value| value.callsign().as_ref())
                     .map(|call| call.as_str()),
             );
             let mut changed = fields::radio_text(
@@ -181,7 +179,7 @@ pub(super) fn show(
             );
             let name_changed = fields::text_changed(
                 &editor.operator_name,
-                original.and_then(|value| value.recorded_name.as_deref()),
+                original.and_then(|value| value.recorded_name().as_deref()),
             );
             changed |= fields::text(
                 ui,
@@ -193,8 +191,7 @@ pub(super) fn show(
             );
             let original_power = editor
                 .expected
-                .current
-                .as_ref()
+                .current()
                 .and_then(|value| value.transmit_power);
             let power_changed = crate::operating::power::parse_watts(&editor.power_watts)
                 .map(|value| value != original_power)

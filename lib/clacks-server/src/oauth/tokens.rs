@@ -2,7 +2,8 @@
 
 use super::{
     digest::{CredentialKind, digest},
-    rows::TokenRow,
+    grant::GrantState,
+    rows::{AccessRow, RefreshRow},
     store::OAuthStore,
 };
 use crate::enrollment::AuthorizedClient;
@@ -82,20 +83,21 @@ async fn permit(connection: &mut PgConnection, input: &FamilyInput<'_>) -> anyho
             && row.grant_established_at == input.established,
         "credential metadata differs from its grant family"
     );
-    match row.state.as_str() {
-        "provisional" => Ok(row.actor_id.is_none()
-            && row
-                .provisional_until
-                .is_some_and(|until| until > OffsetDateTime::now_utc())),
-        "active" => {
-            let actor = row.actor_id.context("active grant has no actor")?;
-            let member = sqlx::query_file!("sql/enrollment/client_lock.sql", input.account, actor)
-                .fetch_optional(connection)
-                .await?;
+    let state =
+        GrantState::from_columns(&row.state, row.actor_id.as_deref(), row.provisional_until)?;
+    match state {
+        GrantState::Provisional { until } => Ok(until > OffsetDateTime::now_utc()),
+        GrantState::Active { actor } => {
+            let member = sqlx::query_file!(
+                "sql/enrollment/client_lock.sql",
+                input.account,
+                actor.to_string()
+            )
+            .fetch_optional(connection)
+            .await?;
             Ok(member.is_some_and(|member| member.closed_at.is_none()))
         }
-        "revoked" => Ok(false),
-        _ => anyhow::bail!("invalid grant state"),
+        GrantState::Revoked => Ok(false),
     }
 }
 
@@ -135,10 +137,7 @@ pub(crate) async fn put_access(
         hash.as_slice(),
         account,
         family,
-        input.client,
-        key,
         issued,
-        input.established,
         expires
     )
     .execute(&mut *transaction)
@@ -208,9 +207,6 @@ pub(crate) async fn put_refresh(
         hash.as_slice(),
         account,
         record.family_id,
-        input.client,
-        key,
-        input.established,
         expires,
         state
     )
@@ -242,11 +238,6 @@ pub(crate) async fn put_refresh(
     Ok(WriteOutcome::Applied)
 }
 
-/// Whether a persisted credential currently names an authorized actor.
-fn active(row: &TokenRow) -> bool {
-    row.family_state == "active" && row.actor_id.is_some() && row.closed_at.is_none()
-}
-
 /// Reconstruct a library access record from the exact credential presented for lookup.
 pub(crate) async fn get_access(
     pool: &PgPool,
@@ -254,13 +245,18 @@ pub(crate) async fn get_access(
 ) -> anyhow::Result<Option<Arc<IssuedToken>>> {
     let hash = digest(CredentialKind::Access, token);
     let mut transaction = pool.begin().await?;
-    let Some(row) = sqlx::query_file_as!(TokenRow, "sql/oauth/access_select.sql", hash.as_slice())
+    let Some(row) = sqlx::query_file_as!(AccessRow, "sql/oauth/access_select.sql", hash.as_slice())
         .fetch_optional(&mut *transaction)
         .await?
     else {
         return Ok(None);
     };
-    if !active(&row) {
+    let grant = GrantState::from_columns(
+        &row.family_state,
+        row.actor_id.as_deref(),
+        row.provisional_until,
+    )?;
+    if grant.active_actor(row.closed_at).is_none() {
         return Ok(None);
     }
     let mut record = IssuedToken::new(
@@ -268,10 +264,8 @@ pub(crate) async fn get_access(
         ClientId::new(row.client_id),
         Some(row.account_id),
         ScopeSet::parse(&row.scope)?,
-        row.issued_at
-            .context("access issuance time is missing")?
-            .into(),
-        row.expires_at.context("access expiry is missing")?.into(),
+        row.issued_at.into(),
+        row.expires_at.into(),
     );
     record.grant_established_at = row.grant_established_at.into();
     record.family_id = Some(row.family_id);
@@ -298,13 +292,19 @@ pub(crate) async fn get_refresh(
 ) -> anyhow::Result<Option<RefreshTokenRecord>> {
     let hash = digest(CredentialKind::Refresh, token);
     let mut transaction = pool.begin().await?;
-    let Some(row) = sqlx::query_file_as!(TokenRow, "sql/oauth/refresh_select.sql", hash.as_slice())
-        .fetch_optional(&mut *transaction)
-        .await?
+    let Some(row) =
+        sqlx::query_file_as!(RefreshRow, "sql/oauth/refresh_select.sql", hash.as_slice())
+            .fetch_optional(&mut *transaction)
+            .await?
     else {
         return Ok(None);
     };
-    if !active(&row) {
+    let grant = GrantState::from_columns(
+        &row.family_state,
+        row.actor_id.as_deref(),
+        row.provisional_until,
+    )?;
+    if grant.active_actor(row.closed_at).is_none() {
         return Ok(None);
     }
     let mut record = RefreshTokenRecord::new(
@@ -318,9 +318,9 @@ pub(crate) async fn get_refresh(
     record.expires_at = row.expires_at.map(Into::into);
     record.jkt = Some(row.key_thumbprint.into());
     record.resource = row.resources;
-    record.state = match row.token_state.as_deref() {
-        Some("active") => RefreshTokenState::Active,
-        Some("spent") => RefreshTokenState::Spent,
+    record.state = match row.token_state.as_str() {
+        "active" => RefreshTokenState::Active,
+        "spent" => RefreshTokenState::Spent,
         _ => anyhow::bail!("invalid refresh token state"),
     };
     if take {
@@ -339,25 +339,26 @@ pub(crate) async fn authorized(
 ) -> anyhow::Result<Option<AuthorizedClient>> {
     let hash = digest(CredentialKind::Access, token);
     let mut transaction = pool.begin().await?;
-    let row = sqlx::query_file_as!(TokenRow, "sql/oauth/access_select.sql", hash.as_slice())
+    let row = sqlx::query_file_as!(AccessRow, "sql/oauth/access_select.sql", hash.as_slice())
         .fetch_optional(&mut *transaction)
         .await?;
     let Some(row) = row else {
         return Ok(None);
     };
-    if !active(&row)
-        || !row
-            .expires_at
-            .is_some_and(|expiry| expiry > OffsetDateTime::now_utc())
-    {
+    let grant = GrantState::from_columns(
+        &row.family_state,
+        row.actor_id.as_deref(),
+        row.provisional_until,
+    )?;
+    let Some(actor) = grant.active_actor(row.closed_at) else {
+        return Ok(None);
+    };
+    if row.expires_at <= OffsetDateTime::now_utc() {
         return Ok(None);
     }
     let result = AuthorizedClient {
         account: row.account_id.parse()?,
-        actor: row
-            .actor_id
-            .context("active grant actor missing")?
-            .parse()?,
+        actor,
         family: row.family_id,
         key_thumbprint: row.key_thumbprint,
         scope: ScopeSet::parse(&row.scope)?,

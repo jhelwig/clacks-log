@@ -136,7 +136,7 @@ async fn complete(
             authorizer,
             new_provider,
         } => {
-            super::changes::verify_authorizer(&state, &origin, &authorizer, &identity).await?;
+            super::changes::verify_authorizer(&state, &origin, authorizer, &identity).await?;
             Ok(Redirect::to(
                 oidc::authorization_url(
                     &state,
@@ -151,7 +151,7 @@ async fn complete(
         Purpose::CompleteLink { origin, authorizer } => {
             state
                 .store
-                .link_identity(&super::changes::action(origin, authorizer)?, identity)
+                .link_identity(&super::changes::action(origin, authorizer), identity)
                 .await
                 .map_err(AuthError::from_store)?;
             Ok(Redirect::to("/account/identities"))
@@ -161,12 +161,11 @@ async fn complete(
             authorizer,
             target,
         } => {
-            super::changes::verify_authorizer(&state, &origin, &authorizer, &identity).await?;
-            let target = target.parse().map_err(|_| AuthError::InvalidCallback)?;
+            super::changes::verify_authorizer(&state, &origin, authorizer, &identity).await?;
             let reference = origin.login_reference.clone();
             state
                 .store
-                .unlink_identity(&super::changes::action(origin, authorizer)?, target)
+                .unlink_identity(&super::changes::action(origin, authorizer), target)
                 .await
                 .map_err(AuthError::from_store)?;
             let live = state

@@ -81,6 +81,19 @@ code receipts. All application instances need the same version-to-key mapping.
 Changing the active version does not rewrap existing account keys or retire old
 versions. Do not remove an old wrapping key while any account envelope uses it.
 
+D381 includes wrapping-key rotation and individual account-key rotation through
+`clacks-admin` in MVP. Rewrapping or re-encrypting current database contents does
+not rewrite existing backups. Preserve the older wrapping-key material needed
+to decrypt the account keys in every supported backup, even after current rows
+have migrated. Rotation procedures must identify the retained recovery material.
+The [credential-protection contract](credential-protection-proposal.md) defines
+online migration and retry behavior; the
+[operator guide](../lib/clacks-server/README.md#credential-storage-and-key-maintenance)
+provides exact commands and key-only configuration. Before rotation, deploy the
+account-locked writer everywhere and drain older instances. Supported application
+rollback targets must retain that writer and support all live key/envelope formats.
+Current zero reference counts do not verify process rollout or backup disposal.
+
 An older database restore can lose client enrollments or restore authorization
 that was revoked after the backup. This is the ordinary rollback boundary,
 not rollback-proof revocation. Reapply known revocations after restoration.

@@ -28,7 +28,7 @@ async fn history_query_state_restores_unfinished_text_and_current_results() -> a
     let qso = support::qso(support::id(10));
     save::save(
         &store,
-        support::qso_key(qso.id),
+        support::qso_key(qso.id()),
         None,
         support::contact(qso),
     )
@@ -46,7 +46,7 @@ async fn history_query_state_restores_unfinished_text_and_current_results() -> a
         })
         .await?;
     assert_eq!(page.matching_total, 1);
-    assert_eq!(page.rows.first().unwrap().working.qso.id, support::id(10));
+    assert_eq!(page.rows.first().unwrap().working.qso.id(), support::id(10));
     snapshot.close().await?;
     store.close().await?;
     Ok(())

@@ -1,1 +1,1 @@
-SELECT name, identifier_required, syntax, bears_location, catalog_id, catalog_display, catalog_lookup FROM group_payload WHERE payload_id = ? AND account = ? AND record_id = ?
+SELECT name, identifier_config, bears_location, catalog_binding, ordinary_bindings FROM group_payload WHERE payload_id = ? AND account = ? AND record_id = ?

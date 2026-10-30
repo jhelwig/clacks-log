@@ -1,12 +1,12 @@
 //! Account-locked admission transitions coupled to OAuth grant activation.
 
-use super::{ClientSummary, Principal};
+use super::{ApprovalPurpose, ClientSummary, Principal};
 use crate::oauth::{
     digest::{CredentialKind, digest},
+    grant::GrantState,
     revocation,
-    rows::TokenRow,
+    rows::{AccessRow, RefreshRow},
 };
-use anyhow::Context;
 use clacks_model::ids::{AccountId, BaselineId, ClientActorId, TimelineId};
 use clacks_sync::{
     account::AccountMetadata,
@@ -176,7 +176,7 @@ pub(super) async fn activate(
     let access_hash = digest(CredentialKind::Access, access);
     let refresh_hash = digest(CredentialKind::Refresh, refresh);
     let Some(access) = sqlx::query_file_as!(
-        TokenRow,
+        AccessRow,
         "sql/oauth/access_select.sql",
         access_hash.as_slice()
     )
@@ -186,7 +186,7 @@ pub(super) async fn activate(
         return Ok(None);
     };
     let Some(refresh) = sqlx::query_file_as!(
-        TokenRow,
+        RefreshRow,
         "sql/oauth/refresh_select.sql",
         refresh_hash.as_slice()
     )
@@ -195,6 +195,16 @@ pub(super) async fn activate(
     else {
         return Ok(None);
     };
+    let access_grant = GrantState::from_columns(
+        &access.family_state,
+        access.actor_id.as_deref(),
+        access.provisional_until,
+    )?;
+    let refresh_grant = GrantState::from_columns(
+        &refresh.family_state,
+        refresh.actor_id.as_deref(),
+        refresh.provisional_until,
+    )?;
     let scope = ScopeSet::parse(&access.scope)?;
     if access.account_id != code.subject
         || refresh.account_id != code.subject
@@ -203,8 +213,8 @@ pub(super) async fn activate(
         || refresh.client_id != access.client_id
         || access.key_thumbprint != refresh.key_thumbprint
         || Some(access.key_thumbprint.as_str()) != code.dpop_jkt.as_deref()
-        || access.family_state != "provisional"
-        || refresh.family_state != "provisional"
+        || !matches!(access_grant, GrantState::Provisional { .. })
+        || !matches!(refresh_grant, GrantState::Provisional { .. })
         || scope != ScopeSet::parse(&refresh.scope)?
         || !scope.is_subset(&code.scope)
         || access.resources != refresh.resources
@@ -218,14 +228,11 @@ pub(super) async fn activate(
     let account_id: AccountId = code.subject.parse()?;
     let account = account_in(connection, account_id).await?;
     let members = snapshot(connection, &account).await?;
-    let target = approval
-        .target_actor
-        .map(|actor| actor.parse::<ClientActorId>())
-        .transpose()?;
-    let actor = match approval.purpose.as_str() {
-        "new" => new_actor(connection, &account, &members, &approval.label).await?,
-        "recover_active" => {
-            let actor = target.context("credential recovery target is missing")?;
+    let purpose =
+        ApprovalPurpose::from_stored(&approval.purpose, approval.target_actor.as_deref())?;
+    let actor = match purpose {
+        ApprovalPurpose::New => new_actor(connection, &account, &members, &approval.label).await?,
+        ApprovalPurpose::RecoverActive { actor } => {
             if !members
                 .clients
                 .iter()
@@ -236,8 +243,7 @@ pub(super) async fn activate(
             invalidate_families(connection, account_id, actor).await?;
             actor
         }
-        "replace_closed" => {
-            let target = target.context("reauthorization target is missing")?;
+        ApprovalPurpose::ReplaceClosed { actor: target } => {
             if members
                 .clients
                 .iter()
@@ -247,7 +253,6 @@ pub(super) async fn activate(
             }
             new_actor(connection, &account, &members, &approval.label).await?
         }
-        _ => anyhow::bail!("invalid enrollment approval purpose"),
     };
     let activated = sqlx::query_file!(
         "sql/enrollment/grant_activate.sql",

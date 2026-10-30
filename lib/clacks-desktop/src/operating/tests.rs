@@ -4,62 +4,73 @@ use super::{
 };
 use clacks_client_store::{operating::OperatingState, settings::SettingsSnapshot};
 use clacks_model::{
-    contact::StationSnapshot,
     equipment::EquipmentValues,
     group::{DefinitionSet, GroupDefinition, IdentifierDefinition, TextNormalization},
     ids::{EquipmentConfigurationId, ProfileId},
-    location::RecordedLocation,
     position::{Coordinates, GridLength, Locator, Position},
-    profile::{CurrentOperatingValues, EquipmentConfiguration, SavedLocationProfile},
+    profile::{EquipmentConfiguration, SavedLocationProfile},
     reference::ReferenceAssociation,
     scalar::{Milliwatts, RecordedCallsign},
 };
 use clacks_sync::{
-    client::{ClientRecord, OriginalBasis, PendingRecord},
+    client::{OriginalBasis, PendingRecord},
     error::UnknownReason,
     record::{Observation, RecordId, RecordKey, RecordState},
 };
 
 fn home() -> SavedLocationProfile {
-    SavedLocationProfile {
+    (clacks_model::profile::SavedLocationProfileFields {
         id: ProfileId::new(),
         name: "Home".into(),
-        station: StationSnapshot {
+        station: clacks_model::contact::StationSnapshot {
             callsign: RecordedCallsign::new("W7HEX").unwrap(),
-            location: Some(RecordedLocation {
-                position: Some(Position::GridArea(Locator::parse("CN87").unwrap())),
-                dxcc: Some("291".into()),
-                ..Default::default()
-            }),
+            location: Some(
+                (clacks_model::location::RecordedLocationFields {
+                    position: Some(Position::GridArea(Locator::parse("CN87").unwrap())),
+                    dxcc: Some("291".into()),
+                    ..Default::default()
+                })
+                .try_into()
+                .expect("valid native fixture"),
+            ),
             references: Default::default(),
         },
         default_equipment: None,
-    }
+    })
+    .try_into()
+    .expect("valid native fixture")
 }
 fn rig() -> EquipmentConfiguration {
-    EquipmentConfiguration {
+    (clacks_model::profile::EquipmentConfigurationFields {
         id: EquipmentConfigurationId::new(),
         name: "Rig A".into(),
-        values: EquipmentValues {
+        values: clacks_model::equipment::EquipmentValuesFields {
             equipment_description: Some("IC-7300".into()),
             antenna_description: Some("Dipole".into()),
             notes: None,
         },
-    }
+    })
+    .try_into()
+    .expect("valid native fixture")
 }
 fn active() -> OperatingState {
     let profile = home();
     let equipment = rig();
-    OperatingState {
-        current: Some(CurrentOperatingValues {
-            station: profile.station.clone(),
+    OperatingState::new(
+        Some(clacks_model::profile::CurrentOperatingValues {
+            station: profile.station().clone(),
             operator: None,
             transmit_power: Some(Milliwatts::new(5000).unwrap()),
-            equipment: Some(equipment.values.clone()),
+            equipment: Some(
+                ((equipment.values().clone()).into_fields())
+                    .try_into()
+                    .expect("valid native fixture"),
+            ),
         }),
-        selected_profile: Some(profile),
-        selected_equipment: Some(equipment),
-    }
+        Some(profile),
+        Some(equipment),
+    )
+    .expect("coherent operating fixture")
 }
 
 #[test]
@@ -71,7 +82,10 @@ fn manual_changes_detach_only_their_own_source_and_never_reattach() {
     editor.station.edit_grid("CN88".into());
     editor.station_changed(&old, &definitions);
     assert_eq!(editor.selected_profile, None);
-    assert_eq!(editor.selected_equipment, active.selected_equipment);
+    assert_eq!(
+        editor.selected_equipment,
+        active.selected_equipment().cloned()
+    );
     assert_eq!(editor.expected, active);
     let old = editor.station.clone();
     editor.station.edit_grid("CN87".into());
@@ -92,7 +106,7 @@ fn normalization_and_partial_input_do_not_corrupt_selections_or_text() {
     let old = editor.station.clone();
     editor.station.callsign = " w7hex ".into();
     editor.station_changed(&old, &defs);
-    assert_eq!(editor.selected_profile, active.selected_profile);
+    assert_eq!(editor.selected_profile, active.selected_profile().cloned());
     let old = editor.station.clone();
     editor.station.callsign.clear();
     editor.station_changed(&old, &defs);
@@ -104,7 +118,7 @@ fn normalization_and_partial_input_do_not_corrupt_selections_or_text() {
         editor
             .build(&defs)
             .unwrap()
-            .current
+            .current()
             .unwrap()
             .station
             .callsign
@@ -118,22 +132,37 @@ fn profile_staging_clears_absent_station_fields_and_preserves_other_scopes() {
     let active = active();
     let mut editor = OperatingEditor::new(&active);
     let mut field = home();
-    field.station.location = None;
+    {
+        let mut fields = field.clone().into_fields();
+        fields.station.location = None;
+        field = fields.try_into().expect("valid saved fixture edit");
+    }
     editor.operator_callsign = "W7ABC".into();
     editor.power_watts = "not finished".into();
     editor.stage_profile(&field, None).unwrap();
     assert_eq!(editor.station.position.build().unwrap(), None);
     assert_eq!(editor.station.dxcc, "");
-    assert_eq!(editor.selected_equipment, active.selected_equipment);
+    assert_eq!(
+        editor.selected_equipment,
+        active.selected_equipment().cloned()
+    );
     assert_eq!(editor.power_watts, "not finished");
     assert_eq!(editor.operator_callsign, "W7ABC");
     let rig = rig();
-    field.default_equipment = Some(rig.id);
+    {
+        let mut fields = field.clone().into_fields();
+        fields.default_equipment = Some(rig.id());
+        field = fields.try_into().expect("valid saved fixture edit");
+    }
     let before = editor.station.clone();
     assert!(editor.stage_profile(&field, None).is_err());
     assert_eq!(editor.station, before);
     let mut wrong = rig.clone();
-    wrong.id = EquipmentConfigurationId::new();
+    {
+        let mut fields = wrong.clone().into_fields();
+        fields.id = EquipmentConfigurationId::new();
+        wrong = fields.try_into().expect("valid saved fixture edit");
+    }
     assert!(editor.stage_profile(&field, Some(&wrong)).is_err());
     assert_eq!(editor.station, before);
     editor.stage_profile(&field, Some(&rig)).unwrap();
@@ -151,14 +180,17 @@ fn power_and_independent_profile_saves_use_native_resolution() {
             editor
                 .build(&defs)
                 .unwrap()
-                .current
+                .current()
                 .unwrap()
                 .transmit_power
                 .map(|p| p.get()),
             expected
         );
-        assert_eq!(editor.selected_profile, active.selected_profile);
-        assert_eq!(editor.selected_equipment, active.selected_equipment);
+        assert_eq!(editor.selected_profile, active.selected_profile().cloned());
+        assert_eq!(
+            editor.selected_equipment,
+            active.selected_equipment().cloned()
+        );
     }
     for invalid in ["0", "-1", "1.0001", "999999999999999999999999999"] {
         editor.power_watts = invalid.into();
@@ -175,10 +207,10 @@ fn power_and_independent_profile_saves_use_native_resolution() {
 
 #[test]
 fn grid_and_point_entry_preserve_evidence_precision_and_manual_corrections() {
-    let mut station = StationForm::from_snapshot(&home().station);
+    let mut station = StationForm::from_snapshot(home().station());
     let defs = DefinitionSet::default();
     assert!(matches!(
-        station.build(&defs).unwrap().location.unwrap().position,
+        station.build(&defs).unwrap().location.unwrap().position(),
         Some(Position::GridArea(_))
     ));
     station.edit_grid("CN".into());
@@ -190,7 +222,8 @@ fn grid_and_point_entry_preserve_evidence_precision_and_manual_corrections() {
             .unwrap()
             .location
             .unwrap()
-            .position
+            .position()
+            .clone()
             .unwrap()
             .display_locator()
             .length()
@@ -203,7 +236,8 @@ fn grid_and_point_entry_preserve_evidence_precision_and_manual_corrections() {
         .unwrap()
         .location
         .unwrap()
-        .position
+        .position()
+        .clone()
         .unwrap();
     let Position::ExplicitPoint {
         coordinates,
@@ -234,14 +268,12 @@ fn grid_and_point_entry_preserve_evidence_precision_and_manual_corrections() {
 #[test]
 fn existing_references_survive_definition_changes_but_explicit_edits_use_rules() {
     let group = clacks_model::ids::GroupId::new();
-    let association = ReferenceAssociation {
-        group_id: group,
-        identifier: Some("old-value".into()),
-    };
-    let mut native = home().station;
+    let association = ReferenceAssociation::new(group, Some("old-value".into()))
+        .expect("valid reference fixture");
+    let mut native = home().station().clone();
     native.references.insert(association.clone());
     let mut form = StationForm::from_snapshot(&native);
-    let definition = GroupDefinition {
+    let definition = GroupDefinition::try_from(clacks_model::group::GroupDefinitionFields {
         id: group,
         name: "Event".into(),
         identifier: IdentifierDefinition {
@@ -252,7 +284,8 @@ fn existing_references_survive_definition_changes_but_explicit_edits_use_rules()
         bears_location_context: true,
         catalog: None,
         export_mappings: Default::default(),
-    };
+    })
+    .expect("valid group fixture");
     let defs = DefinitionSet::new(vec![definition]).unwrap();
     assert_eq!(form.build(&defs).unwrap().references, native.references);
     form.references = vec![ReferenceForm::new()];
@@ -266,7 +299,7 @@ fn existing_references_survive_definition_changes_but_explicit_edits_use_rules()
             .references
             .first()
             .unwrap()
-            .identifier
+            .identifier()
             .as_deref(),
         Some("US-0001")
     );
@@ -279,12 +312,12 @@ fn deletion_refresh_clears_sources_without_losing_pending_values_or_rebasing_rea
     let active = active();
     let mut editor = OperatingEditor::new(&active);
     editor.power_watts = "25".into();
-    let profile = active.selected_profile.as_ref().unwrap();
+    let profile = active.selected_profile().unwrap();
     let key = RecordKey {
         account: clacks_model::ids::AccountId::new(),
-        id: RecordId::Profile(profile.id),
+        id: RecordId::Profile(profile.id()),
     };
-    let row = ClientRecord {
+    let row = clacks_sync::client::ClientRecordFields {
         key,
         latest: Observation::Unavailable {
             key,
@@ -301,9 +334,11 @@ fn deletion_refresh_clears_sources_without_losing_pending_values_or_rebasing_rea
             witness: None,
         }),
         retained: vec![],
-    };
+    }
+    .try_into()
+    .expect("coherent client fixture");
     let mut current = active.clone();
-    current.selected_profile = None;
+    current.forget_source(RecordId::Profile(home().id()));
     let view = SettingsSnapshot {
         logbooks: clacks_client_store::logbooks::LogbookSnapshot {
             selected_view: clacks_client_store::logbooks::selection::SelectedView::AllContacts,
@@ -320,11 +355,12 @@ fn deletion_refresh_clears_sources_without_losing_pending_values_or_rebasing_rea
     assert_eq!(editor.expected, current);
     let mut editor = OperatingEditor::new(&active);
     let mut changed = view.clone();
-    changed.operating.current.as_mut().unwrap().transmit_power =
-        Some(Milliwatts::new(10_000).unwrap());
+    let mut values = changed.operating.current().cloned().unwrap();
+    values.transmit_power = Some(Milliwatts::new(10_000).unwrap());
+    changed.operating.adjust(values);
     editor.refresh_sources(&changed);
     assert_eq!(editor.selected_profile, None);
-    assert_eq!(editor.expected.current, active.current);
+    assert_eq!(editor.expected.current(), active.current());
 }
 
 #[test]
@@ -337,7 +373,8 @@ fn first_coordinate_entry_uses_six_characters_without_quantizing_the_point() {
         .unwrap()
         .location
         .unwrap()
-        .position
+        .position()
+        .clone()
         .unwrap();
     assert_eq!(position.display_locator().length().get(), 6);
     assert_eq!(
@@ -349,15 +386,19 @@ fn first_coordinate_entry_uses_six_characters_without_quantizing_the_point() {
 #[test]
 fn selecting_a_named_configuration_with_no_descriptions_remains_valid() {
     let mut rig = rig();
-    rig.values = EquipmentValues::default();
+    {
+        let mut fields = rig.clone().into_fields();
+        fields.values = EquipmentValues::default().into_fields();
+        rig = fields.try_into().expect("valid saved fixture edit");
+    }
     let mut editor = OperatingEditor::new(&active());
     editor.stage_equipment(&rig);
     let built = editor.build(&DefinitionSet::default()).unwrap();
     assert_eq!(
-        built.current.unwrap().equipment,
+        built.current().unwrap().equipment,
         Some(EquipmentValues::default())
     );
-    assert_eq!(built.selected_equipment.unwrap().id, rig.id);
+    assert_eq!(built.selected_equipment().unwrap().id(), rig.id());
 }
 
 #[test]
@@ -374,6 +415,6 @@ fn partial_grid_does_not_reduce_valid_coordinate_entry_precision() {
     assert_eq!(station.position.length, GridLength::default());
     let built = station.build(&DefinitionSet::default()).unwrap();
     assert!(
-        matches!(built.location.unwrap().position, Some(Position::ExplicitPoint { coordinates, grid_length }) if coordinates == Coordinates::from_decimal_degrees("47.123456", "-122.654321").unwrap() && grid_length == GridLength::default())
+        matches!(built.location.unwrap().position(), Some(Position::ExplicitPoint { coordinates, grid_length }) if *coordinates == Coordinates::from_decimal_degrees("47.123456", "-122.654321").unwrap() && *grid_length == GridLength::default())
     );
 }

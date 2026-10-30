@@ -5,7 +5,7 @@ use clacks_lotw::{
     signing::{BatchItem, ProducerInformation, definition::SignatureDefinitions, write_batch},
 };
 use clacks_model::{
-    contact::{BandFrequency, OwnOperatingContext, Qso, StationSnapshot},
+    contact::{BandFrequency, OwnOperatingContext, Qso},
     group::DefinitionSet,
     ids::{DestinationId, QsoId},
     recognition::{
@@ -30,25 +30,26 @@ fn native_projection_survives_storage_and_signing_without_remapping() -> anyhow:
         "id": group, "name": "Island references", "identifier": { "required": true, "normalization": [], "syntax": null }, "bears_location_context": true, "catalog": null,
         "export_mappings": {"ordinary_interchange": [{"field":"MY_IOTA", "value":{"Join":{"values":{"Identifiers":"Own"},"separator":","}},"when":"Always"}], "targeted":{}}
     }]))?)?;
-    let mut qso = Qso {
+    let mut qso = clacks_model::contact::input::QsoFields {
         id: QsoId::new(),
         start: UtcSecond::from_unix_seconds(support::now().unix_timestamp()),
         end: None,
-        own_station: StationSnapshot {
+        own_station: clacks_model::contact::StationSnapshot {
             callsign: RecordedCallsign::new("N0CALL")?,
             location: None,
-            references: [clacks_model::reference::ReferenceAssociation {
-                group_id: group,
-                identifier: Some("NA-001".into()),
-            }]
+            references: [clacks_model::reference::ReferenceAssociation::new(
+                group,
+                Some("NA-001".into()),
+            )
+            .expect("valid reference fixture")]
             .into(),
         },
-        contacted_station: StationSnapshot {
+        contacted_station: clacks_model::contact::StationSnapshot {
             callsign: RecordedCallsign::new("K1ABC")?,
             location: None,
             references: Default::default(),
         },
-        own_context: OwnOperatingContext::default(),
+        own_context: (OwnOperatingContext::default()),
         contacted_operator: None,
         primary: BandFrequency::new(None, Some(Band::from_recorded_label("20m")?), catalog)?,
         receive_override: None,
@@ -78,7 +79,7 @@ fn native_projection_survives_storage_and_signing_without_remapping() -> anyhow:
             )?);
         }
         let ProjectionDecision::Ready(projected) = lotw::project(&LotwProjectionInput {
-            qso: &qso,
+            qso: &Qso::try_from(qso.clone())?,
             destination: &destination,
             signing: &credential.metadata().identity,
             configuration: &config,
@@ -133,8 +134,9 @@ fn native_projection_survives_storage_and_signing_without_remapping() -> anyhow:
         }
         assert_eq!(original, stored);
         assert_eq!(original.external_key(), stored.external_key());
-        let mut mismatched = stored.clone();
-        mismatched.signing_identity.dxcc = "1".into();
+        let mut fields = stored.clone().into_fields();
+        fields.signing_identity.dxcc = "1".into();
+        let mismatched = fields.try_into().unwrap();
         assert!(
             write_batch(
                 &mut Vec::new(),

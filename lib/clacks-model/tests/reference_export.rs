@@ -13,14 +13,22 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 fn contact(group: GroupId) -> Qso {
     let mut q = support::qso(support::id::<QsoId>(1));
     for code in ["US-0001", "US-0002"] {
-        q.own_station
-            .references
-            .insert(support::reference(group, Some(code)));
+        support::edit(&mut q, |q| {
+            q.own_station
+                .references
+                .insert(support::reference(group, Some(code)));
+
+            Ok(())
+        });
     }
     for code in ["US-0001", "US-0002", "US-0003"] {
-        q.contacted_station
-            .references
-            .insert(support::reference(group, Some(code)));
+        support::edit(&mut q, |q| {
+            q.contacted_station
+                .references
+                .insert(support::reference(group, Some(code)));
+
+            Ok(())
+        });
     }
     q
 }
@@ -55,9 +63,13 @@ fn ordinary_export_does_not_expand() -> TestResult {
 fn two_by_three_expands_only_target_group() -> TestResult {
     let mut q = contact(support::id::<GroupId>(1));
     for id in [2, 3] {
-        q.own_station
-            .references
-            .insert(support::reference(support::id::<GroupId>(id), None));
+        support::edit(&mut q, |q| {
+            q.own_station
+                .references
+                .insert(support::reference(support::id::<GroupId>(id), None));
+
+            Ok(())
+        });
     }
     let before = serde_json::to_value(&q)?;
     let plan = plan_reference_export(
@@ -72,7 +84,7 @@ fn two_by_three_expands_only_target_group() -> TestResult {
     for (file, own) in plan.files.iter().zip(["US-0001", "US-0002"]) {
         assert_eq!(file.entries.len(), 3);
         for (entry, other) in file.entries.iter().zip(["US-0001", "US-0002", "US-0003"]) {
-            assert_eq!(entry.qso_id, q.id);
+            assert_eq!(entry.qso_id, q.id());
             assert_eq!(entry.reference_fields["MY_SIG_INFO"], own);
             assert_eq!(entry.reference_fields["SIG_INFO"], other);
             assert!(!entry.reference_fields.contains_key("CONTEST_ID"));
@@ -85,7 +97,11 @@ fn two_by_three_expands_only_target_group() -> TestResult {
 #[test]
 fn hunter_contact_retains_one_entry() -> TestResult {
     let mut q = contact(support::id::<GroupId>(1));
-    q.contacted_station.references.clear();
+    support::edit(&mut q, |q| {
+        q.contacted_station.references.clear();
+
+        Ok(())
+    });
     let plan = plan_reference_export(
         &[q],
         &context(true, support::id::<GroupId>(1)),
@@ -106,16 +122,20 @@ fn hunter_contact_retains_one_entry() -> TestResult {
 fn omission_is_explicit_and_reported() -> TestResult {
     let mut q = support::qso(support::id::<QsoId>(1));
     for id in [2, 3] {
-        q.own_station
-            .references
-            .insert(support::reference(support::id::<GroupId>(id), None));
+        support::edit(&mut q, |q| {
+            q.own_station
+                .references
+                .insert(support::reference(support::id::<GroupId>(id), None));
+
+            Ok(())
+        });
     }
     let plan = plan_reference_export(
         std::slice::from_ref(&q),
         &context(false, support::id::<GroupId>(1)),
         &support::contest_definitions(),
         &support::profiles(),
-        &[(q.id, ContextResolution::OmitReported)].into(),
+        &[(q.id(), ContextResolution::OmitReported)].into(),
     )?;
     assert!(plan.decisions.is_empty());
     assert_eq!(plan.warnings.len(), 1);
@@ -143,12 +163,17 @@ fn omission_is_explicit_and_reported() -> TestResult {
 #[test]
 fn no_program_name_switch() -> TestResult {
     let defs = support::definitions();
-    let mut generic = defs.get(support::id::<GroupId>(1)).unwrap().clone();
+    let mut generic = defs
+        .get(support::id::<GroupId>(1))
+        .unwrap()
+        .clone()
+        .into_fields();
     generic.id = support::id::<GroupId>(4);
     generic.name = "User group with equivalent capabilities".into();
+    let generic = clacks_model::group::GroupDefinition::try_from(generic)?;
     let plan = plan_reference_export(
-        &[contact(generic.id)],
-        &context(true, generic.id),
+        &[contact(generic.id())],
+        &context(true, generic.id()),
         &DefinitionSet::new(vec![generic])?,
         &support::profiles(),
         &BTreeMap::new(),
@@ -161,7 +186,11 @@ fn no_program_name_switch() -> TestResult {
 #[test]
 fn missing_partition_is_not_silent_filtering() {
     let mut q = contact(support::id::<GroupId>(1));
-    q.own_station.references.clear();
+    support::edit(&mut q, |q| {
+        q.own_station.references.clear();
+
+        Ok(())
+    });
     let error = plan_reference_export(
         &[q],
         &context(true, support::id::<GroupId>(1)),
@@ -176,7 +205,11 @@ fn missing_partition_is_not_silent_filtering() {
     ));
     let q = contact(support::id::<GroupId>(1));
     let mut competing = q.clone();
-    competing.comment = Some("different snapshot".into());
+    support::edit(&mut competing, |competing| {
+        competing.comment = Some("different snapshot".into());
+
+        Ok(())
+    });
     assert!(
         plan_reference_export(
             &[q, competing],
@@ -193,23 +226,39 @@ fn missing_partition_is_not_silent_filtering() {
 fn shared_definitions_keep_each_contacts_reference_values() -> TestResult {
     let group = support::id::<GroupId>(1);
     let mut first = support::qso(support::id::<QsoId>(1));
-    first
-        .own_station
-        .references
-        .insert(support::reference(group, Some("US-1001")));
-    first
-        .contacted_station
-        .references
-        .insert(support::reference(group, Some("US-2001")));
+    support::edit(&mut first, |first| {
+        first
+            .own_station
+            .references
+            .insert(support::reference(group, Some("US-1001")));
+
+        Ok(())
+    });
+    support::edit(&mut first, |first| {
+        first
+            .contacted_station
+            .references
+            .insert(support::reference(group, Some("US-2001")));
+
+        Ok(())
+    });
     let mut second = support::qso(support::id::<QsoId>(2));
-    second
-        .own_station
-        .references
-        .insert(support::reference(group, Some("US-1002")));
-    second
-        .contacted_station
-        .references
-        .insert(support::reference(group, Some("US-2002")));
+    support::edit(&mut second, |second| {
+        second
+            .own_station
+            .references
+            .insert(support::reference(group, Some("US-1002")));
+
+        Ok(())
+    });
+    support::edit(&mut second, |second| {
+        second
+            .contacted_station
+            .references
+            .insert(support::reference(group, Some("US-2002")));
+
+        Ok(())
+    });
     for (targeted, own_field, other_field) in [
         (false, "MY_POTA_REF", "POTA_REF"),
         (true, "MY_SIG_INFO", "SIG_INFO"),
@@ -230,8 +279,8 @@ fn shared_definitions_keep_each_contacts_reference_values() -> TestResult {
             .collect();
         assert_eq!(rows.len(), 2);
         for (id, own, other) in [
-            (first.id, "US-1001", "US-2001"),
-            (second.id, "US-1002", "US-2002"),
+            (first.id(), "US-1001", "US-2001"),
+            (second.id(), "US-1002", "US-2002"),
         ] {
             let fields = rows.get(&id).unwrap();
             assert_eq!(fields.get(own_field).map(String::as_str), Some(own));

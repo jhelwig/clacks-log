@@ -1,5 +1,8 @@
 //! Pinned, data-driven LoTW normalization shared by comparison and signing.
 
+mod configuration;
+mod frozen;
+
 use super::{
     adif::{self, AdifFields},
     destination::{Destination, ExternalRecordKey, LotwRecordKey, RemoteRecordId, Service},
@@ -91,66 +94,6 @@ pub struct LotwConfiguration {
     pub station_fields: Vec<String>,
 }
 
-impl LotwConfiguration {
-    /// Load a supplied configuration and reject unsupported mappings/ranges.
-    #[tracing::instrument(skip_all, name = "model.lotw_configuration.load", level = "debug")]
-    pub fn from_json(json: &str) -> anyhow::Result<Self> {
-        let c: Self = serde_json::from_str(json)?;
-        if c.release.is_empty()
-            || c.bands.is_empty()
-            || c.mapping.is_empty()
-            || c.mapping
-                .keys()
-                .map(|k| k.to_uppercase())
-                .collect::<BTreeSet<_>>()
-                .len()
-                != c.mapping.len()
-            || c.mapping
-                .iter()
-                .any(|(k, v)| k.trim().is_empty() || !c.modes.contains_key(v))
-            || c.bands
-                .iter()
-                .any(|b| b.label.is_empty() || b.lower_hz == 0 || b.upper_hz < b.lower_hz)
-        {
-            return Err(ServiceError::Invalid {
-                detail: "invalid LoTW normalization configuration".into(),
-            }
-            .into());
-        }
-        Ok(c)
-    }
-
-    /// Load the offline pinned compatibility configuration, returning malformed data errors.
-    pub fn bundled() -> anyhow::Result<Self> {
-        Self::from_json(include_str!("../../data/lotw-11.34.json"))
-    }
-
-    /// Classify a supplied pair using service definitions, keeping band-only pairs frequency-free.
-    pub fn band(&self, pair: &BandFrequency) -> anyhow::Result<String> {
-        let found = if let Some(hz) = pair.frequency() {
-            self.bands
-                .iter()
-                .find(|b| (b.lower_hz..=b.upper_hz).contains(&hz.get()))
-        } else {
-            pair.band().and_then(|b| {
-                self.bands
-                    .iter()
-                    .find(|v| v.label.eq_ignore_ascii_case(b.label()))
-            })
-        };
-        found.map(|b| b.label.clone()).ok_or_else(|| {
-            tracing::debug!(
-                event = "projection.conversion_unavailable",
-                reason = "unmapped_band"
-            );
-            ServiceError::Invalid {
-                detail: format!("LoTW band unavailable for {pair:?}"),
-            }
-            .into()
-        })
-    }
-}
-
 /// Public certificate identity used to prepare a submission without cryptography dependencies.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PublicSigningIdentity {
@@ -169,31 +112,39 @@ pub struct LotwMappingProvenance {
     pub upstream_commit: String,
 }
 
-/// Prepared signing values and their interpretation source, without signature bytes.
+/// Frozen signing values and the exact remote identity they describe.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "LotwSubmissionFields")]
 pub struct LotwSubmission {
-    /// Frozen mapping source; retained for interpretation rather than publication equality.
+    /// Definition source used to prepare these frozen values.
+    mapping_provenance: LotwMappingProvenance,
+    /// Selected remote collection namespace.
+    destination: crate::ids::DestinationId,
+    /// Actual own certificate identity selected for signing.
+    signing_identity: PublicSigningIdentity,
+    /// Frozen contact fields at emitted precision.
+    contact_fields: AdifFields,
+    /// Frozen emitted station fields.
+    station_fields: AdifFields,
+    /// Account-qualified native identity.
+    key: LotwRecordKey,
+}
+
+/// Input for preparing or restoring a coherent frozen LoTW submission.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LotwSubmissionFields {
+    /// Definitions used when these values were prepared.
     pub mapping_provenance: LotwMappingProvenance,
     /// Remote collection namespace.
     pub destination: crate::ids::DestinationId,
-    /// Actual own identity selected for signing.
+    /// Actual certificate identity selected for signing.
     pub signing_identity: PublicSigningIdentity,
-    /// Contact fields at their emitted precision.
+    /// Contact values at their emitted precision.
     pub contact_fields: AdifFields,
-    /// All emitted station fields.
+    /// Emitted station values.
     pub station_fields: AdifFields,
-    /// Exact remote identity frozen with these values.
+    /// Exact remote identity of these contact values.
     pub key: LotwRecordKey,
-}
-
-impl LotwSubmission {
-    /// Identify this prepared remote record without recomputing mode under newer mappings.
-    pub fn external_key(&self) -> ExternalRecordKey {
-        ExternalRecordKey {
-            destination: self.destination,
-            record: RemoteRecordId::Lotw(self.key.clone()),
-        }
-    }
 }
 
 /// Read-only inputs to prepare one real LoTW signing value.
@@ -249,14 +200,13 @@ pub fn normalize_mode(mode: &Mode, config: &LotwConfiguration) -> anyhow::Result
     name = "model.lotw.project",
     level = "debug",
     fields(
-        qso_id = %input.qso.id,
+        qso_id = %input.qso.id(),
         destination_id = %input.destination.id,
     ),
 )]
 pub fn project(
     input: &LotwProjectionInput<'_>,
 ) -> anyhow::Result<ProjectionDecision<LotwSubmission>> {
-    input.qso.validate()?;
     let result = prepare(input);
     let decision = match result {
         Ok(value) => ProjectionDecision::Ready(ProjectionResult {
@@ -266,7 +216,8 @@ pub fn project(
         Err(e) => ProjectionDecision::NotReady(vec![ReadinessIssue {
             field: format!(
                 "LoTW QSO {} destination {}",
-                input.qso.id, input.destination.id
+                input.qso.id(),
+                input.destination.id
             ),
             reason: e.to_string(),
         }]),
@@ -278,7 +229,7 @@ pub fn project(
     metrics::counter!("clacks_service_projection_readiness_total", "service" => "lotw", "readiness" => readiness).increment(1);
     tracing::debug!(
         event = "projection.prepared",
-        qso_id = %input.qso.id,
+        qso_id = %input.qso.id(),
         destination_id = %input.destination.id,
         readiness,
         warning_count,
@@ -292,7 +243,7 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
     let q = input.qso;
     let c = input.configuration;
     if input.destination.service() != Service::Lotw
-        || input.signing.callsign != q.own_station.callsign
+        || input.signing.callsign != q.own_station().callsign
         || input.signing.dxcc.trim().is_empty()
     {
         tracing::debug!(
@@ -305,10 +256,10 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
         .into());
     }
     if let Some(entity) = q
-        .own_station
+        .own_station()
         .location
         .as_ref()
-        .and_then(|l| l.dxcc.as_ref())
+        .and_then(|l| l.dxcc().as_ref())
         && entity != &input.signing.dxcc
     {
         tracing::debug!(
@@ -323,40 +274,43 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
         }
         .into());
     }
-    let band = c.band(&q.primary)?;
-    let rx = q.primary.effective_receive(q.receive_override.as_ref());
+    let band = c.band(q.primary())?;
+    let rx = q.primary().effective_receive(q.receive_override().as_ref());
     let receive_band = c.band(rx)?;
-    let mode = normalize_mode(&q.mode, c)?;
+    let mode = normalize_mode(q.mode(), c)?;
     let key = LotwRecordKey {
-        own_call: q.own_station.callsign.clone(),
-        worked_call: q.contacted_station.callsign.clone(),
-        start: q.start,
+        own_call: q.own_station().callsign.clone(),
+        worked_call: q.contacted_station().callsign.clone(),
+        start: q.start(),
         band: band.clone(),
         receive_band: receive_band.clone(),
         mode: mode.clone(),
     };
-    let (date, time) = adif::contact_time(q.start)?;
+    let (date, time) = adif::contact_time(q.start())?;
     let mut fields = AdifFields::from([
-        ("CALL".into(), q.contacted_station.callsign.as_str().into()),
+        (
+            "CALL".into(),
+            q.contacted_station().callsign.as_str().into(),
+        ),
         ("BAND".into(), band.clone()),
         ("MODE".into(), mode),
         ("QSO_DATE".into(), date),
         ("QSO_TIME".into(), time),
     ]);
-    if let Some(f) = q.primary.frequency() {
+    if let Some(f) = q.primary().frequency() {
         fields.insert("FREQ".into(), adif::frequency(f));
     }
-    if rx != &q.primary {
+    if rx != q.primary() {
         if receive_band != band {
             fields.insert("BAND_RX".into(), receive_band);
         }
         if let Some(f) = rx.frequency()
-            && Some(f) != q.primary.frequency()
+            && Some(f) != q.primary().frequency()
         {
             fields.insert("FREQ_RX".into(), adif::frequency(f));
         }
     }
-    let mut station = location_fields(q.own_station.location.as_ref(), &input.signing.dxcc, c)?;
+    let mut station = location_fields(q.own_station().location.as_ref(), &input.signing.dxcc, c)?;
     if let Some(value) = own_iota(q, input.definitions)? {
         station.insert("IOTA".into(), value);
     }
@@ -381,7 +335,7 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
             .into());
         }
     }
-    Ok(LotwSubmission {
+    LotwSubmissionFields {
         mapping_provenance: LotwMappingProvenance {
             release: c.release.clone(),
             upstream_commit: c.upstream_commit.clone(),
@@ -391,14 +345,15 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
         contact_fields: fields,
         station_fields: station,
         key,
-    })
+    }
+    .try_into()
 }
 
 /// Evaluate explicitly mapped own IOTA for both imported baselines and real signing inputs.
 pub(crate) fn own_iota(q: &Qso, definitions: &DefinitionSet) -> anyhow::Result<Option<String>> {
     let mut station = AdifFields::new();
     let groups = q
-        .own_station
+        .own_station()
         .references
         .iter()
         .map(|r| r.group_id)
@@ -414,7 +369,7 @@ pub(crate) fn own_iota(q: &Qso, definitions: &DefinitionSet) -> anyhow::Result<O
             };
             for (name, value) in crate::export::select::evaluate_fields(
                 &compiled,
-                &def.export_mappings.ordinary_interchange,
+                &def.export_mappings().ordinary_interchange,
                 &context,
             )? {
                 if name == "MY_IOTA"
@@ -495,19 +450,19 @@ fn location_fields(
     let mut station = AdifFields::new();
     let mut subdivision_zones = Vec::new();
     if let Some(l) = location {
-        if let Some(p) = &l.position {
+        if let Some(p) = &l.position() {
             station.insert("GRIDSQUARE".into(), p.display_locator().to_string());
         }
-        if let Some(z) = l.cq_zone {
+        if let Some(z) = l.cq_zone() {
             station.insert("CQZ".into(), z.get().to_string());
         }
-        if let Some(z) = l.itu_zone {
+        if let Some(z) = l.itu_zone() {
             station.insert("ITUZ".into(), z.get().to_string());
         }
         if let Some(applicable) = c.entity_fields.get(entity) {
             for (value, secondary) in [
-                (&l.primary_subdivision, false),
-                (&l.secondary_subdivision, true),
+                (&l.primary_subdivision(), false),
+                (&l.secondary_subdivision(), true),
             ] {
                 if let Some(value) = value {
                     let found = applicable
@@ -572,7 +527,7 @@ fn location_fields(
                     }
                 }
             }
-        } else if l.primary_subdivision.is_some() || l.secondary_subdivision.is_some() {
+        } else if l.primary_subdivision().is_some() || l.secondary_subdivision().is_some() {
             tracing::debug!(
                 event = "projection.conversion_unavailable",
                 reason = "missing_subdivision_mapping"
@@ -593,8 +548,8 @@ fn location_fields(
         ] {
             if !zones.is_empty()
                 && !zones.iter().any(|p| {
-                    l.cq_zone.is_none_or(|z| z.get() == p.cq)
-                        && l.itu_zone.is_none_or(|z| z.get() == p.itu)
+                    l.cq_zone().is_none_or(|z| z.get() == p.cq)
+                        && l.itu_zone().is_none_or(|z| z.get() == p.itu)
                 })
             {
                 tracing::debug!(
@@ -615,14 +570,17 @@ fn location_fields(
 pub(crate) fn location_baseline(
     location: Option<&crate::location::RecordedLocation>,
     configuration: &LotwConfiguration,
-) -> Option<crate::location::RecordedLocation> {
-    let mut location = location?.clone();
+) -> anyhow::Result<Option<crate::location::RecordedLocation>> {
+    let Some(original) = location else {
+        return Ok(None);
+    };
+    let mut location = original.clone().into_fields();
     location.position = location
         .position
         .as_ref()
         .map(|p| crate::position::Position::GridArea(p.display_locator()));
-    if let Some(entity) = &location.dxcc
-        && let Ok(fields) = location_fields(Some(&location), entity, configuration)
+    if let Some(entity) = &original.dxcc()
+        && let Ok(fields) = location_fields(Some(original), entity, configuration)
     {
         location.primary_subdivision = configuration
             .primary_fields
@@ -633,5 +591,5 @@ pub(crate) fn location_baseline(
             .iter()
             .find_map(|name| fields.get(name).cloned());
     }
-    location.normalized()
+    location.normalized().map(TryInto::try_into).transpose()
 }

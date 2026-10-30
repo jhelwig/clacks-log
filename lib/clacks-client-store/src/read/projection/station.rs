@@ -15,14 +15,15 @@ pub(super) fn select(qso: &Qso, definitions: &DefinitionSet, result: &mut Evalua
         directory: None,
     };
     result.facts.name = select_name(
-        qso.contacted_operator
+        qso.contacted_operator()
             .as_ref()
-            .and_then(|o| o.recorded_name.as_deref()),
+            .and_then(|o| o.recorded_name().as_deref()),
         &eligible,
     );
-    result.facts.contact_location = select_location(&qso.contacted_station, &eligible, definitions);
+    result.facts.contact_location =
+        select_location(qso.contacted_station(), &eligible, definitions);
     result.facts.own_location = select_location(
-        &qso.own_station,
+        qso.own_station(),
         &EligibleStationFacts::default(),
         definitions,
     );

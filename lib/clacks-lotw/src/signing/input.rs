@@ -3,10 +3,7 @@
 use super::definition::{Field, SignatureDefinitions};
 use crate::{certificate::CertificateMetadata, error::SigningError};
 use anyhow::ensure;
-use clacks_model::service::{
-    adif::{AdifFields, contact_time},
-    lotw::LotwSubmission,
-};
+use clacks_model::service::{adif::AdifFields, lotw::LotwSubmission};
 
 /// Owned protocol values and exact signing bytes for one checked contact.
 pub(super) struct PreparedInput {
@@ -40,20 +37,18 @@ pub(super) fn prepare_input(
     definitions: &SignatureDefinitions,
 ) -> anyhow::Result<PreparedInput> {
     ensure!(
-        submission.mapping_provenance == definitions.provenance,
+        submission.mapping_provenance() == &definitions.provenance,
         SigningError::Definition {
             reason: "submission mapping provenance differs from signature definitions".into()
         }
     );
-    if submission.signing_identity != metadata.identity
-        || submission.key.own_call != submission.signing_identity.callsign
-    {
+    if submission.signing_identity() != &metadata.identity {
         tracing::debug!(event = "signing.input.rejected", reason = ?SigningError::IdentityMismatch);
         return Err(SigningError::IdentityMismatch.into());
     }
     let mut contact = AdifFields::new();
     let mut station = AdifFields::new();
-    for (name, value) in &submission.contact_fields {
+    for (name, value) in submission.contact_fields() {
         ensure!(
             definitions.selected.contact.iter().any(|f| &f.name == name),
             SigningError::Field {
@@ -63,7 +58,7 @@ pub(super) fn prepare_input(
         );
         contact.insert(name.clone(), text(name, value)?);
     }
-    for (name, value) in &submission.station_fields {
+    for (name, value) in submission.station_fields() {
         ensure!(
             definitions.selected.station.iter().any(|f| &f.name == name),
             SigningError::Field {
@@ -73,24 +68,7 @@ pub(super) fn prepare_input(
         );
         station.insert(name.clone(), text(name, value)?);
     }
-    let required = |name: &str| {
-        contact.get(name).ok_or_else(|| SigningError::Field {
-            field: name.into(),
-            reason: "missing required contact field",
-        })
-    };
-    let (date, time) = contact_time(submission.key.start)?;
-    ensure!(
-        required("CALL")? == submission.key.worked_call.as_str()
-            && required("BAND")? == &submission.key.band
-            && required("MODE")? == &submission.key.mode
-            && required("QSO_DATE")? == &date
-            && required("QSO_TIME")? == &time
-            && contact.get("BAND_RX").unwrap_or(&submission.key.band)
-                == &submission.key.receive_band,
-        SigningError::IdentityMismatch
-    );
-    let instant = time::OffsetDateTime::from_unix_timestamp(submission.key.start.unix_seconds())?;
+    let instant = time::OffsetDateTime::from_unix_timestamp(submission.key().start.unix_seconds())?;
     contact.insert(
         "QSO_DATE".into(),
         format!(
@@ -114,9 +92,9 @@ pub(super) fn prepare_input(
     append(&mut signing, &contact, &definitions.selected.contact)?;
     station.insert(
         "CALL".into(),
-        submission.signing_identity.callsign.as_str().into(),
+        submission.signing_identity().callsign.as_str().into(),
     );
-    station.insert("DXCC".into(), submission.signing_identity.dxcc.clone());
+    station.insert("DXCC".into(), submission.signing_identity().dxcc.clone());
     Ok(PreparedInput {
         contact,
         station,

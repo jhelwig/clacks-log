@@ -1,4 +1,6 @@
-//! Recorded contact snapshots, band/frequency authority and save-boundary validation.
+//! Valid saved contact snapshots and explicit frequency/band edits.
+
+pub mod input;
 
 use crate::equipment::EquipmentValues;
 use crate::ids::{EquipmentConfigurationId, QsoId, TagId};
@@ -61,6 +63,7 @@ pub enum RecordError {
 /// dependency. For construction and edits, see [`Self::new`],
 /// [`Self::set_frequency`] and [`Self::set_band`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "BandFrequencyFields")]
 pub struct BandFrequency {
     /// Separately recorded whole-hertz frequency, absent for a band-only pair.
     frequency: Option<Hertz>,
@@ -141,11 +144,264 @@ impl BandFrequency {
     ///
     /// Use before accepting deserialized data. Existing band/frequency differences
     /// are preserved rather than recalculated against a newer recognition catalog.
-    pub fn validate(&self) -> anyhow::Result<()> {
+    fn validate(&self) -> anyhow::Result<()> {
         if self.frequency.is_none() && self.band.is_none() {
             return Err(RecordError::MissingBandAndFrequency.into());
         }
         Ok(())
+    }
+}
+
+/// Editable input checked before becoming a saved OperatorInformation.
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorInformationFields {
+    /// Operator callsign, independently optional from the recorded name.
+    pub callsign: Option<RecordedCallsign>,
+    /// Operator name supplied by the operator or on-air exchange, not directory data.
+    pub recorded_name: Option<String>,
+}
+
+/// Optional on-air operator identity, separate from station identity and directory names.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "OperatorInformationFields")]
+pub struct OperatorInformation {
+    /// Operator callsign, independently optional from the recorded name.
+    callsign: Option<RecordedCallsign>,
+    /// Operator name supplied by the operator or on-air exchange, not directory data.
+    recorded_name: Option<String>,
+}
+
+impl OperatorInformation {
+    /// Check that a present operator snapshot contains a callsign or nonblank recorded name.
+    ///
+    /// Use before saving a complete optional operator value; this does not normalize text.
+    fn validate(&self) -> anyhow::Result<()> {
+        if self.callsign.is_none() && self.recorded_name.is_none() {
+            return Err(RecordError::EmptyOptionalAggregate {
+                field: "operator information".into(),
+            }
+            .into());
+        }
+        validate_optional_text(self.recorded_name.as_deref(), "operator name")
+    }
+}
+
+/// An account-owned saved contact with copied operating context and its complete tag set.
+///
+/// Construct through [`input::QsoFields`]; edits are checked on conversion back.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "input::QsoFields")]
+pub struct Qso {
+    /// Stable account-wide contact identity, independent of tags.
+    id: QsoId,
+    /// Required whole-second UTC start timestamp.
+    start: UtcSecond,
+    /// Optional whole-second UTC end, no earlier than start.
+    end: Option<UtcSecond>,
+    /// Own station snapshot captured for this contact.
+    own_station: StationSnapshot,
+    /// Contacted station snapshot captured for this contact.
+    contacted_station: StationSnapshot,
+    /// Own operator, power and equipment for this contact.
+    own_context: OwnOperatingContext,
+    /// Separately recorded contacted operator information, when known.
+    contacted_operator: Option<OperatorInformation>,
+    /// Recorded primary frequency/band pair.
+    primary: BandFrequency,
+    /// Optional separate receive pair; see [`crate::contact::BandFrequency::effective_receive`].
+    receive_override: Option<BandFrequency>,
+    /// Recorded mode hierarchy and labels independent of recognition.
+    mode: Mode,
+    /// Optional sent signal report; report syntax is not mode-restricted here.
+    sent_report: Option<String>,
+    /// Optional received signal report; report syntax is not mode-restricted here.
+    received_report: Option<String>,
+    /// Optional recorded comment text.
+    comment: Option<String>,
+    /// Complete unordered set of logbook memberships; an empty set leaves the contact untagged.
+    tags: BTreeSet<TagId>,
+}
+
+/// Reject present blank text at a record boundary without modifying recorded input.
+pub(crate) fn validate_optional_text(value: Option<&str>, field: &str) -> anyhow::Result<()> {
+    if value.is_some_and(|s| s.trim().is_empty()) {
+        return Err(RecordError::InvalidOptionalText {
+            field: field.into(),
+        }
+        .into());
+    }
+    Ok(())
+}
+
+impl Qso {
+    /// Recover editable input for a complete, subsequently checked replacement.
+    pub fn into_fields(self) -> input::QsoFields {
+        self.into()
+    }
+
+    /// Stable account-wide contact identity, independent of tags.
+    pub fn id(&self) -> QsoId {
+        self.id
+    }
+
+    /// Required whole-second UTC start timestamp.
+    pub fn start(&self) -> UtcSecond {
+        self.start
+    }
+
+    /// Optional whole-second UTC end, no earlier than start.
+    pub fn end(&self) -> Option<UtcSecond> {
+        self.end
+    }
+
+    /// Own station snapshot captured for this contact.
+    pub fn own_station(&self) -> &StationSnapshot {
+        &self.own_station
+    }
+
+    /// Contacted station snapshot captured for this contact.
+    pub fn contacted_station(&self) -> &StationSnapshot {
+        &self.contacted_station
+    }
+
+    /// Own operator, power and equipment for this contact.
+    pub fn own_context(&self) -> &OwnOperatingContext {
+        &self.own_context
+    }
+
+    /// Separately recorded contacted operator information, when known.
+    pub fn contacted_operator(&self) -> &Option<OperatorInformation> {
+        &self.contacted_operator
+    }
+
+    /// Recorded primary frequency/band pair.
+    pub fn primary(&self) -> &BandFrequency {
+        &self.primary
+    }
+
+    /// Optional separate receive pair; see [`crate::contact::BandFrequency::effective_receive`].
+    pub fn receive_override(&self) -> &Option<BandFrequency> {
+        &self.receive_override
+    }
+
+    /// Recorded mode hierarchy and labels independent of recognition.
+    pub fn mode(&self) -> &Mode {
+        &self.mode
+    }
+
+    /// Optional sent signal report; report syntax is not mode-restricted here.
+    pub fn sent_report(&self) -> &Option<String> {
+        &self.sent_report
+    }
+
+    /// Optional received signal report; report syntax is not mode-restricted here.
+    pub fn received_report(&self) -> &Option<String> {
+        &self.received_report
+    }
+
+    /// Optional recorded comment text.
+    pub fn comment(&self) -> &Option<String> {
+        &self.comment
+    }
+
+    /// Complete unordered set of logbook memberships; an empty set leaves the contact untagged.
+    pub fn tags(&self) -> &BTreeSet<TagId> {
+        &self.tags
+    }
+
+    /// Reject inconsistent timestamps or blank optional contact text at construction.
+    ///
+    /// Use after entry/import preparation and before durable acceptance. Equal start
+    /// and end times and contacts spanning midnight are valid. Returns concrete
+    /// record/value diagnostics through `anyhow::Error`; account ownership, tag
+    /// existence and service associations require separate application checks.
+    fn validate(&self) -> anyhow::Result<()> {
+        if let Some(end) = self.end
+            && end < self.start
+        {
+            return Err(RecordError::EndBeforeStart {
+                start: self.start,
+                end,
+            }
+            .into());
+        }
+
+        for (name, value) in [
+            ("sent report", self.sent_report.as_deref()),
+            ("received report", self.received_report.as_deref()),
+            ("comment", self.comment.as_deref()),
+        ] {
+            validate_optional_text(value, name)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// Recorded pair input validated without consulting a recognition catalog.
+#[derive(Deserialize)]
+struct BandFrequencyFields {
+    /// Recorded frequency, if independently supplied.
+    frequency: Option<Hertz>,
+    /// Recorded band label, without catalog reinterpretation.
+    band: Option<Band>,
+}
+
+impl TryFrom<BandFrequencyFields> for BandFrequency {
+    type Error = anyhow::Error;
+
+    fn try_from(fields: BandFrequencyFields) -> anyhow::Result<Self> {
+        Self::from_recorded_pair(fields.frequency, fields.band)
+    }
+}
+
+impl OperatorInformation {
+    /// Recover editable input for a subsequently checked replacement.
+    pub fn into_fields(self) -> OperatorInformationFields {
+        self.into()
+    }
+
+    /// Operator callsign, independently optional from the recorded name.
+    pub fn callsign(&self) -> &Option<RecordedCallsign> {
+        &self.callsign
+    }
+
+    /// Operator name supplied by the operator or on-air exchange, not directory data.
+    pub fn recorded_name(&self) -> &Option<String> {
+        &self.recorded_name
+    }
+}
+
+impl TryFrom<OperatorInformationFields> for OperatorInformation {
+    type Error = anyhow::Error;
+
+    fn try_from(fields: OperatorInformationFields) -> anyhow::Result<Self> {
+        let value = Self {
+            callsign: fields.callsign,
+            recorded_name: fields.recorded_name,
+        };
+        value.validate()?;
+        Ok(value)
+    }
+}
+
+impl From<OperatorInformation> for OperatorInformationFields {
+    fn from(value: OperatorInformation) -> Self {
+        Self {
+            callsign: value.callsign,
+            recorded_name: value.recorded_name,
+        }
+    }
+}
+
+impl OperatorInformationFields {
+    /// Normalize optional operator text and collapse an all-absent operator to `None`.
+    ///
+    /// Use before saving prepared entry data; a callsign or nonblank name alone
+    /// is sufficient to retain the operator snapshot.
+    pub fn normalized(mut self) -> Option<Self> {
+        self.recorded_name = self.recorded_name.as_deref().and_then(optional_text);
+        (self.callsign.is_some() || self.recorded_name.is_some()).then_some(self)
     }
 }
 
@@ -163,39 +419,6 @@ pub struct StationSnapshot {
     pub references: BTreeSet<ReferenceAssociation>,
 }
 
-/// Optional on-air operator identity, separate from station identity and directory names.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OperatorInformation {
-    /// Operator callsign, independently optional from the recorded name.
-    pub callsign: Option<RecordedCallsign>,
-    /// Operator name supplied by the operator or on-air exchange, not directory data.
-    pub recorded_name: Option<String>,
-}
-
-impl OperatorInformation {
-    /// Check that a present operator snapshot contains a callsign or nonblank recorded name.
-    ///
-    /// Use before saving a complete optional operator value; this does not normalize text.
-    pub fn validate(&self) -> anyhow::Result<()> {
-        if self.callsign.is_none() && self.recorded_name.is_none() {
-            return Err(RecordError::EmptyOptionalAggregate {
-                field: "operator information".into(),
-            }
-            .into());
-        }
-        validate_optional_text(self.recorded_name.as_deref(), "operator name")
-    }
-
-    /// Normalize optional operator text and collapse an all-absent operator to `None`.
-    ///
-    /// Use before saving prepared entry data; a callsign or nonblank name alone
-    /// is sufficient to retain the operator snapshot.
-    pub fn normalized(mut self) -> Option<Self> {
-        self.recorded_name = self.recorded_name.as_deref().and_then(optional_text);
-        (self.callsign.is_some() || self.recorded_name.is_some()).then_some(self)
-    }
-}
-
 /// Own operator, transmit power and copied equipment associated with a contact.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OwnOperatingContext {
@@ -205,179 +428,4 @@ pub struct OwnOperatingContext {
     pub transmit_power: Option<Milliwatts>,
     /// Owned equipment facts with no live configuration reference.
     pub equipment: Option<EquipmentValues>,
-}
-
-/// An account-owned saved contact with copied operating context and its complete tag set.
-///
-/// Public fields permit an unvalidated working value; the type itself performs
-/// no save or acceptance operation. For preparation and validation, see
-/// [`Self::normalize_optional_aggregates`] and [`Self::validate`]. Equality compares
-/// all recorded fields, including the tag and reference sets.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Qso {
-    /// Stable account-wide contact identity, independent of tags.
-    pub id: QsoId,
-    /// Required whole-second UTC start timestamp.
-    pub start: UtcSecond,
-    /// Optional whole-second UTC end, no earlier than start.
-    pub end: Option<UtcSecond>,
-    /// Own station snapshot captured for this contact.
-    pub own_station: StationSnapshot,
-    /// Contacted station snapshot captured for this contact.
-    pub contacted_station: StationSnapshot,
-    /// Own operator, power and equipment for this contact.
-    pub own_context: OwnOperatingContext,
-    /// Separately recorded contacted operator information, when known.
-    pub contacted_operator: Option<OperatorInformation>,
-    /// Recorded primary frequency/band pair.
-    pub primary: BandFrequency,
-    /// Optional separate receive pair; see [`crate::contact::BandFrequency::effective_receive`].
-    pub receive_override: Option<BandFrequency>,
-    /// Recorded mode hierarchy and labels independent of recognition.
-    pub mode: Mode,
-    /// Optional sent signal report; report syntax is not mode-restricted here.
-    pub sent_report: Option<String>,
-    /// Optional received signal report; report syntax is not mode-restricted here.
-    pub received_report: Option<String>,
-    /// Optional recorded comment text.
-    pub comment: Option<String>,
-    /// Complete unordered set of logbook memberships; an empty set leaves the contact untagged.
-    pub tags: BTreeSet<TagId>,
-}
-
-/// Reject present blank text at a record boundary without modifying recorded input.
-pub(crate) fn validate_optional_text(value: Option<&str>, field: &str) -> anyhow::Result<()> {
-    if value.is_some_and(|s| s.trim().is_empty()) {
-        return Err(RecordError::InvalidOptionalText {
-            field: field.into(),
-        }
-        .into());
-    }
-    Ok(())
-}
-
-impl StationSnapshot {
-    /// Validate recorded location/reference text before saving the station snapshot.
-    ///
-    /// Reject empty present locations and blank optional identifiers. This does not
-    /// require optional geography, validate group syntax, or infer directory facts.
-    pub fn validate(&self) -> anyhow::Result<()> {
-        if let Some(l) = &self.location {
-            if !l.has_values() {
-                return Err(RecordError::EmptyOptionalAggregate {
-                    field: "location".into(),
-                }
-                .into());
-            }
-            for (name, text) in [
-                ("dxcc", &l.dxcc),
-                ("primary subdivision", &l.primary_subdivision),
-                ("secondary subdivision", &l.secondary_subdivision),
-            ] {
-                validate_optional_text(text.as_deref(), name)?;
-            }
-        }
-        for r in &self.references {
-            validate_optional_text(r.identifier.as_deref(), "reference identifier")?;
-        }
-        Ok(())
-    }
-}
-
-impl Qso {
-    /// Check saved-contact invariants and nested values without modifying the contact.
-    ///
-    /// Use after entry/import preparation and before durable acceptance. Equal start
-    /// and end times and contacts spanning midnight are valid. Returns concrete
-    /// record/value diagnostics through `anyhow::Error`; account ownership, tag
-    /// existence and service associations require separate application checks.
-    pub fn validate(&self) -> anyhow::Result<()> {
-        if let Some(end) = self.end
-            && end < self.start
-        {
-            return Err(RecordError::EndBeforeStart {
-                start: self.start,
-                end,
-            }
-            .into());
-        }
-        self.primary.validate()?;
-        if let Some(r) = &self.receive_override {
-            r.validate()?;
-        }
-        self.own_station.validate()?;
-        self.contacted_station.validate()?;
-        for (name, value) in [
-            ("sent report", self.sent_report.as_deref()),
-            ("received report", self.received_report.as_deref()),
-            ("comment", self.comment.as_deref()),
-        ] {
-            validate_optional_text(value, name)?;
-        }
-        for operator in [&self.own_context.operator, &self.contacted_operator]
-            .into_iter()
-            .flatten()
-        {
-            operator.validate()?;
-        }
-        if let Some(e) = &self.own_context.equipment {
-            e.validate()?;
-        }
-        Ok(())
-    }
-
-    /// Prepare optional locations, operators, receive override and report/comment text for saving.
-    ///
-    /// Empty locations/operators collapse to absence; an empty receive override
-    /// is removed. Nonblank text and explicit recorded facts remain unchanged.
-    /// Equipment/reference strings are outside this method’s normalization scope.
-    /// See also [`crate::scalar::optional_text`] and [`Self::validate`].
-    pub fn normalize_optional_aggregates(&mut self) {
-        if self
-            .receive_override
-            .as_ref()
-            .is_some_and(|r| r.frequency.is_none() && r.band.is_none())
-        {
-            self.receive_override = None;
-        }
-        for station in [&mut self.own_station, &mut self.contacted_station] {
-            station.location = station
-                .location
-                .take()
-                .and_then(RecordedLocation::normalized);
-        }
-        self.own_context.operator = self
-            .own_context
-            .operator
-            .take()
-            .and_then(OperatorInformation::normalized);
-        self.contacted_operator = self
-            .contacted_operator
-            .take()
-            .and_then(OperatorInformation::normalized);
-        for value in [
-            &mut self.sent_report,
-            &mut self.received_report,
-            &mut self.comment,
-        ] {
-            *value = value.as_deref().and_then(optional_text);
-        }
-    }
-}
-
-impl EquipmentValues {
-    /// Validate copied optional equipment text before accepting it into a saved record.
-    ///
-    /// Blank present strings fail validation. No particular equipment field is
-    /// required. For preparing optional text, see [`crate::scalar::optional_text`].
-    pub fn validate(&self) -> anyhow::Result<()> {
-        for (name, value) in [
-            ("equipment", &self.equipment_description),
-            ("antenna", &self.antenna_description),
-            ("equipment notes", &self.notes),
-        ] {
-            validate_optional_text(value.as_deref(), name)?;
-        }
-        Ok(())
-    }
 }

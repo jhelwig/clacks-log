@@ -65,7 +65,7 @@ async fn repeated_create_acknowledges_only_the_same_submitted_contact() -> anyho
         anyhow::bail!("missing query page")
     };
     assert_eq!(page.matching_total, 1);
-    assert_eq!(page.rows.first().unwrap().working.qso.id, qso.id);
+    assert_eq!(page.rows.first().unwrap().working.qso.id(), qso.id());
     let repeated = execute(
         &store,
         ContactAction::Save {
@@ -139,17 +139,20 @@ async fn membership_preparation_captures_the_selected_basis() -> anyhow::Result<
         )
         .await?;
     }
-    let ids = [a.id, b.id].into();
+    let ids = [a.id(), b.id()].into();
     let basis = membership::prepare(&store, &ids).await?;
     assert_eq!(basis.records.len(), 2);
     let first = basis.records.first().unwrap().clone();
     let Some(RecordState::Live(RecordValue::Qso(mut next))) = first.working_state().cloned() else {
         panic!("qso")
     };
-    next.comment = Some("newer fact".into());
+    crate::test_support::edit(&mut next, |next| {
+        next.comment = Some("newer fact".into());
+        Ok(())
+    });
     save::save(
         &store,
-        first.key,
+        first.key(),
         Some(&first),
         RecordState::Live(RecordValue::Qso(next)),
     )
@@ -196,8 +199,8 @@ async fn membership_preparation_captures_the_selected_basis() -> anyhow::Result<
             .await
             .is_err()
     );
-    let b = save::load(&store, key(&store, b.id)).await?.unwrap();
-    save::save(&store, b.key, Some(&b), RecordState::Deleted).await?;
+    let b = save::load(&store, key(&store, b.id())).await?.unwrap();
+    save::save(&store, b.key(), Some(&b), RecordState::Deleted).await?;
     assert!(membership::prepare(&store, &ids).await.is_err());
     store.close().await?;
     let captured = std::fs::read_to_string(output.path())?;

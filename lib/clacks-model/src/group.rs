@@ -12,8 +12,9 @@ use std::collections::{BTreeMap, btree_map::Entry};
 /// The fields express the group’s capabilities without a built-in program-kind
 /// discriminator. Recorded associations are separate values. For rule
 /// preparation and evaluation, see [`crate::export::rules::compile_definition`].
+/// Raw group configuration checked before it becomes a saved definition.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct GroupDefinition {
+pub struct GroupDefinitionFields {
     /// Stable account group identity.
     pub id: GroupId,
     /// User-facing group name.
@@ -26,6 +27,24 @@ pub struct GroupDefinition {
     pub catalog: Option<CatalogBinding>,
     /// Ordinary interchange mappings and profile-specific targeted plans.
     pub export_mappings: GroupExportMappings,
+}
+
+/// A complete group whose identifier, catalog and export rules compile together.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "GroupDefinitionFields")]
+pub struct GroupDefinition {
+    /// Stable account group identity.
+    id: GroupId,
+    /// User-facing group name.
+    name: String,
+    /// Identifier entry/edit rules, including group-only participation.
+    identifier: IdentifierDefinition,
+    /// Whether this group’s references carry operating-location context.
+    bears_location_context: bool,
+    /// Optional descriptive dataset binding, separate from recorded contact facts.
+    catalog: Option<CatalogBinding>,
+    /// Ordinary interchange mappings and profile-specific targeted plans.
+    export_mappings: GroupExportMappings,
 }
 
 /// Rules for preparing an explicitly entered or edited group identifier.
@@ -144,5 +163,66 @@ pub fn normalize_reference(
     match definition {
         Some(d) => compile_definition(d)?.normalize_reference(association),
         None => Ok(association.clone()),
+    }
+}
+
+impl GroupDefinition {
+    /// Stable account identity of this reference group.
+    pub fn id(&self) -> GroupId {
+        self.id
+    }
+
+    /// User-facing name of this group.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Rules applied when explicitly entering or editing identifiers.
+    pub fn identifier(&self) -> &IdentifierDefinition {
+        &self.identifier
+    }
+
+    /// Whether recorded associations suppress directory-location fallback.
+    pub fn bears_location_context(&self) -> bool {
+        self.bears_location_context
+    }
+
+    /// Optional descriptive lookup binding, independent of recorded QSO facts.
+    pub fn catalog(&self) -> &Option<CatalogBinding> {
+        &self.catalog
+    }
+
+    /// Ordinary and targeted export rules belonging to this group.
+    pub fn export_mappings(&self) -> &GroupExportMappings {
+        &self.export_mappings
+    }
+
+    /// Recover editable configuration for a subsequently checked replacement.
+    pub fn into_fields(self) -> GroupDefinitionFields {
+        GroupDefinitionFields {
+            id: self.id,
+            name: self.name,
+            identifier: self.identifier,
+            bears_location_context: self.bears_location_context,
+            catalog: self.catalog,
+            export_mappings: self.export_mappings,
+        }
+    }
+}
+
+impl TryFrom<GroupDefinitionFields> for GroupDefinition {
+    type Error = DefinitionError;
+
+    fn try_from(fields: GroupDefinitionFields) -> Result<Self, Self::Error> {
+        let definition = Self {
+            id: fields.id,
+            name: fields.name,
+            identifier: fields.identifier,
+            bears_location_context: fields.bears_location_context,
+            catalog: fields.catalog,
+            export_mappings: fields.export_mappings,
+        };
+        compile_definition(&definition)?;
+        Ok(definition)
     }
 }

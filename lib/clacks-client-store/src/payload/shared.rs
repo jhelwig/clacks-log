@@ -3,7 +3,6 @@
 use super::contact;
 use clacks_model::{
     export::{OutputProfile, OutputPurpose},
-    profile::{EquipmentConfiguration, SavedLocationProfile},
     tag::{AutomaticUploadPolicies, AutomaticUploadPolicy, LogbookTag},
 };
 use clacks_sync::record::{RecordId, RecordKey, RecordValue};
@@ -55,8 +54,8 @@ pub(super) async fn insert(
         }
         RecordValue::Profile(profile) => {
             let station =
-                contact::insert_station(connection, key.account, &profile.station).await?;
-            if let Some(equipment) = profile.default_equipment {
+                contact::insert_station(connection, key.account, profile.station()).await?;
+            if let Some(equipment) = profile.default_equipment() {
                 super::identity(
                     connection,
                     RecordKey {
@@ -66,13 +65,13 @@ pub(super) async fn insert(
                 )
                 .await?;
             }
-            let equipment = profile.default_equipment.map(|id| id.to_string());
+            let equipment = profile.default_equipment().map(|id| id.to_string());
             sqlx::query_file!(
                 "sql/profile/insert.sql",
                 payload,
                 account,
                 id,
-                profile.name,
+                profile.name(),
                 station,
                 equipment
             )
@@ -81,13 +80,13 @@ pub(super) async fn insert(
         }
         RecordValue::Equipment(equipment) => {
             let snapshot =
-                contact::insert_equipment(connection, key.account, &equipment.values).await?;
+                contact::insert_equipment(connection, key.account, equipment.values()).await?;
             sqlx::query_file!(
                 "sql/equipment/configuration_insert.sql",
                 payload,
                 account,
                 id,
-                equipment.name,
+                equipment.name(),
                 snapshot
             )
             .execute(connection)
@@ -98,21 +97,18 @@ pub(super) async fn insert(
                 OutputPurpose::OrdinaryInterchange => "ordinary",
                 OutputPurpose::Targeted => "targeted",
             };
+            let fields = serde_json::to_string(&profile.contextual_fields)?;
             sqlx::query_file!(
                 "sql/export/profile_insert.sql",
                 payload,
                 account,
                 id,
                 profile.name,
-                purpose
+                purpose,
+                fields
             )
             .execute(&mut *connection)
             .await?;
-            for field in &profile.contextual_fields {
-                sqlx::query_file!("sql/export/context_insert.sql", payload, field)
-                    .execute(&mut *connection)
-                    .await?;
-            }
         }
         _ => anyhow::bail!("not a shared snapshot payload"),
     }
@@ -145,12 +141,16 @@ pub(super) async fn load(
             let row = sqlx::query_file!("sql/profile/select.sql", payload, account, id_text)
                 .fetch_one(&mut *connection)
                 .await?;
-            RecordValue::Profile(Box::new(SavedLocationProfile {
-                id,
-                name: row.name,
-                station: contact::load_station(connection, key.account, row.station_id).await?,
-                default_equipment: row.equipment_id.map(|id| id.parse()).transpose()?,
-            }))
+            RecordValue::Profile(Box::new(
+                (clacks_model::profile::SavedLocationProfileFields {
+                    id,
+                    name: row.name,
+                    station: (contact::load_station(connection, key.account, row.station_id)
+                        .await?),
+                    default_equipment: row.equipment_id.map(|id| id.parse()).transpose()?,
+                })
+                .try_into()?,
+            ))
         }
         RecordId::Equipment(id) => {
             let row = sqlx::query_file!(
@@ -161,11 +161,16 @@ pub(super) async fn load(
             )
             .fetch_one(&mut *connection)
             .await?;
-            RecordValue::Equipment(Box::new(EquipmentConfiguration {
-                id,
-                name: row.name,
-                values: contact::load_equipment(connection, key.account, row.snapshot_id).await?,
-            }))
+            RecordValue::Equipment(Box::new(
+                (clacks_model::profile::EquipmentConfigurationFields {
+                    id,
+                    name: row.name,
+                    values: (contact::load_equipment(connection, key.account, row.snapshot_id)
+                        .await?)
+                        .into_fields(),
+                })
+                .try_into()?,
+            ))
         }
         RecordId::OutputProfile(id) => {
             let row = sqlx::query_file!("sql/export/profile_select.sql", payload, account, id_text)
@@ -176,12 +181,7 @@ pub(super) async fn load(
                 "targeted" => OutputPurpose::Targeted,
                 _ => anyhow::bail!("unknown output purpose"),
             };
-            let fields = sqlx::query_file!("sql/export/context_select.sql", payload)
-                .fetch_all(connection)
-                .await?
-                .into_iter()
-                .map(|row| row.field)
-                .collect();
+            let fields = serde_json::from_str(&row.contextual_fields)?;
             RecordValue::OutputProfile(Box::new(OutputProfile {
                 id,
                 name: row.name,

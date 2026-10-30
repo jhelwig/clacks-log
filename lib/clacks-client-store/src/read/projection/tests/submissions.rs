@@ -28,7 +28,7 @@ async fn historical_qrz_submission_coverage_uses_its_retained_book() -> anyhow::
     let mut qso = support::qso(support::id(10));
     let saved = save::save(
         &store,
-        support::qso_key(qso.id),
+        support::qso_key(qso.id()),
         None,
         support::contact(qso.clone()),
     )
@@ -50,7 +50,7 @@ async fn historical_qrz_submission_coverage_uses_its_retained_book() -> anyhow::
     let at = UtcTimestamp::new(1_000, 0)?;
     let attempt = SubmissionAttempt {
         id: support::id(40),
-        qso: qso.id,
+        qso: qso.id(),
         projection: SubmissionProjection::Qrz(QrzSubmission {
             destination: destination.id,
             fields: a.baseline.fields,
@@ -104,24 +104,27 @@ async fn historical_qrz_submission_coverage_uses_its_retained_book() -> anyhow::
     let facts = projection::load(
         &mut snapshot.transaction,
         snapshot.account,
-        &[qso.id],
+        &[qso.id()],
         ProjectionNeeds {
             station: true,
             services: true,
         },
     )
     .await?;
-    assert_eq!(facts.first().unwrap().id, qso.id);
+    assert_eq!(facts.first().unwrap().id, qso.id());
     assert!(facts.first().unwrap().facts.qrz.uploaded);
     assert!(!facts.first().unwrap().facts.qrz.confirmed);
     snapshot.close().await?;
-    qso.own_context.transmit_power = Some(Milliwatts::new(100_000)?);
+    support::edit(&mut qso, |qso| {
+        qso.own_context.transmit_power = Some(Milliwatts::new(100_000)?);
+        Ok(())
+    });
     let save::SaveOutcome::Saved(saved) = saved else {
         panic!("save")
     };
     save::save(
         &store,
-        saved.key,
+        saved.key(),
         Some(&saved),
         support::contact(qso.clone()),
     )
@@ -130,7 +133,7 @@ async fn historical_qrz_submission_coverage_uses_its_retained_book() -> anyhow::
     let facts = projection::load(
         &mut snapshot.transaction,
         snapshot.account,
-        &[qso.id],
+        &[qso.id()],
         ProjectionNeeds {
             station: true,
             services: true,
@@ -146,7 +149,6 @@ async fn historical_qrz_submission_coverage_uses_its_retained_book() -> anyhow::
 #[tokio::test]
 async fn lotw_coverage_retains_its_public_signing_and_account_context() -> anyhow::Result<()> {
     use clacks_model::{
-        location::RecordedLocation,
         recognition::mode::{Mode, ModeIdentity},
         service::{
             error::ProjectionDecision,
@@ -162,13 +164,20 @@ async fn lotw_coverage_retains_its_public_signing_and_account_context() -> anyho
     )
     .await?;
     let mut qso = support::qso(support::id(10));
-    qso.own_station.location = Some(RecordedLocation {
-        dxcc: Some("291".into()),
-        ..Default::default()
+    support::edit(&mut qso, |qso| {
+        qso.own_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                dxcc: Some("291".into()),
+                ..Default::default()
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+        Ok(())
     });
     let saved = save::save(
         &store,
-        support::qso_key(qso.id),
+        support::qso_key(qso.id()),
         None,
         support::contact(qso.clone()),
     )
@@ -183,7 +192,7 @@ async fn lotw_coverage_retains_its_public_signing_and_account_context() -> anyho
         description: "Personal account".into(),
     };
     let signing = PublicSigningIdentity {
-        callsign: qso.own_station.callsign.clone(),
+        callsign: qso.own_station().callsign.clone(),
         dxcc: "291".into(),
     };
     let ProjectionDecision::Ready(submission) = lotw::project(&LotwProjectionInput {
@@ -199,7 +208,7 @@ async fn lotw_coverage_retains_its_public_signing_and_account_context() -> anyho
     let at = UtcTimestamp::new(1_000, 0)?;
     let attempt = SubmissionAttempt {
         id: support::id(40),
-        qso: qso.id,
+        qso: qso.id(),
         projection: SubmissionProjection::Lotw(Box::new(submission.value)),
         phase: DispatchPhase::Dispatched,
         at,
@@ -244,7 +253,7 @@ async fn lotw_coverage_retains_its_public_signing_and_account_context() -> anyho
     let facts = projection::load(
         &mut snapshot.transaction,
         snapshot.account,
-        &[qso.id],
+        &[qso.id()],
         ProjectionNeeds {
             station: true,
             services: true,
@@ -253,15 +262,18 @@ async fn lotw_coverage_retains_its_public_signing_and_account_context() -> anyho
     .await?;
     assert!(facts.first().unwrap().facts.lotw.uploaded);
     snapshot.close().await?;
-    qso.mode = Mode::from_recorded_identity(ModeIdentity::Parent {
-        label: "SSB".into(),
-    })?;
+    support::edit(&mut qso, |qso| {
+        qso.mode = Mode::from_recorded_identity(ModeIdentity::Parent {
+            label: "SSB".into(),
+        })?;
+        Ok(())
+    });
     let save::SaveOutcome::Saved(saved) = saved else {
         panic!("save")
     };
     save::save(
         &store,
-        saved.key,
+        saved.key(),
         Some(&saved),
         support::contact(qso.clone()),
     )
@@ -270,7 +282,7 @@ async fn lotw_coverage_retains_its_public_signing_and_account_context() -> anyho
     let facts = projection::load(
         &mut snapshot.transaction,
         snapshot.account,
-        &[qso.id],
+        &[qso.id()],
         ProjectionNeeds {
             station: true,
             services: true,

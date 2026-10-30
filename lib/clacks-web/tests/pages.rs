@@ -12,7 +12,8 @@ use reqwest::cookie::CookieStore;
 #[cfg(feature = "ssr")]
 #[tokio::test]
 async fn account_page_and_direct_server_function_require_the_same_login() -> anyhow::Result<()> {
-    let provider = provider::start().await?;
+    let registrations = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let provider = provider::start(Some(registrations.clone())).await?;
     let directory = tempfile::tempdir()?;
     let database = directory.path().join("runtime-url");
     let key = directory.path().join("cookie-key");
@@ -341,12 +342,7 @@ async fn account_page_and_direct_server_function_require_the_same_login() -> any
         .send()
         .await?;
     assert_eq!(removal.headers().get("location").unwrap(), "/sign-in");
-    assert_eq!(
-        provider
-            .registrations
-            .load(std::sync::atomic::Ordering::SeqCst),
-        0
-    );
+    assert_eq!(registrations.load(std::sync::atomic::Ordering::SeqCst), 0);
     assert!(jar.cookies(&url::Url::parse(&base)?).is_some());
     task.abort();
     Ok(())

@@ -1,7 +1,9 @@
 //! Account-owned secret envelopes, independent of browser and provider keys.
 
+pub(crate) mod envelope;
 pub(crate) mod keys;
 pub(crate) mod receipt;
+pub(crate) mod rows;
 
 use aes_gcm::{
     Aes256Gcm, KeyInit, Nonce,

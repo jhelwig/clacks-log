@@ -1,7 +1,7 @@
 use crate::support;
 use clacks_sync::{
     account::{AccountMetadata, EvidenceView, InstalledCheckpoint},
-    client::{ClientRecord, OriginalBasis, PendingRecord},
+    client::{OriginalBasis, PendingRecord},
     lineage::Coverage,
     record::{Observation, RecordId, RecordKey, RecordState, RecordValue},
     transfer::{
@@ -21,26 +21,34 @@ fn interrupted_window_preserves_coverage_and_pending_conflict() {
     };
     let q = accepted(60, "shared");
     let mut h = q.clone();
-    h.key = RecordKey {
-        account: id(1),
-        id: RecordId::Tag(id(11)),
-    };
-    h.state = RecordState::Live(RecordValue::Tag(Box::new(
-        clacks_model::tag::LogbookTag::new(id(11), "H".into()),
-    )));
+
+    support::edit_accepted(&mut h, |h| {
+        h.key = RecordKey {
+            account: id(1),
+            id: RecordId::Tag(id(11)),
+        };
+        h.state = RecordState::Live(RecordValue::Tag(Box::new(
+            clacks_model::tag::LogbookTag::new(id(11), "H".into()),
+        )));
+    });
     let mut p = q.clone();
-    p.key = RecordKey {
-        account: id(1),
-        id: RecordId::Profile(id(12)),
-    };
-    p.state = RecordState::Live(RecordValue::Profile(Box::new(
-        clacks_model::profile::SavedLocationProfile {
-            id: id(12),
-            name: "P".into(),
-            station: support::qso(id(10)).own_station,
-            default_equipment: None,
-        },
-    )));
+
+    support::edit_accepted(&mut p, |p| {
+        p.key = RecordKey {
+            account: id(1),
+            id: RecordId::Profile(id(12)),
+        };
+        p.state = RecordState::Live(RecordValue::Profile(Box::new(
+            (clacks_model::profile::SavedLocationProfileFields {
+                id: id(12),
+                name: "P".into(),
+                station: (support::qso(id(10)).own_station().clone()),
+                default_equipment: None,
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        )));
+    });
     let source = InstalledCheckpoint {
         account: id(1),
         baseline: id(3),
@@ -53,7 +61,7 @@ fn interrupted_window_preserves_coverage_and_pending_conflict() {
         [&q, &h, &p]
             .into_iter()
             .map(|v| RecordRequirement {
-                key: v.key,
+                key: v.key(),
                 stamp: v.stamp.clone(),
                 deleted: false,
             })
@@ -76,18 +84,20 @@ fn interrupted_window_preserves_coverage_and_pending_conflict() {
         ..progress.source.clone()
     };
     let original = accepted(20, "old");
-    let local = [ClientRecord {
+    let local = [clacks_sync::client::ClientRecordFields {
         retained: Vec::new(),
-        key: q.key,
+        key: q.key(),
         latest: Observation::Accepted(original.clone()),
         pending: Some(PendingRecord {
             witness: None,
-            key: q.key,
+            key: q.key(),
             original: OriginalBasis::Accepted(original),
-            working: accepted(20, "local").state,
+            working: accepted(20, "local").state().clone(),
             prepared: None,
         }),
-    }];
+    }
+    .try_into()
+    .expect("coherent client fixture")];
     let batch = plan_batch(&manifest, &progress, std::slice::from_ref(&q), &local, &ev).unwrap();
     assert!(batch.client_updates.first().unwrap().review.is_some());
     progress.installed.extend(batch.installed_keys);
@@ -138,14 +148,17 @@ fn tombstones_scope_baselines_and_replaced_windows_are_checked() {
         baselines: &defs,
     };
     let mut deleted = accepted(60, "gone");
-    deleted.state = RecordState::Deleted;
+
+    support::edit_accepted(&mut deleted, |deleted| {
+        deleted.state = RecordState::Deleted;
+    });
     let source = InstalledCheckpoint {
         account: id(1),
         baseline: id(3),
         coverage: Coverage::from_entries([(id(2), 60)]).unwrap(),
     };
     let r = RecordRequirement {
-        key: deleted.key,
+        key: deleted.key(),
         stamp: deleted.stamp.clone(),
         deleted: true,
     };

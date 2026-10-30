@@ -1,7 +1,7 @@
 //! Relational review rows and field groups shared within the client store.
 
-/// Nullable columns distinguishing the saved reasons for user resolution.
-pub(crate) struct ReviewReasonFields {
+/// Raw SQL decoder columns for the saved reason for user resolution.
+pub(crate) struct ReviewReasonRow {
     /// Review-reason discriminator.
     pub(crate) reason: String,
     /// Missing causal-evidence discriminator.

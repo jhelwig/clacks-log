@@ -160,7 +160,7 @@ fn build(ids: Vec<String>, existing: &AccountDefinitions) -> anyhow::Result<Acco
     let old_groups: BTreeMap<_, _> = existing
         .groups
         .iter()
-        .map(|group| (group.name.as_str(), group.id))
+        .map(|group| (group.name(), group.id()))
         .collect();
     let old_profiles: BTreeMap<_, _> = existing
         .output_profiles
@@ -189,22 +189,24 @@ fn build(ids: Vec<String>, existing: &AccountDefinitions) -> anyhow::Result<Acco
             r"(?:AF|AN|AS|EU|NA|OC|SA)-(?:00[1-9]|0[1-9][0-9]|[1-9][0-9]{2})",
         ),
     ] {
-        groups.push(GroupDefinition {
-            id: old_groups.get(name).copied().unwrap_or_else(GroupId::new),
-            name: name.into(),
-            identifier: IdentifierDefinition {
-                required: true,
-                normalization: vec![TextNormalization::Trim, TextNormalization::Uppercase],
-                syntax: Some(syntax.into()),
+        groups.push(GroupDefinition::try_from(
+            clacks_model::group::GroupDefinitionFields {
+                id: old_groups.get(name).copied().unwrap_or_else(GroupId::new),
+                name: name.into(),
+                identifier: IdentifierDefinition {
+                    required: true,
+                    normalization: vec![TextNormalization::Trim, TextNormalization::Uppercase],
+                    syntax: Some(syntax.into()),
+                },
+                bears_location_context: true,
+                catalog: None,
+                export_mappings: if name == "POTA" {
+                    pota_mappings(pota)
+                } else {
+                    GroupExportMappings::default()
+                },
             },
-            bears_location_context: true,
-            catalog: None,
-            export_mappings: if name == "POTA" {
-                pota_mappings(pota)
-            } else {
-                GroupExportMappings::default()
-            },
-        });
+        )?);
     }
 
     for id in ids {
@@ -212,28 +214,30 @@ fn build(ids: Vec<String>, existing: &AccountDefinitions) -> anyhow::Result<Acco
             !matches!(id.as_str(), "POTA" | "SOTA" | "IOTA"),
             "contest ID collides with program seed name"
         );
-        groups.push(GroupDefinition {
-            id: old_groups
-                .get(id.as_str())
-                .copied()
-                .unwrap_or_else(GroupId::new),
-            name: id.clone(),
-            identifier: IdentifierDefinition {
-                required: false,
-                normalization: vec![TextNormalization::Trim],
-                syntax: None,
+        groups.push(GroupDefinition::try_from(
+            clacks_model::group::GroupDefinitionFields {
+                id: old_groups
+                    .get(id.as_str())
+                    .copied()
+                    .unwrap_or_else(GroupId::new),
+                name: id.clone(),
+                identifier: IdentifierDefinition {
+                    required: false,
+                    normalization: vec![TextNormalization::Trim],
+                    syntax: None,
+                },
+                bears_location_context: false,
+                catalog: None,
+                export_mappings: GroupExportMappings {
+                    ordinary_interchange: vec![field(
+                        "CONTEST_ID",
+                        ValueExpression::Literal(id),
+                        BindingCondition::AssociationPresent(StationSide::Own),
+                    )],
+                    targeted: BTreeMap::new(),
+                },
             },
-            bears_location_context: false,
-            catalog: None,
-            export_mappings: GroupExportMappings {
-                ordinary_interchange: vec![field(
-                    "CONTEST_ID",
-                    ValueExpression::Literal(id),
-                    BindingCondition::AssociationPresent(StationSide::Own),
-                )],
-                targeted: BTreeMap::new(),
-            },
-        });
+        )?);
     }
 
     let result = AccountDefinitions {

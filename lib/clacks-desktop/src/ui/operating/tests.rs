@@ -66,12 +66,9 @@ fn validation_blocks_apply_and_correction_submits_only_the_edited_scope() {
         panic!("Apply request")
     };
     assert_eq!(expected, before);
-    assert_eq!(next.selected_profile, before.selected_profile);
-    assert_eq!(next.selected_equipment, before.selected_equipment);
-    assert_eq!(
-        next.current.as_ref().unwrap().transmit_power.unwrap().get(),
-        500
-    );
+    assert_eq!(next.selected_profile(), before.selected_profile());
+    assert_eq!(next.selected_equipment(), before.selected_equipment());
+    assert_eq!(next.current().unwrap().transmit_power.unwrap().get(), 500);
     assert_eq!(ui.state().snapshot.operating, before);
 }
 
@@ -108,14 +105,13 @@ fn saving_a_profile_uses_pending_station_values_without_applying_them() {
     let SettingsAction::SaveProfile { next, .. } = request.action else {
         panic!("profile save")
     };
-    assert_eq!(next.station.callsign.as_str(), "W7PORTABLE");
-    assert_eq!(next.name, "Portable");
+    assert_eq!(next.station().callsign.as_str(), "W7PORTABLE");
+    assert_eq!(next.name(), "Portable");
     assert_eq!(
         ui.state()
             .snapshot
             .operating
-            .current
-            .as_ref()
+            .current()
             .unwrap()
             .station
             .callsign
@@ -150,11 +146,27 @@ fn escape_discards_only_the_nested_editor() {
 fn quick_profile_selection_stages_station_values_and_preserves_independent_equipment() {
     let mut ui = mount();
     let before = ui.state().snapshot.operating.clone();
-    let mut portable = before.selected_profile.clone().unwrap();
-    portable.id = Default::default();
-    portable.name = "Portable".into();
-    portable.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7HEX/P").unwrap();
-    portable.default_equipment = None;
+    let mut portable = before.selected_profile().cloned().unwrap();
+    {
+        let mut fields = portable.clone().into_fields();
+        fields.id = Default::default();
+        portable = fields.try_into().expect("valid saved fixture edit");
+    }
+    {
+        let mut fields = portable.clone().into_fields();
+        fields.name = "Portable".into();
+        portable = fields.try_into().expect("valid saved fixture edit");
+    }
+    {
+        let mut fields = portable.clone().into_fields();
+        fields.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7HEX/P").unwrap();
+        portable = fields.try_into().expect("valid saved fixture edit");
+    }
+    {
+        let mut fields = portable.clone().into_fields();
+        fields.default_equipment = None;
+        portable = fields.try_into().expect("valid saved fixture edit");
+    }
     Arc::make_mut(&mut ui.state_mut().snapshot)
         .profiles
         .push(fixtures::row(RecordValue::Profile(Box::new(
@@ -174,9 +186,14 @@ fn quick_profile_selection_stages_station_values_and_preserves_independent_equip
     let SettingsAction::Apply { expected, next } = request.action else {
         panic!()
     };
-    let mut desired = before.clone();
-    desired.current.as_mut().unwrap().station = portable.station.clone();
-    desired.selected_profile = Some(portable);
+    let mut values = before.current().cloned().unwrap();
+    values.station = portable.station().clone();
+    let desired = clacks_client_store::operating::OperatingState::new(
+        Some(values),
+        Some(portable),
+        before.selected_equipment().cloned(),
+    )
+    .unwrap();
     assert_eq!(expected, before);
     assert_eq!(next, desired);
 }

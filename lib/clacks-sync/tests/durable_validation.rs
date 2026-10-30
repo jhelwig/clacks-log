@@ -12,7 +12,7 @@ fn client_record_validation_rejects_cross_account_observations() -> anyhow::Resu
         account: id(1),
         id: RecordId::Qso(id(10)),
     };
-    let mut row = ClientRecord {
+    let mut fields = clacks_sync::client::ClientRecordFields {
         key,
         latest: Observation::Unavailable {
             key,
@@ -21,14 +21,14 @@ fn client_record_validation_rejects_cross_account_observations() -> anyhow::Resu
         retained: vec![],
         pending: None,
     };
-    row.validate()?;
-    row.latest = Observation::Unavailable {
+    let _: ClientRecord = fields.clone().try_into()?;
+    fields.latest = Observation::Unavailable {
         key: RecordKey {
             account: id(5),
             ..key
         },
         reason: UnknownReason::MissingOriginal,
     };
-    assert!(row.validate().is_err());
+    assert!(ClientRecord::try_from(fields).is_err());
     Ok(())
 }

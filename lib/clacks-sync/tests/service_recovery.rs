@@ -32,21 +32,26 @@ fn recovered_same_id_mutation_is_checked_before_covered_shortcut() -> anyhow::Re
         external: None,
     };
     let mut incoming = support::accepted(190, "fixture");
-    incoming.key.id = RecordId::Service(ServiceRecordId::Result(result.id));
-    incoming.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload: ServicePayload::Result(result),
-        support: ServiceSupport {
-            destination: Some(destination),
-            ..Default::default()
-        },
-    })));
+    support::edit_accepted(&mut incoming, |incoming| {
+        incoming.key.id = RecordId::Service(ServiceRecordId::Result(result.id));
+
+        incoming.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload: ServicePayload::Result(result),
+            support: ServiceSupport {
+                destination: Some(destination),
+                ..Default::default()
+            },
+        })));
+    });
     let mut newer = incoming.clone();
     newer.stamp = support::accepted(200, "fixture").stamp;
-    if let RecordState::Live(RecordValue::Service(s)) = &mut newer.state
-        && let ServicePayload::Result(r) = &mut s.payload
-    {
-        r.outcome = SubmissionOutcome::Rejected("different".into());
-    }
+    support::edit_accepted(&mut newer, |newer| {
+        if let RecordState::Live(RecordValue::Service(s)) = &mut newer.state
+            && let ServicePayload::Result(r) = &mut s.payload
+        {
+            r.outcome = SubmissionOutcome::Rejected("different".into());
+        }
+    });
     let (mut account, b) =
         AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
     account.head.revision = 200;
@@ -168,23 +173,28 @@ fn restored_server_recovers_original_success_without_covering_a_new_projection()
         };
         let carrier = |payload: ServicePayload, rev| {
             let mut row = support::accepted(rev, "fixture");
-            row.key.id = RecordId::Service(payload.id());
-            row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-                payload,
-                support: ServiceSupport {
-                    destination: Some(destination.clone()),
-                    ..Default::default()
-                },
-            })));
+            support::edit_accepted(&mut row, |row| {
+                row.key.id = RecordId::Service(payload.id());
+
+                row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+                    payload,
+                    support: ServiceSupport {
+                        destination: Some(destination.clone()),
+                        ..Default::default()
+                    },
+                })));
+            });
             row
         };
         let a = carrier(ServicePayload::Attempt(attempt.clone()), 180);
         let mut r = carrier(ServicePayload::Result(result.clone()), 190);
-        if let RecordState::Live(RecordValue::Service(s)) = &mut r.state {
-            s.support
-                .required
-                .push(SupportRequirement::ExactFact(VersionReference::from(&a)));
-        }
+        support::edit_accepted(&mut r, |r| {
+            if let RecordState::Live(RecordValue::Service(s)) = &mut r.state {
+                s.support
+                    .required
+                    .push(SupportRequirement::ExactFact(VersionReference::from(&a)));
+            }
+        });
         let incoming = [r.clone(), a.clone()];
         let unit = CoupledRequirement {
             id: support::id(103),
@@ -195,7 +205,7 @@ fn restored_server_recovers_original_success_without_covering_a_new_projection()
             .map(|row| Observation::Absent {
                 key: RecordKey {
                     account: account.account,
-                    id: row.key.id,
+                    id: row.key().id,
                 },
                 checkpoint: checkpoint.clone(),
             })
@@ -218,12 +228,14 @@ fn restored_server_recovers_original_success_without_covering_a_new_projection()
             evidence: &ev,
         };
         let mut cyclic_attempt = a.clone();
-        if let RecordState::Live(RecordValue::Service(service)) = &mut cyclic_attempt.state {
-            service
-                .support
-                .required
-                .push(SupportRequirement::ExactFact(VersionReference::from(&r)));
-        }
+        support::edit_accepted(&mut cyclic_attempt, |cyclic_attempt| {
+            if let RecordState::Live(RecordValue::Service(service)) = &mut cyclic_attempt.state {
+                service
+                    .support
+                    .required
+                    .push(SupportRequirement::ExactFact(VersionReference::from(&r)));
+            }
+        });
         let mut older_attempt = a.clone();
         older_attempt.stamp = support::accepted(170, "fixture").stamp;
         for (reason, incoming, reads) in [
@@ -285,7 +297,7 @@ fn restored_server_recovers_original_success_without_covering_a_new_projection()
         assert_eq!(commit.accepted.len(), 2);
         assert!(commit.accepted.contains(&r));
         assert!(commit.accepted.contains(&a));
-        assert!(!commit.next_account.installed.covers(r.stamp.accepted_at));
+        assert!(!commit.next_account.installed.covers(r.stamp.accepted_at()));
         assert!(commit.job_updates.is_empty());
         let reads: Vec<_> = commit
             .accepted
@@ -422,23 +434,31 @@ fn covered_active_association_is_not_reinstalled_after_contact_deletion() -> any
         state: AssociationState::Active,
     };
     let mut old = support::accepted(190, "fixture");
-    old.key.id = RecordId::Service(ServicePayload::Association(a.clone()).id());
-    old.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload: ServicePayload::Association(a.clone()),
-        support: ServiceSupport {
-            destination: Some(destination.clone()),
-            ..Default::default()
-        },
-    })));
+    support::edit_accepted(&mut old, |old| {
+        old.key.id = RecordId::Service(ServicePayload::Association(a.clone()).id());
+
+        old.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload: ServicePayload::Association(a.clone()),
+            support: ServiceSupport {
+                destination: Some(destination.clone()),
+                ..Default::default()
+            },
+        })));
+    });
     let mut new = old.clone();
     new.stamp = support::accepted(200, "fixture").stamp;
-    if let RecordState::Live(RecordValue::Service(s)) = &mut new.state
-        && let ServicePayload::Association(a) = &mut s.payload
-    {
-        a.state = AssociationState::DeletedQso;
-    }
+    support::edit_accepted(&mut new, |new| {
+        if let RecordState::Live(RecordValue::Service(s)) = &mut new.state
+            && let ServicePayload::Association(a) = &mut s.payload
+        {
+            a.state = AssociationState::DeletedQso;
+        }
+    });
     let mut deleted = support::accepted(200, "fixture");
-    deleted.state = RecordState::Deleted;
+
+    support::edit_accepted(&mut deleted, |deleted| {
+        deleted.state = RecordState::Deleted;
+    });
     let bindings = [ExternalBindingObservation {
         account: account.account,
         external: a.external.clone(),
@@ -537,11 +557,14 @@ fn recovery_uses_refined_qrz_namespace_for_later_members() -> anyhow::Result<()>
     };
     let carrier = |destination: Destination, revision| {
         let mut row = support::accepted(revision, "destination");
-        row.key.id = RecordId::Service(ServicePayload::Destination(destination.clone()).id());
-        row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-            payload: ServicePayload::Destination(destination),
-            support: ServiceSupport::default(),
-        })));
+        support::edit_accepted(&mut row, |row| {
+            row.key.id = RecordId::Service(ServicePayload::Destination(destination.clone()).id());
+
+            row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+                payload: ServicePayload::Destination(destination),
+                support: ServiceSupport::default(),
+            })));
+        });
         row
     };
     let original = carrier(unknown.clone(), 150);
@@ -553,7 +576,7 @@ fn recovery_uses_refined_qrz_namespace_for_later_members() -> anyhow::Result<()>
     let reads = [
         Observation::Accepted(original),
         Observation::Absent {
-            key: incoming.last().unwrap().key,
+            key: incoming.last().unwrap().key(),
             checkpoint: InstalledCheckpoint {
                 account: account.account,
                 baseline: baseline.id,
@@ -598,23 +621,26 @@ fn recovery_uses_refined_qrz_namespace_for_later_members() -> anyhow::Result<()>
         state: clacks_model::service::evidence::processing::AssociationState::Active,
     };
     let mut binding = support::accepted(180, "binding");
-    binding.key.id = RecordId::Service(ServicePayload::Association(association.clone()).id());
-    binding.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload: ServicePayload::Association(association),
-        support: ServiceSupport {
-            destination: Some(Destination {
-                id: support::id(42),
-                collection: RemoteCollection::Qrz {
-                    book_id: Some("7".parse().unwrap()),
-                },
-                description: "first".into(),
-            }),
-            required: vec![clacks_sync::service::SupportRequirement::CoveredEffect(
-                VersionReference::from(&qso),
-            )],
-            ..Default::default()
-        },
-    })));
+    support::edit_accepted(&mut binding, |binding| {
+        binding.key.id = RecordId::Service(ServicePayload::Association(association.clone()).id());
+
+        binding.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload: ServicePayload::Association(association),
+            support: ServiceSupport {
+                destination: Some(Destination {
+                    id: support::id(42),
+                    collection: RemoteCollection::Qrz {
+                        book_id: Some("7".parse().unwrap()),
+                    },
+                    description: "first".into(),
+                }),
+                required: vec![clacks_sync::service::SupportRequirement::CoveredEffect(
+                    VersionReference::from(&qso),
+                )],
+                ..Default::default()
+            },
+        })));
+    });
     let incoming = [incoming.last().unwrap().clone(), qso, binding];
     let unit = CoupledRequirement {
         id: support::id(102),
@@ -623,7 +649,7 @@ fn recovery_uses_refined_qrz_namespace_for_later_members() -> anyhow::Result<()>
     let reads: Vec<_> = incoming
         .iter()
         .map(|row| Observation::Absent {
-            key: row.key,
+            key: row.key(),
             checkpoint: InstalledCheckpoint {
                 account: account.account,
                 baseline: baseline.id,

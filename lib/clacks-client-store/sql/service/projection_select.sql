@@ -1,1 +1,1 @@
-SELECT destination_id, service, mapping_release, mapping_commit, signing_call, signing_dxcc, external_id, contact_map, station_map FROM submission_projection WHERE projection_id = ? AND payload_id = ? AND account = ?
+SELECT destination_id, service, mapping_release, mapping_commit, signing_call, signing_dxcc, external_id, contact_fields, station_fields FROM submission_projection WHERE projection_id = ? AND payload_id = ? AND account = ?

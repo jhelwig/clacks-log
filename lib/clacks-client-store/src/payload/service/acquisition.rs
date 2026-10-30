@@ -37,6 +37,7 @@ pub(super) async fn query(
     };
     let call = value.own_call.as_ref().map(RecordedCallsign::as_str);
     let since = value.since.map(UtcSecond::unix_seconds);
+    let selected_fields = serde_json::to_string(&value.selected_fields)?;
     let id = sqlx::query_file!(
         "sql/service/query_insert.sql",
         payload,
@@ -44,16 +45,12 @@ pub(super) async fn query(
         destination,
         stream,
         call,
-        since
+        since,
+        selected_fields
     )
     .fetch_one(&mut *connection)
     .await?
     .query_id;
-    for field in &value.selected_fields {
-        sqlx::query_file!("sql/service/query_field_insert.sql", id, field)
-            .execute(&mut *connection)
-            .await?;
-    }
     Ok(id)
 }
 
@@ -68,12 +65,7 @@ pub(super) async fn load_query(
     let row = sqlx::query_file!("sql/service/query_select.sql", query, payload, account)
         .fetch_one(&mut *connection)
         .await?;
-    let fields = sqlx::query_file!("sql/service/query_field_select.sql", query)
-        .fetch_all(connection)
-        .await?
-        .into_iter()
-        .map(|row| row.field)
-        .collect();
+    let fields = serde_json::from_str(&row.selected_fields)?;
     Ok(QueryIdentity {
         destination: row.destination_id.parse()?,
         stream: match row.stream.as_str() {
@@ -145,14 +137,14 @@ pub(super) async fn insert(
             let query = query(connection, key.account, payload, &value.query).await?;
             let (phase, failure) = match &value.phase {
                 AcquisitionPhase::Active => ("active", None),
-                AcquisitionPhase::Completed => ("completed", None),
-                AcquisitionPhase::Failed(reason) => ("failed", Some(reason.as_str())),
+                AcquisitionPhase::Completed { .. } => ("completed", None),
+                AcquisitionPhase::Failed { reason, .. } => ("failed", Some(reason.as_str())),
             };
             let started = value.started_at.unix_seconds();
             let started_nanos = i64::from(value.started_at.subsecond_nanoseconds());
-            let finished = value.finished_at.map(UtcTimestamp::unix_seconds);
+            let finished = value.finished_at().map(UtcTimestamp::unix_seconds);
             let finished_nanos = value
-                .finished_at
+                .finished_at()
                 .map(|at| i64::from(at.subsecond_nanoseconds()));
             sqlx::query_file!(
                 "sql/service/acquisition_insert.sql",
@@ -165,7 +157,7 @@ pub(super) async fn insert(
                 started_nanos,
                 finished,
                 finished_nanos,
-                value.complete
+                value.complete()
             )
             .execute(&mut *connection)
             .await?;
@@ -229,12 +221,6 @@ pub(super) async fn load(
             let row = sqlx::query_file!("sql/service/acquisition_select.sql", payload, account)
                 .fetch_one(&mut *connection)
                 .await?;
-            let phase = match (row.phase.as_str(), row.failure) {
-                ("active", None) => AcquisitionPhase::Active,
-                ("completed", None) => AcquisitionPhase::Completed,
-                ("failed", Some(reason)) => AcquisitionPhase::Failed(reason),
-                _ => anyhow::bail!("invalid acquisition phase fields"),
-            };
             let finished_at = match (row.finished_seconds, row.finished_nanos) {
                 (None, None) => None,
                 (Some(seconds), Some(nanos)) => {
@@ -246,6 +232,16 @@ pub(super) async fn load(
                 matches!(row.complete, 0 | 1),
                 "invalid acquisition coverage flag"
             );
+            let phase = match (row.phase.as_str(), row.failure, finished_at) {
+                ("active", None, None) if row.complete == 0 => AcquisitionPhase::Active,
+                ("completed", None, Some(at)) if row.complete == 1 => {
+                    AcquisitionPhase::Completed { at }
+                }
+                ("failed", Some(reason), Some(at)) if row.complete == 0 => {
+                    AcquisitionPhase::Failed { at, reason }
+                }
+                _ => anyhow::bail!("acquisition phase, close time and completed coverage disagree"),
+            };
             let query = load_query(connection, key.account, payload, row.query_id).await?;
             let mut inputs = std::collections::BTreeSet::new();
             for input in sqlx::query_file!("sql/service/input_select.sql", payload)
@@ -262,8 +258,6 @@ pub(super) async fn load(
                 query,
                 phase,
                 started_at: UtcTimestamp::new(row.started_seconds, row.started_nanos.try_into()?)?,
-                finished_at,
-                complete: row.complete != 0,
                 retained_inputs: inputs,
             })
         }

@@ -20,8 +20,11 @@ fn shares_certificate_and_station_records_without_changing_membership() -> anyho
     let same = import_pkcs12(&support::fixture("1024/normal.p12"), "fixture-password")?;
     let other = import_pkcs12(&support::fixture("2048/normal.p12"), "fixture-password")?;
     let a = support::submission();
-    let mut b = a.clone();
-    b.station_fields.insert("GRIDSQUARE".into(), "FN32".into());
+    let mut fields = a.clone().into_fields();
+    fields
+        .station_fields
+        .insert("GRIDSQUARE".into(), "FN32".into());
+    let b = fields.try_into()?;
     let defs = SignatureDefinitions::bundled()?;
     for (second, credential, want) in [
         (&a, &same, (1, 1, 2)),

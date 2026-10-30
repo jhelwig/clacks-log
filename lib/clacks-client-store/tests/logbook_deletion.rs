@@ -29,7 +29,13 @@ async fn effective_tag_deletion_clears_only_the_matching_selected_kind() -> anyh
     else {
         panic!("create");
     };
-    save::save(&workspace.store, qso.key, Some(&qso), RecordState::Deleted).await?;
+    save::save(
+        &workspace.store,
+        qso.key(),
+        Some(&qso),
+        RecordState::Deleted,
+    )
+    .await?;
     assert_eq!(
         settings::snapshot(&workspace.store)
             .await?
@@ -37,7 +43,13 @@ async fn effective_tag_deletion_clears_only_the_matching_selected_kind() -> anyh
             .selected_view,
         SelectedView::Logbook(id(20))
     );
-    save::save(&workspace.store, tag.key, Some(&tag), RecordState::Deleted).await?;
+    save::save(
+        &workspace.store,
+        tag.key(),
+        Some(&tag),
+        RecordState::Deleted,
+    )
+    .await?;
     assert_eq!(
         settings::snapshot(&workspace.store)
             .await?
@@ -54,7 +66,10 @@ async fn unrelated_fact_edit_invalidates_exact_deletion_basis() -> anyhow::Resul
     let workspace = Workspace::new().await?;
     insert(&workspace.store, 20, "Main").await?;
     let mut value = qso(id(100));
-    value.tags = [id(20)].into();
+    support::edit(&mut value, |value| {
+        value.tags = [id(20)].into();
+        Ok(())
+    });
     let SaveOutcome::Saved(row) = save::save(
         &workspace.store,
         qso_key(id(100)),
@@ -66,8 +81,11 @@ async fn unrelated_fact_edit_invalidates_exact_deletion_basis() -> anyhow::Resul
         panic!("create");
     };
     let preview = deletion::preview(&workspace.store, id(20)).await?;
-    value.contacted_station.callsign = clacks_model::scalar::RecordedCallsign::new("W1AW")?;
-    let current = save::save(&workspace.store, row.key, Some(&row), contact(value)).await?;
+    support::edit(&mut value, |value| {
+        value.contacted_station.callsign = clacks_model::scalar::RecordedCallsign::new("W1AW")?;
+        Ok(())
+    });
+    let current = save::save(&workspace.store, row.key(), Some(&row), contact(value)).await?;
     let SaveOutcome::Saved(current) = current else {
         panic!("updated contact")
     };
@@ -77,7 +95,10 @@ async fn unrelated_fact_edit_invalidates_exact_deletion_basis() -> anyhow::Resul
         TagDeleteOutcome::Stale { .. }
     ));
     assert_eq!(settings::snapshot(&workspace.store).await?, before);
-    assert_eq!(save::load(&workspace.store, row.key).await?, Some(current));
+    assert_eq!(
+        save::load(&workspace.store, row.key()).await?,
+        Some(current)
+    );
     workspace.store.close().await?;
     Ok(())
 }
@@ -87,7 +108,10 @@ async fn unchanged_counts_do_not_validate_changed_preview_members() -> anyhow::R
     let workspace = Workspace::new().await?;
     insert(&workspace.store, 20, "Main").await?;
     let mut value = qso(id(100));
-    value.tags = [id(20)].into();
+    support::edit(&mut value, |value| {
+        value.tags = [id(20)].into();
+        Ok(())
+    });
     let SaveOutcome::Saved(first) =
         save::save(&workspace.store, qso_key(id(100)), None, contact(value)).await?
     else {
@@ -96,13 +120,16 @@ async fn unchanged_counts_do_not_validate_changed_preview_members() -> anyhow::R
     let preview = deletion::preview(&workspace.store, id(20)).await?;
     save::save(
         &workspace.store,
-        first.key,
+        first.key(),
         Some(&first),
         RecordState::Deleted,
     )
     .await?;
     let mut replacement = qso(id(101));
-    replacement.tags = [id(20)].into();
+    support::edit(&mut replacement, |replacement| {
+        replacement.tags = [id(20)].into();
+        Ok(())
+    });
     save::save(
         &workspace.store,
         qso_key(id(101)),
@@ -119,7 +146,7 @@ async fn unchanged_counts_do_not_validate_changed_preview_members() -> anyhow::R
         TagDeleteOutcome::Stale { .. }
     ));
     assert_eq!(
-        save::load(&workspace.store, first.key)
+        save::load(&workspace.store, first.key())
             .await?
             .unwrap()
             .working_state(),

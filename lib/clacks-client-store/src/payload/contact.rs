@@ -1,11 +1,11 @@
 //! Typed relational mappings for recorded contacts and copied station facts.
 
-use crate::rows::contact::{ModeFields, PositionFields};
+use crate::rows::contact::PositionFields;
 use clacks_model::{
-    contact::{BandFrequency, OperatorInformation, OwnOperatingContext, Qso, StationSnapshot},
+    contact::{BandFrequency, OperatorInformation, Qso, StationSnapshot},
     equipment::EquipmentValues,
     ids::{AccountId, QsoId},
-    location::{CqZone, ItuZone, RecordedLocation},
+    location::{CqZone, ItuZone},
     position::{Coordinates, GridLength, Locator, Position},
     recognition::{
         band::Band,
@@ -32,10 +32,13 @@ fn operator(
     if call.is_none() && name.is_none() {
         return Ok(None);
     }
-    Ok(Some(OperatorInformation {
-        callsign: call.map(callsign).transpose()?,
-        recorded_name: name,
-    }))
+    Ok(Some(
+        (clacks_model::contact::OperatorInformationFields {
+            callsign: call.map(callsign).transpose()?,
+            recorded_name: name,
+        })
+        .try_into()?,
+    ))
 }
 
 /// Store an owned equipment copy without a live configuration reference.
@@ -48,9 +51,9 @@ pub(crate) async fn insert_equipment(
     Ok(sqlx::query_file!(
         "sql/equipment/snapshot_insert.sql",
         account,
-        value.equipment_description,
-        value.antenna_description,
-        value.notes
+        value.equipment_description(),
+        value.antenna_description(),
+        value.notes()
     )
     .fetch_one(connection)
     .await?
@@ -67,12 +70,12 @@ pub(crate) async fn load_equipment(
     let row = sqlx::query_file!("sql/equipment/snapshot_select.sql", equipment, account)
         .fetch_one(connection)
         .await?;
-    let value = EquipmentValues {
+    let value = clacks_model::equipment::EquipmentValuesFields {
         equipment_description: row.equipment_description,
         antenna_description: row.antenna_description,
         notes: row.notes,
     };
-    Ok(value)
+    (value).try_into()
 }
 
 /// Store a station snapshot and its recorded location and unordered reference set.
@@ -88,9 +91,10 @@ pub(crate) async fn insert_station(
         .await?
         .station_id;
     if let Some(location) = &station.location {
-        let position = PositionFields::new(location.position.as_ref());
-        let cq = location.cq_zone.map(|zone| i64::from(zone.get()));
-        let itu = location.itu_zone.map(|zone| i64::from(zone.get()));
+        let position = crate::rows::contact::PositionFields::from(location.position().as_ref());
+
+        let cq = location.cq_zone().map(|zone| i64::from(zone.get()));
+        let itu = location.itu_zone().map(|zone| i64::from(zone.get()));
         sqlx::query_file!(
             "sql/location/insert.sql",
             id,
@@ -100,9 +104,9 @@ pub(crate) async fn insert_station(
             position.latitude,
             position.longitude,
             position.length,
-            location.dxcc,
-            location.primary_subdivision,
-            location.secondary_subdivision,
+            location.dxcc(),
+            location.primary_subdivision(),
+            location.secondary_subdivision(),
             cq,
             itu
         )
@@ -124,7 +128,7 @@ pub(crate) async fn insert_station(
             id,
             account_text,
             group,
-            reference.identifier
+            reference.identifier()
         )
         .execute(&mut *connection)
         .await?;
@@ -183,7 +187,7 @@ pub(crate) async fn load_station(
             }),
             _ => anyhow::bail!("invalid recorded position shape"),
         };
-        Some(RecordedLocation {
+        Some(clacks_model::location::RecordedLocationFields {
             position,
             dxcc: row.dxcc,
             primary_subdivision: row.primary_subdivision,
@@ -206,16 +210,16 @@ pub(crate) async fn load_station(
         .await?
     {
         anyhow::ensure!(
-            references.insert(ReferenceAssociation {
-                group_id: reference.group_id.parse()?,
-                identifier: reference.identifier
-            }),
+            references.insert(ReferenceAssociation::new(
+                reference.group_id.parse()?,
+                reference.identifier
+            )?),
             "duplicate stored station reference"
         );
     }
-    let station = StationSnapshot {
+    let station = clacks_model::contact::StationSnapshot {
         callsign: callsign(row.callsign)?,
-        location,
+        location: location.map(TryInto::try_into).transpose()?,
         references,
     };
     Ok(station)
@@ -228,99 +232,121 @@ pub(super) async fn insert(
     payload: i64,
     qso: &Qso,
 ) -> anyhow::Result<()> {
-    let own = insert_station(connection, account, &qso.own_station).await?;
-    let contacted = insert_station(connection, account, &qso.contacted_station).await?;
-    let equipment = match &qso.own_context.equipment {
+    let own = insert_station(connection, account, qso.own_station()).await?;
+    let contacted = insert_station(connection, account, qso.contacted_station()).await?;
+    let equipment = match &qso.own_context().equipment {
         Some(value) => Some(insert_equipment(connection, account, value).await?),
         None => None,
     };
     let account_text = account.to_string();
-    let id = qso.id.to_string();
-    let start = qso.start.unix_seconds();
-    let end = qso.end.map(UtcSecond::unix_seconds);
+    let id = qso.id().to_string();
+    let start = qso.start().unix_seconds();
+    let end = qso.end().map(UtcSecond::unix_seconds);
     let own_call = qso
-        .own_context
+        .own_context()
         .operator
         .as_ref()
-        .and_then(|operator| operator.callsign.as_ref())
+        .and_then(|operator| operator.callsign().as_ref())
         .map(RecordedCallsign::as_str);
     let own_name = qso
-        .own_context
+        .own_context()
         .operator
         .as_ref()
-        .and_then(|operator| operator.recorded_name.as_deref());
+        .and_then(|operator| operator.recorded_name().as_deref());
     let contacted_call = qso
-        .contacted_operator
+        .contacted_operator()
         .as_ref()
-        .and_then(|operator| operator.callsign.as_ref())
+        .and_then(|operator| operator.callsign().as_ref())
         .map(RecordedCallsign::as_str);
     let contacted_name = qso
-        .contacted_operator
+        .contacted_operator()
         .as_ref()
-        .and_then(|operator| operator.recorded_name.as_deref());
+        .and_then(|operator| operator.recorded_name().as_deref());
     let power = qso
-        .own_context
+        .own_context()
         .transmit_power
         .map(|value| i64::try_from(value.get()))
         .transpose()?;
     let frequency = qso
-        .primary
+        .primary()
         .frequency()
         .map(|value| i64::try_from(value.get()))
         .transpose()?;
-    let band = qso.primary.band().map(Band::label);
+    let band = qso.primary().band().map(Band::label);
     let receive_frequency = qso
-        .receive_override
+        .receive_override()
         .as_ref()
         .and_then(BandFrequency::frequency)
         .map(|value| i64::try_from(value.get()))
         .transpose()?;
     let receive_band = qso
-        .receive_override
+        .receive_override()
         .as_ref()
         .and_then(BandFrequency::band)
         .map(Band::label);
-    let mode = match qso.mode.identity() {
-        ModeIdentity::Parent { label } => ModeFields {
-            kind: "parent",
-            label,
-            parent: None,
-        },
-        ModeIdentity::Specialization { label, parent } => ModeFields {
-            kind: "specialization",
-            label,
-            parent,
-        },
-    };
-    sqlx::query_file!(
-        "sql/contact/insert.sql",
-        payload,
-        account_text,
-        id,
-        start,
-        end,
-        own,
-        contacted,
-        own_call,
-        own_name,
-        contacted_call,
-        contacted_name,
-        power,
-        equipment,
-        frequency,
-        band,
-        receive_frequency,
-        receive_band,
-        mode.kind,
-        mode.label,
-        mode.parent,
-        qso.sent_report,
-        qso.received_report,
-        qso.comment
-    )
-    .execute(&mut *connection)
-    .await?;
-    for tag in &qso.tags {
+    match qso.mode().identity() {
+        ModeIdentity::Parent { label } => {
+            sqlx::query_file!(
+                "sql/contact/insert.sql",
+                payload,
+                account_text,
+                id,
+                start,
+                end,
+                own,
+                contacted,
+                own_call,
+                own_name,
+                contacted_call,
+                contacted_name,
+                power,
+                equipment,
+                frequency,
+                band,
+                receive_frequency,
+                receive_band,
+                "parent",
+                label,
+                None::<String>,
+                qso.sent_report(),
+                qso.received_report(),
+                qso.comment()
+            )
+            .execute(&mut *connection)
+            .await?;
+        }
+        ModeIdentity::Specialization { label, parent } => {
+            sqlx::query_file!(
+                "sql/contact/insert.sql",
+                payload,
+                account_text,
+                id,
+                start,
+                end,
+                own,
+                contacted,
+                own_call,
+                own_name,
+                contacted_call,
+                contacted_name,
+                power,
+                equipment,
+                frequency,
+                band,
+                receive_frequency,
+                receive_band,
+                "specialization",
+                label,
+                parent,
+                qso.sent_report(),
+                qso.received_report(),
+                qso.comment()
+            )
+            .execute(&mut *connection)
+            .await?;
+        }
+    }
+    for tag in qso.tags() {
         super::identity(
             connection,
             RecordKey {
@@ -388,21 +414,21 @@ pub(super) async fn load(
     {
         anyhow::ensure!(tags.insert(tag.tag_id.parse()?), "duplicate stored QSO tag");
     }
-    let qso = Qso {
+    let fields = clacks_model::contact::input::QsoFields {
         id,
         start: UtcSecond::from_unix_seconds(row.start),
         end: row.end.map(UtcSecond::from_unix_seconds),
         own_station,
         contacted_station,
-        own_context: OwnOperatingContext {
-            operator: operator(row.own_operator_call, row.own_operator_name)?,
+        own_context: clacks_model::contact::OwnOperatingContext {
+            operator: (operator(row.own_operator_call, row.own_operator_name)?),
             transmit_power: row
                 .power
                 .map(|value| Ok::<_, anyhow::Error>(Milliwatts::new(value.try_into()?)?))
                 .transpose()?,
             equipment,
         },
-        contacted_operator: operator(row.contacted_operator_call, row.contacted_operator_name)?,
+        contacted_operator: (operator(row.contacted_operator_call, row.contacted_operator_name)?),
         primary: pair(row.frequency, row.band)?,
         receive_override,
         mode: Mode::from_recorded_identity(mode)?,
@@ -411,5 +437,5 @@ pub(super) async fn load(
         comment: row.comment,
         tags,
     };
-    Ok(qso)
+    Qso::try_from(fields)
 }

@@ -42,14 +42,14 @@ pub(super) fn show(
             {
                 ui.monospace(format!(
                     "{} · {} · {}",
-                    qso.contacted_station.callsign.as_str(),
-                    crate::logging::time::format(qso.start),
-                    qso.primary
+                    qso.contacted_station().callsign.as_str(),
+                    crate::logging::time::format(qso.start()),
+                    qso.primary()
                         .band()
                         .map(|v| v.label())
                         .unwrap_or("Unclassified frequency")
                 ));
-                let mode = match qso.mode.identity() {
+                let mode = match qso.mode().identity() {
                     clacks_model::recognition::mode::ModeIdentity::Parent { label }
                     | clacks_model::recognition::mode::ModeIdentity::Specialization {
                         label, ..

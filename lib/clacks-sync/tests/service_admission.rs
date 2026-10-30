@@ -50,22 +50,29 @@ fn assertion() -> ServicePayload {
 fn immutable_content_is_checked_even_when_context_covers_old_version() -> anyhow::Result<()> {
     let payload = assertion();
     let mut old = support::accepted(200, "fixture");
-    old.key = RecordKey {
-        account: support::id(1),
-        id: RecordId::Service(payload.id()),
-    };
-    old.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload,
-        support: ServiceSupport::default(),
-    })));
+
+    support::edit_accepted(&mut old, |old| {
+        old.key = RecordKey {
+            account: support::id(1),
+            id: RecordId::Service(payload.id()),
+        };
+        old.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload,
+            support: ServiceSupport::default(),
+        })));
+    });
     let mut new = support::accepted(201, "fixture");
-    new.key = old.key;
-    new.state = old.state.clone();
-    if let RecordState::Live(RecordValue::Service(s)) = &mut new.state
-        && let ServicePayload::Imported(a) = &mut s.payload
-    {
-        a.claim = ImportedClaim::Confirmed;
-    }
+
+    support::edit_accepted(&mut new, |new| {
+        new.key = old.key();
+        new.state = old.state().clone();
+
+        if let RecordState::Live(RecordValue::Service(s)) = &mut new.state
+            && let ServicePayload::Imported(a) = &mut s.payload
+        {
+            a.claim = ImportedClaim::Confirmed;
+        }
+    });
     let (_, b) = AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
     let bases = [b.clone()];
     let ev = EvidenceView {
@@ -138,11 +145,14 @@ fn generic_acceptance_cannot_rewrite_immutable_service_facts() -> anyhow::Result
     };
     let payload = assertion();
     let mut old = support::accepted(200, "native fixture");
-    old.key.id = RecordId::Service(payload.id());
-    old.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload,
-        support: ServiceSupport::default(),
-    })));
+    support::edit_accepted(&mut old, |old| {
+        old.key.id = RecordId::Service(payload.id());
+
+        old.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload,
+            support: ServiceSupport::default(),
+        })));
+    });
     let (mut account, b) =
         AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
     account.head.revision = 200;
@@ -157,14 +167,14 @@ fn generic_acceptance_cannot_rewrite_immutable_service_facts() -> anyhow::Result
         clients: vec![],
     };
     let current = Observation::Accepted(old.clone());
-    let mut state = old.state.clone();
+    let mut state = old.state().clone();
     if let RecordState::Live(RecordValue::Service(v)) = &mut state
         && let ServicePayload::Imported(a) = &mut v.payload
     {
         a.provenance.record = "different".into();
     }
     let change = ServerChange {
-        key: old.key,
+        key: old.key(),
         state,
         expected: VersionCondition::from_observation(&current)?,
         dependencies: vec![],
@@ -277,8 +287,11 @@ fn common_admission_rejects_a_second_namespace_for_the_same_remote_collection() 
             acknowledged: None,
         });
     let mut incoming = support::accepted(190, "fixture");
-    incoming.key = key;
-    incoming.state = change.state.clone();
+
+    support::edit_accepted(&mut incoming, |incoming| {
+        incoming.key = key;
+        incoming.state = change.state.clone();
+    });
     assert!(matches!(
         clacks_sync::recovery::plan_recovered_install(
             &incoming,

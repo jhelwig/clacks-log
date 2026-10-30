@@ -52,16 +52,17 @@ pub(crate) async fn seal_pending(
             account: key.account.parse()?,
             id: crate::payload::record_id(&key.kind, &key.record_id)?,
         };
-        let mut row = client::load(connection, key)
+        let row = client::load(connection, key)
             .await?
             .ok_or_else(|| anyhow::anyhow!("pending row disappeared"))?;
-        let Some(pending) = &mut row.pending else {
+        let mut fields = row.into_fields();
+        let Some(pending) = &mut fields.pending else {
             continue;
         };
         if pending.witness.is_some() {
             continue;
         }
-        let Observation::Accepted(observed) = &row.latest else {
+        let Observation::Accepted(observed) = &fields.latest else {
             continue;
         };
         match clacks_sync::compaction::seal_basis(pending, observed, checkpoint, &context.view()) {
@@ -76,6 +77,7 @@ pub(crate) async fn seal_pending(
             }
             Err(error) => return Err(error),
         }
+        let row = fields.try_into()?;
         client::store(connection, &row).await?;
     }
     Ok(())

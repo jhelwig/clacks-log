@@ -28,7 +28,7 @@ async fn selected_view_is_local_durable_and_snapshot_consistent() -> anyhow::Res
     assert!(matches!(
         save::save(
             &workspace.store,
-            tag.key,
+            tag.key(),
             Some(&tag),
             RecordState::Live(RecordValue::Tag(Box::new(renamed)))
         )
@@ -77,7 +77,7 @@ async fn selection_rejects_deleted_or_unavailable_targets_without_replacing_curr
     selection::select(&workspace.store, SelectedView::Logbook(id(20))).await?;
     save::save(
         &workspace.store,
-        removed.key,
+        removed.key(),
         Some(&removed),
         RecordState::Deleted,
     )
@@ -121,7 +121,13 @@ async fn restore_preserves_unknown_target_and_repairs_only_known_deletion() -> a
     );
 
     let tag = insert(&workspace.store, 99, "Deleted").await?;
-    save::save(&workspace.store, tag.key, Some(&tag), RecordState::Deleted).await?;
+    save::save(
+        &workspace.store,
+        tag.key(),
+        Some(&tag),
+        RecordState::Deleted,
+    )
+    .await?;
     sqlx::raw_sql(include_str!("sql/missing_selected_view.sql"))
         .execute(&mut connection)
         .await?;
@@ -191,17 +197,17 @@ async fn tag_save_preserves_identity_selection_and_pending_basis() -> anyhow::Re
     else {
         panic!("changed tag must be saved");
     };
-    assert_eq!(updated.key, first.key);
+    assert_eq!(updated.key(), first.key());
     assert_eq!(
-        updated.pending.as_ref().unwrap().original,
-        first.pending.as_ref().unwrap().original
+        updated.pending().as_ref().unwrap().original,
+        first.pending().as_ref().unwrap().original
     );
     assert_eq!(
         tags::save(&workspace.store, Some(&updated), &tag).await?,
         SaveOutcome::Unchanged(updated.clone())
     );
     assert_eq!(
-        save::load(&workspace.store, other_row.key).await?,
+        save::load(&workspace.store, other_row.key()).await?,
         Some(other_row)
     );
     let after = settings::snapshot(&workspace.store).await?;
@@ -248,8 +254,21 @@ async fn tag_editor_save_rejects_blank_names_and_stale_or_mismatched_bases() -> 
             .await
             .is_err()
     );
-    let mut wrong_account = current.clone();
-    wrong_account.key.account = id(99);
+    let key = clacks_sync::record::RecordKey {
+        account: id(99),
+        ..current.key()
+    };
+    let wrong_account = clacks_sync::client::ClientRecordFields {
+        key,
+        latest: clacks_sync::record::Observation::Unavailable {
+            key,
+            reason: clacks_sync::error::UnknownReason::MissingOriginal,
+        },
+        retained: vec![],
+        pending: None,
+    }
+    .try_into()?;
+
     tag.id = id(20);
     assert!(
         tags::save(&workspace.store, Some(&wrong_account), &tag)
@@ -257,7 +276,7 @@ async fn tag_editor_save_rejects_blank_names_and_stale_or_mismatched_bases() -> 
             .is_err()
     );
     assert_eq!(
-        save::load(&workspace.store, current.key).await?,
+        save::load(&workspace.store, current.key()).await?,
         Some(current)
     );
     workspace.store.close().await?;

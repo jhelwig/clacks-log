@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT external_id AS \"external_id!: i64\" FROM external_key WHERE account = ? AND destination_id = ? AND canonical_key = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "external_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "external_key",
+            "name": "external_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6104fda1080b5aa1205e8642ed9a620fd0e94792e0e070abb817a61afcf09c2d"
+}

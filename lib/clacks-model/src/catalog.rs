@@ -117,7 +117,7 @@ pub fn lookup_reference(
     let Some(definition) = definitions.get(association.group_id) else {
         return Ok(CatalogFinding::NotConfigured);
     };
-    let Some(binding) = &definition.catalog else {
+    let Some(binding) = &definition.catalog() else {
         return Ok(CatalogFinding::NotConfigured);
     };
     let Some(catalog) = catalogs.get(&binding.dataset_id) else {
@@ -129,7 +129,7 @@ pub fn lookup_reference(
     let bindings = BTreeMap::new();
     let context = ExpressionContext {
         qso: None,
-        current_identifier: association.identifier.as_deref(),
+        current_identifier: association.identifier().as_deref(),
         bindings: &bindings,
     };
     let key = match compiled.evaluate(&binding.lookup_key, &context)? {

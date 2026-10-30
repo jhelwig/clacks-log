@@ -1,1 +1,1 @@
-SELECT external_id AS "external_id!: i64" FROM external_key WHERE account = ? AND destination_id = ? AND service = ? AND qrz_id IS ? AND own_call IS ? AND worked_call IS ? AND start IS ? AND band IS ? AND receive_band IS ? AND mode IS ?
+SELECT external_id AS "external_id!: i64" FROM external_key WHERE account = ? AND destination_id = ? AND canonical_key = ?

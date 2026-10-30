@@ -75,13 +75,14 @@ fn dismissed_request_keeps_other_actions_blocked_until_its_reply_arrives() {
 fn deleted_view_fallback_is_reported_once_with_safe_context() -> anyhow::Result<()> {
     let tag = LogbookTag::new(Default::default(), "Private logbook name".into());
     let record = fixtures::row(RecordValue::Tag(Box::new(tag.clone())));
-    let account = record.key.account;
+    let account = record.key().account;
     let before = LogbookSnapshot {
         selected_view: SelectedView::Logbook(tag.id),
         tags: vec![record.clone()],
     };
-    let mut deleted = record;
-    deleted.pending.as_mut().unwrap().working = RecordState::Deleted;
+    let mut fields = record.into_fields();
+    fields.pending.as_mut().unwrap().working = RecordState::Deleted;
+    let deleted: clacks_sync::client::ClientRecord = fields.try_into().unwrap();
     let after = LogbookSnapshot {
         selected_view: SelectedView::AllContacts,
         tags: vec![deleted],

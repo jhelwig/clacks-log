@@ -1,1 +1,1 @@
-SELECT destination_id, identity, external_id, incomplete_service, available_map, contact_report, own_report, counterpart_report, qso_order, confirmation_order, acquisition_id, query_id, observed_seconds, observed_nanos FROM service_observation WHERE payload_id = ? AND account = ?
+SELECT destination_id, identity, external_id, incomplete_service, available_fields, contact_report, own_report, counterpart_report, qso_order, confirmation_order, acquisition_id, query_id, observed_seconds, observed_nanos FROM service_observation WHERE payload_id = ? AND account = ?

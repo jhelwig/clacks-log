@@ -22,36 +22,38 @@ pub(crate) async fn insert_condition(
     let account = key.account.to_string();
     let kind = crate::payload::kind(key.id).to_string();
     let record_id = key.id.to_string();
-    let row = match value {
-        VersionCondition::Is { stamp, .. } => ConditionRow {
-            account,
-            kind,
-            record_id,
-            variant: "is".into(),
-            stamp_id: Some(clock::insert_stamp(connection, key, stamp).await?),
-            checkpoint_id: None,
-        },
-        VersionCondition::Absent { checkpoint, .. } => ConditionRow {
-            account,
-            kind,
-            record_id,
-            variant: "absent".into(),
-            stamp_id: None,
-            checkpoint_id: Some(lineage::insert_checkpoint(connection, checkpoint).await?),
-        },
-    };
-    Ok(sqlx::query_file!(
-        "sql/condition/insert.sql",
-        row.account,
-        row.kind,
-        row.record_id,
-        row.variant,
-        row.stamp_id,
-        row.checkpoint_id
-    )
-    .fetch_one(connection)
-    .await?
-    .condition_id)
+    Ok(match value {
+        VersionCondition::Is { stamp, .. } => {
+            let stamp = clock::insert_stamp(connection, key, stamp).await?;
+            sqlx::query_file!(
+                "sql/condition/insert.sql",
+                account,
+                kind,
+                record_id,
+                "is",
+                stamp,
+                None::<i64>
+            )
+            .fetch_one(connection)
+            .await?
+            .condition_id
+        }
+        VersionCondition::Absent { checkpoint, .. } => {
+            let checkpoint = lineage::insert_checkpoint(connection, checkpoint).await?;
+            sqlx::query_file!(
+                "sql/condition/insert.sql",
+                account,
+                kind,
+                record_id,
+                "absent",
+                None::<i64>,
+                checkpoint
+            )
+            .fetch_one(connection)
+            .await?
+            .condition_id
+        }
+    })
 }
 
 /// Restore a condition's own record identity, including differently keyed dependencies.
@@ -101,14 +103,14 @@ pub(super) async fn insert_prepared(
     connection: &mut SqliteConnection,
     value: &PreparedChange,
 ) -> anyhow::Result<i64> {
-    let key = value.key;
-    let payload = crate::payload::insert(connection, key, &value.state).await?;
-    let vector = clock::insert_vector(connection, key, &value.vector).await?;
-    let condition = insert_condition(connection, &value.expected).await?;
+    let key = value.key();
+    let payload = crate::payload::insert(connection, key, value.state()).await?;
+    let vector = clock::insert_vector(connection, key, value.vector()).await?;
+    let condition = insert_condition(connection, value.expected()).await?;
     let account = key.account.to_string();
     let kind = crate::payload::kind(key.id);
     let id = key.id.to_string();
-    let actor = value.actor.to_string();
+    let actor = value.actor().to_string();
     let prepared = sqlx::query_file!(
         "sql/prepared/insert.sql",
         account,
@@ -122,7 +124,7 @@ pub(super) async fn insert_prepared(
     .fetch_one(&mut *connection)
     .await?
     .prepared_id;
-    for (ordinal, dependency) in value.dependencies.iter().enumerate() {
+    for (ordinal, dependency) in value.dependencies().iter().enumerate() {
         let ordinal = i64::try_from(ordinal)?;
         let condition = insert_condition(connection, dependency).await?;
         sqlx::query_file!(
@@ -163,12 +165,13 @@ pub(super) async fn load_prepared(
         );
         dependencies.push(load_condition(connection, key.account, row.condition_id).await?);
     }
-    Ok(PreparedChange {
+    clacks_sync::client::PreparedChangeFields {
         key,
         state,
         vector,
         actor: row.actor_id.parse()?,
         expected,
         dependencies,
-    })
+    }
+    .try_into()
 }

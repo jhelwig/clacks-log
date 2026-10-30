@@ -16,19 +16,9 @@ pub(crate) struct PositionFields {
     pub(crate) length: Option<i64>,
 }
 
-/// Column values for a recorded hierarchical mode.
-pub(crate) struct ModeFields {
-    /// Parent or specialization discriminator.
-    pub(crate) kind: &'static str,
-    /// Recorded concrete label.
-    pub(crate) label: String,
-    /// Recorded parent label for a specialization.
-    pub(crate) parent: Option<String>,
-}
-
-impl PositionFields {
-    /// Encode an optional native position without deriving replacement evidence.
-    pub(crate) fn new(value: Option<&Position>) -> Self {
+impl From<Option<&Position>> for PositionFields {
+    /// Prepare relational bindings from an optional native position.
+    fn from(value: Option<&Position>) -> Self {
         match value {
             None => Self {
                 kind: None,

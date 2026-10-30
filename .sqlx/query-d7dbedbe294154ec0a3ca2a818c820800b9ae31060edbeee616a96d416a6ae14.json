@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT name, purpose, contextual_fields FROM output_profile_payload WHERE payload_id = ? AND account = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "name",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "output_profile_payload",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "purpose",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "output_profile_payload",
+            "name": "purpose"
+          }
+        }
+      },
+      {
+        "name": "contextual_fields",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "output_profile_payload",
+            "name": "contextual_fields"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d7dbedbe294154ec0a3ca2a818c820800b9ae31060edbeee616a96d416a6ae14"
+}

@@ -17,7 +17,7 @@ async fn qrz_confirmation_does_not_cross_an_explicit_book_association() -> anyho
     let qso = support::qso(support::id(10));
     save::save(
         &store,
-        support::qso_key(qso.id),
+        support::qso_key(qso.id()),
         None,
         support::contact(qso.clone()),
     )
@@ -39,7 +39,7 @@ async fn qrz_confirmation_does_not_cross_an_explicit_book_association() -> anyho
                 destination: support::id(200),
                 record: RemoteRecordId::Qrz("7".parse()?),
             },
-            qso: qso.id,
+            qso: qso.id(),
             state: AssociationState::Active,
         }),
         support: Default::default(),
@@ -55,7 +55,7 @@ async fn qrz_confirmation_does_not_cross_an_explicit_book_association() -> anyho
     let facts = projection::load(
         &mut snapshot.transaction,
         snapshot.account,
-        &[qso.id],
+        &[qso.id()],
         ProjectionNeeds {
             station: true,
             services: true,
@@ -93,7 +93,7 @@ async fn a_later_acquired_unconfirmed_report_supersedes_an_imported_positive() -
         2,
         imported(&qso, 40, Service::Qrz, ImportedClaim::Confirmed)?,
     );
-    let RecordState::Live(RecordValue::Service(s)) = &imported.state else {
+    let RecordState::Live(RecordValue::Service(s)) = &imported.state() else {
         panic!("service")
     };
     let ServicePayload::Imported(a) = &s.payload else {
@@ -131,11 +131,11 @@ async fn a_later_acquired_unconfirmed_report_supersedes_an_imported_positive() -
             identity: RemoteIdentity::Complete(external.clone()),
             facts: RemoteFacts {
                 contact: ContactReport {
-                    own_call: Reported::Value(qso.own_station.callsign.clone()),
-                    worked_call: Reported::Value(qso.contacted_station.callsign.clone()),
-                    start: Reported::Value(ObservedStart::Second(qso.start)),
-                    frequency: Reported::Value(qso.primary.frequency().unwrap()),
-                    receive_frequency: Reported::Value(qso.primary.frequency().unwrap()),
+                    own_call: Reported::Value(qso.own_station().callsign.clone()),
+                    worked_call: Reported::Value(qso.contacted_station().callsign.clone()),
+                    start: Reported::Value(ObservedStart::Second(qso.start())),
+                    frequency: Reported::Value(qso.primary().frequency().unwrap()),
+                    receive_frequency: Reported::Value(qso.primary().frequency().unwrap()),
                     mode: Reported::Value(baseline.mode.unwrap()),
                     confirmation: Reported::Value(ConfirmationStatus::Unconfirmed),
                     ..Default::default()
@@ -156,16 +156,22 @@ async fn a_later_acquired_unconfirmed_report_supersedes_an_imported_positive() -
             },
         })),
     );
-    let RecordState::Live(RecordValue::Service(s)) = &mut observation.state else {
+    let mut state = observation.state().clone();
+    let RecordState::Live(RecordValue::Service(s)) = &mut state else {
         panic!("service")
     };
     s.support.acquisition = Some(support::accepted(3, support::contact(qso.clone())).stamp);
+    observation = clacks_sync::record::AcceptedRecord::new(
+        observation.key(),
+        state,
+        observation.stamp.clone(),
+    )?;
     let association = carrier(
         5,
         ServicePayload::Association(ExternalAssociation {
             id: support::id(52),
             external,
-            qso: qso.id,
+            qso: qso.id(),
             state: AssociationState::Active,
         }),
     );
@@ -178,7 +184,8 @@ async fn a_later_acquired_unconfirmed_report_supersedes_an_imported_positive() -
             association: Some(support::id(52)),
         }),
     );
-    let RecordState::Live(RecordValue::Service(s)) = &mut disposition.state else {
+    let mut state = disposition.state().clone();
+    let RecordState::Live(RecordValue::Service(s)) = &mut state else {
         panic!("service")
     };
     s.support.required = vec![
@@ -186,6 +193,11 @@ async fn a_later_acquired_unconfirmed_report_supersedes_an_imported_positive() -
         SupportRequirement::CoveredEffect(VersionReference::from(&original)),
         SupportRequirement::CoveredEffect(VersionReference::from(&association)),
     ];
+    disposition = clacks_sync::record::AcceptedRecord::new(
+        disposition.key(),
+        state,
+        disposition.stamp.clone(),
+    )?;
     super::install(
         &store,
         &[original, imported, observation, association, disposition],
@@ -195,7 +207,7 @@ async fn a_later_acquired_unconfirmed_report_supersedes_an_imported_positive() -
     let facts = projection::load(
         &mut snapshot.transaction,
         snapshot.account,
-        &[qso.id],
+        &[qso.id()],
         ProjectionNeeds {
             station: true,
             services: true,

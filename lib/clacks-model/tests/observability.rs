@@ -12,11 +12,23 @@ fn tag_deletion_preview_counts_are_not_deletions() {
     let tag = support::id::<TagId>(1);
     let other = support::id::<TagId>(2);
     let mut a = support::qso(support::id(1));
-    a.tags.insert(tag);
+    support::edit(&mut a, |a| {
+        a.tags.insert(tag);
+
+        Ok(())
+    });
     let mut b = support::qso(support::id(2));
-    b.tags.extend([tag, other]);
+    support::edit(&mut b, |b| {
+        b.tags.extend([tag, other]);
+
+        Ok(())
+    });
     let mut c = support::qso(support::id(3));
-    c.tags.insert(other);
+    support::edit(&mut c, |c| {
+        c.tags.insert(other);
+
+        Ok(())
+    });
     let contacts = vec![a, b, c];
     let original = contacts.clone();
     let captured = capture(|| plan_tag_deletion(tag, TagDeletionChoice::DeleteUnique, &contacts));
@@ -52,9 +64,13 @@ fn lotw_readiness_keeps_unfamiliar_values_out_of_telemetry() -> anyhow::Result<(
     };
     let mut q = support::qso(support::id(1));
     let secret = "CANARY-UNFAMILIAR-MODE";
-    q.mode = Mode::from_recorded_identity(ModeIdentity::Parent {
-        label: secret.into(),
-    })?;
+    support::edit(&mut q, |q| {
+        q.mode = Mode::from_recorded_identity(ModeIdentity::Parent {
+            label: secret.into(),
+        })?;
+
+        Ok(())
+    });
     let d = Destination {
         id: support::id(1),
         collection: RemoteCollection::Lotw {
@@ -63,7 +79,7 @@ fn lotw_readiness_keeps_unfamiliar_values_out_of_telemetry() -> anyhow::Result<(
         description: "canary-description".into(),
     };
     let signing = PublicSigningIdentity {
-        callsign: q.own_station.callsign.clone(),
+        callsign: q.own_station().callsign.clone(),
         dxcc: "291".into(),
     };
     let config = LotwConfiguration::bundled()?;
@@ -112,8 +128,8 @@ fn lotw_readiness_keeps_unfamiliar_values_out_of_telemetry() -> anyhow::Result<(
 fn catalog_outcomes_and_invalid_definition_keep_diagnostics_private() -> anyhow::Result<()> {
     use clacks_model::{
         catalog::{CatalogFinding, lookup_reference},
-        export::rules::compile_definition,
         group::DefinitionSet,
+        group::GroupDefinition,
     };
     let support::CatalogCase {
         association,
@@ -126,9 +142,13 @@ fn catalog_outcomes_and_invalid_definition_keep_diagnostics_private() -> anyhow:
         captured.result.as_ref().unwrap(),
         &CatalogFinding::NotConfigured
     );
-    let mut bad = defs.get(association.group_id).unwrap().clone();
+    let mut bad = defs
+        .get(association.group_id)
+        .unwrap()
+        .clone()
+        .into_fields();
     bad.identifier.syntax = Some("[CANARY-INVALID".into());
-    let captured = capture(|| compile_definition(&bad));
+    let captured = capture(|| GroupDefinition::try_from(bad));
     assert!(
         captured
             .result
@@ -154,7 +174,11 @@ fn qrz_conversion_warnings_and_loaded_definitions_have_bounded_reporting() -> an
         },
     };
     let mut q = support::qso(support::id(1));
-    q.comment = Some("CANARY-ä-non-ascii".into());
+    support::edit(&mut q, |q| {
+        q.comment = Some("CANARY-ä-non-ascii".into());
+
+        Ok(())
+    });
     let defs = support::definitions();
     let profiles = support::profiles();
     let resolutions = Default::default();

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT profile_id, body FROM export_plan WHERE payload_id = ? ORDER BY profile_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "profile_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_plan",
+            "name": "profile_id"
+          }
+        }
+      },
+      {
+        "name": "body",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_plan",
+            "name": "body"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "9b54e4a427f1f427040015395119b704dd46ca6e1a87af4a9bd71c78b1b80686"
+}

@@ -30,7 +30,7 @@ fn bundled_ids_are_unique_and_mapping_targets_exist() -> anyhow::Result<()> {
         first
             .groups
             .iter()
-            .map(|group| group.id)
+            .map(|group| group.id())
             .collect::<BTreeSet<_>>()
             .len(),
         first.groups.len()
@@ -43,7 +43,7 @@ fn bundled_ids_are_unique_and_mapping_targets_exist() -> anyhow::Result<()> {
 
     assert_eq!(profiles.len(), first.output_profiles.len());
     for group in &first.groups {
-        for target in group.export_mappings.targeted.keys() {
+        for target in group.export_mappings().targeted.keys() {
             assert!(profiles.contains(target));
         }
     }
@@ -56,23 +56,24 @@ fn default_reference_rules_preserve_native_values() -> anyhow::Result<()> {
     let pota = defaults
         .groups
         .iter()
-        .find(|group| group.name == "POTA")
+        .find(|group| group.name() == "POTA")
         .unwrap();
 
-    assert!(pota.bears_location_context);
+    assert!(pota.bears_location_context());
     let compiled = compile_definition(pota)?;
-    let entered = clacks_model::reference::ReferenceAssociation {
-        group_id: pota.id,
-        identifier: Some(" us-0001@us-ca ".into()),
-    };
+    let entered = clacks_model::reference::ReferenceAssociation::new(
+        pota.id(),
+        Some(" us-0001@us-ca ".into()),
+    )
+    .expect("valid reference fixture");
     let original = entered.clone();
     let prepared = compiled.normalize_reference(&entered)?;
 
-    assert_eq!(prepared.identifier.as_deref(), Some("US-0001@US-CA"));
+    assert_eq!(prepared.identifier().as_deref(), Some("US-0001@US-CA"));
     assert_eq!(entered, original);
     assert!(
         compiled
-            .normalize_reference(&support::reference(pota.id, Some("not a reference")))
+            .normalize_reference(&support::reference(pota.id(), Some("not a reference")))
             .is_err()
     );
     Ok(())
@@ -84,18 +85,26 @@ fn pota_mapping_uses_separate_export_contexts() -> anyhow::Result<()> {
     let pota = defaults
         .groups
         .iter()
-        .find(|group| group.name == "POTA")
+        .find(|group| group.name() == "POTA")
         .unwrap();
     let mut qso = support::qso(support::id::<QsoId>(77));
     for code in ["US-0001", "US-0002"] {
-        qso.own_station
-            .references
-            .insert(support::reference(pota.id, Some(code)));
+        support::edit(&mut qso, |qso| {
+            qso.own_station
+                .references
+                .insert(support::reference(pota.id(), Some(code)));
+
+            Ok(())
+        });
     }
     for code in ["US-0003", "US-0004", "US-0005"] {
-        qso.contacted_station
-            .references
-            .insert(support::reference(pota.id, Some(code)));
+        support::edit(&mut qso, |qso| {
+            qso.contacted_station
+                .references
+                .insert(support::reference(pota.id(), Some(code)));
+
+            Ok(())
+        });
     }
     let profiles = defaults
         .output_profiles
@@ -107,7 +116,7 @@ fn pota_mapping_uses_separate_export_contexts() -> anyhow::Result<()> {
         let targeted = profile.purpose == OutputPurpose::Targeted;
         let context = ExportContext {
             output_profile_id: profile.id,
-            target_group_id: targeted.then_some(pota.id),
+            target_group_id: targeted.then_some(pota.id()),
         };
         let plan = plan_reference_export(
             std::slice::from_ref(&qso),
@@ -139,15 +148,23 @@ fn competing_contests_need_an_explicit_context() -> anyhow::Result<()> {
     let mut contests = defaults
         .groups
         .iter()
-        .filter(|group| !group.bears_location_context);
+        .filter(|group| !group.bears_location_context());
     let first = contests.next().unwrap();
     let second = contests.next().unwrap();
-    qso.own_station
-        .references
-        .insert(support::reference(first.id, None));
-    qso.own_station
-        .references
-        .insert(support::reference(second.id, None));
+    support::edit(&mut qso, |qso| {
+        qso.own_station
+            .references
+            .insert(support::reference(first.id(), None));
+
+        Ok(())
+    });
+    support::edit(&mut qso, |qso| {
+        qso.own_station
+            .references
+            .insert(support::reference(second.id(), None));
+
+        Ok(())
+    });
     let profile = defaults
         .output_profiles
         .iter()
@@ -174,7 +191,7 @@ fn competing_contests_need_an_explicit_context() -> anyhow::Result<()> {
     assert!(!selection.decisions.is_empty());
     let context = ExportContext {
         output_profile_id: profile.id,
-        target_group_id: Some(first.id),
+        target_group_id: Some(first.id()),
     };
     let selection = clacks_model::export::select::select_mappings(
         &qso,
@@ -194,7 +211,7 @@ fn unknown_activation_subdivision_has_its_own_partition() -> anyhow::Result<()> 
     let pota = defaults
         .groups
         .iter()
-        .find(|group| group.name == "POTA")
+        .find(|group| group.name() == "POTA")
         .unwrap();
     let profile = defaults
         .output_profiles
@@ -202,15 +219,31 @@ fn unknown_activation_subdivision_has_its_own_partition() -> anyhow::Result<()> 
         .find(|profile| profile.purpose == OutputPurpose::Targeted)
         .unwrap();
     let mut unknown = support::qso(support::id::<QsoId>(90));
-    unknown
-        .own_station
-        .references
-        .insert(support::reference(pota.id, Some("US-0001")));
+    support::edit(&mut unknown, |unknown| {
+        unknown
+            .own_station
+            .references
+            .insert(support::reference(pota.id(), Some("US-0001")));
+
+        Ok(())
+    });
     let mut known = unknown.clone();
-    known.id = support::id::<QsoId>(91);
-    known.own_station.location = Some(clacks_model::location::RecordedLocation {
-        primary_subdivision: Some("CA".into()),
-        ..Default::default()
+    support::edit(&mut known, |known| {
+        known.id = support::id::<QsoId>(91);
+
+        Ok(())
+    });
+    support::edit(&mut known, |known| {
+        known.own_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                primary_subdivision: Some("CA".into()),
+                ..Default::default()
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+
+        Ok(())
     });
     let profiles = defaults
         .output_profiles
@@ -220,7 +253,7 @@ fn unknown_activation_subdivision_has_its_own_partition() -> anyhow::Result<()> 
     let definitions = DefinitionSet::new(defaults.groups.clone())?;
     let context = ExportContext {
         output_profile_id: profile.id,
-        target_group_id: Some(pota.id),
+        target_group_id: Some(pota.id()),
     };
     let plan = plan_reference_export(
         &[unknown, known],

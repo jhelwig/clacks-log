@@ -1,7 +1,9 @@
 //! Account/code-bound secret references retained by oauth-as replay handling.
 
-use super::keys::AccountKey;
-use anyhow::Context;
+use super::{
+    envelope::{self, ReceiptEnvelope},
+    keys::AccountKey,
+};
 use clacks_model::ids::AccountId;
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
@@ -25,22 +27,12 @@ pub(crate) struct IssuedReferences {
     pub refresh_token: Option<String>,
 }
 
-/// Authenticated stored receipt, without any plaintext credential fields.
-pub(crate) struct EncryptedReceipt {
-    /// Account-key version required to decrypt the references.
-    pub key_version: i64,
-    /// Fresh encryption nonce retained alongside ciphertext.
-    pub nonce: Vec<u8>,
-    /// Encrypted reference pair and authentication tag.
-    pub ciphertext: Vec<u8>,
-}
-
 /// Protect issued references before persisting a consumed-code receipt.
 pub(crate) fn seal(
     key: &AccountKey,
     context: &ReceiptContext,
     references: &IssuedReferences,
-) -> anyhow::Result<EncryptedReceipt> {
+) -> anyhow::Result<ReceiptEnvelope> {
     anyhow::ensure!(
         key.account == context.account,
         "receipt key belongs to another account"
@@ -48,34 +40,25 @@ pub(crate) fn seal(
     let plaintext = Zeroizing::new(serde_json::to_vec(references)?);
     let associated = associated(context, key.version)?;
     let value = super::encrypt(key.bytes.as_slice(), &associated, plaintext.as_slice())?;
-    Ok(EncryptedReceipt {
-        key_version: key.version,
-        nonce: value.nonce.to_vec(),
-        ciphertext: value.bytes,
-    })
+    ReceiptEnvelope::new(key.version, value)
 }
 
 /// Recover receipt references only within the matching account/code/purpose context.
 pub(crate) fn open(
     key: &AccountKey,
     context: &ReceiptContext,
-    value: &EncryptedReceipt,
+    value: &ReceiptEnvelope,
 ) -> anyhow::Result<IssuedReferences> {
     anyhow::ensure!(
-        key.account == context.account && key.version == value.key_version,
+        key.account == context.account && key.version == value.key_version(),
         "receipt key/context mismatch"
     );
-    let nonce: [u8; 12] = value
-        .nonce
-        .as_slice()
-        .try_into()
-        .context("invalid stored receipt nonce")?;
     let associated = associated(context, key.version)?;
     let plaintext = Zeroizing::new(super::decrypt(
         key.bytes.as_slice(),
         &associated,
-        nonce,
-        &value.ciphertext,
+        value.sealed().nonce,
+        &value.sealed().bytes,
     )?);
     Ok(serde_json::from_slice(plaintext.as_slice())?)
 }
@@ -93,6 +76,8 @@ struct AssociatedContext<'a> {
     purpose: &'a str,
     /// Exact account encryption-key version.
     key_version: i64,
+    /// Canonical codec version, kind and account-key reference.
+    storage_header: String,
 }
 
 /// Encode immutable identity fields unambiguously for authenticated encryption.
@@ -103,5 +88,6 @@ fn associated(context: &ReceiptContext, version: i64) -> anyhow::Result<Vec<u8>>
         code_digest: context.code_digest,
         purpose: &context.purpose,
         key_version: version,
+        storage_header: envelope::receipt_header(version),
     })?)
 }

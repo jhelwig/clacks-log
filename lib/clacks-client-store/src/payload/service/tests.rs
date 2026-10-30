@@ -60,7 +60,7 @@ fn report(n: u128, at: i64) -> anyhow::Result<RemoteObservation> {
             query: QueryIdentity {
                 destination: id(100),
                 stream: QueryStream::Qrz,
-                selected_fields: Default::default(),
+                selected_fields: ["CALL".into(), "FREQ".into()].into(),
                 own_call: None,
                 since: None,
             },
@@ -105,7 +105,7 @@ async fn restored_observations_select_provider_fields_using_retained_coverage_an
     let source = InstalledCheckpoint {
         account: id(1),
         baseline: baseline.id,
-        coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at),
+        coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at()),
     };
     let manifest = WindowManifest::new(
         id(1),
@@ -113,7 +113,7 @@ async fn restored_observations_select_provider_fields_using_retained_coverage_an
         WindowMode::Full,
         rows.iter()
             .map(|row| RecordRequirement {
-                key: row.key,
+                key: row.key(),
                 stamp: row.stamp.clone(),
                 deleted: false,
             })
@@ -129,10 +129,23 @@ async fn restored_observations_select_provider_fields_using_retained_coverage_an
     let store = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
     let mut restored = Vec::new();
     for row in rows {
-        let Observation::Accepted(value) = save::load(&store, row.key).await?.unwrap().latest
+        let Observation::Accepted(value) = save::load(&store, row.key())
+            .await?
+            .unwrap()
+            .into_fields()
+            .latest
         else {
             panic!("installed service observation")
         };
+        if let RecordState::Live(RecordValue::Service(record)) = value.state() {
+            let ServicePayload::Observation(observation) = &record.payload else {
+                panic!("observation")
+            };
+            assert_eq!(
+                observation.acquisition.query.selected_fields,
+                ["CALL".into(), "FREQ".into()].into()
+            );
+        }
         restored.push(value);
     }
     let baselines = [baseline.clone()];
@@ -163,4 +176,60 @@ async fn restored_observations_select_provider_fields_using_retained_coverage_an
     );
     store.close().await?;
     Ok(())
+}
+
+#[tokio::test]
+async fn exact_provider_keys_remain_distinct_across_reopen() -> anyhow::Result<()> {
+    use clacks_model::{scalar::RecordedCallsign, service::destination::LotwRecordKey};
+    let directory = tempfile::tempdir()?;
+    let file = directory.path().join("workspace.sqlite");
+    let store = ClientStore::create(&file, id(1), StoreSettings::default()).await?;
+    let base = LotwRecordKey {
+        own_call: RecordedCallsign::new("W7HEX/P")?,
+        worked_call: RecordedCallsign::new("K1ABC")?,
+        start: UtcSecond::from_unix_seconds(1000),
+        band: "20M".into(),
+        receive_band: "20M".into(),
+        mode: "FT8".into(),
+    };
+    let mut receive = base.clone();
+    receive.receive_band = "40M".into();
+    let mut mode = base.clone();
+    mode.mode = "DATA".into();
+    let keys: Vec<_> = [
+        RemoteRecordId::Lotw(base),
+        RemoteRecordId::Lotw(receive),
+        RemoteRecordId::Lotw(mode),
+        RemoteRecordId::Qrz("18446744073709551616001".parse()?),
+    ]
+    .into_iter()
+    .map(|record| ExternalRecordKey {
+        destination: id(100),
+        record,
+    })
+    .collect();
+    let mut tx = store.write().await?;
+    let mut retained = Vec::new();
+    for key in &keys {
+        let stored = identity::external(&mut tx, id(1), key).await?;
+        assert_eq!(identity::external(&mut tx, id(1), key).await?, stored);
+        retained.push(stored);
+    }
+    assert_eq!(
+        retained
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        keys.len()
+    );
+    tx.commit().await?;
+    store.close().await?;
+
+    let store = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
+    let mut tx = store.write().await?;
+    for (stored, key) in retained.into_iter().zip(keys) {
+        assert_eq!(identity::load_external(&mut tx, id(1), stored).await?, key);
+    }
+    tx.commit().await?;
+    store.close().await
 }

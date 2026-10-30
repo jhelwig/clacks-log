@@ -2,6 +2,7 @@
 
 mod application;
 mod config;
+mod credentials;
 mod instance;
 mod logbooks;
 mod logging;
@@ -28,3 +29,6 @@ pub fn run() -> anyhow::Result<()> {
 mod logbook_tests;
 
 pub(crate) mod enrollment;
+
+#[cfg(test)]
+mod test_support;

@@ -213,7 +213,7 @@ fn worked_before_shares_entry_and_activates_the_existing_editor() -> anyhow::Res
     };
     assert_eq!(query.call_prefix, "OK2CQR");
     let contact = fixtures::contact();
-    let id = contact.id;
+    let id = contact.id();
     prior
         .reply
         .send(SettingsResponse::Contacts(ContactResponse::WorkedBefore(
@@ -226,9 +226,14 @@ fn worked_before_shares_entry_and_activates_the_existing_editor() -> anyhow::Res
                             fixtures::contact()
                         };
                         if n > 0 {
-                            qso.contacted_station.callsign =
-                                clacks_model::scalar::RecordedCallsign::new(&format!("OK2CQR/{n}"))
+                            crate::test_support::edit(&mut qso, |qso| {
+                                qso.contacted_station.callsign =
+                                    clacks_model::scalar::RecordedCallsign::new(&format!(
+                                        "OK2CQR/{n}"
+                                    ))
                                     .unwrap();
+                                Ok(())
+                            });
                         }
                         clacks_client_store::read::contacts::ContactRow {
                             working: HistoryRow {

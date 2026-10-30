@@ -134,7 +134,7 @@ fn infallibly_wrapped_coverage_is_checked_at_transition_boundaries() -> anyhow::
 #[test]
 fn public_high_water_is_checked_before_unchanged_preparation() -> anyhow::Result<()> {
     use clacks_sync::{
-        client::{ClientRecord, LocalCounter, prepare_change},
+        client::{LocalCounter, preparation::prepare_change},
         error::UnknownReason,
         record::{Observation, RecordId, RecordKey},
     };
@@ -148,7 +148,7 @@ fn public_high_water_is_checked_before_unchanged_preparation() -> anyhow::Result
         account: id(1),
         id: RecordId::Qso(id(10)),
     };
-    let current = ClientRecord {
+    let current = clacks_sync::client::ClientRecordFields {
         key,
         latest: Observation::Unavailable {
             key,
@@ -156,7 +156,9 @@ fn public_high_water_is_checked_before_unchanged_preparation() -> anyhow::Result
         },
         pending: None,
         retained: vec![],
-    };
+    }
+    .try_into()
+    .expect("coherent client fixture");
     assert!(
         prepare_change(
             &current,
@@ -202,45 +204,26 @@ fn revision_and_membership_exhaustion_preserve_input() -> anyhow::Result<()> {
 fn zero_origin_is_valid_but_zero_acceptance_is_not() -> anyhow::Result<()> {
     let (account, _) = AccountMetadata::initialize(id(1), id(2), id(3));
     account.validate()?;
-    let mut accepted = support::accepted(1, "original");
-    accepted.stamp.accepted_at.revision = 0;
-    assert!(accepted.stamp.validate().is_err());
-    assert!(accepted.validate().is_err());
+    assert!(
+        clacks_sync::record::VersionStamp::new(account.head, id(3), RecordVector::default())
+            .is_err()
+    );
     Ok(())
 }
 
 #[test]
-fn service_support_checks_acquisition_context_before_use() -> anyhow::Result<()> {
-    use clacks_model::service::{
-        destination::{Destination, RemoteCollection},
-        evidence::ServicePayload,
-    };
-    use clacks_sync::{
-        record::VersionStamp,
-        service::{ServiceRecord, ServiceSupport},
-    };
-    let record = ServiceRecord {
-        payload: ServicePayload::Destination(Destination {
-            id: id(20),
-            collection: RemoteCollection::Lotw {
-                account: "public account".into(),
+fn accepted_context_rejects_out_of_range_positions() {
+    assert!(
+        clacks_sync::record::VersionStamp::new(
+            Position {
+                timeline: id(2),
+                revision: MAX + 1
             },
-            description: "description".into(),
-        }),
-        support: ServiceSupport {
-            acquisition: Some(VersionStamp {
-                accepted_at: Position {
-                    timeline: id(2),
-                    revision: MAX + 1,
-                },
-                baseline: id(3),
-                vector: RecordVector::default(),
-            }),
-            ..Default::default()
-        },
-    };
-    assert!(record.validate(id(1)).is_err());
-    Ok(())
+            id(3),
+            RecordVector::default(),
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -276,8 +259,14 @@ fn window_boundary_coordinates_are_validated_without_installed_ancestry() -> any
 
 #[test]
 fn accepted_context_descriptors_require_the_actual_server_component() -> anyhow::Result<()> {
-    let mut record = support::accepted(1, "original");
-    record.stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(2)), 2)])?;
-    assert!(record.stamp.validate().is_err());
+    let record = support::accepted(1, "original");
+    assert!(
+        clacks_sync::record::VersionStamp::new(
+            record.stamp.accepted_at(),
+            record.stamp.baseline(),
+            RecordVector::from_entries([(ClockActor::Server(id(2)), 2)])?,
+        )
+        .is_err()
+    );
     Ok(())
 }

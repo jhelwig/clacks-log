@@ -27,16 +27,16 @@ async fn remember(
     let source = InstalledCheckpoint {
         account: id(1),
         baseline: baseline.id,
-        coverage: Coverage::from(accepted.stamp.accepted_at),
+        coverage: Coverage::from(accepted.stamp.accepted_at()),
     };
     let manifest = WindowManifest::new(
         id(1),
         source.clone(),
         WindowMode::Full,
         vec![RecordRequirement {
-            key: accepted.key,
+            key: accepted.key(),
             stamp: accepted.stamp.clone(),
-            deleted: matches!(accepted.state, RecordState::Deleted),
+            deleted: matches!(accepted.state(), RecordState::Deleted),
         }],
         vec![],
         vec![baseline],
@@ -69,15 +69,18 @@ async fn installed_and_received_deletion_preserve_live_alternatives_until_resolu
             transfer::finish(&workspace.store, &source, &WindowMode::Full).await?;
             selection::select(&workspace.store, SelectedView::Logbook(tag.id)).await?;
             if pending {
-                let row = save::load(&workspace.store, live.key).await?.unwrap();
+                let row = save::load(&workspace.store, live.key()).await?.unwrap();
                 tag.name = "Local alternative".into();
                 tags::save(&workspace.store, Some(&row), &tag).await?;
             }
             let mut qso = support::qso(id(100));
-            qso.tags = [tag.id].into();
+            support::edit(&mut qso, |qso| {
+                qso.tags = [tag.id].into();
+                Ok(())
+            });
             let SaveOutcome::Saved(qso_row) = save::save(
                 &workspace.store,
-                support::qso_key(qso.id),
+                support::qso_key(qso.id()),
                 None,
                 support::contact(qso),
             )
@@ -87,7 +90,11 @@ async fn installed_and_received_deletion_preserve_live_alternatives_until_resolu
             };
             let mut deleted =
                 support::accepted(2, RecordState::Live(RecordValue::Tag(Box::new(tag))));
-            deleted.state = RecordState::Deleted;
+            deleted = clacks_sync::record::AcceptedRecord::new(
+                deleted.key(),
+                RecordState::Deleted,
+                deleted.stamp.clone(),
+            )?;
             let source = remember(&workspace.store, &deleted, baseline).await?;
             // Merely staging an advertised deletion has no selected-view effect.
             assert_eq!(
@@ -127,11 +134,11 @@ async fn installed_and_received_deletion_preserve_live_alternatives_until_resolu
                 }
             );
             assert_eq!(
-                save::load(&workspace.store, qso_row.key).await?,
+                save::load(&workspace.store, qso_row.key()).await?,
                 Some(qso_row)
             );
             if pending {
-                let row = save::load(&workspace.store, deleted.key).await?.unwrap();
+                let row = save::load(&workspace.store, deleted.key()).await?.unwrap();
                 let mut snapshot = clacks_client_store::read::snapshot(&workspace.store).await?;
                 let reviews = snapshot
                     .review(&clacks_client_store::read::review::ReviewQuery::default())
@@ -139,7 +146,7 @@ async fn installed_and_received_deletion_preserve_live_alternatives_until_resolu
                 snapshot.close().await?;
                 let review = reviews
                     .iter()
-                    .find(|review| review.record.key == deleted.key)
+                    .find(|review| review.record.key() == deleted.key())
                     .unwrap();
                 let shown = review.review.as_ref().unwrap();
                 assert!(matches!(

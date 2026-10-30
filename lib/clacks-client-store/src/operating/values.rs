@@ -2,7 +2,6 @@
 
 use crate::payload::contact;
 use clacks_model::{
-    contact::OperatorInformation,
     ids::AccountId,
     profile::CurrentOperatingValues,
     scalar::{Milliwatts, RecordedCallsign},
@@ -15,7 +14,6 @@ pub(super) async fn insert_value(
     account: AccountId,
     value: &CurrentOperatingValues,
 ) -> anyhow::Result<i64> {
-    value.validate()?;
     let station = contact::insert_station(connection, account, &value.station).await?;
     let equipment = match &value.equipment {
         Some(value) => Some(contact::insert_equipment(connection, account, value).await?),
@@ -24,12 +22,12 @@ pub(super) async fn insert_value(
     let call = value
         .operator
         .as_ref()
-        .and_then(|value| value.callsign.as_ref())
+        .and_then(|value| value.callsign().as_ref())
         .map(RecordedCallsign::as_str);
     let name = value
         .operator
         .as_ref()
-        .and_then(|value| value.recorded_name.as_deref());
+        .and_then(|value| value.recorded_name().as_deref());
     let power = value
         .transmit_power
         .map(|value| i64::try_from(value.get()))
@@ -66,20 +64,20 @@ pub(super) async fn load_value(
     };
     let operator = match (row.operator_call, row.operator_name) {
         (None, None) => None,
-        (call, name) => Some(OperatorInformation {
+        (call, name) => Some(clacks_model::contact::OperatorInformationFields {
             callsign: call.as_deref().map(RecordedCallsign::new).transpose()?,
             recorded_name: name,
         }),
     };
-    let value = CurrentOperatingValues {
+    let value = clacks_model::profile::CurrentOperatingValues {
         station,
         equipment,
-        operator,
+        operator: operator.map(TryInto::try_into).transpose()?,
         transmit_power: row
             .power
             .map(|value| -> anyhow::Result<_> { Ok(Milliwatts::new(u64::try_from(value)?)?) })
             .transpose()?,
     };
-    value.validate()?;
+
     Ok(value)
 }

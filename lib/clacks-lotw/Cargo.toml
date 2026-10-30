@@ -31,3 +31,6 @@ tracing-subscriber.workspace = true
 [[test]]
 name = "integration"
 path = "tests/integration.rs"
+
+[lints]
+workspace = true

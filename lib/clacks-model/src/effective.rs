@@ -72,16 +72,12 @@ pub fn select_location(
     eligible: &EligibleStationFacts<'_>,
     definitions: &DefinitionSet,
 ) -> Option<Sourced<Option<RecordedLocation>>> {
-    let location = recorded
-        .location
-        .as_ref()
-        .filter(|l| l.has_values())
-        .cloned();
+    let location = recorded.location.as_ref().cloned();
     if location.is_some()
         || recorded.references.iter().any(|r| {
             definitions
                 .get(r.group_id)
-                .is_some_and(|d| d.bears_location_context)
+                .is_some_and(|d| d.bears_location_context())
         })
     {
         return Some(Sourced {
@@ -90,13 +86,10 @@ pub fn select_location(
         });
     }
     eligible.sources().into_iter().find_map(|(source, facts)| {
-        facts
-            .and_then(|f| f.location.as_ref())
-            .filter(|l| l.has_values())
-            .map(|l| Sourced {
-                value: Some(l.clone()),
-                source,
-            })
+        facts.and_then(|f| f.location.as_ref()).map(|l| Sourced {
+            value: Some(l.clone()),
+            source,
+        })
     })
 }
 

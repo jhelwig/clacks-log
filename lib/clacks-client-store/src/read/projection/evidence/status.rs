@@ -47,7 +47,7 @@ pub(super) fn qrz_destination(
         .iter()
         .filter_map(|r| {
             if let ServicePayload::Association(a) = &r.payload {
-                (a.qso == qso.id
+                (a.qso == qso.id()
                     && a.state == AssociationState::Active
                     && matches!(a.external.record, RemoteRecordId::Qrz(_)))
                 .then_some(a.external.destination)
@@ -67,11 +67,11 @@ pub(super) fn qrz_destination(
         .iter()
         .filter_map(|r| match &r.payload {
             ServicePayload::Attempt(a)
-                if a.qso == qso.id && a.projection.service() == Service::Qrz =>
+                if a.qso == qso.id() && a.projection.service() == Service::Qrz =>
             {
                 Some(a.projection.destination())
             }
-            ServicePayload::Imported(a) if a.qso == qso.id && a.service == Service::Qrz => {
+            ServicePayload::Imported(a) if a.qso == qso.id() && a.service == Service::Qrz => {
                 a.destination
             }
             _ => None,
@@ -151,7 +151,7 @@ pub(super) fn evaluate(
             .cloned()
             .collect();
         let imported = publication_coverage(&PublicationCoverageInput {
-            qso: qso.id,
+            qso: qso.id(),
             service,
             destination: selected,
             current: None,
@@ -163,7 +163,7 @@ pub(super) fn evaluate(
         let mut covered = imported;
         if !ambiguous {
             for attempt in attempts.iter().filter(|a| {
-                a.qso == qso.id
+                a.qso == qso.id()
                     && a.projection.service() == service
                     && selected.is_none_or(|id| a.projection.destination() == id)
             }) {
@@ -179,7 +179,7 @@ pub(super) fn evaluate(
                         match lotw::project(&LotwProjectionInput {
                             qso,
                             destination,
-                            signing: &original.signing_identity,
+                            signing: original.signing_identity(),
                             configuration: &context.lotw,
                             definitions: &context.definitions,
                         })? {
@@ -209,7 +209,7 @@ pub(super) fn evaluate(
                     ));
                 }
                 covered |= publication_coverage(&PublicationCoverageInput {
-                    qso: qso.id,
+                    qso: qso.id(),
                     service,
                     destination: Some(id),
                     current: current.as_ref(),

@@ -305,12 +305,12 @@ pub fn plan_recovered_install(
                 .baseline(account.account, checkpoint.baseline)?
                 .is_none()
                 || evidence
-                    .baseline(account.account, incoming.stamp.baseline)?
+                    .baseline(account.account, incoming.stamp.baseline())?
                     .is_none()
             {
                 RecordRelation::Unknown(UnknownReason::MissingBaseline)
             } else if crate::compaction::expanded(checkpoint, evidence)?
-                .covers(incoming.stamp.accepted_at)
+                .covers(incoming.stamp.accepted_at())
             {
                 return Err(MetadataError::Conflict {
                     detail: format!(

@@ -185,4 +185,8 @@ async fn concurrent_sign_ins_resolve_one_account() -> anyhow::Result<()> {
 
 mod receipts;
 
-mod enrollment;
+pub(crate) mod enrollment;
+
+mod support;
+
+mod key_rotation;

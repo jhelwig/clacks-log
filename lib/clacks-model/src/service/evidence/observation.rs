@@ -42,28 +42,54 @@ pub enum ObservedStart {
     /// An exact supplied second.
     Second(UtcSecond),
     /// A minute-aligned instant covering its sixty seconds.
-    Minute(UtcSecond),
+    Minute(ObservedMinute),
+}
+
+/// Checked minute-aligned provider time covering all sixty seconds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "UtcSecond", into = "UtcSecond")]
+pub struct ObservedMinute(UtcSecond);
+
+impl TryFrom<UtcSecond> for ObservedMinute {
+    type Error = ServiceError;
+
+    fn try_from(value: UtcSecond) -> Result<Self, Self::Error> {
+        if value.unix_seconds().rem_euclid(60) != 0 {
+            return Err(ServiceError::Invalid {
+                detail: "incoming minute is not aligned".into(),
+            });
+        }
+        value
+            .unix_seconds()
+            .checked_add(59)
+            .ok_or_else(|| ServiceError::Invalid {
+                detail: "incoming minute overflow".into(),
+            })?;
+        Ok(Self(value))
+    }
+}
+
+impl From<ObservedMinute> for UtcSecond {
+    fn from(value: ObservedMinute) -> Self {
+        value.0
+    }
+}
+
+impl ObservedMinute {
+    /// Return the first covered second for provider serialization.
+    pub fn start(self) -> UtcSecond {
+        self.0
+    }
 }
 
 impl ObservedStart {
-    /// Return inclusive whole-second bounds with checked minute alignment and overflow.
-    pub fn bounds(self) -> anyhow::Result<(i64, i64)> {
+    /// Return the inclusive whole-second range covered by the provider report.
+    pub fn bounds(self) -> (i64, i64) {
         match self {
-            Self::Second(v) => Ok((v.unix_seconds(), v.unix_seconds())),
+            Self::Second(v) => (v.unix_seconds(), v.unix_seconds()),
             Self::Minute(v) => {
-                let start = v.unix_seconds();
-                if start.rem_euclid(60) != 0 {
-                    return Err(ServiceError::Invalid {
-                        detail: "incoming minute is not aligned".into(),
-                    }
-                    .into());
-                }
-                Ok((
-                    start,
-                    start.checked_add(59).ok_or_else(|| ServiceError::Invalid {
-                        detail: "incoming minute overflow".into(),
-                    })?,
-                ))
+                let start = v.start().unix_seconds();
+                (start, start + 59)
             }
         }
     }

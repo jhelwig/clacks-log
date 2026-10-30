@@ -26,4 +26,22 @@ Independent account keys limit the scope of an exposed account key and allow acc
 
 The database alone is insufficient to recover encrypted credentials without the required key material. Backups containing that key need protection of their own. Historical backups may contain credentials removed from current state; D228 removal is not a promise to erase independent backups. Restore/publication procedures still follow D141.
 
-External secrets/key-service integrations can be post-MVP rather than mandatory deployment components. Exact encryption format/library, encoding of account/credential binding, rotation procedure and key-version retention remain engineering design work. Recovery requires the deployment-key versions corresponding to the restored wrapped account keys. D236 selects the hierarchy and deployment direction; it does not select a custom cryptographic algorithm.
+External secrets/key-service integrations can be post-MVP rather than mandatory
+deployment components. The enrollment implementation supplies RustCrypto
+authenticated encryption, versioned wrapped account keys and protected deployment
+key files. D381 includes both wrapping-key rotation and individual account-key
+rotation in MVP through `clacks-admin`. Deployment automation can invoke those
+operations without an internal Clacks rotation scheduler. Issue #13 owns the
+existing enrollment receipt/account-key protection and both rotation operations.
+Issue #17 introduces actual directory credential persistence, provisioning and
+lookup together; #31 introduces QRZ publication credentials and #30 extends that
+working path for LoTW. Each consumer extends the same reference reporting and
+key maintenance when it adds stored values. Recovery requires the deployment
+key versions corresponding to the restored wrapped account keys, including keys
+needed only by supported older backups.
+
+The [issue #13 engineering proposal](../docs/credential-protection-proposal.md)
+defines receipt/key storage, transaction boundaries, concurrency, restart recovery
+and operator commands, with downstream credential ownership explicit. Engineering
+defaults remain distinct from D236/D381's accepted requirements and from the
+earlier source comparison above.

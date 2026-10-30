@@ -591,6 +591,26 @@ D204 extends D203 snapshots to all supported directory information, including na
 
 Full server tracing, structured logs and metrics are MVP requirements, including account-security events without secrets. These serve server operators and are separate from account-user diagnostics. A retained account-scoped security-event history view in the web interface is post-MVP. D66 upload diagnostics and D142 synchronization status remain MVP. See [server observability](observability.md); exact instrumentation, export and backend integration remain engineering work.
 
+## Encryption-key lifecycle (D236/D381)
+
+D236's independent account keys and deployment wrapping keys are retained.
+D381 includes both rotation operations in MVP through `clacks-admin`:
+
+- Rotate a deployment wrapping key by rewrapping the account encryption keys.
+- Rotate one account's encryption key by re-encrypting its protected values.
+
+Deployment automation may invoke these operator commands; Clacks need not add
+an internal rotation scheduler. Changing the configured active wrapping key
+alone does not rewrap existing account keys. Retain the key versions required
+by supported backups and restores, including material that older backups still
+reference. Rotation does not renew provider credentials, revoke clients or alter
+their enrollment identities. The [credential-storage contract](credential-protection-proposal.md)
+defines production schema, account-locked writes, resumable bounded migrations
+and reference reporting. The [operator guide](../lib/clacks-server/README.md#credential-storage-and-key-maintenance)
+provides key-only configuration and exact commands. Its batching, session-lock
+coordination and command shapes are engineering choices rather than additional
+product decisions.
+
 ## Account integration constraints
 
 Enforce account context across requests, existing synchronization streams, queries,

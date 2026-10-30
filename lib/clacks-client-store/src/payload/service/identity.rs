@@ -1,15 +1,10 @@
 //! Credential-free destination snapshots and exact provider record keys.
 
-use crate::rows::service::{CollectionFields, DestinationRow, ExternalKeyFields};
-use anyhow::Context;
+use crate::rows::service::{CollectionRow, DestinationRow};
 use clacks_model::{
     ids::AccountId,
-    scalar::{RecordedCallsign, UtcSecond},
     service::{
-        destination::{
-            Destination, ExternalRecordKey, LotwRecordKey, RemoteCollection, RemoteRecordId,
-            Service,
-        },
+        destination::{Destination, ExternalRecordKey, RemoteCollection, Service},
         evidence::ServiceRecordId,
     },
 };
@@ -50,31 +45,41 @@ pub(super) async fn descriptor(
     .await?;
     let account = account.to_string();
     let destination = value.id.to_string();
-    let fields = match &value.collection {
-        RemoteCollection::Lotw { account } => CollectionFields {
-            collection: "lotw",
-            lotw_account: Some(account.as_str()),
-            qrz_book: None,
-        },
-        RemoteCollection::Qrz { book_id } => CollectionFields {
-            collection: "qrz",
-            lotw_account: None,
-            qrz_book: book_id.as_ref().map(|id| id.as_str()),
-        },
-    };
-    Ok(sqlx::query_file!(
-        "sql/service/descriptor_insert.sql",
-        payload,
-        account,
-        destination,
-        fields.collection,
-        fields.lotw_account,
-        fields.qrz_book,
-        value.description
-    )
-    .fetch_one(connection)
-    .await?
-    .descriptor_id)
+    Ok(match &value.collection {
+        RemoteCollection::Lotw {
+            account: lotw_account,
+        } => {
+            sqlx::query_file!(
+                "sql/service/descriptor_insert.sql",
+                payload,
+                account,
+                destination,
+                "lotw",
+                lotw_account,
+                None::<String>,
+                value.description
+            )
+            .fetch_one(connection)
+            .await?
+            .descriptor_id
+        }
+        RemoteCollection::Qrz { book_id } => {
+            let book = book_id.as_ref().map(|id| id.as_str());
+            sqlx::query_file!(
+                "sql/service/descriptor_insert.sql",
+                payload,
+                account,
+                destination,
+                "qrz",
+                None::<String>,
+                book,
+                value.description
+            )
+            .fetch_one(connection)
+            .await?
+            .descriptor_id
+        }
+    })
 }
 
 /// Restore a descriptor only within its owning payload and account.
@@ -94,19 +99,19 @@ pub(super) async fn load_descriptor(
     )
     .fetch_one(connection)
     .await?;
-    let collection = match (CollectionFields {
+    let collection = match (CollectionRow {
         collection: row.collection.as_str(),
         lotw_account: row.lotw_account.as_deref(),
         qrz_book: row.qrz_book.as_deref(),
     }) {
-        CollectionFields {
+        CollectionRow {
             collection: "lotw",
             lotw_account: Some(account),
             qrz_book: None,
         } => RemoteCollection::Lotw {
             account: account.to_owned(),
         },
-        CollectionFields {
+        CollectionRow {
             collection: "qrz",
             lotw_account: None,
             qrz_book,
@@ -140,59 +145,16 @@ pub(super) async fn external(
     .await?;
     let account = account.to_string();
     let destination = value.destination.to_string();
-    let fields = match &value.record {
-        RemoteRecordId::Qrz(id) => ExternalKeyFields {
-            service: "qrz",
-            qrz_id: Some(id.as_str()),
-            own_call: None,
-            worked_call: None,
-            start: None,
-            band: None,
-            receive_band: None,
-            mode: None,
-        },
-        RemoteRecordId::Lotw(key) => ExternalKeyFields {
-            service: "lotw",
-            qrz_id: None,
-            own_call: Some(key.own_call.as_str()),
-            worked_call: Some(key.worked_call.as_str()),
-            start: Some(key.start.unix_seconds()),
-            band: Some(key.band.as_str()),
-            receive_band: Some(key.receive_band.as_str()),
-            mode: Some(key.mode.as_str()),
-        },
-    };
-    sqlx::query_file!(
-        "sql/external/insert.sql",
-        account,
-        destination,
-        fields.service,
-        fields.qrz_id,
-        fields.own_call,
-        fields.worked_call,
-        fields.start,
-        fields.band,
-        fields.receive_band,
-        fields.mode
+    let canonical = serde_json::to_string(&value.record)?;
+    sqlx::query_file!("sql/external/insert.sql", account, destination, canonical)
+        .execute(&mut *connection)
+        .await?;
+    Ok(
+        sqlx::query_file!("sql/external/find.sql", account, destination, canonical)
+            .fetch_one(connection)
+            .await?
+            .external_id,
     )
-    .execute(&mut *connection)
-    .await?;
-    Ok(sqlx::query_file!(
-        "sql/external/find.sql",
-        account,
-        destination,
-        fields.service,
-        fields.qrz_id,
-        fields.own_call,
-        fields.worked_call,
-        fields.start,
-        fields.band,
-        fields.receive_band,
-        fields.mode
-    )
-    .fetch_one(connection)
-    .await?
-    .external_id)
 }
 
 /// Restore an exact key without applying fuzzy matching or converting QRZ digits to integers.
@@ -205,29 +167,7 @@ pub(super) async fn load_external(
     let row = sqlx::query_file!("sql/external/select.sql", external, account)
         .fetch_one(connection)
         .await?;
-    let record = match row.service.as_str() {
-        "qrz"
-            if row.own_call.is_none()
-                && row.worked_call.is_none()
-                && row.start.is_none()
-                && row.band.is_none()
-                && row.receive_band.is_none()
-                && row.mode.is_none() =>
-        {
-            RemoteRecordId::Qrz(row.qrz_id.context("QRZ key lacks record ID")?.parse()?)
-        }
-        "lotw" if row.qrz_id.is_none() => RemoteRecordId::Lotw(LotwRecordKey {
-            own_call: RecordedCallsign::new(&row.own_call.context("LoTW key lacks own callsign")?)?,
-            worked_call: RecordedCallsign::new(
-                &row.worked_call.context("LoTW key lacks worked callsign")?,
-            )?,
-            start: UtcSecond::from_unix_seconds(row.start.context("LoTW key lacks start")?),
-            band: row.band.context("LoTW key lacks band")?,
-            receive_band: row.receive_band.context("LoTW key lacks receive band")?,
-            mode: row.mode.context("LoTW key lacks mode")?,
-        }),
-        _ => anyhow::bail!("invalid external key shape"),
-    };
+    let record = serde_json::from_str(&row.canonical_key)?;
     Ok(ExternalRecordKey {
         destination: row.destination_id.parse()?,
         record,

@@ -2,8 +2,8 @@ use crate::support;
 use clacks_sync::{
     account::{AccountMetadata, EvidenceView},
     client::{
-        ClientRecord, LocalCounter, OriginalBasis, PendingRecord, Preparation, prepare_change,
-        receive_accepted,
+        ClientRecord, LocalCounter, OriginalBasis, PendingRecord, Preparation,
+        preparation::prepare_change, receive_accepted,
     },
     clock::{ClockActor, RecordVector},
     record::{Observation, RecordState},
@@ -12,18 +12,20 @@ use support::{accepted, id};
 
 fn pending() -> ClientRecord {
     let a = accepted(200, "A");
-    ClientRecord {
+    clacks_sync::client::ClientRecordFields {
         retained: Vec::new(),
-        key: a.key,
+        key: a.key(),
         latest: Observation::Accepted(a.clone()),
         pending: Some(PendingRecord {
             witness: None,
-            key: a.key,
+            key: a.key(),
             original: OriginalBasis::Accepted(a),
-            working: accepted(200, "B").state,
+            working: accepted(200, "B").state().clone(),
             prepared: None,
         }),
     }
+    .try_into()
+    .expect("coherent client fixture")
 }
 
 #[test]
@@ -53,8 +55,10 @@ fn lost_response_keeps_later_work() {
         else {
             panic!("ready")
         };
-        assert_eq!(change.vector.component(ClockActor::Client(id(4))), 1);
-        record.pending.as_mut().unwrap().working = accepted(200, "C").state;
+        assert_eq!(change.vector().component(ClockActor::Client(id(4))), 1);
+        support::edit_client(&mut record, |fields| {
+            fields.pending.as_mut().unwrap().working = accepted(200, "C").state().clone();
+        });
         let record: ClientRecord =
             serde_json::from_str(&serde_json::to_string(&record).unwrap()).unwrap();
         let Preparation::Retry { change: retry, .. } =
@@ -64,22 +68,27 @@ fn lost_response_keeps_later_work() {
         };
         assert_eq!(retry, change);
         let mut shared = accepted(201, "B");
-        shared.stamp.vector = shared
-            .stamp
-            .vector
-            .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 1)]).unwrap());
+        support::edit_stamp(&mut shared.stamp, |stamp| {
+            stamp.vector = stamp
+                .vector
+                .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 1)]).unwrap());
+            Ok(())
+        });
         let update = receive_accepted(&record, &shared, &ev).unwrap();
         assert!(update.review.is_none());
-        let p = update.record.pending.as_ref().unwrap();
-        assert_eq!(p.working, accepted(200, "C").state);
+        let p = update.record.pending().unwrap();
+        assert_eq!(p.working, accepted(200, "C").state().clone());
         assert!(p.prepared.is_none());
         let OriginalBasis::SubsumedOwn { state, witness, .. } = &p.original else {
             panic!("witnessed own version")
         };
-        assert_eq!(state, &accepted(200, "B").state);
+        assert_eq!(state, accepted(200, "B").state());
         assert_eq!(witness, &shared.stamp);
         let mut d = accepted(202, "D");
-        d.stamp.vector = d.stamp.vector.join(&change.vector);
+        support::edit_stamp(&mut d.stamp, |stamp| {
+            stamp.vector = stamp.vector.join(change.vector());
+            Ok(())
+        });
         assert!(
             receive_accepted(&update.record, &d, &ev)
                 .unwrap()
@@ -122,15 +131,22 @@ fn original_survives_without_own_acceptance_and_deletion_is_a_value() {
         baselines: &defs,
     };
     let mut c = pending();
-    c.pending.as_mut().unwrap().working = RecordState::Deleted;
+    support::edit_client(&mut c, |fields| {
+        fields.pending.as_mut().unwrap().working = RecordState::Deleted;
+    });
     let result = receive_accepted(&c, &accepted(201, "D"), &ev).unwrap();
     assert!(result.review.is_some());
-    assert_eq!(result.record.pending.unwrap().working, RecordState::Deleted);
+    assert_eq!(
+        result.record.pending().unwrap().working,
+        RecordState::Deleted
+    );
     let mut c = pending();
-    c.pending.as_mut().unwrap().original = OriginalBasis::Unavailable {
-        key: c.key,
-        reason: clacks_sync::error::UnknownReason::MissingOriginal,
-    };
+    support::edit_client(&mut c, |fields| {
+        fields.pending.as_mut().unwrap().original = OriginalBasis::Unavailable {
+            key: fields.key,
+            reason: clacks_sync::error::UnknownReason::MissingOriginal,
+        };
+    });
     assert!(
         receive_accepted(&c, &accepted(201, "D"), &ev)
             .unwrap()
@@ -186,10 +202,10 @@ fn equal_work_is_settled_but_old_prepared_actor_is_not_relabelled() {
     .unwrap() else {
         panic!("excluded actor review")
     };
-    assert_eq!(kept.pending, record.pending);
+    assert_eq!(kept.pending(), record.pending());
     let update = receive_accepted(&pending(), &accepted(201, "B"), &ev).unwrap();
     assert!(update.review.is_none());
-    assert!(update.record.pending.is_none());
+    assert!(update.record.pending().is_none());
 }
 
 #[test]
@@ -216,18 +232,29 @@ fn superseded_own_version_keeps_its_values_without_fabricating_position() {
     else {
         panic!("ready")
     };
-    record.pending.as_mut().unwrap().working = accepted(200, "C").state;
+    support::edit_client(&mut record, |fields| {
+        fields.pending.as_mut().unwrap().working = accepted(200, "C").state().clone();
+    });
     let mut d = accepted(202, "D");
-    d.stamp.vector = d.stamp.vector.join(&change.vector);
+    support::edit_stamp(&mut d.stamp, |stamp| {
+        stamp.vector = stamp.vector.join(change.vector());
+        Ok(())
+    });
     let update = receive_accepted(&record, &d, &ev).unwrap();
     let review = update.review.unwrap();
     let OriginalBasis::SubsumedOwn { state, witness, .. } = &review.original else {
         panic!("own basis")
     };
-    assert_eq!(state, &accepted(200, "B").state);
-    assert_eq!(witness.accepted_at.revision, 202);
+    assert_eq!(state, accepted(200, "B").state());
+    assert_eq!(witness.accepted_at().revision, 202);
     let captured = support::telemetry::capture_filtered(
-        || clacks_sync::client::resolve_review(&review, accepted(200, "C").state, &ev),
+        || {
+            clacks_sync::client::preparation::resolve_review(
+                &review,
+                accepted(200, "C").state().clone(),
+                &ev,
+            )
+        },
         |metadata| *metadata.level() <= tracing::Level::INFO,
     );
     let event = captured.event("client.resolution_prepared");
@@ -261,7 +288,7 @@ fn superseded_own_version_keeps_its_values_without_fabricating_position() {
     .unwrap() else {
         panic!("resolved ready")
     };
-    assert_eq!(change.vector.component(ClockActor::Client(id(4))), 10);
+    assert_eq!(change.vector().component(ClockActor::Client(id(4))), 10);
 }
 
 #[test]
@@ -289,19 +316,26 @@ fn a_subsumed_own_witness_does_not_order_an_unrelated_branch() {
     };
     let mut current = pending();
     let mut other = accepted(5, "A");
-    other.stamp.accepted_at = Position {
-        timeline: id(5),
-        revision: 5,
-    };
-    other.stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
-    current.latest = Observation::Accepted(other);
-    let p = current.pending.as_mut().unwrap();
-    p.original = OriginalBasis::SubsumedOwn {
-        key: p.key,
-        state: accepted(10, "A").state,
-        vector: accepted(10, "A").stamp.vector,
-        witness: accepted(10, "A").stamp,
-    };
+    support::edit_stamp(&mut other.stamp, |stamp| {
+        stamp.accepted_at = Position {
+            timeline: id(5),
+            revision: 5,
+        };
+        stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
+        Ok(())
+    });
+    support::edit_client(&mut current, |fields| {
+        fields.latest = Observation::Accepted(other);
+    });
+    support::edit_client(&mut current, |fields| {
+        let p = fields.pending.as_mut().unwrap();
+        p.original = OriginalBasis::SubsumedOwn {
+            key: p.key,
+            state: accepted(10, "A").state().clone(),
+            vector: accepted(10, "A").stamp.vector().clone(),
+            witness: accepted(10, "A").stamp,
+        };
+    });
     assert!(matches!(
         prepare_change(
             &current,
@@ -343,20 +377,25 @@ fn incomparable_receipt_retains_context_and_joins_equal_values_without_review() 
     };
     let old = accepted(10, "same");
     let mut incoming = accepted(5, "same");
-    incoming.stamp.accepted_at = Position {
-        timeline: id(5),
-        revision: 5,
-    };
-    incoming.stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
-    let current = ClientRecord {
-        key: old.key,
+    support::edit_stamp(&mut incoming.stamp, |stamp| {
+        stamp.accepted_at = Position {
+            timeline: id(5),
+            revision: 5,
+        };
+        stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
+        Ok(())
+    });
+    let current = clacks_sync::client::ClientRecordFields {
+        key: old.key(),
         latest: Observation::Accepted(old.clone()),
         pending: None,
         retained: vec![],
-    };
+    }
+    .try_into()
+    .expect("coherent client fixture");
     let update = receive_accepted(&current, &incoming, &ev).unwrap();
     assert!(update.review.is_none());
-    assert_eq!(update.record.retained, vec![old]);
+    assert_eq!(update.record.retained(), vec![old]);
     let Preparation::Ready { change, .. } = prepare_change(
         &update.record,
         id(4),
@@ -370,11 +409,13 @@ fn incomparable_receipt_retains_context_and_joins_equal_values_without_review() 
     .unwrap() else {
         panic!("context reconciliation")
     };
-    assert_eq!(change.vector.component(ClockActor::Server(id(2))), 10);
+    assert_eq!(change.vector().component(ClockActor::Server(id(2))), 10);
     let mut p = pending();
-    let original = p.pending.as_ref().unwrap().original.clone();
-    p.latest = current.latest;
+    let original = p.pending().unwrap().original.clone();
+    support::edit_client(&mut p, |fields| {
+        fields.latest = current.latest().clone();
+    });
     let update = receive_accepted(&p, &incoming, &ev).unwrap();
-    assert_eq!(update.record.pending.as_ref().unwrap().original, original);
-    assert!(!update.record.retained.is_empty());
+    assert_eq!(update.record.pending().unwrap().original, original);
+    assert!(!update.record.retained().is_empty());
 }

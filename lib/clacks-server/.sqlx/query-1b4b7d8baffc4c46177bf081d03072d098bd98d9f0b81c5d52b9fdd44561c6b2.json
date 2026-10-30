@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.desktop_code_approvals WHERE code_digest IN (\n    SELECT a.code_digest FROM clacks.desktop_code_approvals a\n    WHERE a.account_id = $1 AND a.expires_at <= $2\n      AND NOT EXISTS (\n          SELECT 1 FROM clacks.desktop_authorization_codes c\n          WHERE c.code_digest = a.code_digest\n      )\n    LIMIT 500\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1b4b7d8baffc4c46177bf081d03072d098bd98d9f0b81c5d52b9fdd44561c6b2"
+}

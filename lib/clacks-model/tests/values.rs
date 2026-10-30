@@ -47,7 +47,7 @@ fn native_ids_use_string_values_in_persisted_records() -> TestResult {
     incoming["id"] = encoded.clone();
 
     let restored: clacks_model::contact::Qso = serde_json::from_value(incoming)?;
-    assert_eq!(restored.id.to_string(), "00000000000000000000000001");
+    assert_eq!(restored.id().to_string(), "00000000000000000000000001");
     assert_eq!(serde_json::to_value(&restored)?["id"], encoded);
 
     assert_eq!(

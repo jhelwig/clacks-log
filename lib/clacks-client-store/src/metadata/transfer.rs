@@ -374,12 +374,12 @@ pub(crate) async fn store_batch(
         .await?;
     for (ordinal, value) in batch.staged.iter().enumerate() {
         anyhow::ensure!(
-            value.key.account == account,
+            value.key().account == account,
             "staged envelope crosses account"
         );
         let ordinal = i64::try_from(ordinal)?;
-        let kind = crate::payload::kind(value.key.id);
-        let id = value.key.id.to_string();
+        let kind = crate::payload::kind(value.key().id);
+        let id = value.key().id.to_string();
         let envelope = observation::insert_envelope(connection, value).await?;
         sqlx::query_file!(
             "sql/window/staged_insert.sql",

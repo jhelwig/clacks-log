@@ -24,15 +24,23 @@ runtime or evidence-only demonstration does not satisfy implementation scope.
 Later integration adds persistence, transport, workflows or coverage to the same
 components without treating the earlier implementation as throwaway work.
 
+New delivery issues must include their real production consumer. A library API,
+table or background engine with only test callers does not establish a usable
+capability. Deliver storage, authorization, controls and integration with the
+workflow that needs them; extract shared implementation from actual use.
+Runnable data preparation tools and their consumed artifacts remain legitimate
+deliverables. Existing foundation work is retained, not recreated to satisfy a
+new issue boundary.
+
 ## Delivery sequence
 
 | Phase | Milestone outcome | Main dependency |
 | --- | --- | --- |
 | 1. Foundations and early risks | Production native-model, synchronization, service-evidence, certificate/signing and geographic-data foundations are implemented and verified. | Accepted product and architectural requirements. |
 | 2. Durable offline logging | A Windows operator can record, edit, delete, organize and reopen contacts without the server. | Phase 1 native model. |
-| 3. Accounts and synchronized operation | Independently writable clients enroll, reconcile and recover access through an isolated account; directory setup is available. | Phase 2 durable state and Phase 1 synchronization/service-evidence foundations. |
-| 4. Complete logging workflows | Capture, lookup, geographic assistance, ADI interchange and migration of unrelated populated logs work together. | Phase 3 account synchronization, directory configuration and protected credential provisioning. |
-| 5. External services and recovery | Automatic/manual publication, confirmations and operational controls work safely with accepted account state. | Phase 3 evidence synchronization and association safeguards, Phase 4 interchange and Phase 1 certificate/signing components. |
+| 3. Accounts and synchronized operation | Independently writable clients enroll, reconcile and recover access through an isolated account; directory configuration, protection, provisioning and direct lookup work together. | Phase 2 durable state and Phase 1 synchronization/service-evidence foundations. |
+| 4. Complete logging workflows | Capture, bulk lookup, geographic assistance, ADI interchange and migration of unrelated populated logs work together. | Phase 3 account synchronization and working directory lookup. |
+| 5. External services and recovery | Working QRZ publication is extended with LoTW; confirmations and combined operational/recovery workflows operate on actual provider evidence. | Phase 3 accepted account state and association safeguards; Phase 1 signing components for LoTW. Interchange extends imported-status verification when available. |
 | 6. Release readiness | Installed applications, deployment and recovery procedures demonstrate the complete MVP. | Integrated outcomes from Phases 1–5. |
 
 The sequence expresses cumulative completion, not a requirement to finish every
@@ -152,11 +160,18 @@ Milestones:
   synchronization proceeds. Preserve recovery-relevant outcomes, observations and
   processing decisions, and prevent competing claims to one external record.
 - Establish web account/client management, including safeguarded login-identity
-  linking and unlinking, and account credential protection. Deliver account-level
-  directory-provider selection and web credential configuration with protected
-  provisioning to enrolled clients before Phase 4 lookup.
-- Establish production server tracing, logs and metrics. The web architecture
-  accommodates its agreed future scope beyond administration; publication and
+  linking and unlinking. Deliver enrollment receipt/account-key protection and
+  both operator key-rotation operations through #13. Deliver directory-provider
+  selection, typed encrypted persistence, protected provisioning and actual
+  direct client lookup together through #17 (incorporating #20). Extend key
+  rotation/reporting for directory values when that workflow creates them.
+- Directory lookup uses only the account-selected QRZ or HamQTH provider, keeps
+  separate synchronized snapshots, supports late results and remains usable with
+  client internet access while the sync server is unavailable. Native updates
+  preserve enrollment secrets and the last usable directory configuration.
+- Verify production server tracing, logs and metrics through the existing running
+  server/export path in #18; new workflows own their new instrumentation. The web
+  architecture accommodates its agreed future scope beyond administration; publication and
   confirmation-service setup and diagnostics finish with Phase 5.
 
 Completion means multiple clients can edit independently, reconnect and reconcile
@@ -165,6 +180,8 @@ older server state, indefinite authorized offline return and safe retention must
 be demonstrated for core account state and available service evidence. Phase 5
 extends that evidence to actual provider effects and history. Reauthorization
 preserves existing local state; it does not use the empty-log migration path.
+Directory completion includes real client lookup using the protected provisioned
+credentials, not configuration/storage with no lookup consumer.
 
 ## Phase 4 — Complete logging workflows
 
@@ -173,10 +190,9 @@ Milestones:
 - Integrate WS Suite capture and live other-station callsign updates, source
   ownership, completion deduplication and the agreed Generate Messages action.
   WS Suite refers to the WSJT-X family of weak-signal radio applications.
-- Deliver direct client lookup through the account-selected QRZ or HamQTH
-  provider, separate synchronized directory snapshots, late results and
-  user-triggered selected/filtered bulk lookup. Logging continues when lookup or
-  the synchronization server is unavailable.
+- Extend Phase 3 direct lookup with user-triggered selected/filtered bulk lookup
+  through #22 and WS Suite integration through #21. Logging continues when
+  lookup or the synchronization server is unavailable.
 - Deliver bundled offline geographic assistance with required United States
   coverage. Pursue desired worldwide coverage with at least DX Century Club
   (DXCC) entity, CQ operating zones and International Telecommunication Union
@@ -204,16 +220,26 @@ against the desired scope.
 
 Milestones:
 
-- Deliver LoTW certificate import, configuration, explicit supersession and
-  credential removal, together with routing for multiple LoTW certificates and
-  QRZ logbooks. Preserve public metadata and submission history.
-- Deliver server-side publication using current accepted effective contact values,
-  tag policies, trusted imported statuses, diagnostic retries and affected-only
-  pauses. Unresolved client proposals do not become publishable state.
-- Provide explicit manual uploads, live service status and routine operational
-  controls in the desktop, with full publication/confirmation setup and detailed
-  upload diagnostics in the web interface. Retry and pause/resume actions retain
-  the agreed routing, eligibility and failure-remedy rules.
+- Deliver a working QRZ publication/query workflow through #31, incorporating
+  common/QRZ configuration and dispatch scope from #28/#29. Include protected
+  credential lifecycle, saved-station/date routing for multiple QRZ logbooks,
+  accepted-current-value dispatch, truthful evidence, diagnostic retries,
+  affected-only pauses and essential manual/status/retry/pause/resume controls.
+  Extend the existing account-key maintenance for the values this workflow stores.
+- Extend that actual publication path with LoTW through #30, incorporating #27
+  and remaining LoTW scope from #28/#29. Include certificate import/removal,
+  explicit supersession and coverage-gap preview, multiple certificate routes,
+  signing, submission and queries. Preserve public metadata/submission history
+  and keep signing material server-side. The pure-Rust signing foundation is
+  consumed here; there is no separate dormant credential-management delivery.
+- Both services use tag policy, trusted imported status and current accepted
+  effective values. Unresolved client proposals do not become publishable state.
+  Import-specific integration is verified by #24 when interchange is delivered;
+  lack of an import UI does not block a usable provider publication path.
+- Finish remaining cross-service desktop/web diagnostics and management in #33.
+  Essential controls and actionable diagnostics ship with each provider rather
+  than waiting for #33. Include combined attempt/outcome inspection, service
+  status presentation and links to setup; retain existing sync diagnostics.
 - Deliver confirmation downloads, explicit association of ambiguous records,
   duplicate/rejection/deletion handling and provenance-aware confirmation facts.
   Local deletions leave external copies untouched.
@@ -225,6 +251,11 @@ Completion means submissions and observations remain truthful through retries,
 concurrent edits and recovery. Operator-controlled upload pause and explicit
 resume are part of restore behavior; recovery cannot recreate information lost
 from every available copy.
+
+The initial delivery order is QRZ (#31), LoTW extending it (#30), confirmation
+reconciliation (#32), then combined diagnostics/recovery (#33/#34). This is an
+engineering sequence, not a change in supported services or product scope.
+Configuration, storage and scheduling helpers alone do not complete a milestone.
 
 ## Phase 6 — Release readiness
 

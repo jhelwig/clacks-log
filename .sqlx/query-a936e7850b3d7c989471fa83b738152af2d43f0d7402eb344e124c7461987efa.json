@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT name, identifier_config, bears_location, catalog_binding, ordinary_bindings FROM group_payload WHERE payload_id = ? AND account = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "name",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "group_payload",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "identifier_config",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "group_payload",
+            "name": "identifier_config"
+          }
+        }
+      },
+      {
+        "name": "bears_location",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "group_payload",
+            "name": "bears_location"
+          }
+        }
+      },
+      {
+        "name": "catalog_binding",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "group_payload",
+            "name": "catalog_binding"
+          }
+        }
+      },
+      {
+        "name": "ordinary_bindings",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "group_payload",
+            "name": "ordinary_bindings"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "a936e7850b3d7c989471fa83b738152af2d43f0d7402eb344e124c7461987efa"
+}

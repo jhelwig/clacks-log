@@ -20,14 +20,17 @@ fn split_atomic_unit_stages_without_partial_install_and_survives_reload() -> any
         };
         let q = support::accepted(60, "fixture");
         let mut tag = q.clone();
-        tag.key.id = RecordId::Tag(support::id(11));
-        tag.state = RecordState::Live(RecordValue::Tag(Box::new(
-            clacks_model::tag::LogbookTag::new(support::id(11), "tag".into()),
-        )));
+        support::edit_accepted(&mut tag, |tag| {
+            tag.key.id = RecordId::Tag(support::id(11));
+
+            tag.state = RecordState::Live(RecordValue::Tag(Box::new(
+                clacks_model::tag::LogbookTag::new(support::id(11), "tag".into()),
+            )));
+        });
         let source = InstalledCheckpoint {
             account: support::id(1),
             baseline: b.id,
-            coverage: Coverage::from(q.stamp.accepted_at),
+            coverage: Coverage::from(q.stamp.accepted_at()),
         };
         let unit = CoupledRequirement {
             id: support::id(100),
@@ -40,7 +43,7 @@ fn split_atomic_unit_stages_without_partial_install_and_survives_reload() -> any
             [&q, &tag]
                 .into_iter()
                 .map(|r| RecordRequirement {
-                    key: r.key,
+                    key: r.key(),
                     stamp: r.stamp.clone(),
                     deleted: false,
                 })
@@ -104,14 +107,17 @@ fn independent_successor_does_not_wait_for_an_older_units_missing_effect() -> an
     let old = support::accepted(40, "old effect");
     let next = support::accepted(60, "later independent edit");
     let mut tag = next.clone();
-    tag.key.id = RecordId::Tag(support::id(11));
-    tag.state = RecordState::Live(RecordValue::Tag(Box::new(
-        clacks_model::tag::LogbookTag::new(support::id(11), "tag".into()),
-    )));
+    support::edit_accepted(&mut tag, |tag| {
+        tag.key.id = RecordId::Tag(support::id(11));
+
+        tag.state = RecordState::Live(RecordValue::Tag(Box::new(
+            clacks_model::tag::LogbookTag::new(support::id(11), "tag".into()),
+        )));
+    });
     let source = InstalledCheckpoint {
         account: support::id(1),
         baseline: b.id,
-        coverage: Coverage::from(next.stamp.accepted_at),
+        coverage: Coverage::from(next.stamp.accepted_at()),
     };
     let unit = CoupledRequirement {
         id: support::id(100),
@@ -124,7 +130,7 @@ fn independent_successor_does_not_wait_for_an_older_units_missing_effect() -> an
         [&next, &tag]
             .into_iter()
             .map(|r| RecordRequirement {
-                key: r.key,
+                key: r.key(),
                 stamp: r.stamp.clone(),
                 deleted: false,
             })
@@ -161,7 +167,7 @@ fn completed_disposition_waits_for_observation_binding_and_contact_effects() -> 
         service::{ServiceRecord, ServiceSupport, SupportRequirement},
     };
     let q = support::accepted(60, "fixture");
-    let RecordId::Qso(qso) = q.key.id else {
+    let RecordId::Qso(qso) = q.key().id else {
         panic!()
     };
     let external = ExternalRecordKey {
@@ -195,17 +201,20 @@ fn completed_disposition_waits_for_observation_binding_and_contact_effects() -> 
     };
     let carrier = |payload: ServicePayload| -> AcceptedRecord {
         let mut r = q.clone();
-        r.key = RecordKey {
-            account: q.key.account,
-            id: RecordId::Service(payload.id()),
-        };
-        r.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-            payload,
-            support: ServiceSupport {
-                destination: Some(destination.clone()),
-                ..Default::default()
-            },
-        })));
+
+        support::edit_accepted(&mut r, |r| {
+            r.key = RecordKey {
+                account: q.key().account,
+                id: RecordId::Service(payload.id()),
+            };
+            r.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+                payload,
+                support: ServiceSupport {
+                    destination: Some(destination.clone()),
+                    ..Default::default()
+                },
+            })));
+        });
         r
     };
     let o = carrier(ServicePayload::Observation(Box::new(obs.clone())));
@@ -221,13 +230,15 @@ fn completed_disposition_waits_for_observation_binding_and_contact_effects() -> 
         decision: ProcessingDecision::Associated,
         association: Some(support::id(503)),
     }));
-    if let RecordState::Live(RecordValue::Service(s)) = &mut d.state {
-        s.support.required = vec![
-            SupportRequirement::ExactFact(VersionReference::from(&o)),
-            SupportRequirement::CoveredEffect(VersionReference::from(&a)),
-            SupportRequirement::CoveredEffect(VersionReference::from(&q)),
-        ];
-    }
+    support::edit_accepted(&mut d, |d| {
+        if let RecordState::Live(RecordValue::Service(s)) = &mut d.state {
+            s.support.required = vec![
+                SupportRequirement::ExactFact(VersionReference::from(&o)),
+                SupportRequirement::CoveredEffect(VersionReference::from(&a)),
+                SupportRequirement::CoveredEffect(VersionReference::from(&q)),
+            ];
+        }
+    });
     let (_, b) = AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
     let bases = [b.clone()];
     let ev = EvidenceView {
@@ -235,9 +246,9 @@ fn completed_disposition_waits_for_observation_binding_and_contact_effects() -> 
         baselines: &bases,
     };
     let source = InstalledCheckpoint {
-        account: q.key.account,
+        account: q.key().account,
         baseline: b.id,
-        coverage: Coverage::from(q.stamp.accepted_at),
+        coverage: Coverage::from(q.stamp.accepted_at()),
     };
     let unit = CoupledRequirement {
         id: support::id(505),
@@ -253,7 +264,7 @@ fn completed_disposition_waits_for_observation_binding_and_contact_effects() -> 
         [&q, &a, &d, &o]
             .into_iter()
             .map(|r| RecordRequirement {
-                key: r.key,
+                key: r.key(),
                 stamp: r.stamp.clone(),
                 deleted: false,
             })
@@ -297,12 +308,11 @@ fn old_binding_unit_is_covered_by_accepted_deletion_without_reactivation() -> an
         },
     };
     use clacks_sync::{
-        client::ClientRecord,
         record::Observation,
         service::{ServiceRecord, ServiceSupport},
     };
     let old_q = support::accepted(190, "old");
-    let RecordId::Qso(qso) = old_q.key.id else {
+    let RecordId::Qso(qso) = old_q.key().id else {
         panic!()
     };
     let destination = Destination {
@@ -322,23 +332,31 @@ fn old_binding_unit_is_covered_by_accepted_deletion_without_reactivation() -> an
         state: AssociationState::Active,
     });
     let mut old_a = old_q.clone();
-    old_a.key.id = RecordId::Service(payload.id());
-    old_a.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload,
-        support: ServiceSupport {
-            destination: Some(destination),
-            ..Default::default()
-        },
-    })));
+    support::edit_accepted(&mut old_a, |old_a| {
+        old_a.key.id = RecordId::Service(payload.id());
+
+        old_a.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload,
+            support: ServiceSupport {
+                destination: Some(destination),
+                ..Default::default()
+            },
+        })));
+    });
     let mut deleted_q = support::accepted(200, "deleted");
-    deleted_q.state = RecordState::Deleted;
+
+    support::edit_accepted(&mut deleted_q, |deleted_q| {
+        deleted_q.state = RecordState::Deleted;
+    });
     let mut deleted_a = old_a.clone();
     deleted_a.stamp = deleted_q.stamp.clone();
-    if let RecordState::Live(RecordValue::Service(s)) = &mut deleted_a.state
-        && let ServicePayload::Association(a) = &mut s.payload
-    {
-        a.state = AssociationState::DeletedQso;
-    }
+    support::edit_accepted(&mut deleted_a, |deleted_a| {
+        if let RecordState::Live(RecordValue::Service(s)) = &mut deleted_a.state
+            && let ServicePayload::Association(a) = &mut s.payload
+        {
+            a.state = AssociationState::DeletedQso;
+        }
+    });
     let (_, b) = AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
     let bases = [b.clone()];
     let ev = EvidenceView {
@@ -346,9 +364,9 @@ fn old_binding_unit_is_covered_by_accepted_deletion_without_reactivation() -> an
         baselines: &bases,
     };
     let source = InstalledCheckpoint {
-        account: old_q.key.account,
+        account: old_q.key().account,
         baseline: b.id,
-        coverage: Coverage::from(old_q.stamp.accepted_at),
+        coverage: Coverage::from(old_q.stamp.accepted_at()),
     };
     let unit = CoupledRequirement {
         id: support::id(102),
@@ -364,7 +382,7 @@ fn old_binding_unit_is_covered_by_accepted_deletion_without_reactivation() -> an
         [&old_q, &old_a]
             .into_iter()
             .map(|r| RecordRequirement {
-                key: r.key,
+                key: r.key(),
                 stamp: r.stamp.clone(),
                 deleted: false,
             })
@@ -383,11 +401,15 @@ fn old_binding_unit_is_covered_by_accepted_deletion_without_reactivation() -> an
     };
     let local: Vec<_> = [deleted_q, deleted_a.clone()]
         .into_iter()
-        .map(|r| ClientRecord {
-            key: r.key,
-            latest: Observation::Accepted(r),
-            retained: vec![],
-            pending: None,
+        .map(|r| {
+            clacks_sync::client::ClientRecordFields {
+                key: r.key(),
+                latest: Observation::Accepted(r),
+                retained: vec![],
+                pending: None,
+            }
+            .try_into()
+            .expect("coherent client fixture")
         })
         .collect();
     let batch = plan_batch(&manifest, &progress, &[old_a], &local, &ev)?;

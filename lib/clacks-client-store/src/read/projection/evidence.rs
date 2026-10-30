@@ -97,9 +97,9 @@ pub(super) fn evaluate(
 ) -> anyhow::Result<Evaluated> {
     let mut result = Evaluated::default();
     let related = input.working.iter().any(|r| match &r.payload {
-        ServicePayload::Imported(v) => v.qso == qso.id,
-        ServicePayload::Attempt(v) => v.qso == qso.id,
-        ServicePayload::Association(v) => v.qso == qso.id,
+        ServicePayload::Imported(v) => v.qso == qso.id(),
+        ServicePayload::Attempt(v) => v.qso == qso.id(),
+        ServicePayload::Association(v) => v.qso == qso.id(),
         _ => false,
     });
     if !related {

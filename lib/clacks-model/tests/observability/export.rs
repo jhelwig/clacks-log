@@ -55,9 +55,13 @@ fn export_plan_reports_supplied_unique_and_expanded_counts() {
 fn ambiguous_export_is_review_not_an_error_event() {
     let mut q = support::qso(support::id::<QsoId>(1));
     for g in [2, 3] {
-        q.own_station
-            .references
-            .insert(support::reference(support::id::<GroupId>(g), None));
+        support::edit(&mut q, |q| {
+            q.own_station
+                .references
+                .insert(support::reference(support::id::<GroupId>(g), None));
+
+            Ok(())
+        });
     }
     let defs = support::contest_definitions();
     let profiles = support::profiles();
@@ -92,7 +96,11 @@ fn ambiguous_export_is_review_not_an_error_event() {
             .all(|e| e.fields.get("level").is_none_or(|l| l != "ERROR"))
     );
     let mut changed = q.clone();
-    changed.comment = Some("different working version".into());
+    support::edit(&mut changed, |changed| {
+        changed.comment = Some("different working version".into());
+
+        Ok(())
+    });
     let captured = capture(|| {
         plan_reference_export(&[q, changed], &context, &defs, &profiles, &BTreeMap::new())
     });

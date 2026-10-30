@@ -72,31 +72,32 @@ in-memory production authorization store, parallel session implementation,
 introspection-to-self request, generic workflow engine or new acknowledgment
 protocol. Fixed SQL stays in checked query files with offline metadata.
 
-#12 delivers real enrollment and admission persistence that #13 extends with
+#12 delivers real enrollment and admission persistence that #14 extends with
 record transport and complete shared-state installation. Do not simulate a
 successful synchronization or replace these components later.
 
 ## 3. Relational server schema
 
 Extend the existing `clacks` schema through release-managed migrations. Preserve
-#11's accounts, identities, sessions and account-row locking. IDs are canonical
-native text IDs, counters PostgreSQL `BIGINT` within the checked Clacks domain,
-instants `timestamptz`, digests/ciphertext `bytea`. All account-owned references
-are account-qualified. Table names below identify the production schema.
+#11's accounts, identities, sessions and account-row locking. Clacks entity IDs
+use canonical native text; issuer-owned identifiers retain the library's
+representation. Counters use PostgreSQL `BIGINT` within the checked Clacks domain,
+instants `timestamptz`, digests `bytea` and complete encrypted values `text`.
+Account-owned references are account-qualified. Table names below identify the production schema.
 
 | Table | Fields, references and constraints |
 | --- | --- |
 | `desktop_oauth_clients` | Public `client_id` primary key, display name; child tables for allowed grants, scopes and exact registered redirects. Server-wide public metadata; no desktop client secret or user account authority. |
 | `desktop_clients` | `(account_id, actor_id)` primary key, user-visible label, authorization time, nullable closure time, creation and closure synchronization positions. References accounts and actual membership positions. Never delete shared records through this table. |
 | `desktop_grants` | `(account_id, family_id)` primary key, application `client_id`, nullable `actor_id` until initial exchange completion, grant-established time, proof-key thumbprint, state `provisional`, `active` or `revoked`, and provisional cleanup deadline. Once associated, a family never changes account or actor. Multiple historical grants can name one actor. |
-| `desktop_authorization_codes` | Code digest primary key, account, application client, exact granted redirect and explicit-redirect flag, subject, S256 PKCE challenge, key thumbprint, issued/expiry times, state `issued`, `consumed` or `replayed`. Nullable receipt ciphertext, nonce and account-key version. Ciphertext contains only the optional issued access/refresh strings required by oauth-as, not the entire record. Child tables hold scopes/resources. |
+| `desktop_authorization_codes` | Code digest primary key, account, application client, exact granted redirect and explicit-redirect flag, subject, S256 PKCE challenge, key thumbprint, issued/expiry times, state `issued`, `consumed` or `replayed`. Nullable complete versioned receipt envelope with a generated account-key reference. Ciphertext contains only the optional issued access/refresh strings required by oauth-as, not the entire record. Child tables hold scopes/resources. |
 | `desktop_code_approvals` | Code digest primary key, verified account, approval purpose `new`, `recover_active` or `replace_closed`, optional target actor, client label and code expiry. Immutable host context survives the library's remove/put-back transitions; it is not another browser pending-flow store. |
-| `desktop_access_tokens` | Access digest primary key, account/family foreign key, public client, subject, proof-key thumbprint, issued/grant-established/expiry times; child scope/resource relations. No recoverable access-token column. |
-| `desktop_refresh_tokens` | Refresh digest primary key, account/family foreign key, client, subject, key thumbprint, grant-established time, nullable expiry and library active/spent state; child scope/resource relations. Reuse only writes active records; reject unexpected retry-response payloads. No recoverable credential column. |
+| `desktop_access_tokens` | Access digest primary key, account/family foreign key, issued/expiry times and child scope/resource relations. Client, proof key and original authorization time come from the grant family; the owning account is the subject. No recoverable access-token column. |
+| `desktop_refresh_tokens` | Refresh digest primary key, account/family foreign key, nullable expiry, library active/spent state and child scope/resource relations. Immutable client, proof-key and original authorization metadata come from the grant family; the owning account is the subject. Reuse only writes active records; reject unexpected retry-response payloads. No recoverable credential column. |
 | `oauth_revocations` | Library barrier scope and identifier, recorded-at and retention deadline. Unique by scope/identifier with the library's merge rules. Family identifiers include the account qualification. Keep this separate from permanent actor closure. |
 | `oauth_replay_claims` | Exact library-namespaced replay key primary key and expiry. Shared by all issuer instances. |
 | `resource_replay_claims` | Proof-key thumbprint plus proof ID primary key and expiry; all protected-request instances share the same table. Keep issuer/resource namespaces distinct. |
-| `account_encryption_keys` | `(account_id, key_version)` primary key, wrapping-key ID, wrapping nonce, wrapped random 256-bit account key, creation time and active designation. Account-owned encrypted objects reference their key version. |
+| `account_encryption_keys` | `(account_id, key_version)` primary key, complete versioned wrapping envelope for the random 256-bit account key, generated deployment-key reference, creation time and active designation. Account-owned encrypted objects reference their key version. |
 
 Scope/resource child rows are ordered only where library equality needs order;
 map the selected public record fields exactly. Do not add unsupported consent,
@@ -113,11 +114,11 @@ account/baseline ID, root timeline and selected membership generation;
 `sync_baseline_coverage` holds baseline/timeline/revision coordinates. Include
 the root timeline identity needed to materialize the initial lineage. These are
 the real initial subset of `AccountMetadata` and baseline persistence, not a
-second synchronization representation. #13 adds retained ancestry boundaries,
+second synchronization representation. #14 adds retained ancestry boundaries,
 additional baseline interpretations and installed-coverage relations as needed.
 `desktop_clients` supplies `MembershipSnapshot`, with creation/closure positions
 and nullable acknowledgment reference. Its acknowledgment stays absent in #12;
-the referenced checkpoint/coverage tables arrive with actual receipt in #13.
+the referenced checkpoint/coverage tables arrive with actual receipt in #14.
 Reuse the logical schema families in client-store.md; the server does not copy
 SQLite's physical row IDs or store JSON copies of model structs.
 
@@ -127,7 +128,7 @@ under the actual head and generation conditions. A new member has no durable
 acknowledgment; a browser callback and token response are not installed coverage.
 Closed actors retain the metadata required by the existing compaction rules.
 
-#13 adds accepted records, transfer manifests, journals and complete installation,
+#14 adds accepted records, transfer manifests, journals and complete installation,
 using these same heads/membership rows. It installs the existing native default
 group data as ordinary server-authored account records before exposing shared
 state; #12 does not claim that reference data or an initial snapshot was received.
@@ -145,10 +146,12 @@ explicit failures, never an instruction to generate replacement keys over data.
 Use authenticated encryption for the key envelope and code-receipt secret pair.
 Bind the receipt to its account, code digest, purpose and format version through
 associated data. Preserve that binding when Consumed becomes Replayed. The
-nonce and ciphertext are storage fields, not application-generated crypto formats
-or telemetry. RustCrypto AES-256-GCM uses a fresh OS-random 12-byte nonce for each
+nonce and ciphertext belong to one complete stored encrypted value and are never
+telemetry. RustCrypto AES-256-GCM uses a fresh OS-random 12-byte nonce for each
 encryption and appends its 16-byte authentication tag to the ciphertext. Store
-these bytes directly; no nonce counter is coordinated across application instances.
+these bytes with their codec/key metadata in the compact versioned envelope
+defined by [credential protection](credential-protection-proposal.md#4-stored-objects-and-encoding).
+No nonce counter is coordinated across application instances.
 
 Receipt metadata remains queryable and relational. On read, restore the code
 string from the presented code; decrypt the token-reference pair only when the
@@ -156,6 +159,13 @@ library requests that code record. On ordinary token reads, materialize the
 credential string from the presented input, not another stored copy. Encrypted
 receipts remain until code expiry cleanup, including delayed cleanup; backups
 can retain them longer. There is no additional code-replay or hash-only patch.
+
+Grant lifecycle decoding distinguishes provisional approval with a deadline,
+active enrollment with an actor, and revocation retaining either origin. Access
+and refresh reads use separate projections with their actual required fields;
+access issuance is never represented as a missing refresh field. Incoming library
+records must agree with the immutable family metadata before token persistence.
+Current actor admission, expiry, proof binding and revocation remain live checks.
 
 ## 4. HTTP and browser boundary
 
@@ -263,7 +273,7 @@ Database failure is unavailable, not successful anonymous access or unknown-toke
 success. `GET /api/client` is this same production boundary, not a fixture.
 
 Later change-admission transactions recheck membership while committing the change,
-ordered against revocation through the same account lock. #13 must also close or
+ordered against revocation through the same account lock. #14 must also close or
 deny work on already-open WebSocket sessions after revocation, rather than relying
 only on token expiry or a handshake. Notifications may accelerate closure but are
 not admission authority. There are no WebSocket sessions to simulate in #12.
@@ -331,7 +341,7 @@ are never overwritten or accepted merely because their path looks right.
 Bind SQLite only after the native bundle is durably saved. Use the existing exact
 prior-binding guard and one immediate transaction. SQLite stores only the native
 reference plus non-secret server/account/actor values. Request the actual initial
-state through #13 when available; before then show enrolled/awaiting initial
+state through #14 when available; before then show enrolled/awaiting initial
 synchronization, not a fake last-successful-sync time.
 
 ### Interrupted local completion
@@ -341,6 +351,13 @@ non-secret pending-attempt context in the initiating workspace's existing
 local-state facility, with native reference, origin, proposed destination and
 expected binding; do not copy secrets into SQLite to make a distributed
 transaction. Only one enrollment attempt per initiating workspace runs at once.
+The local attempt is one versioned document with distinct first-enrollment and
+recovery alternatives. Recovery carries its existing destination and prior
+binding together. First enrollment can select or correct an uninstalled
+destination; a bound phase always carries its committed destination. Phase
+transitions record completed native-store and database operations; they do not
+assert those effects merely because an in-memory value was constructed.
+
 This is local completion state, not a server acknowledgment protocol.
 
 On retry/restart, a saved native credential can refresh and read its actual

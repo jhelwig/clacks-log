@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.account_encryption_keys (account_id, key_version, wrapped_envelope)\nVALUES ($1, $2, $3)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "154866dbeea2ee404144da1b3e037bffe6957b8417e34f5b266001cfdd13668c"
+}

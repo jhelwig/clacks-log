@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO export_plan (payload_id, account, profile_id, body) VALUES (?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "a1d857fe1bb2147be63bfcb9313fbb673de8a512330763753de69f84ad49f2c2"
+}

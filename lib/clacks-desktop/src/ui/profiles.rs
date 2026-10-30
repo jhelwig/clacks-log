@@ -39,20 +39,20 @@ pub(super) fn show(
             for record in snapshot
                 .profiles
                 .iter()
-                .filter(|r| !known_deletions.contains(&r.key.id))
+                .filter(|r| !known_deletions.contains(&r.key().id))
             {
                 if let Some(profile) = profile(record) {
-                    ui.push_id(profile.id, |ui| {
+                    ui.push_id(profile.id(), |ui| {
                         ui.label(profile_label(profile));
                         ui.label(format!(
                             "Default equipment: {}",
                             profile
-                                .default_equipment
+                                .default_equipment()
                                 .map(|id| snapshot
                                     .equipment
                                     .iter()
                                     .filter_map(configuration)
-                                    .find(|e| e.id == id)
+                                    .find(|e| e.id() == id)
                                     .map(equipment_label)
                                     .unwrap_or_else(|| format!("Unavailable {id}")))
                                 .unwrap_or_else(|| "None (loading keeps current equipment)".into())
@@ -60,7 +60,7 @@ pub(super) fn show(
                         if ui.button("Edit profile").clicked() {
                             navigation.next = Some(Screen::Profile(Box::new(ProfileEditor::new(
                                 Some(record.clone()),
-                                StationForm::from_snapshot(&profile.station),
+                                StationForm::from_snapshot(profile.station()),
                             ))));
                         }
                     });
@@ -93,19 +93,19 @@ pub(super) fn show(
                     for record in snapshot
                         .profiles
                         .iter()
-                        .filter(|r| !known_deletions.contains(&r.key.id))
+                        .filter(|r| !known_deletions.contains(&r.key().id))
                     {
                         if let Some(p) = profile(record)
                             && ui
                                 .selectable_label(
-                                    editor.id == p.id,
+                                    editor.id == p.id(),
                                     format!("Update {}", profile_label(p)),
                                 )
                                 .clicked()
                         {
-                            editor.id = p.id;
+                            editor.id = p.id();
                             editor.expected = Some(record.clone());
-                            editor.default_equipment = p.default_equipment;
+                            editor.default_equipment = p.default_equipment();
                         }
                     }
                 })
@@ -122,10 +122,8 @@ pub(super) fn show(
                 frame.validation.invalidate();
             }
             let baseline = editor.expected.as_ref().and_then(profile);
-            let edited = operating::fields::text_changed(
-                &editor.name,
-                baseline.map(|value| value.name.as_str()),
-            );
+            let edited =
+                operating::fields::text_changed(&editor.name, baseline.map(|value| value.name()));
             if operating::fields::text(
                 ui,
                 "profile.name",
@@ -150,7 +148,7 @@ pub(super) fn show(
             if ui.button("Manage equipment").clicked() {
                 navigation.next = Some(Screen::Equipment);
             }
-            let baseline = baseline.map(|value| StationForm::from_snapshot(&value.station));
+            let baseline = baseline.map(|value| StationForm::from_snapshot(value.station()));
             if operating::fields::station(
                 ui,
                 "profile.station",

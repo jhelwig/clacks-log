@@ -82,3 +82,13 @@ fn content_transitions_and_ordering_are_separate() -> anyhow::Result<()> {
     ));
     Ok(())
 }
+
+#[test]
+fn incoming_minute_requires_complete_aligned_coverage() {
+    let mut report = observation();
+    report.facts.contact.start =
+        Reported::Value(ObservedStart::Second(UtcSecond::from_unix_seconds(61)));
+    let mut wire = serde_json::to_value(&report).unwrap();
+    wire["facts"]["contact"]["start"] = serde_json::json!({"Value": {"Minute": 61}});
+    assert!(serde_json::from_value::<RemoteObservation>(wire).is_err());
+}

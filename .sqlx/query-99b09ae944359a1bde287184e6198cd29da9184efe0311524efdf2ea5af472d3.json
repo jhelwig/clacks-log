@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO submission_projection (payload_id, account, destination_id, service, contact_fields) VALUES (?, ?, ?, 'qrz', ?) RETURNING projection_id AS \"projection_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "projection_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "submission_projection",
+            "name": "projection_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "99b09ae944359a1bde287184e6198cd29da9184efe0311524efdf2ea5af472d3"
+}

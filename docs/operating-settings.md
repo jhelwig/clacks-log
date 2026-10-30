@@ -104,6 +104,12 @@ redundant copies of an entire operating context solely to compare a selected
 station or equipment source. A baseline is the exact saved value loaded, not
 merely its ID and not a version-history graph.
 
+The applied native state is constructed with checked source/value agreement.
+Callers read its current values and source baselines without mutable access.
+Adjustment and source-removal operations preserve the same agreement, while
+editable form state remains separate. SQL decoder rows are input projections;
+writes derive complete payload/record source references from the checked state.
+
 Selections are independent. Selected Home can coexist with selected Rig B even
 when Home defaults to Rig A. Show that equipment override without editing Home.
 A profile with no equipment default leaves the current equipment values and

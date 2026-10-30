@@ -64,7 +64,7 @@ impl BulkMembership {
                     .records
                     .iter()
                     .filter_map(|row| match row.working_state() {
-                        Some(RecordState::Live(RecordValue::Qso(qso))) => Some(qso.tags.clone()),
+                        Some(RecordState::Live(RecordValue::Qso(qso))) => Some(qso.tags().clone()),
                         _ => None,
                     })
                     .collect();
@@ -72,9 +72,10 @@ impl BulkMembership {
                     .records
                     .iter()
                     .filter_map(|row| match row.working_state() {
-                        Some(RecordState::Live(RecordValue::Qso(qso))) => {
-                            Some((qso.id, qso.contacted_station.callsign.as_str().to_owned()))
-                        }
+                        Some(RecordState::Live(RecordValue::Qso(qso))) => Some((
+                            qso.id(),
+                            qso.contacted_station().callsign.as_str().to_owned(),
+                        )),
                         _ => None,
                     })
                     .collect();

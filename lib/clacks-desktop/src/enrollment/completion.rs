@@ -7,7 +7,7 @@ use crate::{
 };
 use anyhow::Context;
 use clacks_client_store::{
-    enrollment::{self, EnrollmentAttempt, EnrollmentPhase, RecoveryDisposition},
+    enrollment::{self, EnrollmentAttempt, RecoveryDisposition},
     identity::{self, EnrollmentBinding},
     store::{ClientStore, StoreSettings},
 };
@@ -35,11 +35,11 @@ pub(crate) async fn finish(
         .await?
         .context("The saved enrollment attempt is missing")?;
     anyhow::ensure!(
-        attempt.credential_reference == authorized.credential_reference
-            && flow::origin(&attempt.server)? == flow::origin(&authorized.server)?,
+        attempt.credential_reference() == authorized.credential_reference
+            && flow::origin(attempt.server())? == flow::origin(&authorized.server)?,
         "The saved attempt differs from the authorized credential"
     );
-    let expected = attempt.expected.clone();
+    let expected = attempt.expected().cloned();
     if let Some(previous) = &expected {
         anyhow::ensure!(
             previous.account == authorized.identity.account
@@ -56,7 +56,7 @@ pub(crate) async fn finish(
             .unwrap_or_else(|| authorized.server.clone()),
         credential_reference: authorized.credential_reference.clone(),
     };
-    let destination = match attempt.destination.clone() {
+    let destination = match attempt.destination().cloned() {
         Some(directory) => directory,
         None if expected.is_none() => AppDirectories::discover()?
             .data
@@ -70,10 +70,7 @@ pub(crate) async fn finish(
         "Enrollment completion cancelled; saved credentials remain available for retry"
     );
     let paths = WorkspacePaths::at(&destination)?;
-    attempt.destination = Some(paths.directory.clone());
-    if attempt.phase != EnrollmentPhase::DestinationBound {
-        attempt.phase = EnrollmentPhase::CredentialSaved;
-    }
+    attempt.prepare_completion(paths.directory.clone())?;
     enrollment::save_attempt(initiating, &attempt).await?;
 
     let outcome = match &expected {
@@ -135,7 +132,7 @@ pub(crate) async fn finish(
         closed?;
     }
 
-    attempt.phase = EnrollmentPhase::DestinationBound;
+    attempt.destination_bound()?;
     enrollment::save_attempt(initiating, &attempt).await?;
     tracing::info!(account_id=%next.account,actor_id=%next.actor,"Verified enrollment installed; awaiting synchronization");
     Ok(CompletedWorkspace {
@@ -163,8 +160,7 @@ async fn retain_rejected_destination(
     initiating: &ClientStore,
     attempt: &mut EnrollmentAttempt,
 ) -> anyhow::Result<()> {
-    if attempt.expected.is_none() && attempt.phase != EnrollmentPhase::DestinationBound {
-        attempt.phase = EnrollmentPhase::NeedsDestination;
+    if attempt.destination_rejected() {
         enrollment::save_attempt(initiating, attempt).await?;
     }
     Ok(())

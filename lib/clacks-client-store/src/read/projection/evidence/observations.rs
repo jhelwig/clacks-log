@@ -79,7 +79,7 @@ pub(super) fn evaluate(
             let ServicePayload::Imported(assertion) = &row.payload else {
                 continue;
             };
-            if assertion.qso != qso.id
+            if assertion.qso != qso.id()
                 || assertion.service != service
                 || assertion.claim != ImportedClaim::Confirmed
                 || (service == Service::Qrz
@@ -119,7 +119,7 @@ pub(super) fn evaluate(
                 }
             })
             .filter(|a| {
-                a.qso == qso.id
+                a.qso == qso.id()
                     && a.state == AssociationState::Active
                     && matches!(
                         (&a.external.record, service),
@@ -181,7 +181,7 @@ pub(super) fn evaluate(
             })
             .flat_map(|r| &r.support.required)
             .map(|r| r.reference())
-            .filter(|r| r.key.id == clacks_sync::record::RecordId::Qso(qso.id))
+            .filter(|r| r.key.id == clacks_sync::record::RecordId::Qso(qso.id()))
             .collect();
         let original: Vec<_> = evidence
             .accepted
@@ -189,10 +189,10 @@ pub(super) fn evaluate(
             .filter(|r| {
                 baselines
                     .iter()
-                    .any(|b| b.key == r.key && b.stamp == r.stamp)
+                    .any(|b| b.key == r.key() && b.stamp == r.stamp)
             })
             .filter_map(|r| {
-                if let RecordState::Live(RecordValue::Qso(q)) = &r.state {
+                if let RecordState::Live(RecordValue::Qso(q)) = &r.state() {
                     Some(q.as_ref())
                 } else {
                     None
@@ -284,7 +284,7 @@ fn acquired_after_imports(
     };
     imports.iter().all(|assertion| {
         evidence.accepted.iter().any(|accepted| {
-            let RecordState::Live(RecordValue::Service(value)) = &accepted.state else {
+            let RecordState::Live(RecordValue::Service(value)) = &accepted.state() else {
                 return false;
             };
             let ServicePayload::Imported(value) = &value.payload else {
@@ -306,7 +306,7 @@ fn acquired_after_imports(
                     matches!(
                         interpretation
                             .lineage
-                            .compare(accepted.stamp.accepted_at, read.accepted_at),
+                            .compare(accepted.stamp.accepted_at(), read.accepted_at()),
                         PositionRelation::Before | PositionRelation::Equal
                     )
                 })

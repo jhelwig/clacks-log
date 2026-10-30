@@ -36,20 +36,16 @@ pub(crate) struct CodeRow {
     pub expires_at: OffsetDateTime,
     /// Library issued/consumed/replayed state.
     pub state: String,
-    /// Exact account key for a retained receipt.
-    pub receipt_key_version: Option<i64>,
-    /// Receipt nonce when references have been retained.
-    pub receipt_nonce: Option<Vec<u8>>,
-    /// Encrypted issued token references.
-    pub receipt_ciphertext: Option<Vec<u8>>,
+    /// Complete encrypted issued-reference receipt, if issuance retained one.
+    pub receipt: Option<String>,
     /// Granted scope set restored through the library parser.
     pub scope: String,
     /// Ordered granted resource indicators.
     pub resources: Vec<String>,
 }
 
-/// Token metadata joined to its family and optional active actor.
-pub(crate) struct TokenRow {
+/// Access metadata joined to its single authoritative grant family.
+pub(crate) struct AccessRow {
     /// Owning account.
     pub account_id: String,
     /// Grant-family identifier assigned by oauth-as.
@@ -60,14 +56,44 @@ pub(crate) struct TokenRow {
     pub key_thumbprint: String,
     /// Original approval time, not the current refresh time.
     pub grant_established_at: OffsetDateTime,
-    /// Access issuance time; absent on refresh records.
-    pub issued_at: Option<OffsetDateTime>,
-    /// Access expiry or optional refresh expiry.
-    pub expires_at: Option<OffsetDateTime>,
-    /// Refresh active/spent state; absent on access records.
-    pub token_state: Option<String>,
+    /// Actual access issuance time.
+    pub issued_at: OffsetDateTime,
+    /// Actual access expiry.
+    pub expires_at: OffsetDateTime,
     /// Family provisional/active/revoked state.
     pub family_state: String,
+    /// Deadline retained while provisional, including after revocation.
+    pub provisional_until: Option<OffsetDateTime>,
+    /// Enrolled actor, absent before final code transition.
+    pub actor_id: Option<String>,
+    /// Actor closure time, if explicitly revoked.
+    pub closed_at: Option<OffsetDateTime>,
+    /// Granted scope set restored through the library parser.
+    pub scope: String,
+    /// Ordered resource indicators.
+    pub resources: Vec<String>,
+}
+
+/// Refresh metadata joined to its single authoritative grant family.
+pub(crate) struct RefreshRow {
+    /// Owning account.
+    pub account_id: String,
+    /// Grant-family identifier assigned by oauth-as.
+    pub family_id: String,
+    /// Public application registration.
+    pub client_id: String,
+    /// Bound proof key.
+    pub key_thumbprint: String,
+    /// Original approval time, not the current refresh time.
+    pub grant_established_at: OffsetDateTime,
+    /// Optional refresh expiry.
+    pub expires_at: Option<OffsetDateTime>,
+    /// Dependency-owned refresh lifecycle discriminator.
+    pub token_state: String,
+    /// Family provisional/active/revoked state.
+    pub family_state: String,
+    /// Deadline retained while provisional, including after revocation.
+    pub provisional_until: Option<OffsetDateTime>,
     /// Enrolled actor, absent before final code transition.
     pub actor_id: Option<String>,
     /// Actor closure time, if explicitly revoked.

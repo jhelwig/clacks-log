@@ -36,13 +36,12 @@ pub(crate) async fn insert_envelope(
     connection: &mut SqliteConnection,
     value: &AcceptedRecord,
 ) -> anyhow::Result<i64> {
-    value.validate()?;
-    let account = value.key.account.to_string();
-    let kind = crate::payload::kind(value.key.id);
-    let id = value.key.id.to_string();
-    let timeline = value.stamp.accepted_at.timeline.to_string();
-    let revision = i64::try_from(value.stamp.accepted_at.revision)?;
-    let baseline = value.stamp.baseline.to_string();
+    let account = value.key().account.to_string();
+    let kind = crate::payload::kind(value.key().id);
+    let id = value.key().id.to_string();
+    let timeline = value.stamp.accepted_at().timeline.to_string();
+    let revision = i64::try_from(value.stamp.accepted_at().revision)?;
+    let baseline = value.stamp.baseline().to_string();
     for candidate in sqlx::query_file!(
         "sql/client/envelope_candidates.sql",
         account,
@@ -55,12 +54,12 @@ pub(crate) async fn insert_envelope(
     .fetch_all(&mut *connection)
     .await?
     {
-        if load_envelope(connection, value.key, candidate.envelope_id).await? == *value {
+        if load_envelope(connection, value.key(), candidate.envelope_id).await? == *value {
             return Ok(candidate.envelope_id);
         }
     }
-    let payload = crate::payload::insert(connection, value.key, &value.state).await?;
-    let stamp = clock::insert_stamp(connection, value.key, &value.stamp).await?;
+    let payload = crate::payload::insert(connection, value.key(), value.state()).await?;
+    let stamp = clock::insert_stamp(connection, value.key(), &value.stamp).await?;
     Ok(sqlx::query_file!(
         "sql/client/envelope_insert.sql",
         account,
@@ -107,42 +106,58 @@ pub(crate) async fn insert_observation(
     value.validate()?;
     let key = value.key();
     crate::payload::identity(connection, key).await?;
-    let row = match value {
-        Observation::Accepted(value) => ObservationRow {
-            variant: "accepted".into(),
-            envelope_id: Some(insert_envelope(connection, value).await?),
-            checkpoint_id: None,
-            unknown_reason: None,
-        },
-        Observation::Absent { checkpoint, .. } => ObservationRow {
-            variant: "absent".into(),
-            envelope_id: None,
-            checkpoint_id: Some(lineage::insert_checkpoint(connection, checkpoint).await?),
-            unknown_reason: None,
-        },
-        Observation::Unavailable { reason, .. } => ObservationRow {
-            variant: "unavailable".into(),
-            envelope_id: None,
-            checkpoint_id: None,
-            unknown_reason: Some(unknown(*reason).into()),
-        },
-    };
     let account = key.account.to_string();
     let kind = crate::payload::kind(key.id);
     let id = key.id.to_string();
-    Ok(sqlx::query_file!(
-        "sql/client/observation_insert.sql",
-        account,
-        kind,
-        id,
-        row.variant,
-        row.envelope_id,
-        row.checkpoint_id,
-        row.unknown_reason
-    )
-    .fetch_one(connection)
-    .await?
-    .observation_id)
+    Ok(match value {
+        Observation::Accepted(value) => {
+            let envelope = insert_envelope(connection, value).await?;
+            sqlx::query_file!(
+                "sql/client/observation_insert.sql",
+                account,
+                kind,
+                id,
+                "accepted",
+                envelope,
+                None::<i64>,
+                None::<String>
+            )
+            .fetch_one(connection)
+            .await?
+            .observation_id
+        }
+        Observation::Absent { checkpoint, .. } => {
+            let checkpoint = lineage::insert_checkpoint(connection, checkpoint).await?;
+            sqlx::query_file!(
+                "sql/client/observation_insert.sql",
+                account,
+                kind,
+                id,
+                "absent",
+                None::<i64>,
+                checkpoint,
+                None::<String>
+            )
+            .fetch_one(connection)
+            .await?
+            .observation_id
+        }
+        Observation::Unavailable { reason, .. } => {
+            sqlx::query_file!(
+                "sql/client/observation_insert.sql",
+                account,
+                kind,
+                id,
+                "unavailable",
+                None::<i64>,
+                None::<i64>,
+                unknown(*reason)
+            )
+            .fetch_one(connection)
+            .await?
+            .observation_id
+        }
+    })
 }
 
 /// Restore shared knowledge without treating a missing local row as an absence certificate.

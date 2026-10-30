@@ -21,11 +21,11 @@ impl SubmissionProjection {
     pub fn same_payload(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Lotw(a), Self::Lotw(b)) => {
-                a.destination == b.destination
-                    && a.signing_identity == b.signing_identity
-                    && a.contact_fields == b.contact_fields
-                    && a.station_fields == b.station_fields
-                    && a.key == b.key
+                a.destination() == b.destination()
+                    && a.signing_identity() == b.signing_identity()
+                    && a.contact_fields() == b.contact_fields()
+                    && a.station_fields() == b.station_fields()
+                    && a.key() == b.key()
             }
             (Self::Qrz(a), Self::Qrz(b)) => a == b,
             _ => false,
@@ -35,7 +35,7 @@ impl SubmissionProjection {
     /// Return the collection whose values this submission covers.
     pub fn destination(&self) -> DestinationId {
         match self {
-            Self::Lotw(v) => v.destination,
+            Self::Lotw(v) => v.destination(),
             Self::Qrz(v) => v.destination,
         }
     }

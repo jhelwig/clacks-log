@@ -1,20 +1,15 @@
 CREATE TABLE store_account (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-    account TEXT NOT NULL UNIQUE CHECK (length(account) = 26),
+    account TEXT NOT NULL UNIQUE,
     server TEXT,
-    actor TEXT CHECK (actor IS NULL OR length(actor) = 26),
-    credential_reference TEXT,
-    CHECK ((server IS NULL AND actor IS NULL AND credential_reference IS NULL)
-        OR (server IS NOT NULL AND length(server) > 0 AND actor IS NOT NULL
-            AND credential_reference IS NOT NULL AND length(credential_reference) > 0))
+    actor TEXT,
+    credential_reference TEXT
 ) STRICT;
 
 CREATE TABLE record_identity (
     account TEXT NOT NULL REFERENCES store_account(account),
-    kind TEXT NOT NULL CHECK (kind IN ('qso', 'tag', 'profile', 'equipment', 'group', 'output_profile',
-        'destination', 'imported', 'attempt', 'result', 'observation', 'association',
-        'disposition', 'suppression', 'download', 'acquisition')),
-    record_id TEXT NOT NULL CHECK (length(record_id) = 26),
+    kind TEXT NOT NULL,
+    record_id TEXT NOT NULL,
     PRIMARY KEY (account, kind, record_id)
 ) STRICT;
 

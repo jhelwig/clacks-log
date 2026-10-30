@@ -9,16 +9,18 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 fn explicit_normalization_does_not_rewrite_existing_references() -> TestResult {
     let defs = support::definitions();
     let group = defs.get(support::id::<GroupId>(1)).unwrap();
-    let a = support::reference(group.id, Some(" us-1234 "));
+    let a = support::reference(group.id(), Some(" us-1234 "));
     assert_eq!(
-        normalize_reference(&a, Some(group))?.identifier.as_deref(),
+        normalize_reference(&a, Some(group))?
+            .identifier()
+            .as_deref(),
         Some("US-1234")
     );
-    assert_eq!(a.identifier.as_deref(), Some(" us-1234 "));
-    assert!(normalize_reference(&support::reference(group.id, None), Some(group)).is_err());
+    assert_eq!(a.identifier().as_deref(), Some(" us-1234 "));
+    assert!(normalize_reference(&support::reference(group.id(), None), Some(group)).is_err());
     assert!(
         normalize_reference(
-            &support::reference(group.id, Some("junkUS-1234junk")),
+            &support::reference(group.id(), Some("junkUS-1234junk")),
             Some(group)
         )
         .is_err()
@@ -29,7 +31,7 @@ fn explicit_normalization_does_not_rewrite_existing_references() -> TestResult {
         normalize_reference(&participation, defs.get(participation.group_id))?,
         participation
     );
-    assert_eq!(defs.get(a.group_id).unwrap().id, group.id);
+    assert_eq!(defs.get(a.group_id).unwrap().id(), group.id());
     Ok(())
 }
 
@@ -76,24 +78,24 @@ fn catalog_lookup_reports_updated_missing_and_unlisted_entries() -> TestResult {
 fn equivalent_groups_have_equal_capabilities_not_shared_identity() -> TestResult {
     let defs = support::definitions();
     let a = defs.get(support::id::<GroupId>(1)).unwrap();
-    let mut b = a.clone();
+    let mut b = a.clone().into_fields();
     b.id = support::id::<GroupId>(3);
-    let both = DefinitionSet::new(vec![a.clone(), b.clone()])?;
-    for id in [a.id, b.id] {
+    let both = DefinitionSet::new(vec![a.clone(), b.clone().try_into()?])?;
+    for id in [a.id(), b.id] {
         assert_eq!(
             normalize_reference(&support::reference(id, Some(" us-1234 ")), both.get(id))?
-                .identifier
+                .identifier()
                 .as_deref(),
             Some("US-1234")
         );
     }
     assert_eq!(
-        DefinitionSet::new(vec![a.clone(), a.clone()])?.get(a.id),
+        DefinitionSet::new(vec![a.clone(), a.clone()])?.get(a.id()),
         Some(a)
     );
-    b.id = a.id;
+    b.id = a.id();
     b.name = "competing definition".into();
-    assert!(DefinitionSet::new(vec![a.clone(), b]).is_err());
+    assert!(DefinitionSet::new(vec![a.clone(), b.try_into()?]).is_err());
     let unknown = support::reference(support::id::<GroupId>(100), Some(" unchanged "));
     assert!(defs.get(unknown.group_id).is_none());
     assert_eq!(normalize_reference(&unknown, None)?, unknown);
@@ -105,21 +107,21 @@ fn catalog_configuration_errors_retain_their_definition_diagnostic() {
     let support::CatalogCase {
         association,
         definitions,
-        catalogs,
         ..
     } = support::catalog_case();
-    let mut definition = definitions.get(association.group_id).unwrap().clone();
+    let mut definition = definitions
+        .get(association.group_id)
+        .unwrap()
+        .clone()
+        .into_fields();
     definition.catalog.as_mut().unwrap().lookup_key =
         clacks_model::export::rules::ValueExpression::Capture {
             value: Box::new(clacks_model::export::rules::ValueExpression::CurrentIdentifier),
             pattern: "[".into(),
             name: "reference".into(),
         };
-    let definitions = DefinitionSet::new(vec![definition]).unwrap();
-    let error = lookup_reference(&association, &definitions, &catalogs).unwrap_err();
-    assert!(matches!(
-        error.downcast_ref::<clacks_model::group::DefinitionError>(),
-        Some(clacks_model::group::DefinitionError::InvalidDefinition { group_id, path, .. })
-            if *group_id == association.group_id && path == "catalog.lookup_key"
-    ));
+    let error = clacks_model::group::GroupDefinition::try_from(definition).unwrap_err();
+    assert!(matches!(error,
+        clacks_model::group::DefinitionError::InvalidDefinition { group_id, path, .. }
+            if group_id == association.group_id && path == "catalog.lookup_key"));
 }

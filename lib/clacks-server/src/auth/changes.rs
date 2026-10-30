@@ -38,9 +38,8 @@ pub struct UnlinkForm {
 async fn owned(
     state: &ServerState,
     principal: &Principal,
-    id: &str,
+    id: ulid::Ulid,
 ) -> Result<IdentityView, AuthError> {
-    let id: ulid::Ulid = id.parse().map_err(|_| AuthError::InvalidCallback)?;
     state
         .store
         .identities(principal)
@@ -82,14 +81,21 @@ pub async fn request_link(
     principal: &Principal,
     form: LinkForm,
 ) -> Result<url::Url, AuthError> {
-    let authorizer = owned(state, principal, &form.authorizing_identity).await?;
+    let authorizer = owned(
+        state,
+        principal,
+        form.authorizing_identity
+            .parse()
+            .map_err(|_| AuthError::InvalidCallback)?,
+    )
+    .await?;
     if !state.config.providers.contains_key(&form.provider) {
         return Err(AuthError::InvalidCallback);
     }
     let provider = provider_for(state, &authorizer)?;
     let purpose = Purpose::AuthorizeLink {
         origin: origin(session, principal)?,
-        authorizer: form.authorizing_identity,
+        authorizer: authorizer.identity_id,
         new_provider: form.provider,
     };
     super::oidc::authorization_url(state, session, provider, purpose).await
@@ -102,9 +108,23 @@ pub async fn request_unlink(
     principal: &Principal,
     form: UnlinkForm,
 ) -> Result<url::Url, AuthError> {
-    owned(state, principal, &form.target).await?;
-    let authorizer = owned(state, principal, &form.authorizing_identity).await?;
-    if form.target == form.authorizing_identity {
+    let target = owned(
+        state,
+        principal,
+        form.target
+            .parse()
+            .map_err(|_| AuthError::InvalidCallback)?,
+    )
+    .await?;
+    let authorizer = owned(
+        state,
+        principal,
+        form.authorizing_identity
+            .parse()
+            .map_err(|_| AuthError::InvalidCallback)?,
+    )
+    .await?;
+    if target.identity_id == authorizer.identity_id {
         return Err(AuthError::Conflict(
             "Choose an identity that will remain linked.".into(),
         ));
@@ -112,8 +132,8 @@ pub async fn request_unlink(
     let provider = provider_for(state, &authorizer)?;
     let purpose = Purpose::AuthorizeUnlink {
         origin: origin(session, principal)?,
-        authorizer: form.authorizing_identity,
-        target: form.target,
+        authorizer: authorizer.identity_id,
+        target: target.identity_id,
     };
     super::oidc::authorization_url(state, session, provider, purpose).await
 }
@@ -122,7 +142,7 @@ pub async fn request_unlink(
 pub(crate) async fn verify_authorizer(
     state: &ServerState,
     origin: &OriginatingLogin,
-    authorizer: &str,
+    authorizer: ulid::Ulid,
     verified: &VerifiedIdentity,
 ) -> Result<(), AuthError> {
     let principal = state
@@ -147,13 +167,10 @@ pub(crate) async fn verify_authorizer(
 }
 
 /// Interpret server-retained context for the identity transaction boundary.
-pub(crate) fn action(
-    origin: OriginatingLogin,
-    authorizer: String,
-) -> Result<IdentityAction, AuthError> {
-    Ok(IdentityAction {
+pub(crate) fn action(origin: OriginatingLogin, authorizer: ulid::Ulid) -> IdentityAction {
+    IdentityAction {
         account_id: origin.account_id,
         originating_login: origin.login_reference,
-        authorizing_identity: authorizer.parse().map_err(|_| AuthError::InvalidCallback)?,
-    })
+        authorizing_identity: authorizer,
+    }
 }

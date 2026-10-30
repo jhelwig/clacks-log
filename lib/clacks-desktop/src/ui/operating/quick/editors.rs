@@ -47,20 +47,20 @@ pub(in crate::ui::operating) fn show(
             for saved in snapshot
                 .profiles
                 .iter()
-                .filter(|record| !known_deletions.contains(&record.key.id))
+                .filter(|record| !known_deletions.contains(&record.key().id))
                 .filter_map(profile)
             {
                 if ui
                     .button(format!("Load {}", profile_label(saved)))
                     .clicked()
                 {
-                    let default = saved.default_equipment.and_then(|id| {
+                    let default = saved.default_equipment().and_then(|id| {
                         snapshot
                             .equipment
                             .iter()
-                            .filter(|record| !known_deletions.contains(&record.key.id))
+                            .filter(|record| !known_deletions.contains(&record.key().id))
                             .filter_map(configuration)
-                            .find(|equipment| equipment.id == id)
+                            .find(|equipment| equipment.id() == id)
                     });
                     match editor.stage_profile(saved, default) {
                         Ok(()) => {
@@ -77,7 +77,7 @@ pub(in crate::ui::operating) fn show(
             }
             if let Some(selected) = &editor.selected_profile {
                 ui.strong(format!("Chosen profile: {}", profile_label(selected)));
-                ui.label(match selected.default_equipment {
+                ui.label(match selected.default_equipment() {
                     Some(_) => format!(
                         "Associated equipment to load: {}",
                         editor
@@ -92,7 +92,7 @@ pub(in crate::ui::operating) fn show(
                     .profiles
                     .iter()
                     .filter_map(profile)
-                    .any(|saved| saved.id == selected.id && saved != selected)
+                    .any(|saved| saved.id() == selected.id() && saved != selected)
                 {
                     ui.label("Saved profile changed. Preview remains as copied; load it explicitly to refresh.");
                 }
@@ -108,7 +108,7 @@ pub(in crate::ui::operating) fn show(
             for saved in snapshot
                 .equipment
                 .iter()
-                .filter(|record| !known_deletions.contains(&record.key.id))
+                .filter(|record| !known_deletions.contains(&record.key().id))
                 .filter_map(configuration)
             {
                 if ui
@@ -125,7 +125,7 @@ pub(in crate::ui::operating) fn show(
                     .equipment
                     .iter()
                     .filter_map(configuration)
-                    .any(|saved| saved.id == selected.id && saved != selected)
+                    .any(|saved| saved.id() == selected.id() && saved != selected)
                 {
                     ui.label("Saved equipment changed. Preview remains as copied; load it explicitly to refresh.");
                 }
@@ -140,18 +140,17 @@ pub(in crate::ui::operating) fn show(
             ui.label("Station profile and equipment selections stay unchanged. Either operator value may be blank.");
             let original = editor
                 .expected
-                .current
-                .as_ref()
+                .current()
                 .and_then(|value| value.operator.as_ref());
             let edited_call = fields::callsign_changed(
                 &editor.operator_callsign,
                 original
-                    .and_then(|operator| operator.callsign.as_ref())
+                    .and_then(|operator| operator.callsign().as_ref())
                     .map(|call| call.as_str()),
             );
             let edited_name = fields::text_changed(
                 &editor.operator_name,
-                original.and_then(|operator| operator.recorded_name.as_deref()),
+                original.and_then(|operator| operator.recorded_name().as_deref()),
             );
             let mut changed = fields::radio_text(
                 ui,

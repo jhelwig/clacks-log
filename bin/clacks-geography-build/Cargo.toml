@@ -9,3 +9,6 @@ publish.workspace = true
 [dependencies]
 clacks-geography-builder.workspace = true
 anyhow.workspace = true
+
+[lints]
+workspace = true

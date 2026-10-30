@@ -13,7 +13,8 @@ use std::sync::atomic::Ordering;
 
 #[tokio::test]
 async fn registration_reuses_saved_client_and_preserves_it_on_mismatch() -> anyhow::Result<()> {
-    let provider = support::provider::start().await?;
+    let registrations = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let provider = support::provider::start(Some(registrations.clone())).await?;
     let directory = tempfile::tempdir()?;
     let path = directory.path().join("registration.json");
     let config = ProviderConfig {
@@ -32,7 +33,7 @@ async fn registration_reuses_saved_client_and_preserves_it_on_mismatch() -> anyh
     let registered: serde_json::Value = serde_json::from_slice(&original)?;
     assert_eq!(registered["response"]["client_name"], "Clacks Log");
     registration::run(&config, &callback).await?;
-    assert_eq!(provider.registrations.load(Ordering::SeqCst), 1);
+    assert_eq!(registrations.load(Ordering::SeqCst), 1);
     assert!(
         registration::run(&config, &url::Url::parse("https://other.example/callback")?)
             .await
@@ -117,6 +118,6 @@ async fn registration_reuses_saved_client_and_preserves_it_on_mismatch() -> anyh
     std::fs::write(&path, serde_json::to_vec(&expired)?)?;
     let refusal = registration::run(&config, &callback).await.unwrap_err();
     assert!(refusal.to_string().contains("expired"));
-    assert_eq!(provider.registrations.load(Ordering::SeqCst), 1);
+    assert_eq!(registrations.load(Ordering::SeqCst), 1);
     Ok(())
 }

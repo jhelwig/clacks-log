@@ -1,7 +1,7 @@
 //! Bundled, ordinary native definitions for initializing a new account.
 
 use crate::{
-    export::{OutputProfile, OutputPurpose, rules::compile_definition},
+    export::{OutputProfile, OutputPurpose},
     group::{DefinitionSet, GroupDefinition},
 };
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,7 @@ pub struct AccountDefinitions {
 }
 
 impl AccountDefinitions {
-    /// Check identity uniqueness, mapping validity and targeted profile references.
+    /// Check identity uniqueness and targeted output-profile references.
     ///
     /// Call before installing supplied initial definitions. Errors identify unusable
     /// definitions; validation does not normalize references or create account records.
@@ -44,15 +44,17 @@ impl AccountDefinitions {
         }
 
         for group in &self.groups {
-            compile_definition(group)?;
-            for target in group.export_mappings.targeted.keys() {
+            for target in group.export_mappings().targeted.keys() {
                 let profile = profiles.get(target).ok_or_else(|| {
-                    anyhow::anyhow!("group {} targets missing output profile {target}", group.id)
+                    anyhow::anyhow!(
+                        "group {} targets missing output profile {target}",
+                        group.id()
+                    )
                 })?;
                 anyhow::ensure!(
                     profile.purpose == OutputPurpose::Targeted,
                     "group {} targets an ordinary output profile",
-                    group.id
+                    group.id()
                 );
             }
         }

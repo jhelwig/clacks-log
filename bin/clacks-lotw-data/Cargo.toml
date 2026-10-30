@@ -10,3 +10,6 @@ publish.workspace = true
 [dependencies]
 anyhow.workspace = true
 clacks-reference-data.workspace = true
+
+[lints]
+workspace = true

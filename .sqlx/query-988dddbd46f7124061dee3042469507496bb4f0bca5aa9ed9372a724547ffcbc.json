@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO service_query (payload_id, account, destination_id, stream, own_call, since, selected_fields) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING query_id AS \"query_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "query_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_query",
+            "name": "query_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "988dddbd46f7124061dee3042469507496bb4f0bca5aa9ed9372a724547ffcbc"
+}

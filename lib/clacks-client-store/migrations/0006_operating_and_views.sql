@@ -4,7 +4,7 @@ CREATE TABLE operating_value (
     station_id INTEGER NOT NULL,
     operator_call TEXT,
     operator_name TEXT,
-    power INTEGER CHECK (power > 0),
+    power INTEGER,
     equipment_id INTEGER,
     UNIQUE (operating_id, account),
     FOREIGN KEY (station_id, account) REFERENCES station_snapshot(station_id, account),
@@ -20,9 +20,7 @@ CREATE TABLE operating_state (
     loaded_values INTEGER,
     FOREIGN KEY (current_values, account) REFERENCES operating_value(operating_id, account),
     FOREIGN KEY (loaded_values, account) REFERENCES operating_value(operating_id, account),
-    FOREIGN KEY (loaded_profile, account, profile_kind, profile_record) REFERENCES payload(payload_id, account, kind, record_id),
-    CHECK ((loaded_profile IS NULL AND profile_record IS NULL AND loaded_values IS NULL)
-        OR (loaded_profile IS NOT NULL AND profile_record IS NOT NULL AND loaded_values IS NOT NULL))
+    FOREIGN KEY (loaded_profile, account, profile_kind, profile_record) REFERENCES payload(payload_id, account, kind, record_id)
 ) STRICT;
 
 CREATE VIEW local_working AS

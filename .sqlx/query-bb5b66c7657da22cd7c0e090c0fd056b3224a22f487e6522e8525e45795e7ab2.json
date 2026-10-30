@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT destination_id, stream, own_call, since, selected_fields FROM service_query WHERE query_id = ? AND payload_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "destination_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_query",
+            "name": "destination_id"
+          }
+        }
+      },
+      {
+        "name": "stream",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_query",
+            "name": "stream"
+          }
+        }
+      },
+      {
+        "name": "own_call",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_query",
+            "name": "own_call"
+          }
+        }
+      },
+      {
+        "name": "since",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_query",
+            "name": "since"
+          }
+        }
+      },
+      {
+        "name": "selected_fields",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_query",
+            "name": "selected_fields"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "bb5b66c7657da22cd7c0e090c0fd056b3224a22f487e6522e8525e45795e7ab2"
+}

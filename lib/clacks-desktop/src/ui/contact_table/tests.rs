@@ -21,8 +21,11 @@ fn mount() -> Harness<'static, Host> {
     let rows = (0..40)
         .map(|n| {
             let mut qso = fixtures::contact();
-            qso.contacted_station.callsign =
-                clacks_model::scalar::RecordedCallsign::new(&format!("K1T{n:03}")).unwrap();
+            crate::test_support::edit(&mut qso, |qso| {
+                qso.contacted_station.callsign =
+                    clacks_model::scalar::RecordedCallsign::new(&format!("K1T{n:03}")).unwrap();
+                Ok(())
+            });
             clacks_client_store::read::contacts::ContactRow {
                 facts: Default::default(),
                 working: HistoryRow {
@@ -76,7 +79,7 @@ fn keyboard_navigation_scrolls_to_and_opens_the_contact_by_identity() {
         ui.key_press(egui::Key::ArrowDown);
         ui.run();
     }
-    let expected = ui.state().page.rows.get(12).unwrap().working.qso.id;
+    let expected = ui.state().page.rows.get(12).unwrap().working.qso.id();
     assert_eq!(ui.state().focused, Some(expected));
     assert_eq!(ui.state().selected, [expected].into());
     assert!(ui.query_by_label("K1T012").is_some());

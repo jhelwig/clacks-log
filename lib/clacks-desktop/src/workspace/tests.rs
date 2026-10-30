@@ -118,9 +118,7 @@ async fn existing_invalid_database_is_preserved() -> anyhow::Result<()> {
 #[tokio::test]
 async fn ready_requires_initial_reads() -> anyhow::Result<()> {
     use clacks_client_store::operating::{self, OperatingSaveOutcome, OperatingState};
-    use clacks_model::{
-        contact::StationSnapshot, profile::CurrentOperatingValues, scalar::RecordedCallsign,
-    };
+    use clacks_model::scalar::RecordedCallsign;
     let directory = tempfile::tempdir()?;
     let paths = WorkspacePaths {
         directory: directory.path().into(),
@@ -129,9 +127,9 @@ async fn ready_requires_initial_reads() -> anyhow::Result<()> {
         log_directory: directory.path().join("logs"),
     };
     let initial = super::open(&paths).await?;
-    let next = OperatingState {
-        current: Some(CurrentOperatingValues {
-            station: StationSnapshot {
+    let next = OperatingState::new(
+        Some(clacks_model::profile::CurrentOperatingValues {
+            station: clacks_model::contact::StationSnapshot {
                 callsign: RecordedCallsign::new("W7HEX/P")?,
                 location: None,
                 references: Default::default(),
@@ -140,9 +138,10 @@ async fn ready_requires_initial_reads() -> anyhow::Result<()> {
             transmit_power: None,
             equipment: None,
         }),
-        selected_profile: None,
-        selected_equipment: None,
-    };
+        None,
+        None,
+    )
+    .expect("coherent operating fixture");
 
     assert!(matches!(
         operating::save(&initial.store, &initial.settings.operating, &next).await?,

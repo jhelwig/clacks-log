@@ -38,9 +38,13 @@ fn per_contact_context_is_unambiguous_or_explicit() {
     ] {
         let mut q = support::qso(support::id::<QsoId>(1));
         for g in groups {
-            q.own_station
-                .references
-                .insert(support::reference(support::id::<GroupId>(g), None));
+            support::edit(&mut q, |q| {
+                q.own_station
+                    .references
+                    .insert(support::reference(support::id::<GroupId>(g), None));
+
+                Ok(())
+            });
         }
         let before = q.clone();
         let s = select_mappings(&q, &context(None), &defs, &profiles, None).unwrap();
@@ -72,19 +76,27 @@ fn per_contact_context_is_unambiguous_or_explicit() {
         }
         assert_eq!(q, before);
     }
-    let mut equivalent = defs.get(support::id::<GroupId>(3)).unwrap().clone();
+    let mut equivalent = defs
+        .get(support::id::<GroupId>(3))
+        .unwrap()
+        .clone()
+        .into_fields();
     equivalent.export_mappings.ordinary_interchange[0].value =
         ValueExpression::Literal("CQ-WW-SSB".into());
     let same = DefinitionSet::new(vec![
         defs.get(support::id::<GroupId>(2)).unwrap().clone(),
-        equivalent,
+        equivalent.try_into().unwrap(),
     ])
     .unwrap();
     let mut q = support::qso(support::id::<QsoId>(1));
     for id in [2, 3] {
-        q.own_station
-            .references
-            .insert(support::reference(support::id::<GroupId>(id), None));
+        support::edit(&mut q, |q| {
+            q.own_station
+                .references
+                .insert(support::reference(support::id::<GroupId>(id), None));
+
+            Ok(())
+        });
     }
     assert!(
         select_mappings(&q, &context(None), &same, &profiles, None)
@@ -97,9 +109,13 @@ fn per_contact_context_is_unambiguous_or_explicit() {
 #[test]
 fn target_does_not_invent_participation() {
     let mut q = support::qso(support::id::<QsoId>(1));
-    q.own_station
-        .references
-        .insert(support::reference(support::id::<GroupId>(3), None));
+    support::edit(&mut q, |q| {
+        q.own_station
+            .references
+            .insert(support::reference(support::id::<GroupId>(3), None));
+
+        Ok(())
+    });
     let before = q.clone();
     let selected = select_mappings(
         &q,
@@ -117,14 +133,22 @@ fn target_does_not_invent_participation() {
 fn targeted_mapping_excludes_competing_context() {
     let mut q = support::qso(support::id::<QsoId>(1));
     for id in [2, 3] {
-        q.own_station
-            .references
-            .insert(support::reference(support::id::<GroupId>(id), None));
+        support::edit(&mut q, |q| {
+            q.own_station
+                .references
+                .insert(support::reference(support::id::<GroupId>(id), None));
+
+            Ok(())
+        });
     }
-    q.own_station.references.insert(support::reference(
-        support::id::<GroupId>(1),
-        Some("US-1234"),
-    ));
+    support::edit(&mut q, |q| {
+        q.own_station.references.insert(support::reference(
+            support::id::<GroupId>(1),
+            Some("US-1234"),
+        ));
+
+        Ok(())
+    });
     let selected = select_mappings(
         &q,
         &context(Some(support::id::<GroupId>(2))),

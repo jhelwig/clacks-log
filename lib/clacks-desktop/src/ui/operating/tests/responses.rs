@@ -30,14 +30,7 @@ fn failed_post_apply_refresh_uses_the_acknowledged_state_without_resubmitting() 
     };
     assert_eq!(editor.station.callsign, "W7ACK");
     assert_eq!(
-        editor
-            .expected
-            .current
-            .as_ref()
-            .unwrap()
-            .station
-            .callsign
-            .as_str(),
+        editor.expected.current().unwrap().station.callsign.as_str(),
         "W7ACK"
     );
     assert!(ui.state_mut().requests.try_recv().is_err());
@@ -52,15 +45,14 @@ fn deleted_source_clears_selection_while_retaining_pending_values() {
     ui.run();
     replace(&mut ui, "Transmit power", "25");
     let mut updated = ui.state().snapshot.as_ref().clone();
-    updated
-        .profiles
-        .first_mut()
-        .unwrap()
-        .pending
-        .as_mut()
-        .unwrap()
-        .working = RecordState::Deleted;
-    updated.operating.selected_profile = None;
+    let profile = updated.profiles.first_mut().unwrap();
+    let mut fields = profile.clone().into_fields();
+    fields.pending.as_mut().unwrap().working = RecordState::Deleted;
+    *profile = fields.try_into().unwrap();
+    if let Some(profile) = updated.operating.selected_profile() {
+        let id = profile.id();
+        updated.operating.forget_source(RecordId::Profile(id));
+    }
     ui.state_mut().snapshot = Arc::new(updated);
     ui.run();
     let Screen::Operating(editor) = &ui.state().view.stack.last().unwrap().screen else {

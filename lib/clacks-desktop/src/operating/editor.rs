@@ -6,7 +6,7 @@ use clacks_model::{
     contact::OperatorInformation,
     group::DefinitionSet,
     ids::{EquipmentConfigurationId, ProfileId},
-    profile::{CurrentOperatingValues, EquipmentConfiguration, SavedLocationProfile},
+    profile::{EquipmentConfiguration, SavedLocationProfile},
     scalar::RecordedCallsign,
 };
 use clacks_sync::{
@@ -39,7 +39,7 @@ pub(crate) struct OperatingEditor {
 impl OperatingEditor {
     /// Start editing applied values without saving or selecting anything implicitly.
     pub fn new(state: &OperatingState) -> Self {
-        let current = state.current.as_ref();
+        let current = state.current();
         let operator = current.and_then(|v| v.operator.as_ref());
         Self {
             expected: state.clone(),
@@ -48,15 +48,15 @@ impl OperatingEditor {
                 .unwrap_or_else(StationForm::empty),
             equipment: EquipmentForm::from_values(current.and_then(|v| v.equipment.as_ref())),
             operator_callsign: operator
-                .and_then(|o| o.callsign.as_ref())
+                .and_then(|o| o.callsign().as_ref())
                 .map(|call| call.as_str().to_owned())
                 .unwrap_or_default(),
             operator_name: operator
-                .and_then(|o| o.recorded_name.clone())
+                .and_then(|o| o.recorded_name().clone())
                 .unwrap_or_default(),
             power_watts: power::format_watts(current.and_then(|v| v.transmit_power)),
-            selected_profile: state.selected_profile.clone(),
-            selected_equipment: state.selected_equipment.clone(),
+            selected_profile: state.selected_profile().cloned(),
+            selected_equipment: state.selected_equipment().cloned(),
         }
     }
 
@@ -66,23 +66,22 @@ impl OperatingEditor {
         profile: &SavedLocationProfile,
         equipment: Option<&EquipmentConfiguration>,
     ) -> anyhow::Result<()> {
-        profile.station.validate()?;
-        let equipment = if let Some(id) = profile.default_equipment {
+        let equipment = if let Some(id) = profile.default_equipment() {
             let equipment =
                 equipment.ok_or(clacks_model::contact::RecordError::MissingEquipment { id })?;
             anyhow::ensure!(
-                equipment.id == id,
+                equipment.id() == id,
                 clacks_model::contact::RecordError::EquipmentIdMismatch {
                     expected: id,
-                    supplied: equipment.id
+                    supplied: equipment.id()
                 }
             );
-            equipment.values.validate()?;
+
             Some(equipment)
         } else {
             None
         };
-        self.station = StationForm::from_snapshot(&profile.station);
+        self.station = StationForm::from_snapshot(profile.station());
         self.selected_profile = Some(profile.clone());
         if let Some(equipment) = equipment {
             self.stage_equipment(equipment);
@@ -92,7 +91,7 @@ impl OperatingEditor {
 
     /// Explicitly select copied equipment while retaining every station/operator/power edit.
     pub fn stage_equipment(&mut self, equipment: &EquipmentConfiguration) {
-        self.equipment = EquipmentForm::from_values(Some(&equipment.values));
+        self.equipment = EquipmentForm::from_values(Some(equipment.values()));
         self.selected_equipment = Some(equipment.clone());
     }
 
@@ -124,7 +123,7 @@ impl OperatingEditor {
         if equipment.is_none()
             && let Some(selected) = &self.selected_equipment
         {
-            equipment = Some(selected.values.clone());
+            equipment = Some(selected.values().clone());
         }
         let callsign = if self.operator_callsign.trim().is_empty() {
             None
@@ -136,7 +135,7 @@ impl OperatingEditor {
         };
         let recorded_name = optional(&self.operator_name);
         let operator = if callsign.is_some() || recorded_name.is_some() {
-            Some(OperatorInformation {
+            Some(clacks_model::contact::OperatorInformationFields {
                 callsign,
                 recorded_name,
             })
@@ -145,20 +144,22 @@ impl OperatingEditor {
         };
         let transmit_power =
             power::parse_watts(&self.power_watts).map_err(|e| vec![issue("Transmit power", e)])?;
-        let value = CurrentOperatingValues {
+        let value = clacks_model::profile::CurrentOperatingValues {
             station,
             equipment,
-            operator,
+            operator: operator
+                .map(OperatorInformation::try_from)
+                .transpose()
+                .map_err(|e| vec![issue("Operator", e)])?,
             transmit_power,
         };
-        value
-            .validate()
-            .map_err(|e| vec![issue("Operating settings", e)])?;
-        Ok(OperatingState {
-            current: Some(value),
-            selected_profile: self.selected_profile.clone(),
-            selected_equipment: self.selected_equipment.clone(),
-        })
+
+        OperatingState::new(
+            Some(value),
+            self.selected_profile.clone(),
+            self.selected_equipment.clone(),
+        )
+        .map_err(|error| vec![issue("Operating sources", error)])
     }
 
     /// Clear a known deleted source association without changing copied facts or edit basis.
@@ -166,14 +167,14 @@ impl OperatingEditor {
         if self
             .selected_profile
             .as_ref()
-            .is_some_and(|p| id == RecordId::Profile(p.id))
+            .is_some_and(|p| id == RecordId::Profile(p.id()))
         {
             self.selected_profile = None;
         }
         if self
             .selected_equipment
             .as_ref()
-            .is_some_and(|e| id == RecordId::Equipment(e.id))
+            .is_some_and(|e| id == RecordId::Equipment(e.id()))
         {
             self.selected_equipment = None;
         }
@@ -186,25 +187,14 @@ impl OperatingEditor {
             .iter()
             .chain(&snapshot.equipment)
             .filter(|r| matches!(r.working_state(), Some(RecordState::Deleted)))
-            .map(|r| r.key.id)
+            .map(|r| r.key().id)
             .collect();
         for id in &deleted {
             self.forget_source(*id);
         }
         let mut cleaned = self.expected.clone();
-        if cleaned
-            .selected_profile
-            .as_ref()
-            .is_some_and(|p| deleted.contains(&RecordId::Profile(p.id)))
-        {
-            cleaned.selected_profile = None;
-        }
-        if cleaned
-            .selected_equipment
-            .as_ref()
-            .is_some_and(|e| deleted.contains(&RecordId::Equipment(e.id)))
-        {
-            cleaned.selected_equipment = None;
+        for id in &deleted {
+            cleaned.forget_source(*id);
         }
         if cleaned == snapshot.operating {
             self.expected = snapshot.operating.clone();
@@ -236,9 +226,9 @@ impl ProfileEditor {
             }
             _ => None,
         });
-        let id = source.map(|p| p.id).unwrap_or_default();
-        let name = source.map(|p| p.name.clone()).unwrap_or_default();
-        let default_equipment = source.and_then(|p| p.default_equipment);
+        let id = source.map(|p| p.id()).unwrap_or_default();
+        let name = source.map(|p| p.name().to_owned()).unwrap_or_default();
+        let default_equipment = source.and_then(|p| p.default_equipment());
         Self {
             id,
             expected,
@@ -256,12 +246,14 @@ impl ProfileEditor {
         if self.name.trim().is_empty() {
             return Err(vec![issue("Profile name", "Enter a profile name")]);
         }
-        Ok(SavedLocationProfile {
+        (clacks_model::profile::SavedLocationProfileFields {
             id: self.id,
             name: self.name.clone(),
-            station: self.station.build(definitions)?,
+            station: (self.station.build(definitions)?),
             default_equipment: self.default_equipment,
         })
+        .try_into()
+        .map_err(|e| vec![issue("Profile", e)])
     }
 }
 
@@ -287,8 +279,8 @@ impl EquipmentEditor {
             }
             _ => None,
         });
-        let id = source.map(|e| e.id).unwrap_or_default();
-        let name = source.map(|e| e.name.clone()).unwrap_or_default();
+        let id = source.map(|e| e.id()).unwrap_or_default();
+        let name = source.map(|e| e.name().to_owned()).unwrap_or_default();
         Self {
             id,
             expected,
@@ -305,10 +297,12 @@ impl EquipmentEditor {
                 "Enter a configuration name",
             )]);
         }
-        Ok(EquipmentConfiguration {
+        (clacks_model::profile::EquipmentConfigurationFields {
             id: self.id,
             name: self.name.clone(),
-            values: self.equipment.build()?.unwrap_or_default(),
+            values: (self.equipment.build()?.unwrap_or_default()).into_fields(),
         })
+        .try_into()
+        .map_err(|e| vec![issue("Equipment configuration", e)])
     }
 }

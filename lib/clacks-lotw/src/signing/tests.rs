@@ -5,7 +5,7 @@ use clacks_model::{
     scalar::UtcSecond,
     service::{
         destination::LotwRecordKey,
-        lotw::{LotwMappingProvenance, LotwSubmission},
+        lotw::{LotwMappingProvenance, LotwSubmission, LotwSubmissionFields},
     },
 };
 use std::collections::BTreeMap;
@@ -18,7 +18,7 @@ fn sample() -> (CertificateMetadata, LotwSubmission) {
         .with_hms(12, 34, 56)
         .unwrap()
         .assume_utc();
-    let submission = LotwSubmission {
+    let submission: LotwSubmission = LotwSubmissionFields {
         mapping_provenance: LotwMappingProvenance {
             release: "11.34".into(),
             upstream_commit: "6ce824363e27da455c6cf6fd440b9c401945bfcb".into(),
@@ -54,7 +54,9 @@ fn sample() -> (CertificateMetadata, LotwSubmission) {
             receive_band: "20M".into(),
             mode: "FT8".into(),
         },
-    };
+    }
+    .try_into()
+    .expect("coherent frozen submission");
     (meta, submission)
 }
 
@@ -70,7 +72,7 @@ fn exact_input_is_literal_station_then_contact_without_separators() {
     assert_eq!(p.signature_field, "SIGN_LOTW_V2.0");
     assert_eq!(p.contact.get("QSO_DATE").unwrap(), "2026-10-22");
     assert_eq!(p.contact.get("QSO_TIME").unwrap(), "12:34:56Z");
-    assert_eq!(s.contact_fields.get("QSO_DATE").unwrap(), "20261022");
+    assert_eq!(s.contact_fields().get("QSO_DATE").unwrap(), "20261022");
 }
 
 #[test]
@@ -105,7 +107,7 @@ fn definitions_select_numerically_and_reject_unsupported_or_ambiguous_data() {
 
 #[test]
 fn each_station_field_contributes_its_trimmed_uppercase_value() {
-    let (meta, mut s) = sample();
+    let (meta, s) = sample();
     let defs = SignatureDefinitions::bundled().unwrap();
     let cases = [
         ("AU_STATE", "NSW"),
@@ -126,7 +128,9 @@ fn each_station_field_contributes_its_trimmed_uppercase_value() {
         ("US_STATE", "CT"),
     ];
     for (name, value) in cases {
-        s.station_fields = BTreeMap::from([(name.to_owned(), format!(" {value} "))]);
+        let mut fields = s.clone().into_fields();
+        fields.station_fields = BTreeMap::from([(name.to_owned(), format!(" {value} "))]);
+        let s = fields.try_into().unwrap();
         let p = prepare_input(&s, &meta, &defs).unwrap();
         assert_eq!(
             String::from_utf8(p.signing_bytes).unwrap(),
@@ -147,18 +151,15 @@ fn malformed_text_extra_fields_inconsistent_keys_and_provenance_fail() {
         ("FREQ", "1\n2"),
         ("FREQ", "14.é"),
         ("FREQ", "\0"),
-        ("MODE", ""),
         ("UNKNOWN", "X"),
-        ("QSO_TIME", "123457"),
     ] {
-        let mut changed = s.clone();
-        changed.contact_fields.insert(name.into(), value.into());
+        let mut fields = s.clone().into_fields();
+        fields.contact_fields.insert(name.into(), value.into());
+        let changed = fields.try_into().unwrap();
         assert!(prepare_input(&changed, &meta, &defs).is_err(), "{name}");
     }
-    let mut changed = s.clone();
-    changed.mapping_provenance.release = "other".into();
-    assert!(prepare_input(&changed, &meta, &defs).is_err());
-    let mut changed = s.clone();
-    changed.key.mode = "CW".into();
+    let mut fields = s.clone().into_fields();
+    fields.mapping_provenance.release = "other".into();
+    let changed = fields.try_into().unwrap();
     assert!(prepare_input(&changed, &meta, &defs).is_err());
 }

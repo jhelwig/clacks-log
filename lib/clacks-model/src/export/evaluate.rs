@@ -62,7 +62,7 @@ struct Row {
 /// Create a contact-scoped readiness diagnostic for missing required export input.
 fn not_ready(qso: &Qso, reason: impl Into<String>) -> anyhow::Error {
     ExportError::NotReady {
-        qso_id: qso.id,
+        qso_id: qso.id(),
         reason: reason.into(),
     }
     .into()
@@ -158,7 +158,7 @@ fn targeted_entries(
             Ok((
                 row.key,
                 ReferenceExportEntry {
-                    qso_id: qso.id,
+                    qso_id: qso.id(),
                     reference_fields,
                 },
             ))
@@ -191,14 +191,7 @@ pub fn plan_reference_export(
         })?;
     let mut unique: BTreeMap<QsoId, &Qso> = BTreeMap::new();
     for qso in qsos {
-        qso.validate().map_err(|error| {
-            let reason = error.to_string();
-            error.context(ExportError::NotReady {
-                qso_id: qso.id,
-                reason,
-            })
-        })?;
-        if let Some(previous) = unique.insert(qso.id, qso)
+        if let Some(previous) = unique.insert(qso.id(), qso)
             && previous != qso
         {
             return Err(not_ready(
@@ -219,7 +212,7 @@ pub fn plan_reference_export(
             context,
             definitions,
             profiles,
-            resolutions.get(&qso.id),
+            resolutions.get(&qso.id()),
             &mut compiled_definitions,
         )?;
         plan.decisions.extend(selected.decisions);
@@ -258,7 +251,7 @@ pub fn plan_reference_export(
                     .entry(base_key)
                     .or_default()
                     .push(ReferenceExportEntry {
-                        qso_id: qso.id,
+                        qso_id: qso.id(),
                         reference_fields,
                     });
             }

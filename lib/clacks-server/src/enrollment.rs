@@ -31,6 +31,15 @@ pub(crate) struct AuthorizedClient {
     pub scope: ScopeSet,
 }
 
+/// Account and former writer selected together for desktop recovery.
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
+pub(crate) struct RecoveryTarget {
+    /// Existing account the desktop intends to recover.
+    pub account: AccountId,
+    /// Existing writer associated with that workspace.
+    pub actor: ClientActorId,
+}
+
 /// Explicit browser-approved enrollment or credential recovery action.
 #[derive(Clone, Serialize, serde::Deserialize)]
 pub enum ApprovalPurpose {
@@ -46,6 +55,22 @@ pub enum ApprovalPurpose {
         /// Former writer retained only as recovery context.
         actor: ClientActorId,
     },
+}
+
+impl ApprovalPurpose {
+    /// Decode the persisted approval alternative before membership activation.
+    pub(crate) fn from_stored(purpose: &str, actor: Option<&str>) -> anyhow::Result<Self> {
+        match (purpose, actor) {
+            ("new", None) => Ok(Self::New),
+            ("recover_active", Some(actor)) => Ok(Self::RecoverActive {
+                actor: actor.parse()?,
+            }),
+            ("replace_closed", Some(actor)) => Ok(Self::ReplaceClosed {
+                actor: actor.parse()?,
+            }),
+            _ => anyhow::bail!("invalid enrollment approval purpose or target"),
+        }
+    }
 }
 
 /// Non-secret account-owned client information for browser management.

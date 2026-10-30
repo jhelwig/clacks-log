@@ -104,7 +104,7 @@ impl ContactsUi {
             ContactResponse::Deleted(SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_)) => {
                 self.changed = true;
                 if let Some(deletion) = &self.deletion
-                    && let clacks_sync::record::RecordId::Qso(id) = deletion.expected.key.id
+                    && let clacks_sync::record::RecordId::Qso(id) = deletion.expected.key().id
                 {
                     self.selected.remove(&id);
                 }

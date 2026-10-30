@@ -103,10 +103,7 @@ async fn frozen_restart_receipt_later_edit_and_rejection_preserve_their_actual_r
     else {
         panic!("later save")
     };
-    assert_eq!(
-        later.pending.as_ref().unwrap().prepared.as_ref(),
-        Some(&change)
-    );
+    assert_eq!(later.pending().unwrap().prepared.as_ref(), Some(&change));
     store.close().await?;
     let store = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
     let Preparation::Retry { change: retry, .. } = prepared(&store, key).await? else {
@@ -124,7 +121,7 @@ async fn frozen_restart_receipt_later_edit_and_rejection_preserve_their_actual_r
             bindings: &[],
             account: &account,
             membership: &membership,
-            current: &saved.latest,
+            current: saved.latest(),
             references: &[],
         },
         &context.view(),
@@ -138,7 +135,7 @@ async fn frozen_restart_receipt_later_edit_and_rejection_preserve_their_actual_r
         panic!("second ready")
     };
     assert_eq!(
-        next.vector
+        next.vector()
             .component(clacks_sync::clock::ClockActor::Client(id(9))),
         2
     );
@@ -199,20 +196,21 @@ async fn frozen_restart_receipt_later_edit_and_rejection_preserve_their_actual_r
     let alternative = clacks_sync::record::AcceptedRecord::new(
         key,
         state("restored branch"),
-        clacks_sync::record::VersionStamp {
-            accepted_at: clacks_sync::record::Position {
+        clacks_sync::record::VersionStamp::new(
+            clacks_sync::record::Position {
                 timeline: id(4),
                 revision: 1,
             },
-            baseline: baseline.id,
-            vector: clacks_sync::clock::RecordVector::from_entries([(
+            baseline.id,
+            clacks_sync::clock::RecordVector::from_entries([(
                 clacks_sync::clock::ClockActor::Server(id(4)),
                 1,
             )])?,
-        },
+        )
+        .expect("valid accepted fixture context"),
     )?;
     let update = receive(&store, &alternative).await?;
-    assert!(!update.record.retained.is_empty());
+    assert!(!update.record.retained().is_empty());
     store.close().await?;
     let reopened = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
     let Preparation::Review { input, .. } = prepared(&reopened, key).await? else {

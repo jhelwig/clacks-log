@@ -66,35 +66,77 @@ fn ordinary_projection_maps_specialization_and_omits_unsupported_fields() -> any
 #[test]
 fn station_location_equipment_reports_and_text_are_projected() -> anyhow::Result<()> {
     use clacks_model::{
-        contact::OperatorInformation,
-        equipment::EquipmentValues,
-        location::{CqZone, ItuZone, RecordedLocation},
+        location::{CqZone, ItuZone},
         position::{Locator, Position},
         scalar::{Milliwatts, UtcSecond},
     };
     let mut q = support::qso(support::id::<QsoId>(2));
-    q.own_station.location = Some(RecordedLocation {
-        position: Some(Position::GridArea(Locator::parse("FN31PR12AB34")?)),
-        dxcc: Some("291".into()),
-        primary_subdivision: Some("CT".into()),
-        secondary_subdivision: Some("Hartford".into()),
-        cq_zone: Some(CqZone::new(5)?),
-        itu_zone: Some(ItuZone::new(8)?),
+    support::edit(&mut q, |q| {
+        q.own_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                position: Some(Position::GridArea(Locator::parse("FN31PR12AB34")?)),
+                dxcc: Some("291".into()),
+                primary_subdivision: Some("CT".into()),
+                secondary_subdivision: Some("Hartford".into()),
+                cq_zone: Some(CqZone::new(5)?),
+                itu_zone: Some(ItuZone::new(8)?),
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+
+        Ok(())
     });
-    q.own_context.operator = Some(OperatorInformation {
-        callsign: None,
-        recorded_name: Some("étude".into()),
+    support::edit(&mut q, |q| {
+        q.own_context.operator = Some(
+            (clacks_model::contact::OperatorInformationFields {
+                callsign: None,
+                recorded_name: Some("étude".into()),
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+
+        Ok(())
     });
-    q.own_context.transmit_power = Some(Milliwatts::new(1001)?);
-    q.own_context.equipment = Some(EquipmentValues {
-        equipment_description: Some("rig".into()),
-        antenna_description: Some("wire".into()),
-        notes: Some("not sent".into()),
+    support::edit(&mut q, |q| {
+        q.own_context.transmit_power = Some(Milliwatts::new(1001)?);
+
+        Ok(())
     });
-    q.end = Some(UtcSecond::from_unix_seconds(86401));
-    q.sent_report = Some("-12".into());
-    q.received_report = Some("-10".into());
-    q.comment = Some("hello".into());
+    support::edit(&mut q, |q| {
+        q.own_context.equipment = Some(
+            (clacks_model::equipment::EquipmentValuesFields {
+                equipment_description: Some("rig".into()),
+                antenna_description: Some("wire".into()),
+                notes: Some("not sent".into()),
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+
+        Ok(())
+    });
+    support::edit(&mut q, |q| {
+        q.end = Some(UtcSecond::from_unix_seconds(86401));
+
+        Ok(())
+    });
+    support::edit(&mut q, |q| {
+        q.sent_report = Some("-12".into());
+
+        Ok(())
+    });
+    support::edit(&mut q, |q| {
+        q.received_report = Some("-10".into());
+
+        Ok(())
+    });
+    support::edit(&mut q, |q| {
+        q.comment = Some("hello".into());
+
+        Ok(())
+    });
     let d = Destination {
         id: DestinationId::new(),
         collection: RemoteCollection::Qrz {

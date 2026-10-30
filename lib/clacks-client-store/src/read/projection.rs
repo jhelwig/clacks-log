@@ -180,19 +180,19 @@ pub(crate) async fn load(
         }
         facts.facts.group_names = row
             .qso
-            .own_station
+            .own_station()
             .references
             .iter()
-            .chain(&row.qso.contacted_station.references)
+            .chain(&row.qso.contacted_station().references)
             .filter_map(|r| {
                 context
                     .definitions
                     .get(r.group_id)
-                    .map(|g| (g.id, g.name.clone()))
+                    .map(|g| (g.id(), g.name().to_owned()))
             })
             .collect();
         result.push(ContactProjection {
-            id: row.qso.id,
+            id: row.qso.id(),
             facts: facts.facts,
         });
     }

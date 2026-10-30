@@ -27,9 +27,9 @@ pub(super) fn default_selector(
         .map(|id| {
             records
                 .iter()
-                .filter(|r| !known_deletions.contains(&r.key.id))
+                .filter(|r| !known_deletions.contains(&r.key().id))
                 .filter_map(configuration)
-                .find(|e| e.id == id)
+                .find(|e| e.id() == id)
                 .map(equipment_label)
                 .unwrap_or_else(|| format!("Unavailable {id} — replace or choose None"))
         })
@@ -40,10 +40,10 @@ pub(super) fn default_selector(
             ui.selectable_value(selected, None, "None");
             for e in records
                 .iter()
-                .filter(|r| !known_deletions.contains(&r.key.id))
+                .filter(|r| !known_deletions.contains(&r.key().id))
                 .filter_map(configuration)
             {
-                ui.selectable_value(selected, Some(e.id), equipment_label(e));
+                ui.selectable_value(selected, Some(e.id()), equipment_label(e));
             }
         })
         .response
@@ -71,20 +71,20 @@ pub(super) fn show(
             for record in snapshot
                 .equipment
                 .iter()
-                .filter(|r| !known_deletions.contains(&r.key.id))
+                .filter(|r| !known_deletions.contains(&r.key().id))
             {
                 if let Some(equipment) = configuration(record) {
-                    ui.push_id(equipment.id, |ui| {
+                    ui.push_id(equipment.id(), |ui| {
                         ui.label(equipment_label(equipment));
                         if ui.button("Edit configuration").clicked() {
                             navigation.next =
                                 Some(Screen::EquipmentEdit(Box::new(EquipmentEditor::new(
                                     Some(record.clone()),
-                                    EquipmentForm::from_values(Some(&equipment.values)),
+                                    EquipmentForm::from_values(Some(equipment.values())),
                                 ))));
                         }
                         if ui.button("Review deletion").clicked() {
-                            preview = Some(equipment.id);
+                            preview = Some(equipment.id());
                         }
                     });
                 }
@@ -117,17 +117,17 @@ pub(super) fn show(
                     for record in snapshot
                         .equipment
                         .iter()
-                        .filter(|r| !known_deletions.contains(&r.key.id))
+                        .filter(|r| !known_deletions.contains(&r.key().id))
                     {
                         if let Some(e) = configuration(record)
                             && ui
                                 .selectable_label(
-                                    editor.id == e.id,
+                                    editor.id == e.id(),
                                     format!("Update {}", equipment_label(e)),
                                 )
                                 .clicked()
                         {
-                            editor.id = e.id;
+                            editor.id = e.id();
                             editor.expected = Some(record.clone());
                         }
                     }
@@ -137,10 +137,8 @@ pub(super) fn show(
                 frame.validation.invalidate();
             }
             let baseline = editor.expected.as_ref().and_then(configuration);
-            let edited = operating::fields::text_changed(
-                &editor.name,
-                baseline.map(|value| value.name.as_str()),
-            );
+            let edited =
+                operating::fields::text_changed(&editor.name, baseline.map(|value| value.name()));
             if operating::fields::text(
                 ui,
                 "equipment.name",
@@ -151,7 +149,7 @@ pub(super) fn show(
             ) {
                 frame.validation.edited(ui.input(|input| input.time));
             }
-            let baseline = EquipmentForm::from_values(baseline.map(|value| &value.values));
+            let baseline = EquipmentForm::from_values(baseline.map(|value| value.values()));
             if operating::fields::equipment(
                 ui,
                 "equipment",
@@ -189,7 +187,7 @@ pub(super) fn show(
             for record in &review.preview.referring_profiles {
                 if let Some(p) = profile(record) {
                     ui.label(profile_label(p));
-                    let choice = review.choices.get(&p.id).copied();
+                    let choice = review.choices.get(&p.id()).copied();
                     let label = match choice {
                         None => "Choose treatment".into(),
                         Some(None) => "Remove default".into(),
@@ -198,18 +196,18 @@ pub(super) fn show(
                             .replacement_equipment
                             .iter()
                             .filter_map(configuration)
-                            .find(|e| e.id == id)
+                            .find(|e| e.id() == id)
                             .map(equipment_label)
                             .unwrap_or_else(|| format!("Unavailable {id}")),
                     };
-                    egui::ComboBox::from_id_salt(("delete.repair", p.id))
+                    egui::ComboBox::from_id_salt(("delete.repair", p.id()))
                         .selected_text(label)
                         .show_ui(ui, |ui| {
                             if ui
                                 .selectable_label(choice == Some(None), "Remove default")
                                 .clicked()
                             {
-                                review.choices.insert(p.id, None);
+                                review.choices.insert(p.id(), None);
                             }
                             for e in review
                                 .preview
@@ -219,12 +217,12 @@ pub(super) fn show(
                             {
                                 if ui
                                     .selectable_label(
-                                        choice == Some(Some(e.id)),
+                                        choice == Some(Some(e.id())),
                                         equipment_label(e),
                                     )
                                     .clicked()
                                 {
-                                    review.choices.insert(p.id, Some(e.id));
+                                    review.choices.insert(p.id(), Some(e.id()));
                                 }
                             }
                         });
@@ -235,7 +233,7 @@ pub(super) fn show(
                 .referring_profiles
                 .iter()
                 .filter_map(profile)
-                .all(|p| review.choices.contains_key(&p.id));
+                .all(|p| review.choices.contains_key(&p.id()));
             if ui
                 .add_enabled(
                     complete,

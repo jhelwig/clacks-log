@@ -1,8 +1,8 @@
 //! Source-only imported upload and confirmation comparison baselines.
 
-use super::{identity, projection, reference, report};
+use super::{identity, reference, report};
 use clacks_model::{
-    location::{CqZone, ItuZone, RecordedLocation},
+    location::{CqZone, ItuZone},
     scalar::{RecordedCallsign, UtcSecond},
     service::evidence::{
         ImportProvenance, ImportedAssertion, ImportedBaseline, ImportedClaim, ServiceRecordId,
@@ -28,8 +28,7 @@ pub(super) async fn insert(
         )
         .await?;
     }
-    let fields =
-        projection::fields(connection, payload, "imported", &value.baseline.fields).await?;
+    let fields = serde_json::to_string(&value.baseline.fields)?;
     let account = key.account.to_string();
     let qso = value.qso.to_string();
     let service = identity::service(value.service);
@@ -40,6 +39,7 @@ pub(super) async fn insert(
     };
     let date = value.date.map(UtcSecond::unix_seconds);
     let end = value.baseline.native_end.map(UtcSecond::unix_seconds);
+    let coverage = serde_json::to_string(&value.baseline.coverage)?;
     let has_location = value.baseline.own_location.is_some();
     sqlx::query_file!(
         "sql/service/assertion_insert.sql",
@@ -55,15 +55,11 @@ pub(super) async fn insert(
         value.provenance.mapping,
         end,
         fields,
-        has_location
+        has_location,
+        coverage
     )
     .execute(&mut *connection)
     .await?;
-    for field in &value.baseline.coverage {
-        sqlx::query_file!("sql/service/coverage_insert.sql", payload, field)
-            .execute(&mut *connection)
-            .await?;
-    }
     let basis = &value.baseline.confirmation;
     let own = basis.own_call.as_ref().map(RecordedCallsign::as_str);
     let worked = basis.worked_call.as_ref().map(RecordedCallsign::as_str);
@@ -98,9 +94,10 @@ pub(super) async fn insert(
     .execute(&mut *connection)
     .await?;
     if let Some(location) = &value.baseline.own_location {
-        let position = crate::rows::contact::PositionFields::new(location.position.as_ref());
-        let cq = location.cq_zone.map(|value| i64::from(value.get()));
-        let itu = location.itu_zone.map(|value| i64::from(value.get()));
+        let position = crate::rows::contact::PositionFields::from(location.position().as_ref());
+
+        let cq = location.cq_zone().map(|value| i64::from(value.get()));
+        let itu = location.itu_zone().map(|value| i64::from(value.get()));
         sqlx::query_file!(
             "sql/service/location_insert.sql",
             payload,
@@ -109,9 +106,9 @@ pub(super) async fn insert(
             position.latitude,
             position.longitude,
             position.length,
-            location.dxcc,
-            location.primary_subdivision,
-            location.secondary_subdivision,
+            location.dxcc(),
+            location.primary_subdivision(),
+            location.secondary_subdivision(),
             cq,
             itu
         )
@@ -135,13 +132,8 @@ pub(super) async fn load(
         .fetch_one(&mut *connection)
         .await?;
     let service = identity::read_service(&row.service)?;
-    let fields = projection::load_fields(connection, payload, "imported", row.fields_map).await?;
-    let coverage = sqlx::query_file!("sql/service/coverage_select.sql", payload)
-        .fetch_all(&mut *connection)
-        .await?
-        .into_iter()
-        .map(|row| row.field)
-        .collect();
+    let fields = serde_json::from_str(&row.fields)?;
+    let coverage = serde_json::from_str(&row.coverage)?;
     let basis = sqlx::query_file!("sql/service/basis_select.sql", payload)
         .fetch_one(&mut *connection)
         .await?;
@@ -172,7 +164,7 @@ pub(super) async fn load(
     );
     let own_location = location
         .map(|row| {
-            Ok::<_, anyhow::Error>(RecordedLocation {
+            Ok::<_, anyhow::Error>(clacks_model::location::RecordedLocationFields {
                 position: report::position(crate::rows::contact::PositionFields {
                     kind: row.position_kind,
                     locator: row.locator,
@@ -214,7 +206,7 @@ pub(super) async fn load(
             native_end: row.native_end.map(UtcSecond::from_unix_seconds),
             service,
             fields,
-            own_location,
+            own_location: own_location.map(TryInto::try_into).transpose()?,
             confirmation,
             coverage,
         },

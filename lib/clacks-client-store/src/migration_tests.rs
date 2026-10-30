@@ -3,10 +3,7 @@ use crate::store::ClientStore;
 
 /// Create a version-8 workspace with station values and a profile baseline.
 async fn legacy_operating_file(file: &Path, station_change: &str) -> anyhow::Result<AccountId> {
-    use clacks_model::{
-        contact::StationSnapshot, location::RecordedLocation, profile::SavedLocationProfile,
-        scalar::RecordedCallsign,
-    };
+    use clacks_model::scalar::RecordedCallsign;
     use clacks_sync::record::{RecordId, RecordKey, RecordState, RecordValue};
     let account: AccountId = ulid::Ulid::from(1_u128).to_string().parse()?;
     let mut connection = options(file, &StoreSettings::default())
@@ -27,10 +24,10 @@ async fn legacy_operating_file(file: &Path, station_change: &str) -> anyhow::Res
     sqlx::query_file!("sql/workspace/create.sql", account_text)
         .execute(&mut connection)
         .await?;
-    let profile = SavedLocationProfile {
+    let profile = clacks_model::profile::SavedLocationProfileFields {
         id: ulid::Ulid::from(30_u128).to_string().parse()?,
         name: "Home".into(),
-        station: StationSnapshot {
+        station: clacks_model::contact::StationSnapshot {
             callsign: RecordedCallsign::new("W7HEX")?,
             location: None,
             references: Default::default(),
@@ -44,7 +41,9 @@ async fn legacy_operating_file(file: &Path, station_change: &str) -> anyhow::Res
     let payload = crate::payload::insert(
         &mut connection,
         key,
-        &RecordState::Live(RecordValue::Profile(Box::new(profile.clone()))),
+        &RecordState::Live(RecordValue::Profile(Box::new(
+            (profile.clone()).try_into()?,
+        ))),
     )
     .await?;
     let baseline_station =
@@ -53,18 +52,21 @@ async fn legacy_operating_file(file: &Path, station_change: &str) -> anyhow::Res
     match station_change {
         "call" => current_station.callsign = RecordedCallsign::new("W7HEX/P")?,
         "geography" => {
-            current_station.location = Some(RecordedLocation {
-                dxcc: Some("291".into()),
-                ..Default::default()
-            })
+            current_station.location = Some(
+                (clacks_model::location::RecordedLocationFields {
+                    dxcc: Some("291".into()),
+                    ..Default::default()
+                })
+                .try_into()?,
+            )
         }
         "reference" => {
             current_station
                 .references
-                .insert(clacks_model::reference::ReferenceAssociation {
-                    group_id: ulid::Ulid::from(50_u128).to_string().parse()?,
-                    identifier: Some("US-0001".into()),
-                });
+                .insert(clacks_model::reference::ReferenceAssociation::new(
+                    ulid::Ulid::from(50_u128).to_string().parse()?,
+                    Some("US-0001".into()),
+                )?);
         }
         _ => {}
     }
@@ -73,16 +75,20 @@ async fn legacy_operating_file(file: &Path, station_change: &str) -> anyhow::Res
     let operator_call = Some("W7ABC");
     let operator_name: Option<&str> = None;
     let power = Some(5000_i64);
-    let equipment_values = clacks_model::equipment::EquipmentValues {
+    let equipment_values = clacks_model::equipment::EquipmentValuesFields {
         equipment_description: Some("KX3".into()),
         antenna_description: Some("Vertical".into()),
         notes: None,
     };
     let equipment = Some(
-        crate::payload::contact::insert_equipment(&mut connection, account, &equipment_values)
-            .await?,
+        crate::payload::contact::insert_equipment(
+            &mut connection,
+            account,
+            &clacks_model::equipment::EquipmentValues::try_from(equipment_values.clone())?,
+        )
+        .await?,
     );
-    let saved_equipment = clacks_model::profile::EquipmentConfiguration {
+    let saved_equipment = clacks_model::profile::EquipmentConfigurationFields {
         id: profile.default_equipment.unwrap(),
         name: "Rig A".into(),
         values: equipment_values,
@@ -94,7 +100,9 @@ async fn legacy_operating_file(file: &Path, station_change: &str) -> anyhow::Res
             id: RecordId::Equipment(saved_equipment.id),
         },
         None,
-        RecordState::Live(RecordValue::Equipment(Box::new(saved_equipment))),
+        RecordState::Live(RecordValue::Equipment(Box::new(
+            (saved_equipment).try_into()?,
+        ))),
     )
     .await?;
     let current = sqlx::query_file!(
@@ -150,7 +158,14 @@ async fn old_baseline_migrates_by_station_values() -> anyhow::Result<()> {
         let current = state.current.unwrap();
         assert_eq!(current.transmit_power.unwrap().get(), 5000);
         assert_eq!(
-            current.operator.unwrap().callsign.unwrap().as_str(),
+            current
+                .operator
+                .as_ref()
+                .unwrap()
+                .callsign()
+                .as_ref()
+                .unwrap()
+                .as_str(),
             "W7ABC"
         );
         store.close().await?;

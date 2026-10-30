@@ -19,9 +19,9 @@ impl EquipmentForm {
     pub fn from_values(values: Option<&EquipmentValues>) -> Self {
         match values {
             Some(values) => Self {
-                description: values.equipment_description.clone().unwrap_or_default(),
-                antenna: values.antenna_description.clone().unwrap_or_default(),
-                notes: values.notes.clone().unwrap_or_default(),
+                description: values.equipment_description().clone().unwrap_or_default(),
+                antenna: values.antenna_description().clone().unwrap_or_default(),
+                notes: values.notes().clone().unwrap_or_default(),
             },
             None => Self::default(),
         }
@@ -29,12 +29,12 @@ impl EquipmentForm {
 
     /// Normalize optional text and validate it before saving or applying equipment facts.
     pub fn build(&self) -> Result<Option<EquipmentValues>, Vec<FieldError>> {
-        let value = EquipmentValues {
+        let value = clacks_model::equipment::EquipmentValuesFields {
             equipment_description: optional(&self.description),
             antenna_description: optional(&self.antenna),
             notes: optional(&self.notes),
         };
-        value.validate().map_err(|e| vec![issue("Equipment", e)])?;
+        let value = EquipmentValues::try_from(value).map_err(|e| vec![issue("Equipment", e)])?;
         if value == EquipmentValues::default() {
             Ok(None)
         } else {

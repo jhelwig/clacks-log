@@ -316,15 +316,15 @@ pub(crate) async fn run(
                     Some(Ok(Some(completion))) => {
                         if let Some(snapshot) = completion.snapshot {
                             if let Some(previous) = settings_updates.borrow().as_ref() {
-                                if let Some(profile) = &previous.operating.selected_profile
-                                    && snapshot.operating.selected_profile.is_none()
-                                    && let Some(deleted) = snapshot.profiles.iter().find(|row| row.key.id == clacks_sync::record::RecordId::Profile(profile.id) && matches!(row.working_state(), Some(clacks_sync::record::RecordState::Deleted))) {
-                                    tracing::info!(event = "operating.deleted_profile_forgotten", account_id = %deleted.key.account, profile_id = %profile.id);
+                                if let Some(profile) = &previous.operating.selected_profile()
+                                    && snapshot.operating.selected_profile().is_none()
+                                    && let Some(deleted) = snapshot.profiles.iter().find(|row| row.key().id == clacks_sync::record::RecordId::Profile(profile.id()) && matches!(row.working_state(), Some(clacks_sync::record::RecordState::Deleted))) {
+                                    tracing::info!(event = "operating.deleted_profile_forgotten", account_id = %deleted.key().account, profile_id = %profile.id());
                                 }
-                                if let Some(equipment) = &previous.operating.selected_equipment
-                                    && snapshot.operating.selected_equipment.is_none()
-                                    && let Some(deleted) = snapshot.equipment.iter().find(|row| row.key.id == clacks_sync::record::RecordId::Equipment(equipment.id) && matches!(row.working_state(), Some(clacks_sync::record::RecordState::Deleted))) {
-                                    tracing::info!(event = "operating.deleted_equipment_forgotten", account_id = %deleted.key.account, equipment_id = %equipment.id);
+                                if let Some(equipment) = &previous.operating.selected_equipment()
+                                    && snapshot.operating.selected_equipment().is_none()
+                                    && let Some(deleted) = snapshot.equipment.iter().find(|row| row.key().id == clacks_sync::record::RecordId::Equipment(equipment.id()) && matches!(row.working_state(), Some(clacks_sync::record::RecordState::Deleted))) {
+                                    tracing::info!(event = "operating.deleted_equipment_forgotten", account_id = %deleted.key().account, equipment_id = %equipment.id());
                                 }
                             }
                             settings_updates.send_replace(Some(Arc::new(snapshot)));

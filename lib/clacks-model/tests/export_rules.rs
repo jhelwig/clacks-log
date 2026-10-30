@@ -3,7 +3,7 @@ use crate::support;
 use clacks_model::export::rules::{
     ExpressionContext, ExpressionValue, ValueExpression, compile_definition,
 };
-use clacks_model::group::DefinitionError;
+use clacks_model::group::{DefinitionError, GroupDefinition};
 use clacks_model::ids::{GroupId, QsoId};
 use clacks_model::reference::StationSide;
 use std::collections::BTreeMap;
@@ -27,23 +27,27 @@ fn definition_errors_are_not_record_errors() {
             name: "park".into(),
         },
     ] {
-        let mut d = base.clone();
+        let mut d = base.clone().into_fields();
         d.catalog.as_mut().unwrap().lookup_key = expr;
         assert!(matches!(
-            compile_definition(&d),
+            GroupDefinition::try_from(d),
             Err(DefinitionError::InvalidDefinition { .. })
         ));
     }
-    let mut d = base.clone();
+    let mut d = base.clone().into_fields();
     d.export_mappings.ordinary_interchange[0].value =
         ValueExpression::Identifiers(StationSide::Own);
-    assert!(compile_definition(&d).is_err());
+    assert!(GroupDefinition::try_from(d).is_err());
 }
 
 #[test]
 fn full_match_and_named_capture() -> TestResult {
     let defs = support::definitions();
-    let mut d = defs.get(support::id::<GroupId>(1)).unwrap().clone();
+    let mut d = defs
+        .get(support::id::<GroupId>(1))
+        .unwrap()
+        .clone()
+        .into_fields();
     let expression = ValueExpression::Capture {
         value: Box::new(ValueExpression::CurrentIdentifier),
         pattern: "(?P<park>[A-Z0-9]{1,4}-[0-9]{4,5})(?:@(?P<location>[A-Z]{2}-[A-Z0-9]{1,3}))?"
@@ -51,6 +55,7 @@ fn full_match_and_named_capture() -> TestResult {
         name: "park".into(),
     };
     d.catalog.as_mut().unwrap().lookup_key = expression.clone();
+    let d = GroupDefinition::try_from(d)?;
     let compiled = compile_definition(&d)?;
     let bindings = BTreeMap::new();
     let context = ExpressionContext {
@@ -79,13 +84,21 @@ fn bindings_are_group_scoped() -> TestResult {
     let d = defs.get(support::id::<GroupId>(1)).unwrap();
     let compiled = compile_definition(d)?;
     let mut q = support::qso(support::id::<QsoId>(1));
-    q.own_station
-        .references
-        .insert(support::reference(d.id, Some("US-1234")));
-    q.own_station.references.insert(support::reference(
-        support::id::<GroupId>(999),
-        Some("US-9999"),
-    ));
+    support::edit(&mut q, |q| {
+        q.own_station
+            .references
+            .insert(support::reference(d.id(), Some("US-1234")));
+
+        Ok(())
+    });
+    support::edit(&mut q, |q| {
+        q.own_station.references.insert(support::reference(
+            support::id::<GroupId>(999),
+            Some("US-9999"),
+        ));
+
+        Ok(())
+    });
     let bindings = BTreeMap::new();
     let context = ExpressionContext {
         qso: Some(&q),
@@ -100,48 +113,27 @@ fn bindings_are_group_scoped() -> TestResult {
 }
 
 #[test]
-fn excessive_expression_depth_is_rejected_before_recursive_clone() {
-    const CHILD_FLAG: &str = "CLACKS_TEST_DEEP_EXPRESSION";
-    // Prove that the child reached the domain assertion rather than selecting zero tests.
-    const CHILD_SUCCESS: i32 = 42;
-    if std::env::var_os(CHILD_FLAG).is_some() {
-        let mut definition = support::definitions().iter().next().unwrap().clone();
-        let mut expression = ValueExpression::Literal("value".into());
-        for _ in 0..100_000 {
-            expression = ValueExpression::Capture {
-                value: Box::new(expression),
-                pattern: "(?P<value>.*)".into(),
-                name: "value".into(),
-            };
-        }
-        definition
-            .export_mappings
-            .ordinary_interchange
-            .first_mut()
-            .unwrap()
-            .value = expression;
-        // The subprocess owns this intentionally leaked input: its recursive drop
-        // must not obscure whether compilation itself rejects the excessive depth.
-        let definition = Box::leak(Box::new(definition));
-        assert!(matches!(
-            compile_definition(definition),
-            Err(DefinitionError::InvalidDefinition { reason, .. })
-                if reason == "expression nesting exceeds 32"
-        ));
-        std::process::exit(CHILD_SUCCESS);
+fn excessive_expression_depth_is_rejected_before_acceptance() {
+    let mut fields = support::definitions()
+        .iter()
+        .next()
+        .unwrap()
+        .clone()
+        .into_fields();
+    let mut expression = ValueExpression::Literal("value".into());
+    for _ in 0..40 {
+        expression = ValueExpression::Capture {
+            value: Box::new(expression),
+            pattern: "(?P<value>.*)".into(),
+            name: "value".into(),
+        };
     }
-    let output = std::process::Command::new(std::env::current_exe().unwrap())
-        .args([
-            "--exact",
-            "export_rules::excessive_expression_depth_is_rejected_before_recursive_clone",
-        ])
-        .env(CHILD_FLAG, "1")
-        .output()
-        .unwrap();
-    assert_eq!(
-        output.status.code(),
-        Some(CHILD_SUCCESS),
-        "compiler subprocess did not acknowledge its assertion: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    fields
+        .export_mappings
+        .ordinary_interchange
+        .first_mut()
+        .unwrap()
+        .value = expression;
+    assert!(matches!(GroupDefinition::try_from(fields),
+        Err(DefinitionError::InvalidDefinition { reason, .. }) if reason == "expression nesting exceeds 32"));
 }

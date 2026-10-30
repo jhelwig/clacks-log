@@ -22,10 +22,10 @@ use std::sync::Arc;
 use time::Duration;
 
 /// Issuance details used to compare independent desktop authorizations.
-struct IssuedClient {
-    code: String,
-    response: oauth_as::token::TokenResponse,
-    actor: clacks_model::ids::ClientActorId,
+pub(crate) struct IssuedClient {
+    pub(crate) code: String,
+    pub(crate) response: oauth_as::token::TokenResponse,
+    pub(crate) actor: clacks_model::ids::ClientActorId,
 }
 
 #[tokio::test]
@@ -109,6 +109,20 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
             .await?
             .is_none()
     );
+    assert!(
+        store
+            .authorized(&recovered.response.access_token)
+            .await?
+            .is_some()
+    );
+
+    let current_token = store
+        .get_token(&recovered.response.access_token)
+        .await?
+        .context("missing recovered access token")?;
+    let mut inconsistent = current_token.as_ref().clone();
+    inconsistent.grant_established_at += std::time::Duration::from_secs(1);
+    assert!(store.put_token(inconsistent).await.is_err());
     assert!(
         store
             .authorized(&recovered.response.access_token)
@@ -404,7 +418,7 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
     Ok(())
 }
 
-async fn exchange(
+pub(super) async fn exchange(
     issuer: &oauth_as::server::AuthorizationServer<OAuthStore>,
     dpop: &DPoP,
     code: &str,
@@ -437,7 +451,7 @@ async fn exchange(
 }
 
 /// Approve through the actual account-bound issuer and read its committed writer.
-async fn approve(
+pub(crate) async fn approve(
     issuer: &oauth_as::server::AuthorizationServer<OAuthStore>,
     store: &OAuthStore,
     principal: &crate::auth::principal::Principal,

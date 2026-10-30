@@ -22,12 +22,18 @@ async fn selected_views_show_each_working_contact_once() -> anyhow::Result<()> {
     for n in [10, 11] {
         let mut qso = support::qso(support::id(n));
         if n == 10 {
-            qso.tags.insert(tag);
-            qso.tags.insert(support::id(21));
+            support::edit(&mut qso, |qso| {
+                qso.tags.insert(tag);
+                Ok(())
+            });
+            support::edit(&mut qso, |qso| {
+                qso.tags.insert(support::id(21));
+                Ok(())
+            });
         }
         save::save(
             &store,
-            support::qso_key(qso.id),
+            support::qso_key(qso.id()),
             None,
             support::contact(qso),
         )
@@ -40,7 +46,7 @@ async fn selected_views_show_each_working_contact_once() -> anyhow::Result<()> {
     };
     let page = snapshot.contact_page(&query).await?;
     assert_eq!(page.rows.len(), 1);
-    assert_eq!(page.rows.first().unwrap().working.qso.id, support::id(11));
+    assert_eq!(page.rows.first().unwrap().working.qso.id(), support::id(11));
     let all = snapshot.contact_page(&ContactPageQuery::default()).await?;
     assert_eq!(all.rows.len(), 2);
     let selected = snapshot
@@ -53,7 +59,7 @@ async fn selected_views_show_each_working_contact_once() -> anyhow::Result<()> {
         .await?;
     assert_eq!(selected.rows.len(), 1);
     assert_eq!(
-        selected.rows.first().unwrap().working.qso.id,
+        selected.rows.first().unwrap().working.qso.id(),
         support::id(10)
     );
     snapshot.close().await?;
@@ -72,11 +78,17 @@ async fn contact_pages_sort_complete_values_and_break_ties_by_id() -> anyhow::Re
     .await?;
     for (n, seconds) in [(10, 86_401), (11, 86_399), (12, 86_401)] {
         let mut qso = support::qso(support::id(n));
-        qso.start = clacks_model::scalar::UtcSecond::from_unix_seconds(seconds);
-        qso.end = None;
+        support::edit(&mut qso, |qso| {
+            qso.start = clacks_model::scalar::UtcSecond::from_unix_seconds(seconds);
+            Ok(())
+        });
+        support::edit(&mut qso, |qso| {
+            qso.end = None;
+            Ok(())
+        });
         save::save(
             &store,
-            support::qso_key(qso.id),
+            support::qso_key(qso.id()),
             None,
             support::contact(qso),
         )
@@ -93,18 +105,18 @@ async fn contact_pages_sort_complete_values_and_break_ties_by_id() -> anyhow::Re
     };
     let page = snapshot.contact_page(&query).await?;
     assert!(page.has_more);
-    assert_eq!(page.rows.first().unwrap().working.qso.id, support::id(10));
+    assert_eq!(page.rows.first().unwrap().working.qso.id(), support::id(10));
     let page = snapshot
         .contact_page(&ContactPageQuery {
             offset: 1,
             ..query.clone()
         })
         .await?;
-    assert_eq!(page.rows.first().unwrap().working.qso.id, support::id(12));
+    assert_eq!(page.rows.first().unwrap().working.qso.id(), support::id(12));
     let last = snapshot
         .contact_page(&ContactPageQuery { offset: 2, ..query })
         .await?;
-    assert_eq!(last.rows.first().unwrap().working.qso.id, support::id(11));
+    assert_eq!(last.rows.first().unwrap().working.qso.id(), support::id(11));
     assert!(!last.has_more);
     snapshot.close().await?;
     store.close().await?;
@@ -114,10 +126,7 @@ async fn contact_pages_sort_complete_values_and_break_ties_by_id() -> anyhow::Re
 #[tokio::test]
 async fn grid_sort_orders_recorded_areas_and_point_display_locators_together() -> anyhow::Result<()>
 {
-    use clacks_model::{
-        location::RecordedLocation,
-        position::{Coordinates, GridLength, Locator, Position},
-    };
+    use clacks_model::position::{Coordinates, GridLength, Locator, Position};
     let dir = tempfile::tempdir()?;
     let store = ClientStore::create(
         &dir.path().join("grid.sqlite"),
@@ -139,13 +148,20 @@ async fn grid_sort_orders_recorded_areas_and_point_display_locators_together() -
                 grid_length: GridLength::new(6)?,
             },
         };
-        qso.contacted_station.location = Some(RecordedLocation {
-            position: Some(position),
-            ..Default::default()
+        support::edit(&mut qso, |qso| {
+            qso.contacted_station.location = Some(
+                (clacks_model::location::RecordedLocationFields {
+                    position: Some(position),
+                    ..Default::default()
+                })
+                .try_into()
+                .expect("valid native fixture"),
+            );
+            Ok(())
         });
         save::save(
             &store,
-            support::qso_key(qso.id),
+            support::qso_key(qso.id()),
             None,
             support::contact(qso),
         )
@@ -163,7 +179,7 @@ async fn grid_sort_orders_recorded_areas_and_point_display_locators_together() -
     assert_eq!(
         page.rows
             .iter()
-            .map(|r| r.working.qso.id)
+            .map(|r| r.working.qso.id())
             .collect::<Vec<_>>(),
         vec![
             support::id(10),

@@ -1,5 +1,6 @@
 //! Durable completion of verified enrollment without silently readmitting old work.
 
+mod attempt;
 pub(crate) mod holds;
 
 use crate::{
@@ -9,7 +10,6 @@ use crate::{
 };
 use clacks_model::ids::ClientActorId;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 /// Existing local-state key holding one non-secret completion attempt.
 const ATTEMPT: &str = "enrollment.attempt";
@@ -29,17 +29,14 @@ pub enum EnrollmentPhase {
 
 /// Non-secret state required to resume an interrupted enrollment completion.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "attempt::AttemptFields", into = "attempt::AttemptFields")]
 pub struct EnrollmentAttempt {
     /// Opaque native-store entry reference, never usable key/token material.
-    pub credential_reference: String,
+    credential_reference: String,
     /// Selected server origin, retained independently of callback parameters.
-    pub server: String,
-    /// Managed destination once a verified account/actor has selected it.
-    pub destination: Option<PathBuf>,
-    /// Prior enrollment required for same-workspace recovery.
-    pub expected: Option<EnrollmentBinding>,
-    /// Last persisted completion boundary.
-    pub phase: EnrollmentPhase,
+    server: String,
+    /// Coherent first-enrollment or recovery progress.
+    mode: attempt::EnrollmentMode,
 }
 
 /// Verified relationship between the former and newly authorized writer.
@@ -68,10 +65,6 @@ pub async fn attempt(store: &ClientStore) -> anyhow::Result<Option<EnrollmentAtt
 
 /// Persist a completion boundary after its native-store or destination operation succeeds.
 pub async fn save_attempt(store: &ClientStore, attempt: &EnrollmentAttempt) -> anyhow::Result<()> {
-    anyhow::ensure!(
-        !attempt.credential_reference.is_empty() && !attempt.server.is_empty(),
-        "enrollment attempt is missing its native reference or server"
-    );
     let mut transaction = store.write().await?;
     local_state::set_in(&mut transaction, ATTEMPT, &serde_json::to_string(attempt)?).await?;
     transaction.commit().await?;

@@ -1,7 +1,7 @@
 //! Retained provider observations with source coverage and acquisition provenance.
 
-use super::{acquisition, identity, projection, reference, report};
-use crate::rows::service::RemoteIdentityFields;
+use super::{acquisition, identity, reference, report};
+use crate::rows::service::RemoteIdentityRow;
 use anyhow::Context;
 use clacks_model::{
     scalar::{UtcSecond, UtcTimestamp},
@@ -34,22 +34,6 @@ pub(super) async fn insert(
         RecordId::Service(ServiceRecordId::Acquisition(value.acquisition.id)),
     )
     .await?;
-    let identity = match &value.identity {
-        RemoteIdentity::Complete(external) => RemoteIdentityFields {
-            identity: "complete",
-            external_id: Some(identity::external(connection, key.account, external).await?),
-            incomplete_service: None,
-            available_map: None,
-        },
-        RemoteIdentity::Incomplete { service, available } => RemoteIdentityFields {
-            identity: "incomplete",
-            external_id: None,
-            incomplete_service: Some(identity::service(*service)),
-            available_map: Some(
-                projection::fields(connection, payload, "incomplete", available).await?,
-            ),
-        },
-    };
     let contact = report::contact(connection, payload, &value.facts.contact).await?;
     let own = report::station(connection, key.account, payload, &value.facts.own_station).await?;
     let counterpart = match &value.facts.counterpart {
@@ -65,27 +49,56 @@ pub(super) async fn insert(
     let confirmation_order = value.ordering.confirmation.map(UtcSecond::unix_seconds);
     let seconds = value.acquisition.observed_at.unix_seconds();
     let nanos = i64::from(value.acquisition.observed_at.subsecond_nanoseconds());
-    sqlx::query_file!(
-        "sql/service/observation_insert.sql",
-        payload,
-        account,
-        destination,
-        identity.identity,
-        identity.external_id,
-        identity.incomplete_service,
-        identity.available_map,
-        contact,
-        own,
-        counterpart,
-        qso_order,
-        confirmation_order,
-        acquisition,
-        query,
-        seconds,
-        nanos
-    )
-    .execute(connection)
-    .await?;
+    match &value.identity {
+        RemoteIdentity::Complete(external) => {
+            let external = identity::external(connection, key.account, external).await?;
+            sqlx::query_file!(
+                "sql/service/observation_insert.sql",
+                payload,
+                account,
+                destination,
+                "complete",
+                external,
+                None::<String>,
+                None::<String>,
+                contact,
+                own,
+                counterpart,
+                qso_order,
+                confirmation_order,
+                acquisition,
+                query,
+                seconds,
+                nanos
+            )
+            .execute(connection)
+            .await?;
+        }
+        RemoteIdentity::Incomplete { service, available } => {
+            let available = serde_json::to_string(available)?;
+            sqlx::query_file!(
+                "sql/service/observation_insert.sql",
+                payload,
+                account,
+                destination,
+                "incomplete",
+                None::<i64>,
+                identity::service(*service),
+                available,
+                contact,
+                own,
+                counterpart,
+                qso_order,
+                confirmation_order,
+                acquisition,
+                query,
+                seconds,
+                nanos
+            )
+            .execute(connection)
+            .await?;
+        }
+    }
     Ok(())
 }
 
@@ -102,29 +115,28 @@ pub(super) async fn load(
     let row = sqlx::query_file!("sql/service/observation_select.sql", payload, account)
         .fetch_one(&mut *connection)
         .await?;
-    let identity = match (RemoteIdentityFields {
+    let identity = match (RemoteIdentityRow {
         identity: row.identity.as_str(),
         external_id: row.external_id,
         incomplete_service: row.incomplete_service.as_deref(),
-        available_map: row.available_map,
+        available_fields: row.available_fields.as_deref(),
     }) {
-        RemoteIdentityFields {
+        RemoteIdentityRow {
             identity: "complete",
             external_id: Some(external),
             incomplete_service: None,
-            available_map: None,
+            available_fields: None,
         } => RemoteIdentity::Complete(
             identity::load_external(connection, key.account, external).await?,
         ),
-        RemoteIdentityFields {
+        RemoteIdentityRow {
             identity: "incomplete",
             external_id: None,
             incomplete_service: Some(service),
-            available_map: Some(available),
+            available_fields: Some(available),
         } => RemoteIdentity::Incomplete {
             service: identity::read_service(service)?,
-            available: projection::load_fields(connection, payload, "incomplete", available)
-                .await?,
+            available: serde_json::from_str(available)?,
         },
         _ => anyhow::bail!("invalid remote identity variant"),
     };

@@ -14,14 +14,87 @@ use sqlx::SqliteConnection;
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct OperatingState {
     /// Complete applied facts, absent until first setup.
-    pub current: Option<CurrentOperatingValues>,
+    pub(crate) current: Option<CurrentOperatingValues>,
     /// Exact selected station profile, absent after manual station adjustment.
-    pub selected_profile: Option<SavedLocationProfile>,
+    pub(crate) selected_profile: Option<SavedLocationProfile>,
     /// Exact selected equipment configuration, absent after manual equipment adjustment.
-    pub selected_equipment: Option<EquipmentConfiguration>,
+    pub(crate) selected_equipment: Option<EquipmentConfiguration>,
 }
 
 impl OperatingState {
+    /// Construct applied values together with the exact optional source baselines.
+    ///
+    /// A selected source must describe its copied component; manual adjustments
+    /// use no selection for the affected component.
+    pub fn new(
+        current: Option<CurrentOperatingValues>,
+        selected_profile: Option<SavedLocationProfile>,
+        selected_equipment: Option<EquipmentConfiguration>,
+    ) -> anyhow::Result<Self> {
+        let state = Self {
+            current,
+            selected_profile,
+            selected_equipment,
+        };
+        state.validate()?;
+        Ok(state)
+    }
+
+    /// Borrow applied operating values, absent before first setup.
+    pub fn current(&self) -> Option<&CurrentOperatingValues> {
+        self.current.as_ref()
+    }
+
+    /// Borrow the exact selected profile baseline, independent of later shared edits.
+    pub fn selected_profile(&self) -> Option<&SavedLocationProfile> {
+        self.selected_profile.as_ref()
+    }
+
+    /// Borrow the exact selected equipment baseline, independent of later shared edits.
+    pub fn selected_equipment(&self) -> Option<&EquipmentConfiguration> {
+        self.selected_equipment.as_ref()
+    }
+
+    /// Apply adjusted facts, detaching only sources whose copied component changed.
+    ///
+    /// Operator and power changes preserve both selections. A detached source is
+    /// never inferred again merely because later adjustments match its values.
+    pub fn adjust(&mut self, current: CurrentOperatingValues) {
+        if self
+            .selected_profile
+            .as_ref()
+            .is_some_and(|p| p.station() != &current.station)
+        {
+            self.selected_profile = None;
+        }
+        if self
+            .selected_equipment
+            .as_ref()
+            .is_some_and(|e| current.equipment.as_ref() != Some(e.values()))
+        {
+            self.selected_equipment = None;
+        }
+        self.current = Some(current);
+    }
+
+    /// Clear a source selection while retaining its copied operating facts.
+    pub fn forget_source(&mut self, source: clacks_sync::record::RecordId) {
+        if self
+            .selected_profile
+            .as_ref()
+            .is_some_and(|p| source == clacks_sync::record::RecordId::Profile(p.id()))
+        {
+            self.selected_profile = None;
+        }
+        if self
+            .selected_equipment
+            .as_ref()
+            .is_some_and(|e| source == clacks_sync::record::RecordId::Equipment(e.id()))
+        {
+            self.selected_equipment = None;
+        }
+    }
+
     /// Validate facts and ensure each selection describes its own copied component.
     fn validate(&self) -> anyhow::Result<()> {
         let Some(current) = &self.current else {
@@ -31,16 +104,16 @@ impl OperatingState {
             );
             return Ok(());
         };
-        current.validate()?;
+
         if let Some(profile) = &self.selected_profile {
             anyhow::ensure!(
-                profile.station == current.station,
+                profile.station() == &current.station,
                 "selected profile does not match copied station values"
             );
         }
         if let Some(equipment) = &self.selected_equipment {
             anyhow::ensure!(
-                current.equipment.as_ref() == Some(&equipment.values),
+                current.equipment.as_ref() == Some(equipment.values()),
                 "selected configuration does not match copied equipment values"
             );
         }
@@ -71,13 +144,12 @@ pub(crate) async fn load_in(
     else {
         return Ok(OperatingState::default());
     };
-    let mut state = OperatingState::default();
-    if let Some(id) = row.current_values {
-        state.current = Some(values::load_value(connection, account, id).await?);
-    }
-    selections::load(connection, account, &row, &mut state).await?;
-    state.validate()?;
-    Ok(state)
+    let current = match row.current_values {
+        Some(id) => Some(values::load_value(connection, account, id).await?),
+        None => None,
+    };
+    let sources = selections::load(connection, account, &row).await?;
+    OperatingState::new(current, sources.profile, sources.equipment)
 }
 
 /// Write copied facts and independent baseline references in the caller's transaction.
@@ -86,26 +158,30 @@ async fn store_in(
     account: AccountId,
     state: &OperatingState,
 ) -> anyhow::Result<()> {
-    let mut row = OperatingStateRow {
-        current_values: None,
-        loaded_profile: None,
-        profile_record: None,
-        loaded_equipment: None,
-        equipment_record: None,
+    let current_values = match &state.current {
+        Some(value) => Some(values::insert_value(connection, account, value).await?),
+        None => None,
     };
-    if let Some(value) = &state.current {
-        row.current_values = Some(values::insert_value(connection, account, value).await?);
-    }
-    selections::store(connection, account, state, &mut row).await?;
+    let sources = selections::store(connection, account, state).await?;
+    let loaded_profile = sources.profile.as_ref().map(|source| source.payload);
+    let profile_record = sources
+        .profile
+        .as_ref()
+        .map(|source| source.record.as_str());
+    let loaded_equipment = sources.equipment.as_ref().map(|source| source.payload);
+    let equipment_record = sources
+        .equipment
+        .as_ref()
+        .map(|source| source.record.as_str());
     let account = account.to_string();
     sqlx::query_file!(
         "sql/operating/state_store.sql",
         account,
-        row.current_values,
-        row.loaded_profile,
-        row.profile_record,
-        row.loaded_equipment,
-        row.equipment_record
+        current_values,
+        loaded_profile,
+        profile_record,
+        loaded_equipment,
+        equipment_record
     )
     .execute(connection)
     .await?;
@@ -127,7 +203,6 @@ pub async fn save(
     expected: &OperatingState,
     next: &OperatingState,
 ) -> anyhow::Result<OperatingSaveOutcome> {
-    next.validate()?;
     let mut transaction = store.write().await?;
     let current = load_in(&mut transaction, store.account).await?;
     let deleted =

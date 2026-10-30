@@ -92,11 +92,11 @@ pub async fn change_tags(
     let mut keys = BTreeSet::new();
     let mut targets = Vec::with_capacity(expected.len());
     for row in expected {
-        let RecordId::Qso(id) = row.key.id else {
+        let RecordId::Qso(id) = row.key().id else {
             anyhow::bail!("selected record is not a contact")
         };
         anyhow::ensure!(
-            row.key.account == store.account && keys.insert(row.key),
+            row.key().account == store.account && keys.insert(row.key()),
             "selected contacts have duplicate or invalid keys"
         );
         let Some(RecordState::Live(RecordValue::Qso(qso))) = row.working_state() else {
@@ -131,14 +131,16 @@ pub async fn change_tags(
             report.unprocessed.extend(remaining.map(|target| target.id));
             break;
         }
-        let mut next = qso.clone();
+        let mut next = qso.clone().into_fields();
         next.tags.retain(|tag| !remove.contains(tag));
         next.tags.extend(add);
         let result = save(
             store,
-            row.key,
+            row.key(),
             Some(row),
-            RecordState::Live(RecordValue::Qso(Box::new(next))),
+            RecordState::Live(RecordValue::Qso(Box::new(
+                clacks_model::contact::Qso::try_from(next)?,
+            ))),
         )
         .await;
         match result {

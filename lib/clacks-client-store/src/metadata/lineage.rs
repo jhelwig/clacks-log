@@ -32,19 +32,13 @@ pub(crate) async fn insert_coverage(
     account: AccountId,
     value: &Coverage,
 ) -> anyhow::Result<i64> {
-    value.validate()?;
     let account = account.to_string();
-    let id = sqlx::query_file!("sql/coverage/insert.sql", account)
+    value.validate()?;
+    let body = serde_json::to_string(value)?;
+    let id = sqlx::query_file!("sql/coverage/insert.sql", account, body)
         .fetch_one(&mut *connection)
         .await?
         .coverage_id;
-    for (timeline, revision) in value.entries() {
-        let timeline = timeline.to_string();
-        let revision = i64::try_from(revision)?;
-        sqlx::query_file!("sql/coverage/entry_insert.sql", id, timeline, revision)
-            .execute(&mut *connection)
-            .await?;
-    }
     Ok(id)
 }
 
@@ -61,14 +55,7 @@ pub(crate) async fn load_coverage(
         owner.account == account.to_string(),
         "coverage crosses account"
     );
-    let mut entries = Vec::new();
-    for row in sqlx::query_file!("sql/coverage/select.sql", coverage)
-        .fetch_all(connection)
-        .await?
-    {
-        entries.push((row.timeline_id.parse()?, row.revision.try_into()?));
-    }
-    Ok(Coverage::from_entries(entries)?)
+    Ok(serde_json::from_str(&owner.body)?)
 }
 
 /// Store an immutable position-dependent ancestry snapshot in its existing boundary order.

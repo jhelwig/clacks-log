@@ -1,0 +1,150 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT c.account_id, c.client_id, c.redirect_uri, c.redirect_explicit,\nc.code_challenge, c.key_thumbprint, c.issued_at, c.expires_at, c.state,\nc.receipt,\nCOALESCE((SELECT string_agg(scope, ' ' ORDER BY scope) FROM clacks.desktop_code_scopes WHERE code_digest = c.code_digest), '') AS \"scope!\",\nARRAY(SELECT resource FROM clacks.desktop_code_resources WHERE code_digest = c.code_digest ORDER BY ordinal) AS \"resources!\"\nFROM clacks.desktop_authorization_codes c WHERE code_digest = $1 FOR UPDATE OF c\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "account_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_authorization_codes",
+            "name": "account_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "client_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_authorization_codes",
+            "name": "client_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "redirect_uri",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_authorization_codes",
+            "name": "redirect_uri"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "redirect_explicit",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_authorization_codes",
+            "name": "redirect_explicit"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "code_challenge",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_authorization_codes",
+            "name": "code_challenge"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "key_thumbprint",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_authorization_codes",
+            "name": "key_thumbprint"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "issued_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_authorization_codes",
+            "name": "issued_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "expires_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_authorization_codes",
+            "name": "expires_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "state",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_authorization_codes",
+            "name": "state"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "receipt",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_authorization_codes",
+            "name": "receipt"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "scope!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 11,
+        "name": "resources!",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "bc2e0fb2bc933a6afd3bbf988a3fb4894d5ef1ae87258f274511c4ac98cf44fa"
+}

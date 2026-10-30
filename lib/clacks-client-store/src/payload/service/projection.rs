@@ -1,13 +1,11 @@
 //! Frozen submission maps and scope-qualified attempt and result facts.
 
 use super::{identity, reference};
-use crate::rows::service::ProjectionFields;
 use anyhow::Context;
 use clacks_model::{
     ids::AccountId,
     scalar::{RecordedCallsign, UtcTimestamp},
     service::{
-        adif::AdifFields,
         destination::RemoteRecordId,
         evidence::{
             ServicePayload, ServiceRecordId,
@@ -16,55 +14,12 @@ use clacks_model::{
                 SubmissionProjection, SubmissionResult,
             },
         },
-        lotw::{LotwMappingProvenance, LotwSubmission, PublicSigningIdentity},
+        lotw::{LotwMappingProvenance, LotwSubmissionFields, PublicSigningIdentity},
         qrz::QrzSubmission,
     },
 };
 use clacks_sync::record::{RecordId, RecordKey};
 use sqlx::SqliteConnection;
-
-/// Store one owned semantic field map, including an explicitly empty map.
-pub(super) async fn fields(
-    connection: &mut SqliteConnection,
-    payload: i64,
-    role: &str,
-    fields: &AdifFields,
-) -> anyhow::Result<i64> {
-    let id = sqlx::query_file!("sql/service/map_insert.sql", payload, role)
-        .fetch_one(&mut *connection)
-        .await?
-        .map_id;
-    for (field, value) in fields {
-        sqlx::query_file!("sql/service/field_insert.sql", id, field, value)
-            .execute(&mut *connection)
-            .await?;
-    }
-    Ok(id)
-}
-
-/// Restore a field map after checking its exact semantic role and payload owner.
-pub(super) async fn load_fields(
-    connection: &mut SqliteConnection,
-    payload: i64,
-    role: &str,
-    map: i64,
-) -> anyhow::Result<AdifFields> {
-    let owner = sqlx::query_file!("sql/service/map_owner.sql", map, payload)
-        .fetch_one(&mut *connection)
-        .await?;
-    anyhow::ensure!(owner.role == role, "semantic field map role mismatch");
-    let mut fields = AdifFields::new();
-    for row in sqlx::query_file!("sql/service/field_select.sql", map)
-        .fetch_all(connection)
-        .await?
-    {
-        anyhow::ensure!(
-            fields.insert(row.field, row.value).is_none(),
-            "duplicate semantic map field"
-        );
-    }
-    Ok(fields)
-}
 
 /// Encode a retained dispatch phase without inferring success.
 fn phase(value: DispatchPhase) -> &'static str {
@@ -100,49 +55,43 @@ async fn projection(
     .await?;
     let account = key.account.to_string();
     let destination = value.destination().to_string();
-    let row = match value {
-        SubmissionProjection::Qrz(value) => ProjectionFields {
-            service: "qrz",
-            mapping_release: None,
-            mapping_commit: None,
-            signing_call: None,
-            signing_dxcc: None,
-            external_id: None,
-            contact_map: fields(connection, payload, "qrz_projection", &value.fields).await?,
-            station_map: None,
-        },
-        SubmissionProjection::Lotw(value) => ProjectionFields {
-            service: "lotw",
-            mapping_release: Some(value.mapping_provenance.release.as_str()),
-            mapping_commit: Some(value.mapping_provenance.upstream_commit.as_str()),
-            signing_call: Some(value.signing_identity.callsign.as_str()),
-            signing_dxcc: Some(value.signing_identity.dxcc.as_str()),
-            external_id: Some(
-                identity::external(connection, key.account, &value.external_key()).await?,
-            ),
-            contact_map: fields(connection, payload, "lotw_contact", &value.contact_fields).await?,
-            station_map: Some(
-                fields(connection, payload, "lotw_station", &value.station_fields).await?,
-            ),
-        },
-    };
-    Ok(sqlx::query_file!(
-        "sql/service/projection_insert.sql",
-        payload,
-        account,
-        destination,
-        row.service,
-        row.mapping_release,
-        row.mapping_commit,
-        row.signing_call,
-        row.signing_dxcc,
-        row.external_id,
-        row.contact_map,
-        row.station_map
-    )
-    .fetch_one(connection)
-    .await?
-    .projection_id)
+    Ok(match value {
+        SubmissionProjection::Qrz(value) => {
+            let contact = serde_json::to_string(&value.fields)?;
+            sqlx::query_file!(
+                "sql/service/qrz_projection_insert.sql",
+                payload,
+                account,
+                destination,
+                contact
+            )
+            .fetch_one(connection)
+            .await?
+            .projection_id
+        }
+        SubmissionProjection::Lotw(value) => {
+            let external =
+                identity::external(connection, key.account, &value.external_key()).await?;
+            let contact = serde_json::to_string(value.contact_fields())?;
+            let station = serde_json::to_string(value.station_fields())?;
+            sqlx::query_file!(
+                "sql/service/lotw_projection_insert.sql",
+                payload,
+                account,
+                destination,
+                value.mapping_provenance().release,
+                value.mapping_provenance().upstream_commit,
+                value.signing_identity().callsign.as_str(),
+                value.signing_identity().dxcc,
+                external,
+                contact,
+                station
+            )
+            .fetch_one(connection)
+            .await?
+            .projection_id
+        }
+    })
 }
 
 /// Restore every historical mapping and signing-input field exactly as stored.
@@ -169,11 +118,11 @@ async fn load_projection(
                 && row.signing_call.is_none()
                 && row.signing_dxcc.is_none()
                 && row.external_id.is_none()
-                && row.station_map.is_none() =>
+                && row.station_fields.is_none() =>
         {
             SubmissionProjection::Qrz(QrzSubmission {
                 destination,
-                fields: load_fields(connection, payload, "qrz_projection", row.contact_map).await?,
+                fields: serde_json::from_str(&row.contact_fields)?,
             })
         }
         "lotw" => {
@@ -190,37 +139,35 @@ async fn load_projection(
             let RemoteRecordId::Lotw(key) = external.record else {
                 anyhow::bail!("LoTW projection has QRZ identity")
             };
-            SubmissionProjection::Lotw(Box::new(LotwSubmission {
-                destination,
-                mapping_provenance: LotwMappingProvenance {
-                    release: row
-                        .mapping_release
-                        .context("LoTW projection lacks mapping release")?,
-                    upstream_commit: row
-                        .mapping_commit
-                        .context("LoTW projection lacks mapping commit")?,
-                },
-                signing_identity: PublicSigningIdentity {
-                    callsign: RecordedCallsign::new(
-                        &row.signing_call
-                            .context("LoTW projection lacks signing call")?,
+            SubmissionProjection::Lotw(Box::new(
+                LotwSubmissionFields {
+                    destination,
+                    mapping_provenance: LotwMappingProvenance {
+                        release: row
+                            .mapping_release
+                            .context("LoTW projection lacks mapping release")?,
+                        upstream_commit: row
+                            .mapping_commit
+                            .context("LoTW projection lacks mapping commit")?,
+                    },
+                    signing_identity: PublicSigningIdentity {
+                        callsign: RecordedCallsign::new(
+                            &row.signing_call
+                                .context("LoTW projection lacks signing call")?,
+                        )?,
+                        dxcc: row
+                            .signing_dxcc
+                            .context("LoTW projection lacks signing entity")?,
+                    },
+                    key,
+                    contact_fields: serde_json::from_str(&row.contact_fields)?,
+                    station_fields: serde_json::from_str(
+                        &row.station_fields
+                            .context("LoTW projection lacks station fields")?,
                     )?,
-                    dxcc: row
-                        .signing_dxcc
-                        .context("LoTW projection lacks signing entity")?,
-                },
-                key,
-                contact_fields: load_fields(connection, payload, "lotw_contact", row.contact_map)
-                    .await?,
-                station_fields: load_fields(
-                    connection,
-                    payload,
-                    "lotw_station",
-                    row.station_map
-                        .context("LoTW projection lacks station map")?,
-                )
-                .await?,
-            }))
+                }
+                .try_into()?,
+            ))
         }
         _ => anyhow::bail!("invalid submission projection variant"),
     })

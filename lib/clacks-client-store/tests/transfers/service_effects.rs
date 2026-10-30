@@ -93,7 +93,8 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
             association: Some(support::id(503)),
         }),
     );
-    let RecordState::Live(RecordValue::Service(service)) = &mut disposition.state else {
+    let mut state = disposition.state().clone();
+    let RecordState::Live(RecordValue::Service(service)) = &mut state else {
         panic!("service")
     };
     service.support.required = vec![
@@ -101,10 +102,15 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
         SupportRequirement::CoveredEffect(VersionReference::from(&qso)),
         SupportRequirement::CoveredEffect(VersionReference::from(&association)),
     ];
+    disposition = clacks_sync::record::AcceptedRecord::new(
+        disposition.key(),
+        state,
+        disposition.stamp.clone(),
+    )?;
     let source = InstalledCheckpoint {
         account: support::id(1),
         baseline: baseline.id,
-        coverage: Coverage::from(disposition.stamp.accepted_at),
+        coverage: Coverage::from(disposition.stamp.accepted_at()),
     };
     let manifest = WindowManifest::new(
         source.account,
@@ -113,7 +119,7 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
         [&qso, &observation, &association, &disposition]
             .into_iter()
             .map(|value| RecordRequirement {
-                key: value.key,
+                key: value.key(),
                 stamp: value.stamp.clone(),
                 deleted: false,
             })
@@ -140,7 +146,7 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
         .accepted
         .is_empty()
     );
-    assert!(save::load(&store, association.key).await?.is_none());
+    assert!(save::load(&store, association.key()).await?.is_none());
     store.close().await?;
     let store = ClientStore::open(&file, support::id(1), StoreSettings::default()).await?;
     assert_eq!(
@@ -166,7 +172,7 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
         }),
     );
     let next_source = InstalledCheckpoint {
-        coverage: Coverage::from(competing.stamp.accepted_at),
+        coverage: Coverage::from(competing.stamp.accepted_at()),
         ..source.clone()
     };
     let incremental = WindowMode::Incremental {
@@ -177,7 +183,7 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
         next_source.clone(),
         incremental.clone(),
         vec![RecordRequirement {
-            key: competing.key,
+            key: competing.key(),
             stamp: competing.stamp.clone(),
             deleted: false,
         }],
@@ -196,7 +202,7 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
         .await
         .is_err()
     );
-    assert!(save::load(&store, competing.key).await?.is_none());
+    assert!(save::load(&store, competing.key()).await?.is_none());
     assert_eq!(
         transfer::progress(&store, &next_source, &incremental)
             .await?
@@ -204,8 +210,11 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
         0
     );
     assert_eq!(
-        save::load(&store, association.key).await?.unwrap().latest,
-        clacks_sync::record::Observation::Accepted(association)
+        save::load(&store, association.key())
+            .await?
+            .unwrap()
+            .latest(),
+        &clacks_sync::record::Observation::Accepted(association)
     );
     store.close().await?;
     Ok(())

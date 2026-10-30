@@ -23,6 +23,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Synchronization behavior](docs/synchronization.md) and [metadata model](docs/synchronization-model.md)
 - [Accounts and enrollment](docs/accounts.md)
 - [Desktop enrollment schema and workflow proposal](docs/client-enrollment-proposal.md)
+- [Credential storage and key rotation](docs/credential-protection-proposal.md)
 - [External services](docs/integrations.md), [service evidence and associations](docs/service-evidence.md), [LoTW workflow](docs/lotw.md) and [certificate/signing specification](docs/lotw-signing.md)
 - [Backup and recovery](docs/backup-recovery.md)
 - [Production observability](docs/observability.md)

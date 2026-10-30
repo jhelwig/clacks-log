@@ -27,7 +27,7 @@ pub async fn save(
         id: RecordId::Tag(next.id),
     };
     anyhow::ensure!(
-        expected.is_none_or(|record| record.key == key),
+        expected.is_none_or(|record| record.key() == key),
         "logbook editor basis identifies a different record"
     );
 
