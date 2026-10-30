@@ -1,1 +1,1 @@
-SELECT role FROM service_field_map WHERE map_id = ? AND payload_id = ?
+SELECT role, body FROM service_field_map WHERE map_id = ? AND payload_id = ?

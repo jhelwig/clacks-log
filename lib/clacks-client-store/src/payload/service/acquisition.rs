@@ -1,6 +1,6 @@
 //! Query coverage and recoverable destination download coordination.
 
-use super::reference;
+use super::{documents::FieldSetDocument, reference};
 use clacks_model::{
     ids::AccountId,
     scalar::{RecordedCallsign, UtcSecond, UtcTimestamp},
@@ -37,6 +37,7 @@ pub(super) async fn query(
     };
     let call = value.own_call.as_ref().map(RecordedCallsign::as_str);
     let since = value.since.map(UtcSecond::unix_seconds);
+    let selected_fields = FieldSetDocument::encode(&value.selected_fields)?;
     let id = sqlx::query_file!(
         "sql/service/query_insert.sql",
         payload,
@@ -44,16 +45,12 @@ pub(super) async fn query(
         destination,
         stream,
         call,
-        since
+        since,
+        selected_fields
     )
     .fetch_one(&mut *connection)
     .await?
     .query_id;
-    for field in &value.selected_fields {
-        sqlx::query_file!("sql/service/query_field_insert.sql", id, field)
-            .execute(&mut *connection)
-            .await?;
-    }
     Ok(id)
 }
 
@@ -68,12 +65,7 @@ pub(super) async fn load_query(
     let row = sqlx::query_file!("sql/service/query_select.sql", query, payload, account)
         .fetch_one(&mut *connection)
         .await?;
-    let fields = sqlx::query_file!("sql/service/query_field_select.sql", query)
-        .fetch_all(connection)
-        .await?
-        .into_iter()
-        .map(|row| row.field)
-        .collect();
+    let fields = FieldSetDocument::decode(&row.selected_fields)?;
     Ok(QueryIdentity {
         destination: row.destination_id.parse()?,
         stream: match row.stream.as_str() {

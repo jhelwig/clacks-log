@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO external_key (account, destination_id, canonical_key) VALUES (?, ?, ?) ON CONFLICT DO NOTHING\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "364adca0130f25a1a691202bb1323e21e7f9ef5a5ae5bb160b56011f28849298"
+}

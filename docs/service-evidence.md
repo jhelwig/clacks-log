@@ -854,3 +854,9 @@ without consulting newer normalization catalogs. Certificate eligibility,
 signature definitions and supported protocol text remain signing-time checks.
 Minute-covered observations carry a checked aligned minute covering sixty seconds;
 ordinary contact timestamps retain whole-second resolution.
+
+Frozen submission maps, requested/reported field sets and exact provider keys
+are whole storage values. Their payload ownership, destination, evidence links
+and retention relationships remain relational; provider facts used by queries
+remain individually addressable. Storage decoding never reruns current provider
+normalization or changes evidence identity.

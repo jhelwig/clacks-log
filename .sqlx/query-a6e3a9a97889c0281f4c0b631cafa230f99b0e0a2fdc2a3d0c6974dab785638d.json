@@ -1,38 +1,38 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT field, value FROM service_field WHERE map_id = ? ORDER BY field\n",
+  "query": "SELECT role, body FROM service_field_map WHERE map_id = ? AND payload_id = ?\n",
   "describe": {
     "columns": [
       {
-        "name": "field",
+        "name": "role",
         "ordinal": 0,
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "service_field",
-            "name": "field"
+            "table": "service_field_map",
+            "name": "role"
           }
         }
       },
       {
-        "name": "value",
+        "name": "body",
         "ordinal": 1,
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "service_field",
-            "name": "value"
+            "table": "service_field_map",
+            "name": "body"
           }
         }
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 2
     },
     "nullable": [
       false,
       false
     ]
   },
-  "hash": "4738012d5be3e2dccf296df9abd4cee63cac0dac0b9d28ba22f2634f4cbcca8b"
+  "hash": "a6e3a9a97889c0281f4c0b631cafa230f99b0e0a2fdc2a3d0c6974dab785638d"
 }

@@ -2,6 +2,7 @@
 
 mod acquisition;
 mod assertion;
+mod documents;
 mod identity;
 mod observation;
 mod projection;

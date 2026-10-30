@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO service_query (payload_id, account, destination_id, stream, own_call, since) VALUES (?, ?, ?, ?, ?, ?) RETURNING query_id AS \"query_id!: i64\"\n",
+  "query": "INSERT INTO service_query (payload_id, account, destination_id, stream, own_call, since, selected_fields) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING query_id AS \"query_id!: i64\"\n",
   "describe": {
     "columns": [
       {
@@ -16,11 +16,11 @@
       }
     ],
     "parameters": {
-      "Right": 6
+      "Right": 7
     },
     "nullable": [
       null
     ]
   },
-  "hash": "405b8e1337af1b3efc3975d667fc017b6b0173a254920ce07075ecc6525cc3a9"
+  "hash": "988dddbd46f7124061dee3042469507496bb4f0bca5aa9ed9372a724547ffcbc"
 }

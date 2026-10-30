@@ -1,1 +1,1 @@
-INSERT INTO service_field_map (payload_id, role) VALUES (?, ?) RETURNING map_id AS "map_id!: i64"
+INSERT INTO service_field_map (payload_id, role, body) VALUES (?, ?, ?) RETURNING map_id AS "map_id!: i64"

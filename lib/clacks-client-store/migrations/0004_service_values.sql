@@ -47,22 +47,11 @@ CREATE TABLE external_key (
     account TEXT NOT NULL,
     destination_kind TEXT NOT NULL DEFAULT 'destination' CHECK (destination_kind = 'destination'),
     destination_id TEXT NOT NULL,
-    service TEXT NOT NULL CHECK (service IN ('lotw', 'qrz')),
-    qrz_id TEXT,
-    own_call TEXT,
-    worked_call TEXT,
-    start INTEGER,
-    band TEXT,
-    receive_band TEXT,
-    mode TEXT,
+    canonical_key TEXT NOT NULL,
     UNIQUE (external_id, account),
-    FOREIGN KEY (account, destination_kind, destination_id) REFERENCES record_identity(account, kind, record_id),
-    CHECK ((service = 'qrz' AND qrz_id IS NOT NULL AND own_call IS NULL AND worked_call IS NULL AND start IS NULL AND band IS NULL AND receive_band IS NULL AND mode IS NULL)
-        OR (service = 'lotw' AND qrz_id IS NULL AND own_call IS NOT NULL AND worked_call IS NOT NULL AND start IS NOT NULL AND band IS NOT NULL AND receive_band IS NOT NULL AND mode IS NOT NULL)),
-    CHECK (qrz_id IS NULL OR (length(qrz_id) > 0 AND qrz_id NOT GLOB '*[^0-9]*' AND (qrz_id = '0' OR substr(qrz_id, 1, 1) != '0')))
+    UNIQUE (account, destination_id, canonical_key),
+    FOREIGN KEY (account, destination_kind, destination_id) REFERENCES record_identity(account, kind, record_id)
 ) STRICT;
-CREATE UNIQUE INDEX external_qrz ON external_key(account, destination_id, qrz_id) WHERE service = 'qrz';
-CREATE UNIQUE INDEX external_lotw ON external_key(account, destination_id, own_call, worked_call, start, band, receive_band, mode) WHERE service = 'lotw';
 
 CREATE TABLE service_support (
     payload_id INTEGER PRIMARY KEY,
@@ -140,13 +129,9 @@ CREATE TABLE service_query (
     stream TEXT NOT NULL CHECK (stream IN ('receipt', 'confirmation', 'qrz')),
     own_call TEXT,
     since INTEGER,
+    selected_fields TEXT NOT NULL,
     UNIQUE (query_id, payload_id),
     FOREIGN KEY (account, destination_kind, destination_id) REFERENCES record_identity(account, kind, record_id)
-) STRICT;
-CREATE TABLE query_field (
-    query_id INTEGER NOT NULL REFERENCES service_query(query_id) ON DELETE CASCADE,
-    field TEXT NOT NULL,
-    PRIMARY KEY (query_id, field)
 ) STRICT;
 CREATE TABLE service_download (
     payload_id INTEGER PRIMARY KEY,
@@ -199,15 +184,10 @@ CREATE TABLE acquisition_input (
 CREATE TABLE service_field_map (
     map_id INTEGER PRIMARY KEY,
     payload_id INTEGER NOT NULL REFERENCES service_support(payload_id) ON DELETE CASCADE,
-    role TEXT NOT NULL CHECK (role IN ('lotw_contact', 'lotw_station', 'qrz_projection', 'imported', 'incomplete')),
+    role TEXT NOT NULL,
+    body TEXT NOT NULL,
     UNIQUE (map_id, payload_id),
     UNIQUE (payload_id, role)
-) STRICT;
-CREATE TABLE service_field (
-    map_id INTEGER NOT NULL REFERENCES service_field_map(map_id) ON DELETE CASCADE,
-    field TEXT NOT NULL,
-    value TEXT NOT NULL,
-    PRIMARY KEY (map_id, field)
 ) STRICT;
 CREATE TABLE submission_projection (
     projection_id INTEGER PRIMARY KEY,
@@ -441,14 +421,10 @@ CREATE TABLE service_assertion (
     mapping TEXT NOT NULL,
     native_end INTEGER,
     fields_map INTEGER NOT NULL,
+    coverage TEXT NOT NULL,
     has_location INTEGER NOT NULL CHECK (has_location IN (0,1)),
     FOREIGN KEY (payload_id, account, kind) REFERENCES service_support(payload_id, account, kind) ON DELETE CASCADE,
     FOREIGN KEY (account, qso_kind, qso_id) REFERENCES record_identity(account, kind, record_id),
     FOREIGN KEY (account, destination_kind, destination_id) REFERENCES record_identity(account, kind, record_id),
     FOREIGN KEY (fields_map, payload_id) REFERENCES service_field_map(map_id, payload_id)
-) STRICT;
-CREATE TABLE assertion_coverage (
-    payload_id INTEGER NOT NULL REFERENCES service_assertion(payload_id) ON DELETE CASCADE,
-    field TEXT NOT NULL,
-    PRIMARY KEY (payload_id, field)
 ) STRICT;

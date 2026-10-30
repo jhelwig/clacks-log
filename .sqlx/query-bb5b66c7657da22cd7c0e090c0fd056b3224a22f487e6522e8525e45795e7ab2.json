@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT destination_id, stream, own_call, since FROM service_query WHERE query_id = ? AND payload_id = ? AND account = ?\n",
+  "query": "SELECT destination_id, stream, own_call, since, selected_fields FROM service_query WHERE query_id = ? AND payload_id = ? AND account = ?\n",
   "describe": {
     "columns": [
       {
@@ -46,6 +46,17 @@
             "name": "since"
           }
         }
+      },
+      {
+        "name": "selected_fields",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_query",
+            "name": "selected_fields"
+          }
+        }
       }
     ],
     "parameters": {
@@ -55,8 +66,9 @@
       false,
       false,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "4214065a082539980c41c7b8ecf4065c022ccfb8d8bd6af72571e3c3c267266f"
+  "hash": "bb5b66c7657da22cd7c0e090c0fd056b3224a22f487e6522e8525e45795e7ab2"
 }

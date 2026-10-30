@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT external_id AS \"external_id!: i64\" FROM external_key WHERE account = ? AND destination_id = ? AND service = ? AND qrz_id IS ? AND own_call IS ? AND worked_call IS ? AND start IS ? AND band IS ? AND receive_band IS ? AND mode IS ?\n",
+  "query": "SELECT external_id AS \"external_id!: i64\" FROM external_key WHERE account = ? AND destination_id = ? AND canonical_key = ?\n",
   "describe": {
     "columns": [
       {
@@ -16,11 +16,11 @@
       }
     ],
     "parameters": {
-      "Right": 10
+      "Right": 3
     },
     "nullable": [
       false
     ]
   },
-  "hash": "2513904d7b591e74ccf240bf08590916793926ac8cda144848f27df1c500d02f"
+  "hash": "6104fda1080b5aa1205e8642ed9a620fd0e94792e0e070abb817a61afcf09c2d"
 }

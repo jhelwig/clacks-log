@@ -1,1 +1,0 @@
-INSERT INTO submission_projection (payload_id, account, destination_id, service, mapping_release, mapping_commit, signing_call, signing_dxcc, external_id, contact_map, station_map) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING projection_id AS "projection_id!: i64"

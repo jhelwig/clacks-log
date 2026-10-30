@@ -324,20 +324,23 @@ historical public descriptors.
 | `service_acquisition`, `acquisition_input` | Query, phase including failure text, start/end timestamps, complete flag, unordered retained observation IDs. |
 | `service_support`, `support_requirement` | `P`, ordered ExactFact/CoveredEffect version references, optional operation ID, original acquisition stamp and frozen destination copy. |
 
-Use dedicated relational children for query selected-field sets, field maps,
-confirmation bases, mode reports, contact reports and station reports. A field
-map is `(owner, scope, field_name, value)` with unique keys; it models the native
-map, not a generic replacement for typed QSO columns. Reported fields store
+Store frozen field maps and requested/reported field sets as complete versioned
+JSON documents on their owning rows. Keep confirmation bases, mode reports,
+contact reports and station reports relational for effective-fact queries.
+Reported fields store
 `NotReported`/`Clear`/`Value` explicitly with typed nullable values; a null value
 alone cannot encode all three. Reference-set reporting also distinguishes an
 explicit empty set from unreported/clear. Station reports distinguish own,
 counterpart and absent counterpart. Contact start retains second/minute kind.
 Provider receipt and confirmation timestamps remain separate ordering scopes.
 
-`external_key` has account/destination/service qualification and either QRZ's
-decimal-text provider record ID or LoTW's exact own call, worked call, start, primary band,
-receive band and concrete mode. Uniqueness is service-specific with partial
-indexes. Matching windows are not keys. `current_external_binding` uniquely maps
+`external_key` has account/destination qualification and one canonical compact
+JSON array key, with binary equality and unique `(account, destination_id,
+canonical_key)`. QRZ keys contain the service label and decimal-text record ID.
+LoTW keys contain the service label, own call, worked call, integer start,
+primary band, receive band and concrete mode, in that order. Keep exact native
+values without re-normalizing them against a newer catalog.
+Matching windows are not keys. `current_external_binding` uniquely maps
 that external key to the current accepted association envelope and QSO, retaining
 supersession/deletion state. It is a maintained relational index over accepted
 association state, updated atomically; pending conflicting bindings do not take

@@ -1,7 +1,7 @@
 //! Frozen submission maps and scope-qualified attempt and result facts.
 
+use super::documents::FieldMapDocument;
 use super::{identity, reference};
-use crate::rows::service::ProjectionFields;
 use anyhow::Context;
 use clacks_model::{
     ids::AccountId,
@@ -30,15 +30,11 @@ pub(super) async fn fields(
     role: &str,
     fields: &AdifFields,
 ) -> anyhow::Result<i64> {
-    let id = sqlx::query_file!("sql/service/map_insert.sql", payload, role)
+    let body = FieldMapDocument::encode(fields)?;
+    let id = sqlx::query_file!("sql/service/map_insert.sql", payload, role, body)
         .fetch_one(&mut *connection)
         .await?
         .map_id;
-    for (field, value) in fields {
-        sqlx::query_file!("sql/service/field_insert.sql", id, field, value)
-            .execute(&mut *connection)
-            .await?;
-    }
     Ok(id)
 }
 
@@ -53,17 +49,7 @@ pub(super) async fn load_fields(
         .fetch_one(&mut *connection)
         .await?;
     anyhow::ensure!(owner.role == role, "semantic field map role mismatch");
-    let mut fields = AdifFields::new();
-    for row in sqlx::query_file!("sql/service/field_select.sql", map)
-        .fetch_all(connection)
-        .await?
-    {
-        anyhow::ensure!(
-            fields.insert(row.field, row.value).is_none(),
-            "duplicate semantic map field"
-        );
-    }
-    Ok(fields)
+    FieldMapDocument::decode(&owner.body)
 }
 
 /// Encode a retained dispatch phase without inferring success.
@@ -100,50 +86,45 @@ async fn projection(
     .await?;
     let account = key.account.to_string();
     let destination = value.destination().to_string();
-    let row = match value {
-        SubmissionProjection::Qrz(value) => ProjectionFields {
-            service: "qrz",
-            mapping_release: None,
-            mapping_commit: None,
-            signing_call: None,
-            signing_dxcc: None,
-            external_id: None,
-            contact_map: fields(connection, payload, "qrz_projection", &value.fields).await?,
-            station_map: None,
-        },
-        SubmissionProjection::Lotw(value) => ProjectionFields {
-            service: "lotw",
-            mapping_release: Some(value.mapping_provenance().release.as_str()),
-            mapping_commit: Some(value.mapping_provenance().upstream_commit.as_str()),
-            signing_call: Some(value.signing_identity().callsign.as_str()),
-            signing_dxcc: Some(value.signing_identity().dxcc.as_str()),
-            external_id: Some(
-                identity::external(connection, key.account, &value.external_key()).await?,
-            ),
-            contact_map: fields(connection, payload, "lotw_contact", value.contact_fields())
-                .await?,
-            station_map: Some(
-                fields(connection, payload, "lotw_station", value.station_fields()).await?,
-            ),
-        },
-    };
-    Ok(sqlx::query_file!(
-        "sql/service/projection_insert.sql",
-        payload,
-        account,
-        destination,
-        row.service,
-        row.mapping_release,
-        row.mapping_commit,
-        row.signing_call,
-        row.signing_dxcc,
-        row.external_id,
-        row.contact_map,
-        row.station_map
-    )
-    .fetch_one(connection)
-    .await?
-    .projection_id)
+    Ok(match value {
+        SubmissionProjection::Qrz(value) => {
+            let contact = fields(connection, payload, "qrz_projection", &value.fields).await?;
+            sqlx::query_file!(
+                "sql/service/qrz_projection_insert.sql",
+                payload,
+                account,
+                destination,
+                contact
+            )
+            .fetch_one(connection)
+            .await?
+            .projection_id
+        }
+        SubmissionProjection::Lotw(value) => {
+            let external =
+                identity::external(connection, key.account, &value.external_key()).await?;
+            let contact =
+                fields(connection, payload, "lotw_contact", value.contact_fields()).await?;
+            let station =
+                fields(connection, payload, "lotw_station", value.station_fields()).await?;
+            sqlx::query_file!(
+                "sql/service/lotw_projection_insert.sql",
+                payload,
+                account,
+                destination,
+                value.mapping_provenance().release,
+                value.mapping_provenance().upstream_commit,
+                value.signing_identity().callsign.as_str(),
+                value.signing_identity().dxcc,
+                external,
+                contact,
+                station
+            )
+            .fetch_one(connection)
+            .await?
+            .projection_id
+        }
+    })
 }
 
 /// Restore every historical mapping and signing-input field exactly as stored.

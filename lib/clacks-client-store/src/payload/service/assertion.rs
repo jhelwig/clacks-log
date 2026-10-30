@@ -40,6 +40,7 @@ pub(super) async fn insert(
     };
     let date = value.date.map(UtcSecond::unix_seconds);
     let end = value.baseline.native_end.map(UtcSecond::unix_seconds);
+    let coverage = super::documents::FieldSetDocument::encode(&value.baseline.coverage)?;
     let has_location = value.baseline.own_location.is_some();
     sqlx::query_file!(
         "sql/service/assertion_insert.sql",
@@ -55,15 +56,11 @@ pub(super) async fn insert(
         value.provenance.mapping,
         end,
         fields,
-        has_location
+        has_location,
+        coverage
     )
     .execute(&mut *connection)
     .await?;
-    for field in &value.baseline.coverage {
-        sqlx::query_file!("sql/service/coverage_insert.sql", payload, field)
-            .execute(&mut *connection)
-            .await?;
-    }
     let basis = &value.baseline.confirmation;
     let own = basis.own_call.as_ref().map(RecordedCallsign::as_str);
     let worked = basis.worked_call.as_ref().map(RecordedCallsign::as_str);
@@ -136,12 +133,7 @@ pub(super) async fn load(
         .await?;
     let service = identity::read_service(&row.service)?;
     let fields = projection::load_fields(connection, payload, "imported", row.fields_map).await?;
-    let coverage = sqlx::query_file!("sql/service/coverage_select.sql", payload)
-        .fetch_all(&mut *connection)
-        .await?
-        .into_iter()
-        .map(|row| row.field)
-        .collect();
+    let coverage = super::documents::FieldSetDocument::decode(&row.coverage)?;
     let basis = sqlx::query_file!("sql/service/basis_select.sql", payload)
         .fetch_one(&mut *connection)
         .await?;

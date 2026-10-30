@@ -1,15 +1,12 @@
 //! Credential-free destination snapshots and exact provider record keys.
 
-use crate::rows::service::{CollectionFields, DestinationRow, ExternalKeyFields};
-use anyhow::Context;
+mod key;
+
+use crate::rows::service::{CollectionFields, DestinationRow};
 use clacks_model::{
     ids::AccountId,
-    scalar::{RecordedCallsign, UtcSecond},
     service::{
-        destination::{
-            Destination, ExternalRecordKey, LotwRecordKey, RemoteCollection, RemoteRecordId,
-            Service,
-        },
+        destination::{Destination, ExternalRecordKey, RemoteCollection, Service},
         evidence::ServiceRecordId,
     },
 };
@@ -140,59 +137,16 @@ pub(super) async fn external(
     .await?;
     let account = account.to_string();
     let destination = value.destination.to_string();
-    let fields = match &value.record {
-        RemoteRecordId::Qrz(id) => ExternalKeyFields {
-            service: "qrz",
-            qrz_id: Some(id.as_str()),
-            own_call: None,
-            worked_call: None,
-            start: None,
-            band: None,
-            receive_band: None,
-            mode: None,
-        },
-        RemoteRecordId::Lotw(key) => ExternalKeyFields {
-            service: "lotw",
-            qrz_id: None,
-            own_call: Some(key.own_call.as_str()),
-            worked_call: Some(key.worked_call.as_str()),
-            start: Some(key.start.unix_seconds()),
-            band: Some(key.band.as_str()),
-            receive_band: Some(key.receive_band.as_str()),
-            mode: Some(key.mode.as_str()),
-        },
-    };
-    sqlx::query_file!(
-        "sql/external/insert.sql",
-        account,
-        destination,
-        fields.service,
-        fields.qrz_id,
-        fields.own_call,
-        fields.worked_call,
-        fields.start,
-        fields.band,
-        fields.receive_band,
-        fields.mode
+    let canonical = key::encode(&value.record)?;
+    sqlx::query_file!("sql/external/insert.sql", account, destination, canonical)
+        .execute(&mut *connection)
+        .await?;
+    Ok(
+        sqlx::query_file!("sql/external/find.sql", account, destination, canonical)
+            .fetch_one(connection)
+            .await?
+            .external_id,
     )
-    .execute(&mut *connection)
-    .await?;
-    Ok(sqlx::query_file!(
-        "sql/external/find.sql",
-        account,
-        destination,
-        fields.service,
-        fields.qrz_id,
-        fields.own_call,
-        fields.worked_call,
-        fields.start,
-        fields.band,
-        fields.receive_band,
-        fields.mode
-    )
-    .fetch_one(connection)
-    .await?
-    .external_id)
 }
 
 /// Restore an exact key without applying fuzzy matching or converting QRZ digits to integers.
@@ -205,29 +159,7 @@ pub(super) async fn load_external(
     let row = sqlx::query_file!("sql/external/select.sql", external, account)
         .fetch_one(connection)
         .await?;
-    let record = match row.service.as_str() {
-        "qrz"
-            if row.own_call.is_none()
-                && row.worked_call.is_none()
-                && row.start.is_none()
-                && row.band.is_none()
-                && row.receive_band.is_none()
-                && row.mode.is_none() =>
-        {
-            RemoteRecordId::Qrz(row.qrz_id.context("QRZ key lacks record ID")?.parse()?)
-        }
-        "lotw" if row.qrz_id.is_none() => RemoteRecordId::Lotw(LotwRecordKey {
-            own_call: RecordedCallsign::new(&row.own_call.context("LoTW key lacks own callsign")?)?,
-            worked_call: RecordedCallsign::new(
-                &row.worked_call.context("LoTW key lacks worked callsign")?,
-            )?,
-            start: UtcSecond::from_unix_seconds(row.start.context("LoTW key lacks start")?),
-            band: row.band.context("LoTW key lacks band")?,
-            receive_band: row.receive_band.context("LoTW key lacks receive band")?,
-            mode: row.mode.context("LoTW key lacks mode")?,
-        }),
-        _ => anyhow::bail!("invalid external key shape"),
-    };
+    let record = key::decode(&row.canonical_key)?;
     Ok(ExternalRecordKey {
         destination: row.destination_id.parse()?,
         record,

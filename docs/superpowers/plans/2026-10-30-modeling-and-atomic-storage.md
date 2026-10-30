@@ -462,26 +462,26 @@ without splitting protocol documents or whole-value identities into row fragment
 complete `AdifFields` maps and field sets. Exact-key interning accepts the native
 `ExternalRecordKey`, using the canonical codec specified above.
 
-- [ ] Extend service persistence/recovery scenarios to save/reopen both provider
+- [x] Extend service persistence/recovery scenarios to save/reopen both provider
   keys, frozen field maps, selected/reported coverage and mixed immutable evidence.
   Verify real confident/ambiguous matching, service queries, recovered dependencies
   and at-most-one external association. Include distinct keys differing only in
   receive band or normalized mode, and QRZ decimal IDs beyond signed-64-bit range.
-- [ ] Revise client migration `0004_service_values.sql`: keep addressed evidence
+- [x] Revise client migration `0004_service_values.sql`: keep addressed evidence
   records, destination/attempt/member/association/dependency/retention edges and
   meaningful structured provider facts. Pack field maps and complete field sets;
   remove map-entry/coverage-entry tables used only to reconstruct those objects.
-- [ ] Replace exact provider-key component columns with one canonical key plus
+- [x] Replace exact provider-key component columns with one canonical key plus
   relational account/destination. Preserve uniqueness and existing external IDs
   as internal reference targets in the fresh schema; update lookup/index/binding
   queries to use that single key. Do not use a hash as the only equality proof.
-- [ ] Update projection, assertion, acquisition, observation and remote-identity
+- [x] Update projection, assertion, acquisition, observation and remote-identity
   mappers. Remove intermediate writable `ProjectionFields`, `ExternalKeyFields`
   and similar option bags; bind from existing variants or their closed encodings.
-- [ ] Keep the provider fact/report tables needed by effective facts and history
+- [x] Keep the provider fact/report tables needed by effective facts and history
   queries relational. Preserve omission/clear/negative semantics, provenance and
   timestamp ordering; do not pack the whole service record or lose graph links.
-- [ ] Update metadata and run model service, sync service, client service/recovery
+- [x] Update metadata and run model service, sync service, client service/recovery
   and history-query scenarios. Update service/client-store guides and commit.
 
 ## Task 8: Atomic vectors and coverage with relational reference roots

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT destination_id, canonical_key FROM external_key WHERE external_id = ? AND account = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "destination_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "external_key",
+            "name": "destination_id"
+          }
+        }
+      },
+      {
+        "name": "canonical_key",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "external_key",
+            "name": "canonical_key"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "5a80d92ca6fa6f13081eb3e41c078480790b3ee47eeb56002f74d9609b76839e"
+}
