@@ -89,8 +89,8 @@ a separate job engine to satisfy interruption recovery.
 
 Use the existing `clacks` schema and checked query files with committed SQLx
 offline metadata. Native IDs are canonical text IDs. Versions are positive
-PostgreSQL `BIGINT` values in the checked Clacks counter range. Secret values,
-nonces and ciphertext use `BYTEA`; public instants use `TIMESTAMPTZ`.
+PostgreSQL `BIGINT` values in the checked Clacks counter range. Complete encrypted
+values use packed `TEXT` envelopes; public instants use `TIMESTAMPTZ`.
 
 ### 4.1 Account encryption keys: retain the existing table
 
@@ -99,8 +99,7 @@ nonces and ciphertext use `BYTEA`; public instants use `TIMESTAMPTZ`.
 | Column | Meaning |
 | --- | --- |
 | `account_id`, `key_version` | Existing composite primary key, account foreign key |
-| `wrapping_key_id` | Exact deployment key needed for this wrapped key |
-| `wrapping_nonce`, `wrapped_key` | Existing authenticated envelope |
+| `wrapped_envelope` | Complete versioned envelope, including deployment wrapping-key reference, nonce and authenticated ciphertext |
 | `active` | Key used for newly encrypted values; existing partial unique index permits at most one active key per account |
 | `created_at` | Actual key creation time; rewrapping does not change it |
 
@@ -121,19 +120,19 @@ Add `service_credentials`:
 | `account_id`, `credential_id` | Composite primary key; account foreign key; stable native credential ID |
 | `purpose` | Closed application-defined purpose: `qrz.directory`, `hamqth.directory`, `qrz.logbook`, `lotw.account`, or `lotw.signing` |
 | `material_revision` | Starts at 1; advances on explicit value replacement or removal, not on re-encryption |
-| `state` | `present` or `removed` |
-| `payload_format` | Owner-defined format version for the protected value; present material requires a supported format |
-| `key_version` | Nullable reference to `(account_id, key_version)` in `account_encryption_keys` |
-| `nonce`, `ciphertext` | Nullable authenticated envelope, with the tag included in ciphertext |
+| `material` | Optional complete encrypted value, including account-key version and owner-defined payload format; absence represents removed material |
 | `created_at`, `changed_at` | Logical creation/change times; encryption maintenance changes neither |
 
-Present rows require complete material/format/key fields. Removed rows retain
-identity, purpose, revision and public change metadata but clear the protected
-fields. Public provider configuration/certificates reference the credential's
+Rust models present material and removal as distinct variants; present material
+contains one complete envelope. Do not mirror these variants or purpose enums
+with database business-rule checks. Removed rows retain identity, purpose,
+revision and public change metadata but clear `material`. Public provider
+configuration/certificates reference the credential's
 account-qualified identity from their own relational tables; they do not live
 inside its ciphertext. Removing secret material does not cascade-delete them.
 
-Create an index on `(account_id, key_version)` for migration and reference counts.
+Derive a stored key-version projection from `material` and index
+`(account_id, key_version)` for migration and reference counts.
 The account-qualified key foreign key prevents a credential from referencing
 another account's encryption-key row. Purpose is immutable for an existing ID.
 An explicit subsequent replacement may supply new material for a removed logical
@@ -159,10 +158,11 @@ encoding belongs to #27, which must work with the existing importer without
 introducing reusable private-key export. #13 does not invent those payloads or
 add a public raw-key accessor merely to populate this table.
 
-### 4.3 Existing code receipts remain in their current schema
+### 4.3 Code receipts remain with their authorization codes
 
-Keep `desktop_authorization_codes.receipt_key_version`, `receipt_nonce` and
-`receipt_ciphertext`, their account-qualified key foreign key and expiry cleanup.
+Use one optional packed `desktop_authorization_codes.receipt` value, retaining
+the account-qualified key foreign key through a generated key-version projection
+and retaining expiry cleanup.
 Do not move transient code records into `service_credentials` or change their
 oauth-as state machine. An account/key-version index covers encrypted receipt
 references. Migration covers every persisted non-null receipt, including expired
@@ -178,16 +178,67 @@ is an explicit list of schema families, not a dynamic plugin registry.
 
 ## 5. Encryption and authorization boundary
 
-Reuse raw 32-byte keys, fresh OS-random 12-byte nonces, RustCrypto's 16-byte tags
-and zeroizing plaintext/key buffers. Use standard serialization of a named AAD
-struct; do not concatenate ambiguous strings or invent a cryptographic format.
+Reuse the existing RustCrypto AES-256-GCM authenticated encryption, raw 32-byte
+keys, fresh OS-random 12-byte nonces, 16-byte tags and zeroizing plaintext/key
+buffers. The storage codec adds framing, not a new encryption construction or
+dependency. Continue serializing named additional authenticated data (AAD)
+structures unambiguously with the existing Serde facilities.
+
+### 5.1 Versioned storage codec
+
+Store each encrypted value as one of these exact `$`-delimited strings:
+
+```text
+$clacks$1$credential$<account-key-version>$<payload-format>$<nonce>$<ciphertext-and-tag>
+$clacks$1$receipt$<account-key-version>$<nonce>$<ciphertext-and-tag>
+$clacks$1$account-key$<wrapping-key-reference>$<nonce>$<ciphertext-and-tag>
+```
+
+These concrete spellings are engineering defaults. Version 1 fixes the existing
+cipher; there is no algorithm negotiation. Positive versions and payload formats
+use canonical decimal without signs or leading zeroes, within their existing
+checked integer ranges. Binary fields use base64url without padding. The
+wrapping-key reference is the same encoding of the exact nonempty UTF-8
+deployment key ID, so arbitrary IDs cannot introduce delimiters. Account-key
+versions and deployment key IDs remain separate domains. The account-key version
+being wrapped stays in its relational identity and expected AAD.
+
+The private Rust codec requires the exact variant-specific field count, supported
+version/kind, canonical encodings, a decoded 12-byte nonce and at least 16 bytes
+of ciphertext/tag. Ciphertext and tag remain one field as returned by the current
+encryption library. Reject malformed or unsupported values with contextual
+errors; do not guess, fall back to another key or default missing fields. This
+does not require a generic serialization framework, new encrypted-message
+library or new serialization dependency.
+
+Rotation and reference reporting use indexed generated stored projections from
+the sole envelope column: `split_part(..., '$', 5)` yields the account-key version
+(cast to `BIGINT`) or encoded deployment key reference. Preserve account-qualified
+key foreign keys for credentials and receipts. Select wrapped keys by comparing
+the encoded source ID, produced by the Rust codec; decode IDs in Rust for operator
+display. No independent writable key-reference copy or SQL envelope decoder is
+needed. Projection expressions are storage access paths, not a substitute for
+Rust validation of the complete envelope.
+
+### 5.2 Authenticated context
 
 Keep the existing `clacks.account-key.v1` account/version binding for wrapped
 account keys and `clacks.code-receipt.v1` receipt binding. New credential AAD
 contains format discriminator `clacks.service-credential.v1`, account ID,
 credential ID, purpose, material revision, payload format and encryption-key
 version. Re-encryption changes its key-version field and nonce, preserving all
-logical identity fields. Read with the exact stored version, never a fallback key.
+logical identity fields. Authenticate the codec version, envelope kind and key
+reference, plus the credential payload format where present, together with that
+context. Reconstruct ownership and identity from the independently expected row;
+an envelope cannot select its own account, credential or receipt binding.
+Read with the exact stored version, never a fallback key.
+
+Preserve these binding semantics and purpose spellings, rather than requiring
+byte-for-byte compatibility with the old AAD encoding. Including codec metadata
+may change AAD bytes and requires encryption with that AAD, not merely reframing
+old ciphertext. Existing development-only schemas may be revised in place under
+the [modeling and atomic-storage plan](superpowers/plans/2026-10-30-modeling-and-atomic-storage.md);
+resetting persistent development state remains a separately authorized operation.
 
 No secret-bearing value derives unredacted `Debug` or enters ordinary synchronized
 record payloads. OIDC secrets/cookie keys keep their deployment-file handling;
@@ -417,7 +468,7 @@ Parse only the key-maintenance settings needed from the normal config file;
 do not connect through the runtime database credential or require OIDC setup,
 cookie keys or a listening server. Extend the existing maintenance role with
 account-key reads/inserts/updates and encrypted-value reads/envelope updates.
-Receipt updates need only the receipt envelope columns; maintenance must not
+Receipt updates need only the packed receipt column; maintenance must not
 perform authorization-code state transitions or actor mutations. Runtime keeps
 its existing account-key permissions and gains only required credential access.
 Schema changes remain under the separate migrator role.
