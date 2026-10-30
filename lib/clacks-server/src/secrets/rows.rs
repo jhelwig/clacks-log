@@ -25,3 +25,19 @@ pub(crate) struct CredentialRow {
     /// Last explicit material change, unaffected by maintenance.
     pub changed_at: time::OffsetDateTime,
 }
+
+/// Encrypted code receipt with the immutable approval context needed for migration.
+pub(crate) struct ReceiptEnvelopeRow {
+    /// Owning account.
+    pub account_id: String,
+    /// One-way code identity, not the original code.
+    pub code_digest: Vec<u8>,
+    /// Immutable approval purpose; missing context is an error.
+    pub purpose: Option<String>,
+    /// Exact source account key.
+    pub key_version: Option<i64>,
+    /// Stored nonce; partial envelopes must not be skipped.
+    pub nonce: Option<Vec<u8>>,
+    /// Protected issued references and tag.
+    pub ciphertext: Option<Vec<u8>>,
+}

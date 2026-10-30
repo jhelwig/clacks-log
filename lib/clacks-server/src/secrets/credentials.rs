@@ -319,3 +319,63 @@ pub(crate) async fn remove_in(
         .context("credential removal did not persist")?;
     metadata(identity, &row)
 }
+
+impl std::str::FromStr for CredentialPurpose {
+    type Err = anyhow::Error;
+
+    fn from_str(value: &str) -> anyhow::Result<Self> {
+        match value {
+            "qrz.directory" => Ok(Self::QrzDirectory),
+            "hamqth.directory" => Ok(Self::HamqthDirectory),
+            "qrz.logbook" => Ok(Self::QrzLogbook),
+            "lotw.account" => Ok(Self::LotwAccount),
+            "lotw.signing" => Ok(Self::LotwSigning),
+            _ => anyhow::bail!("unknown credential purpose"),
+        }
+    }
+}
+
+/// Re-encrypt a selected credential without changing its logical material metadata.
+///
+/// Requires the owning account lock. The target must already be the active key
+/// selected by the migration transaction; this operation updates only the envelope.
+pub(crate) async fn reencrypt_in(
+    connection: &mut PgConnection,
+    wrapping: &WrappingKeys,
+    row: CredentialRow,
+    target: &keys::AccountKey,
+) -> anyhow::Result<()> {
+    let identity = CredentialIdentity {
+        account: row.account_id.parse()?,
+        credential: row.credential_id.parse()?,
+        purpose: row.purpose.parse()?,
+    };
+    anyhow::ensure!(
+        target.account == identity.account,
+        "migration target belongs to another account"
+    );
+    let stored = read_in(connection, wrapping, identity)
+        .await?
+        .context("migration credential disappeared")?;
+    let material = stored
+        .material
+        .context("migration credential has no material")?;
+    let associated = associated(
+        identity,
+        row.material_revision,
+        material.payload_format,
+        target.version,
+    )?;
+    let encrypted = super::encrypt(&target.bytes, &associated, &material.bytes)?;
+    sqlx::query_file!(
+        "sql/secrets/rotation/credential_update.sql",
+        row.account_id,
+        row.credential_id,
+        target.version,
+        encrypted.nonce.as_slice(),
+        encrypted.bytes
+    )
+    .execute(connection)
+    .await?;
+    Ok(())
+}

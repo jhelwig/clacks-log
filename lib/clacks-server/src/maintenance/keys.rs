@@ -26,3 +26,11 @@ pub fn generate(output: &Path) -> anyhow::Result<()> {
         .context("Could not publish wrapping key; existing files are never replaced")?;
     Ok(())
 }
+
+pub(crate) mod account;
+pub(crate) mod migration;
+pub(crate) mod references;
+pub(crate) mod report;
+
+/// Session-scoped exclusion shared by the two database key-maintenance commands.
+const MAINTENANCE_LOCK: &str = "clacks.key-maintenance.v1";

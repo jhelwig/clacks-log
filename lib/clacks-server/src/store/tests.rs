@@ -188,3 +188,5 @@ mod receipts;
 mod enrollment;
 
 mod credentials;
+
+mod key_rotation;

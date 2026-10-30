@@ -21,6 +21,7 @@ anyhow.workspace = true
 clacks-model.workspace = true
 sqlx = { workspace = true, features = ["postgres", "time", "tls-rustls"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
+tokio-util.workspace = true
 time.workspace = true
 ulid.workspace = true
 rand.workspace = true
@@ -51,4 +52,5 @@ opentelemetry-appender-tracing.workspace = true
 metrics-opentelemetry.workspace = true
 
 [dev-dependencies]
+metrics-util.workspace = true
 huskarl-core.workspace = true

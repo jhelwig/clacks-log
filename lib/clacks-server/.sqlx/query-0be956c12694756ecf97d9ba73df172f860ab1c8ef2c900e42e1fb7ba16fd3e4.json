@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT key_version, active FROM clacks.account_encryption_keys\nWHERE account_id = $1 ORDER BY key_version\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key_version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.account_encryption_keys",
+            "name": "key_version"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "active",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "clacks.account_encryption_keys",
+            "name": "active"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "0be956c12694756ecf97d9ba73df172f860ab1c8ef2c900e42e1fb7ba16fd3e4"
+}
