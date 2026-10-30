@@ -1,530 +1,153 @@
-# Credential Storage and Key Rotation (#13) Implementation Plan
+# Enrollment Protection and Key Rotation (#13) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans for the established native execution method. Execute task-by-task, using the checkbox steps. This plan authorizes neither implementation nor pushing; wait for the user's execution request.
+> **For agentic workers:** Use superpowers:executing-plans for the established native execution method. Execute task-by-task using the checkboxes. This plan does not authorize implementation, database resets, committing or pushing.
 
-**Goal:** Extend the existing production credential protection with account-scoped
-service-secret persistence, resumable online key rotation, and operator commands.
+**Goal:** Complete #13 through the existing enrollment path and usable operator
+key maintenance, removing service-credential code without production consumers.
 
-**Architecture:** Keep the existing account/deployment key hierarchy and native
-enrollment storage. Select encryption keys inside account-locked write
-transactions; migrate encrypted references in bounded transactions through the
-existing `clacks-admin` application. Use SQLx's maintenance-lock guard rather
-than another coordination service or persisted rotation-job framework.
+**Architecture:** Retain account/deployment keys and encrypted authorization-code
+recovery receipts. Select keys within account-locked issuer writes and migrate
+receipts in bounded transactions. Both rotations operate on values the issuer
+actually creates; later consuming workflows extend these same operations.
 
-**Tech stack:** Rust 1.99.1, SQLx 0.9.0/PostgreSQL, RustCrypto `aes-gcm` 0.11.1,
-`zeroize` 1.9.1, Tokio, existing `tokio-util` 0.7.16 cancellation, Clap, `shlex`
-2.0.1 for standard Unix-shell retry quoting, and
-the existing native keyring backends. Inherit dependencies from the workspace.
+**Tech stack:** Rust 1.99.1, SQLx 0.9/PostgreSQL, existing RustCrypto AES-256-GCM
+authenticated encryption, Serde/base64, zeroize, Tokio, Clap, shlex and selected
+native keyring backends. Inherit workspace dependencies; add none for this work.
 
-**Spec:** [Credential-protection design](../../credential-protection-proposal.md).
-Read its deployment prerequisites, capability boundaries and proposed defaults,
-plus [accounts.md](../../accounts.md), D236/D376/D380/D381 in the
-[decision register](../../decisions.md), and the
-[enrollment contract](../../client-enrollment-proposal.md).
+**Spec:** [Credential protection](../../credential-protection-proposal.md).
+Coordinate with the [modeling/atomic-storage plan](2026-10-30-modeling-and-atomic-storage.md)
+for shared codec, grants, schema and verification changes. Both specify the
+agreed target for PR #58; check current code rather than assuming completed
+checkboxes from an earlier plan establish this scope.
 
 ## Global constraints
 
-- Preserve Rust **1.99.1**, thin applications in `bin/`, libraries in `lib/`,
-  workspace-inherited metadata/dependencies and Rust-only project tooling.
-- Keep deployment wrapping keys outside PostgreSQL/images. Retain raw 32-byte
-  keys, fresh random 12-byte nonces, 16-byte authentication tags and existing
-  authenticated account-key/receipt formats. Additional authenticated data is AAD.
-- Hash-based enrollment credentials and oauth-as replay behavior remain unchanged.
-  Key rotation does not rotate refresh credentials or change client identities.
-- Fixed SQL lives in checked `.sql` files, with committed offline metadata.
-  Use release-managed server migrations and the existing role separation.
-- Use account locks for live writes. Never hold a database transaction across
-  external HTTP requests, browser interaction or native credential access.
-- Online bounded migration, one maintenance advisory lock, the schema and command
-  details below are engineering defaults from the design, not new product decisions.
-- Batch size defaults to **100**, accepts **1–100**, and does not limit account
-  size. Retain inactive account keys; add no automatic key destruction/scheduler.
-- No generic vault/job framework, new source-writer registry, custom cryptography,
-  placeholder credential pages, test-only production interfaces or failpoints.
-- No directory bundle/codec/provisioning endpoint in #13. Those belong to #17;
-  LoTW persistence encoding belongs to #27. Reuse production components later.
-- Do not introduce raw LoTW private-key export to populate storage. Protect only
-  actual secret material; public metadata stays relational and independently retained.
-- Keep module files focused; examine/split any file approaching 600 lines. No
-  `mod.rs` outside tests, facade re-exports, anonymous persistence tuples,
-  production unchecked indexing or ordinary `expect`/`unwrap` calls.
-- Use standalone rustdoc, named fields, `thiserror` for semantic domain errors
-  where needed, and `anyhow` for propagated context; no unit wrappers around errors.
-- Follow [observability.md](../../observability.md). Record committed effects,
-  preserve ordinary control flow and framework spans, and exclude secrets.
-- Preserve unrelated local research and the machine-local development environment.
-  Tests/metadata preparation use one disposable PostgreSQL database with the
-  documented migrator/runtime roles, never personal development accounts.
+- Preserve enrollment authorization, proof binding, token hashing and replay
+  containment. Encryption rotation does not change client identities or refresh
+  credentials.
+- No dormant APIs, tables, variants, provider codecs or maintenance branches for
+  future consumers. No Clacks-owned dead_code allowances, widened visibility,
+  dummy callers or tests added to suppress warnings. Vendored code is excluded.
+- Existing development-only migrations may be edited in place. Add no legacy
+  decoder, compatibility section, schema-recreation guide or forward-copy path.
+  Never reset the persistent environment as part of tests.
+- Keep meaningful relational facts/links and whole encrypted envelopes. Use the
+  small versioned codec and existing encryption; preserve authenticated context.
+- Use account locks, short transactions, checked query files and committed SQLx
+  metadata. Do not hold transactions across network/native-store operations.
+- Preserve both operator rotation commands, existing 1–100 batch bounds,
+  resumability, role separation, retained inactive keys and backup-key obligations.
+- Follow the existing observability and testing contracts. Test actual Clacks
+  decisions, not cryptography, SQLx locks, constraints or dependency behavior.
+- Keep applications thin, modules focused, named fields and standalone rustdoc.
+  No Python, xtask, test-only production APIs or direct TrustedQSL execution.
 
 ## Review focus
 
-Each item is exercised by the task named here, rather than a second test matrix:
+- A receipt taken before rotation must be resealed with the current active key
+  when returned, retaining replay containment (Task 2).
+- Removing unused service storage must leave no schema/grant/query/report branch
+  referencing it, and must preserve actual enrollment values (Tasks 1 and 3).
+- Retrying explicit source/target versions after committed progress must resume
+  the same target and count only committed changes (Task 2).
+- Deployment rewrap must include inactive account keys; key-file loss must not
+  silently generate replacements (Task 2).
+- Existing native enrollment references and command exporter shutdown must remain
+  intact after cleanup (Tasks 2 and 3).
 
-1. A receipt taken before cutover is put back afterward: it must not restore an
-   old-key reference or lose replay containment (Task 2).
-2. Removal wins before a stale credential update: stale work must not recreate
-   material or cross an account/purpose boundary (Task 1).
-3. Cutover/one batch commits before interruption: the same source/target command
-   resumes the existing key and migrates only remaining references (Task 2).
-4. An inactive account key still has current references: rewrap must include it,
-   and missing required wrapping material must fail without silent rekeying (Task 3).
-5. Native backend extraction or maintenance-config loading changes unrelated
-   behavior: old enrollment entries remain usable and key commands need no
-   OpenID Connect (OIDC), cookie or runtime credentials (Tasks 3 and 4).
+## Task 1: Remove unconsumed service-credential storage
 
----
+**Files:** `lib/clacks-server/src/secrets/{credentials,rows,envelope}.rs`,
+`src/secrets/envelope/` children, `migrations/0003_credential_protection.sql`,
+`sql/secrets/credentials/`, `deploy/server/database-grants.sql`, server offline
+query metadata, `lib/clacks-model/src/ids.rs` if CredentialId loses every consumer,
+and affected server test-support modules.
 
-## File and dependency map
+**Produces:** Only account-key and receipt storage remains in #13; no new
+replacement credential interface.
 
-Use these responsibilities and paths; adjust only private file splits if size
-requires it, preserving the interfaces named by dependent tasks.
+- [x] Remove put_in, remove_in, read_in, credential metadata/status/material
+  wrappers and credential-only cryptographic helpers. Remove the service
+  credential envelope kind/type, table, exclusive row types, statements and
+  privileges. Remove CredentialId only if no other production consumer remains.
+- [x] Preserve account-key and receipt formats, generated key projections,
+  identity/ownership references and issuer context. Retain any migration content
+  needed for those actual objects; do not delete an entire migration by name.
+- [x] Remove CRUD-only tests. Replace rotation fixture setup that used credential
+  writes with existing production issuer receipt creation, shared in test support
+  only where needed. Do not retain a production writer just for fixtures.
+- [x] Check the diff for provider-specific types, unused query metadata and
+  documentation that still claims #13 supplies generic service persistence.
+  Run existing issuer/store tests against disposable production-schema stores.
 
-| Location | Responsibility |
-| --- | --- |
-| `lib/clacks-model/src/ids.rs` | Add `CredentialId` using the existing native ID convention; no new synchronized record kind |
-| `lib/clacks-server/migrations/0003_credential_protection.sql` | Credential table and ciphertext-reference indexes; retain existing key table |
-| `lib/clacks-server/src/secrets/{keys,receipt}.rs` | Existing key/envelope formats; caller-owned key selection and receipt reuse |
-| `lib/clacks-server/src/secrets/{credentials,rows}.rs` | Encrypted credential operations and reusable named row fields |
-| `lib/clacks-server/src/oauth/authorization.rs` | Seal receipts in the existing account-locked write transaction |
-| `lib/clacks-server/src/maintenance/keys.rs` | Existing key-file generation plus named child-module declarations; no re-export facade |
-| `lib/clacks-server/src/maintenance/keys/{account,migration,references,report}.rs` | Account cutover, bounded ciphertext migration, reference counts and operator results |
-| `lib/clacks-server/src/maintenance/keys/{rewrap,config}.rs` | Wrapping-key migration and loading only required key settings |
-| `lib/clacks-server/src/maintenance/cli.rs`, `keys/command.rs` | Thin general dispatcher and key subcommands, distinct credentials, signals and nonsecret output |
-| `lib/clacks-server/src/store/tests/{credentials,key_rotation}.rs` | Production-store/issuer/maintenance scenarios, registered by existing unit suite |
-| `lib/clacks-server/src/store/tests/support/enrollment.rs` | Shared issuance fixture only if needed by existing and new issuer scenarios |
-| `lib/clacks-desktop/src/credentials.rs` | Existing native entry construction extracted without changing storage identity |
-| `lib/clacks-desktop/src/enrollment/credentials.rs` | Existing enrollment bundle codec and workflow-specific operations |
-| `deploy/server/database-grants.sql`, owning guides | Real privileges, deployment ordering and repeatable operator procedures |
+## Task 2: Keep both maintenance operations on real enrollment data
 
-Task order: **1 → 2 → 3** for server work; **4** uses existing enrollment.
-Task **5** verifies the integrated result. Do not create disposable applications
-or in-memory production substitutes for any deliverable.
+**Files:** `lib/clacks-server/src/maintenance/keys/{account,migration,references,report,rewrap,command}.rs`,
+associated `sql/secrets/rotation/` and reference queries, key tests and
+maintenance command-driver scenarios.
 
-## Task 1: Transactional encrypted credential persistence
+**Consumes:** Existing account keys and receipts created by issuer authorization.
+**Produces:** The same discoverable generate/status/rewrap/rotate-account
+commands with truthful receipt/key-only reporting.
 
-**Deliverable:** Account-scoped production secret storage, with existing receipt
-writes selecting their encryption key inside the committing transaction.
+- [x] Remove credential migration arms, counts, labels and error/report fields.
+  Replace the single-family enum/dispatcher with direct receipt migration.
+  Keep meaningful public versions, source causes and committed receipt counts.
+- [x] Retain current active-key cutover, explicit adjacent source/target versions,
+  interrupted resume, account locks, SQLx maintenance guard and bounded batches.
+  Verify normal issuer writes select active keys inside their transaction.
+- [x] Adapt the existing taken-receipt scenario: take through the issuer, rotate,
+  put back through the normal path and exercise replay handling. Assert no
+  restored old-key reference and unchanged authorization consequences.
+- [x] Adapt interrupted rotation/rewrap scenarios to actual issuer receipts.
+  Assert reuse of the target, retained meaning, inclusion of inactive keys and
+  exact committed/remaining progress. Do not create another synthetic family.
+- [x] Preserve key-only configuration, distinct database credentials, keyless
+  read-only status and exact retry arguments. Retain real command-driver export
+  on success/failure/interruption, and secret exclusion. Extend existing
+  scenarios rather than repeating the suite for every telemetry setting.
+- [x] Run server and web enrollment scenarios, operator help and existing
+  command-driver tests with disposable database roles and production grants.
 
-**Files:** Native ID addition; migration and role grants; `secrets.rs` module
-declarations; `secrets/{keys,receipt,credentials,rows}.rs`;
-`oauth/authorization.rs`; `sql/secrets/credentials/` and existing key queries;
-`store/tests/credentials.rs` and suite registration.
+## Task 3: Native enrollment, documentation and integrated verification
 
-**Interfaces:** Keep all generic plaintext operations crate-private. Public
-provider-facing operations will be supplied by their owning later capabilities.
+**Files:** Existing desktop credential/enrollment modules and tests, server/
+desktop guides, deployment examples, backup documentation and this proposal.
 
-- `CredentialIdentity { account: AccountId, credential: CredentialId,
-  purpose: CredentialPurpose }`, with the five design purposes represented by
-  a closed enum. Do not select client exposure through a mutable visibility flag.
-- `SecretMaterial { payload_format: i32, bytes: Zeroizing<Vec<u8>> }`, with no
-  secret-bearing `Debug`. The storage layer authenticates a positive format ID;
-  its owning provider code supplies and interprets the actual codec later.
-- `CredentialMetadata` has named identity, material revision, state,
-  creation/change timestamps and optional payload-format fields.
-  `StoredCredential { metadata: CredentialMetadata,
-  material: Option<SecretMaterial> }` represents present/removed material.
-- `keys::active_in(connection: &mut PgConnection, wrapping: &WrappingKeys,
-  account: AccountId) -> anyhow::Result<AccountKey>` consumes the caller's
-  already account-locked transaction. Keep `load_version`'s exact-version read.
-- `credentials::put_in(connection: &mut PgConnection, wrapping: &WrappingKeys,
-  identity: CredentialIdentity, expected_revision: Option<i64>,
-  material: SecretMaterial) -> anyhow::Result<CredentialMetadata>`;
-  `None` expects absence; `Some` expects the exact existing revision.
-- `credentials::remove_in(connection: &mut PgConnection,
-  identity: CredentialIdentity, expected_revision: i64)
-  -> anyhow::Result<CredentialMetadata>` and
-  `credentials::read_in(connection: &mut PgConnection, wrapping: &WrappingKeys,
-  identity: CredentialIdentity) -> anyhow::Result<Option<StoredCredential>>`.
-  Writers require the caller's account lock; reads use its consistent transaction.
-- Name row projections in `secrets/rows.rs` and use them directly in both
-  storage and migration; do not construct anonymous column tuples.
-  Credential queries live in `sql/secrets/credentials/{select,insert,replace,remove}.sql`;
-  extend existing `sql/secrets/{current,insert,version}.sql` and add the initial-key
-  existence query needed by `active_in`.
+- [x] Preserve native enrollment namespace, references, bundle format and recovery.
+  Keep shared entry construction already used by enrollment; remove unused
+  directory-specific scaffolding if present. Run the existing native enrollment
+  scenario on macOS with disposable entries; report unavailable native platforms.
+- [x] Reconcile owning guides with receipt/key-only maintenance. State directory
+  persistence/provisioning/lookup ownership in #17, QRZ in #31 and LoTW in #30.
+  Keep public metadata/history/removal obligations with those consumers.
+- [x] Regenerate and check server SQLx metadata using one disposable database
+  with production migrations and runtime/maintenance/migrator roles. Remove
+  metadata exclusively associated with deleted SQL files.
+- [x] Run formatting, all-target check, strict Clippy and rustdoc, then the
+  integrated checks listed in the modeling plan. Inspect actual results; do not
+  transfer earlier test counts to the revised implementation.
+- [x] Keep #13 open until code and verification meet this narrowed scope. Keep
+  PR #58's description explicit about pending scope changes until then.
+  No push or commit is implied by writing/updating this plan.
 
-- [x] Add `credential_changes_preserve_account_purpose_and_removal` using accounts
-  provisioned through `AccountStore`. Store opaque byte values through the real
-  credential operations; these are storage fixtures, not invented provider codecs.
-  Assert exact material recovery, no other-account lookup, wrong-purpose refusal,
-  replacement advancing revision 1→2, removal clearing material at revision 3,
-  and a stale revision-2 replacement leaving removal intact. Exercise explicit
-  replacement of the removed row against revision 3. No SQL-trigger injection.
-- [x] Run the new scenario. Confirm failure corresponds to missing credential
-  behavior, then implement the table/operations, rather than adding a fake store.
-- [x] Create `service_credentials` with the exact design columns, primary/foreign
-  keys and present/removed field consistency. Add indexes for account/key-version
-  credential lookup and non-null encrypted receipt references. Do not alter the
-  existing active-account-key unique index or add rotation-job/global-setting tables.
-- [x] Seal new credential AAD using a named struct: discriminator, account, ID,
-  purpose, material revision, payload format and key version. Preserve current
-  account-key/receipt AAD encodings. Provider/public configuration is not serialized
-  wholesale into secret material. Clear protected columns on removal; preserve
-  public identity/metadata and accept no stale revision overwrite.
-- [x] Move account-key selection/provisioning into `active_in` and update every
-  production encryption writer. Provision version 1 only for an account with no
-  key rows; do not interpret missing active state as permission to replace keys.
-  Remove the obsolete pool-owned key-provisioning path if it has no production use.
-- [x] In `authorization::{put,compare}`, acquire the existing account lock and
-  perform guards before sealing on that connection. No nested pool transaction,
-  permanent active-key cache, OAuth patch or changed replay behavior. Keep the
-  existing issuer scenario with a one-connection pool as integration evidence;
-  the actual stale-key regression is added with rotation in Task 2.
-  Adapt existing `store/tests/receipts.rs` to the caller-owned transaction without
-  retaining the obsolete provisioning API solely for that test. Preserve its
-  actual account/code-context assertions; add no generic crypto round trips.
-- [x] Add runtime credential access and maintenance key/envelope privileges.
-  Retain separate migrator authority; maintenance updates receipt envelope columns
-  without authorization-state transitions. Use actual restricted roles in verification.
-- [x] Instrument meaningful credential operations with normal `#[instrument(skip_all,
-  ...)]` spans and direct nonsecret identity/purpose fields. Transaction-consuming
-  helpers must not report committed credential changes before their caller commits;
-  the eventual owning workflow supplies that event. Do not add a metric per helper
-  or log secret-bearing input/errors. Existing receipt boundary events retain their
-  actual post-commit meaning.
-- [x] Run `cargo test -p clacks-server --lib credential_changes --locked` and the
-  existing `code_exchange_activates_one_member` scenario with the disposable test
-  environment. Regenerate/check server offline metadata. Commit this functional
-  storage/transaction boundary as one coherent deliverable.
+## Verification commands
 
-## Task 2: Resumable individual account-key rotation
-
-**Deliverable:** A real production maintenance operation rotates an account key
-online and migrates service credentials and existing code receipts without losing
-authorization behavior or creating another key on retry.
-
-**Files:** `maintenance/keys/{account,migration,references,report}.rs`, named module
-declarations in `keys.rs`, checked `sql/secrets/rotation/` queries;
-`store/tests/key_rotation.rs`; `Cargo.toml` for existing workspace `tokio-util`.
-
-**Interfaces:** All are crate-private; the command-line interface (CLI) calls the
-owning modules directly.
-
-- `report::EncryptedCounts { credentials: u64, receipts: u64 }`.
-- `report::MaintenanceEnd::{Complete, Interrupted}` distinguishes actual finish
-  from user cancellation without a generic task/lifecycle abstraction.
-- `account::AccountRotationRequest { account: AccountId, from_version: i64,
-  to_version: i64, batch_size: NonZeroU16 }`; validate positive versions,
-  checked `to = from + 1`, and batch size 1–100 before writes.
-- `report::AccountRotationReport { account: AccountId, from_version: i64,
-  to_version: i64, end: MaintenanceEnd, migrated: EncryptedCounts,
-  remaining: EncryptedCounts }`. Counts describe this invocation, not an
-  invented cumulative durable job history.
-- `account::rotate(connection: PgConnection, wrapping: &WrappingKeys,
-  request: &AccountRotationRequest, stop: &CancellationToken)
-  -> anyhow::Result<AccountRotationReport>` owns a dedicated connection and
-  SQLx maintenance guard until exit. It never borrows a pool session indefinitely.
-- Production internal cutover and single-batch functions take the same
-  `&mut PgConnection` and request. They own each real transaction and are called
-  by the normal operation loop. Tests may stop at those transaction boundaries;
-  add no public stepping API or command-line test controls.
-- `migration::CiphertextFamily::{Credential, Receipt}` identifies the two actual
-  encrypted schema families; no plugin registry or generic migration framework.
-  Queries in `sql/secrets/rotation/` cover cutover state/insert/deactivation,
-  per-family batch selection/update and reference counts. Receipt selection uses
-  a named `ReceiptEnvelopeRow` in `secrets/rows.rs`, carrying account, stored code
-  digest, approval purpose and envelope fields. It does not require the raw code
-  string or duplicate the issuer's complete `CodeRow` projection.
-
-- [x] Add `account_rotation_resumes_and_preserves_credential_meaning`: create an
-  account with at least three real credential rows; cut over 1→2 and migrate one
-  row using batch size 1 through the production batch operation. Release the
-  connection and invoke `account::rotate` with the same 1/2 request. Assert only
-  remaining rows migrate, version 2 remains the sole active target, all materials
-  remain readable and logical revisions/timestamps are unchanged. A repeated
-  completed invocation migrates zero. Test stale/different target refusal without
-  changing active state. Do not test PostgreSQL rollback as a separate property.
-- [x] Add `taken_receipt_is_resealed_after_rotation_and_still_contains_replay`:
-  issue an actual approved grant through production issuer code; take its consumed
-  record using the existing Storage interface, rotate the account and put the
-  record back through the normal compensation path. Assert it references version
-  2, and replay still invalidates the issued grant while another client's grant
-  remains usable. Share existing approval support, not a new fake OAuth service.
-- [x] Run the scenarios and observe the unmet rotation behavior. Implement the
-  cutover exactly: current V/new N creates N and switches active flags together;
-  existing active N/inactive V resumes; incompatible states fail. Refuse a new
-  rotation while older inactive versions retain encrypted references.
-- [x] Acquire `PgAdvisoryLock::new("clacks.key-maintenance.v1")` nonblocking on
-  the owned connection. Use the selected library guard and explicit normal-exit
-  release; do not invent lock IDs, leases, singleton rows or pool checkout hooks.
-  Return an actionable busy result for a competing command. Normal requests take
-  account locks only; no account lock is held while acquiring the maintenance guard.
-- [x] Implement deterministic per-family batches under the existing account lock.
-  Recheck active target N, decrypt with exact V/context and re-seal with N/fresh
-  nonce. Preserve semantic columns and update only envelopes. Select remaining
-  source references directly; no saved progress cursor or enumeration snapshot.
-  For receipts, reconstruct the existing AAD context from stored account/digest
-  and immutable approval purpose, and update only receipt envelope columns.
-  Missing context or partial envelopes fail explicitly rather than being filtered
-  out of selection or recreated through issuer operations.
-- [x] Preserve immutable approval context until its code row is collected. Exercise
-  the production approval-cleanup query with an expired retained receipt, then
-  migrate and decode that receipt. Keep code/approval cleanup independently
-  bounded without making either batch discard the other's required context.
-- [x] Recheck all encrypted-family references under the account lock before
-  completion. Keep inactive keys. Use normal reads with exact versions during
-  migration; failure is not missing credentials and never causes regeneration.
-- [x] Honor cancellation before cutover and between committed batches. Complete or
-  roll back the current transaction normally. Return an interrupted report with
-  committed counts; on other errors add nonsecret target/count/retry context and
-  retain the underlying error source. Do not add a telemetry-only Completion type.
-  Include account, source/target versions and ciphertext family on failures;
-  attach the public credential ID when a selected material row fails.
-- [x] Integrate truthful `info` cutover/completion events and the committed
-  `clacks_secret_values_reencrypted_total` counter. Add assertions to this real
-  scenario for exact account/target/count correlation and absence of exercised
-  secret values. Do not repeat the suite with telemetry disabled or test exporters.
-- [x] Run both scenarios plus the existing enrollment/receipt tests. Regenerate
-  server SQL metadata and commit the working account-rotation operation.
-
-## Task 3: Wrapping-key rotation, status and real operator commands
-
-**Deliverable:** `clacks-admin` runs both rotations and reports actual current
-references using only each operation's required credentials.
-
-**Files:** `maintenance/keys/{rewrap,config,references,report}.rs`,
-`maintenance/cli.rs`, checked status/rewrap queries, role grants and owning operator
-guides. Extend `store/tests/key_rotation.rs`; do not create a new executable.
-
-**Interfaces:**
-
-- `rewrap::RewrapRequest { from: String, to: String,
-  batch_size: NonZeroU16 }` and
-  `report::RewrapReport { from: String, to: String, end: MaintenanceEnd,
-  migrated_account_keys: u64, remaining_account_keys: u64 }`.
-- `rewrap::run(connection: PgConnection, wrapping: &WrappingKeys,
-  request: &RewrapRequest, stop: &CancellationToken)
-  -> anyhow::Result<RewrapReport>` uses the same maintenance-lock key as Task 2.
-- `references::status(connection: &mut PgConnection, account: Option<AccountId>)
-  -> anyhow::Result<KeyStatus>`. `KeyStatus` has named deployment/account variants.
-  Deployment status aggregates by wrapping-key ID rather than loading every
-  account into a vector. Account status lists its versions, active designation,
-  wrapping IDs and `EncryptedCounts`; an existing keyless account is explicit.
-  Status uses a short read-only snapshot and loads/decrypts no key material.
-- `config::KeySettings { wrapping_keys: WrappingKeyConfig }` with
-  `KeySettings::load(path: &Path) -> anyhow::Result<Self>` uses the existing
-  `config` crate/file source and normal server file layout. It does not validate
-  unrelated server/OIDC settings or read their secret files.
-- Retain `keys::generate(output: &Path)`. Extend the existing Keys subcommands
-  exactly as specified below; `maintenance::cli::run` remains the binary entry.
-
-- [x] Add `rewrap_preserves_inactive_keys_and_rejects_missing_recovery_material`.
-  Begin with W1, present values and a partially migrated account rotation so both
-  active and inactive account-key versions have current references. Rewrap W1→W2
-  using production operations. Assert both account-key versions move, current
-  W1 references become zero, ordinary credential reads and actual issuer replay
-  still work with W2-only live configuration, and material revisions are unchanged.
-  Repeating the same rewrap moves zero keys.
-- [x] In that scenario, before successful rewrap, try the ordinary W2-only
-  configuration while persisted W1 references remain. Assert an actionable failure
-  and no new key version or substituted credential state. This is an actual
-  operator configuration mistake, not a tampered ciphertext/schema fixture.
-- [x] Run the scenario, then implement one-account-at-a-time account-key batches,
-  including inactive rows, with explicit source predicates and target matching
-  the configured active wrapping key. Reuse existing account-key AAD/bytes and
-  update only wrapping ID/nonce/ciphertext. Report observed remaining source rows.
-- [x] Implement status from the two known ciphertext families and key table.
-  Avoid count multiplication when combining credential/receipt references.
-  Exercise concrete counts from the rotation scenario, including the partial
-  migration; do not test SQL aggregation mechanics in isolation.
-- [x] Add CLI forms:
-
-  ```text
-  keys generate --output PATH
-  keys status --database-url-file PATH [--account ACCOUNT_ID]
-  keys rewrap --config PATH --database-url-file PATH --from W1 --to W2
-  keys rotate-account --config PATH --database-url-file PATH --account ID
-                      --from-version V --to-version N
-  ```
-
-  Both mutating database commands accept `--batch-size` with default 100 and
-  range 1–100. Use standard Clap value parsing; add no parser-only coverage.
-- [x] Provide a global `--otlp` flag reusing the existing SDK and standard exporter
-  environment. Flush on every command result, including failure and interruption.
-  Carry partial committed counts and causes in operation-specific errors; emit
-  one structured failure at the key-command boundary. Keep cancellation a normal
-  reported outcome before the executable selects its nonzero exit.
-- [x] Exercise the real command driver in isolated automated processes: export
-  committed rotation metrics, flush a failed rotation event, and retain a numeric
-  committed count when rewrap fails after an earlier account commits. Use ordinary
-  production key/configuration inputs and schema, without database fault injection
-  or test-only production interfaces. This verifies Clacks's exporter wiring and
-  reporting decisions, not the SDK's transport or aggregation implementation.
-- [x] Open a direct `PgConnection` for mutating maintenance commands, with no
-  surrounding account-wide transaction or runtime state construction. Status
-  uses only the maintenance database file; generate uses no database/config.
-  Require no browser cookie key, provider registration or runtime database file.
-- [x] Use Tokio Ctrl-C and, on Unix, termination signals to cancel the operation's
-  `CancellationToken`, then await its normal batch exit and guard release. Do not
-  spawn an unowned signal listener. Print actual committed/remaining counts and
-  the exact safe retry invocation; interrupted/busy/failed commands exit nonzero.
-  Log cancellation as expected operation termination, not fabricated failure.
-- [x] Increment `clacks_account_keys_rewrapped_total` after batch commits. Reuse
-  the rotation telemetry scenario for meaningful committed outcomes/secret
-  exclusion; do not attach account IDs to metric labels or add generic wrappers.
-- [x] Verify the shipped command noninteractively against the disposable database:
-  Quote the original operating-system arguments using `shlex` for a POSIX shell.
-  Execute a printed retry with a literal dollar sign and spaces in the config path;
-  verify it opens the same file. Do not add a standalone quoter-library test.
-  `cargo run -p clacks-admin --locked -- keys …`. Use a key-only configuration
-  file without public URL, cookies or OIDC fields. Run status, account rotation,
-  repeat account rotation, rewrap, repeat rewrap and status. Confirm real outcomes
-  through the production reader/issuer, not source-text checks or a fake runner.
-  Do not add a public `run_from` API only for CLI tests or run Cargo inside tests.
-- [x] Document deployment ordering and compatible rollback targets: install the
-  corrected writer everywhere and drain older writers before rotation; distribute
-  readable W1/W2 before rewrapping; switch/drain W1-writing processes before
-  declaring source references eliminated. Keep retained backup keys. No new
-  process registry, artificial confirmation flag or automatic deletion is added.
-- [x] Run server scenarios and CLI acceptance with the restricted maintenance
-  role, update offline metadata/grants, and commit the complete operator feature.
-
-## Task 4: Preserve native enrollment while sharing the platform adapter
-
-**Deliverable:** Existing production enrollment uses a reusable native-entry
-adapter without changing any stored entry identity or inventing directory formats.
-
-**Files:** `lib/clacks-desktop/src/credentials.rs`, library module declaration,
-`enrollment/credentials.rs`; existing native enrollment scenario and desktop guide.
-
-**Interfaces:**
-
-- Shared crate-private `credentials::entry(service: &str, reference: &str)
-  -> anyhow::Result<keyring_core::Entry>` owns only platform backend construction.
-  Enrollment owns its existing `SERVICE` constant, bundle codec and
-  `create/load/save_refresh/remove` operations. No facade re-export or store trait.
-- Preserve namespace **`org.clacks-log.desktop.authorization`**, all opaque
-  references, existing `CredentialBundle` serialization, macOS Keychain selection,
-  Windows Local persistence and unsupported Linux behavior.
-
-- [x] Run the existing real native enrollment scenario before the extraction to
-  establish its result; retain its browser/issuer, reload, refresh and completion
-  assertions. Do not write another generic keyring round-trip test.
-- [x] Move the platform construction into the shared adapter and use it directly
-  from enrollment. Do not add currently unused directory namespaces, data-transfer
-  types, payload codecs, SQLite cache tables or provisioning commands. Typed
-  directory payload definitions remain #17.
-- [x] Re-run that same native scenario with a disposable issuer and unique entries
-  on macOS. For an actual pre-change application entry available in an isolated
-  acceptance workspace, verify ordinary resume through the unchanged reference;
-  do not use or mutate personal credentials. Record Windows native acceptance as
-  unavailable unless it is actually performed, not inferred from compilation.
-- [x] Update the owning guide with the reusable boundary and #17 integration
-  obligations, run desktop compilation/Clippy and existing component tests, and
-  commit the production adapter extraction.
-
-## Task 5: Integrated verification and portable operating instructions
-
-**Deliverable:** Verified production storage/operator integration with explicit
-platform and deployment limits; documentation describes actual implemented APIs.
-
-**Files:** `docs/{credential-protection-proposal,accounts,backup-recovery,
-server-development}.md`, `lib/{clacks-server,clacks-desktop}/README.md`,
-`deploy/server/{README.md,config.example.toml,database-grants.sql}` as needed.
-
-- [x] Reconcile the design with delivered signatures/commands/defaults. Keep
-  D236/D381 requirements separate from tuning and representation decisions.
-  Do not leave the old out-of-transaction writer described as current behavior
-  or imply that config-file activation itself rewrites existing key envelopes.
-- [x] Provide a complete disposable operator walkthrough: exact key-only file
-  shape, raw key generation, migrator/runtime/maintenance roles and URL-file
-  contents, writer rollout/drain prerequisites, both commands, status, interruption
-  retry and backup-key retention. Do not record machine-specific paths/secrets.
-- [x] Verify status with a keyless account, a partial migration and completed
-  migration. Keep all inactive rows readable; distinguish current-database
-  reference counts from external backup/process evidence. Do not promise the
-  CLI has verified deployment rollout, remote erasure or old backup disposal.
-- [x] Review added/changed tests against the concrete Clacks mistakes above.
-  Remove dependency-only assertions, manufactured faults and unused test-support
-  APIs. Keep any shared approval fixture in the test tree and reuse the linked
-  server suite; do not duplicate the synchronization or crypto implementation.
-- [x] Run the final commands below. Inspect full results, including ignored cases
-  and failures. Record macOS/native and unavailable Windows/CI evidence accurately.
-  Only claim what was actually run. Fix actual regressions before finishing.
-- [x] Commit any final operational documentation with the owning deliverable;
-  fold branch-introduced repairs into their original commits. Do not check in a
-  review inventory or cleanup narrative as a product document.
-
-## Verification commands and environment
-
-Use the existing [disposable PostgreSQL procedure](../../../lib/clacks-server/README.md#disposable-local-postgresql).
-One disposable database serves tests and SQLx metadata. Set:
+Use the portable disposable-database/SQLx procedure in the server guide.
+Read the user-owned environment inventory before any server startup. Never use
+persistent development accounts for tests. Metadata jobs for the two stores
+share scratch state and run sequentially.
 
 ```sh
-export CLACKS_TEST_DATABASE_URL=postgres://clacks_migrator@127.0.0.1:5432/clacks
-export CLACKS_TEST_RUNTIME_DATABASE_URL=postgres://clacks_runtime@127.0.0.1:5432/clacks
-export LEPTOS_OUTPUT_NAME=clacks-web
-export SQLX_OFFLINE=true
-```
-
-The example uses the documented disposable port 5432; adjust it if occupied.
-Supply a separate synthetic maintenance-role URL file for actual operator
-commands. Never substitute the persistent development accounts. Read the
-user-owned local environment inventory before running/configuring a server;
-preserve its provider registration, key files, secrets and Docker volume.
-
-For focused scenarios, run the test-name filters specified in the owning task.
-Then run the actual workspace suite serially; earlier parallel desktop pool-close
-stalls have no established cause and do not justify a production workaround here.
-
-```sh
-cargo fmt --all --check
+cargo fmt --all -- --check
+cargo check --workspace --all-targets --locked
 cargo test -p clacks-server --lib --locked -- --test-threads=1
-cargo test -p clacks-desktop --lib --locked -- --test-threads=1
+cargo test -p clacks-web --locked -- --test-threads=1
 cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --all-targets --locked -- --test-threads=1
-cargo test --workspace --doc --locked
-RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --document-private-items --locked
-cargo leptos build --release
+cargo run -p clacks-admin --locked -- keys --help
+git diff --check
 ```
 
-All selected commands must exit zero. Run server SQLx metadata preparation/check
-from `lib/clacks-server` against the migrated disposable database, then check
-client-store metadata using the existing scoped CI command. Run these sequentially:
-SQLx shares a scratch directory. Do not create another metadata database or
-change CI protocols, triggers, disabled Windows jobs or dependency tooling.
-
-```sh
-(
-  cd lib/clacks-server
-  SQLX_OFFLINE=false DATABASE_URL="$CLACKS_TEST_DATABASE_URL" \
-    cargo sqlx prepare -- --all-targets --locked --offline
-  SQLX_OFFLINE=false DATABASE_URL="$CLACKS_TEST_DATABASE_URL" \
-    cargo sqlx prepare --check -- --all-targets --locked --offline
-)
-```
-
-For the unchanged client schema, create a disposable SQLite database through
-`cargo sqlx database create`, migrate it with source
-`lib/clacks-client-store/migrations`, and run from the workspace root:
-
-```sh
-SQLX_OFFLINE=false DATABASE_URL=sqlite://clacks-query-check.sqlite \
-  cargo sqlx prepare --check --workspace -- \
-  --package clacks-client-store --all-targets --locked --offline
-```
-
-Use that same explicit SQLite URL for creation and migration. Remove only the
-disposable metadata database afterward; do not stage it or modify its schema.
-
-Inspect the actual key-command `--help`, configured privileges, committed results
-and failure/retry diagnostics. A new account key changes only encryption, not
-provider material revisions, issuance/confirmation facts or client enrollment.
-Whole-branch review must compare production behavior with the design, not use
-coverage counts as an objective. Keep operator/browser/private data out of fixtures.
-
-## Commits and execution handoff
-
-Keep coherent commits for storage/transactional writes, account rotation,
-rewrap/operator integration, and native adapter extraction. A final verification
-step does not justify a separate commit unless it delivers substantive documentation.
-Before every commit/amend, prepare and inspect a substantive message file,
-hard-wrap prose at 72 columns, verify physical line lengths, then use
-`git commit --file`. Preserve literal URLs and identifiers. Never stage the
-unrelated local toolkit research.
-
-The execution method is native, as established in this conversation. Wait for
-the user's implementation request; do not ask them to choose the method again.
-At execution time reuse/create an isolated checkout under the user-owned
-worktree-placement guidance. No push, PR creation, live infrastructure change
-or issue closure follows merely from this plan. #13 delivers production
-components; later capabilities extend them and their real integration evidence.
+Use existing test environment variables and LEPTOS_OUTPUT_NAME as documented by
+the owning crates. Preserve the user's disabled Windows CI and quota limits.
+Report native Windows/hosted verification as unavailable unless actually run.

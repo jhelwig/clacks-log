@@ -262,9 +262,9 @@ fallback and current catalog interpretation never rewrite them.
 | `profile_payload` | `P`, name, station child key, nullable default equipment ID. Callsign required by the station. |
 | `equipment_payload` | `P`, name, copied-equipment child key. |
 | `equipment_snapshot` | Account-qualified equipment key, optional equipment description, antenna description, notes. No configuration display name in QSO copies. |
-| `group_payload` | `P`, name and location-context flag; complete versioned JSON identifier rules, optional catalog binding and ordinary export bindings. Ordered transformations and nested expressions remain inside their owning documents. |
-| `output_profile_payload` | `P`, name, purpose and one versioned JSON contextual-field set. |
-| `export_plan` | Group `P`, account-qualified output-profile identity and one versioned JSON targeted plan. Fields, partitions, expansions and their expressions form one owned rule document. |
+| `group_payload` | `P`, name and location-context flag; complete JSON identifier rules, optional catalog binding and ordinary export bindings. Ordered transformations and nested expressions remain inside their owning documents. |
+| `output_profile_payload` | `P`, name, purpose and one JSON contextual-field set. |
+| `export_plan` | Group `P`, account-qualified output-profile identity and one JSON targeted plan. Fields, partitions, expansions and their expressions form one owned rule document. |
 The checked position model distinguishes no position, grid area and explicit point.
 Store all supplied locator lengths through twelve characters; own-location entry
 validation still requires four. Coordinate/grid consistency and unknown-mode
@@ -283,8 +283,8 @@ interpretations distinct when their meanings differ.
 | Table/family | Required contents |
 | --- | --- |
 | `account_metadata` | Account, observed head timeline/revision, baseline, installed-coverage ID, membership generation. Advertised head is not the installed checkpoint. Absent before actual synchronization metadata exists. |
-| `record_vector` | Record-qualified owner and one versioned JSON native vector. Server timeline and client actor roles remain distinct; native checked decoding preserves counter bounds and duplicate meaning. |
-| `coverage` | Account-qualified owner and one versioned JSON native prefix map, preserving explicit zero coverage. Relational references retain each checkpoint, boundary and retention root. |
+| `record_vector` | Record-qualified owner and one JSON native vector. Server timeline and client actor roles remain distinct; native checked decoding preserves counter bounds and duplicate meaning. |
+| `coverage` | Account-qualified owner and one JSON native prefix map, preserving explicit zero coverage. Relational references retain each checkpoint, boundary and retention root. |
 | `checkpoint`, `installed_checkpoint` | Immutable account/baseline/coverage object; singleton current installed checkpoint reference. Use the core's expected checkpoint and progress conditions; no additional local generation or maximum-observed-record shortcut. |
 | `lineage`, `timeline_boundary`, `current_lineage` | Lineage ID/account/root timeline, boundary at timeline/revision, kind and included coverage. Preserve the position at which ancestry became known. |
 | `baseline` | Account/native baseline ID, coverage, complete lineage snapshot, membership generation. Conflicting contents under one baseline ID fail; do not upsert over them. |
@@ -332,8 +332,10 @@ historical public descriptors.
 | `service_acquisition`, `acquisition_input` | Query, phase including failure text, start/end timestamps, complete flag, unordered retained observation IDs. |
 | `service_support`, `support_requirement` | `P`, ordered ExactFact/CoveredEffect version references, optional operation ID, original acquisition stamp and frozen destination copy. |
 
-Store frozen field maps and requested/reported field sets as complete versioned
-JSON documents on their owning rows. Keep confirmation bases, mode reports,
+Store frozen field maps and requested/reported field sets as complete native
+JSON values on their owning rows. Submission projections, imported assertions
+and incomplete observations contain their maps directly; maps have no separate
+identity, owner/role lookup table or retention root. Keep confirmation bases, mode reports,
 contact reports and station reports relational for effective-fact queries.
 Reported fields store
 `NotReported`/`Clear`/`Value` explicitly with typed nullable values; a null value
@@ -342,12 +344,12 @@ explicit empty set from unreported/clear. Station reports distinguish own,
 counterpart and absent counterpart. Contact start retains second/minute kind.
 Provider receipt and confirmation timestamps remain separate ordering scopes.
 
-`external_key` has account/destination qualification and one canonical compact
-JSON array key, with binary equality and unique `(account, destination_id,
-canonical_key)`. QRZ keys contain the service label and decimal-text record ID.
-LoTW keys contain the service label, own call, worked call, integer start,
-primary band, receive band and concrete mode, in that order. Keep exact native
-values without re-normalizing them against a newer catalog.
+`external_key` has account/destination qualification and one ordinary Serde JSON
+serialization of the native `RemoteRecordId`, with binary equality and unique
+`(account, destination_id, canonical_key)`. QRZ IDs remain canonical decimal
+strings. LoTW keys retain their named native fields: own/worked callsigns,
+start, band, receive band and mode. No separate positional-array key format or
+current-catalog normalization participates in identity.
 Matching windows are not keys. `current_external_binding` uniquely maps
 that external key to the current accepted association envelope and QSO, retaining
 supersession/deletion state. It is a maintained relational index over accepted

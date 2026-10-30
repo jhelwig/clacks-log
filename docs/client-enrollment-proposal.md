@@ -150,7 +150,7 @@ nonce and ciphertext belong to one complete stored encrypted value and are never
 telemetry. RustCrypto AES-256-GCM uses a fresh OS-random 12-byte nonce for each
 encryption and appends its 16-byte authentication tag to the ciphertext. Store
 these bytes with their codec/key metadata in the compact versioned envelope
-defined by [credential protection](credential-protection-proposal.md#51-versioned-storage-codec).
+defined by [credential protection](credential-protection-proposal.md#4-stored-objects-and-encoding).
 No nonce counter is coordinated across application instances.
 
 Receipt metadata remains queryable and relational. On read, restore the code

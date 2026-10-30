@@ -53,7 +53,8 @@ access/refresh credential is stored in SQLite.
 ## Checked SQL
 
 Crate-internal types in `src/rows/` group the relational schema by record family.
-Queries and mappers import those named rows/field groups directly. Shared physical
+Queries and mappers import named decoder rows directly. Writes bind from native
+variants or an immutable encoding constructed from them. Shared physical
 representations, such as position fields and destination rows, have one definition;
 native domain values remain the library's public interface.
 
