@@ -116,6 +116,20 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
             .is_some()
     );
 
+    let current_token = store
+        .get_token(&recovered.response.access_token)
+        .await?
+        .context("missing recovered access token")?;
+    let mut inconsistent = current_token.as_ref().clone();
+    inconsistent.grant_established_at += std::time::Duration::from_secs(1);
+    assert!(store.put_token(inconsistent).await.is_err());
+    assert!(
+        store
+            .authorized(&recovered.response.access_token)
+            .await?
+            .is_some()
+    );
+
     let database_file = directory.path().join("database-url");
     let cookie_file = directory.path().join("cookies");
     std::fs::write(

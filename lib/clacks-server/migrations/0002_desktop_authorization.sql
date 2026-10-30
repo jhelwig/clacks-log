@@ -126,10 +126,7 @@ CREATE TABLE clacks.desktop_access_tokens (
     access_digest BYTEA PRIMARY KEY,
     account_id TEXT NOT NULL,
     family_id TEXT NOT NULL,
-    client_id TEXT NOT NULL REFERENCES clacks.desktop_oauth_clients,
-    key_thumbprint TEXT NOT NULL,
     issued_at TIMESTAMPTZ NOT NULL,
-    grant_established_at TIMESTAMPTZ NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     FOREIGN KEY (account_id, family_id) REFERENCES clacks.desktop_grants ON DELETE CASCADE
 );
@@ -149,9 +146,6 @@ CREATE TABLE clacks.desktop_refresh_tokens (
     refresh_digest BYTEA PRIMARY KEY,
     account_id TEXT NOT NULL,
     family_id TEXT NOT NULL,
-    client_id TEXT NOT NULL REFERENCES clacks.desktop_oauth_clients,
-    key_thumbprint TEXT NOT NULL,
-    grant_established_at TIMESTAMPTZ NOT NULL,
     expires_at TIMESTAMPTZ,
     state TEXT NOT NULL CHECK (state IN ('active', 'spent')),
     FOREIGN KEY (account_id, family_id) REFERENCES clacks.desktop_grants ON DELETE CASCADE

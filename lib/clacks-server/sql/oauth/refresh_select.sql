@@ -1,7 +1,7 @@
-SELECT t.account_id,t.family_id,t.client_id,t.key_thumbprint,t.grant_established_at,
-NULL::timestamptz AS issued_at, t.expires_at,
+SELECT t.account_id,t.family_id,g.client_id,g.key_thumbprint,g.grant_established_at,
+t.expires_at,
 t.state AS token_state,
-g.state AS family_state,g.actor_id,c.closed_at,
+g.state AS family_state,g.provisional_until,g.actor_id,c.closed_at,
 COALESCE((SELECT string_agg(scope,' ' ORDER BY scope) FROM clacks.desktop_refresh_scopes WHERE refresh_digest=t.refresh_digest),'') AS "scope!",
 ARRAY(SELECT resource FROM clacks.desktop_refresh_resources WHERE refresh_digest=t.refresh_digest ORDER BY ordinal) AS "resources!"
 FROM clacks.desktop_refresh_tokens t JOIN clacks.desktop_grants g USING (account_id,family_id)

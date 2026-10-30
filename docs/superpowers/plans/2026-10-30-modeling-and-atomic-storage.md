@@ -402,21 +402,21 @@ one authoritative copy of immutable family metadata.
 active-with-actor, or revoked-with-retained-origin. Reuse dependency-owned code,
 token, scope and identifier types where they already express the required state.
 
-- [ ] Use existing issuance, replay, refresh, logout/revocation and independent
+- [x] Use existing issuance, replay, refresh, logout/revocation and independent
   account/client scenarios to pin current outcomes before changing the mapper.
   Preserve revoked provisional grants as well as revoked enrolled grants.
-- [ ] Separate access/refresh decoder projections so business logic does not
+- [x] Separate access/refresh decoder projections so business logic does not
   distinguish them using manufactured NULL issuance/state fields. Convert raw
   code/grant discriminators to typed state before activation/eligibility decisions.
-- [ ] Revise migration `0002` and token queries so immutable client, proof-key and
+- [x] Revise migration `0002` and token queries so immutable client, proof-key and
   original authorization time come from the grant family. Keep account/family
   qualification and token-specific issuance/expiry/scopes/resources/state.
   Validate incoming dependency-issued family metadata against the resolved family
   at the adapter boundary; do not add another database equality check.
-- [ ] Keep public-client proof binding, persistent refresh credentials, opaque
+- [x] Keep public-client proof binding, persistent refresh credentials, opaque
   tokens, code replay containment, hashes, locks and current actor authorization
   unchanged. Do not replace oauth-as/Huskarl or add a separate auth service.
-- [ ] Update generated SQL metadata, role grants and account/enrollment contracts.
+- [x] Update generated SQL metadata, role grants and account/enrollment contracts.
   Run server/web authorization scenarios and desktop enrollment tests. Commit.
 
 ## Task 6: Atomic client definitions and configuration

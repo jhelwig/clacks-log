@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.desktop_access_tokens\n(access_digest, account_id, family_id, issued_at, expires_at)\nVALUES ($1,$2,$3,$4,$5) ON CONFLICT (access_digest) DO UPDATE SET\naccount_id=EXCLUDED.account_id, family_id=EXCLUDED.family_id,\nissued_at=EXCLUDED.issued_at, expires_at=EXCLUDED.expires_at\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "db75f74aad2c9a6ae14294d71a467a8b328a046aa50e41d837559db5749efa61"
+}

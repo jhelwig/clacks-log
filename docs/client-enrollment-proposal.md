@@ -79,10 +79,11 @@ successful synchronization or replace these components later.
 ## 3. Relational server schema
 
 Extend the existing `clacks` schema through release-managed migrations. Preserve
-#11's accounts, identities, sessions and account-row locking. IDs are canonical
-native text IDs, counters PostgreSQL `BIGINT` within the checked Clacks domain,
-instants `timestamptz`, digests `bytea` and complete encrypted values `text`. All account-owned references
-are account-qualified. Table names below identify the production schema.
+#11's accounts, identities, sessions and account-row locking. Clacks entity IDs
+use canonical native text; issuer-owned identifiers retain the library's
+representation. Counters use PostgreSQL `BIGINT` within the checked Clacks domain,
+instants `timestamptz`, digests `bytea` and complete encrypted values `text`.
+Account-owned references are account-qualified. Table names below identify the production schema.
 
 | Table | Fields, references and constraints |
 | --- | --- |
@@ -91,8 +92,8 @@ are account-qualified. Table names below identify the production schema.
 | `desktop_grants` | `(account_id, family_id)` primary key, application `client_id`, nullable `actor_id` until initial exchange completion, grant-established time, proof-key thumbprint, state `provisional`, `active` or `revoked`, and provisional cleanup deadline. Once associated, a family never changes account or actor. Multiple historical grants can name one actor. |
 | `desktop_authorization_codes` | Code digest primary key, account, application client, exact granted redirect and explicit-redirect flag, subject, S256 PKCE challenge, key thumbprint, issued/expiry times, state `issued`, `consumed` or `replayed`. Nullable complete versioned receipt envelope with a generated account-key reference. Ciphertext contains only the optional issued access/refresh strings required by oauth-as, not the entire record. Child tables hold scopes/resources. |
 | `desktop_code_approvals` | Code digest primary key, verified account, approval purpose `new`, `recover_active` or `replace_closed`, optional target actor, client label and code expiry. Immutable host context survives the library's remove/put-back transitions; it is not another browser pending-flow store. |
-| `desktop_access_tokens` | Access digest primary key, account/family foreign key, public client, subject, proof-key thumbprint, issued/grant-established/expiry times; child scope/resource relations. No recoverable access-token column. |
-| `desktop_refresh_tokens` | Refresh digest primary key, account/family foreign key, client, subject, key thumbprint, grant-established time, nullable expiry and library active/spent state; child scope/resource relations. Reuse only writes active records; reject unexpected retry-response payloads. No recoverable credential column. |
+| `desktop_access_tokens` | Access digest primary key, account/family foreign key, issued/expiry times and child scope/resource relations. Client, proof key and original authorization time come from the grant family; the owning account is the subject. No recoverable access-token column. |
+| `desktop_refresh_tokens` | Refresh digest primary key, account/family foreign key, nullable expiry, library active/spent state and child scope/resource relations. Immutable client, proof-key and original authorization metadata come from the grant family; the owning account is the subject. Reuse only writes active records; reject unexpected retry-response payloads. No recoverable credential column. |
 | `oauth_revocations` | Library barrier scope and identifier, recorded-at and retention deadline. Unique by scope/identifier with the library's merge rules. Family identifiers include the account qualification. Keep this separate from permanent actor closure. |
 | `oauth_replay_claims` | Exact library-namespaced replay key primary key and expiry. Shared by all issuer instances. |
 | `resource_replay_claims` | Proof-key thumbprint plus proof ID primary key and expiry; all protected-request instances share the same table. Keep issuer/resource namespaces distinct. |
@@ -158,6 +159,13 @@ library requests that code record. On ordinary token reads, materialize the
 credential string from the presented input, not another stored copy. Encrypted
 receipts remain until code expiry cleanup, including delayed cleanup; backups
 can retain them longer. There is no additional code-replay or hash-only patch.
+
+Grant lifecycle decoding distinguishes provisional approval with a deadline,
+active enrollment with an actor, and revocation retaining either origin. Access
+and refresh reads use separate projections with their actual required fields;
+access issuance is never represented as a missing refresh field. Incoming library
+records must agree with the immutable family metadata before token persistence.
+Current actor admission, expiry, proof binding and revocation remain live checks.
 
 ## 4. HTTP and browser boundary
 

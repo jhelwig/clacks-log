@@ -7,6 +7,7 @@ pub(crate) mod config;
 pub(crate) mod digest;
 pub(crate) mod error;
 mod events;
+pub(crate) mod grant;
 pub(crate) mod http;
 pub(crate) mod replay;
 pub(crate) mod resource;

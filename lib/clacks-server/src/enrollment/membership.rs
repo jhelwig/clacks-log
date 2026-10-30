@@ -3,8 +3,9 @@
 use super::{ApprovalPurpose, ClientSummary, Principal};
 use crate::oauth::{
     digest::{CredentialKind, digest},
+    grant::GrantState,
     revocation,
-    rows::TokenRow,
+    rows::{AccessRow, RefreshRow},
 };
 use clacks_model::ids::{AccountId, BaselineId, ClientActorId, TimelineId};
 use clacks_sync::{
@@ -175,7 +176,7 @@ pub(super) async fn activate(
     let access_hash = digest(CredentialKind::Access, access);
     let refresh_hash = digest(CredentialKind::Refresh, refresh);
     let Some(access) = sqlx::query_file_as!(
-        TokenRow,
+        AccessRow,
         "sql/oauth/access_select.sql",
         access_hash.as_slice()
     )
@@ -185,7 +186,7 @@ pub(super) async fn activate(
         return Ok(None);
     };
     let Some(refresh) = sqlx::query_file_as!(
-        TokenRow,
+        RefreshRow,
         "sql/oauth/refresh_select.sql",
         refresh_hash.as_slice()
     )
@@ -194,6 +195,16 @@ pub(super) async fn activate(
     else {
         return Ok(None);
     };
+    let access_grant = GrantState::from_columns(
+        &access.family_state,
+        access.actor_id.as_deref(),
+        access.provisional_until,
+    )?;
+    let refresh_grant = GrantState::from_columns(
+        &refresh.family_state,
+        refresh.actor_id.as_deref(),
+        refresh.provisional_until,
+    )?;
     let scope = ScopeSet::parse(&access.scope)?;
     if access.account_id != code.subject
         || refresh.account_id != code.subject
@@ -202,8 +213,8 @@ pub(super) async fn activate(
         || refresh.client_id != access.client_id
         || access.key_thumbprint != refresh.key_thumbprint
         || Some(access.key_thumbprint.as_str()) != code.dpop_jkt.as_deref()
-        || access.family_state != "provisional"
-        || refresh.family_state != "provisional"
+        || !matches!(access_grant, GrantState::Provisional { .. })
+        || !matches!(refresh_grant, GrantState::Provisional { .. })
         || scope != ScopeSet::parse(&refresh.scope)?
         || !scope.is_subset(&code.scope)
         || access.resources != refresh.resources

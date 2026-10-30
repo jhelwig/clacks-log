@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT t.account_id,t.family_id,t.client_id,t.key_thumbprint,t.grant_established_at,\nt.issued_at AS issued_at, t.expires_at,\nNULL::text AS token_state,\ng.state AS family_state,g.actor_id,c.closed_at,\nCOALESCE((SELECT string_agg(scope,' ' ORDER BY scope) FROM clacks.desktop_access_scopes WHERE access_digest=t.access_digest),'') AS \"scope!\",\nARRAY(SELECT resource FROM clacks.desktop_access_resources WHERE access_digest=t.access_digest ORDER BY ordinal) AS \"resources!\"\nFROM clacks.desktop_access_tokens t JOIN clacks.desktop_grants g USING (account_id,family_id)\nLEFT JOIN clacks.desktop_clients c ON c.account_id=g.account_id AND c.actor_id=g.actor_id\nWHERE t.access_digest=$1 FOR UPDATE OF t,g\n",
+  "query": "SELECT t.account_id,t.family_id,g.client_id,g.key_thumbprint,g.grant_established_at,\nt.expires_at,\nt.state AS token_state,\ng.state AS family_state,g.provisional_until,g.actor_id,c.closed_at,\nCOALESCE((SELECT string_agg(scope,' ' ORDER BY scope) FROM clacks.desktop_refresh_scopes WHERE refresh_digest=t.refresh_digest),'') AS \"scope!\",\nARRAY(SELECT resource FROM clacks.desktop_refresh_resources WHERE refresh_digest=t.refresh_digest ORDER BY ordinal) AS \"resources!\"\nFROM clacks.desktop_refresh_tokens t JOIN clacks.desktop_grants g USING (account_id,family_id)\nLEFT JOIN clacks.desktop_clients c ON c.account_id=g.account_id AND c.actor_id=g.actor_id\nWHERE t.refresh_digest=$1 FOR UPDATE OF t,g\n",
   "describe": {
     "columns": [
       {
@@ -9,7 +9,7 @@
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "clacks.desktop_access_tokens",
+            "table": "clacks.desktop_refresh_tokens",
             "name": "account_id"
           }
         }
@@ -20,7 +20,7 @@
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "clacks.desktop_access_tokens",
+            "table": "clacks.desktop_refresh_tokens",
             "name": "family_id"
           }
         }
@@ -31,7 +31,7 @@
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "clacks.desktop_access_tokens",
+            "table": "clacks.desktop_grants",
             "name": "client_id"
           }
         }
@@ -42,7 +42,7 @@
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "clacks.desktop_access_tokens",
+            "table": "clacks.desktop_grants",
             "name": "key_thumbprint"
           }
         }
@@ -53,47 +53,52 @@
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "clacks.desktop_access_tokens",
+            "table": "clacks.desktop_grants",
             "name": "grant_established_at"
           }
         }
       },
       {
         "ordinal": 5,
-        "name": "issued_at",
-        "type_info": "Timestamptz",
-        "origin": {
-          "Table": {
-            "table": "clacks.desktop_access_tokens",
-            "name": "issued_at"
-          }
-        }
-      },
-      {
-        "ordinal": 6,
         "name": "expires_at",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "clacks.desktop_access_tokens",
+            "table": "clacks.desktop_refresh_tokens",
             "name": "expires_at"
           }
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "token_state",
         "type_info": "Text",
-        "origin": "Expression"
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_refresh_tokens",
+            "name": "state"
+          }
+        }
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "family_state",
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "clacks.desktop_grants",
             "name": "state"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "provisional_until",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_grants",
+            "name": "provisional_until"
           }
         }
       },
@@ -143,15 +148,15 @@
       false,
       false,
       false,
+      true,
       false,
       false,
-      null,
-      false,
+      true,
       true,
       true,
       null,
       null
     ]
   },
-  "hash": "b5f9bad0ea601e274f7dcce280c755840720729d95caf254fa71521c5c98562c"
+  "hash": "087f20eec87c3dc4199dba5a8d71ec1890bebe8be174a43a4ef1625cb3781a19"
 }
