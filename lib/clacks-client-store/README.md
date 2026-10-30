@@ -199,8 +199,11 @@ remains a release obligation.
 The [operating-settings contract](../../docs/operating-settings.md) uses
 `operating::OperatingState`: optional current facts plus independent
 `selected_profile` and `selected_equipment` copies. `operating::save` takes the
-expected active state and returns Saved, Unchanged or Stale. It does not require
-saved sources to be fresh. Known effective tombstones clear selections in the
+expected active state and returns Saved, Unchanged or Stale. Construct active
+values and their exact source copies together with `OperatingState::new`.
+`adjust` replaces copied values and detaches only affected sources;
+`forget_source` removes a selection without changing those values. Saved views
+are read-only to callers. Saving does not require sources to be fresh. Known effective tombstones clear selections in the
 same transaction that installs their working deletion; absence is not deletion.
 
 `settings::snapshot` and `ReadSnapshot::settings` read current settings, complete

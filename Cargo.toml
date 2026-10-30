@@ -115,7 +115,7 @@ regex = "1"
 winnow = "=1.0.3"
 num-bigint = "=0.4.8"
 num-integer = "=0.1.47"
-ulid = "3"
+ulid = { version = "3", features = ["serde"] }
 thiserror = "2"
 anyhow = "1"
 

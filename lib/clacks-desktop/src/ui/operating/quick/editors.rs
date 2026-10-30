@@ -140,8 +140,7 @@ pub(in crate::ui::operating) fn show(
             ui.label("Station profile and equipment selections stay unchanged. Either operator value may be blank.");
             let original = editor
                 .expected
-                .current
-                .as_ref()
+                .current()
                 .and_then(|value| value.operator.as_ref());
             let edited_call = fields::callsign_changed(
                 &editor.operator_callsign,

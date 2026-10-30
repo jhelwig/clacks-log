@@ -63,8 +63,8 @@ pub(in crate::ui) fn snapshot() -> SettingsSnapshot {
             selected_view: SelectedView::AllContacts,
             tags: vec![],
         },
-        operating: OperatingState {
-            current: Some(clacks_model::profile::CurrentOperatingValues {
+        operating: OperatingState::new(
+            Some(clacks_model::profile::CurrentOperatingValues {
                 station: home.station.clone(),
                 equipment: Some(
                     (equipment.values.clone())
@@ -74,13 +74,14 @@ pub(in crate::ui) fn snapshot() -> SettingsSnapshot {
                 operator: None,
                 transmit_power: None,
             }),
-            selected_profile: Some((home.clone()).try_into().expect("valid native fixture")),
-            selected_equipment: Some(
+            Some((home.clone()).try_into().expect("valid native fixture")),
+            Some(
                 (equipment.clone())
                     .try_into()
                     .expect("valid native fixture"),
             ),
-        },
+        )
+        .expect("coherent operating fixture"),
         profiles: vec![row(RecordValue::Profile(Box::new(
             (home).try_into().expect("valid native fixture"),
         )))],

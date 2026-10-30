@@ -10,8 +10,11 @@ pub(super) async fn load(
     connection: &mut SqliteConnection,
     account: AccountId,
     row: &OperatingStateRow,
-    state: &mut super::OperatingState,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<LoadedSources> {
+    let mut sources = LoadedSources {
+        profile: None,
+        equipment: None,
+    };
     match (row.loaded_profile, row.profile_record.as_deref()) {
         (Some(payload), Some(id)) => {
             let key = RecordKey {
@@ -23,7 +26,7 @@ pub(super) async fn load(
             else {
                 anyhow::bail!("selected profile baseline is not a live profile")
             };
-            state.selected_profile = Some(*value);
+            sources.profile = Some(*value);
         }
         (None, None) => {}
         _ => anyhow::bail!("incomplete selected profile baseline"),
@@ -39,52 +42,79 @@ pub(super) async fn load(
             else {
                 anyhow::bail!("selected equipment baseline is not a live configuration")
             };
-            state.selected_equipment = Some(*value);
+            sources.equipment = Some(*value);
         }
         (None, None) => {}
         _ => anyhow::bail!("incomplete selected equipment baseline"),
     }
-    Ok(())
+    Ok(sources)
 }
 
-/// Retain exact source values as local payload roots without creating shared work.
+/// Exact decoded source baselines used to construct applied operating state.
+pub(super) struct LoadedSources {
+    /// Copied station profile baseline.
+    pub profile: Option<clacks_model::profile::SavedLocationProfile>,
+    /// Independently copied equipment baseline.
+    pub equipment: Option<clacks_model::profile::EquipmentConfiguration>,
+}
+
+/// Relational reference to one exact copied source payload.
+pub(super) struct StoredSource {
+    /// Immutable payload row containing the copied baseline.
+    pub payload: i64,
+    /// Native source identity qualified by the owning account.
+    pub record: String,
+}
+
+/// Source references created together for one applied operating context.
+pub(super) struct StoredSources {
+    /// Exact selected profile reference.
+    pub profile: Option<StoredSource>,
+    /// Exact selected equipment reference.
+    pub equipment: Option<StoredSource>,
+}
+
+/// Retain copied source payloads and return their complete relational references.
 pub(super) async fn store(
     connection: &mut SqliteConnection,
     account: AccountId,
     state: &super::OperatingState,
-    row: &mut OperatingStateRow,
-) -> anyhow::Result<()> {
-    if let Some(profile) = &state.selected_profile {
+) -> anyhow::Result<StoredSources> {
+    let profile = if let Some(profile) = &state.selected_profile {
         let key = RecordKey {
             account,
             id: RecordId::Profile(profile.id()),
         };
-        row.loaded_profile = Some(
-            payload::insert(
+        Some(StoredSource {
+            payload: payload::insert(
                 connection,
                 key,
                 &RecordState::Live(RecordValue::Profile(Box::new(profile.clone()))),
             )
             .await?,
-        );
-        row.profile_record = Some(profile.id().to_string());
-    }
-    if let Some(equipment) = &state.selected_equipment {
+            record: profile.id().to_string(),
+        })
+    } else {
+        None
+    };
+    let equipment = if let Some(equipment) = &state.selected_equipment {
         let key = RecordKey {
             account,
             id: RecordId::Equipment(equipment.id()),
         };
-        row.loaded_equipment = Some(
-            payload::insert(
+        Some(StoredSource {
+            payload: payload::insert(
                 connection,
                 key,
                 &RecordState::Live(RecordValue::Equipment(Box::new(equipment.clone()))),
             )
             .await?,
-        );
-        row.equipment_record = Some(equipment.id().to_string());
-    }
-    Ok(())
+            record: equipment.id().to_string(),
+        })
+    } else {
+        None
+    };
+    Ok(StoredSources { profile, equipment })
 }
 
 /// Find actual working tombstones among the source identities used by an Apply.

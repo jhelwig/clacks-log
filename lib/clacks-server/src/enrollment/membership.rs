@@ -1,12 +1,11 @@
 //! Account-locked admission transitions coupled to OAuth grant activation.
 
-use super::{ClientSummary, Principal};
+use super::{ApprovalPurpose, ClientSummary, Principal};
 use crate::oauth::{
     digest::{CredentialKind, digest},
     revocation,
     rows::TokenRow,
 };
-use anyhow::Context;
 use clacks_model::ids::{AccountId, BaselineId, ClientActorId, TimelineId};
 use clacks_sync::{
     account::AccountMetadata,
@@ -218,14 +217,11 @@ pub(super) async fn activate(
     let account_id: AccountId = code.subject.parse()?;
     let account = account_in(connection, account_id).await?;
     let members = snapshot(connection, &account).await?;
-    let target = approval
-        .target_actor
-        .map(|actor| actor.parse::<ClientActorId>())
-        .transpose()?;
-    let actor = match approval.purpose.as_str() {
-        "new" => new_actor(connection, &account, &members, &approval.label).await?,
-        "recover_active" => {
-            let actor = target.context("credential recovery target is missing")?;
+    let purpose =
+        ApprovalPurpose::from_stored(&approval.purpose, approval.target_actor.as_deref())?;
+    let actor = match purpose {
+        ApprovalPurpose::New => new_actor(connection, &account, &members, &approval.label).await?,
+        ApprovalPurpose::RecoverActive { actor } => {
             if !members
                 .clients
                 .iter()
@@ -236,8 +232,7 @@ pub(super) async fn activate(
             invalidate_families(connection, account_id, actor).await?;
             actor
         }
-        "replace_closed" => {
-            let target = target.context("reauthorization target is missing")?;
+        ApprovalPurpose::ReplaceClosed { actor: target } => {
             if members
                 .clients
                 .iter()
@@ -247,7 +242,6 @@ pub(super) async fn activate(
             }
             new_actor(connection, &account, &members, &approval.label).await?
         }
-        _ => anyhow::bail!("invalid enrollment approval purpose"),
     };
     let activated = sqlx::query_file!(
         "sql/enrollment/grant_activate.sql",

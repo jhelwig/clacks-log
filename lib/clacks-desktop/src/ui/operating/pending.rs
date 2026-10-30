@@ -23,10 +23,10 @@ pub(super) fn show(
     });
     match &frame.tab {
         OperatingTab::Station => {
-            let baseline =
-                editor.expected.current.as_ref().map(|value| {
-                    crate::operating::station::StationForm::from_snapshot(&value.station)
-                });
+            let baseline = editor
+                .expected
+                .current()
+                .map(|value| crate::operating::station::StationForm::from_snapshot(&value.station));
             ui.label(format!(
                 "Selected profile: {}",
                 editor
@@ -98,8 +98,7 @@ pub(super) fn show(
             let baseline = crate::operating::equipment::EquipmentForm::from_values(
                 editor
                     .expected
-                    .current
-                    .as_ref()
+                    .current()
                     .and_then(|value| value.equipment.as_ref()),
             );
             ui.label(format!(
@@ -162,8 +161,7 @@ pub(super) fn show(
         OperatingTab::Operator => {
             let original = editor
                 .expected
-                .current
-                .as_ref()
+                .current()
                 .and_then(|value| value.operator.as_ref());
             let call_changed = fields::callsign_changed(
                 &editor.operator_callsign,
@@ -193,8 +191,7 @@ pub(super) fn show(
             );
             let original_power = editor
                 .expected
-                .current
-                .as_ref()
+                .current()
                 .and_then(|value| value.transmit_power);
             let power_changed = crate::operating::power::parse_watts(&editor.power_watts)
                 .map(|value| value != original_power)

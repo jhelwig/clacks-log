@@ -30,8 +30,8 @@ fn selected_state() -> anyhow::Result<OperatingState> {
             notes: None,
         },
     };
-    Ok(OperatingState {
-        current: Some(clacks_model::profile::CurrentOperatingValues {
+    Ok(OperatingState::new(
+        Some(clacks_model::profile::CurrentOperatingValues {
             station: profile.station.clone(),
             operator: Some(
                 (clacks_model::contact::OperatorInformationFields {
@@ -48,9 +48,10 @@ fn selected_state() -> anyhow::Result<OperatingState> {
                     .expect("valid native fixture"),
             ),
         }),
-        selected_profile: Some((profile).try_into().expect("valid native fixture")),
-        selected_equipment: Some((equipment).try_into().expect("valid native fixture")),
-    })
+        Some((profile).try_into().expect("valid native fixture")),
+        Some((equipment).try_into().expect("valid native fixture")),
+    )
+    .expect("coherent operating fixture"))
 }
 
 #[tokio::test]
@@ -78,22 +79,15 @@ async fn independent_sources_survive_reopen() -> anyhow::Result<()> {
 
     let reopened = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
     let loaded = operating::load(&reopened).await?;
-    assert_eq!(
-        loaded.selected_profile.as_ref().map(|p| p.id()),
-        Some(id(30))
-    );
-    assert_eq!(
-        loaded.selected_equipment.as_ref().map(|e| e.id()),
-        Some(id(32))
-    );
+    assert_eq!(loaded.selected_profile().map(|p| p.id()), Some(id(30)));
+    assert_eq!(loaded.selected_equipment().map(|e| e.id()), Some(id(32)));
     assert_eq!(
         loaded
-            .selected_profile
-            .as_ref()
+            .selected_profile()
             .and_then(|p| p.default_equipment()),
         Some(id(31))
     );
-    assert_eq!(loaded.current, state.current);
+    assert_eq!(loaded.current(), state.current());
     reopened.close().await?;
     Ok(())
 }
@@ -110,26 +104,24 @@ async fn apply_detaches_only_the_edited_component() -> anyhow::Result<()> {
     let state = selected_state()?;
     operating::save(&store, &OperatingState::default(), &state).await?;
     let mut station_edit = state.clone();
-    station_edit.current.as_mut().unwrap().station.callsign = RecordedCallsign::new("W7HEX/P")?;
-    station_edit.selected_profile = None;
+    let mut current = station_edit.current().cloned().unwrap();
+    current.station.callsign = RecordedCallsign::new("W7HEX/P")?;
+    station_edit.adjust(current);
     operating::save(&store, &state, &station_edit).await?;
     let saved = operating::load(&store).await?;
-    assert_eq!(saved.selected_profile, None);
-    assert_eq!(
-        saved.selected_equipment.as_ref().map(|e| e.id()),
-        Some(id(32))
-    );
+    assert_eq!(saved.selected_profile(), None);
+    assert_eq!(saved.selected_equipment().map(|e| e.id()), Some(id(32)));
 
     assert_eq!(
         operating::save(&store, &state, &state).await?,
         OperatingSaveOutcome::Stale(saved.clone())
     );
     let mut equipment_edit = saved.clone();
-    let current = equipment_edit.current.as_mut().unwrap();
+    let mut current = equipment_edit.current().cloned().unwrap();
     let mut equipment = current.equipment.take().unwrap().into_fields();
     equipment.antenna_description = Some("Loop".into());
     current.equipment = Some(equipment.try_into()?);
-    equipment_edit.selected_equipment = None;
+    equipment_edit.adjust(current);
     operating::save(&store, &saved, &equipment_edit).await?;
     assert_eq!(operating::load(&store).await?, equipment_edit);
     store.close().await?;
@@ -153,7 +145,7 @@ async fn selection_roots_survive_collection() -> anyhow::Result<()> {
     retention::collect_unreferenced(&store).await?;
     assert_eq!(operating::load(&store).await?, state);
     let mut detached = state.clone();
-    detached.selected_equipment = None;
+    detached.forget_source(clacks_sync::record::RecordId::Equipment(id(32)));
     operating::save(&store, &state, &detached).await?;
     retention::collect_unreferenced(&store).await?;
     let row = save::load(&store, key).await?.unwrap();

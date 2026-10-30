@@ -31,19 +31,19 @@ pub(crate) enum Purpose {
     /// Authenticate a remaining identity before starting a specific link action.
     AuthorizeLink {
         origin: OriginatingLogin,
-        authorizer: String,
+        authorizer: ulid::Ulid,
         new_provider: String,
     },
     /// Authenticate the additional identity for an already authorized link action.
     CompleteLink {
         origin: OriginatingLogin,
-        authorizer: String,
+        authorizer: ulid::Ulid,
     },
     /// Authenticate a remaining identity before removing a specific target.
     AuthorizeUnlink {
         origin: OriginatingLogin,
-        authorizer: String,
-        target: String,
+        authorizer: ulid::Ulid,
+        target: ulid::Ulid,
     },
 }
 

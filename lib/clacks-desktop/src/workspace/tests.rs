@@ -127,8 +127,8 @@ async fn ready_requires_initial_reads() -> anyhow::Result<()> {
         log_directory: directory.path().join("logs"),
     };
     let initial = super::open(&paths).await?;
-    let next = OperatingState {
-        current: Some(clacks_model::profile::CurrentOperatingValues {
+    let next = OperatingState::new(
+        Some(clacks_model::profile::CurrentOperatingValues {
             station: clacks_model::contact::StationSnapshot {
                 callsign: RecordedCallsign::new("W7HEX/P")?,
                 location: None,
@@ -138,9 +138,10 @@ async fn ready_requires_initial_reads() -> anyhow::Result<()> {
             transmit_power: None,
             equipment: None,
         }),
-        selected_profile: None,
-        selected_equipment: None,
-    };
+        None,
+        None,
+    )
+    .expect("coherent operating fixture");
 
     assert!(matches!(
         operating::save(&initial.store, &initial.settings.operating, &next).await?,

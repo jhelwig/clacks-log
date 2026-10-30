@@ -315,27 +315,27 @@ rely on unrelated writable options to describe one state.
 fields. `EnrollmentAttempt` retains a new/recovery mode and phase-specific data.
 Server approval input stores `Option<RecoveryTarget { account, actor }>`.
 
-- [ ] Extend existing operating scenarios for choosing a profile, selecting
+- [x] Extend existing operating scenarios for choosing a profile, selecting
   separate equipment, manual adjustment and source deletion while keeping copied
   facts. Retain successful-save reset, explicit contact-specific corrections and
   all Save Profile/Apply/Cancel distinctions. No new GUI harness or layout tests.
-- [ ] Construct current values and source baselines together. Return named source
+- [x] Construct current values and source baselines together. Return named source
   references containing payload/record identity rather than mutating unrelated
   `OperatingStateRow` fields. Keep decoder rows at the SQL boundary.
-- [ ] Encode a bound enrollment phase with its required destination. Recovery
+- [x] Encode a bound enrollment phase with its required destination. Recovery
   carries its existing destination and prior binding as one mode; first
   enrollment retains optional destination while selecting a workspace and alone
   permits `NeedsDestination`. Preserve interruption boundaries and native-store
   side effects; typed state cannot assert those effects committed.
-- [ ] Update desktop completion/recovery and store persistence to use these
+- [x] Update desktop completion/recovery and store persistence to use these
   operations. Keep enrollment attempt atomic in local-state storage, versioned
   explicitly. No legacy attempt converter is needed for the development reset.
-- [ ] Carry paired server recovery target and existing `ApprovalPurpose` through
+- [x] Carry paired server recovery target and existing `ApprovalPurpose` through
   approval/activation; parse raw request/SQL fields once. Keep the current request
   correlation and library validation, with no new authorization machinery.
-- [ ] Carry already parsed identity IDs in pending identity changes as their
+- [x] Carry already parsed identity IDs in pending identity changes as their
   existing typed IDs instead of discarding them into strings and reparsing.
-- [ ] Run client-store operating/enrollment tests, desktop workflow tests and web
+- [x] Run client-store operating/enrollment tests, desktop workflow tests and web
   enrollment scenarios. Update operating/enrollment guides. Commit this group.
 
 ## Task 4: Atomic server envelopes and credential lifecycle

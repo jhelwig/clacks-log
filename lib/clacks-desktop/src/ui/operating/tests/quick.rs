@@ -14,10 +14,7 @@ fn inline_power_enter_submits_exact_watts_and_escape_discards_later_typing() {
         panic!()
     };
     assert_eq!(expected, ui.state().snapshot.operating);
-    assert_eq!(
-        next.current.as_ref().unwrap().transmit_power.unwrap().get(),
-        500
-    );
+    assert_eq!(next.current().unwrap().transmit_power.unwrap().get(), 500);
     request
         .reply
         .send(SettingsResponse::Apply(OperatingSaveOutcome::Saved(
@@ -60,10 +57,13 @@ fn acknowledgment_does_not_overwrite_later_typing_or_repeat_a_failed_request() {
         panic!()
     };
     assert_eq!(
-        expected.current.unwrap().transmit_power.unwrap().get(),
+        expected.current().unwrap().transmit_power.unwrap().get(),
         25_000
     );
-    assert_eq!(next.current.unwrap().transmit_power.unwrap().get(), 30_000);
+    assert_eq!(
+        next.current().unwrap().transmit_power.unwrap().get(),
+        30_000
+    );
     second
         .reply
         .send(SettingsResponse::Failed(

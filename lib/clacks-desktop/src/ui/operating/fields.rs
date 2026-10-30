@@ -392,20 +392,18 @@ pub(super) fn active_summary(ui: &mut egui::Ui, state: &OperatingState) {
     ui.label(format!(
         "Station profile: {}",
         state
-            .selected_profile
-            .as_ref()
+            .selected_profile()
             .map(profile_label)
             .unwrap_or_else(|| "None".into())
     ));
     ui.label(format!(
         "Equipment configuration: {}",
         state
-            .selected_equipment
-            .as_ref()
+            .selected_equipment()
             .map(equipment_label)
             .unwrap_or_else(|| "None".into())
     ));
-    if let Some(current) = &state.current {
+    if let Some(current) = &state.current() {
         ui.label(format!("Callsign: {}", current.station.callsign.as_str()));
         if let Some(location) = &current.station.location {
             if let Some(position) = &location.position() {

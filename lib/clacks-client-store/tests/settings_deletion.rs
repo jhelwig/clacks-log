@@ -71,11 +71,11 @@ async fn historical_qso_copies_survive_source_changes_apply_collection_and_reope
     let qso_key = support::qso_key(id(100));
     let mut qso = support::qso(id(100));
     support::edit(&mut qso, |qso| {
-        qso.own_station = f.active.current.as_ref().unwrap().station.clone();
+        qso.own_station = f.active.current().unwrap().station.clone();
         Ok(())
     });
     support::edit(&mut qso, |qso| {
-        qso.own_context.equipment = f.active.current.as_ref().unwrap().equipment.clone();
+        qso.own_context.equipment = f.active.current().unwrap().equipment.clone();
         Ok(())
     });
     save::save(&f.store, qso_key, None, support::contact(qso)).await?;
@@ -107,9 +107,12 @@ async fn historical_qso_copies_survive_source_changes_apply_collection_and_reope
     let after = settings::snapshot(&f.store).await?;
     assert_eq!(default(&after, f.home.id()), Some(f.b.id()));
     assert_eq!(default(&after, f.field.id()), None);
-    assert_eq!(after.operating.current, f.active.current);
-    assert_eq!(after.operating.selected_equipment, None);
-    assert_eq!(after.operating.selected_profile, f.active.selected_profile);
+    assert_eq!(after.operating.current(), f.active.current());
+    assert_eq!(after.operating.selected_equipment(), None);
+    assert_eq!(
+        after.operating.selected_profile(),
+        f.active.selected_profile()
+    );
     assert_eq!(
         record(&f.store, RecordId::Equipment(f.a.id()))
             .await
@@ -119,13 +122,14 @@ async fn historical_qso_copies_survive_source_changes_apply_collection_and_reope
     let home = record(&f.store, RecordId::Profile(f.home.id())).await;
     settings::delete_profile(&f.store, &home).await?;
     let after_deletions = operating::load(&f.store).await?;
-    assert_eq!(after_deletions.current, f.active.current);
-    assert_eq!(after_deletions.selected_profile, None);
+    assert_eq!(after_deletions.current(), f.active.current());
+    assert_eq!(after_deletions.selected_profile(), None);
     let mut next = after_deletions.clone();
-    let current = next.current.as_mut().unwrap();
+    let mut current = next.current().cloned().unwrap();
     current.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7FIELD")?;
     current.equipment = Some(f.b.values().clone());
     current.transmit_power = Some(Milliwatts::new(25_000)?);
+    next.adjust(current);
     operating::save(&f.store, &after_deletions, &next).await?;
     clacks_client_store::retention::collect_unreferenced(&f.store).await?;
     f.store.close().await?;
@@ -142,13 +146,10 @@ async fn historical_qso_copies_survive_source_changes_apply_collection_and_reope
     let Some(RecordState::Live(RecordValue::Qso(qso))) = persisted.working_state() else {
         panic!("historical QSO must remain live");
     };
-    assert_eq!(
-        qso.own_station(),
-        &f.active.current.as_ref().unwrap().station
-    );
+    assert_eq!(qso.own_station(), &f.active.current().unwrap().station);
     assert_eq!(
         qso.own_context().equipment,
-        f.active.current.as_ref().unwrap().equipment
+        f.active.current().unwrap().equipment
     );
     reopened.close().await?;
     Ok(())
@@ -240,7 +241,9 @@ async fn apply_racing_delete_never_reattaches() -> anyhow::Result<()> {
     let f = fixture().await?;
     let expected = f.active.clone();
     let mut desired = expected.clone();
-    desired.current.as_mut().unwrap().transmit_power = Some(Milliwatts::new(25_000)?);
+    let mut current = desired.current().cloned().unwrap();
+    current.transmit_power = Some(Milliwatts::new(25_000)?);
+    desired.adjust(current);
     let home = record(&f.store, RecordId::Profile(f.home.id())).await;
     settings::delete_profile(&f.store, &home).await?;
     assert!(matches!(
@@ -248,18 +251,14 @@ async fn apply_racing_delete_never_reattaches() -> anyhow::Result<()> {
         OperatingSaveOutcome::Saved(_)
     ));
     let current = operating::load(&f.store).await?;
-    assert_eq!(current.selected_profile, None);
+    assert_eq!(current.selected_profile(), None);
     assert_eq!(
-        current
-            .current
-            .as_ref()
-            .unwrap()
-            .transmit_power
-            .unwrap()
-            .get(),
+        current.current().unwrap().transmit_power.unwrap().get(),
         25_000
     );
-    desired.current.as_mut().unwrap().transmit_power = Some(Milliwatts::new(10_000)?);
+    let mut values = desired.current().cloned().unwrap();
+    values.transmit_power = Some(Milliwatts::new(10_000)?);
+    desired.adjust(values);
     assert!(matches!(
         operating::save(&f.store, &expected, &desired).await?,
         OperatingSaveOutcome::Stale(_)
@@ -344,9 +343,9 @@ async fn effective_received_deletion_forgets_source() -> anyhow::Result<()> {
         )?;
         install(&store, deleted, baseline).await?;
         let current = operating::load(&store).await?;
-        assert_eq!(current.current, active.current);
-        assert_eq!(current.selected_profile, active.selected_profile);
-        assert_eq!(current.selected_equipment.is_some(), pending_edit);
+        assert_eq!(current.current(), active.current());
+        assert_eq!(current.selected_profile(), active.selected_profile());
+        assert_eq!(current.selected_equipment().is_some(), pending_edit);
         assert_eq!(
             matches!(
                 record(&store, RecordId::Equipment(a.id()))

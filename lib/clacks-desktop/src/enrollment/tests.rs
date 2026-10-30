@@ -213,14 +213,13 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
     other.close().await?;
     let destination = directory.path().join("enrolled-account");
 
-    let attempt = clacks_client_store::enrollment::EnrollmentAttempt {
-        credential_reference: reference.clone(),
-        server: origin.clone(),
-        destination: Some(occupied.clone()),
-        expected: None,
-        // The process stopped after saving the refresh credential, before advancing SQLite.
-        phase: clacks_client_store::enrollment::EnrollmentPhase::KeySaved,
-    };
+    // Native credential persistence can precede the SQLite phase update.
+    let attempt = clacks_client_store::enrollment::EnrollmentAttempt::new(
+        reference.clone(),
+        origin.clone(),
+        Some(occupied.clone()),
+        None,
+    )?;
     clacks_client_store::enrollment::save_attempt(&initiating, &attempt).await?;
     let (updates, _) = watch::channel(EnrollmentStatus::default());
     assert!(
@@ -301,7 +300,7 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
         .await?
         .unwrap();
     assert_eq!(
-        retained.phase,
+        retained.phase(),
         clacks_client_store::enrollment::EnrollmentPhase::NeedsDestination
     );
     let preserved = clacks_client_store::store::ClientStore::open(
@@ -344,7 +343,7 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
         clacks_client_store::enrollment::attempt(&initiating)
             .await?
             .unwrap()
-            .phase,
+            .phase(),
         clacks_client_store::enrollment::EnrollmentPhase::DestinationBound
     );
     credentials::remove(&reference)?;
@@ -353,17 +352,16 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
         &crate::workspace::WorkspacePaths::at(directory.path())?,
     )
     .await?;
-    let _replacement_entry = NativeEntry(replacement.credential_reference.clone());
-    assert_ne!(replacement.credential_reference, reference);
+    let _replacement_entry = NativeEntry(replacement.credential_reference().to_owned());
+    assert_ne!(replacement.credential_reference(), reference);
     let prior = replacement
-        .expected
-        .as_ref()
+        .expected()
         .context("installed destination was not retained")?;
     assert_eq!(prior.account, expected.account);
     assert_eq!(prior.actor, expected.actor);
     assert_eq!(prior.credential_reference, reference);
     assert_eq!(
-        replacement.phase,
+        replacement.phase(),
         clacks_client_store::enrollment::EnrollmentPhase::KeySaved
     );
     assert_eq!(

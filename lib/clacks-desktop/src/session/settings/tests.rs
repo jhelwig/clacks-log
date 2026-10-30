@@ -58,16 +58,17 @@ async fn settings_requests_save_without_apply_then_publish_committed_operation()
         settings.borrow().as_ref().unwrap().operating,
         OperatingState::default()
     );
-    let desired = OperatingState {
-        current: Some(clacks_model::profile::CurrentOperatingValues {
+    let desired = OperatingState::new(
+        Some(clacks_model::profile::CurrentOperatingValues {
             station: home.station.clone(),
             operator: None,
             transmit_power: None,
             equipment: None,
         }),
-        selected_profile: Some((home).try_into().expect("valid native fixture")),
-        selected_equipment: None,
-    };
+        Some((home).try_into().expect("valid native fixture")),
+        None,
+    )
+    .expect("coherent operating fixture");
     let (reply, response) = oneshot::channel();
     requests
         .send(SettingsRequest {
@@ -82,20 +83,6 @@ async fn settings_requests_save_without_apply_then_publish_committed_operation()
         tokio::time::timeout(Duration::from_secs(15), response).await??,
         SettingsResponse::Apply(OperatingSaveOutcome::Saved(_))
     ));
-    assert_eq!(settings.borrow().as_ref().unwrap().operating, desired);
-    let mut invalid = desired.clone();
-    invalid.current.as_mut().unwrap().station.callsign = RecordedCallsign::new("K1ABC")?;
-    let (reply, response) = oneshot::channel();
-    requests
-        .send(SettingsRequest {
-            action: SettingsAction::Apply {
-                expected: desired.clone(),
-                next: invalid,
-            },
-            reply,
-        })
-        .await?;
-    assert!(matches!(response.await?, SettingsResponse::Failed(_)));
     assert_eq!(settings.borrow().as_ref().unwrap().operating, desired);
     fixture.commands.send(SessionCommand::BeginShutdown).await?;
     tokio::time::timeout(Duration::from_secs(15), task).await???;

@@ -1,6 +1,6 @@
 //! Browser-held authorization requests and explicit owner approval.
 
-use super::{ApprovalPurpose, remember_approval};
+use super::{ApprovalPurpose, RecoveryTarget, remember_approval};
 use crate::{
     auth::{error::AuthError, principal::Principal},
     runtime::ServerState,
@@ -25,10 +25,8 @@ struct ApprovalRequest {
     parameters: Vec<(String, String)>,
     /// User-proposed client label, not account authority.
     label: String,
-    /// Intended existing account during recovery.
-    account: Option<clacks_model::ids::AccountId>,
-    /// Intended existing writer during recovery.
-    actor: Option<clacks_model::ids::ClientActorId>,
+    /// Existing account and writer selected together for recovery.
+    recovery: Option<RecoveryTarget>,
     /// Browser-context creation time, bounded by the normal pending-flow age.
     created_at: i64,
 }
@@ -100,9 +98,11 @@ pub(crate) async fn start(
         .map(|value| value.parse())
         .transpose()
         .map_err(|_| AuthError::InvalidCallback)?;
-    if account.is_some() != actor.is_some() {
-        return Err(AuthError::InvalidCallback);
-    }
+    let recovery = match (account, actor) {
+        (None, None) => None,
+        (Some(account), Some(actor)) => Some(RecoveryTarget { account, actor }),
+        _ => return Err(AuthError::InvalidCallback),
+    };
 
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
     let mut requests: BTreeMap<String, ApprovalRequest> = session.get(REQUESTS).unwrap_or_default();
@@ -118,8 +118,7 @@ pub(crate) async fn start(
         ApprovalRequest {
             parameters,
             label,
-            account,
-            actor,
+            recovery,
             created_at: now,
         },
     );
@@ -165,8 +164,7 @@ pub async fn summary(
     request: &str,
 ) -> Result<ApprovalSummary, AuthError> {
     let pending = load(session, request, state.config.pending_seconds)?;
-    let purpose =
-        super::recovery::purpose(state, principal, pending.account, pending.actor).await?;
+    let purpose = super::recovery::purpose(state, principal, pending.recovery).await?;
     let consequence = match purpose {
         ApprovalPurpose::New => {
             "Authorize a new client. The desktop will open an empty workspace for this account."
@@ -197,8 +195,7 @@ pub async fn decide(
     allow: bool,
 ) -> Result<String, AuthError> {
     let pending = load(session, request, state.config.pending_seconds)?;
-    let purpose =
-        super::recovery::purpose(state, principal, pending.account, pending.actor).await?;
+    let purpose = super::recovery::purpose(state, principal, pending.recovery).await?;
     let native = AuthorizationRequest::from_pairs(pending.parameters);
     let validated = state
         .issuer

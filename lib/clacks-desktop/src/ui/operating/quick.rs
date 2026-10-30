@@ -91,12 +91,8 @@ impl QuickOperatingUi {
                 OperatingSaveOutcome::Saved(state) | OperatingSaveOutcome::Unchanged(state),
             ) => {
                 if self.power_text == submitted {
-                    self.power_text = power::format_watts(
-                        state
-                            .current
-                            .as_ref()
-                            .and_then(|value| value.transmit_power),
-                    );
+                    self.power_text =
+                        power::format_watts(state.current().and_then(|value| value.transmit_power));
                     self.dirty = false;
                     self.error = None;
                 }
@@ -126,10 +122,7 @@ impl QuickOperatingUi {
         active: &OperatingState,
         sender: &mpsc::Sender<SettingsRequest>,
     ) {
-        let committed = active
-            .current
-            .as_ref()
-            .and_then(|value| value.transmit_power);
+        let committed = active.current().and_then(|value| value.transmit_power);
         if self.power_request.is_none()
             && let Some(committed_text) = self.commit_after_reply.take()
             && committed_text == self.power_text
@@ -170,7 +163,7 @@ impl QuickOperatingUi {
                 egui::vec2(group_width, ui.spacing().interact_size.y),
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
-                    ui.add_enabled_ui(active.current.is_some(), |ui| {
+                    ui.add_enabled_ui(active.current().is_some(), |ui| {
                         ui.horizontal(|ui| {
                             let label = ui.small(egui::RichText::new("Power").color(colors.muted));
                             let mut edit = egui::TextEdit::singleline(&mut self.power_text)
@@ -191,7 +184,7 @@ impl QuickOperatingUi {
                 },
             )
             .inner;
-        if active.current.is_none() {
+        if active.current().is_none() {
             response = response.on_disabled_hover_text(
                 "Set up a station in Operating settings before applying power.",
             );
@@ -264,10 +257,11 @@ impl QuickOperatingUi {
         };
         let mut next = active.clone();
         self.validation.validated();
-        let Some(current) = &mut next.current else {
+        let Some(mut current) = next.current().cloned() else {
             return;
         };
         current.transmit_power = value;
+        next.adjust(current);
         let (reply, response) = oneshot::channel();
         match sender.try_send(SettingsRequest {
             action: SettingsAction::Apply {

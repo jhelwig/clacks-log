@@ -242,7 +242,7 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
 
 #[tokio::test]
 async fn completion_attempt_and_binding_are_guarded_across_restart() -> anyhow::Result<()> {
-    use enrollment::{EnrollmentAttempt, EnrollmentPhase};
+    use enrollment::EnrollmentAttempt;
     let directory = tempfile::tempdir()?;
     let path = directory.path().join("account.sqlite");
     let store = ClientStore::create(&path, support::id(1), StoreSettings::default()).await?;
@@ -252,21 +252,24 @@ async fn completion_attempt_and_binding_are_guarded_across_restart() -> anyhow::
         server: "https://clacks.example".into(),
         credential_reference: "saved-native-entry".into(),
     };
-    let saved = EnrollmentAttempt {
-        credential_reference: binding.credential_reference.clone(),
-        server: binding.server.clone(),
-        destination: Some(directory.path().into()),
-        expected: None,
-        phase: EnrollmentPhase::CredentialSaved,
-    };
+    let mut saved = EnrollmentAttempt::new(
+        binding.credential_reference.clone(),
+        binding.server.clone(),
+        Some(directory.path().into()),
+        None,
+    )?;
+    saved.credential_saved();
     enrollment::save_attempt(&store, &saved).await?;
     store.close().await?;
     let store = ClientStore::open(&path, support::id(1), StoreSettings::default()).await?;
     assert_eq!(enrollment::attempt(&store).await?, Some(saved.clone()));
-    let stale = EnrollmentAttempt {
-        credential_reference: "superseded-native-entry".into(),
-        ..saved.clone()
-    };
+    let mut stale = EnrollmentAttempt::new(
+        "superseded-native-entry".into(),
+        binding.server.clone(),
+        Some(directory.path().into()),
+        None,
+    )?;
+    stale.credential_saved();
     enrollment::clear_attempt(&store, &stale).await?;
     assert_eq!(enrollment::attempt(&store).await?, Some(saved.clone()));
     let wrong = EnrollmentBinding {

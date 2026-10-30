@@ -39,7 +39,7 @@ pub(crate) struct OperatingEditor {
 impl OperatingEditor {
     /// Start editing applied values without saving or selecting anything implicitly.
     pub fn new(state: &OperatingState) -> Self {
-        let current = state.current.as_ref();
+        let current = state.current();
         let operator = current.and_then(|v| v.operator.as_ref());
         Self {
             expected: state.clone(),
@@ -55,8 +55,8 @@ impl OperatingEditor {
                 .and_then(|o| o.recorded_name().clone())
                 .unwrap_or_default(),
             power_watts: power::format_watts(current.and_then(|v| v.transmit_power)),
-            selected_profile: state.selected_profile.clone(),
-            selected_equipment: state.selected_equipment.clone(),
+            selected_profile: state.selected_profile().cloned(),
+            selected_equipment: state.selected_equipment().cloned(),
         }
     }
 
@@ -154,11 +154,12 @@ impl OperatingEditor {
             transmit_power,
         };
 
-        Ok(OperatingState {
-            current: Some(value),
-            selected_profile: self.selected_profile.clone(),
-            selected_equipment: self.selected_equipment.clone(),
-        })
+        OperatingState::new(
+            Some(value),
+            self.selected_profile.clone(),
+            self.selected_equipment.clone(),
+        )
+        .map_err(|error| vec![issue("Operating sources", error)])
     }
 
     /// Clear a known deleted source association without changing copied facts or edit basis.
@@ -192,19 +193,8 @@ impl OperatingEditor {
             self.forget_source(*id);
         }
         let mut cleaned = self.expected.clone();
-        if cleaned
-            .selected_profile
-            .as_ref()
-            .is_some_and(|p| deleted.contains(&RecordId::Profile(p.id())))
-        {
-            cleaned.selected_profile = None;
-        }
-        if cleaned
-            .selected_equipment
-            .as_ref()
-            .is_some_and(|e| deleted.contains(&RecordId::Equipment(e.id())))
-        {
-            cleaned.selected_equipment = None;
+        for id in &deleted {
+            cleaned.forget_source(*id);
         }
         if cleaned == snapshot.operating {
             self.expected = snapshot.operating.clone();

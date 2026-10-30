@@ -39,7 +39,9 @@ fn stale_apply_and_deletion_report_reasons_without_counting_mutations() -> anyho
                     let applied = state(&home, &a);
                     operating::save(&store, &OperatingState::default(), &applied).await?;
                     let mut other = applied.clone();
-                    other.current.as_mut().unwrap().transmit_power = Some(Milliwatts::new(25_000)?);
+                    let mut values = other.current().cloned().unwrap();
+                    values.transmit_power = Some(Milliwatts::new(25_000)?);
+                    other.adjust(values);
                     operating::save(&store, &applied, &other).await?;
                     assert!(matches!(
                         operating::save(&store, &applied, &applied).await?,

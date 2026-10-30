@@ -178,10 +178,16 @@ async fn apply_keeps_loaded_values_after_saved_source_update() -> anyhow::Result
         OperatingSaveOutcome::Saved(_)
     ));
     assert_eq!(operating::load(&store).await?, active);
-    let mut invalid = active.clone();
-    invalid.current.as_mut().unwrap().station.callsign =
-        clacks_model::scalar::RecordedCallsign::new("K1ABC")?;
-    assert!(operating::save(&store, &active, &invalid).await.is_err());
+    let mut current = active.current().cloned().unwrap();
+    current.station.callsign = clacks_model::scalar::RecordedCallsign::new("K1ABC")?;
+    assert!(
+        OperatingState::new(
+            Some(current),
+            active.selected_profile().cloned(),
+            active.selected_equipment().cloned()
+        )
+        .is_err()
+    );
     assert_eq!(operating::load(&store).await?, active);
     store.close().await?;
     Ok(())

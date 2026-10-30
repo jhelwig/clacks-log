@@ -285,27 +285,8 @@ impl SettingsUi {
                 rows.push(record.clone());
             }
         }
-        if effective
-            .operating
-            .selected_profile
-            .as_ref()
-            .is_some_and(|profile| {
-                self.known_deletions
-                    .contains(&RecordId::Profile(profile.id()))
-            })
-        {
-            effective.to_mut().operating.selected_profile = None;
-        }
-        if effective
-            .operating
-            .selected_equipment
-            .as_ref()
-            .is_some_and(|equipment| {
-                self.known_deletions
-                    .contains(&RecordId::Equipment(equipment.id()))
-            })
-        {
-            effective.to_mut().operating.selected_equipment = None;
+        for id in &self.known_deletions {
+            effective.to_mut().operating.forget_source(*id);
         }
         let snapshot = effective.as_ref();
         if self.restore_focus.is_some() {

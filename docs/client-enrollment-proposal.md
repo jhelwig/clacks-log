@@ -341,6 +341,13 @@ non-secret pending-attempt context in the initiating workspace's existing
 local-state facility, with native reference, origin, proposed destination and
 expected binding; do not copy secrets into SQLite to make a distributed
 transaction. Only one enrollment attempt per initiating workspace runs at once.
+The local attempt is one versioned document with distinct first-enrollment and
+recovery alternatives. Recovery carries its existing destination and prior
+binding together. First enrollment can select or correct an uninstalled
+destination; a bound phase always carries its committed destination. Phase
+transitions record completed native-store and database operations; they do not
+assert those effects merely because an in-memory value was constructed.
+
 This is local completion state, not a server acknowledgment protocol.
 
 On retry/restart, a saved native credential can refresh and read its actual

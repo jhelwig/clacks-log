@@ -242,11 +242,11 @@ fn applied_defaults_are_the_edit_baseline_and_contact_corrections_survive_refres
     ui.run();
     ui.state_mut().refresh(&snapshot);
     assert_eq!(ui.state().entry.form.own.callsign, "W7CORRECTION");
-    let current = snapshot.operating.current.as_mut().unwrap();
+    let mut current = snapshot.operating.current().cloned().unwrap();
     let mut equipment = current.equipment.take().unwrap().into_fields();
     equipment.equipment_description = Some("KX3".into());
     current.equipment = Some(equipment.try_into().unwrap());
-    snapshot.operating.selected_equipment = None;
+    snapshot.operating.adjust(current);
     ui.state_mut().refresh(&snapshot);
     ui.run();
     assert_eq!(ui.state().entry.form.equipment.description, "KX3");

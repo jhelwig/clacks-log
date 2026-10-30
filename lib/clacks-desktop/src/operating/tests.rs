@@ -56,8 +56,8 @@ fn rig() -> EquipmentConfiguration {
 fn active() -> OperatingState {
     let profile = home();
     let equipment = rig();
-    OperatingState {
-        current: Some(clacks_model::profile::CurrentOperatingValues {
+    OperatingState::new(
+        Some(clacks_model::profile::CurrentOperatingValues {
             station: profile.station().clone(),
             operator: None,
             transmit_power: Some(Milliwatts::new(5000).unwrap()),
@@ -67,9 +67,10 @@ fn active() -> OperatingState {
                     .expect("valid native fixture"),
             ),
         }),
-        selected_profile: Some(profile),
-        selected_equipment: Some(equipment),
-    }
+        Some(profile),
+        Some(equipment),
+    )
+    .expect("coherent operating fixture")
 }
 
 #[test]
@@ -81,7 +82,10 @@ fn manual_changes_detach_only_their_own_source_and_never_reattach() {
     editor.station.edit_grid("CN88".into());
     editor.station_changed(&old, &definitions);
     assert_eq!(editor.selected_profile, None);
-    assert_eq!(editor.selected_equipment, active.selected_equipment);
+    assert_eq!(
+        editor.selected_equipment,
+        active.selected_equipment().cloned()
+    );
     assert_eq!(editor.expected, active);
     let old = editor.station.clone();
     editor.station.edit_grid("CN87".into());
@@ -102,7 +106,7 @@ fn normalization_and_partial_input_do_not_corrupt_selections_or_text() {
     let old = editor.station.clone();
     editor.station.callsign = " w7hex ".into();
     editor.station_changed(&old, &defs);
-    assert_eq!(editor.selected_profile, active.selected_profile);
+    assert_eq!(editor.selected_profile, active.selected_profile().cloned());
     let old = editor.station.clone();
     editor.station.callsign.clear();
     editor.station_changed(&old, &defs);
@@ -114,7 +118,7 @@ fn normalization_and_partial_input_do_not_corrupt_selections_or_text() {
         editor
             .build(&defs)
             .unwrap()
-            .current
+            .current()
             .unwrap()
             .station
             .callsign
@@ -138,7 +142,10 @@ fn profile_staging_clears_absent_station_fields_and_preserves_other_scopes() {
     editor.stage_profile(&field, None).unwrap();
     assert_eq!(editor.station.position.build().unwrap(), None);
     assert_eq!(editor.station.dxcc, "");
-    assert_eq!(editor.selected_equipment, active.selected_equipment);
+    assert_eq!(
+        editor.selected_equipment,
+        active.selected_equipment().cloned()
+    );
     assert_eq!(editor.power_watts, "not finished");
     assert_eq!(editor.operator_callsign, "W7ABC");
     let rig = rig();
@@ -173,14 +180,17 @@ fn power_and_independent_profile_saves_use_native_resolution() {
             editor
                 .build(&defs)
                 .unwrap()
-                .current
+                .current()
                 .unwrap()
                 .transmit_power
                 .map(|p| p.get()),
             expected
         );
-        assert_eq!(editor.selected_profile, active.selected_profile);
-        assert_eq!(editor.selected_equipment, active.selected_equipment);
+        assert_eq!(editor.selected_profile, active.selected_profile().cloned());
+        assert_eq!(
+            editor.selected_equipment,
+            active.selected_equipment().cloned()
+        );
     }
     for invalid in ["0", "-1", "1.0001", "999999999999999999999999999"] {
         editor.power_watts = invalid.into();
@@ -301,7 +311,7 @@ fn deletion_refresh_clears_sources_without_losing_pending_values_or_rebasing_rea
     let active = active();
     let mut editor = OperatingEditor::new(&active);
     editor.power_watts = "25".into();
-    let profile = active.selected_profile.as_ref().unwrap();
+    let profile = active.selected_profile().unwrap();
     let key = RecordKey {
         account: clacks_model::ids::AccountId::new(),
         id: RecordId::Profile(profile.id()),
@@ -327,7 +337,7 @@ fn deletion_refresh_clears_sources_without_losing_pending_values_or_rebasing_rea
     .try_into()
     .expect("coherent client fixture");
     let mut current = active.clone();
-    current.selected_profile = None;
+    current.forget_source(RecordId::Profile(home().id()));
     let view = SettingsSnapshot {
         logbooks: clacks_client_store::logbooks::LogbookSnapshot {
             selected_view: clacks_client_store::logbooks::selection::SelectedView::AllContacts,
@@ -344,11 +354,12 @@ fn deletion_refresh_clears_sources_without_losing_pending_values_or_rebasing_rea
     assert_eq!(editor.expected, current);
     let mut editor = OperatingEditor::new(&active);
     let mut changed = view.clone();
-    changed.operating.current.as_mut().unwrap().transmit_power =
-        Some(Milliwatts::new(10_000).unwrap());
+    let mut values = changed.operating.current().cloned().unwrap();
+    values.transmit_power = Some(Milliwatts::new(10_000).unwrap());
+    changed.operating.adjust(values);
     editor.refresh_sources(&changed);
     assert_eq!(editor.selected_profile, None);
-    assert_eq!(editor.expected.current, active.current);
+    assert_eq!(editor.expected.current(), active.current());
 }
 
 #[test]
@@ -383,10 +394,10 @@ fn selecting_a_named_configuration_with_no_descriptions_remains_valid() {
     editor.stage_equipment(&rig);
     let built = editor.build(&DefinitionSet::default()).unwrap();
     assert_eq!(
-        built.current.unwrap().equipment,
+        built.current().unwrap().equipment,
         Some(EquipmentValues::default())
     );
-    assert_eq!(built.selected_equipment.unwrap().id(), rig.id());
+    assert_eq!(built.selected_equipment().unwrap().id(), rig.id());
 }
 
 #[test]

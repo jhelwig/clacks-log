@@ -167,8 +167,8 @@ fn active_power_follows_defaults_until_explicitly_corrected() -> anyhow::Result<
     use super::defaults::NewEntry;
     use clacks_client_store::{logbooks::selection::SelectedView, operating::OperatingState};
     use clacks_model::scalar::{Milliwatts, RecordedCallsign};
-    let mut active = OperatingState {
-        current: Some(clacks_model::profile::CurrentOperatingValues {
+    let mut active = OperatingState::new(
+        Some(clacks_model::profile::CurrentOperatingValues {
             station: clacks_model::contact::StationSnapshot {
                 callsign: RecordedCallsign::new("W7HEX")?,
                 location: None,
@@ -178,21 +178,27 @@ fn active_power_follows_defaults_until_explicitly_corrected() -> anyhow::Result<
             transmit_power: Some(Milliwatts::new(100_000)?),
             equipment: None,
         }),
-        ..Default::default()
-    };
+        None,
+        None,
+    )
+    .expect("coherent operating fixture");
     let mut entry = NewEntry::new(
         &active,
         SelectedView::AllContacts,
         UtcSecond::from_unix_seconds(1),
     );
     assert_eq!(entry.form.power, "100");
-    active.current.as_mut().unwrap().transmit_power = Some(Milliwatts::new(50_000)?);
+    let mut values = active.current().cloned().unwrap();
+    values.transmit_power = Some(Milliwatts::new(50_000)?);
+    active.adjust(values);
     entry.refresh_defaults(&active, SelectedView::AllContacts);
     assert_eq!(entry.form.power, "50");
     let before = entry.form.clone();
     entry.form.power.clear();
     entry.capture_corrections(&before);
-    active.current.as_mut().unwrap().transmit_power = Some(Milliwatts::new(25_000)?);
+    let mut values = active.current().cloned().unwrap();
+    values.transmit_power = Some(Milliwatts::new(25_000)?);
+    active.adjust(values);
     entry.refresh_defaults(&active, SelectedView::AllContacts);
     assert!(entry.form.power.is_empty());
     Ok(())

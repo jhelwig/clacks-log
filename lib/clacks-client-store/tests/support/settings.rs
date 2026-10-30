@@ -38,8 +38,8 @@ pub fn operating(
     profile: &SavedLocationProfile,
     equipment: &EquipmentConfiguration,
 ) -> OperatingState {
-    OperatingState {
-        current: Some(clacks_model::profile::CurrentOperatingValues {
+    OperatingState::new(
+        Some(clacks_model::profile::CurrentOperatingValues {
             station: (profile.station().clone()),
             operator: None,
             transmit_power: Some(Milliwatts::new(5000).unwrap()),
@@ -49,7 +49,8 @@ pub fn operating(
                     .expect("valid native fixture"),
             ),
         }),
-        selected_profile: Some(profile.clone()),
-        selected_equipment: Some(equipment.clone()),
-    }
+        Some(profile.clone()),
+        Some(equipment.clone()),
+    )
+    .expect("coherent operating fixture")
 }

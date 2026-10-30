@@ -1,22 +1,20 @@
 //! Account-owned recovery selection without treating desktop hints as authority.
 
-use super::ApprovalPurpose;
+use super::{ApprovalPurpose, RecoveryTarget};
 use crate::{
     auth::{error::AuthError, principal::Principal},
     runtime::ServerState,
 };
-use clacks_model::ids::{AccountId, ClientActorId};
 
 /// Resolve current recovery eligibility only within the browser's verified account.
 pub(super) async fn purpose(
     state: &ServerState,
     principal: &Principal,
-    expected: Option<AccountId>,
-    actor: Option<ClientActorId>,
+    target: Option<RecoveryTarget>,
 ) -> Result<ApprovalPurpose, AuthError> {
-    match (expected, actor) {
-        (None, None) => Ok(ApprovalPurpose::New),
-        (Some(account), Some(actor)) if account == principal.account_id => {
+    match target {
+        None => Ok(ApprovalPurpose::New),
+        Some(RecoveryTarget { account, actor }) if account == principal.account_id => {
             let clients = super::clients(state, principal)
                 .await
                 .map_err(AuthError::from_store)?;
