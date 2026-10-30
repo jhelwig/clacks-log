@@ -448,3 +448,18 @@ then resumed without another browser
 approval. Completed or uncertain bindings retain their saved destination.
 Until synchronization is implemented, an
 enrolled workspace is awaiting its initial synchronization.
+
+### Native credential integration
+
+The shared `credentials::entry` adapter constructs entries through the selected
+native backend without changing the global keyring store. Enrollment retains its
+`org.clacks-log.desktop.authorization` namespace, opaque references and serialized
+bundle format. The adapter selects macOS Keychain or Windows Local persistence;
+unsupported Linux storage returns an error and never falls back to plaintext.
+
+Directory provisioning (#17) will use this same adapter with its own namespace
+and typed account/purpose/revision-bound bundle. Save replacement native material
+before committing its nonsecret SQLite reference, then clean up superseded entries.
+Directory replacement/removal must preserve enrollment entries. No directory
+bundle format, provisioning endpoint or extra cache table is supplied by this
+adapter extraction.

@@ -2,6 +2,7 @@
 
 mod application;
 mod config;
+mod credentials;
 mod instance;
 mod logbooks;
 mod logging;
