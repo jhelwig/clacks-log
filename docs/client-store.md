@@ -275,8 +275,8 @@ interpretations distinct when their meanings differ.
 | Table/family | Required contents |
 | --- | --- |
 | `account_metadata` | Account, observed head timeline/revision, baseline, installed-coverage ID, membership generation. Advertised head is not the installed checkpoint. Absent before actual synchronization metadata exists. |
-| `record_vector`, `vector_component` | Vector ID qualified by record; unique `(vector, actor_role, actor_id)` with positive integer counter. Server timeline and client actor roles remain distinct. |
-| `coverage`, `coverage_entry` | Coverage ID; unique timeline/revision pair per timeline, preserving explicit zero coverage. |
+| `record_vector` | Record-qualified owner and one versioned JSON native vector. Server timeline and client actor roles remain distinct; native checked decoding preserves counter bounds and duplicate meaning. |
+| `coverage` | Account-qualified owner and one versioned JSON native prefix map, preserving explicit zero coverage. Relational references retain each checkpoint, boundary and retention root. |
 | `checkpoint`, `installed_checkpoint` | Immutable account/baseline/coverage object; singleton current installed checkpoint reference. Use the core's expected checkpoint and progress conditions; no additional local generation or maximum-observed-record shortcut. |
 | `lineage`, `timeline_boundary`, `current_lineage` | Lineage ID/account/root timeline, boundary at timeline/revision, kind and included coverage. Preserve the position at which ancestry became known. |
 | `baseline` | Account/native baseline ID, coverage, complete lineage snapshot, membership generation. Conflicting contents under one baseline ID fail; do not upsert over them. |

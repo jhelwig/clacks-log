@@ -1,17 +1,11 @@
 CREATE TABLE record_vector (
     vector_id INTEGER PRIMARY KEY,
+    body TEXT NOT NULL,
     account TEXT NOT NULL,
     kind TEXT NOT NULL,
     record_id TEXT NOT NULL,
     UNIQUE (vector_id, account, kind, record_id),
     FOREIGN KEY (account, kind, record_id) REFERENCES record_identity(account, kind, record_id)
-) STRICT;
-CREATE TABLE vector_component (
-    vector_id INTEGER NOT NULL REFERENCES record_vector(vector_id) ON DELETE CASCADE,
-    actor_kind TEXT NOT NULL CHECK (actor_kind IN ('client', 'server')),
-    actor_id TEXT NOT NULL CHECK (length(actor_id) = 26),
-    counter INTEGER NOT NULL CHECK (counter > 0),
-    PRIMARY KEY (vector_id, actor_kind, actor_id)
 ) STRICT;
 CREATE TABLE version_stamp (
     stamp_id INTEGER PRIMARY KEY,

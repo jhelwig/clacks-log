@@ -1,12 +1,12 @@
 //! Record-qualified vector and accepted-context storage shared by payload roles.
 
 use clacks_sync::{
-    clock::{ClockActor, RecordVector},
+    clock::RecordVector,
     record::{Position, RecordKey, VersionStamp},
 };
 use sqlx::SqliteConnection;
 
-/// Store exact nonzero vector components under their native record identity.
+/// Store the complete vector under its native record identity.
 pub(crate) async fn insert_vector(
     connection: &mut SqliteConnection,
     key: RecordKey,
@@ -16,25 +16,10 @@ pub(crate) async fn insert_vector(
     let account = key.account.to_string();
     let kind = crate::payload::kind(key.id);
     let id = key.id.to_string();
-    let row = sqlx::query_file!("sql/vector/insert.sql", account, kind, id)
+    let body = serde_json::to_string(vector)?;
+    let row = sqlx::query_file!("sql/vector/insert.sql", account, kind, id, body)
         .fetch_one(&mut *connection)
         .await?;
-    for (actor, counter) in vector.entries() {
-        let (kind, actor) = match actor {
-            ClockActor::Client(id) => ("client", id.to_string()),
-            ClockActor::Server(id) => ("server", id.to_string()),
-        };
-        let counter = i64::try_from(counter)?;
-        sqlx::query_file!(
-            "sql/vector/component_insert.sql",
-            row.vector_id,
-            kind,
-            actor,
-            counter
-        )
-        .execute(&mut *connection)
-        .await?;
-    }
     Ok(row.vector_id)
 }
 
@@ -53,20 +38,7 @@ pub(crate) async fn load_vector(
             && owner.record_id == key.id.to_string(),
         "vector record scope mismatch"
     );
-    let mut entries = Vec::new();
-    for row in sqlx::query_file!("sql/vector/select.sql", vector)
-        .fetch_all(connection)
-        .await?
-    {
-        let actor = match row.actor_kind.as_str() {
-            "client" => ClockActor::Client(row.actor_id.parse()?),
-            "server" => ClockActor::Server(row.actor_id.parse()?),
-            _ => anyhow::bail!("unknown clock actor role"),
-        };
-        anyhow::ensure!(row.counter > 0, "stored vector component must be positive");
-        entries.push((actor, row.counter.try_into()?));
-    }
-    Ok(RecordVector::from_entries(entries)?)
+    Ok(serde_json::from_str(&owner.body)?)
 }
 
 /// Store accepted-context coordinates without inventing their baseline interpretation.

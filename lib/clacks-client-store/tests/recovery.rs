@@ -208,6 +208,9 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
     assert_eq!(witness.observed(), &commit.accepted.stamp);
     assert_eq!(witness.original(), &sealed.pending().unwrap().original);
     let projected = baseline_plan.projected.first().unwrap();
+    store.close().await?;
+    let store = ClientStore::open(&file, support::id(1), StoreSettings::default()).await?;
+    // Reconcile using the restored sealed basis, rather than in-memory setup.
     synchronization::receive(&store, projected).await?;
     retention::collect_unreferenced(&store).await?;
     let retained = save::load(&store, key).await?.unwrap();

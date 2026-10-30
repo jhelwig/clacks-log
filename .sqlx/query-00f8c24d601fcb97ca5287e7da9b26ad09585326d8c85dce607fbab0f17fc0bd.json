@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT account, kind, record_id FROM record_vector WHERE vector_id = ?\n",
+  "query": "SELECT account, kind, record_id, body FROM record_vector WHERE vector_id = ?\n",
   "describe": {
     "columns": [
       {
@@ -35,6 +35,17 @@
             "name": "record_id"
           }
         }
+      },
+      {
+        "name": "body",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "record_vector",
+            "name": "body"
+          }
+        }
       }
     ],
     "parameters": {
@@ -43,8 +54,9 @@
     "nullable": [
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "82a7da171c759afa494a27f41d12a10b4300c9dc2381a67363f315ea0c23240a"
+  "hash": "00f8c24d601fcb97ca5287e7da9b26ad09585326d8c85dce607fbab0f17fc0bd"
 }

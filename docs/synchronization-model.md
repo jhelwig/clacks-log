@@ -736,3 +736,8 @@ completed units under its existing generation guard. Staged receipt is not
 installed account coverage. The [crate guide](../lib/clacks-sync/README.md#service-processing-and-retention)
 explains storage conditions, dependency closure, equivalent effect coverage,
 recovery and collection; it does not introduce another acknowledgment protocol.
+
+Client storage keeps each record vector and timeline-coverage map as a complete
+versioned document on its qualified owner row. Accepted stamps, checkpoints,
+lineage boundaries, witnesses and retention references remain relational.
+This representation does not change causal comparison or collection rules.

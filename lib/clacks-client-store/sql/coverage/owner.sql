@@ -1,1 +1,1 @@
-SELECT account FROM coverage WHERE coverage_id = ?
+SELECT account, body FROM coverage WHERE coverage_id = ?

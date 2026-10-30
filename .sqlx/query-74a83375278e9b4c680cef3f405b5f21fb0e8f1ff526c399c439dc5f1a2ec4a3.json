@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO record_vector (account, kind, record_id) VALUES (?, ?, ?) RETURNING vector_id AS \"vector_id!: i64\"\n",
+  "query": "INSERT INTO record_vector (account, kind, record_id, body) VALUES (?, ?, ?, ?) RETURNING vector_id AS \"vector_id!: i64\"\n",
   "describe": {
     "columns": [
       {
@@ -16,11 +16,11 @@
       }
     ],
     "parameters": {
-      "Right": 3
+      "Right": 4
     },
     "nullable": [
       null
     ]
   },
-  "hash": "00e55e08dc7286535fdc20ac290c8dd6d9961e754876c391909bdc5e2adbd691"
+  "hash": "74a83375278e9b4c680cef3f405b5f21fb0e8f1ff526c399c439dc5f1a2ec4a3"
 }

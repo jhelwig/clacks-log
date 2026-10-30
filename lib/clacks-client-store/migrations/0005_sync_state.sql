@@ -1,13 +1,8 @@
 CREATE TABLE coverage (
     coverage_id INTEGER PRIMARY KEY,
+    body TEXT NOT NULL,
     account TEXT NOT NULL REFERENCES store_account(account),
     UNIQUE (coverage_id, account)
-) STRICT;
-CREATE TABLE coverage_entry (
-    coverage_id INTEGER NOT NULL REFERENCES coverage(coverage_id) ON DELETE CASCADE,
-    timeline_id TEXT NOT NULL CHECK (length(timeline_id) = 26),
-    revision INTEGER NOT NULL CHECK (revision >= 0),
-    PRIMARY KEY (coverage_id, timeline_id)
 ) STRICT;
 CREATE TABLE lineage (
     lineage_id INTEGER PRIMARY KEY,

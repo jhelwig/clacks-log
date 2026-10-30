@@ -493,20 +493,20 @@ retains whole-object ownership and collection relationships.
 signatures. Their owner rows hold a private versioned JSON document containing
 the existing native `RecordVector`/`Coverage` values.
 
-- [ ] Extend existing pending/prepared/transfer/compaction scenarios through
+- [x] Extend existing pending/prepared/transfer/compaction scenarios through
   reopen. Verify comparison results, preserved unsent work, sealed basis evidence,
   retired actor behavior and fuller rollback reconciliation, not JSON ordering.
-- [ ] Revise client migrations `0004`/`0005_sync_state.sql`: place the complete
+- [x] Revise client migrations `0004`/`0005_sync_state.sql`: place the complete
   vector/coverage document on its qualified owner row; remove component-table
   definitions. Keep stamp, checkpoint, baseline, lineage-boundary, witness,
   membership and transfer-window references relational.
-- [ ] Update `metadata/clock.rs` and coverage/lineage/account/transfer mappers to
+- [x] Update `metadata/clock.rs` and coverage/lineage/account/transfer mappers to
   serialize complete maps directly. Counter bounds and duplicate-meaning checks
   belong to the existing native constructors, not another SQL constraint catalog.
-- [ ] Retain normal SQL root/reference garbage collection. Do not add component
+- [x] Retain normal SQL root/reference garbage collection. Do not add component
   indexes, lineage history, actor identities or a different synchronization
   algorithm. Packing a vector does not change the retention rule.
-- [ ] Remove component SQL and metadata; regenerate remaining metadata. Run sync
+- [x] Remove component SQL and metadata; regenerate remaining metadata. Run sync
   suites and client preparation/transfer/service-recovery scenarios; commit with
   updated synchronization/client-store storage descriptions.
 

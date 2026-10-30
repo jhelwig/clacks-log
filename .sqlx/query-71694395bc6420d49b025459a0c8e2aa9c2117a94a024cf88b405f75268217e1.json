@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO coverage (account) VALUES (?) RETURNING coverage_id AS \"coverage_id!: i64\"\n",
+  "query": "INSERT INTO coverage (account, body) VALUES (?, ?) RETURNING coverage_id AS \"coverage_id!: i64\"\n",
   "describe": {
     "columns": [
       {
@@ -16,11 +16,11 @@
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 2
     },
     "nullable": [
       null
     ]
   },
-  "hash": "d923bbdd74fac1133aadad4a5079ec49146080b18b7258202ca01c09f5415d91"
+  "hash": "71694395bc6420d49b025459a0c8e2aa9c2117a94a024cf88b405f75268217e1"
 }
