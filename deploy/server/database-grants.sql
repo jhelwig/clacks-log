@@ -22,3 +22,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON clacks.desktop_oauth_clients,
 GRANT SELECT, UPDATE ON clacks.accounts TO clacks_maintenance;
 GRANT SELECT, INSERT ON clacks.login_identities TO clacks_maintenance;
 GRANT SELECT, INSERT, DELETE ON clacks.server_administrators TO clacks_maintenance;
+GRANT SELECT, INSERT, UPDATE ON clacks.service_credentials TO clacks_runtime;
+GRANT SELECT, INSERT, UPDATE ON clacks.account_encryption_keys TO clacks_maintenance;
+GRANT SELECT ON clacks.service_credentials, clacks.desktop_authorization_codes,
+    clacks.desktop_code_approvals TO clacks_maintenance;
+GRANT UPDATE (key_version, nonce, ciphertext) ON clacks.service_credentials TO clacks_maintenance;
+GRANT UPDATE (receipt_key_version, receipt_nonce, receipt_ciphertext)
+    ON clacks.desktop_authorization_codes TO clacks_maintenance;

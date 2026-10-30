@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE clacks.service_credentials SET material_revision = $3, state = 'removed',\n    payload_format = NULL, key_version = NULL, nonce = NULL, ciphertext = NULL, changed_at = $4\nWHERE account_id = $1 AND credential_id = $2\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4fe25088e6e0a9d6b88337f41d33c79e8ee7f93d71e7a84e1a3445e8518b8de6"
+}

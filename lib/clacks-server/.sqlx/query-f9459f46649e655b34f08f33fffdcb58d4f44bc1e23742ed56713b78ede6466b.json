@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.service_credentials\n(account_id, credential_id, purpose, material_revision, state, payload_format, key_version, nonce, ciphertext, created_at, changed_at)\nVALUES ($1, $2, $3, $4, 'present', $5, $6, $7, $8, $9, $9)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Int4",
+        "Int8",
+        "Bytea",
+        "Bytea",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f9459f46649e655b34f08f33fffdcb58d4f44bc1e23742ed56713b78ede6466b"
+}

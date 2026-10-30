@@ -65,6 +65,8 @@ entity_ids!(
     OutputProfileId,
     /// Account boundary for synchronized data and admission.
     AccountId,
+    /// Stable identity of protected account-owned service credentials.
+    CredentialId,
     /// Enrolled client identity and record-vector writer identity.
     ClientActorId,
     /// Identity of an accepted server history.

@@ -49,7 +49,9 @@ async fn receipt_is_account_bound_and_survives_store_reopen() -> anyhow::Result<
         files: [("test".into(), file)].into(),
     };
     let wrapping = keys::WrappingKeys::load(&config)?;
-    let key = keys::account_key(&pool, &wrapping, account).await?;
+    let mut transaction = pool.begin().await?;
+    super::credentials::lock(&mut transaction, account).await?;
+    let key = keys::active_in(&mut transaction, &wrapping, account).await?;
     let context = receipt::ReceiptContext {
         account,
         code_digest: rand::random(),
@@ -68,8 +70,9 @@ async fn receipt_is_account_bound_and_survives_store_reopen() -> anyhow::Result<
         encrypted.nonce,
         encrypted.ciphertext
     )
-    .execute(&pool)
+    .execute(&mut *transaction)
     .await?;
+    transaction.commit().await?;
     drop(key);
     drop(wrapping);
     pool.close().await;

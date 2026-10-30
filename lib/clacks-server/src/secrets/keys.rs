@@ -4,14 +4,14 @@ use crate::config::WrappingKeyConfig;
 use anyhow::Context;
 use clacks_model::ids::AccountId;
 use rand::{RngCore, rngs::OsRng};
-use sqlx::PgPool;
+use sqlx::PgConnection;
 use std::collections::BTreeMap;
 use zeroize::Zeroizing;
 
 /// Protected deployment keys indexed by the IDs retained in account envelopes.
 pub(crate) struct WrappingKeys {
     /// Version selected for newly wrapped account keys.
-    active: String,
+    pub(crate) active: String,
     /// Retained raw deployment material, indexed by configured version.
     keys: BTreeMap<String, Zeroizing<Vec<u8>>>,
 }
@@ -81,56 +81,76 @@ struct KeyContext {
     version: i64,
 }
 
-/// Load or provision the account key while holding the normal account-row lock.
+/// Load or provision the active key within an already account-locked transaction.
+///
+/// Call before encrypting a value that will commit in the same transaction.
+/// An account with historical keys but no active key is an error, not a new account.
 #[tracing::instrument(skip_all, name = "account.secrets.key", level = "debug", fields(account_id = %account))]
-pub(crate) async fn account_key(
-    pool: &PgPool,
+pub(crate) async fn active_in(
+    connection: &mut PgConnection,
     wrapping: &WrappingKeys,
     account: AccountId,
 ) -> anyhow::Result<AccountKey> {
-    let mut transaction = pool.begin().await?;
-    let account_text = account.to_string();
-    sqlx::query_file!("sql/account_lock.sql", account_text)
-        .fetch_one(&mut *transaction)
+    let row = sqlx::query_file_as!(KeyRow, "sql/secrets/current.sql", account.to_string())
+        .fetch_optional(&mut *connection)
         .await?;
-    let row = sqlx::query_file_as!(KeyRow, "sql/secrets/current.sql", account_text)
-        .fetch_optional(&mut *transaction)
+    if let Some(row) = row {
+        return unwrap_key(wrapping, account, row);
+    }
+    let exists = sqlx::query_file!("sql/secrets/exists.sql", account.to_string())
+        .fetch_one(&mut *connection)
         .await?;
-    let key = match row {
-        Some(row) => unwrap_key(wrapping, account, row)?,
-        None => {
-            let mut bytes = Zeroizing::new(vec![0u8; 32]);
-            OsRng.try_fill_bytes(bytes.as_mut_slice())?;
-            let version = 1i64;
-            let associated = serde_json::to_vec(&KeyContext {
-                format: "clacks.account-key.v1",
-                account,
-                version,
-            })?;
-            let encrypted = super::encrypt(
-                wrapping.key(&wrapping.active)?,
-                &associated,
-                bytes.as_slice(),
-            )?;
-            sqlx::query_file!(
-                "sql/secrets/insert.sql",
-                account_text,
-                version,
-                wrapping.active,
-                encrypted.nonce.as_slice(),
-                encrypted.bytes
-            )
-            .execute(&mut *transaction)
-            .await?;
-            AccountKey {
-                account,
-                version,
-                bytes,
-            }
-        }
-    };
-    transaction.commit().await?;
-    Ok(key)
+    anyhow::ensure!(
+        !exists.present,
+        "account has retained keys but no active key"
+    );
+    create_in(connection, wrapping, account, 1).await
+}
+
+/// Generate one new account key under the configured deployment key.
+///
+/// The caller owns the account lock and must choose an unused positive version.
+/// Cutover callers deactivate the previous version in this same transaction.
+pub(crate) async fn create_in(
+    connection: &mut PgConnection,
+    wrapping: &WrappingKeys,
+    account: AccountId,
+    version: i64,
+) -> anyhow::Result<AccountKey> {
+    anyhow::ensure!(version > 0, "account key version must be positive");
+    let mut bytes = Zeroizing::new(vec![0u8; 32]);
+    OsRng.try_fill_bytes(bytes.as_mut_slice())?;
+    let encrypted = wrap(wrapping, account, version, bytes.as_slice())?;
+    sqlx::query_file!(
+        "sql/secrets/insert.sql",
+        account.to_string(),
+        version,
+        wrapping.active,
+        encrypted.nonce.as_slice(),
+        encrypted.bytes
+    )
+    .execute(connection)
+    .await?;
+    Ok(AccountKey {
+        account,
+        version,
+        bytes,
+    })
+}
+
+/// Wrap unchanged account-key bytes using the configured active deployment key.
+pub(crate) fn wrap(
+    wrapping: &WrappingKeys,
+    account: AccountId,
+    version: i64,
+    bytes: &[u8],
+) -> anyhow::Result<super::Ciphertext> {
+    let associated = serde_json::to_vec(&KeyContext {
+        format: "clacks.account-key.v1",
+        account,
+        version,
+    })?;
+    super::encrypt(wrapping.key(&wrapping.active)?, &associated, bytes)
 }
 
 /// Load the exact key version referenced by a retained encrypted record.

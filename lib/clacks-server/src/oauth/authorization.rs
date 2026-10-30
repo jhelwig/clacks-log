@@ -18,9 +18,10 @@ use oauth_as::{
 use sqlx::PgConnection;
 use time::OffsetDateTime;
 
-/// Protect a library record's issued references before beginning the code write.
+/// Seal issued references inside the caller's account-locked code transaction.
 async fn encrypted(
     store: &OAuthStore,
+    connection: &mut PgConnection,
     record: &AuthorizationCodeRecord,
 ) -> anyhow::Result<Option<EncryptedReceipt>> {
     let Some((access, refresh)) = record.state.minted() else {
@@ -31,14 +32,14 @@ async fn encrypted(
     }
     let hash = digest(CredentialKind::Code, &record.code);
     let approval = sqlx::query_file!("sql/oauth/approval_select.sql", hash.as_slice())
-        .fetch_one(&store.pool)
+        .fetch_one(&mut *connection)
         .await?;
     let context = ReceiptContext {
         account: record.subject.parse()?,
         code_digest: hash,
         purpose: approval.purpose,
     };
-    let key = keys::account_key(&store.pool, &store.keys, context.account).await?;
+    let key = keys::active_in(connection, &store.keys, context.account).await?;
     Ok(Some(receipt::seal(
         &key,
         &context,
@@ -119,11 +120,11 @@ async fn decode(
 
 /// Persist the complete library code state without removing immutable host approval metadata.
 pub(crate) async fn put(store: &OAuthStore, record: AuthorizationCodeRecord) -> anyhow::Result<()> {
-    let receipt = encrypted(store, &record).await?;
     let mut transaction = store.pool.begin().await?;
     sqlx::query_file!("sql/account_lock.sql", record.subject)
         .fetch_one(&mut *transaction)
         .await?;
+    let receipt = encrypted(store, &mut transaction, &record).await?;
     put_in(&mut transaction, &record, receipt.as_ref()).await?;
     transaction.commit().await?;
     Ok(())
@@ -165,7 +166,6 @@ pub(crate) async fn compare(
     expected: &AuthorizationCodeState,
     record: AuthorizationCodeRecord,
 ) -> anyhow::Result<bool> {
-    let receipt = encrypted(store, &record).await?;
     let hash = digest(CredentialKind::Code, &record.code);
     let mut transaction = store.pool.begin().await?;
     sqlx::query_file!("sql/account_lock.sql", record.subject)
@@ -184,6 +184,7 @@ pub(crate) async fn compare(
     let Some(actor) = crate::enrollment::activate_in(&mut transaction, &record).await? else {
         return Ok(false);
     };
+    let receipt = encrypted(store, &mut transaction, &record).await?;
     put_in(&mut transaction, &record, receipt.as_ref()).await?;
     transaction.commit().await?;
     metrics::counter!("clacks_client_authorizations_total").increment(1);
