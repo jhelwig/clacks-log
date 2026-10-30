@@ -1,7 +1,9 @@
 # Credential storage and key rotation proposal
 
 Engineering proposal for [issue #13](https://github.com/jhelwig/clacks-log/issues/13).
-This is for review, not an implementation plan or a claim of delivered behavior.
+The [implementation plan](superpowers/plans/2026-10-29-credential-protection.md)
+maps this design to production tasks and verification. Neither document claims
+that the proposed operations have already been implemented.
 The [account contract](accounts.md), D236/D376/D380/D381 in the
 [decision register](decisions.md), and the [recovery contract](backup-recovery.md)
 remain authoritative. The [enrollment contract](client-enrollment-proposal.md)
