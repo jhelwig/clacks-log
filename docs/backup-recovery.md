@@ -86,9 +86,13 @@ D381 includes wrapping-key rotation and individual account-key rotation through
 not rewrite existing backups. Preserve the older wrapping-key material needed
 to decrypt the account keys in every supported backup, even after current rows
 have migrated. Rotation procedures must identify the retained recovery material.
-The proposed online migration and retry procedures are in the
-[credential-protection proposal](credential-protection-proposal.md); operational
-defaults there remain subject to review.
+The [credential-protection contract](credential-protection-proposal.md) defines
+online migration and retry behavior; the
+[operator guide](../lib/clacks-server/README.md#credential-storage-and-key-maintenance)
+provides exact commands and key-only configuration. Before rotation, deploy the
+account-locked writer everywhere and drain older instances. Supported application
+rollback targets must retain that writer and support all live key/envelope formats.
+Current zero reference counts do not verify process rollout or backup disposal.
 
 An older database restore can lose client enrollments or restore authorization
 that was revoked after the backup. This is the ordinary rollback boundary,

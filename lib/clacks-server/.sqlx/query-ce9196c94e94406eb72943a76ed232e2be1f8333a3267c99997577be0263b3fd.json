@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT c.account_id, c.code_digest, a.purpose, c.receipt_key_version AS key_version,\n       c.receipt_nonce AS nonce, c.receipt_ciphertext AS ciphertext\nFROM clacks.desktop_authorization_codes c\nLEFT JOIN clacks.desktop_code_approvals a ON a.code_digest = c.code_digest AND a.account_id = c.account_id\nWHERE c.account_id = $1 AND c.receipt_key_version = $2\nORDER BY c.code_digest LIMIT $3\n",
+  "query": "SELECT c.account_id, c.code_digest, a.purpose AS \"purpose?\", c.receipt_key_version AS key_version,\n       c.receipt_nonce AS nonce, c.receipt_ciphertext AS ciphertext\nFROM clacks.desktop_authorization_codes c\nLEFT JOIN clacks.desktop_code_approvals a ON a.code_digest = c.code_digest AND a.account_id = c.account_id\nWHERE c.account_id = $1 AND c.receipt_key_version = $2\nORDER BY c.code_digest LIMIT $3\n",
   "describe": {
     "columns": [
       {
@@ -27,7 +27,7 @@
       },
       {
         "ordinal": 2,
-        "name": "purpose",
+        "name": "purpose?",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -86,5 +86,5 @@
       true
     ]
   },
-  "hash": "2cb9e5f6c27cf86644f03b3520f26ebfb85c336c7c9892dc65732df4242e13fb"
+  "hash": "ce9196c94e94406eb72943a76ed232e2be1f8333a3267c99997577be0263b3fd"
 }

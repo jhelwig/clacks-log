@@ -212,3 +212,98 @@ and code replay is a warning, with containment failures reported as errors.
 Credentials, proofs, key material and callback query strings are excluded.
 Restore PostgreSQL and retained wrapping keys together; see
 [backup and recovery](../../docs/backup-recovery.md#desktop-authorization-recovery).
+
+## Credential storage and key maintenance
+
+Account service material is encrypted under independent account keys, themselves
+wrapped by deployment keys. Credential rows retain account/purpose ownership,
+material revisions and removal metadata. Encryption maintenance changes envelopes,
+not provider revisions, authorization state or public configuration. The
+[credential contract](../../docs/credential-protection-proposal.md) describes
+transaction and integration obligations for later provider workflows.
+
+Use the existing `clacks-admin keys` commands; no web runtime or provider login
+is required. Status needs only a maintenance-role URL file. Mutating commands
+also load `[wrapping_keys]` from the normal server file and read those raw keys.
+The URL file contains one PostgreSQL URL, for example
+`postgres://clacks_maintenance:PERCENT_ENCODED_PASSWORD@db:5432/clacks`, with an
+optional trailing newline. Protect it with deployment secret management. Apply
+updated [role grants](../../deploy/server/database-grants.sql) after release
+migrations, as the schema owner. Never use the migrator credential for routine
+rotation.
+
+Before rotating, deploy the account-locked encryption writer to every instance
+and drain older binaries. Application rollback targets must retain that writer
+boundary and support all live key/envelope formats. For deployment-key changes,
+first distribute both readable key files everywhere, then activate the new key
+and drain all old-key writers. Inspect current process rollout separately; the
+commands cannot certify it. Use a direct PostgreSQL connection or session pooling;
+transaction-pooling proxies do not preserve the maintenance advisory lock.
+
+A key-only maintenance configuration needs no public URL, database runtime file,
+cookie key or identity-provider settings:
+
+```toml
+[wrapping_keys]
+active = "W2"
+
+[wrapping_keys.files]
+W1 = "/run/secrets/wrapping-w1"
+W2 = "/run/secrets/wrapping-w2"
+```
+
+Generate W2 in an existing private directory. Do not overwrite or lose W1:
+
+```sh
+cargo run -p clacks-admin -- keys generate --output /run/secrets/wrapping-w2
+cargo run -p clacks-admin -- keys status --database-url-file /run/secrets/maintenance-url
+cargo run -p clacks-admin -- keys status --database-url-file /run/secrets/maintenance-url --account ACCOUNT_ID
+cargo run -p clacks-admin -- keys rotate-account --config /etc/clacks/server.toml \
+  --database-url-file /run/secrets/maintenance-url --account ACCOUNT_ID \
+  --from-version 1 --to-version 2
+cargo run -p clacks-admin -- keys rewrap --config /etc/clacks/server.toml \
+  --database-url-file /run/secrets/maintenance-url --from W1 --to W2
+```
+
+The mutating commands accept `--batch-size 1` through `100` (default `100`).
+They serialize key maintenance with SQLx's session guard, but normal account
+writes continue between short account-locked transactions. Maintenance connections
+use a five-second lock wait; a busy/failed command reports an actionable error.
+Interruption completes or rolls back the current batch and exits nonzero with
+committed counts. Retry the same explicit source/target command. Retried completed
+migrations move zero rows. A new account rotation is refused while older inactive
+versions retain current references; finish that earlier rotation first.
+The printed retry invocation quotes the original arguments for a Portable
+Operating System Interface (POSIX) shell;
+literal shell characters in paths remain part of the argument. Failures retain
+the underlying cause and identify the account, key version and ciphertext family,
+with a public credential ID for failures in a selected service-material row.
+
+Operator commands emit structured JSON logs to stderr. Pass the global `--otlp`
+flag to export their traces, metrics and logs through the same OpenTelemetry SDK
+used by the server. Configure it using standard OpenTelemetry environment
+variables, for example:
+
+```sh
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
+cargo run -p clacks-admin -- --otlp keys rewrap --config /etc/clacks/server.toml \
+  --database-url-file /run/secrets/maintenance-url --from W1 --to W2
+```
+
+Export must be enabled in this process; an instrumented running server cannot
+collect the command's metrics. The command flushes exporters on completion,
+failure and safe interruption. Rotation failure events carry numeric committed
+counts, source/target identifiers and ciphertext family where known; requested
+interruption is an informational outcome, with a nonzero exit after flushing.
+
+Status is a read-only snapshot: deployment aggregates by wrapping-key ID; account
+status lists all versions and encrypted references. An existing keyless account
+has an empty version list and is not initialized. No status operation reads key
+files or decrypts material. Commands return nonsecret JSON summaries; identifiers
+and counts may be retained in operational logs, never key or credential contents.
+
+Keep inactive account keys and every deployment key required by retained backups.
+Zero current source references does not prove old backups are disposable. Missing
+keys or invalid envelopes are failures, not absent credentials or permission to
+regenerate material. See [backup/recovery](../../docs/backup-recovery.md) before
+restoring a database or removing keys from a deployment.

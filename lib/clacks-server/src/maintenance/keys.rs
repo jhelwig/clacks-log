@@ -1,9 +1,23 @@
-//! Create deployment wrapping keys without exposing their contents.
+//! Deployment key files and account encryption maintenance.
+
+pub(crate) mod account;
+pub(crate) mod command;
+pub(crate) mod config;
+pub(crate) mod migration;
+pub(crate) mod references;
+pub(crate) mod report;
+pub(crate) mod rewrap;
+
+#[cfg(test)]
+pub(crate) mod tests;
 
 use anyhow::Context;
 use rand::{RngCore, rngs::OsRng};
 use std::{io::Write, path::Path};
 use zeroize::Zeroizing;
+
+/// Session-scoped exclusion shared by the two database key-maintenance commands.
+const MAINTENANCE_LOCK: &str = "clacks.key-maintenance.v1";
 
 /// Write a fresh 32-byte raw key in a private directory without replacing any existing file.
 ///
@@ -26,11 +40,3 @@ pub fn generate(output: &Path) -> anyhow::Result<()> {
         .context("Could not publish wrapping key; existing files are never replaced")?;
     Ok(())
 }
-
-pub(crate) mod account;
-pub(crate) mod migration;
-pub(crate) mod references;
-pub(crate) mod report;
-
-/// Session-scoped exclusion shared by the two database key-maintenance commands.
-const MAINTENANCE_LOCK: &str = "clacks.key-maintenance.v1";

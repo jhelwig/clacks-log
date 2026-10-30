@@ -53,7 +53,14 @@ pub(crate) async fn batch(
             .await?;
             let count = u64::try_from(rows.len())?;
             for row in rows {
-                credentials::reencrypt_in(&mut tx, wrapping, row, &target).await?;
+                credentials::reencrypt_in(&mut tx, wrapping, &row, &target)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "credential {} for account {} using key version {} could not be migrated",
+                            row.credential_id, request.account, request.from_version
+                        )
+                    })?;
             }
             count
         }

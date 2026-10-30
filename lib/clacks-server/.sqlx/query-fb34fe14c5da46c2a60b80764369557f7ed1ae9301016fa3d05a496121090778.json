@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT account_id FROM clacks.account_encryption_keys WHERE wrapping_key_id = $1\nORDER BY account_id LIMIT 1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "account_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.account_encryption_keys",
+            "name": "account_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fb34fe14c5da46c2a60b80764369557f7ed1ae9301016fa3d05a496121090778"
+}

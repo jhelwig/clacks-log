@@ -604,11 +604,12 @@ an internal rotation scheduler. Changing the configured active wrapping key
 alone does not rewrap existing account keys. Retain the key versions required
 by supported backups and restores, including material that older backups still
 reference. Rotation does not renew provider credentials, revoke clients or alter
-their enrollment identities. Exact command interfaces, transaction boundaries,
-concurrent access and interruption recovery remain issue #13 engineering work.
-The [credential-storage and key-rotation proposal](credential-protection-proposal.md)
-provides concrete schema, transaction, recovery and operator-command recommendations
-for review; its engineering defaults are not additional accepted decisions.
+their enrollment identities. The [credential-storage contract](credential-protection-proposal.md)
+defines production schema, account-locked writes, resumable bounded migrations
+and reference reporting. The [operator guide](../lib/clacks-server/README.md#credential-storage-and-key-maintenance)
+provides key-only configuration and exact commands. Its batching, session-lock
+coordination and command shapes are engineering choices rather than additional
+product decisions.
 
 ## Account integration constraints
 

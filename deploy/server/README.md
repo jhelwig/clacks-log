@@ -130,3 +130,15 @@ rewrap existing account keys; retain any key still referenced by an envelope.
 The [server guide](../../lib/clacks-server/README.md#desktop-authorization) covers
 issuer operations and the [recovery contract](../../docs/backup-recovery.md)
 explains rollback and native desktop credential recovery.
+
+## Encryption-key rotation
+
+Use the [operator procedure](../../lib/clacks-server/README.md#credential-storage-and-key-maintenance)
+for account-key rotation and deployment-key rewrapping. Install updated grants
+after release migrations. Deploy the account-locked writer and drain older
+instances before any rotation; distribute new readable wrapping keys before
+activating them and drain old-key writers before completing rewrap. Supported
+application rollback targets must retain the writer boundary and live formats.
+Maintenance requires a direct or session-pooled connection, not transaction
+pooling. Keep every key required by retained backups even after current source
+references reach zero.

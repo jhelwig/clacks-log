@@ -1,5 +1,6 @@
 //! Discoverable operator commands with operation-specific credentials.
 
+use super::keys::command::KeysCommand;
 use clacks_model::ids::AccountId;
 use clap::{Args, Parser, Subcommand};
 use std::path::{Path, PathBuf};
@@ -8,6 +9,10 @@ use std::path::{Path, PathBuf};
 #[derive(Parser)]
 #[command(name = "clacks-admin", about = "Clacks Log operator commands")]
 struct Arguments {
+    /// Export traces, metrics and logs using the standard OpenTelemetry environment.
+    #[arg(long, global = true)]
+    otlp: bool,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -15,7 +20,7 @@ struct Arguments {
 /// Supported operator domains, not a general task registry.
 #[derive(Subcommand)]
 enum Command {
-    /// Create deployment encryption key files.
+    /// Inspect and maintain deployment/account encryption keys.
     Keys {
         #[command(subcommand)]
         command: KeysCommand,
@@ -40,17 +45,6 @@ enum Command {
     Identity {
         #[command(subcommand)]
         command: IdentityCommand,
-    },
-}
-
-/// Deployment secret creation without database or provider credentials.
-#[derive(Subcommand)]
-enum KeysCommand {
-    /// Generate a protected 32-byte wrapping key without overwriting an existing file.
-    Generate {
-        /// Destination in a private, existing secret directory.
-        #[arg(long)]
-        output: PathBuf,
     },
 }
 
@@ -141,65 +135,91 @@ async fn change_role(target: RoleTarget, enabled: bool) -> anyhow::Result<()> {
 
 /// Run one operator operation without loading web-runtime credentials or starting HTTP.
 pub async fn run() -> anyhow::Result<()> {
-    let args = Arguments::parse();
-    let telemetry = crate::telemetry::init(false)?;
-    match args.command {
-        Command::Keys {
-            command: KeysCommand::Generate { output },
-        } => {
-            super::keys::generate(&output)?;
-            println!("Wrapping key created at {}", output.display());
-        }
-
-        Command::Oidc {
-            command: OidcCommand::Register { config, provider },
-        } => {
-            let config = crate::config::ServerConfig::load(&config)?;
-            let callback = config.callback(&provider)?;
-            let provider = config
-                .providers
-                .get(&provider)
-                .ok_or_else(|| anyhow::anyhow!("provider is not configured"))?;
-            let outcome = super::registration::run(provider, &callback).await?;
-            println!("{outcome:?}");
-        }
-        Command::Database {
-            command: DatabaseCommand::Migrate { database_url_file },
-        } => {
-            let pool = database(&database_url_file).await?;
-            super::migrate::run(&pool).await?;
-            pool.close().await;
-        }
-        Command::Role {
-            command: RoleCommand::Grant(target),
-        } => change_role(target, true).await?,
-        Command::Role {
-            command: RoleCommand::Revoke(target),
-        } => change_role(target, false).await?,
-        Command::Identity {
-            command:
-                IdentityCommand::Recover {
-                    account,
-                    issuer,
-                    subject,
-                    database_url_file,
-                },
-        } => {
-            let pool = database(&database_url_file).await?;
-            let outcome = crate::store::AccountStore::new(pool.clone())
-                .recover_identity(
-                    account,
-                    crate::auth::oidc::VerifiedIdentity {
-                        issuer: openidconnect::IssuerUrl::new(issuer)?.as_str().to_owned(),
-                        subject,
-                        display_name: None,
-                    },
-                )
-                .await?;
-            println!("{outcome:?}");
-            pool.close().await;
-        }
-    }
-    tokio::task::spawn_blocking(move || telemetry.shutdown()).await??;
-    Ok(())
+    Arguments::parse().execute().await
 }
+
+impl Arguments {
+    /// Run the selected operation and flush exporters before returning its result.
+    async fn execute(self) -> anyhow::Result<()> {
+        let telemetry =
+            tokio::task::spawn_blocking(move || crate::telemetry::init(self.otlp)).await??;
+        let result = self.command.execute().await;
+        let shutdown = tokio::task::spawn_blocking(move || telemetry.shutdown()).await;
+
+        // Preserve the command failure if export also fails; shutdown still runs.
+        if let Err(error) = &shutdown {
+            eprintln!("Telemetry shutdown task failed: {error}");
+        } else if let Ok(Err(error)) = &shutdown {
+            eprintln!("Telemetry shutdown failed: {error:#}");
+        }
+        let end = result?;
+        shutdown??;
+        anyhow::ensure!(
+            end == super::keys::report::MaintenanceEnd::Complete,
+            "key maintenance interrupted; retry the same command"
+        );
+        Ok(())
+    }
+}
+
+impl Command {
+    /// Dispatch an operator command without taking ownership of telemetry resources.
+    async fn execute(self) -> anyhow::Result<super::keys::report::MaintenanceEnd> {
+        match self {
+            Command::Keys { command } => return super::keys::command::run(&command).await,
+
+            Command::Oidc {
+                command: OidcCommand::Register { config, provider },
+            } => {
+                let config = crate::config::ServerConfig::load(&config)?;
+                let callback = config.callback(&provider)?;
+                let provider = config
+                    .providers
+                    .get(&provider)
+                    .ok_or_else(|| anyhow::anyhow!("provider is not configured"))?;
+                let outcome = super::registration::run(provider, &callback).await?;
+                println!("{outcome:?}");
+            }
+            Command::Database {
+                command: DatabaseCommand::Migrate { database_url_file },
+            } => {
+                let pool = database(&database_url_file).await?;
+                super::migrate::run(&pool).await?;
+                pool.close().await;
+            }
+            Command::Role {
+                command: RoleCommand::Grant(target),
+            } => change_role(target, true).await?,
+            Command::Role {
+                command: RoleCommand::Revoke(target),
+            } => change_role(target, false).await?,
+            Command::Identity {
+                command:
+                    IdentityCommand::Recover {
+                        account,
+                        issuer,
+                        subject,
+                        database_url_file,
+                    },
+            } => {
+                let pool = database(&database_url_file).await?;
+                let outcome = crate::store::AccountStore::new(pool.clone())
+                    .recover_identity(
+                        account,
+                        crate::auth::oidc::VerifiedIdentity {
+                            issuer: openidconnect::IssuerUrl::new(issuer)?.as_str().to_owned(),
+                            subject,
+                            display_name: None,
+                        },
+                    )
+                    .await?;
+                println!("{outcome:?}");
+                pool.close().await;
+            }
+        }
+        Ok(super::keys::report::MaintenanceEnd::Complete)
+    }
+}
+
+#[cfg(test)]
+mod tests;

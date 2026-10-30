@@ -88,8 +88,9 @@ newline in a URL file is accepted. The cookie-key file instead contains 64 raw
 random bytes, not hexadecimal/Base64 text. Keep these files between restarts.
 The account-wrapping-key file contains exactly 32 raw random bytes. It encrypts
 each account's independently generated encryption key before that key is stored
-in PostgreSQL. Account keys currently encrypt token references retained briefly
-so the server can revoke issued credentials when an authorization code is replayed.
+in PostgreSQL. Account keys encrypt service-credential material and token
+references retained for authorization-code replay containment. Provider-specific
+configuration and provisioning are separate downstream capabilities.
 `keys generate` requires no database or provider configuration and refuses to
 replace an existing file.
 
@@ -331,3 +332,8 @@ newer schema. Check compatibility before using an existing database and coordina
 migrations for any database shared by multiple processes. Use a separate database
 when a branch needs an incompatible schema; do not edit migration history or run
 down migrations to make it fit. Keep test data independent of development accounts.
+
+For disposable key-maintenance acceptance, use the existing test database and
+restricted maintenance role, not persistent development accounts. The
+[operator procedure](../lib/clacks-server/README.md#credential-storage-and-key-maintenance)
+covers key-only configuration, rotation, retries and backup retention.

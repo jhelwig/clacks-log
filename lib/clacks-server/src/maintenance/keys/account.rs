@@ -3,7 +3,7 @@
 use super::{
     migration::{self, CiphertextFamily},
     references,
-    report::{AccountRotationReport, EncryptedCounts, MaintenanceEnd},
+    report::{AccountRotationError, AccountRotationReport, EncryptedCounts, MaintenanceEnd},
 };
 use crate::secrets::keys::{self, WrappingKeys};
 use anyhow::Context;
@@ -113,13 +113,23 @@ pub(crate) async fn rotate(
         anyhow::bail!("key maintenance is busy; retry the same command");
     };
     let mut migrated = EncryptedCounts::default();
-    let result = async {
+
+    let mut current_family = None;
+    let result: anyhow::Result<AccountRotationReport> = async {
         if !stop.is_cancelled() {
             cutover(guard.as_mut(), wrapping, request).await?;
         }
         for family in [CiphertextFamily::Credential, CiphertextFamily::Receipt] {
+            current_family = Some(family);
             while !stop.is_cancelled() {
-                let changed = migration::batch(guard.as_mut(), wrapping, request, family).await?;
+                let changed = migration::batch(guard.as_mut(), wrapping, request, family)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "{family:?} ciphertext batch for account {}, source key version {}, target key version {} failed",
+                            request.account, request.from_version, request.to_version
+                        )
+                    })?;
                 match family {
                     CiphertextFamily::Credential => migrated.credentials += changed,
                     CiphertextFamily::Receipt => migrated.receipts += changed,
@@ -129,20 +139,49 @@ pub(crate) async fn rotate(
                 }
             }
         }
+        current_family = None;
         let mut tx = guard.as_mut().begin().await?;
-        sqlx::query_file!("sql/account_lock.sql", request.account.to_string()).fetch_one(&mut *tx).await?;
+        sqlx::query_file!("sql/account_lock.sql", request.account.to_string())
+            .fetch_one(&mut *tx).await?;
         let remaining = references::count(&mut tx, request.account, request.from_version).await?;
-        let end = if stop.is_cancelled() { MaintenanceEnd::Interrupted } else {
-            anyhow::ensure!(remaining.credentials == 0 && remaining.receipts == 0, "source references remain after migration");
+        let end = if stop.is_cancelled() {
+            MaintenanceEnd::Interrupted
+        } else {
+            anyhow::ensure!(
+                remaining.credentials == 0 && remaining.receipts == 0,
+                "source references remain after migration"
+            );
             MaintenanceEnd::Complete
         };
         tx.commit().await?;
+
         tracing::info!(event = "account.key.rotation", account_id = %request.account, from_version = request.from_version, to_version = request.to_version, credentials = migrated.credentials, receipts = migrated.receipts, remaining_credentials = remaining.credentials, remaining_receipts = remaining.receipts, outcome = ?end, "Account-key migration stopped");
-        Ok(AccountRotationReport { account: request.account, from_version: request.from_version, to_version: request.to_version, end, migrated: EncryptedCounts { credentials: migrated.credentials, receipts: migrated.receipts }, remaining })
+        Ok(AccountRotationReport {
+            account: request.account, from_version: request.from_version,
+            to_version: request.to_version, end,
+            migrated: EncryptedCounts {
+                credentials: migrated.credentials, receipts: migrated.receipts,
+            },
+            remaining,
+        })
     }.await;
+
     // Release explicitly even on an operation error; the owned connection also closes on drop.
     let released = guard.release_now().await;
-    let report = result.with_context(|| format!("account {} rotation {}→{} stopped after {} credentials and {} receipts; retry the same source/target", request.account, request.from_version, request.to_version, migrated.credentials, migrated.receipts))?;
-    released?;
-    Ok(report)
+    result
+        .and_then(|report| {
+            released?;
+            Ok(report)
+        })
+        .map_err(|source| {
+            AccountRotationError {
+                account: request.account,
+                from_version: request.from_version,
+                to_version: request.to_version,
+                migrated,
+                family: current_family,
+                source,
+            }
+            .into()
+        })
 }

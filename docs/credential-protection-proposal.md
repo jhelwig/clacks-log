@@ -1,9 +1,9 @@
-# Credential storage and key rotation proposal
+# Credential storage and key rotation
 
-Engineering proposal for [issue #13](https://github.com/jhelwig/clacks-log/issues/13).
+Production credential storage and operator-key maintenance for
+[issue #13](https://github.com/jhelwig/clacks-log/issues/13).
 The [implementation plan](superpowers/plans/2026-10-29-credential-protection.md)
-maps this design to production tasks and verification. Neither document claims
-that the proposed operations have already been implemented.
+records task boundaries and verification.
 The [account contract](accounts.md), D236/D376/D380/D381 in the
 [decision register](decisions.md), and the [recovery contract](backup-recovery.md)
 remain authoritative. The [enrollment contract](client-enrollment-proposal.md)
@@ -41,18 +41,15 @@ client. OpenID Connect (OIDC) deployment credentials remain separate.
   account-scoped authorization and existing account-row locking. No external key
   service is mandatory, and no custom cryptographic algorithm is introduced.
 
-## 2. Existing implementation and capability boundaries
+## 2. Implementation and capability boundaries
 
-Issue #12 already provides AES-256-GCM authenticated encryption through RustCrypto,
-versioned `account_encryption_keys`, protected deployment key files, encrypted
-consumed-code receipts, and native desktop enrollment storage. AES-256-GCM means
-Advanced Encryption Standard with a 256-bit key in Galois/Counter Mode. Reuse these
-production components; do not add a parallel vault or encryption stack.
-
-#13 extends that implementation with service-secret persistence, operational key
-rotation, reference reporting, and reusable native storage wiring. Existing code
-receipts are an immediate production consumer of rotation and transaction changes.
-The service-secret store is the production component later owners integrate.
+RustCrypto supplies AES-256-GCM authenticated encryption: Advanced Encryption
+Standard with a 256-bit key in Galois/Counter Mode. Production components include
+versioned account-key envelopes, protected deployment key files, encrypted
+consumed-code receipts, account-scoped service material, online rotation,
+reference reporting and native desktop enrollment storage. Existing code receipts
+are a live consumer of rotation; later provider workflows integrate the same
+service-credential operations rather than replacing them.
 
 | Capability | Owning issue |
 | --- | --- |
@@ -68,11 +65,12 @@ The service-secret store is the production component later owners integrate.
 secret-distribution protocol or public generic secret-download endpoint. Later
 capabilities extend its actual persistence and native-store operations.
 
-## 3. Proposed engineering defaults and alternatives
+## 3. Engineering defaults and tradeoffs
 
-The following are recommendations, not additional agreed product decisions:
+The following implementation choices are engineering defaults, not additional
+agreed product decisions:
 
-| Choice | Proposed default and tradeoff |
+| Choice | Implemented default and tradeoff |
 | --- | --- |
 | Rotation availability | Online cutover followed by bounded migration. Ordinary requests continue; an account's writes can briefly wait for a migration batch's existing account lock. A single large transaction is simpler but can hold that lock for the whole migration. Stopping the server is an available self-hosting procedure, not the core design. |
 | Progress | Existing key/version references identify remaining rows. No durable rotation-job table or custom queue. Explicit source/target arguments make retries unambiguous. |
@@ -83,11 +81,11 @@ The following are recommendations, not additional agreed product decisions:
 | Local stores | Extend the existing native backend adapter; retain separate enrollment and directory entries. No plaintext fallback, new keyring trait for fake tests or general secret-management framework. |
 
 Direct authenticated encryption with the existing hierarchy is selected by D236;
-an external key service or disk encryption alone does not replace it. The proposed
+an external key service or disk encryption alone does not replace it. The
 bounded migration uses ordinary PostgreSQL and SQLx facilities rather than adding
 a separate job engine to satisfy interruption recovery.
 
-## 4. Proposed server schema
+## 4. Server schema
 
 Use the existing `clacks` schema and checked query files with committed SQLx
 offline metadata. Native IDs are canonical text IDs. Versions are positive
@@ -106,7 +104,8 @@ nonces and ciphertext use `BYTEA`; public instants use `TIMESTAMPTZ`.
 | `active` | Key used for newly encrypted values; existing partial unique index permits at most one active key per account |
 | `created_at` | Actual key creation time; rewrapping does not change it |
 
-The initial account key is provisioned lazily under the account lock, as today.
+The initial account key is provisioned lazily within the account-locked write
+transaction.
 When no active key exists, create version 1 only if the account has no key rows.
 Existing inactive rows without an active key are an error, not permission to
 silently generate a replacement. Rotation switches active rows in one transaction.
@@ -165,9 +164,12 @@ add a public raw-key accessor merely to populate this table.
 Keep `desktop_authorization_codes.receipt_key_version`, `receipt_nonce` and
 `receipt_ciphertext`, their account-qualified key foreign key and expiry cleanup.
 Do not move transient code records into `service_credentials` or change their
-oauth-as state machine. Add an account/key-version index for encrypted receipt
+oauth-as state machine. An account/key-version index covers encrypted receipt
 references. Migration covers every persisted non-null receipt, including expired
 ones not yet collected; expiration is not proof that a reference is gone.
+Approval cleanup retains the immutable purpose while its corresponding code row
+remains stored. Independently bounded cleanup batches must not remove that
+decryption context before the receipt itself is collected.
 
 The complete set of encrypted account data in #13 is service-credential material
 and these code receipts. Every future encrypted table must join the same rotation
@@ -220,23 +222,19 @@ provider passwords/private keys. Public history remains separate. PostgreSQL
 recovery logs and backups may still contain older bytes; removal is not secure
 erasure of those copies.
 
-### 6.2 Correct the existing receipt write boundary
+### 6.2 Receipt write boundary
 
-Today `oauth::authorization::{put,compare}` encrypt receipts before beginning
-their write transaction, and `account_key` uses a separate pool transaction.
-That can persist an old-key envelope after an account rotation cutover.
+`oauth::authorization::{put,compare}` selects/provisions the active key and seals
+receipts inside the caller's account-locked write transaction, on the same
+connection. Key helpers neither open another pool transaction nor reacquire the
+account lock. Conditional final activation checks its code/approval guards before
+sealing and committing the code/grant transition.
 
-Move key selection/provisioning and receipt encryption inside the caller's
-account-locked transaction. The key helper takes the existing connection;
-it does not open another transaction or reacquire the account lock through a pool.
-For conditional final activation, first check the existing code/approval guards,
-then seal and commit under the existing code/grant transaction. The library's
-take/put-back and replay behavior stays unchanged. An old record returned by an
-earlier take is re-sealed using the active key when put back.
-
-All production encryption writes follow this rule. No long-lived active-key cache
-can bypass it. Runtime wrapping keys may remain loaded as today because deployment
-rollout controls their availability, as described in section 8.
+The library's take/put-back and replay behavior remains unchanged. A record
+returned by an earlier take is re-sealed with the active key when put back. All
+production encryption writes follow this boundary; no active-key cache bypasses
+it. Runtime wrapping keys are loaded once per process; deployment rollout controls
+their availability as described in section 8.
 
 ### 6.3 Reads and ordinary credential use
 
@@ -362,7 +360,7 @@ No command removes deployment key files or claims to verify external backup
 retention. Removing a key from live configuration is an operator deployment step
 after current use and rollout are checked; its protected backup may still be needed.
 
-## 9. Maintenance coordination and proposed commands
+## 9. Maintenance coordination and commands
 
 Use SQLx 0.9's `PgAdvisoryLock` with a stable namespaced key for the mutating
 database commands `rewrap` and `rotate-account`. Status is an ordinary consistent
@@ -381,7 +379,7 @@ order. No command locks every account at once or waits for another command while
 holding an account lock. Default batch size is an engineering default, not an
 account-size limit; use ordinary bounded database lock waits and actionable errors.
 
-Proposed CLI shape, using the existing thin `bin/clacks-admin` wrapper:
+Command-line interface (CLI), using the existing thin `bin/clacks-admin` wrapper:
 
 ```sh
 clacks-admin keys generate --output /run/secrets/wrapping-w2
@@ -404,6 +402,9 @@ encrypted table. Commands are not remote job submissions. Exit success only
 after the requested reference migration completes; on busy, interruption or
 failure, report retained progress and the exact retry invocation. A keyless
 account is reported as such rather than initialized by a status operation.
+Retry invocations use Portable Operating System Interface (POSIX) shell argument
+quoting, including literal
+spaces, dollar signs and other shell syntax in configuration paths.
 
 | Operation | Required material |
 | --- | --- |
@@ -423,18 +424,15 @@ Schema changes remain under the separate migrator role.
 
 ## 10. Native client storage integration
 
-Move the existing platform-entry construction into a focused shared desktop
-credential module used by enrollment and directory storage. Retain selected
-native backends and Windows Local persistence; no alternative secret store,
-custom storage trait or Linux plaintext fallback is introduced.
+The shared desktop credential adapter constructs entries using the selected
+native backends and Windows Local persistence. Enrollment uses it with the
+unchanged native namespace, opaque references and bundle encoding. No alternative
+store, custom storage trait or Linux plaintext fallback is introduced.
 
-The #13 implementation extracts that adapter and keeps existing enrollment as
-its production consumer. It preserves the native namespace, opaque references
-and serialized enrollment bundle encoding, and reruns the existing real native
-enrollment/reload/completion scenario. It does not add a directory DTO, codec,
-cache registry or otherwise unused directory-specific API. DTO means data
-transfer object. Those production operations and their integration scenario are
-delivered with the typed provider configuration in #17.
+Typed directory material, owner/purpose validation and provisioning remain #17.
+The adapter supplies no unused directory data-transfer type, codec or cache
+registry. The existing enrollment/reload/completion scenario exercises its
+current production consumer.
 
 Keep the existing enrollment service namespace and entry references unchanged.
 Use a separate directory namespace and opaque random entry references. Directory
@@ -472,11 +470,20 @@ Include operator database identity, public key versions, account ID where scoped
 table and committed counts. Do not log key bytes, plaintext values, native bundle
 contents, database URLs, code/token/proof strings or decrypted receipts.
 
-Suggested metrics are `clacks_account_keys_rewrapped_total` and
+Maintenance metrics are `clacks_account_keys_rewrapped_total` and
 `clacks_secret_values_reencrypted_total`, incremented after their batch commits.
 Bounded ciphertext-family labels may distinguish credential values from receipts;
 account/credential IDs are tracing fields, never metric labels. Normal operation
 spans use framework timing; no generic telemetry completion abstraction is added.
+
+`clacks-admin --otlp` enables the existing OpenTelemetry exporters in the operator
+process, using standard exporter environment variables. Without the flag it emits
+structured stderr logs. Exporters shut down after successful, failed and
+interrupted commands; server-process export cannot observe maintenance-process
+metrics. Rotation failures produce one handling-boundary error event with numeric
+committed counts, source/target identifiers and the failing ciphertext family when
+available. The error retains its underlying cause. Requested interruption remains
+an informational outcome and exits nonzero after exporter shutdown.
 
 Verification should catch these specific Clacks mistakes:
 
@@ -488,6 +495,7 @@ Verification should catch these specific Clacks mistakes:
 | Actual rewrap plus subsequent existing issuer authorization/replay | Rewrapping only active keys, changing account-key contents, or requiring an old deployment key after current references migrated |
 | Existing native enrollment/reload/completion through the extracted backend (#13) | Stranding enrollment by changing its native namespace, reference or bundle encoding |
 | One real rotation with configured telemetry | Reporting uncommitted success/counts or exposing exercised secret material |
+| Operator command-driver export after rotation and failure after a committed rewrap batch | Leaving maintenance metrics unexportable, losing numeric partial progress, or skipping shutdown on errors |
 
 Use the actual schema, SQLx transactions and selected native stores with disposable
 state. Do not test AES primitives, SQLx advisory-lock mechanics, uniqueness
@@ -499,7 +507,7 @@ verifies that directory replacement/removal preserves enrollment material and
 that the native owner/purpose checks apply to its actual bundle. Do not invent
 a directory fixture format in #13 to claim that downstream acceptance early.
 
-## 12. Recovery, delivery and remaining engineering work
+## 12. Recovery and downstream integration
 
 Back up the database consistently with its versioned account-key envelopes.
 Retain every deployment key required by supported backups, regardless of current
@@ -508,20 +516,14 @@ older authorization, or omit later replacements. Do not silently merge native
 client secrets back into server-only storage or promise erasure from old backups.
 Follow the existing upload pause/catch-up/explicit-resume procedure on restore.
 
-The proposal requires no changes to the persistent personal development
-environment. Implement using disposable databases and unique native entries;
-native Windows acceptance remains distinct from macOS verification and CI status.
+Provider payload formats and authenticated distribution remain with their owning
+capabilities. The native adapter does not add unused directory codecs or a public
+secret-download endpoint. See the [server operator guide](../lib/clacks-server/README.md#credential-storage-and-key-maintenance)
+for complete key-only configuration, required database grants and commands.
 
-An implementation plan should translate these proposed contracts into focused
-modules, checked queries/migration grants and tests. Exact Rust names, internal
-module splits, query batching details and error-type organization are builder
-choices. They must not introduce a generic vault/job framework or choose provider
-payload formats that belong to later capabilities. No implementation or push is
-authorized merely by this proposal.
-
-## Sources and implementation evidence
+## Sources and implementation
 
 - [PostgreSQL row/advisory locking](https://www.postgresql.org/docs/current/explicit-locking.html): transaction row locks and session-scoped maintenance exclusion have different lifetimes.
 - [SQLx 0.9 advisory-lock guard](https://docs.rs/sqlx-postgres/0.9.0/sqlx_postgres/struct.PgAdvisoryLock.html): standard acquisition, owned-connection access, explicit release and queued release on drop; checked against the installed 0.9.0 source.
 - [OWASP key management](https://cheatsheetseries.owasp.org/cheatsheets/Key_Management_Cheat_Sheet.html): lifecycle, rotation, accountability and recovery considerations; it does not select a Clacks rotation interval or new mandatory external key service.
-- Existing [`secrets`](../lib/clacks-server/src/secrets.rs), [account keys](../lib/clacks-server/src/secrets/keys.rs), [receipt context](../lib/clacks-server/src/secrets/receipt.rs), [receipt writer](../lib/clacks-server/src/oauth/authorization.rs), and [native enrollment storage](../lib/clacks-desktop/src/enrollment/credentials.rs) define the production integration being extended.
+- Existing [`secrets`](../lib/clacks-server/src/secrets.rs), [account keys](../lib/clacks-server/src/secrets/keys.rs), [receipt context](../lib/clacks-server/src/secrets/receipt.rs), [receipt writer](../lib/clacks-server/src/oauth/authorization.rs), and [native enrollment storage](../lib/clacks-desktop/src/enrollment/credentials.rs) define the production integration.

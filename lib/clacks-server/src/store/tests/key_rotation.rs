@@ -1,5 +1,8 @@
 //! Key rotation retains credential meaning and real authorization behavior.
 
+mod cleanup;
+mod rewrap;
+
 use super::credentials::{account, lock, material};
 use crate::{
     maintenance::keys::{
@@ -18,8 +21,11 @@ use sqlx::{Connection, PgConnection, postgres::PgPoolOptions};
 use std::num::NonZeroU16;
 use tokio_util::sync::CancellationToken;
 
+use crate::maintenance::keys::tests::SERIAL as MAINTENANCE_TEST;
+
 #[tokio::test]
 async fn account_rotation_resumes_and_preserves_credential_meaning() -> anyhow::Result<()> {
+    let _maintenance = MAINTENANCE_TEST.lock().await;
     let recorder = metrics_util::debugging::DebuggingRecorder::new();
     let snapshot = recorder.snapshotter();
     let _metrics_guard = metrics::set_default_local_recorder(&recorder);
@@ -38,12 +44,21 @@ async fn account_rotation_resumes_and_preserves_credential_meaning() -> anyhow::
         .await?;
     crate::maintenance::migrate::run(&pool).await?;
     let owner = account(&pool).await?;
+    let mut status_connection = pool.acquire().await?;
+    let keyless =
+        crate::maintenance::keys::references::status(&mut status_connection, Some(owner)).await?;
+    let crate::maintenance::keys::references::KeyStatus::Account { versions, .. } = keyless else {
+        anyhow::bail!("wrong status scope");
+    };
+    assert!(versions.is_empty());
+    drop(status_connection);
     let directory = tempfile::tempdir()?;
+
     let file = directory.path().join("key");
     std::fs::write(&file, [19u8; 32])?;
     let wrapping = WrappingKeys::load(&crate::config::WrappingKeyConfig {
         active: "W1".into(),
-        files: [("W1".into(), file)].into(),
+        files: [("W1".into(), file.clone())].into(),
     })?;
     let mut identities = Vec::new();
     let mut tx = pool.begin().await?;
@@ -65,6 +80,16 @@ async fn account_rotation_resumes_and_preserves_credential_meaning() -> anyhow::
         identities.push(saved);
     }
     tx.commit().await?;
+    let target_file = directory.path().join("W2");
+    std::fs::write(&target_file, [20u8; 32])?;
+    let wrapping = WrappingKeys::load(&crate::config::WrappingKeyConfig {
+        active: "W2".into(),
+        files: [("W1".into(), file), ("W2".into(), target_file.clone())].into(),
+    })?;
+    let only_target = WrappingKeys::load(&crate::config::WrappingKeyConfig {
+        active: "W2".into(),
+        files: [("W2".into(), target_file)].into(),
+    })?;
     let request = AccountRotationRequest {
         account: owner,
         from_version: 1,
@@ -84,6 +109,47 @@ async fn account_rotation_resumes_and_preserves_credential_meaning() -> anyhow::
         1
     );
     connection.close().await?;
+
+    let missing_source = rotation::rotate(
+        PgConnection::connect(&url).await?,
+        &only_target,
+        &request,
+        &CancellationToken::new(),
+    )
+    .await
+    .err()
+    .context("missing source material was accepted")?;
+    let progress = missing_source
+        .downcast_ref::<crate::maintenance::keys::report::AccountRotationError>()
+        .context("rotation failure lost committed progress")?;
+    assert_eq!(progress.migrated.credentials, 0);
+    assert_eq!(progress.migrated.receipts, 0);
+    assert!(matches!(
+        progress.family,
+        Some(CiphertextFamily::Credential)
+    ));
+    assert!(std::error::Error::source(progress).is_some());
+    let diagnostic = format!("{missing_source:#}");
+    assert!(diagnostic.contains(&owner.to_string()));
+    assert!(diagnostic.contains("credential "));
+    assert!(
+        identities
+            .iter()
+            .any(|saved| diagnostic.contains(&saved.identity.credential.to_string()))
+    );
+
+    let stop = CancellationToken::new();
+    stop.cancel();
+    let interrupted = rotation::rotate(
+        PgConnection::connect(&url).await?,
+        &wrapping,
+        &request,
+        &stop,
+    )
+    .await?;
+    assert_eq!(interrupted.end, MaintenanceEnd::Interrupted);
+    assert_eq!(interrupted.migrated.credentials, 0);
+    assert_eq!(interrupted.remaining.credentials, 2);
 
     let report = rotation::rotate(
         PgConnection::connect(&url).await?,
@@ -182,6 +248,7 @@ async fn taken_receipt_is_resealed_after_rotation_and_still_contains_replay() ->
     use std::sync::Arc;
     use time::Duration;
 
+    let _maintenance = MAINTENANCE_TEST.lock().await;
     let url = std::env::var("CLACKS_TEST_DATABASE_URL")?;
     let pool = PgPoolOptions::new()
         .max_connections(1)

@@ -18,6 +18,7 @@ aes-gcm.workspace = true
 zeroize.workspace = true
 sha2.workspace = true
 anyhow.workspace = true
+shlex.workspace = true
 clacks-model.workspace = true
 sqlx = { workspace = true, features = ["postgres", "time", "tls-rustls"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
@@ -52,5 +53,7 @@ opentelemetry-appender-tracing.workspace = true
 metrics-opentelemetry.workspace = true
 
 [dev-dependencies]
+opentelemetry-proto.workspace = true
+prost.workspace = true
 metrics-util.workspace = true
 huskarl-core.workspace = true

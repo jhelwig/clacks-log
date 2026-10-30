@@ -44,7 +44,7 @@ impl WrappingKeys {
         self.keys
             .get(id)
             .map(|key| key.as_slice())
-            .context("required deployment wrapping key is unavailable")
+            .with_context(|| format!("required deployment wrapping key {id:?} is unavailable"))
     }
 }
 
@@ -199,4 +199,28 @@ fn unwrap_key(
         version: row.key_version,
         bytes,
     })
+}
+
+/// Rewrap one exact account-key version without changing its bytes or designation.
+///
+/// Requires the caller's account lock and maintenance authorization.
+pub(crate) async fn rewrap_in(
+    connection: &mut PgConnection,
+    wrapping: &WrappingKeys,
+    account: AccountId,
+    version: i64,
+) -> anyhow::Result<()> {
+    let key = load_version(&mut *connection, wrapping, account, version).await?;
+    let encrypted = wrap(wrapping, account, version, &key.bytes)?;
+    sqlx::query_file!(
+        "sql/secrets/rotation/wrapping_update.sql",
+        account.to_string(),
+        version,
+        wrapping.active,
+        encrypted.nonce.as_slice(),
+        encrypted.bytes
+    )
+    .execute(connection)
+    .await?;
+    Ok(())
 }

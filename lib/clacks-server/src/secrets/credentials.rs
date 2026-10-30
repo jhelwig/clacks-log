@@ -12,7 +12,7 @@ use time::OffsetDateTime;
 use zeroize::Zeroizing;
 
 /// Immutable ownership and intended consumer of protected material.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub(crate) struct CredentialIdentity {
     /// Authorized owning account.
     pub account: AccountId,
@@ -64,6 +64,10 @@ pub(crate) struct SecretMaterial {
 }
 
 /// Public meaning of a credential independent of its encryption envelope.
+#[allow(
+    dead_code,
+    reason = "Logical metadata is consumed by provider workflows in #17/#27/#28."
+)]
 #[derive(Debug)]
 pub(crate) struct CredentialMetadata {
     /// Authorized identity and purpose.
@@ -83,6 +87,10 @@ pub(crate) struct CredentialMetadata {
 /// A retained logical credential, with plaintext only when material is present.
 pub(crate) struct StoredCredential {
     /// Public credential meaning.
+    #[allow(
+        dead_code,
+        reason = "Provider readers consume logical metadata alongside protected material."
+    )]
     pub metadata: CredentialMetadata,
     /// Present material; removed credentials retain metadata alone.
     pub material: Option<SecretMaterial>,
@@ -94,24 +102,13 @@ struct CredentialContext {
     /// Distinguishes service material from other encrypted objects.
     format: &'static str,
     /// Immutable credential owner and purpose.
-    identity: CredentialIdentityContext,
+    identity: CredentialIdentity,
     /// Explicit material revision.
     material_revision: i64,
     /// Owner codec version.
     payload_format: i32,
     /// Exact encryption version.
     key_version: i64,
-}
-
-/// Serializable credential identity used in authenticated context.
-#[derive(Serialize)]
-struct CredentialIdentityContext {
-    /// Owning account.
-    account: AccountId,
-    /// Logical credential.
-    credential: CredentialId,
-    /// Intended consumer.
-    purpose: CredentialPurpose,
 }
 
 /// Encode immutable meaning with the exact encryption version.
@@ -123,11 +120,7 @@ fn associated(
 ) -> anyhow::Result<Vec<u8>> {
     Ok(serde_json::to_vec(&CredentialContext {
         format: "clacks.service-credential.v1",
-        identity: CredentialIdentityContext {
-            account: identity.account,
-            credential: identity.credential,
-            purpose: identity.purpose,
-        },
+        identity,
         material_revision: revision,
         payload_format: format,
         key_version: version,
@@ -225,6 +218,10 @@ pub(crate) async fn read_in(
 /// None requires absence; Some requires the exact current material revision.
 /// The caller commits this change with its related provider configuration.
 #[tracing::instrument(skip_all, name = "account.credential.write", level = "debug", fields(account_id = %identity.account, credential_id = %identity.credential, purpose = ?identity.purpose))]
+#[allow(
+    dead_code,
+    reason = "Production credential writes are integrated by #17/#27/#28."
+)]
 pub(crate) async fn put_in(
     connection: &mut PgConnection,
     wrapping: &WrappingKeys,
@@ -290,6 +287,10 @@ pub(crate) async fn put_in(
 /// Retains logical identity and creation metadata. A stale caller cannot remove
 /// newer material or later restore a removal using an obsolete revision.
 #[tracing::instrument(skip_all, name = "account.credential.remove", level = "debug", fields(account_id = %identity.account, credential_id = %identity.credential, purpose = ?identity.purpose))]
+#[allow(
+    dead_code,
+    reason = "Production credential removal is integrated by #17/#27/#28."
+)]
 pub(crate) async fn remove_in(
     connection: &mut PgConnection,
     identity: CredentialIdentity,
@@ -342,7 +343,7 @@ impl std::str::FromStr for CredentialPurpose {
 pub(crate) async fn reencrypt_in(
     connection: &mut PgConnection,
     wrapping: &WrappingKeys,
-    row: CredentialRow,
+    row: &CredentialRow,
     target: &keys::AccountKey,
 ) -> anyhow::Result<()> {
     let identity = CredentialIdentity {
