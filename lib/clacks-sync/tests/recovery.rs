@@ -425,7 +425,10 @@ fn tagged_qso_and_equipment_profile_context_joins_have_reference_guards() {
     };
     let mut q = accepted(10, "same");
     if let RecordState::Live(RecordValue::Qso(q)) = &mut q.state {
-        q.tags.insert(id(30));
+        support::edit(q, |q| {
+            q.tags.insert(id(30));
+            Ok(())
+        });
     }
     let mut tag = accepted(10, "tag");
     tag.key = RecordKey {
@@ -441,12 +444,14 @@ fn tagged_qso_and_equipment_profile_context_joins_have_reference_guards() {
         id: RecordId::Profile(id(40)),
     };
     profile.state = RecordState::Live(RecordValue::Profile(Box::new(
-        clacks_model::profile::SavedLocationProfile {
+        (clacks_model::profile::SavedLocationProfileFields {
             id: id(40),
             name: "profile".into(),
-            station: support::qso(id(10)).own_station,
+            station: (support::qso(id(10)).own_station().clone()),
             default_equipment: Some(id(50)),
-        },
+        })
+        .try_into()
+        .expect("valid native fixture"),
     )));
     let mut equipment = accepted(10, "equipment");
     equipment.key = RecordKey {
@@ -454,14 +459,16 @@ fn tagged_qso_and_equipment_profile_context_joins_have_reference_guards() {
         id: RecordId::Equipment(id(50)),
     };
     equipment.state = RecordState::Live(RecordValue::Equipment(Box::new(
-        clacks_model::profile::EquipmentConfiguration {
+        (clacks_model::profile::EquipmentConfigurationFields {
             id: id(50),
             name: "rig".into(),
-            values: clacks_model::equipment::EquipmentValues {
+            values: clacks_model::equipment::EquipmentValuesFields {
                 equipment_description: Some("rig".into()),
                 ..Default::default()
             },
-        },
+        })
+        .try_into()
+        .expect("valid native fixture"),
     )));
     for (incoming, reference) in [(q, tag), (profile, equipment)] {
         let mut shared = incoming.clone();

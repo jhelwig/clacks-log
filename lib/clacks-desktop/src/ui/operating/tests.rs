@@ -108,8 +108,8 @@ fn saving_a_profile_uses_pending_station_values_without_applying_them() {
     let SettingsAction::SaveProfile { next, .. } = request.action else {
         panic!("profile save")
     };
-    assert_eq!(next.station.callsign.as_str(), "W7PORTABLE");
-    assert_eq!(next.name, "Portable");
+    assert_eq!(next.station().callsign.as_str(), "W7PORTABLE");
+    assert_eq!(next.name(), "Portable");
     assert_eq!(
         ui.state()
             .snapshot
@@ -151,10 +151,26 @@ fn quick_profile_selection_stages_station_values_and_preserves_independent_equip
     let mut ui = mount();
     let before = ui.state().snapshot.operating.clone();
     let mut portable = before.selected_profile.clone().unwrap();
-    portable.id = Default::default();
-    portable.name = "Portable".into();
-    portable.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7HEX/P").unwrap();
-    portable.default_equipment = None;
+    {
+        let mut fields = portable.clone().into_fields();
+        fields.id = Default::default();
+        portable = fields.try_into().expect("valid saved fixture edit");
+    }
+    {
+        let mut fields = portable.clone().into_fields();
+        fields.name = "Portable".into();
+        portable = fields.try_into().expect("valid saved fixture edit");
+    }
+    {
+        let mut fields = portable.clone().into_fields();
+        fields.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7HEX/P").unwrap();
+        portable = fields.try_into().expect("valid saved fixture edit");
+    }
+    {
+        let mut fields = portable.clone().into_fields();
+        fields.default_equipment = None;
+        portable = fields.try_into().expect("valid saved fixture edit");
+    }
     Arc::make_mut(&mut ui.state_mut().snapshot)
         .profiles
         .push(fixtures::row(RecordValue::Profile(Box::new(
@@ -175,7 +191,7 @@ fn quick_profile_selection_stages_station_values_and_preserves_independent_equip
         panic!()
     };
     let mut desired = before.clone();
-    desired.current.as_mut().unwrap().station = portable.station.clone();
+    desired.current.as_mut().unwrap().station = portable.station().clone();
     desired.selected_profile = Some(portable);
     assert_eq!(expected, before);
     assert_eq!(next, desired);

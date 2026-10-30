@@ -114,7 +114,10 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
         matches!(synchronization::prepare(&store,key).await?,PrepareOutcome::AuthorizationReview { former_actor } if former_actor == old.actor)
     );
     let mut edited = support::qso(support::id(10));
-    edited.comment = Some("Keep this correction".into());
+    support::edit(&mut edited, |edited| {
+        edited.comment = Some("Keep this correction".into());
+        Ok(())
+    });
     save::save(&store, key, Some(&frozen), support::contact(edited)).await?;
     let pending = save::load(&store, key).await?.unwrap();
     assert_eq!(

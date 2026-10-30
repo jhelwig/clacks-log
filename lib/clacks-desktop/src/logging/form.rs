@@ -5,7 +5,7 @@ use crate::operating::{
     FieldError, equipment::EquipmentForm, issue, optional, power, station::StationForm,
 };
 use clacks_model::{
-    contact::{OperatorInformation, OwnOperatingContext, Qso},
+    contact::{OperatorInformation, Qso},
     group::DefinitionSet,
     ids::{QsoId, TagId},
     position::Position,
@@ -95,57 +95,57 @@ impl ContactForm {
     /// Copy all recorded facts without applying current operating defaults.
     pub fn from_qso(qso: &Qso) -> Self {
         let mut form = Self::empty();
-        form.own = StationForm::from_snapshot(&qso.own_station);
-        form.dx = StationForm::from_snapshot(&qso.contacted_station);
+        form.own = StationForm::from_snapshot(qso.own_station());
+        form.dx = StationForm::from_snapshot(qso.contacted_station());
 
         form.dx_name = qso
-            .contacted_operator
+            .contacted_operator()
             .as_ref()
-            .and_then(|v| v.recorded_name.clone())
+            .and_then(|v| v.recorded_name().clone())
             .unwrap_or_default();
         form.dx_operator = qso
-            .contacted_operator
+            .contacted_operator()
             .as_ref()
-            .and_then(|v| v.callsign.as_ref())
+            .and_then(|v| v.callsign().as_ref())
             .map(|v| v.as_str().to_owned())
             .unwrap_or_default();
 
         form.operator = qso
-            .own_context
+            .own_context()
             .operator
             .as_ref()
-            .and_then(|v| v.callsign.as_ref())
+            .and_then(|v| v.callsign().as_ref())
             .map(|v| v.as_str().to_owned())
             .unwrap_or_default();
         form.operator_name = qso
-            .own_context
+            .own_context()
             .operator
             .as_ref()
-            .and_then(|v| v.recorded_name.clone())
+            .and_then(|v| v.recorded_name().clone())
             .unwrap_or_default();
 
-        form.power = power::format_watts(qso.own_context.transmit_power);
-        form.equipment = EquipmentForm::from_values(qso.own_context.equipment.as_ref());
+        form.power = power::format_watts(qso.own_context().transmit_power);
+        form.equipment = EquipmentForm::from_values(qso.own_context().equipment.as_ref());
 
-        form.primary = RadioForm::from_pair(Some(&qso.primary));
-        form.receive = RadioForm::from_pair(qso.receive_override.as_ref());
-        let (label, parent) = mode_text(&qso.mode);
+        form.primary = RadioForm::from_pair(Some(qso.primary()));
+        form.receive = RadioForm::from_pair(qso.receive_override().as_ref());
+        let (label, parent) = mode_text(qso.mode());
         form.mode = label;
         form.mode_parent = parent;
-        form.original_mode = Some(qso.mode.clone());
+        form.original_mode = Some(qso.mode().clone());
         form.original_own_position = qso
-            .own_station
+            .own_station()
             .location
             .as_ref()
-            .and_then(|v| v.position.clone());
+            .and_then(|v| v.position().clone());
 
-        form.start = ContactTimestamp::recorded(Some(qso.start));
-        form.end = ContactTimestamp::recorded(qso.end);
+        form.start = ContactTimestamp::recorded(Some(qso.start()));
+        form.end = ContactTimestamp::recorded(qso.end());
 
-        form.sent = qso.sent_report.clone().unwrap_or_default();
-        form.received = qso.received_report.clone().unwrap_or_default();
-        form.comment = qso.comment.clone().unwrap_or_default();
-        form.tags = qso.tags.clone();
+        form.sent = qso.sent_report().clone().unwrap_or_default();
+        form.received = qso.received_report().clone().unwrap_or_default();
+        form.comment = qso.comment().clone().unwrap_or_default();
+        form.tags = qso.tags().clone();
         form.original = Some(Box::new(qso.clone()));
 
         form
@@ -160,7 +160,7 @@ impl ContactForm {
         if let Some(position) = own_station
             .location
             .as_ref()
-            .and_then(|v| v.position.as_ref())
+            .and_then(|v| v.position().as_ref())
             && Some(position) != self.original_own_position.as_ref()
         {
             position
@@ -184,9 +184,9 @@ impl ContactForm {
         let original_start = self
             .original
             .as_ref()
-            .filter(|v| self.start.text == super::time::format(v.start));
+            .filter(|v| self.start.text == super::time::format(v.start()));
         let start = match original_start {
-            Some(v) => v.start,
+            Some(v) => v.start(),
             None => self
                 .start
                 .value()
@@ -196,34 +196,35 @@ impl ContactForm {
         let original_end = self
             .original
             .as_ref()
-            .filter(|v| self.end.text == v.end.map(super::time::format).unwrap_or_default());
+            .filter(|v| self.end.text == v.end().map(super::time::format).unwrap_or_default());
         let end = match original_end {
-            Some(v) => v.end,
+            Some(v) => v.end(),
             None => self.end.value().map_err(|e| vec![issue("End", e)])?,
         };
 
         let equipment = if let Some(original) = &self.original
-            && self.equipment == EquipmentForm::from_values(original.own_context.equipment.as_ref())
+            && self.equipment
+                == EquipmentForm::from_values(original.own_context().equipment.as_ref())
         {
-            original.own_context.equipment.clone()
+            original.own_context().equipment.clone()
         } else {
             self.equipment.build()?
         };
-        let mut value = Qso {
+        let value = clacks_model::contact::input::QsoFields {
             id,
             start,
             end,
             own_station,
             contacted_station,
-            own_context: OwnOperatingContext {
-                operator: operator(&self.operator, &self.operator_name)
-                    .map_err(|e| vec![issue("Our operator", e)])?,
+            own_context: clacks_model::contact::OwnOperatingContext {
+                operator: (operator(&self.operator, &self.operator_name)
+                    .map_err(|e| vec![issue("Our operator", e)])?),
                 transmit_power: power::parse_watts(&self.power)
                     .map_err(|e| vec![issue("Power", e)])?,
                 equipment,
             },
-            contacted_operator: operator(&self.dx_operator, &self.dx_name)
-                .map_err(|e| vec![issue("Contact operator", e)])?,
+            contacted_operator: (operator(&self.dx_operator, &self.dx_name)
+                .map_err(|e| vec![issue("Contact operator", e)])?),
             primary,
             receive_override,
             mode,
@@ -232,8 +233,7 @@ impl ContactForm {
             comment: optional(&self.comment),
             tags: self.tags.clone(),
         };
-        value.normalize_optional_aggregates();
-        value.validate().map_err(|e| {
+        let value = Qso::try_from(value).map_err(|e| {
             let field = if matches!(
                 e.downcast_ref::<clacks_model::contact::RecordError>(),
                 Some(clacks_model::contact::RecordError::EndBeforeStart { .. })
@@ -288,7 +288,7 @@ fn mode_text(mode: &Mode) -> (String, String) {
 
 /// Construct independently optional operator facts without inventing a callsign.
 fn operator(call: &str, name: &str) -> anyhow::Result<Option<OperatorInformation>> {
-    Ok(OperatorInformation {
+    (clacks_model::contact::OperatorInformationFields {
         callsign: if call.trim().is_empty() {
             None
         } else {
@@ -297,6 +297,8 @@ fn operator(call: &str, name: &str) -> anyhow::Result<Option<OperatorInformation
         recorded_name: optional(name),
     }
     .normalized())
+    .map(TryInto::try_into)
+    .transpose()
 }
 
 /// Distinguish validation messages from the two station sides.

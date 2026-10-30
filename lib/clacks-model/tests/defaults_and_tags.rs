@@ -27,9 +27,17 @@ fn tag_deletion_counts_identities() {
     let mut qsos: Vec<_> = (1..=100)
         .map(|n| {
             let mut q = support::qso(support::id::<QsoId>(n));
-            q.tags.insert(tag);
+            support::edit(&mut q, |q| {
+                q.tags.insert(tag);
+
+                Ok(())
+            });
             if n <= 30 {
-                q.tags.insert(support::id::<TagId>(2));
+                support::edit(&mut q, |q| {
+                    q.tags.insert(support::id::<TagId>(2));
+
+                    Ok(())
+                });
             }
             q
         })
@@ -47,5 +55,5 @@ fn tag_deletion_counts_identities() {
         assert_eq!(plan.remove_membership.len(), untagged);
         assert!(plan.mark_deleted.is_disjoint(&plan.remove_membership));
     }
-    assert!(qsos.iter().all(|q| q.tags.contains(&tag)));
+    assert!(qsos.iter().all(|q| q.tags().contains(&tag)));
 }

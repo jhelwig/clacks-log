@@ -74,10 +74,13 @@ async fn installed_and_received_deletion_preserve_live_alternatives_until_resolu
                 tags::save(&workspace.store, Some(&row), &tag).await?;
             }
             let mut qso = support::qso(id(100));
-            qso.tags = [tag.id].into();
+            support::edit(&mut qso, |qso| {
+                qso.tags = [tag.id].into();
+                Ok(())
+            });
             let SaveOutcome::Saved(qso_row) = save::save(
                 &workspace.store,
-                support::qso_key(qso.id),
+                support::qso_key(qso.id()),
                 None,
                 support::contact(qso),
             )

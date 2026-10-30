@@ -131,14 +131,16 @@ pub async fn change_tags(
             report.unprocessed.extend(remaining.map(|target| target.id));
             break;
         }
-        let mut next = qso.clone();
+        let mut next = qso.clone().into_fields();
         next.tags.retain(|tag| !remove.contains(tag));
         next.tags.extend(add);
         let result = save(
             store,
             row.key,
             Some(row),
-            RecordState::Live(RecordValue::Qso(Box::new(next))),
+            RecordState::Live(RecordValue::Qso(Box::new(
+                clacks_model::contact::Qso::try_from(next)?,
+            ))),
         )
         .await;
         match result {

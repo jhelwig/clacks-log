@@ -44,7 +44,11 @@ async fn fixture() -> anyhow::Result<Fixture> {
     settings::save_equipment(&store, None, &b).await?;
     let home = profile(30, Some(31));
     let mut field = profile(33, Some(31));
-    field.name = "Field".into();
+    {
+        let mut fields = field.clone().into_fields();
+        fields.name = "Field".into();
+        field = fields.try_into().expect("valid saved fixture edit");
+    }
     settings::save_profile(&store, None, &home).await?;
     settings::save_profile(&store, None, &field).await?;
     let active = state(&home, &a);
@@ -66,39 +70,53 @@ async fn historical_qso_copies_survive_source_changes_apply_collection_and_reope
     let f = fixture().await?;
     let qso_key = support::qso_key(id(100));
     let mut qso = support::qso(id(100));
-    qso.own_station = f.active.current.as_ref().unwrap().station.clone();
-    qso.own_context.equipment = f.active.current.as_ref().unwrap().equipment.clone();
+    support::edit(&mut qso, |qso| {
+        qso.own_station = f.active.current.as_ref().unwrap().station.clone();
+        Ok(())
+    });
+    support::edit(&mut qso, |qso| {
+        qso.own_context.equipment = f.active.current.as_ref().unwrap().equipment.clone();
+        Ok(())
+    });
     save::save(&f.store, qso_key, None, support::contact(qso)).await?;
     let original = save::load(&f.store, qso_key).await?.unwrap();
-    let home = record(&f.store, RecordId::Profile(f.home.id)).await;
+    let home = record(&f.store, RecordId::Profile(f.home.id())).await;
     let mut changed_home = f.home.clone();
-    changed_home.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7HEX/P")?;
+    {
+        let mut fields = changed_home.clone().into_fields();
+        fields.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7HEX/P")?;
+        changed_home = fields.try_into().expect("valid saved fixture edit");
+    }
     settings::save_profile(&f.store, Some(&home), &changed_home).await?;
-    let rig = record(&f.store, RecordId::Equipment(f.a.id)).await;
+    let rig = record(&f.store, RecordId::Equipment(f.a.id())).await;
     let mut changed_rig = f.a.clone();
-    changed_rig.values.antenna_description = Some("Loop".into());
+    {
+        let mut fields = changed_rig.clone().into_fields();
+        fields.values.antenna_description = Some("Loop".into());
+        changed_rig = fields.try_into().expect("valid saved fixture edit");
+    }
     settings::save_equipment(&f.store, Some(&rig), &changed_rig).await?;
     assert_eq!(operating::load(&f.store).await?, f.active);
 
-    let preview = settings::preview_equipment_deletion(&f.store, f.a.id).await?;
+    let preview = settings::preview_equipment_deletion(&f.store, f.a.id()).await?;
     assert_eq!(preview.referring_profiles.len(), 2);
     assert_eq!(
         settings::delete_equipment(&f.store, &preview, &choices(&f)).await?,
         EquipmentDeleteOutcome::Applied
     );
     let after = settings::snapshot(&f.store).await?;
-    assert_eq!(default(&after, f.home.id), Some(f.b.id));
-    assert_eq!(default(&after, f.field.id), None);
+    assert_eq!(default(&after, f.home.id()), Some(f.b.id()));
+    assert_eq!(default(&after, f.field.id()), None);
     assert_eq!(after.operating.current, f.active.current);
     assert_eq!(after.operating.selected_equipment, None);
     assert_eq!(after.operating.selected_profile, f.active.selected_profile);
     assert_eq!(
-        record(&f.store, RecordId::Equipment(f.a.id))
+        record(&f.store, RecordId::Equipment(f.a.id()))
             .await
             .working_state(),
         Some(&RecordState::Deleted)
     );
-    let home = record(&f.store, RecordId::Profile(f.home.id)).await;
+    let home = record(&f.store, RecordId::Profile(f.home.id())).await;
     settings::delete_profile(&f.store, &home).await?;
     let after_deletions = operating::load(&f.store).await?;
     assert_eq!(after_deletions.current, f.active.current);
@@ -106,7 +124,7 @@ async fn historical_qso_copies_survive_source_changes_apply_collection_and_reope
     let mut next = after_deletions.clone();
     let current = next.current.as_mut().unwrap();
     current.station.callsign = clacks_model::scalar::RecordedCallsign::new("W7FIELD")?;
-    current.equipment = Some(f.b.values.clone());
+    current.equipment = Some(f.b.values().clone());
     current.transmit_power = Some(Milliwatts::new(25_000)?);
     operating::save(&f.store, &after_deletions, &next).await?;
     clacks_client_store::retention::collect_unreferenced(&f.store).await?;
@@ -124,9 +142,12 @@ async fn historical_qso_copies_survive_source_changes_apply_collection_and_reope
     let Some(RecordState::Live(RecordValue::Qso(qso))) = persisted.working_state() else {
         panic!("historical QSO must remain live");
     };
-    assert_eq!(qso.own_station, f.active.current.as_ref().unwrap().station);
     assert_eq!(
-        qso.own_context.equipment,
+        qso.own_station(),
+        &f.active.current.as_ref().unwrap().station
+    );
+    assert_eq!(
+        qso.own_context().equipment,
         f.active.current.as_ref().unwrap().equipment
     );
     reopened.close().await?;
@@ -137,8 +158,8 @@ fn default(view: &SettingsSnapshot, id: ProfileId) -> Option<EquipmentConfigurat
     view.profiles
         .iter()
         .find_map(|r| match r.working_state() {
-            Some(RecordState::Live(RecordValue::Profile(p))) if p.id == id => {
-                Some(p.default_equipment)
+            Some(RecordState::Live(RecordValue::Profile(p))) if p.id() == id => {
+                Some(p.default_equipment())
             }
             _ => None,
         })
@@ -161,11 +182,11 @@ async fn record(store: &ClientStore, id: RecordId) -> ClientRecord {
 fn choices(f: &Fixture) -> Vec<ProfileEquipmentReplacement> {
     vec![
         ProfileEquipmentReplacement {
-            profile: f.home.id,
-            equipment: Some(f.b.id),
+            profile: f.home.id(),
+            equipment: Some(f.b.id()),
         },
         ProfileEquipmentReplacement {
-            profile: f.field.id,
+            profile: f.field.id(),
             equipment: None,
         },
     ]
@@ -174,7 +195,7 @@ fn choices(f: &Fixture) -> Vec<ProfileEquipmentReplacement> {
 #[tokio::test]
 async fn new_referrer_makes_preview_stale() -> anyhow::Result<()> {
     let f = fixture().await?;
-    let preview = settings::preview_equipment_deletion(&f.store, f.a.id).await?;
+    let preview = settings::preview_equipment_deletion(&f.store, f.a.id()).await?;
     settings::save_profile(&f.store, None, &profile(34, Some(31))).await?;
     let before = settings::snapshot(&f.store).await?;
     assert!(matches!(
@@ -190,13 +211,17 @@ async fn new_referrer_makes_preview_stale() -> anyhow::Result<()> {
 async fn replacement_edit_or_deletion_aborts_review() -> anyhow::Result<()> {
     for delete in [false, true] {
         let f = fixture().await?;
-        let preview = settings::preview_equipment_deletion(&f.store, f.a.id).await?;
-        let old = record(&f.store, RecordId::Equipment(f.b.id)).await;
+        let preview = settings::preview_equipment_deletion(&f.store, f.a.id()).await?;
+        let old = record(&f.store, RecordId::Equipment(f.b.id())).await;
         if delete {
             save::save(&f.store, old.key, Some(&old), RecordState::Deleted).await?;
         } else {
             let mut changed = f.b.clone();
-            changed.values.notes = Some("Updated".into());
+            {
+                let mut fields = changed.clone().into_fields();
+                fields.values.notes = Some("Updated".into());
+                changed = fields.try_into().expect("valid saved fixture edit");
+            }
             settings::save_equipment(&f.store, Some(&old), &changed).await?;
         }
         let before = settings::snapshot(&f.store).await?;
@@ -216,7 +241,7 @@ async fn apply_racing_delete_never_reattaches() -> anyhow::Result<()> {
     let expected = f.active.clone();
     let mut desired = expected.clone();
     desired.current.as_mut().unwrap().transmit_power = Some(Milliwatts::new(25_000)?);
-    let home = record(&f.store, RecordId::Profile(f.home.id)).await;
+    let home = record(&f.store, RecordId::Profile(f.home.id())).await;
     settings::delete_profile(&f.store, &home).await?;
     assert!(matches!(
         operating::save(&f.store, &expected, &desired).await?,
@@ -299,9 +324,13 @@ async fn effective_received_deletion_forgets_source() -> anyhow::Result<()> {
         let active = state(&home, &a);
         operating::save(&store, &OperatingState::default(), &active).await?;
         if pending_edit {
-            let row = record(&store, RecordId::Equipment(a.id)).await;
+            let row = record(&store, RecordId::Equipment(a.id())).await;
             let mut changed = a.clone();
-            changed.values.antenna_description = Some("Loop".into());
+            {
+                let mut fields = changed.clone().into_fields();
+                fields.values.antenna_description = Some("Loop".into());
+                changed = fields.try_into().expect("valid saved fixture edit");
+            }
             settings::save_equipment(&store, Some(&row), &changed).await?;
         }
         let mut deleted = support::accepted(
@@ -316,7 +345,7 @@ async fn effective_received_deletion_forgets_source() -> anyhow::Result<()> {
         assert_eq!(current.selected_equipment.is_some(), pending_edit);
         assert_eq!(
             matches!(
-                record(&store, RecordId::Equipment(a.id))
+                record(&store, RecordId::Equipment(a.id()))
                     .await
                     .working_state(),
                 Some(RecordState::Live(_))
@@ -331,37 +360,37 @@ async fn effective_received_deletion_forgets_source() -> anyhow::Result<()> {
 #[tokio::test]
 async fn invalid_or_unreviewed_deletion_choices_have_no_effects() -> anyhow::Result<()> {
     let f = fixture().await?;
-    let preview = settings::preview_equipment_deletion(&f.store, f.a.id).await?;
+    let preview = settings::preview_equipment_deletion(&f.store, f.a.id()).await?;
     let before = settings::snapshot(&f.store).await?;
     let bad = vec![
         vec![],
         vec![
             ProfileEquipmentReplacement {
-                profile: f.home.id,
-                equipment: Some(f.a.id),
+                profile: f.home.id(),
+                equipment: Some(f.a.id()),
             },
             ProfileEquipmentReplacement {
-                profile: f.field.id,
+                profile: f.field.id(),
                 equipment: None,
             },
         ],
         vec![
             ProfileEquipmentReplacement {
-                profile: f.home.id,
+                profile: f.home.id(),
                 equipment: None,
             },
             ProfileEquipmentReplacement {
-                profile: f.home.id,
+                profile: f.home.id(),
                 equipment: None,
             },
         ],
         vec![
             ProfileEquipmentReplacement {
-                profile: f.home.id,
+                profile: f.home.id(),
                 equipment: Some(id(999)),
             },
             ProfileEquipmentReplacement {
-                profile: f.field.id,
+                profile: f.field.id(),
                 equipment: None,
             },
         ],
@@ -374,7 +403,7 @@ async fn invalid_or_unreviewed_deletion_choices_have_no_effects() -> anyhow::Res
         );
         assert_eq!(settings::snapshot(&f.store).await?, before);
     }
-    let row = record(&f.store, RecordId::Equipment(f.a.id)).await;
+    let row = record(&f.store, RecordId::Equipment(f.a.id())).await;
     assert!(
         save::save(&f.store, row.key, Some(&row), RecordState::Deleted)
             .await

@@ -21,10 +21,13 @@ async fn working_history_is_unique_snapshot_consistent_and_deletions_are_reviewa
     )
     .await?;
     let mut qso = support::qso(support::id(10));
-    qso.tags = [support::id(20), support::id(21)].into();
+    support::edit(&mut qso, |qso| {
+        qso.tags = [support::id(20), support::id(21)].into();
+        Ok(())
+    });
     let SaveOutcome::Saved(row) = save::save(
         &store,
-        support::qso_key(qso.id),
+        support::qso_key(qso.id()),
         None,
         support::contact(qso),
     )
@@ -82,18 +85,30 @@ async fn expression_pages_preserve_native_labels_and_review_identity() -> anyhow
     .await?;
     for (n, call) in [(10, "K1ABC"), (11, "K1XYZ"), (12, "K2ABC")] {
         let mut qso = support::qso(support::id(n));
-        qso.contacted_station.callsign = RecordedCallsign::new(call)?;
-        qso.start = UtcSecond::from_unix_seconds(-1);
-        qso.primary = BandFrequency::from_recorded_pair(
-            None,
-            Some(Band::from_recorded_label("future-band")?),
-        )?;
-        qso.mode = Mode::from_recorded_identity(ModeIdentity::Parent {
-            label: "future-mode".into(),
-        })?;
+        support::edit(&mut qso, |qso| {
+            qso.contacted_station.callsign = RecordedCallsign::new(call)?;
+            Ok(())
+        });
+        support::edit(&mut qso, |qso| {
+            qso.start = UtcSecond::from_unix_seconds(-1);
+            Ok(())
+        });
+        support::edit(&mut qso, |qso| {
+            qso.primary = BandFrequency::from_recorded_pair(
+                None,
+                Some(Band::from_recorded_label("future-band")?),
+            )?;
+            Ok(())
+        });
+        support::edit(&mut qso, |qso| {
+            qso.mode = Mode::from_recorded_identity(ModeIdentity::Parent {
+                label: "future-mode".into(),
+            })?;
+            Ok(())
+        });
         save::save(
             &store,
-            support::qso_key(qso.id),
+            support::qso_key(qso.id()),
             None,
             support::contact(qso),
         )
@@ -121,15 +136,18 @@ async fn expression_pages_preserve_native_labels_and_review_identity() -> anyhow
     let first = snapshot.contact_page(&query).await?;
     assert_eq!(first.rows.len(), 1);
     let row = first.rows.first().unwrap();
-    assert_eq!(row.working.qso.id, support::id(10));
+    assert_eq!(row.working.qso.id(), support::id(10));
     assert_eq!(
-        row.working.qso.primary.band().unwrap().label(),
+        row.working.qso.primary().band().unwrap().label(),
         "future-band"
     );
     let second = snapshot
         .contact_page(&ContactPageQuery { offset: 1, ..query })
         .await?;
-    assert_eq!(second.rows.first().unwrap().working.qso.id, support::id(11));
+    assert_eq!(
+        second.rows.first().unwrap().working.qso.id(),
+        support::id(11)
+    );
     for prefix in ["K%", "K_", "K!"] {
         assert!(
             snapshot

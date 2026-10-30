@@ -209,12 +209,18 @@ fn receipt_and_preparation_apply_whole_record_policy() {
     let RecordState::Live(RecordValue::Qso(qso)) = &mut tagged else {
         panic!("qso")
     };
-    qso.tags.insert(id(20));
+    support::edit(qso, |qso| {
+        qso.tags.insert(id(20));
+        Ok(())
+    });
     let mut other_tag = original.state.clone();
     let RecordState::Live(RecordValue::Qso(qso)) = &mut other_tag else {
         panic!("qso")
     };
-    qso.tags.insert(id(21));
+    support::edit(qso, |qso| {
+        qso.tags.insert(id(21));
+        Ok(())
+    });
     let edited = accepted(1, "shared edit").state;
     struct Case {
         local: RecordState,

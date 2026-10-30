@@ -2,7 +2,7 @@
 
 pub mod telemetry;
 
-use clacks_model::contact::{BandFrequency, OwnOperatingContext, Qso, StationSnapshot};
+use clacks_model::contact::{BandFrequency, OwnOperatingContext, Qso};
 use clacks_model::ids::QsoId;
 use clacks_model::recognition::RecognitionCatalog;
 use clacks_model::recognition::mode::{Mode, ModeIdentity};
@@ -17,21 +17,21 @@ where
 }
 
 pub fn qso(id: QsoId) -> Qso {
-    Qso {
+    Qso::try_from(clacks_model::contact::input::QsoFields {
         id,
         start: UtcSecond::from_unix_seconds(1000),
         end: None,
-        own_station: StationSnapshot {
+        own_station: clacks_model::contact::StationSnapshot {
             callsign: RecordedCallsign::new("W7HEX").unwrap(),
             location: None,
             references: BTreeSet::new(),
         },
-        contacted_station: StationSnapshot {
+        contacted_station: clacks_model::contact::StationSnapshot {
             callsign: RecordedCallsign::new("K1ABC").unwrap(),
             location: None,
             references: BTreeSet::new(),
         },
-        own_context: OwnOperatingContext::default(),
+        own_context: (OwnOperatingContext::default()),
         contacted_operator: None,
         primary: BandFrequency::new(
             Some(Hertz::new(14_074_000).unwrap()),
@@ -49,7 +49,8 @@ pub fn qso(id: QsoId) -> Qso {
         received_report: None,
         comment: None,
         tags: BTreeSet::new(),
-    }
+    })
+    .expect("valid contact fixture")
 }
 
 pub fn accepted(revision: u64, comment: &str) -> clacks_sync::record::AcceptedRecord {
@@ -61,11 +62,14 @@ pub fn accepted(revision: u64, comment: &str) -> clacks_sync::record::AcceptedRe
     };
     let timeline = id(2);
     let mut q = qso(id(10));
-    q.comment = Some(comment.into());
+    edit(&mut q, |q| {
+        q.comment = Some(comment.into());
+        Ok(())
+    });
     AcceptedRecord::new(
         RecordKey {
             account: id(1),
-            id: RecordId::Qso(q.id),
+            id: RecordId::Qso(q.id()),
         },
         RecordState::Live(RecordValue::Qso(Box::new(q))),
         VersionStamp {
@@ -75,4 +79,16 @@ pub fn accepted(revision: u64, comment: &str) -> clacks_sync::record::AcceptedRe
         },
     )
     .unwrap()
+}
+
+/// Apply a valid fixture correction through checked contact construction.
+pub fn edit(
+    qso: &mut Qso,
+    change: impl FnOnce(
+        &mut clacks_model::contact::input::QsoFields,
+    ) -> Result<(), Box<dyn std::error::Error>>,
+) {
+    let mut fields = qso.clone().into_fields();
+    change(&mut fields).expect("valid fixture input");
+    *qso = Qso::try_from(fields).expect("valid contact fixture edit");
 }

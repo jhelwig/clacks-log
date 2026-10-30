@@ -34,12 +34,14 @@ fn interrupted_window_preserves_coverage_and_pending_conflict() {
         id: RecordId::Profile(id(12)),
     };
     p.state = RecordState::Live(RecordValue::Profile(Box::new(
-        clacks_model::profile::SavedLocationProfile {
+        (clacks_model::profile::SavedLocationProfileFields {
             id: id(12),
             name: "P".into(),
-            station: support::qso(id(10)).own_station,
+            station: (support::qso(id(10)).own_station().clone()),
             default_equipment: None,
-        },
+        })
+        .try_into()
+        .expect("valid native fixture"),
     )));
     let source = InstalledCheckpoint {
         account: id(1),

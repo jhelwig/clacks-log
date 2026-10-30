@@ -49,7 +49,10 @@ fn worked_before_rejects_old_calls_and_refreshes_today() -> anyhow::Result<()> {
     assert!(old.reply.is_closed());
     let current = requests.try_recv()?;
     let mut qso = fixtures::contact();
-    qso.start = before_midnight;
+    crate::test_support::edit(&mut qso, |qso| {
+        qso.start = before_midnight;
+        Ok(())
+    });
     let page = ContactPage {
         rows: vec![ContactRow {
             working: HistoryRow {

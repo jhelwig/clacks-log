@@ -235,32 +235,32 @@ operating context and current operating values retain ordinary fields when their
 component types independently guarantee validity; do not duplicate those simple
 aggregates with input wrappers. Retain existing native scalar constructors.
 
-- [ ] Extend existing model/entry tests for end-before-start rejection at
+- [x] Extend existing model/entry tests for end-before-start rejection at
   construction, unknown mode/band preservation and an empty frequency/band input
   rejected through deserialization. Run the focused tests and observe the unmet
   checked boundary before implementation.
-- [ ] Put checked field/Serde conversion in `contact/input.rs`; preserve current
+- [x] Put checked field/Serde conversion in `contact/input.rs`; preserve current
   serialized native fields. Reject invalid external/native input rather than
   silently repairing it. Entry/import preparation still performs the existing
   explicit normalization before construction.
-- [ ] Make `BandFrequency` construction/deserialization require frequency or band.
+- [x] Make `BandFrequency` construction/deserialization require frequency or band.
   Keep the current frequency-authority and band-only receive-override semantics;
   do not reclassify an already recorded pair against a recognition catalog.
-- [ ] Prevent empty present operator/location aggregates and blank optional text
+- [x] Prevent empty present operator/location aggregates and blank optional text
   from entering saved values. Reuse one meaningful checked text value where
   helpful; preserve every character of nonblank recorded text. Do not require
   optional geography, operator identity or equipment descriptions.
-- [ ] Retain contextual own-station entry validation: four-character minimum for
+- [x] Retain contextual own-station entry validation: four-character minimum for
   newly entered operating locations, without banning valid two-character
   historical/contacted-station locators in the shared saved snapshot type.
-- [ ] Preserve valid all-empty `EquipmentValues` for a named saved configuration;
+- [x] Preserve valid all-empty `EquipmentValues` for a named saved configuration;
   do not invent an equipment-description requirement. Preserve independently
   optional operator callsign/name and the two-character historical locator rule.
-- [ ] Update profile/current-context construction and all real model/sync/store/
+- [x] Update profile/current-context construction and all real model/sync/store/
   desktop/signing callers. Remove repeated intrinsic `validate()` obligations
   once their typed construction guarantees the invariant; retain reference and
   current-state checks. Do not add a generic builder/type-state framework.
-- [ ] Run model integration and relevant desktop manual-entry/operating tests,
+- [x] Run model integration and relevant desktop manual-entry/operating tests,
   then `cargo check --workspace --all-targets --locked`. Update native-model.md
   and the model guide's old normalize-then-validate instructions. Commit the
   working construction-boundary change with a reviewed, physically wrapped body.

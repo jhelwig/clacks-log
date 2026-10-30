@@ -6,10 +6,9 @@ use clacks_client_store::{
     store::{ClientStore, StoreSettings},
 };
 use clacks_model::{
-    contact::{BandFrequency, OperatorInformation},
+    contact::BandFrequency,
     defaults::account_definitions,
     ids::QsoId,
-    location::RecordedLocation,
     position::{Coordinates, GridLength, Locator, Position},
     query,
     recognition::{
@@ -47,115 +46,221 @@ async fn fixture() -> anyhow::Result<Fixture> {
         save::save(&store, support::key(&value), None, RecordState::Live(value)).await?;
     }
     let mut activation = support::qso(support::id(10));
-    activation.start = UtcSecond::from_unix_seconds(1_793_059_200 + 18 * 3600);
-    activation.contacted_station.callsign = RecordedCallsign::new("W7HEX")?;
-    activation.comment = Some("activation rain 100% _ [x]".into());
-    activation.contacted_operator = Some(OperatorInformation {
-        callsign: None,
-        recorded_name: Some("Élodie".into()),
+    support::edit(&mut activation, |activation| {
+        activation.start = UtcSecond::from_unix_seconds(1_793_059_200 + 18 * 3600);
+        Ok(())
     });
-    activation.tags = [support::id(20), support::id(21), support::id(22)].into();
-    activation.mode = Mode::from_recorded_identity(ModeIdentity::Specialization {
-        label: "USB".into(),
-        parent: Some("SSB".into()),
-    })?;
-    activation.primary = BandFrequency::from_recorded_pair(
-        Some(Hertz::new(14_074_000)?),
-        Some(Band::from_recorded_label("20M")?),
-    )?;
-    activation.receive_override = Some(BandFrequency::from_recorded_pair(
-        None,
-        Some(Band::from_recorded_label("40M")?),
-    )?);
-    activation.contacted_station.location = Some(RecordedLocation {
-        position: Some(Position::GridArea(Locator::parse("CN85ab")?)),
-        ..Default::default()
+    support::edit(&mut activation, |activation| {
+        activation.contacted_station.callsign = RecordedCallsign::new("W7HEX")?;
+        Ok(())
     });
-    activation.contacted_station.references = [
-        ReferenceAssociation {
-            group_id: group("POTA"),
-            identifier: Some("US-0001".into()),
-        },
-        ReferenceAssociation {
-            group_id: group("IOTA"),
-            identifier: Some("EU-001".into()),
-        },
-    ]
-    .into();
-    activation.own_station.references = [ReferenceAssociation {
-        group_id: group("070-160M-SPRINT"),
-        identifier: None,
-    }]
-    .into();
+    support::edit(&mut activation, |activation| {
+        activation.comment = Some("activation rain 100% _ [x]".into());
+        Ok(())
+    });
+    support::edit(&mut activation, |activation| {
+        activation.contacted_operator = Some(
+            (clacks_model::contact::OperatorInformationFields {
+                callsign: None,
+                recorded_name: Some("Élodie".into()),
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+        Ok(())
+    });
+    support::edit(&mut activation, |activation| {
+        activation.tags = [support::id(20), support::id(21), support::id(22)].into();
+        Ok(())
+    });
+    support::edit(&mut activation, |activation| {
+        activation.mode = Mode::from_recorded_identity(ModeIdentity::Specialization {
+            label: "USB".into(),
+            parent: Some("SSB".into()),
+        })?;
+        Ok(())
+    });
+    support::edit(&mut activation, |activation| {
+        activation.primary = BandFrequency::from_recorded_pair(
+            Some(Hertz::new(14_074_000)?),
+            Some(Band::from_recorded_label("20M")?),
+        )?;
+        Ok(())
+    });
+    support::edit(&mut activation, |activation| {
+        activation.receive_override = Some(BandFrequency::from_recorded_pair(
+            None,
+            Some(Band::from_recorded_label("40M")?),
+        )?);
+        Ok(())
+    });
+    support::edit(&mut activation, |activation| {
+        activation.contacted_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                position: Some(Position::GridArea(Locator::parse("CN85ab")?)),
+                ..Default::default()
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+        Ok(())
+    });
+    support::edit(&mut activation, |activation| {
+        activation.contacted_station.references = [
+            ReferenceAssociation::new(group("POTA"), Some("US-0001".into()))
+                .expect("valid reference fixture"),
+            ReferenceAssociation::new(group("IOTA"), Some("EU-001".into()))
+                .expect("valid reference fixture"),
+        ]
+        .into();
+        Ok(())
+    });
+    support::edit(&mut activation, |activation| {
+        activation.own_station.references =
+            [ReferenceAssociation::new(group("070-160M-SPRINT"), None)
+                .expect("valid reference fixture")]
+            .into();
+        Ok(())
+    });
     let mut portable = support::qso(support::id(11));
-    portable.start = UtcSecond::from_unix_seconds(1_793_059_200 + 23 * 3600);
-    portable.end = Some(UtcSecond::from_unix_seconds(1_793_059_200 + 25 * 3600));
-    portable.contacted_station.callsign = RecordedCallsign::new("W7HEX/P")?;
-    portable.comment = Some("activation dry".into());
-    portable.contacted_operator = Some(OperatorInformation {
-        callsign: None,
-        recorded_name: Some("Alice".into()),
+    support::edit(&mut portable, |portable| {
+        portable.start = UtcSecond::from_unix_seconds(1_793_059_200 + 23 * 3600);
+        Ok(())
     });
-    portable.tags.insert(support::id(20));
-    portable.primary = BandFrequency::from_recorded_pair(
-        Some(Hertz::new(7_074_000)?),
-        Some(Band::from_recorded_label("40M")?),
-    )?;
-    portable.mode = Mode::from_recorded_identity(ModeIdentity::Specialization {
-        label: "LSB".into(),
-        parent: Some("SSB".into()),
-    })?;
-    portable.contacted_station.location = Some(RecordedLocation {
-        position: Some(Position::GridArea(Locator::parse("CN85")?)),
-        ..Default::default()
+    support::edit(&mut portable, |portable| {
+        portable.end = Some(UtcSecond::from_unix_seconds(1_793_059_200 + 25 * 3600));
+        Ok(())
     });
-    portable
-        .contacted_station
-        .references
-        .insert(ReferenceAssociation {
-            group_id: group("070-160M-SPRINT"),
-            identifier: None,
-        });
+    support::edit(&mut portable, |portable| {
+        portable.contacted_station.callsign = RecordedCallsign::new("W7HEX/P")?;
+        Ok(())
+    });
+    support::edit(&mut portable, |portable| {
+        portable.comment = Some("activation dry".into());
+        Ok(())
+    });
+    support::edit(&mut portable, |portable| {
+        portable.contacted_operator = Some(
+            (clacks_model::contact::OperatorInformationFields {
+                callsign: None,
+                recorded_name: Some("Alice".into()),
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+        Ok(())
+    });
+    support::edit(&mut portable, |portable| {
+        portable.tags.insert(support::id(20));
+        Ok(())
+    });
+    support::edit(&mut portable, |portable| {
+        portable.primary = BandFrequency::from_recorded_pair(
+            Some(Hertz::new(7_074_000)?),
+            Some(Band::from_recorded_label("40M")?),
+        )?;
+        Ok(())
+    });
+    support::edit(&mut portable, |portable| {
+        portable.mode = Mode::from_recorded_identity(ModeIdentity::Specialization {
+            label: "LSB".into(),
+            parent: Some("SSB".into()),
+        })?;
+        Ok(())
+    });
+    support::edit(&mut portable, |portable| {
+        portable.contacted_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                position: Some(Position::GridArea(Locator::parse("CN85")?)),
+                ..Default::default()
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+        Ok(())
+    });
+    support::edit(&mut portable, |portable| {
+        portable.contacted_station.references.insert(
+            ReferenceAssociation::new(group("070-160M-SPRINT"), None)
+                .expect("valid reference fixture"),
+        );
+        Ok(())
+    });
     let mut coarse = support::qso(support::id(12));
-    coarse.start = UtcSecond::from_unix_seconds(1_793_059_200 + 30 * 3600);
-    coarse.comment = Some("rain".into());
-    coarse.primary = BandFrequency::from_recorded_pair(
-        Some(Hertz::new(14_000_001)?),
-        Some(Band::from_recorded_label("20M")?),
-    )?;
-    coarse.contacted_station.location = Some(RecordedLocation {
-        position: Some(Position::GridArea(Locator::parse("CN")?)),
-        ..Default::default()
+    support::edit(&mut coarse, |coarse| {
+        coarse.start = UtcSecond::from_unix_seconds(1_793_059_200 + 30 * 3600);
+        Ok(())
+    });
+    support::edit(&mut coarse, |coarse| {
+        coarse.comment = Some("rain".into());
+        Ok(())
+    });
+    support::edit(&mut coarse, |coarse| {
+        coarse.primary = BandFrequency::from_recorded_pair(
+            Some(Hertz::new(14_000_001)?),
+            Some(Band::from_recorded_label("20M")?),
+        )?;
+        Ok(())
+    });
+    support::edit(&mut coarse, |coarse| {
+        coarse.contacted_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                position: Some(Position::GridArea(Locator::parse("CN")?)),
+                ..Default::default()
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+        Ok(())
     });
     let mut precise = support::qso(support::id(13));
-    precise.start = activation.start;
-    precise.tags.insert(support::id(21));
-    precise.primary = BandFrequency::from_recorded_pair(
-        Some(Hertz::new(14_000_000)?),
-        Some(Band::from_recorded_label("20M")?),
-    )?;
-    precise.mode = Mode::from_recorded_identity(ModeIdentity::Specialization {
-        label: "future-mode".into(),
-        parent: None,
-    })?;
-    precise.contacted_station.location = Some(RecordedLocation {
-        position: Some(Position::ExplicitPoint {
-            coordinates: Coordinates::from_microdegrees(45_062_500, -123_958_333)?,
-            grid_length: GridLength::new(2)?,
-        }),
-        ..Default::default()
+    support::edit(&mut precise, |precise| {
+        precise.start = activation.start();
+        Ok(())
     });
-    precise
-        .contacted_station
-        .references
-        .insert(ReferenceAssociation {
-            group_id: support::id(99),
-            identifier: Some("unknown-1".into()),
-        });
+    support::edit(&mut precise, |precise| {
+        precise.tags.insert(support::id(21));
+        Ok(())
+    });
+    support::edit(&mut precise, |precise| {
+        precise.primary = BandFrequency::from_recorded_pair(
+            Some(Hertz::new(14_000_000)?),
+            Some(Band::from_recorded_label("20M")?),
+        )?;
+        Ok(())
+    });
+    support::edit(&mut precise, |precise| {
+        precise.mode = Mode::from_recorded_identity(ModeIdentity::Specialization {
+            label: "future-mode".into(),
+            parent: None,
+        })?;
+        Ok(())
+    });
+    support::edit(&mut precise, |precise| {
+        precise.contacted_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                position: Some(Position::ExplicitPoint {
+                    coordinates: Coordinates::from_microdegrees(45_062_500, -123_958_333)?,
+                    grid_length: GridLength::new(2)?,
+                }),
+                ..Default::default()
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+        Ok(())
+    });
+    support::edit(&mut precise, |precise| {
+        precise.contacted_station.references.insert(
+            ReferenceAssociation::new(support::id(99), Some("unknown-1".into()))
+                .expect("valid reference fixture"),
+        );
+        Ok(())
+    });
     for qso in [activation, portable, coarse, precise] {
         save::save(
             &store,
-            support::qso_key(qso.id),
+            support::qso_key(qso.id()),
             None,
             support::contact(qso),
         )
@@ -175,7 +280,7 @@ async fn matching(store: &ClientStore, expression: &str) -> anyhow::Result<Vec<Q
             ..Default::default()
         })
         .await?;
-    let mut ids: Vec<_> = page.rows.into_iter().map(|r| r.working.qso.id).collect();
+    let mut ids: Vec<_> = page.rows.into_iter().map(|r| r.working.qso.id()).collect();
     ids.sort();
     snapshot.close().await?;
     Ok(ids)
@@ -333,7 +438,7 @@ async fn filtered_counts_and_rows_share_a_snapshot() -> anyhow::Result<()> {
         ..Default::default()
     };
     let page = snapshot.contact_page(&query).await?;
-    assert_eq!(page.rows.first().unwrap().working.qso.id, support::id(12));
+    assert_eq!(page.rows.first().unwrap().working.qso.id(), support::id(12));
     assert_eq!(
         (
             page.matching_total,
@@ -345,7 +450,7 @@ async fn filtered_counts_and_rows_share_a_snapshot() -> anyhow::Result<()> {
     assert!(page.has_more);
     query.show_selected = true;
     let page = snapshot.contact_page(&query).await?;
-    assert_eq!(page.rows.first().unwrap().working.qso.id, support::id(11));
+    assert_eq!(page.rows.first().unwrap().working.qso.id(), support::id(11));
     assert_eq!(
         (
             page.matching_total,
@@ -361,7 +466,7 @@ async fn filtered_counts_and_rows_share_a_snapshot() -> anyhow::Result<()> {
     query.show_selected = false;
     query.offset = 1;
     let page = snapshot.contact_page(&query).await?;
-    assert_eq!(page.rows.first().unwrap().working.qso.id, support::id(10));
+    assert_eq!(page.rows.first().unwrap().working.qso.id(), support::id(10));
     assert_eq!(page.matching_total, 2);
     snapshot.close().await?;
     let mut snapshot = read::snapshot(&f.store).await?;
@@ -445,12 +550,12 @@ async fn catalog_and_group_interpretation_changes_do_not_require_qso_edits() -> 
     assert_eq!(
         page.rows
             .iter()
-            .map(|r| r.working.qso.id)
+            .map(|r| r.working.qso.id())
             .collect::<Vec<_>>(),
         vec![support::id(13)]
     );
     assert_eq!(
-        page.rows.first().unwrap().working.qso.mode.identity(),
+        page.rows.first().unwrap().working.qso.mode().identity(),
         ModeIdentity::Specialization {
             label: "future-mode".into(),
             parent: None

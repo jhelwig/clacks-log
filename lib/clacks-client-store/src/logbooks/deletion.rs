@@ -210,9 +210,11 @@ pub async fn delete_tag(
             let Some(RecordState::Live(RecordValue::Qso(qso))) = row.working_state() else {
                 anyhow::bail!("tag member has no live QSO")
             };
-            let mut qso = qso.clone();
-            qso.tags.remove(&tag);
-            RecordState::Live(RecordValue::Qso(qso))
+            let mut fields = (**qso).clone().into_fields();
+            fields.tags.remove(&tag);
+            RecordState::Live(RecordValue::Qso(Box::new(
+                clacks_model::contact::Qso::try_from(fields)?,
+            )))
         };
         match save_in(&mut transaction, row.key, Some(row), next).await? {
             SaveOutcome::Saved(_) => {

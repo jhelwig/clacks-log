@@ -3,7 +3,7 @@
 pub mod telemetry;
 
 use clacks_model::catalog::{CatalogEntry, CatalogSet, ReferenceCatalog, SourceInformation};
-use clacks_model::contact::{BandFrequency, OwnOperatingContext, Qso, StationSnapshot};
+use clacks_model::contact::{BandFrequency, OwnOperatingContext, Qso};
 use clacks_model::export::rules::ValueExpression;
 use clacks_model::export::{OutputProfile, OutputPurpose, ProfileSet};
 use clacks_model::group::DefinitionSet;
@@ -27,21 +27,21 @@ where
 }
 
 pub fn qso(id: QsoId) -> Qso {
-    Qso {
+    Qso::try_from(clacks_model::contact::input::QsoFields {
         id,
         start: UtcSecond::from_unix_seconds(1000),
         end: None,
-        own_station: StationSnapshot {
+        own_station: clacks_model::contact::StationSnapshot {
             callsign: RecordedCallsign::new("W7HEX").unwrap(),
             location: None,
             references: BTreeSet::new(),
         },
-        contacted_station: StationSnapshot {
+        contacted_station: clacks_model::contact::StationSnapshot {
             callsign: RecordedCallsign::new("K1ABC").unwrap(),
             location: None,
             references: BTreeSet::new(),
         },
-        own_context: OwnOperatingContext::default(),
+        own_context: (OwnOperatingContext::default()),
         contacted_operator: None,
         primary: BandFrequency::new(
             Some(Hertz::new(14_074_000).unwrap()),
@@ -59,14 +59,13 @@ pub fn qso(id: QsoId) -> Qso {
         received_report: None,
         comment: None,
         tags: BTreeSet::new(),
-    }
+    })
+    .expect("valid contact fixture")
 }
 
 pub fn reference(group: GroupId, identifier: Option<&str>) -> ReferenceAssociation {
-    ReferenceAssociation {
-        group_id: group,
-        identifier: identifier.map(str::to_owned),
-    }
+    ReferenceAssociation::new(group, identifier.map(str::to_owned))
+        .expect("valid reference fixture")
 }
 
 pub fn definitions() -> DefinitionSet {
@@ -145,4 +144,16 @@ pub fn contest_definitions() -> DefinitionSet {
     b.name = "Other contest".into();
     b.export_mappings.ordinary_interchange[0].value = ValueExpression::Literal("CONTEST-B".into());
     DefinitionSet::new(defs.iter().cloned().chain([b]).collect()).unwrap()
+}
+
+/// Apply a valid fixture correction through the saved-contact input boundary.
+pub fn edit(
+    qso: &mut Qso,
+    change: impl FnOnce(
+        &mut clacks_model::contact::input::QsoFields,
+    ) -> Result<(), Box<dyn std::error::Error>>,
+) {
+    let mut fields = qso.clone().into_fields();
+    change(&mut fields).expect("valid fixture input");
+    *qso = Qso::try_from(fields).expect("valid contact fixture edit");
 }

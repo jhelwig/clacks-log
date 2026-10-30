@@ -11,9 +11,15 @@ not flatten module contents through re-exports.
 
 ## Usage
 
-Normalize optional aggregates with `Qso::normalize_optional_aggregates`, then call
-`Qso::validate` before saving. Incomplete entry and import preparation remain
-outside saved records. `profile::SavedLocationProfile` owns a station snapshot
+Prepare entry/import values outside saved records, then construct a contact with
+`Qso::try_from(contact::input::QsoFields)`. Construction and deserialization reject
+invalid saved input. Use immutable accessors for reading, and `into_fields()` for
+a complete edit followed by checked reconstruction. Prepare optional text with
+`scalar::optional_text`; location, operator, equipment and reusable-profile input
+types have their own checked conversions. Simple aggregates whose component types
+already establish validity retain ordinary fields.
+
+`profile::SavedLocationProfile` owns a station snapshot
 and an optional equipment configuration ID; `EquipmentConfiguration` owns reusable
 equipment values. `CurrentOperatingValues` owns copied facts plus operator/power.
 Desktop transient forms own loading and independent source selection; the store
@@ -37,9 +43,10 @@ recorded identity, serialization, equality or ordering. Catalog labels must be
 unique under ASCII case-insensitive lookup within bands, modes and submodes.
 Accepted labels retain their supplied spelling.
 
-Saving adapters normalize optional aggregates before validation. Validation
-rejects empty location/operator structures; an empty receive override normalizes
-to absence and inherits the primary pair. Targeted export excludes unrelated
+Entry/import preparation collapses absent optional location/operator input before
+construction. Saved location/operator values cannot be empty, and a present
+band/frequency pair must contain at least one component. An absent receive
+override inherits the primary pair. Targeted export excludes unrelated
 groups before compiling definitions, so an unrelated malformed definition cannot
 block the selected context.
 
@@ -47,8 +54,8 @@ Concrete validation and configuration errors use `thiserror` for their display
 messages and standard error implementations. Operations combining record,
 profile or export failures return `anyhow::Result` and propagate original
 errors without forwarding-only enum variants. Callers can downcast to the
-concrete error type when they need structured handling. Export-readiness
-context retains the underlying validation error in the diagnostic chain.
+concrete error type when they need structured handling. Saved-record construction
+is separate from export/service readiness and current account-reference checks.
 
 Catalog lookup returns normal availability/listing outcomes separately from
 configuration failures; failures retain their concrete errors through

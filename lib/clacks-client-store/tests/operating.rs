@@ -6,47 +6,50 @@ use clacks_client_store::{
     save::{self, SaveOutcome},
     store::{ClientStore, StoreSettings},
 };
-use clacks_model::{
-    contact::{OperatorInformation, StationSnapshot},
-    equipment::EquipmentValues,
-    profile::{CurrentOperatingValues, EquipmentConfiguration, SavedLocationProfile},
-    scalar::{Milliwatts, RecordedCallsign},
-};
+use clacks_model::scalar::{Milliwatts, RecordedCallsign};
 use clacks_sync::record::{RecordState, RecordValue};
 use support::id;
 
 fn selected_state() -> anyhow::Result<OperatingState> {
-    let profile = SavedLocationProfile {
+    let profile = clacks_model::profile::SavedLocationProfileFields {
         id: id(30),
         name: "Home".into(),
-        station: StationSnapshot {
+        station: clacks_model::contact::StationSnapshot {
             callsign: RecordedCallsign::new("W7HEX")?,
             location: None,
             references: Default::default(),
         },
         default_equipment: Some(id(31)),
     };
-    let equipment = EquipmentConfiguration {
+    let equipment = clacks_model::profile::EquipmentConfigurationFields {
         id: id(32),
         name: "Rig B".into(),
-        values: EquipmentValues {
+        values: clacks_model::equipment::EquipmentValuesFields {
             equipment_description: Some("KX3".into()),
             antenna_description: Some("Vertical".into()),
             notes: None,
         },
     };
     Ok(OperatingState {
-        current: Some(CurrentOperatingValues {
+        current: Some(clacks_model::profile::CurrentOperatingValues {
             station: profile.station.clone(),
-            operator: Some(OperatorInformation {
-                callsign: Some(RecordedCallsign::new("W7ABC")?),
-                recorded_name: Some("Recorded operator".into()),
-            }),
+            operator: Some(
+                (clacks_model::contact::OperatorInformationFields {
+                    callsign: Some(RecordedCallsign::new("W7ABC")?),
+                    recorded_name: Some("Recorded operator".into()),
+                })
+                .try_into()
+                .expect("valid native fixture"),
+            ),
             transmit_power: Some(Milliwatts::new(5000)?),
-            equipment: Some(equipment.values.clone()),
+            equipment: Some(
+                (equipment.values.clone())
+                    .try_into()
+                    .expect("valid native fixture"),
+            ),
         }),
-        selected_profile: Some(profile),
-        selected_equipment: Some(equipment),
+        selected_profile: Some((profile).try_into().expect("valid native fixture")),
+        selected_equipment: Some((equipment).try_into().expect("valid native fixture")),
     })
 }
 
@@ -75,16 +78,19 @@ async fn independent_sources_survive_reopen() -> anyhow::Result<()> {
 
     let reopened = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
     let loaded = operating::load(&reopened).await?;
-    assert_eq!(loaded.selected_profile.as_ref().map(|p| p.id), Some(id(30)));
     assert_eq!(
-        loaded.selected_equipment.as_ref().map(|e| e.id),
+        loaded.selected_profile.as_ref().map(|p| p.id()),
+        Some(id(30))
+    );
+    assert_eq!(
+        loaded.selected_equipment.as_ref().map(|e| e.id()),
         Some(id(32))
     );
     assert_eq!(
         loaded
             .selected_profile
             .as_ref()
-            .and_then(|p| p.default_equipment),
+            .and_then(|p| p.default_equipment()),
         Some(id(31))
     );
     assert_eq!(loaded.current, state.current);
@@ -110,7 +116,7 @@ async fn apply_detaches_only_the_edited_component() -> anyhow::Result<()> {
     let saved = operating::load(&store).await?;
     assert_eq!(saved.selected_profile, None);
     assert_eq!(
-        saved.selected_equipment.as_ref().map(|e| e.id),
+        saved.selected_equipment.as_ref().map(|e| e.id()),
         Some(id(32))
     );
 
@@ -119,14 +125,10 @@ async fn apply_detaches_only_the_edited_component() -> anyhow::Result<()> {
         OperatingSaveOutcome::Stale(saved.clone())
     );
     let mut equipment_edit = saved.clone();
-    equipment_edit
-        .current
-        .as_mut()
-        .unwrap()
-        .equipment
-        .as_mut()
-        .unwrap()
-        .antenna_description = Some("Loop".into());
+    let current = equipment_edit.current.as_mut().unwrap();
+    let mut equipment = current.equipment.take().unwrap().into_fields();
+    equipment.antenna_description = Some("Loop".into());
+    current.equipment = Some(equipment.try_into()?);
     equipment_edit.selected_equipment = None;
     operating::save(&store, &saved, &equipment_edit).await?;
     assert_eq!(operating::load(&store).await?, equipment_edit);

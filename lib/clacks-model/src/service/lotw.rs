@@ -249,14 +249,13 @@ pub fn normalize_mode(mode: &Mode, config: &LotwConfiguration) -> anyhow::Result
     name = "model.lotw.project",
     level = "debug",
     fields(
-        qso_id = %input.qso.id,
+        qso_id = %input.qso.id(),
         destination_id = %input.destination.id,
     ),
 )]
 pub fn project(
     input: &LotwProjectionInput<'_>,
 ) -> anyhow::Result<ProjectionDecision<LotwSubmission>> {
-    input.qso.validate()?;
     let result = prepare(input);
     let decision = match result {
         Ok(value) => ProjectionDecision::Ready(ProjectionResult {
@@ -266,7 +265,8 @@ pub fn project(
         Err(e) => ProjectionDecision::NotReady(vec![ReadinessIssue {
             field: format!(
                 "LoTW QSO {} destination {}",
-                input.qso.id, input.destination.id
+                input.qso.id(),
+                input.destination.id
             ),
             reason: e.to_string(),
         }]),
@@ -278,7 +278,7 @@ pub fn project(
     metrics::counter!("clacks_service_projection_readiness_total", "service" => "lotw", "readiness" => readiness).increment(1);
     tracing::debug!(
         event = "projection.prepared",
-        qso_id = %input.qso.id,
+        qso_id = %input.qso.id(),
         destination_id = %input.destination.id,
         readiness,
         warning_count,
@@ -292,7 +292,7 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
     let q = input.qso;
     let c = input.configuration;
     if input.destination.service() != Service::Lotw
-        || input.signing.callsign != q.own_station.callsign
+        || input.signing.callsign != q.own_station().callsign
         || input.signing.dxcc.trim().is_empty()
     {
         tracing::debug!(
@@ -305,10 +305,10 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
         .into());
     }
     if let Some(entity) = q
-        .own_station
+        .own_station()
         .location
         .as_ref()
-        .and_then(|l| l.dxcc.as_ref())
+        .and_then(|l| l.dxcc().as_ref())
         && entity != &input.signing.dxcc
     {
         tracing::debug!(
@@ -323,40 +323,43 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
         }
         .into());
     }
-    let band = c.band(&q.primary)?;
-    let rx = q.primary.effective_receive(q.receive_override.as_ref());
+    let band = c.band(q.primary())?;
+    let rx = q.primary().effective_receive(q.receive_override().as_ref());
     let receive_band = c.band(rx)?;
-    let mode = normalize_mode(&q.mode, c)?;
+    let mode = normalize_mode(q.mode(), c)?;
     let key = LotwRecordKey {
-        own_call: q.own_station.callsign.clone(),
-        worked_call: q.contacted_station.callsign.clone(),
-        start: q.start,
+        own_call: q.own_station().callsign.clone(),
+        worked_call: q.contacted_station().callsign.clone(),
+        start: q.start(),
         band: band.clone(),
         receive_band: receive_band.clone(),
         mode: mode.clone(),
     };
-    let (date, time) = adif::contact_time(q.start)?;
+    let (date, time) = adif::contact_time(q.start())?;
     let mut fields = AdifFields::from([
-        ("CALL".into(), q.contacted_station.callsign.as_str().into()),
+        (
+            "CALL".into(),
+            q.contacted_station().callsign.as_str().into(),
+        ),
         ("BAND".into(), band.clone()),
         ("MODE".into(), mode),
         ("QSO_DATE".into(), date),
         ("QSO_TIME".into(), time),
     ]);
-    if let Some(f) = q.primary.frequency() {
+    if let Some(f) = q.primary().frequency() {
         fields.insert("FREQ".into(), adif::frequency(f));
     }
-    if rx != &q.primary {
+    if rx != q.primary() {
         if receive_band != band {
             fields.insert("BAND_RX".into(), receive_band);
         }
         if let Some(f) = rx.frequency()
-            && Some(f) != q.primary.frequency()
+            && Some(f) != q.primary().frequency()
         {
             fields.insert("FREQ_RX".into(), adif::frequency(f));
         }
     }
-    let mut station = location_fields(q.own_station.location.as_ref(), &input.signing.dxcc, c)?;
+    let mut station = location_fields(q.own_station().location.as_ref(), &input.signing.dxcc, c)?;
     if let Some(value) = own_iota(q, input.definitions)? {
         station.insert("IOTA".into(), value);
     }
@@ -398,7 +401,7 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
 pub(crate) fn own_iota(q: &Qso, definitions: &DefinitionSet) -> anyhow::Result<Option<String>> {
     let mut station = AdifFields::new();
     let groups = q
-        .own_station
+        .own_station()
         .references
         .iter()
         .map(|r| r.group_id)
@@ -495,19 +498,19 @@ fn location_fields(
     let mut station = AdifFields::new();
     let mut subdivision_zones = Vec::new();
     if let Some(l) = location {
-        if let Some(p) = &l.position {
+        if let Some(p) = &l.position() {
             station.insert("GRIDSQUARE".into(), p.display_locator().to_string());
         }
-        if let Some(z) = l.cq_zone {
+        if let Some(z) = l.cq_zone() {
             station.insert("CQZ".into(), z.get().to_string());
         }
-        if let Some(z) = l.itu_zone {
+        if let Some(z) = l.itu_zone() {
             station.insert("ITUZ".into(), z.get().to_string());
         }
         if let Some(applicable) = c.entity_fields.get(entity) {
             for (value, secondary) in [
-                (&l.primary_subdivision, false),
-                (&l.secondary_subdivision, true),
+                (&l.primary_subdivision(), false),
+                (&l.secondary_subdivision(), true),
             ] {
                 if let Some(value) = value {
                     let found = applicable
@@ -572,7 +575,7 @@ fn location_fields(
                     }
                 }
             }
-        } else if l.primary_subdivision.is_some() || l.secondary_subdivision.is_some() {
+        } else if l.primary_subdivision().is_some() || l.secondary_subdivision().is_some() {
             tracing::debug!(
                 event = "projection.conversion_unavailable",
                 reason = "missing_subdivision_mapping"
@@ -593,8 +596,8 @@ fn location_fields(
         ] {
             if !zones.is_empty()
                 && !zones.iter().any(|p| {
-                    l.cq_zone.is_none_or(|z| z.get() == p.cq)
-                        && l.itu_zone.is_none_or(|z| z.get() == p.itu)
+                    l.cq_zone().is_none_or(|z| z.get() == p.cq)
+                        && l.itu_zone().is_none_or(|z| z.get() == p.itu)
                 })
             {
                 tracing::debug!(
@@ -615,14 +618,17 @@ fn location_fields(
 pub(crate) fn location_baseline(
     location: Option<&crate::location::RecordedLocation>,
     configuration: &LotwConfiguration,
-) -> Option<crate::location::RecordedLocation> {
-    let mut location = location?.clone();
+) -> anyhow::Result<Option<crate::location::RecordedLocation>> {
+    let Some(original) = location else {
+        return Ok(None);
+    };
+    let mut location = original.clone().into_fields();
     location.position = location
         .position
         .as_ref()
         .map(|p| crate::position::Position::GridArea(p.display_locator()));
-    if let Some(entity) = &location.dxcc
-        && let Ok(fields) = location_fields(Some(&location), entity, configuration)
+    if let Some(entity) = &original.dxcc()
+        && let Ok(fields) = location_fields(Some(original), entity, configuration)
     {
         location.primary_subdivision = configuration
             .primary_fields
@@ -633,5 +639,5 @@ pub(crate) fn location_baseline(
             .iter()
             .find_map(|name| fields.get(name).cloned());
     }
-    location.normalized()
+    location.normalized().map(TryInto::try_into).transpose()
 }

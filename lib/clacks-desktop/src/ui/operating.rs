@@ -288,7 +288,7 @@ impl SettingsUi {
             .as_ref()
             .is_some_and(|profile| {
                 self.known_deletions
-                    .contains(&RecordId::Profile(profile.id))
+                    .contains(&RecordId::Profile(profile.id()))
             })
         {
             effective.to_mut().operating.selected_profile = None;
@@ -299,7 +299,7 @@ impl SettingsUi {
             .as_ref()
             .is_some_and(|equipment| {
                 self.known_deletions
-                    .contains(&RecordId::Equipment(equipment.id))
+                    .contains(&RecordId::Equipment(equipment.id()))
             })
         {
             effective.to_mut().operating.selected_equipment = None;
@@ -526,9 +526,14 @@ pub(super) fn configuration(record: &ClientRecord) -> Option<&EquipmentConfigura
 }
 /// Distinguish duplicate profile names with the saved native identity.
 pub(super) fn profile_label(p: &SavedLocationProfile) -> String {
-    format!("{} · {} · {}", p.name, p.station.callsign.as_str(), p.id)
+    format!(
+        "{} · {} · {}",
+        p.name(),
+        p.station().callsign.as_str(),
+        p.id()
+    )
 }
 /// Distinguish duplicate equipment names with the saved native identity.
 pub(super) fn equipment_label(e: &EquipmentConfiguration) -> String {
-    format!("{} · {}", e.name, e.id)
+    format!("{} · {}", e.name(), e.id())
 }

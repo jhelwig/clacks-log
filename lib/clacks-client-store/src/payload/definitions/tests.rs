@@ -120,20 +120,22 @@ async fn restored_definitions_plan_reference_output() -> anyhow::Result<()> {
     };
     let mut qso = support::qso(id(90));
     for identifier in ["A", "B"] {
-        qso.own_station
-            .references
-            .insert(clacks_model::reference::ReferenceAssociation {
-                group_id: id(80),
-                identifier: Some(identifier.into()),
-            });
+        support::edit(&mut qso, |qso| {
+            qso.own_station.references.insert(
+                clacks_model::reference::ReferenceAssociation::new(id(80), Some(identifier.into()))
+                    .expect("valid reference fixture"),
+            );
+            Ok(())
+        });
     }
     for identifier in ["X", "Y"] {
-        qso.contacted_station
-            .references
-            .insert(clacks_model::reference::ReferenceAssociation {
-                group_id: id(80),
-                identifier: Some(identifier.into()),
-            });
+        support::edit(&mut qso, |qso| {
+            qso.contacted_station.references.insert(
+                clacks_model::reference::ReferenceAssociation::new(id(80), Some(identifier.into()))
+                    .expect("valid reference fixture"),
+            );
+            Ok(())
+        });
     }
     let output = clacks_model::export::evaluate::plan_reference_export(
         &[qso],

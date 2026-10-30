@@ -46,13 +46,19 @@ fn tag_telemetry_counts_commits_without_counting_stale_or_unchanged_saves() -> a
                     selection::select(&workspace.store, SelectedView::Logbook(tag.id)).await?;
                     for n in [100, 101] {
                         let mut value = qso(id(n));
-                        value.comment = Some("SECRET ON-AIR COMMENT".into());
-                        value.tags = if n == 100 {
-                            [tag.id].into()
-                        } else {
-                            [tag.id, id(21)].into()
-                        };
-                        save::save(&workspace.store, qso_key(value.id), None, contact(value))
+                        support::edit(&mut value, |value| {
+                            value.comment = Some("SECRET ON-AIR COMMENT".into());
+                            Ok(())
+                        });
+                        support::edit(&mut value, |value| {
+                            value.tags = if n == 100 {
+                                [tag.id].into()
+                            } else {
+                                [tag.id, id(21)].into()
+                            };
+                            Ok(())
+                        });
+                        save::save(&workspace.store, qso_key(value.id()), None, contact(value))
                             .await?;
                     }
                     let preview = deletion::preview(&workspace.store, tag.id).await?;
@@ -137,10 +143,13 @@ fn stale_deletion_reports_tag_or_members_without_counting_deletions() -> anyhow:
                     panic!("create tag");
                 };
                 let mut value = qso(id(100));
-                value.tags.insert(tag.id);
+                support::edit(&mut value, |value| {
+                    value.tags.insert(tag.id);
+                    Ok(())
+                });
                 let SaveOutcome::Saved(original_qso) = save::save(
                     &workspace.store,
-                    qso_key(value.id),
+                    qso_key(value.id()),
                     None,
                     contact(value.clone()),
                 )
@@ -159,10 +168,13 @@ fn stale_deletion_reports_tag_or_members_without_counting_deletions() -> anyhow:
                 ));
 
                 let preview = deletion::preview(&workspace.store, tag.id).await?;
-                value.comment = Some("PRIVATE COMMENT".into());
+                support::edit(&mut value, |value| {
+                    value.comment = Some("PRIVATE COMMENT".into());
+                    Ok(())
+                });
                 save::save(
                     &workspace.store,
-                    qso_key(value.id),
+                    qso_key(value.id()),
                     Some(&original_qso),
                     contact(value),
                 )

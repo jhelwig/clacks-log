@@ -408,7 +408,7 @@ pub(super) fn active_summary(ui: &mut egui::Ui, state: &OperatingState) {
     if let Some(current) = &state.current {
         ui.label(format!("Callsign: {}", current.station.callsign.as_str()));
         if let Some(location) = &current.station.location {
-            if let Some(position) = &location.position {
+            if let Some(position) = &location.position() {
                 ui.label(format!("Grid: {}", position.display_locator()));
                 let coordinates = position.display_coordinates();
                 ui.label(format!(
@@ -422,19 +422,19 @@ pub(super) fn active_summary(ui: &mut egui::Ui, state: &OperatingState) {
                     f64::from(coordinates.longitude_microdegrees()) / 1_000_000.0,
                 ));
             }
-            if let Some(value) = &location.dxcc {
+            if let Some(value) = &location.dxcc() {
                 ui.label(format!("DXCC: {value}"));
             }
-            if let Some(value) = &location.primary_subdivision {
+            if let Some(value) = &location.primary_subdivision() {
                 ui.label(format!("State / province: {value}"));
             }
-            if let Some(value) = &location.secondary_subdivision {
+            if let Some(value) = &location.secondary_subdivision() {
                 ui.label(format!("County / subdivision: {value}"));
             }
-            if let Some(value) = location.cq_zone {
+            if let Some(value) = location.cq_zone() {
                 ui.label(format!("CQ zone: {}", value.get()));
             }
-            if let Some(value) = location.itu_zone {
+            if let Some(value) = location.itu_zone() {
                 ui.label(format!("ITU zone: {}", value.get()));
             }
         }
@@ -442,16 +442,16 @@ pub(super) fn active_summary(ui: &mut egui::Ui, state: &OperatingState) {
             ui.label(format!(
                 "Reference: {} {}",
                 reference.group_id,
-                reference.identifier.as_deref().unwrap_or("")
+                reference.identifier().as_deref().unwrap_or("")
             ));
         }
         if let Some(equipment) = &current.equipment {
             ui.label(format!(
                 "Equipment: {} · {}",
-                equipment.equipment_description.as_deref().unwrap_or(""),
-                equipment.antenna_description.as_deref().unwrap_or("")
+                equipment.equipment_description().as_deref().unwrap_or(""),
+                equipment.antenna_description().as_deref().unwrap_or("")
             ));
-            if let Some(notes) = &equipment.notes {
+            if let Some(notes) = &equipment.notes() {
                 ui.label(format!("Equipment notes: {notes}"));
             }
         }
@@ -459,11 +459,11 @@ pub(super) fn active_summary(ui: &mut egui::Ui, state: &OperatingState) {
             ui.label(format!(
                 "Operator: {} {}",
                 operator
-                    .callsign
+                    .callsign()
                     .as_ref()
                     .map(|c| c.as_str().to_owned())
                     .unwrap_or_default(),
-                operator.recorded_name.as_deref().unwrap_or("")
+                operator.recorded_name().as_deref().unwrap_or("")
             ));
         }
         if let Some(power) = current.transmit_power {

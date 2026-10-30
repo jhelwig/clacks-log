@@ -50,14 +50,23 @@ async fn all_tag_deletion_choices_apply_to_the_complete_membership_basis() -> an
         )
         .await?;
         let mut unique = qso(id(10));
-        unique.tags = [id(20)].into();
+        support::edit(&mut unique, |unique| {
+            unique.tags = [id(20)].into();
+            Ok(())
+        });
         let unique = saved(&store, contact(unique), qso_key(id(10))).await?;
         let mut shared = qso(id(11));
-        shared.tags = [id(20), id(21)].into();
+        support::edit(&mut shared, |shared| {
+            shared.tags = [id(20), id(21)].into();
+            Ok(())
+        });
         let shared = saved(&store, contact(shared), qso_key(id(11))).await?;
         let untagged = saved(&store, contact(qso(id(12))), qso_key(id(12))).await?;
         let mut deleted = qso(id(13));
-        deleted.tags.insert(id(20));
+        support::edit(&mut deleted, |deleted| {
+            deleted.tags.insert(id(20));
+            Ok(())
+        });
         let deleted = saved(&store, contact(deleted), qso_key(id(13))).await?;
         save::save(&store, deleted.key, Some(&deleted), RecordState::Deleted).await?;
         let preview = deletion::preview(&store, id(20)).await?;
@@ -87,8 +96,8 @@ async fn all_tag_deletion_choices_apply_to_the_complete_membership_basis() -> an
                 let Some(RecordState::Live(RecordValue::Qso(qso))) = row.working_state() else {
                     panic!("preserved contact expected")
                 };
-                assert!(!qso.tags.contains(&id(20)));
-                assert_eq!(qso.tags.contains(&id(21)), n == 11);
+                assert!(!qso.tags().contains(&id(20)));
+                assert_eq!(qso.tags().contains(&id(21)), n == 11);
             }
         }
         assert_eq!(save::load(&store, qso_key(id(12))).await?, Some(untagged));

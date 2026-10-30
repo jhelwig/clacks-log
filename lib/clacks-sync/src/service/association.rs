@@ -171,9 +171,12 @@ pub fn classify_candidates(input: &CandidateInput<'_>) -> anyhow::Result<Candida
             && let Some(reasons) = candidate(q, input)?
         {
             if reasons.is_empty() {
-                out.confident.push(q.id);
+                out.confident.push(q.id());
             } else {
-                out.possible.push(CandidateMatch { qso: q.id, reasons });
+                out.possible.push(CandidateMatch {
+                    qso: q.id(),
+                    reasons,
+                });
             }
         }
     }
@@ -189,8 +192,12 @@ fn candidate(q: &Qso, input: &CandidateInput<'_>) -> anyhow::Result<Option<Vec<S
     let c = &input.observation.facts.contact;
     let mut reasons = Vec::new();
     for (field, reported, local) in [
-        ("own call", &c.own_call, &q.own_station.callsign),
-        ("worked call", &c.worked_call, &q.contacted_station.callsign),
+        ("own call", &c.own_call, &q.own_station().callsign),
+        (
+            "worked call",
+            &c.worked_call,
+            &q.contacted_station().callsign,
+        ),
     ] {
         match reported {
             Reported::Value(v) if v != local => return Ok(None),
@@ -198,9 +205,9 @@ fn candidate(q: &Qso, input: &CandidateInput<'_>) -> anyhow::Result<Option<Vec<S
             _ => reasons.push(format!("missing {field}")),
         }
     }
-    let receive = q.primary.effective_receive(q.receive_override.as_ref());
+    let receive = q.primary().effective_receive(q.receive_override().as_ref());
     for (field, band, freq, local) in [
-        ("band", &c.band, &c.frequency, &q.primary),
+        ("band", &c.band, &c.frequency, q.primary()),
         (
             "receive band",
             &c.receive_band,
@@ -240,7 +247,7 @@ fn candidate(q: &Qso, input: &CandidateInput<'_>) -> anyhow::Result<Option<Vec<S
     }
     if let Reported::Value(time) = c.start {
         let (lo, hi) = time.bounds()?;
-        let t = q.start.unix_seconds();
+        let t = q.start().unix_seconds();
         let gap = if t < lo {
             i128::from(lo) - i128::from(t)
         } else if t > hi {
@@ -270,14 +277,14 @@ fn pair_band(pair: &BandFrequency, catalog: &RecognitionCatalog) -> Option<Strin
 
 /// Return exact agreement, compatible lossy agreement, or explicit contradiction.
 fn mode_match(q: &Qso, m: &ModeReport, input: &CandidateInput<'_>) -> anyhow::Result<Option<bool>> {
-    let (label, special) = match q.mode.identity() {
+    let (label, special) = match q.mode().identity() {
         ModeIdentity::Parent { label } => (label, false),
         ModeIdentity::Specialization { label, .. } => (label, true),
     };
     if label.eq_ignore_ascii_case(&m.concrete) {
         return Ok(Some(true));
     }
-    if let ModeInterpretation::Known(known) = q.mode.interpret(input.recognition) {
+    if let ModeInterpretation::Known(known) = q.mode().interpret(input.recognition) {
         if special && known.mode.code.eq_ignore_ascii_case(&m.concrete) {
             return Ok(Some(false));
         }
@@ -290,7 +297,7 @@ fn mode_match(q: &Qso, m: &ModeReport, input: &CandidateInput<'_>) -> anyhow::Re
         }
     }
     if matches!(&input.observation.identity,clacks_model::service::evidence::observation::RemoteIdentity::Complete(k) if matches!(k.record,RemoteRecordId::Lotw(_)))
-        && normalize_mode(&q.mode, input.lotw_configuration)
+        && normalize_mode(q.mode(), input.lotw_configuration)
             .is_ok_and(|mapped| mapped.eq_ignore_ascii_case(&m.concrete))
     {
         return Ok(Some(false));

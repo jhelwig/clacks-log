@@ -4,11 +4,7 @@ use clacks_client_store::{
     operating::{OperatingSaveOutcome, OperatingState},
     save::SaveOutcome,
 };
-use clacks_model::{
-    contact::StationSnapshot,
-    profile::{CurrentOperatingValues, SavedLocationProfile},
-    scalar::RecordedCallsign,
-};
+use clacks_model::scalar::RecordedCallsign;
 use tokio::sync::oneshot;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -25,10 +21,10 @@ async fn settings_requests_save_without_apply_then_publish_committed_operation()
     .await?;
     let initial = settings.borrow_and_update().clone().unwrap();
     assert_eq!(initial.operating, OperatingState::default());
-    let home = SavedLocationProfile {
+    let home = clacks_model::profile::SavedLocationProfileFields {
         id: Default::default(),
         name: "Home".into(),
-        station: StationSnapshot {
+        station: clacks_model::contact::StationSnapshot {
             callsign: RecordedCallsign::new("W7HEX")?,
             location: None,
             references: Default::default(),
@@ -40,7 +36,7 @@ async fn settings_requests_save_without_apply_then_publish_committed_operation()
         .send(SettingsRequest {
             action: SettingsAction::SaveProfile {
                 expected: None,
-                next: home.clone(),
+                next: (home.clone()).try_into().expect("valid native fixture"),
             },
             reply,
         })
@@ -63,13 +59,13 @@ async fn settings_requests_save_without_apply_then_publish_committed_operation()
         OperatingState::default()
     );
     let desired = OperatingState {
-        current: Some(CurrentOperatingValues {
+        current: Some(clacks_model::profile::CurrentOperatingValues {
             station: home.station.clone(),
             operator: None,
             transmit_power: None,
             equipment: None,
         }),
-        selected_profile: Some(home),
+        selected_profile: Some((home).try_into().expect("valid native fixture")),
         selected_equipment: None,
     };
     let (reply, response) = oneshot::channel();
@@ -126,10 +122,10 @@ async fn shutdown_drains_admitted_settings_write_and_rejects_later_requests() ->
     )
     .await?;
     let held = blocker.begin_with("BEGIN IMMEDIATE").await?;
-    let home = SavedLocationProfile {
+    let home = clacks_model::profile::SavedLocationProfileFields {
         id: Default::default(),
         name: "Home".into(),
-        station: StationSnapshot {
+        station: clacks_model::contact::StationSnapshot {
             callsign: RecordedCallsign::new("W7HEX")?,
             location: None,
             references: Default::default(),
@@ -141,7 +137,7 @@ async fn shutdown_drains_admitted_settings_write_and_rejects_later_requests() ->
         .send(SettingsRequest {
             action: SettingsAction::SaveProfile {
                 expected: None,
-                next: home.clone(),
+                next: (home.clone()).try_into().expect("valid native fixture"),
             },
             reply,
         })

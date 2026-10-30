@@ -1,6 +1,6 @@
 //! Membership intent preserves complete contact bases and committed partial work.
 
-use crate::support::{contact, id, qso, qso_key};
+use crate::support::{self, contact, id, qso, qso_key};
 use clacks_client_store::{
     logbooks::selection::SelectedView,
     read::{self, contacts::ContactPageQuery},
@@ -18,8 +18,14 @@ use std::{collections::BTreeSet, ops::ControlFlow};
 
 async fn create(store: &ClientStore, n: u128, tags: &[u128]) -> anyhow::Result<ClientRecord> {
     let mut value = qso(id(n));
-    value.tags = tags.iter().copied().map(id).collect();
-    value.comment = Some(format!("contact {n}"));
+    support::edit(&mut value, |value| {
+        value.tags = tags.iter().copied().map(id).collect();
+        Ok(())
+    });
+    support::edit(&mut value, |value| {
+        value.comment = Some(format!("contact {n}"));
+        Ok(())
+    });
     let SaveOutcome::Saved(row) = save::save(store, qso_key(id(n)), None, contact(value)).await?
     else {
         panic!("created contact")
@@ -55,7 +61,10 @@ async fn membership_preserves_per_contact_values() -> anyhow::Result<()> {
         else {
             panic!("qso")
         };
-        expected.tags = tags;
+        support::edit(&mut expected, |expected| {
+            expected.tags = tags;
+            Ok(())
+        });
         assert_eq!(
             current.working_state(),
             Some(&RecordState::Live(RecordValue::Qso(expected)))
@@ -83,7 +92,7 @@ async fn membership_preserves_per_contact_values() -> anyhow::Result<()> {
                 ..Default::default()
             })
             .await?;
-        assert!(page.rows.iter().any(|row| row.working.qso.id == id(11)));
+        assert!(page.rows.iter().any(|row| row.working.qso.id() == id(11)));
     }
     snapshot.close().await?;
     store.close().await?;
@@ -103,7 +112,10 @@ async fn membership_retains_stale_and_cancelled_results() -> anyhow::Result<()> 
     let b = create(&store, 11, &[20]).await?;
     let c = create(&store, 12, &[20]).await?;
     let mut newer = qso(id(11));
-    newer.comment = Some("intervening correction".into());
+    support::edit(&mut newer, |newer| {
+        newer.comment = Some("intervening correction".into());
+        Ok(())
+    });
     save::save(&store, b.key, Some(&b), contact(newer)).await?;
     let report = change_tags(
         &store,
@@ -127,7 +139,7 @@ async fn membership_retains_stale_and_cancelled_results() -> anyhow::Result<()> 
     let Some(RecordState::Live(RecordValue::Qso(value))) = current.working_state() else {
         panic!("qso")
     };
-    assert_eq!(value.comment.as_deref(), Some("intervening correction"));
+    assert_eq!(value.comment().as_deref(), Some("intervening correction"));
     let a = save::load(&store, a.key).await?.unwrap();
     let c = save::load(&store, c.key).await?.unwrap();
     let report = change_tags(

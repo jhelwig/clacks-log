@@ -355,7 +355,7 @@ fn validate_input(
 pub fn required_references(key: RecordKey, state: &RecordState) -> Vec<RecordKey> {
     match state {
         RecordState::Live(RecordValue::Qso(q)) => q
-            .tags
+            .tags()
             .iter()
             .map(|id| RecordKey {
                 account: key.account,
@@ -363,7 +363,7 @@ pub fn required_references(key: RecordKey, state: &RecordState) -> Vec<RecordKey
             })
             .collect(),
         RecordState::Live(RecordValue::Profile(p)) => p
-            .default_equipment
+            .default_equipment()
             .iter()
             .map(|id| RecordKey {
                 account: key.account,

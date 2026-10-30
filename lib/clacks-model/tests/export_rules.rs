@@ -79,13 +79,21 @@ fn bindings_are_group_scoped() -> TestResult {
     let d = defs.get(support::id::<GroupId>(1)).unwrap();
     let compiled = compile_definition(d)?;
     let mut q = support::qso(support::id::<QsoId>(1));
-    q.own_station
-        .references
-        .insert(support::reference(d.id, Some("US-1234")));
-    q.own_station.references.insert(support::reference(
-        support::id::<GroupId>(999),
-        Some("US-9999"),
-    ));
+    support::edit(&mut q, |q| {
+        q.own_station
+            .references
+            .insert(support::reference(d.id, Some("US-1234")));
+
+        Ok(())
+    });
+    support::edit(&mut q, |q| {
+        q.own_station.references.insert(support::reference(
+            support::id::<GroupId>(999),
+            Some("US-9999"),
+        ));
+
+        Ok(())
+    });
     let bindings = BTreeMap::new();
     let context = ExpressionContext {
         qso: Some(&q),

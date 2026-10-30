@@ -22,7 +22,10 @@ async fn collection_reclaims_replaced_values_without_losing_pending_work() -> an
         panic!("save")
     };
     let mut qso = support::qso(support::id(10));
-    qso.comment = Some("Keep pending values".into());
+    support::edit(&mut qso, |qso| {
+        qso.comment = Some("Keep pending values".into());
+        Ok(())
+    });
     let SaveOutcome::Saved(next) =
         save::save(&store, key, Some(&row), support::contact(qso)).await?
     else {
@@ -172,7 +175,10 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
     transfer::finish(&store, &source, &WindowMode::Full).await?;
     let row = save::load(&store, key).await?.unwrap();
     let mut qso = support::qso(support::id(10));
-    qso.comment = Some("Unpublished tail".into());
+    support::edit(&mut qso, |qso| {
+        qso.comment = Some("Unpublished tail".into());
+        Ok(())
+    });
     save::save(&store, key, Some(&row), support::contact(qso)).await?;
     membership.clients.first_mut().unwrap().acknowledged = Some(source.clone());
     let retired =
@@ -279,7 +285,10 @@ async fn rollback_ancestry_and_recovered_envelopes_preserve_local_tail_and_old_r
     transfer::finish(&store, &completed, &WindowMode::Full).await?;
     let row = save::load(&store, accepted.key).await?.unwrap();
     let mut qso = support::qso(support::id(10));
-    qso.comment = Some("Keep local changes across server restoration".into());
+    support::edit(&mut qso, |qso| {
+        qso.comment = Some("Keep local changes across server restoration".into());
+        Ok(())
+    });
     save::save(&store, accepted.key, Some(&row), support::contact(qso)).await?;
     let membership = MembershipSnapshot {
         account: restored.account,
@@ -425,7 +434,10 @@ async fn insufficient_installed_coverage_keeps_the_original_without_fabricating_
     synchronization::receive(&store, &accepted).await?;
     let row = save::load(&store, accepted.key).await?.unwrap();
     let mut qso = support::qso(support::id(10));
-    qso.comment = Some("Pending beyond installed receipt".into());
+    support::edit(&mut qso, |qso| {
+        qso.comment = Some("Pending beyond installed receipt".into());
+        Ok(())
+    });
     let SaveOutcome::Saved(pending) =
         save::save(&store, accepted.key, Some(&row), support::contact(qso)).await?
     else {

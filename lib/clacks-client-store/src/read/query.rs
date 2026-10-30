@@ -49,7 +49,7 @@ impl ReadSnapshot {
         let has_more = rows.len() > usize::try_from(query.limit)?;
         rows.truncate(usize::try_from(query.limit)?);
         let rows = history::working_contacts(&mut transaction, self.account, rows).await?;
-        let ids: Vec<_> = rows.iter().map(|r| r.qso.id).collect();
+        let ids: Vec<_> = rows.iter().map(|r| r.qso.id()).collect();
         let mut projected = BTreeMap::new();
         for ids in ids.chunks(256) {
             for facts in projection::load(
@@ -69,7 +69,7 @@ impl ReadSnapshot {
         let rows = rows
             .into_iter()
             .map(|working| {
-                let facts = projected.remove(&working.qso.id).ok_or_else(|| {
+                let facts = projected.remove(&working.qso.id()).ok_or_else(|| {
                     anyhow::anyhow!("Native projection omitted a selected working contact")
                 })?;
                 Ok(ContactRow { working, facts })

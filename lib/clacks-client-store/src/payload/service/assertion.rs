@@ -2,7 +2,7 @@
 
 use super::{identity, projection, reference, report};
 use clacks_model::{
-    location::{CqZone, ItuZone, RecordedLocation},
+    location::{CqZone, ItuZone},
     scalar::{RecordedCallsign, UtcSecond},
     service::evidence::{
         ImportProvenance, ImportedAssertion, ImportedBaseline, ImportedClaim, ServiceRecordId,
@@ -98,9 +98,9 @@ pub(super) async fn insert(
     .execute(&mut *connection)
     .await?;
     if let Some(location) = &value.baseline.own_location {
-        let position = crate::rows::contact::PositionFields::new(location.position.as_ref());
-        let cq = location.cq_zone.map(|value| i64::from(value.get()));
-        let itu = location.itu_zone.map(|value| i64::from(value.get()));
+        let position = crate::rows::contact::PositionFields::new(location.position().as_ref());
+        let cq = location.cq_zone().map(|value| i64::from(value.get()));
+        let itu = location.itu_zone().map(|value| i64::from(value.get()));
         sqlx::query_file!(
             "sql/service/location_insert.sql",
             payload,
@@ -109,9 +109,9 @@ pub(super) async fn insert(
             position.latitude,
             position.longitude,
             position.length,
-            location.dxcc,
-            location.primary_subdivision,
-            location.secondary_subdivision,
+            location.dxcc(),
+            location.primary_subdivision(),
+            location.secondary_subdivision(),
             cq,
             itu
         )
@@ -172,7 +172,7 @@ pub(super) async fn load(
     );
     let own_location = location
         .map(|row| {
-            Ok::<_, anyhow::Error>(RecordedLocation {
+            Ok::<_, anyhow::Error>(clacks_model::location::RecordedLocationFields {
                 position: report::position(crate::rows::contact::PositionFields {
                     kind: row.position_kind,
                     locator: row.locator,
@@ -214,7 +214,7 @@ pub(super) async fn load(
             native_end: row.native_end.map(UtcSecond::from_unix_seconds),
             service,
             fields,
-            own_location,
+            own_location: own_location.map(TryInto::try_into).transpose()?,
             confirmation,
             coverage,
         },

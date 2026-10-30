@@ -31,16 +31,16 @@ impl OperatingState {
             );
             return Ok(());
         };
-        current.validate()?;
+
         if let Some(profile) = &self.selected_profile {
             anyhow::ensure!(
-                profile.station == current.station,
+                profile.station() == &current.station,
                 "selected profile does not match copied station values"
             );
         }
         if let Some(equipment) = &self.selected_equipment {
             anyhow::ensure!(
-                current.equipment.as_ref() == Some(&equipment.values),
+                current.equipment.as_ref() == Some(equipment.values()),
                 "selected configuration does not match copied equipment values"
             );
         }

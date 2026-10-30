@@ -61,7 +61,7 @@ pub fn imported(
         ServiceRecord {
             payload: ServicePayload::Imported(Box::new(ImportedAssertion {
                 id: id(assertion),
-                qso: qso.id,
+                qso: qso.id(),
                 service,
                 destination: None,
                 claim,

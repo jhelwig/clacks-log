@@ -414,20 +414,20 @@ impl CompiledGroupDefinition<'_> {
                     .qso
                     .ok_or_else(|| self.error("expression", "QSO context missing"))?;
                 scalar(match path {
-                    QsoFieldPath::OwnCallsign => Some(q.own_station.callsign.as_str().into()),
+                    QsoFieldPath::OwnCallsign => Some(q.own_station().callsign.as_str().into()),
                     QsoFieldPath::ContactedCallsign => {
-                        Some(q.contacted_station.callsign.as_str().into())
+                        Some(q.contacted_station().callsign.as_str().into())
                     }
                     QsoFieldPath::OwnPrimarySubdivision => q
-                        .own_station
+                        .own_station()
                         .location
                         .as_ref()
-                        .and_then(|l| l.primary_subdivision.clone()),
+                        .and_then(|l| l.primary_subdivision().clone()),
                     QsoFieldPath::ContactedPrimarySubdivision => q
-                        .contacted_station
+                        .contacted_station()
                         .location
                         .as_ref()
-                        .and_then(|l| l.primary_subdivision.clone()),
+                        .and_then(|l| l.primary_subdivision().clone()),
                 })
             }
             ValueExpression::Identifiers(side) => {
@@ -488,7 +488,7 @@ impl CompiledGroupDefinition<'_> {
             return Err(self.error("identifier", "definition ID does not match association"));
         }
 
-        let mut value = association.identifier.clone();
+        let mut value = association.identifier().clone();
         for operation in &d.identifier.normalization {
             value = value.map(|v| match operation {
                 TextNormalization::Trim => v.trim().into(),
@@ -509,10 +509,8 @@ impl CompiledGroupDefinition<'_> {
                 value: v.clone(),
             });
         }
-        Ok(ReferenceAssociation {
-            group_id: d.id,
-            identifier: value,
-        })
+        ReferenceAssociation::new(d.id, value)
+            .map_err(|error| self.error("identifier", error.to_string()))
     }
 }
 
@@ -521,14 +519,14 @@ impl CompiledGroupDefinition<'_> {
 /// Group-only associations have no identifier to emit; other groups are excluded.
 pub(crate) fn reference_identifiers(qso: &Qso, group: GroupId, side: StationSide) -> Vec<String> {
     let station = match side {
-        StationSide::Own => &qso.own_station,
-        StationSide::Contacted => &qso.contacted_station,
+        StationSide::Own => &qso.own_station(),
+        StationSide::Contacted => &qso.contacted_station(),
     };
     station
         .references
         .iter()
         .filter(|r| r.group_id == group)
-        .filter_map(|r| r.identifier.clone())
+        .filter_map(|r| r.identifier().clone())
         .collect()
 }
 

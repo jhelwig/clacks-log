@@ -279,7 +279,7 @@ pub(super) async fn station(
                 id,
                 account,
                 group,
-                reference.identifier
+                reference.identifier()
             )
             .execute(&mut *connection)
             .await?;
@@ -305,10 +305,10 @@ pub(super) async fn load_station(
         .await?
     {
         anyhow::ensure!(
-            references.insert(ReferenceAssociation {
-                group_id: reference.group_id.parse()?,
-                identifier: reference.identifier
-            }),
+            references.insert(ReferenceAssociation::new(
+                reference.group_id.parse()?,
+                reference.identifier
+            )?),
             "duplicate reported reference"
         );
     }

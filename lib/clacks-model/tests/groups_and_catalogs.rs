@@ -11,10 +11,12 @@ fn explicit_normalization_does_not_rewrite_existing_references() -> TestResult {
     let group = defs.get(support::id::<GroupId>(1)).unwrap();
     let a = support::reference(group.id, Some(" us-1234 "));
     assert_eq!(
-        normalize_reference(&a, Some(group))?.identifier.as_deref(),
+        normalize_reference(&a, Some(group))?
+            .identifier()
+            .as_deref(),
         Some("US-1234")
     );
-    assert_eq!(a.identifier.as_deref(), Some(" us-1234 "));
+    assert_eq!(a.identifier().as_deref(), Some(" us-1234 "));
     assert!(normalize_reference(&support::reference(group.id, None), Some(group)).is_err());
     assert!(
         normalize_reference(
@@ -82,7 +84,7 @@ fn equivalent_groups_have_equal_capabilities_not_shared_identity() -> TestResult
     for id in [a.id, b.id] {
         assert_eq!(
             normalize_reference(&support::reference(id, Some(" us-1234 ")), both.get(id))?
-                .identifier
+                .identifier()
                 .as_deref(),
             Some("US-1234")
         );

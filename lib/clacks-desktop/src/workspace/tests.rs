@@ -118,9 +118,7 @@ async fn existing_invalid_database_is_preserved() -> anyhow::Result<()> {
 #[tokio::test]
 async fn ready_requires_initial_reads() -> anyhow::Result<()> {
     use clacks_client_store::operating::{self, OperatingSaveOutcome, OperatingState};
-    use clacks_model::{
-        contact::StationSnapshot, profile::CurrentOperatingValues, scalar::RecordedCallsign,
-    };
+    use clacks_model::scalar::RecordedCallsign;
     let directory = tempfile::tempdir()?;
     let paths = WorkspacePaths {
         directory: directory.path().into(),
@@ -130,8 +128,8 @@ async fn ready_requires_initial_reads() -> anyhow::Result<()> {
     };
     let initial = super::open(&paths).await?;
     let next = OperatingState {
-        current: Some(CurrentOperatingValues {
-            station: StationSnapshot {
+        current: Some(clacks_model::profile::CurrentOperatingValues {
+            station: clacks_model::contact::StationSnapshot {
                 callsign: RecordedCallsign::new("W7HEX/P")?,
                 location: None,
                 references: Default::default(),

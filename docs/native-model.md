@@ -155,6 +155,16 @@ historical assignment; never substitute current operating defaults. Failed
 records are reported without preventing other valid records from importing.
 Existing-contact updates cannot clear either required callsign.
 
+Saved values enforce intrinsic validity during construction and deserialization,
+rather than requiring callers to remember a later validation step. `QsoFields`
+is editable input for checked QSO construction; saved QSO fields are read through
+immutable accessors. Complete edits consume or copy the saved value into input
+and reconstruct it after preparation. Location, operator, equipment and named
+profile values similarly protect their intrinsic constraints. Aggregates whose
+component types independently guarantee validity do not need duplicate checked
+wrappers. Account ownership, current references, source-selection consistency and
+stale-save checks remain application/storage responsibilities.
+
 ## 5. Scalar values, normalization and limits
 
 | Value | Representation and meaning |

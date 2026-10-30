@@ -114,13 +114,13 @@ pub struct TagDeletionPlan {
 pub fn plan_tag_deletion(tag: TagId, choice: TagDeletionChoice, qsos: &[Qso]) -> TagDeletionPlan {
     let affected: BTreeSet<_> = qsos
         .iter()
-        .filter(|q| q.tags.contains(&tag))
-        .map(|q| q.id)
+        .filter(|q| q.tags().contains(&tag))
+        .map(|q| q.id())
         .collect();
     let shared: BTreeSet<_> = qsos
         .iter()
-        .filter(|q| q.tags.contains(&tag) && q.tags.len() > 1)
-        .map(|q| q.id)
+        .filter(|q| q.tags().contains(&tag) && q.tags().len() > 1)
+        .map(|q| q.id())
         .collect();
     let mark_deleted = match choice {
         TagDeletionChoice::LeaveAll => BTreeSet::new(),

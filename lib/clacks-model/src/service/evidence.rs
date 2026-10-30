@@ -102,31 +102,34 @@ pub struct ImportedBaselineInput<'a> {
 /// Capture the imported contact's service baseline without inventing a dispatch.
 pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<ImportedBaseline> {
     let q = input.qso;
-    q.validate()?;
+
     let mut fields = if input.service == Service::Qrz {
         super::qrz::source_fields(q, input.context)?
     } else {
-        let converted_time = super::adif::contact_time(q.start).ok();
-        let mut values = super::adif::mode(&q.mode, input.context.recognition);
+        let converted_time = super::adif::contact_time(q.start()).ok();
+        let mut values = super::adif::mode(q.mode(), input.context.recognition);
         values.extend([
             (
                 "STATION_CALLSIGN".into(),
-                q.own_station.callsign.as_str().into(),
+                q.own_station().callsign.as_str().into(),
             ),
-            ("CALL".into(), q.contacted_station.callsign.as_str().into()),
+            (
+                "CALL".into(),
+                q.contacted_station().callsign.as_str().into(),
+            ),
         ]);
         if let Some((date, time)) = converted_time {
             values.insert("QSO_DATE".into(), date);
             values.insert("TIME_ON".into(), time);
         }
-        if let Some(f) = q.primary.frequency() {
+        if let Some(f) = q.primary().frequency() {
             values.insert("FREQ".into(), super::adif::frequency(f));
         }
-        if let Some(b) = q.primary.band() {
+        if let Some(b) = q.primary().band() {
             values.insert("BAND".into(), b.label().to_ascii_uppercase());
         }
-        if let Some(rx) = &q.receive_override
-            && rx != &q.primary
+        if let Some(rx) = &q.receive_override()
+            && rx != q.primary()
         {
             if let Some(b) = rx.band() {
                 values.insert("BAND_RX".into(), b.label().to_ascii_uppercase());
@@ -144,7 +147,7 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
         values
     };
     let mode = if input.service == Service::Lotw {
-        super::lotw::normalize_mode(&q.mode, input.lotw)
+        super::lotw::normalize_mode(q.mode(), input.lotw)
             .ok()
             .or_else(|| {
                 fields
@@ -156,11 +159,11 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
         fields.get("MODE").cloned()
     };
     let band = if input.service == Service::Lotw {
-        input.lotw.band(&q.primary).ok()
+        input.lotw.band(q.primary()).ok()
     } else {
-        q.primary.band().map(|b| b.label().to_ascii_uppercase())
+        q.primary().band().map(|b| b.label().to_ascii_uppercase())
     };
-    let rx = q.primary.effective_receive(q.receive_override.as_ref());
+    let rx = q.primary().effective_receive(q.receive_override().as_ref());
     let receive_band = if input.service == Service::Lotw {
         input.lotw.band(rx).ok()
     } else {
@@ -168,7 +171,7 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
     };
     let basis = ConfirmationBasis {
         uninterpreted_band: if band.is_none() {
-            q.primary.band().map(|b| b.label().to_owned())
+            q.primary().band().map(|b| b.label().to_owned())
         } else {
             None
         },
@@ -177,12 +180,12 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
         } else {
             None
         },
-        own_call: Some(q.own_station.callsign.clone()),
-        worked_call: Some(q.contacted_station.callsign.clone()),
-        start: Some(q.start),
+        own_call: Some(q.own_station().callsign.clone()),
+        worked_call: Some(q.contacted_station().callsign.clone()),
+        start: Some(q.start()),
         band: band.clone(),
         receive_band,
-        frequency: q.primary.frequency(),
+        frequency: q.primary().frequency(),
         receive_frequency: rx.frequency(),
         mode: mode.as_ref().map(|m| ModeReport {
             concrete: m.clone(),
@@ -219,14 +222,14 @@ pub fn imported_baseline(input: &ImportedBaselineInput<'_>) -> anyhow::Result<Im
     }
     Ok(ImportedBaseline {
         native_end: if input.service == Service::Qrz {
-            q.end
+            q.end()
         } else {
             None
         },
         service: input.service,
         fields,
         own_location: if input.service == Service::Lotw {
-            super::lotw::location_baseline(q.own_station.location.as_ref(), input.lotw)
+            super::lotw::location_baseline(q.own_station().location.as_ref(), input.lotw)?
         } else {
             None
         },

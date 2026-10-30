@@ -79,7 +79,7 @@ pub(super) fn evaluate(
             let ServicePayload::Imported(assertion) = &row.payload else {
                 continue;
             };
-            if assertion.qso != qso.id
+            if assertion.qso != qso.id()
                 || assertion.service != service
                 || assertion.claim != ImportedClaim::Confirmed
                 || (service == Service::Qrz
@@ -119,7 +119,7 @@ pub(super) fn evaluate(
                 }
             })
             .filter(|a| {
-                a.qso == qso.id
+                a.qso == qso.id()
                     && a.state == AssociationState::Active
                     && matches!(
                         (&a.external.record, service),
@@ -181,7 +181,7 @@ pub(super) fn evaluate(
             })
             .flat_map(|r| &r.support.required)
             .map(|r| r.reference())
-            .filter(|r| r.key.id == clacks_sync::record::RecordId::Qso(qso.id))
+            .filter(|r| r.key.id == clacks_sync::record::RecordId::Qso(qso.id()))
             .collect();
         let original: Vec<_> = evidence
             .accepted

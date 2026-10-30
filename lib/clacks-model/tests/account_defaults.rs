@@ -61,14 +61,13 @@ fn default_reference_rules_preserve_native_values() -> anyhow::Result<()> {
 
     assert!(pota.bears_location_context);
     let compiled = compile_definition(pota)?;
-    let entered = clacks_model::reference::ReferenceAssociation {
-        group_id: pota.id,
-        identifier: Some(" us-0001@us-ca ".into()),
-    };
+    let entered =
+        clacks_model::reference::ReferenceAssociation::new(pota.id, Some(" us-0001@us-ca ".into()))
+            .expect("valid reference fixture");
     let original = entered.clone();
     let prepared = compiled.normalize_reference(&entered)?;
 
-    assert_eq!(prepared.identifier.as_deref(), Some("US-0001@US-CA"));
+    assert_eq!(prepared.identifier().as_deref(), Some("US-0001@US-CA"));
     assert_eq!(entered, original);
     assert!(
         compiled
@@ -88,14 +87,22 @@ fn pota_mapping_uses_separate_export_contexts() -> anyhow::Result<()> {
         .unwrap();
     let mut qso = support::qso(support::id::<QsoId>(77));
     for code in ["US-0001", "US-0002"] {
-        qso.own_station
-            .references
-            .insert(support::reference(pota.id, Some(code)));
+        support::edit(&mut qso, |qso| {
+            qso.own_station
+                .references
+                .insert(support::reference(pota.id, Some(code)));
+
+            Ok(())
+        });
     }
     for code in ["US-0003", "US-0004", "US-0005"] {
-        qso.contacted_station
-            .references
-            .insert(support::reference(pota.id, Some(code)));
+        support::edit(&mut qso, |qso| {
+            qso.contacted_station
+                .references
+                .insert(support::reference(pota.id, Some(code)));
+
+            Ok(())
+        });
     }
     let profiles = defaults
         .output_profiles
@@ -142,12 +149,20 @@ fn competing_contests_need_an_explicit_context() -> anyhow::Result<()> {
         .filter(|group| !group.bears_location_context);
     let first = contests.next().unwrap();
     let second = contests.next().unwrap();
-    qso.own_station
-        .references
-        .insert(support::reference(first.id, None));
-    qso.own_station
-        .references
-        .insert(support::reference(second.id, None));
+    support::edit(&mut qso, |qso| {
+        qso.own_station
+            .references
+            .insert(support::reference(first.id, None));
+
+        Ok(())
+    });
+    support::edit(&mut qso, |qso| {
+        qso.own_station
+            .references
+            .insert(support::reference(second.id, None));
+
+        Ok(())
+    });
     let profile = defaults
         .output_profiles
         .iter()
@@ -202,15 +217,31 @@ fn unknown_activation_subdivision_has_its_own_partition() -> anyhow::Result<()> 
         .find(|profile| profile.purpose == OutputPurpose::Targeted)
         .unwrap();
     let mut unknown = support::qso(support::id::<QsoId>(90));
-    unknown
-        .own_station
-        .references
-        .insert(support::reference(pota.id, Some("US-0001")));
+    support::edit(&mut unknown, |unknown| {
+        unknown
+            .own_station
+            .references
+            .insert(support::reference(pota.id, Some("US-0001")));
+
+        Ok(())
+    });
     let mut known = unknown.clone();
-    known.id = support::id::<QsoId>(91);
-    known.own_station.location = Some(clacks_model::location::RecordedLocation {
-        primary_subdivision: Some("CA".into()),
-        ..Default::default()
+    support::edit(&mut known, |known| {
+        known.id = support::id::<QsoId>(91);
+
+        Ok(())
+    });
+    support::edit(&mut known, |known| {
+        known.own_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                primary_subdivision: Some("CA".into()),
+                ..Default::default()
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+
+        Ok(())
     });
     let profiles = defaults
         .output_profiles

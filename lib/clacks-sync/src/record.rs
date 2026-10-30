@@ -85,10 +85,10 @@ impl RecordValue {
     pub fn id(&self) -> RecordId {
         match self {
             Self::Service(v) => RecordId::Service(v.payload.id()),
-            Self::Qso(v) => RecordId::Qso(v.id),
+            Self::Qso(v) => RecordId::Qso(v.id()),
             Self::Tag(v) => RecordId::Tag(v.id),
-            Self::Profile(v) => RecordId::Profile(v.id),
-            Self::Equipment(v) => RecordId::Equipment(v.id),
+            Self::Profile(v) => RecordId::Profile(v.id()),
+            Self::Equipment(v) => RecordId::Equipment(v.id()),
             Self::Group(v) => RecordId::Group(v.id),
             Self::OutputProfile(v) => RecordId::OutputProfile(v.id),
         }
@@ -129,13 +129,15 @@ impl RecordState {
             }
             match v {
                 RecordValue::Service(v) => v.validate(key.account)?,
-                RecordValue::Qso(v) => v.validate()?,
-                RecordValue::Profile(v) => v.station.validate()?,
-                RecordValue::Equipment(v) => v.values.validate()?,
+
                 RecordValue::Group(v) => {
                     compile_definition(v)?;
                 }
-                RecordValue::Tag(_) | RecordValue::OutputProfile(_) => {}
+                RecordValue::Qso(_)
+                | RecordValue::Profile(_)
+                | RecordValue::Equipment(_)
+                | RecordValue::Tag(_)
+                | RecordValue::OutputProfile(_) => {}
             }
         }
         Ok(())

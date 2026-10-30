@@ -76,7 +76,11 @@ fn source_baseline_ignores_unsubmitted_lotw_values() -> anyhow::Result<()> {
         lotw: &config,
         context: &context,
     })?;
-    q.comment = Some("not uploaded to LoTW".into());
+    support::edit(&mut q, |q| {
+        q.comment = Some("not uploaded to LoTW".into());
+
+        Ok(())
+    });
     let b = imported_baseline(&ImportedBaselineInput {
         qso: &q,
         service: Service::Lotw,
@@ -86,7 +90,10 @@ fn source_baseline_ignores_unsubmitted_lotw_values() -> anyhow::Result<()> {
     })?;
     assert_eq!(a, b);
     assert_eq!(a.fields.get("MODE").map(String::as_str), Some("FT4"));
-    assert_eq!(a.confirmation.own_call, Some(q.own_station.callsign));
+    assert_eq!(
+        a.confirmation.own_call,
+        Some(q.own_station().callsign.clone())
+    );
     assert!(!a.fields.contains_key("MY_DXCC"));
     Ok(())
 }
@@ -135,9 +142,13 @@ fn explicitly_mapped_own_iota_is_part_of_imported_lotw_baseline() -> anyhow::Res
         resolutions: &resolutions,
     };
     let mut q = support::qso(support::id(4));
-    q.own_station.references.insert(ReferenceAssociation {
-        group_id: support::id(1),
-        identifier: Some("na-001".into()),
+    support::edit(&mut q, |q| {
+        q.own_station.references.insert(
+            ReferenceAssociation::new(support::id(1), Some("na-001".into()))
+                .expect("valid reference fixture"),
+        );
+
+        Ok(())
     });
     let baseline = imported_baseline(&ImportedBaselineInput {
         qso: &q,
@@ -186,7 +197,11 @@ fn source_baselines_preserve_unrepresentable_native_times_and_unknown_band_chang
         resolutions: &resolutions,
     };
     let mut q = support::qso(support::id(77));
-    q.start = UtcSecond::from_unix_seconds(i64::MAX);
+    support::edit(&mut q, |q| {
+        q.start = UtcSecond::from_unix_seconds(i64::MAX);
+
+        Ok(())
+    });
     let capture = |q: &clacks_model::contact::Qso, service| {
         imported_baseline(&ImportedBaselineInput {
             qso: q,
@@ -198,21 +213,33 @@ fn source_baselines_preserve_unrepresentable_native_times_and_unknown_band_chang
     };
     for service in [Service::Lotw, Service::Qrz] {
         let b = capture(&q, service)?;
-        assert_eq!(b.confirmation.start, Some(q.start));
+        assert_eq!(b.confirmation.start, Some(q.start()));
         assert!(!b.fields.contains_key("QSO_DATE"));
     }
-    q.start = UtcSecond::from_unix_seconds(1000);
-    q.primary = BandFrequency::new(
-        None,
-        Some(Band::from_recorded_label("unknown-X")?),
-        context.recognition,
-    )?;
+    support::edit(&mut q, |q| {
+        q.start = UtcSecond::from_unix_seconds(1000);
+
+        Ok(())
+    });
+    support::edit(&mut q, |q| {
+        q.primary = BandFrequency::new(
+            None,
+            Some(Band::from_recorded_label("unknown-X")?),
+            context.recognition,
+        )?;
+
+        Ok(())
+    });
     let original = capture(&q, Service::Lotw)?;
-    q.primary = BandFrequency::new(
-        None,
-        Some(Band::from_recorded_label("unknown-Y")?),
-        context.recognition,
-    )?;
+    support::edit(&mut q, |q| {
+        q.primary = BandFrequency::new(
+            None,
+            Some(Band::from_recorded_label("unknown-Y")?),
+            context.recognition,
+        )?;
+
+        Ok(())
+    });
     let changed = capture(&q, Service::Lotw)?;
     assert_ne!(original.confirmation, changed.confirmation);
     assert_ne!(
@@ -297,15 +324,25 @@ fn imported_lotw_upload_compares_the_emitted_grid_not_the_exact_point() -> anyho
         resolutions: &resolutions,
     };
     let location = |latitude| -> anyhow::Result<RecordedLocation> {
-        Ok(RecordedLocation {
+        Ok((clacks_model::location::RecordedLocationFields {
             position: Some(Position::ExplicitPoint {
                 coordinates: Coordinates::from_microdegrees(latitude, -122_100_000)?,
                 grid_length: GridLength::new(6)?,
             }),
             ..Default::default()
         })
+        .try_into()
+        .expect("valid native fixture"))
     };
-    q.own_station.location = Some(location(47_100_000)?);
+    support::edit(&mut q, |q| {
+        q.own_station.location = Some(
+            ((location(47_100_000)?).into_fields())
+                .try_into()
+                .expect("valid native fixture"),
+        );
+
+        Ok(())
+    });
     let capture = |q: &_| {
         imported_baseline(&ImportedBaselineInput {
             qso: q,
@@ -317,7 +354,7 @@ fn imported_lotw_upload_compares_the_emitted_grid_not_the_exact_point() -> anyho
     };
     let assertion = ImportedAssertion {
         id: AssertionId::new(),
-        qso: q.id,
+        qso: q.id(),
         service: Service::Lotw,
         destination: None,
         claim: ImportedClaim::Uploaded,
@@ -333,11 +370,19 @@ fn imported_lotw_upload_compares_the_emitted_grid_not_the_exact_point() -> anyho
         (47_100_001, PublicationCoverage::Covered),
         (47_200_000, PublicationCoverage::Pending),
     ] {
-        q.own_station.location = Some(location(latitude)?);
+        support::edit(&mut q, |q| {
+            q.own_station.location = Some(
+                ((location(latitude)?).into_fields())
+                    .try_into()
+                    .expect("valid native fixture"),
+            );
+
+            Ok(())
+        });
         let current = capture(&q)?;
         assert_eq!(
             publication_coverage(&PublicationCoverageInput {
-                qso: q.id,
+                qso: q.id(),
                 service: Service::Lotw,
                 destination: None,
                 current: None,
@@ -349,25 +394,41 @@ fn imported_lotw_upload_compares_the_emitted_grid_not_the_exact_point() -> anyho
             expected
         );
     }
-    q.own_station.location = Some(RecordedLocation {
-        dxcc: Some("291".into()),
-        primary_subdivision: Some("Washington".into()),
-        secondary_subdivision: Some("King".into()),
-        ..Default::default()
+    support::edit(&mut q, |q| {
+        q.own_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                dxcc: Some("291".into()),
+                primary_subdivision: Some("Washington".into()),
+                secondary_subdivision: Some("King".into()),
+                ..Default::default()
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+
+        Ok(())
     });
     let before = capture(&q)?;
-    let location = q.own_station.location.as_mut().unwrap();
-    location.primary_subdivision = Some("WA".into());
-    location.secondary_subdivision = Some("WA,King".into());
+    support::edit(&mut q, |q| {
+        let mut location = q.own_station.location.take().unwrap().into_fields();
+        location.primary_subdivision = Some("WA".into());
+        location.secondary_subdivision = Some("WA,King".into());
+        q.own_station.location = Some(location.try_into()?);
+        Ok(())
+    });
     assert_eq!(before, capture(&q)?);
-    let location = q.own_station.location.as_mut().unwrap();
-    location.primary_subdivision = Some("unrecognized historical subdivision".into());
+    support::edit(&mut q, |q| {
+        let mut location = q.own_station.location.take().unwrap().into_fields();
+        location.primary_subdivision = Some("unrecognized historical subdivision".into());
+        q.own_station.location = Some(location.try_into()?);
+        Ok(())
+    });
     let unrecognized = capture(&q)?;
     assert_eq!(
         unrecognized
             .own_location
             .as_ref()
-            .and_then(|l| l.primary_subdivision.as_deref()),
+            .and_then(|l| l.primary_subdivision().as_deref()),
         Some("unrecognized historical subdivision")
     );
     Ok(())

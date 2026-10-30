@@ -107,7 +107,7 @@ impl SettingsUi {
             },
             SettingsResponse::DeleteEquipment(EquipmentDeleteOutcome::Stale(preview)) => {
                 if let Screen::DeleteEquipment(review) = &mut frame.screen {
-                    review.choices.retain(|id, choice| preview.referring_profiles.iter().filter_map(profile).any(|p| p.id == *id) && choice.is_none_or(|id| preview.replacement_equipment.iter().filter_map(configuration).any(|e| e.id == id)));
+                    review.choices.retain(|id, choice| preview.referring_profiles.iter().filter_map(profile).any(|p| p.id() == *id) && choice.is_none_or(|id| preview.replacement_equipment.iter().filter_map(configuration).any(|e| e.id() == id)));
                     review.preview = preview;
                 }
                 frame.notice = Some("The deletion review changed; nothing was deleted. Review every current profile and confirm again.".into());
@@ -154,7 +154,7 @@ pub(super) fn stale_review(ui: &mut egui::Ui, frame: &mut Frame) {
         match current.as_ref().and_then(ClientRecord::working_state) {
             Some(RecordState::Live(RecordValue::Profile(p))) => {
                 ui.label(profile_label(p));
-                let mut form = crate::operating::station::StationForm::from_snapshot(&p.station);
+                let mut form = crate::operating::station::StationForm::from_snapshot(p.station());
                 ui.add_enabled_ui(false, |ui| {
                     fields::station(
                         ui,
@@ -165,7 +165,7 @@ pub(super) fn stale_review(ui: &mut egui::Ui, frame: &mut Frame) {
                         None,
                     )
                 });
-                ui.label(format!("Default equipment: {:?}", p.default_equipment));
+                ui.label(format!("Default equipment: {:?}", p.default_equipment()));
                 if ui
                     .button("Keep my values against this saved version")
                     .clicked()
@@ -183,7 +183,7 @@ pub(super) fn stale_review(ui: &mut egui::Ui, frame: &mut Frame) {
             Some(RecordState::Live(RecordValue::Equipment(e))) => {
                 ui.label(equipment_label(e));
                 let mut form =
-                    crate::operating::equipment::EquipmentForm::from_values(Some(&e.values));
+                    crate::operating::equipment::EquipmentForm::from_values(Some(e.values()));
                 ui.add_enabled_ui(false, |ui| {
                     fields::equipment(ui, "stale.equipment", &mut form, &[], None)
                 });

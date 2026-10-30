@@ -29,3 +29,6 @@ pub fn run() -> anyhow::Result<()> {
 mod logbook_tests;
 
 pub(crate) mod enrollment;
+
+#[cfg(test)]
+mod test_support;

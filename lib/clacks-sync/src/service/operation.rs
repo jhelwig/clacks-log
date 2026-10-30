@@ -381,7 +381,7 @@ pub fn plan_operation(
                     anyhow::ensure!(
                         qso_change.as_ref().is_some_and(|c| matches!(
                             c.state(),
-                            RecordState::Live(RecordValue::Qso(q)) if !q.tags.is_empty()
+                            RecordState::Live(RecordValue::Qso(q)) if !q.tags().is_empty()
                         )),
                         "adding a downloaded contact requires a selected tag"
                     );

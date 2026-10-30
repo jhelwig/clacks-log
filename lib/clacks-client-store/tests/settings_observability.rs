@@ -46,48 +46,56 @@ fn stale_apply_and_deletion_report_reasons_without_counting_mutations() -> anyho
                         OperatingSaveOutcome::Stale(_)
                     ));
 
-                    let preview = settings::preview_equipment_deletion(&store, a.id).await?;
+                    let preview = settings::preview_equipment_deletion(&store, a.id()).await?;
                     let row = save::load(
                         &store,
                         RecordKey {
                             account: id(1),
-                            id: RecordId::Equipment(a.id),
+                            id: RecordId::Equipment(a.id()),
                         },
                     )
                     .await?
                     .unwrap();
-                    a.values.notes = Some("PRIVATE RIG NOTES".into());
+                    {
+                        let mut fields = a.clone().into_fields();
+                        fields.values.notes = Some("PRIVATE RIG NOTES".into());
+                        a = fields.try_into().expect("valid saved fixture edit");
+                    }
                     settings::save_equipment(&store, Some(&row), &a).await?;
                     let choices = [ProfileEquipmentReplacement {
-                        profile: home.id,
-                        equipment: Some(b.id),
+                        profile: home.id(),
+                        equipment: Some(b.id()),
                     }];
                     assert!(matches!(
                         settings::delete_equipment(&store, &preview, &choices).await?,
                         EquipmentDeleteOutcome::Stale(_)
                     ));
-                    let preview = settings::preview_equipment_deletion(&store, a.id).await?;
+                    let preview = settings::preview_equipment_deletion(&store, a.id()).await?;
                     settings::save_profile(&store, None, &profile(33, Some(31))).await?;
                     assert!(matches!(
                         settings::delete_equipment(&store, &preview, &choices).await?,
                         EquipmentDeleteOutcome::Stale(_)
                     ));
-                    let preview = settings::preview_equipment_deletion(&store, a.id).await?;
+                    let preview = settings::preview_equipment_deletion(&store, a.id()).await?;
                     let row = save::load(
                         &store,
                         RecordKey {
                             account: id(1),
-                            id: RecordId::Equipment(b.id),
+                            id: RecordId::Equipment(b.id()),
                         },
                     )
                     .await?
                     .unwrap();
-                    b.values.notes = Some("PRIVATE REPLACEMENT NOTES".into());
+                    {
+                        let mut fields = b.clone().into_fields();
+                        fields.values.notes = Some("PRIVATE REPLACEMENT NOTES".into());
+                        b = fields.try_into().expect("valid saved fixture edit");
+                    }
                     settings::save_equipment(&store, Some(&row), &b).await?;
                     let choices = [
                         ProfileEquipmentReplacement {
-                            profile: home.id,
-                            equipment: Some(b.id),
+                            profile: home.id(),
+                            equipment: Some(b.id()),
                         },
                         ProfileEquipmentReplacement {
                             profile: id(33),

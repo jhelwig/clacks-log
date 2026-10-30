@@ -216,7 +216,10 @@ fn missing_tag_rejects_without_changing_local_values() {
     let current = Observation::Accepted(a.clone());
     let mut state = a.state.clone();
     if let RecordState::Live(RecordValue::Qso(q)) = &mut state {
-        q.tags.insert(id(8));
+        support::edit(q, |q| {
+            q.tags.insert(id(8));
+            Ok(())
+        });
     }
     let change = ServerChange {
         key: a.key,
@@ -347,7 +350,10 @@ fn stale_tag_dependency_and_invalid_group_are_diagnostic() {
         .unwrap();
         let mut state = a.state.clone();
         if let RecordState::Live(RecordValue::Qso(q)) = &mut state {
-            q.tags.insert(id(8));
+            support::edit(q, |q| {
+                q.tags.insert(id(8));
+                Ok(())
+            });
         }
         let dep = VersionCondition::from_observation(&Observation::Accepted(tag.clone())).unwrap();
         let mut deleted = tag;

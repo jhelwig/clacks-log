@@ -200,7 +200,7 @@ pub(super) async fn apply(
         let Some(RecordState::Live(RecordValue::Profile(profile))) = row.working_state() else {
             anyhow::bail!("reviewed profile has no live working value")
         };
-        let mut next = profile.clone();
+        let mut next = (**profile).clone().into_fields();
         next.default_equipment = *choices
             .get(&row.key)
             .ok_or_else(|| anyhow::anyhow!("profile choice is missing"))?;
@@ -208,7 +208,7 @@ pub(super) async fn apply(
             &mut transaction,
             row.key,
             Some(row),
-            RecordState::Live(RecordValue::Profile(next)),
+            RecordState::Live(RecordValue::Profile(Box::new(next.try_into()?))),
         )
         .await?;
         anyhow::ensure!(

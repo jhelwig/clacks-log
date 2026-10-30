@@ -129,7 +129,7 @@ pub fn lookup_reference(
     let bindings = BTreeMap::new();
     let context = ExpressionContext {
         qso: None,
-        current_identifier: association.identifier.as_deref(),
+        current_identifier: association.identifier().as_deref(),
         bindings: &bindings,
     };
     let key = match compiled.evaluate(&binding.lookup_key, &context)? {

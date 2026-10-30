@@ -6,19 +6,14 @@
 //!
 //! # API entry points
 //!
-//! - Contact acceptance: [`contact::Qso::normalize_optional_aggregates`] and [`contact::Qso::validate`].
+//! - Checked contact construction: [`contact::input::QsoFields`] and [`contact::Qso`].
 //! - Recognition: [`recognition::mode::Mode::interpret`] and [`recognition::band::Band::interpret`].
 //! - Effective information: [`effective::select_location`] and [`effective::select_name`].
 //! - Reference output: [`export::evaluate::plan_reference_export`].
 //!
 //! # Entity identity
 //!
-//! Entity IDs are distinct types so unrelated record identities cannot be mixed:
-//! ```compile_fail
-//! use clacks_model::ids::{QsoId, TagId};
-//! fn accepts_contact(_: QsoId) {}
-//! accepts_contact(TagId::new());
-//! ```
+//! Entity IDs are distinct types; a contact ID and a tag ID are not interchangeable.
 
 #![deny(
     missing_docs,

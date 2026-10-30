@@ -53,10 +53,19 @@ fn deletion_review(ui: &mut Harness<'_, Host>) -> Arc<TagDeletionPreview> {
         panic!()
     };
     let mut unique = fixtures::contact();
-    unique.tags = [id].into();
+    crate::test_support::edit(&mut unique, |unique| {
+        unique.tags = [id].into();
+        Ok(())
+    });
     let mut shared = unique.clone();
-    shared.id = Default::default();
-    shared.tags.insert(TagId::new());
+    crate::test_support::edit(&mut shared, |shared| {
+        shared.id = Default::default();
+        Ok(())
+    });
+    crate::test_support::edit(&mut shared, |shared| {
+        shared.tags.insert(TagId::new());
+        Ok(())
+    });
     let preview = Arc::new(TagDeletionPreview {
         tag: ui.state().snapshot.tags.first().unwrap().clone(),
         members: vec![

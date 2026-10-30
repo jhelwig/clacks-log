@@ -57,7 +57,7 @@ pub(super) async fn store(
     if let Some(profile) = &state.selected_profile {
         let key = RecordKey {
             account,
-            id: RecordId::Profile(profile.id),
+            id: RecordId::Profile(profile.id()),
         };
         row.loaded_profile = Some(
             payload::insert(
@@ -67,12 +67,12 @@ pub(super) async fn store(
             )
             .await?,
         );
-        row.profile_record = Some(profile.id.to_string());
+        row.profile_record = Some(profile.id().to_string());
     }
     if let Some(equipment) = &state.selected_equipment {
         let key = RecordKey {
             account,
-            id: RecordId::Equipment(equipment.id),
+            id: RecordId::Equipment(equipment.id()),
         };
         row.loaded_equipment = Some(
             payload::insert(
@@ -82,7 +82,7 @@ pub(super) async fn store(
             )
             .await?,
         );
-        row.equipment_record = Some(equipment.id.to_string());
+        row.equipment_record = Some(equipment.id().to_string());
     }
     Ok(())
 }
@@ -96,10 +96,10 @@ pub(super) async fn deleted_sources(
     let mut ids = std::collections::BTreeSet::new();
     for state in states {
         if let Some(profile) = &state.selected_profile {
-            ids.insert(RecordId::Profile(profile.id));
+            ids.insert(RecordId::Profile(profile.id()));
         }
         if let Some(equipment) = &state.selected_equipment {
-            ids.insert(RecordId::Equipment(equipment.id));
+            ids.insert(RecordId::Equipment(equipment.id()));
         }
     }
     let mut deleted = std::collections::BTreeSet::new();
@@ -123,14 +123,14 @@ pub(super) fn forget(
     if state
         .selected_profile
         .as_ref()
-        .is_some_and(|p| deleted.contains(&RecordId::Profile(p.id)))
+        .is_some_and(|p| deleted.contains(&RecordId::Profile(p.id())))
     {
         state.selected_profile = None;
     }
     if state
         .selected_equipment
         .as_ref()
-        .is_some_and(|e| deleted.contains(&RecordId::Equipment(e.id)))
+        .is_some_and(|e| deleted.contains(&RecordId::Equipment(e.id())))
     {
         state.selected_equipment = None;
     }

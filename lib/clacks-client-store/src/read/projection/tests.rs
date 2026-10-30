@@ -36,7 +36,7 @@ async fn retained_evidence_projects_current_service_status() -> anyhow::Result<(
     let mut qso = support::qso(support::id(10));
     let row = save::save(
         &store,
-        support::qso_key(qso.id),
+        support::qso_key(qso.id()),
         None,
         support::contact(qso.clone()),
     )
@@ -57,7 +57,7 @@ async fn retained_evidence_projects_current_service_status() -> anyhow::Result<(
     let facts = projection::load(
         &mut snapshot.transaction,
         snapshot.account,
-        &[qso.id],
+        &[qso.id()],
         ProjectionNeeds {
             station: true,
             services: true,
@@ -68,7 +68,10 @@ async fn retained_evidence_projects_current_service_status() -> anyhow::Result<(
     assert!(fact.facts.qrz.uploaded && fact.facts.qrz.confirmed);
     assert!(fact.facts.lotw.uploaded && fact.facts.lotw.confirmed);
     snapshot.close().await?;
-    qso.own_context.transmit_power = Some(Milliwatts::new(100_000)?);
+    support::edit(&mut qso, |qso| {
+        qso.own_context.transmit_power = Some(Milliwatts::new(100_000)?);
+        Ok(())
+    });
     let save::SaveOutcome::Saved(row) = row else {
         panic!("save")
     };
@@ -77,7 +80,7 @@ async fn retained_evidence_projects_current_service_status() -> anyhow::Result<(
     let facts = projection::load(
         &mut snapshot.transaction,
         snapshot.account,
-        &[qso.id],
+        &[qso.id()],
         ProjectionNeeds {
             station: true,
             services: true,
@@ -133,9 +136,8 @@ async fn install(
 #[tokio::test]
 async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()> {
     use clacks_model::{
-        contact::{BandFrequency, OperatorInformation},
+        contact::BandFrequency,
         effective::InformationSource,
-        location::RecordedLocation,
         position::{Locator, Position},
         recognition::band::Band,
         reference::ReferenceAssociation,
@@ -159,10 +161,13 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
     )
     .await?;
     let mut qso = support::qso(support::id(10));
-    qso.primary = BandFrequency::from_recorded_pair(
-        qso.primary.frequency(),
-        Some(Band::from_recorded_label("20M")?),
-    )?;
+    support::edit(&mut qso, |qso| {
+        qso.primary = BandFrequency::from_recorded_pair(
+            qso.primary.frequency(),
+            Some(Band::from_recorded_label("20M")?),
+        )?;
+        Ok(())
+    });
     let original = support::accepted(1, support::contact(qso.clone()));
     let mut rows = vec![original.clone()];
     for (n, service, name, grid) in [
@@ -198,9 +203,9 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
             destination: destination.id,
             record: if service == Service::Lotw {
                 RemoteRecordId::Lotw(LotwRecordKey {
-                    own_call: qso.own_station.callsign.clone(),
-                    worked_call: qso.contacted_station.callsign.clone(),
-                    start: qso.start,
+                    own_call: qso.own_station().callsign.clone(),
+                    worked_call: qso.contacted_station().callsign.clone(),
+                    start: qso.start(),
                     band: "20M".into(),
                     receive_band: "20M".into(),
                     mode: "CW".into(),
@@ -225,9 +230,9 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
                 identity: RemoteIdentity::Complete(external.clone()),
                 facts: RemoteFacts {
                     contact: ContactReport {
-                        own_call: Reported::Value(qso.own_station.callsign.clone()),
-                        worked_call: Reported::Value(qso.contacted_station.callsign.clone()),
-                        start: Reported::Value(ObservedStart::Second(qso.start)),
+                        own_call: Reported::Value(qso.own_station().callsign.clone()),
+                        worked_call: Reported::Value(qso.contacted_station().callsign.clone()),
+                        start: Reported::Value(ObservedStart::Second(qso.start())),
                         band: Reported::Value("20M".into()),
                         receive_band: Reported::Value("20M".into()),
                         mode: Reported::Value(basis.mode.unwrap()),
@@ -245,8 +250,8 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
                     }),
                 },
                 ordering: ProviderOrdering {
-                    qso: Some(qso.start),
-                    confirmation: Some(qso.start),
+                    qso: Some(qso.start()),
+                    confirmation: Some(qso.start()),
                 },
                 acquisition: AcquisitionProvenance {
                     id: support::id(n + 2),
@@ -270,7 +275,7 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
             ServicePayload::Association(ExternalAssociation {
                 id: support::id(n + 3),
                 external,
-                qso: qso.id,
+                qso: qso.id(),
                 state: AssociationState::Active,
             }),
         );
@@ -298,7 +303,7 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
     let facts = projection::load(
         &mut snapshot.transaction,
         snapshot.account,
-        &[qso.id],
+        &[qso.id()],
         ProjectionNeeds {
             station: true,
             services: true,
@@ -315,19 +320,33 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
             .value
             .as_ref()
             .unwrap()
-            .position,
-        Some(Position::GridArea(Locator::parse("CN85ab")?))
+            .position(),
+        &Some(Position::GridArea(Locator::parse("CN85ab")?))
     );
     assert!(fact.own_location.is_none());
-    let old = snapshot.record(support::qso_key(qso.id)).await?.unwrap();
+    let old = snapshot.record(support::qso_key(qso.id())).await?.unwrap();
     snapshot.close().await?;
-    qso.contacted_station.location = Some(RecordedLocation {
-        dxcc: Some("291".into()),
-        ..Default::default()
+    support::edit(&mut qso, |qso| {
+        qso.contacted_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                dxcc: Some("291".into()),
+                ..Default::default()
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+        Ok(())
     });
-    qso.contacted_operator = Some(OperatorInformation {
-        callsign: None,
-        recorded_name: Some("Recorded name".into()),
+    support::edit(&mut qso, |qso| {
+        qso.contacted_operator = Some(
+            (clacks_model::contact::OperatorInformationFields {
+                callsign: None,
+                recorded_name: Some("Recorded name".into()),
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+        Ok(())
     });
     let save::SaveOutcome::Saved(old) =
         save::save(&store, old.key, Some(&old), support::contact(qso.clone())).await?
@@ -338,7 +357,7 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
     let facts = projection::load(
         &mut snapshot.transaction,
         snapshot.account,
-        &[qso.id],
+        &[qso.id()],
         ProjectionNeeds {
             station: true,
             services: true,
@@ -354,7 +373,7 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
             .value
             .as_ref()
             .unwrap()
-            .position
+            .position()
             .is_none()
     );
     assert_eq!(
@@ -362,20 +381,27 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
         InformationSource::Recorded
     );
     snapshot.close().await?;
-    qso.contacted_station.location = None;
-    qso.contacted_operator = None;
-    qso.contacted_station
-        .references
-        .insert(ReferenceAssociation {
-            group_id: pota,
-            identifier: Some("US-0001".into()),
-        });
+    support::edit(&mut qso, |qso| {
+        qso.contacted_station.location = None;
+        Ok(())
+    });
+    support::edit(&mut qso, |qso| {
+        qso.contacted_operator = None;
+        Ok(())
+    });
+    support::edit(&mut qso, |qso| {
+        qso.contacted_station.references.insert(
+            ReferenceAssociation::new(pota, Some("US-0001".into()))
+                .expect("valid reference fixture"),
+        );
+        Ok(())
+    });
     save::save(&store, old.key, Some(&old), support::contact(qso.clone())).await?;
     let mut snapshot = read::snapshot(&store).await?;
     let facts = projection::load(
         &mut snapshot.transaction,
         snapshot.account,
-        &[qso.id],
+        &[qso.id()],
         ProjectionNeeds {
             station: true,
             services: true,

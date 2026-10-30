@@ -60,7 +60,7 @@ fn projection_freezes_actual_values_and_whole_receive_override() -> anyhow::Resu
         description: "main".into(),
     };
     let signing = PublicSigningIdentity {
-        callsign: q.own_station.callsign.clone(),
+        callsign: q.own_station().callsign.clone(),
         dxcc: "291".into(),
     };
     let context = support::definitions();
@@ -90,13 +90,21 @@ fn projection_freezes_actual_values_and_whole_receive_override() -> anyhow::Resu
             .and_then(serde_json::Value::as_str),
         Some(c.upstream_commit.as_str())
     );
-    q.comment = Some("not sent".into());
+    support::edit(&mut q, |q| {
+        q.comment = Some("not sent".into());
+
+        Ok(())
+    });
     assert_eq!(original, get(&q)?);
-    q.receive_override = Some(BandFrequency::new(
-        None,
-        Some(Band::from_recorded_label("40m")?),
-        RecognitionCatalog::adif_318()?,
-    )?);
+    support::edit(&mut q, |q| {
+        q.receive_override = Some(BandFrequency::new(
+            None,
+            Some(Band::from_recorded_label("40m")?),
+            RecognitionCatalog::adif_318()?,
+        )?);
+
+        Ok(())
+    });
     let rx = get(&q)?;
     assert_ne!(original.external_key(), rx.external_key());
     assert!(!rx.contact_fields.contains_key("FREQ_RX"));
@@ -106,7 +114,6 @@ fn projection_freezes_actual_values_and_whole_receive_override() -> anyhow::Resu
 
 #[test]
 fn entity_dependent_subdivisions_and_county_parent_are_resolved() -> anyhow::Result<()> {
-    use clacks_model::location::RecordedLocation;
     let c = LotwConfiguration::bundled()?;
     let d = Destination {
         id: DestinationId::new(),
@@ -122,17 +129,25 @@ fn entity_dependent_subdivisions_and_county_parent_are_resolved() -> anyhow::Res
             qso: q,
             destination: &d,
             signing: &PublicSigningIdentity {
-                callsign: q.own_station.callsign.clone(),
+                callsign: q.own_station().callsign.clone(),
                 dxcc: entity.into(),
             },
             configuration: &c,
             definitions: &definitions,
         })
     };
-    q.own_station.location = Some(RecordedLocation {
-        primary_subdivision: Some("WA".into()),
-        secondary_subdivision: Some("WA,King".into()),
-        ..Default::default()
+    support::edit(&mut q, |q| {
+        q.own_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                primary_subdivision: Some("WA".into()),
+                secondary_subdivision: Some("WA,King".into()),
+                ..Default::default()
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+
+        Ok(())
     });
     let ProjectionDecision::Ready(r) = project(&q, "291")? else {
         panic!("normal US state/county must be ready")
@@ -145,11 +160,13 @@ fn entity_dependent_subdivisions_and_county_parent_are_resolved() -> anyhow::Res
         r.value.station_fields.get("US_COUNTY").map(String::as_str),
         Some("King")
     );
-    q.own_station
-        .location
-        .as_mut()
-        .unwrap()
-        .secondary_subdivision = Some("AZ,King".into());
+    support::edit(&mut q, |q| {
+        let mut location = q.own_station.location.take().unwrap().into_fields();
+        location.secondary_subdivision = Some("AZ,King".into());
+        q.own_station.location = Some(location.try_into()?);
+
+        Ok(())
+    });
     assert!(matches!(
         project(&q, "291")?,
         ProjectionDecision::NotReady(_)
@@ -163,9 +180,17 @@ fn entity_dependent_subdivisions_and_county_parent_are_resolved() -> anyhow::Res
             .iter()
             .find(|v| v.dependency.as_deref() == Some(entity))
             .unwrap();
-        q.own_station.location = Some(RecordedLocation {
-            primary_subdivision: Some(value.value.clone()),
-            ..Default::default()
+        support::edit(&mut q, |q| {
+            q.own_station.location = Some(
+                (clacks_model::location::RecordedLocationFields {
+                    primary_subdivision: Some(value.value.clone()),
+                    ..Default::default()
+                })
+                .try_into()
+                .expect("valid native fixture"),
+            );
+
+            Ok(())
         });
         let ProjectionDecision::Ready(r) = project(&q, entity)? else {
             panic!("entity dependency must be resolved")
@@ -177,7 +202,7 @@ fn entity_dependent_subdivisions_and_county_parent_are_resolved() -> anyhow::Res
 
 #[test]
 fn pinned_entity_and_subdivision_zone_constraints_are_enforced() -> anyhow::Result<()> {
-    use clacks_model::location::{CqZone, ItuZone, RecordedLocation};
+    use clacks_model::location::{CqZone, ItuZone};
     let c = LotwConfiguration::bundled()?;
     let d = Destination {
         id: DestinationId::new(),
@@ -189,7 +214,7 @@ fn pinned_entity_and_subdivision_zone_constraints_are_enforced() -> anyhow::Resu
     let definitions = support::definitions();
     let mut q = support::qso(support::id(1));
     let signing = PublicSigningIdentity {
-        callsign: q.own_station.callsign.clone(),
+        callsign: q.own_station().callsign.clone(),
         dxcc: "291".into(),
     };
     let project = |q: &_| {
@@ -201,20 +226,48 @@ fn pinned_entity_and_subdivision_zone_constraints_are_enforced() -> anyhow::Resu
             definitions: &definitions,
         })
     };
-    q.own_station.location = Some(RecordedLocation {
-        cq_zone: Some(CqZone::new(40)?),
-        ..Default::default()
+    support::edit(&mut q, |q| {
+        q.own_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                cq_zone: Some(CqZone::new(40)?),
+                ..Default::default()
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+
+        Ok(())
     });
     assert!(matches!(project(&q)?, ProjectionDecision::NotReady(_)));
-    q.own_station.location = Some(RecordedLocation {
-        primary_subdivision: Some("WA".into()),
-        cq_zone: Some(CqZone::new(5)?),
-        itu_zone: Some(ItuZone::new(8)?),
-        ..Default::default()
+    support::edit(&mut q, |q| {
+        q.own_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                primary_subdivision: Some("WA".into()),
+                cq_zone: Some(CqZone::new(5)?),
+                itu_zone: Some(ItuZone::new(8)?),
+                ..Default::default()
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+
+        Ok(())
     });
     assert!(matches!(project(&q)?, ProjectionDecision::NotReady(_)));
-    q.own_station.location.as_mut().unwrap().cq_zone = Some(CqZone::new(3)?);
-    q.own_station.location.as_mut().unwrap().itu_zone = Some(ItuZone::new(6)?);
+    support::edit(&mut q, |q| {
+        let mut location = q.own_station.location.take().unwrap().into_fields();
+        location.cq_zone = Some(CqZone::new(3)?);
+        q.own_station.location = Some(location.try_into()?);
+
+        Ok(())
+    });
+    support::edit(&mut q, |q| {
+        let mut location = q.own_station.location.take().unwrap().into_fields();
+        location.itu_zone = Some(ItuZone::new(6)?);
+        q.own_station.location = Some(location.try_into()?);
+
+        Ok(())
+    });
     assert!(matches!(project(&q)?, ProjectionDecision::Ready(_)));
     Ok(())
 }
@@ -265,7 +318,7 @@ fn retained_mapping_provenance_survives_reload_without_requiring_a_new_upload() 
         description: "main".into(),
     };
     let signing = PublicSigningIdentity {
-        callsign: qso.own_station.callsign.clone(),
+        callsign: qso.own_station().callsign.clone(),
         dxcc: "291".into(),
     };
     let definitions = support::definitions();
@@ -283,7 +336,7 @@ fn retained_mapping_provenance_survives_reload_without_requiring_a_new_upload() 
     };
     let attempt = SubmissionAttempt {
         id: AttemptId::new(),
-        qso: qso.id,
+        qso: qso.id(),
         projection: project(&original)?,
         phase: DispatchPhase::Dispatched,
         at: UtcTimestamp::new(0, 0)?,
@@ -314,7 +367,7 @@ fn retained_mapping_provenance_survives_reload_without_requiring_a_new_upload() 
     };
     assert_eq!(
         publication_coverage(&PublicationCoverageInput {
-            qso: qso.id,
+            qso: qso.id(),
             service: Service::Lotw,
             destination: Some(destination.id),
             current: Some(&current),

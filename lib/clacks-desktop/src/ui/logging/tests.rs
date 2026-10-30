@@ -20,16 +20,29 @@ fn pending_submission_preserves_its_facts_and_resets_from_current_defaults() {
     ));
     view.entry.form.end = crate::logging::time::ContactTimestamp::recorded(None);
     let mut expected = fixtures::contact();
-    expected.id = view.entry.id;
-    expected.own_context.transmit_power =
-        Some(clacks_model::scalar::Milliwatts::new(5000).unwrap());
-    expected.contacted_operator = Some(clacks_model::contact::OperatorInformation {
-        callsign: None,
-        recorded_name: Some("Recorded name".into()),
+    crate::test_support::edit(&mut expected, |expected| {
+        expected.id = view.entry.id;
+        Ok(())
+    });
+    crate::test_support::edit(&mut expected, |expected| {
+        expected.own_context.transmit_power =
+            Some(clacks_model::scalar::Milliwatts::new(5000).unwrap());
+        Ok(())
+    });
+    crate::test_support::edit(&mut expected, |expected| {
+        expected.contacted_operator = Some(
+            (clacks_model::contact::OperatorInformationFields {
+                callsign: None,
+                recorded_name: Some("Recorded name".into()),
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+        Ok(())
     });
     let (sender, mut requests) = mpsc::channel(2);
     view.save(&sender);
-    let submitted_id = expected.id;
+    let submitted_id = expected.id();
     assert!(view.pending.is_some());
     view.view = SelectedView::Untagged;
     view.active = OperatingState::default();
@@ -229,15 +242,10 @@ fn applied_defaults_are_the_edit_baseline_and_contact_corrections_survive_refres
     ui.run();
     ui.state_mut().refresh(&snapshot);
     assert_eq!(ui.state().entry.form.own.callsign, "W7CORRECTION");
-    snapshot
-        .operating
-        .current
-        .as_mut()
-        .unwrap()
-        .equipment
-        .as_mut()
-        .unwrap()
-        .equipment_description = Some("KX3".into());
+    let current = snapshot.operating.current.as_mut().unwrap();
+    let mut equipment = current.equipment.take().unwrap().into_fields();
+    equipment.equipment_description = Some("KX3".into());
+    current.equipment = Some(equipment.try_into().unwrap());
     snapshot.operating.selected_equipment = None;
     ui.state_mut().refresh(&snapshot);
     ui.run();

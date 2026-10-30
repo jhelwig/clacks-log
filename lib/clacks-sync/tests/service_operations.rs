@@ -25,7 +25,10 @@ fn binding_plans_guard_the_external_namespace_and_selected_target() -> anyhow::R
     if let clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(q)) =
         &mut b.state
     {
-        q.id = q2;
+        support::edit(q, |q| {
+            q.id = q2;
+            Ok(())
+        });
     }
     let key = ExternalRecordKey {
         destination: support::id(42),
@@ -163,11 +166,11 @@ fn import_qso_and_claim_form_one_guarded_operation() -> anyhow::Result<()> {
     let q = support::qso(support::id(100));
     let qkey = RecordKey {
         account: account.account,
-        id: RecordId::Qso(q.id),
+        id: RecordId::Qso(q.id()),
     };
     let claim = ImportedAssertion {
         id: support::id(101),
-        qso: q.id,
+        qso: q.id(),
         service: Service::Lotw,
         destination: None,
         claim: ImportedClaim::Uploaded,
@@ -250,9 +253,9 @@ fn remote(
         }),
         facts: RemoteFacts {
             contact: ContactReport {
-                own_call: Reported::Value(q.own_station.callsign.clone()),
-                worked_call: Reported::Value(q.contacted_station.callsign.clone()),
-                start: Reported::Value(ObservedStart::Second(q.start)),
+                own_call: Reported::Value(q.own_station().callsign.clone()),
+                worked_call: Reported::Value(q.contacted_station().callsign.clone()),
+                start: Reported::Value(ObservedStart::Second(q.start())),
                 band: Reported::Value("20m".into()),
                 mode: Reported::Value(ModeReport {
                     concrete: "FT4".into(),
@@ -1021,7 +1024,10 @@ fn returned_external_identity_cannot_bind_an_unsubmitted_contact() -> anyhow::Re
     let mut target = support::accepted(200, "fixture");
     target.key.id = RecordId::Qso(association.qso);
     if let RecordState::Live(RecordValue::Qso(q)) = &mut target.state {
-        q.id = association.qso;
+        support::edit(q, |q| {
+            q.id = association.qso;
+            Ok(())
+        });
     }
     let mut a = support::accepted(199, "fixture");
     a.key.id = RecordId::Service(ServicePayload::Attempt(attempt.clone()).id());
@@ -1089,7 +1095,10 @@ fn client_import_can_reference_a_tag_created_in_the_same_operation() -> anyhow::
     };
     let tag = LogbookTag::new(support::id(8), "Imported".into());
     let mut q = support::qso(support::id(100));
-    q.tags.insert(tag.id);
+    support::edit(&mut q, |q| {
+        q.tags.insert(tag.id);
+        Ok(())
+    });
     let absent = |id| Observation::Absent {
         key: RecordKey {
             account: a.account,
@@ -1101,7 +1110,7 @@ fn client_import_can_reference_a_tag_created_in_the_same_operation() -> anyhow::
             coverage: a.installed.clone(),
         },
     };
-    let qr = absent(RecordId::Qso(q.id));
+    let qr = absent(RecordId::Qso(q.id()));
     let tr = absent(RecordId::Tag(tag.id));
     let qc = PreparedChange {
         key: qr.key(),
@@ -1318,7 +1327,7 @@ fn adding_downloaded_contact_requires_a_selected_tag() -> anyhow::Result<()> {
         },
     };
     let q = support::qso(support::id(10));
-    assert!(q.tags.is_empty());
+    assert!(q.tags().is_empty());
     let obs = remote(&q);
     let mut row = support::accepted(200, "fixture");
     row.key.id = RecordId::Service(ServicePayload::Observation(Box::new(obs.clone())).id());
@@ -1341,7 +1350,7 @@ fn adding_downloaded_contact_requires_a_selected_tag() -> anyhow::Result<()> {
             destination: support::id(42),
             record: RemoteRecordId::Qrz("7".parse().unwrap()),
         },
-        qso: q.id,
+        qso: q.id(),
         state: AssociationState::Active,
     };
     let disposition = ProcessingDisposition {
@@ -1354,7 +1363,7 @@ fn adding_downloaded_contact_requires_a_selected_tag() -> anyhow::Result<()> {
     let absent = Observation::Absent {
         key: RecordKey {
             account: a.account,
-            id: RecordId::Qso(q.id),
+            id: RecordId::Qso(q.id()),
         },
         checkpoint: InstalledCheckpoint {
             account: a.account,
@@ -1395,7 +1404,10 @@ fn adding_downloaded_contact_requires_a_selected_tag() -> anyhow::Result<()> {
     } = &mut tagged
         && let RecordState::Live(RecordValue::Qso(qso)) = &mut change.state
     {
-        qso.tags.insert(tag_id);
+        support::edit(qso, |qso| {
+            qso.tags.insert(tag_id);
+            Ok(())
+        });
     }
     let mut tag = support::accepted(199, "tag");
     tag.key.id = RecordId::Tag(tag_id);

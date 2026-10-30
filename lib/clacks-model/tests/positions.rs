@@ -116,6 +116,9 @@ fn display_precision_does_not_change_point_identity() -> TestResult {
     assert_eq!(b.display_coordinates(), coordinates);
     assert_eq!(b.display_locator().length(), GridLength::new(12)?);
     assert!(!a.same_geographic_position(&Position::GridArea(a.display_locator())));
-    assert!(!RecordedLocation::default().has_values());
+    assert!(
+        RecordedLocation::try_from(clacks_model::location::RecordedLocationFields::default())
+            .is_err()
+    );
     Ok(())
 }

@@ -105,7 +105,7 @@ pub(crate) async fn execute(
         )),
         ContactAction::Save { expected, next } => {
             let creating = expected.is_none();
-            let record_key = key(store, next.id);
+            let record_key = key(store, next.id());
             let next = RecordState::Live(RecordValue::Qso(next));
             let mut outcome =
                 save::save(store, record_key, expected.as_deref(), next.clone()).await?;

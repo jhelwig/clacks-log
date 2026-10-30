@@ -28,7 +28,10 @@ fn telemetry_counts_only_committed_domain_changes_and_excludes_payloads() -> any
                     .await?;
                     let key = support::qso_key(support::id(10));
                     let mut qso = support::qso(support::id(10));
-                    qso.comment = Some("DO NOT EMIT THIS COMMENT".into());
+                    support::edit(&mut qso, |qso| {
+                        qso.comment = Some("DO NOT EMIT THIS COMMENT".into());
+                        Ok(())
+                    });
                     let SaveOutcome::Saved(first) =
                         save::save(&store, key, None, support::contact(qso.clone())).await?
                     else {
@@ -43,7 +46,10 @@ fn telemetry_counts_only_committed_domain_changes_and_excludes_payloads() -> any
                         save::save(&store, key, None, support::contact(qso.clone())).await?,
                         SaveOutcome::Stale { .. }
                     ));
-                    qso.comment = Some("OTHER PRIVATE COMMENT".into());
+                    support::edit(&mut qso, |qso| {
+                        qso.comment = Some("OTHER PRIVATE COMMENT".into());
+                        Ok(())
+                    });
                     let SaveOutcome::Saved(next) =
                         save::save(&store, key, Some(&first), support::contact(qso)).await?
                     else {

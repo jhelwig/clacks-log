@@ -37,7 +37,7 @@ fn accepted_envelopes_validate_native_state_and_identity() {
         baseline: id(4),
         vector: RecordVector::from_entries([(ClockActor::Server(timeline), 1)]).unwrap(),
     };
-    let mut q = qso(id(2));
+    let q = qso(id(2));
     assert!(
         AcceptedRecord::new(
             key,
@@ -45,17 +45,6 @@ fn accepted_envelopes_validate_native_state_and_identity() {
             stamp.clone()
         )
         .is_ok()
-    );
-    q.end = Some(clacks_model::scalar::UtcSecond::from_unix_seconds(0));
-    let err = AcceptedRecord::new(
-        key,
-        RecordState::Live(RecordValue::Qso(Box::new(q))),
-        stamp.clone(),
-    )
-    .unwrap_err();
-    assert!(
-        err.downcast_ref::<clacks_model::contact::RecordError>()
-            .is_some()
     );
     assert!(
         AcceptedRecord::new(

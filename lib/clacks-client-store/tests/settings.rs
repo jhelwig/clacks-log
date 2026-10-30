@@ -55,7 +55,11 @@ async fn settings_snapshot_is_one_account_and_one_read_basis() -> anyhow::Result
     let before = snapshot.settings().await?;
     let row = before.profiles.first().unwrap();
     let mut changed = home.clone();
-    changed.name = "Renamed".into();
+    {
+        let mut fields = changed.clone().into_fields();
+        fields.name = "Renamed".into();
+        changed = fields.try_into().expect("valid saved fixture edit");
+    }
     settings::save_profile(&store, Some(row), &changed).await?;
     assert_eq!(snapshot.settings().await?.profiles, before.profiles);
     snapshot.close().await?;
@@ -96,7 +100,7 @@ async fn profile_save_with_deleted_default_is_pending() -> anyhow::Result<()> {
     save::save(&store, row.key, Some(&row), RecordState::Deleted).await?;
     let home = profile(30, Some(31));
     let result = settings::save_profile(&store, None, &home).await?;
-    assert_eq!(result.missing_equipment, Some(a.id));
+    assert_eq!(result.missing_equipment, Some(a.id()));
     let row = saved(result.outcome);
     assert!(row.pending.is_some());
     assert_eq!(
@@ -125,10 +129,18 @@ async fn profile_save_preserves_its_stale_guard() -> anyhow::Result<()> {
     let home = profile(30, None);
     let row = saved(settings::save_profile(&store, None, &home).await?.outcome);
     let mut changed = home.clone();
-    changed.name = "Intervening".into();
+    {
+        let mut fields = changed.clone().into_fields();
+        fields.name = "Intervening".into();
+        changed = fields.try_into().expect("valid saved fixture edit");
+    }
     settings::save_profile(&store, Some(&row), &changed).await?;
     let mut stale = home.clone();
-    stale.default_equipment = Some(id(31));
+    {
+        let mut fields = stale.clone().into_fields();
+        fields.default_equipment = Some(id(31));
+        stale = fields.try_into().expect("valid saved fixture edit");
+    }
     let result = settings::save_profile(&store, Some(&row), &stale).await?;
     assert!(matches!(result.outcome, SaveOutcome::Stale { .. }));
     assert_eq!(result.missing_equipment, None);
@@ -155,7 +167,11 @@ async fn apply_keeps_loaded_values_after_saved_source_update() -> anyhow::Result
     let home = profile(30, Some(31));
     let active = state(&home, &a);
     let mut changed = a.clone();
-    changed.values.antenna_description = Some("End-fed".into());
+    {
+        let mut fields = changed.clone().into_fields();
+        fields.values.antenna_description = Some("End-fed".into());
+        changed = fields.try_into().expect("valid saved fixture edit");
+    }
     settings::save_equipment(&store, Some(&row), &changed).await?;
     assert!(matches!(
         operating::save(&store, &OperatingState::default(), &active).await?,
@@ -190,7 +206,11 @@ fn settings_telemetry_counts_commits_without_payloads() -> anyhow::Result<()> {
                     .await?;
                     let mut rig = equipment(31, "SECRET EQUIPMENT NAME");
                     let first = saved(settings::save_equipment(&store, None, &rig).await?);
-                    rig.values.notes = Some("SECRET EQUIPMENT NOTES".into());
+                    {
+                        let mut fields = rig.clone().into_fields();
+                        fields.values.notes = Some("SECRET EQUIPMENT NOTES".into());
+                        rig = fields.try_into().expect("valid saved fixture edit");
+                    }
                     let second = saved(settings::save_equipment(&store, Some(&first), &rig).await?);
                     assert!(matches!(
                         settings::save_equipment(&store, Some(&second), &rig).await?,
@@ -201,10 +221,18 @@ fn settings_telemetry_counts_commits_without_payloads() -> anyhow::Result<()> {
                         SaveOutcome::Stale { .. }
                     ));
                     let mut home = profile(30, Some(31));
-                    home.name = "SECRET PROFILE NAME".into();
+                    {
+                        let mut fields = home.clone().into_fields();
+                        fields.name = "SECRET PROFILE NAME".into();
+                        home = fields.try_into().expect("valid saved fixture edit");
+                    }
                     let first_profile =
                         saved(settings::save_profile(&store, None, &home).await?.outcome);
-                    home.name = "PRIVATE PROFILE NAME".into();
+                    {
+                        let mut fields = home.clone().into_fields();
+                        fields.name = "PRIVATE PROFILE NAME".into();
+                        home = fields.try_into().expect("valid saved fixture edit");
+                    }
                     let second_profile = saved(
                         settings::save_profile(&store, Some(&first_profile), &home)
                             .await?

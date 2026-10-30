@@ -42,16 +42,16 @@ fn complete_contact_form_builds_native_facts() -> anyhow::Result<()> {
     let qso = form
         .build(QsoId::new(), &DefinitionSet::new(vec![])?)
         .map_err(|e| anyhow::anyhow!("{e:?}"))?;
-    assert_eq!(qso.own_station.callsign.as_str(), "W7HEX");
-    assert_eq!(qso.contacted_station.callsign.as_str(), "OK2CQR/P");
+    assert_eq!(qso.own_station().callsign.as_str(), "W7HEX");
+    assert_eq!(qso.contacted_station().callsign.as_str(), "OK2CQR/P");
     assert_eq!(
-        qso.contacted_operator
+        qso.contacted_operator()
             .as_ref()
-            .and_then(|v| v.recorded_name.as_deref()),
+            .and_then(|v| v.recorded_name().as_deref()),
         Some("Petr")
     );
-    assert_eq!(qso.own_context.transmit_power.map(|v| v.get()), Some(500));
-    assert_eq!(qso.end, None);
+    assert_eq!(qso.own_context().transmit_power.map(|v| v.get()), Some(500));
+    assert_eq!(qso.end(), None);
     Ok(())
 }
 
@@ -74,32 +74,53 @@ fn unrelated_edit_preserves_unrecognized_and_coarse_values() -> anyhow::Result<(
     let mut qso = form
         .build(QsoId::new(), &defs)
         .map_err(|e| anyhow::anyhow!("{e:?}"))?;
-    qso.own_station.location = Some(clacks_model::location::RecordedLocation {
-        position: Some(Position::GridArea(Locator::parse("AA")?)),
-        ..Default::default()
+    crate::test_support::edit(&mut qso, |qso| {
+        qso.own_station.location = Some(
+            (clacks_model::location::RecordedLocationFields {
+                position: Some(Position::GridArea(Locator::parse("AA")?)),
+                ..Default::default()
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        );
+        Ok(())
     });
-    qso.own_context.equipment = Some(clacks_model::equipment::EquipmentValues::default());
-    qso.own_station
-        .references
-        .insert(clacks_model::reference::ReferenceAssociation {
-            group_id: clacks_model::ids::GroupId::new(),
-            identifier: Some("unfamiliar-reference".into()),
-        });
-    qso.mode = clacks_model::recognition::mode::Mode::from_recorded_identity(
-        clacks_model::recognition::mode::ModeIdentity::Specialization {
-            label: "unfamiliar-submode".into(),
-            parent: Some("unfamiliar-parent".into()),
-        },
-    )?;
+    crate::test_support::edit(&mut qso, |qso| {
+        qso.own_context.equipment = Some(
+            ((clacks_model::equipment::EquipmentValues::default()).into_fields())
+                .try_into()
+                .expect("valid native fixture"),
+        );
+        Ok(())
+    });
+    crate::test_support::edit(&mut qso, |qso| {
+        qso.own_station.references.insert(
+            clacks_model::reference::ReferenceAssociation::new(
+                clacks_model::ids::GroupId::new(),
+                Some("unfamiliar-reference".into()),
+            )
+            .expect("valid reference fixture"),
+        );
+        Ok(())
+    });
+    crate::test_support::edit(&mut qso, |qso| {
+        qso.mode = clacks_model::recognition::mode::Mode::from_recorded_identity(
+            clacks_model::recognition::mode::ModeIdentity::Specialization {
+                label: "unfamiliar-submode".into(),
+                parent: Some("unfamiliar-parent".into()),
+            },
+        )?;
+        Ok(())
+    });
     let mut edit = ContactForm::from_qso(&qso);
     edit.comment = "changed".into();
     let next = edit
-        .build(qso.id, &defs)
+        .build(qso.id(), &defs)
         .map_err(|e| anyhow::anyhow!("{e:?}"))?;
-    assert_eq!(next.own_station, qso.own_station);
-    assert_eq!(next.mode, qso.mode);
-    assert_eq!(next.own_context, qso.own_context);
-    assert_eq!(next.primary, qso.primary);
+    assert_eq!(next.own_station(), qso.own_station());
+    assert_eq!(next.mode(), qso.mode());
+    assert_eq!(next.own_context(), qso.own_context());
+    assert_eq!(next.primary(), qso.primary());
     Ok(())
 }
 
@@ -145,14 +166,10 @@ fn view_switch_replaces_only_proposed_membership() {
 fn active_power_follows_defaults_until_explicitly_corrected() -> anyhow::Result<()> {
     use super::defaults::NewEntry;
     use clacks_client_store::{logbooks::selection::SelectedView, operating::OperatingState};
-    use clacks_model::{
-        contact::StationSnapshot,
-        profile::CurrentOperatingValues,
-        scalar::{Milliwatts, RecordedCallsign},
-    };
+    use clacks_model::scalar::{Milliwatts, RecordedCallsign};
     let mut active = OperatingState {
-        current: Some(CurrentOperatingValues {
-            station: StationSnapshot {
+        current: Some(clacks_model::profile::CurrentOperatingValues {
+            station: clacks_model::contact::StationSnapshot {
                 callsign: RecordedCallsign::new("W7HEX")?,
                 location: None,
                 references: Default::default(),

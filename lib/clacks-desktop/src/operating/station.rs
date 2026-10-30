@@ -48,7 +48,7 @@ impl ReferenceForm {
     fn from_association(value: &ReferenceAssociation) -> Self {
         Self {
             group: Some(value.group_id),
-            identifier: value.identifier.clone().unwrap_or_default(),
+            identifier: value.identifier().clone().unwrap_or_default(),
             original: Some(value.clone()),
             edited: false,
         }
@@ -65,10 +65,8 @@ impl ReferenceForm {
             .group
             .ok_or_else(|| issue("Reference group", "Select a group"))?;
         normalize_reference(
-            &ReferenceAssociation {
-                group_id,
-                identifier: optional(&self.identifier),
-            },
+            &ReferenceAssociation::new(group_id, optional(&self.identifier))
+                .map_err(|e| issue("Reference identifier", e))?,
             definitions.get(group_id),
         )
         .map_err(|e| issue("Reference identifier", e))
@@ -119,17 +117,18 @@ impl StationForm {
         let mut form = Self::empty();
         form.callsign = station.callsign.as_str().to_owned();
         if let Some(location) = &station.location {
-            form.position = PositionForm::from_position(location.position.as_ref());
-            form.last_position = location.position.clone();
-            form.dxcc = location.dxcc.clone().unwrap_or_default();
-            form.primary_subdivision = location.primary_subdivision.clone().unwrap_or_default();
-            form.secondary_subdivision = location.secondary_subdivision.clone().unwrap_or_default();
+            form.position = PositionForm::from_position(location.position().as_ref());
+            form.last_position = location.position().clone();
+            form.dxcc = location.dxcc().clone().unwrap_or_default();
+            form.primary_subdivision = location.primary_subdivision().clone().unwrap_or_default();
+            form.secondary_subdivision =
+                location.secondary_subdivision().clone().unwrap_or_default();
             form.cq_zone = location
-                .cq_zone
+                .cq_zone()
                 .map(|v| v.get().to_string())
                 .unwrap_or_default();
             form.itu_zone = location
-                .itu_zone
+                .itu_zone()
                 .map(|v| v.get().to_string())
                 .unwrap_or_default();
         }
@@ -242,7 +241,7 @@ impl StationForm {
         let Some(callsign) = callsign else {
             return Err(vec![issue("Station callsign", "A callsign is required")]);
         };
-        let location = RecordedLocation {
+        let location = clacks_model::location::RecordedLocationFields {
             position,
             dxcc: optional(&self.dxcc),
             primary_subdivision: optional(&self.primary_subdivision),
@@ -251,12 +250,15 @@ impl StationForm {
             itu_zone,
         }
         .normalized();
-        let station = StationSnapshot {
+        let station = clacks_model::contact::StationSnapshot {
             callsign,
-            location,
+            location: location
+                .map(RecordedLocation::try_from)
+                .transpose()
+                .map_err(|e| vec![issue("Position", e)])?,
             references,
         };
-        station.validate().map_err(|e| vec![issue("Station", e)])?;
+
         Ok(station)
     }
 }

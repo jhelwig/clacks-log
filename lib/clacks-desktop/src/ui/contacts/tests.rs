@@ -67,7 +67,7 @@ fn view_change_clears_selection_and_ignores_an_old_page_reply() {
     let qso = fixtures::contact();
     let (reply, receiver) = oneshot::channel();
     let mut view = ContactsUi {
-        selected: [qso.id].into(),
+        selected: [qso.id()].into(),
         page_request: Some(PageRequest {
             query: ContactPageQuery::default(),
             expression: String::new(),
@@ -276,8 +276,8 @@ fn editor_membership_uses_the_existing_save_boundary() {
         panic!("save")
     };
     assert_eq!(expected.as_deref(), Some(&record));
-    assert_eq!(next.tags, [tag.id].into());
-    assert_eq!(next.comment.as_deref(), Some("Corrected fact"));
+    assert_eq!(next.tags(), &std::collections::BTreeSet::from([tag.id]));
+    assert_eq!(next.comment().as_deref(), Some("Corrected fact"));
 }
 
 #[test]
@@ -328,7 +328,10 @@ fn history_membership_request_uses_all_selected_ids() {
         .iter()
         .map(|id| {
             let mut qso = fixtures::contact();
-            qso.id = *id;
+            crate::test_support::edit(&mut qso, |qso| {
+                qso.id = *id;
+                Ok(())
+            });
             fixtures::row(RecordValue::Qso(Box::new(qso)))
         })
         .collect();

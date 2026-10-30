@@ -44,7 +44,7 @@ pub async fn snapshot(store: &ClientStore) -> anyhow::Result<SettingsSnapshot> {
 }
 
 /// Save a profile without applying its values, preserving missing references as pending work.
-#[tracing::instrument(skip_all, name = "client_store.profile.save", fields(account_id = %store.account, profile_id = %next.id))]
+#[tracing::instrument(skip_all, name = "client_store.profile.save", fields(account_id = %store.account, profile_id = %next.id()))]
 pub async fn save_profile(
     store: &ClientStore,
     expected: Option<&ClientRecord>,
@@ -54,7 +54,7 @@ pub async fn save_profile(
 }
 
 /// Save a reusable configuration without loading it or changing any profile association.
-#[tracing::instrument(skip_all, name = "client_store.equipment.save", fields(account_id = %store.account, equipment_id = %next.id))]
+#[tracing::instrument(skip_all, name = "client_store.equipment.save", fields(account_id = %store.account, equipment_id = %next.id()))]
 pub async fn save_equipment(
     store: &ClientStore,
     expected: Option<&ClientRecord>,
