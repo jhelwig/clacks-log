@@ -22,10 +22,10 @@ use std::sync::Arc;
 use time::Duration;
 
 /// Issuance details used to compare independent desktop authorizations.
-pub(super) struct IssuedClient {
-    pub(super) code: String,
-    pub(super) response: oauth_as::token::TokenResponse,
-    pub(super) actor: clacks_model::ids::ClientActorId,
+pub(crate) struct IssuedClient {
+    pub(crate) code: String,
+    pub(crate) response: oauth_as::token::TokenResponse,
+    pub(crate) actor: clacks_model::ids::ClientActorId,
 }
 
 #[tokio::test]
@@ -437,7 +437,7 @@ pub(super) async fn exchange(
 }
 
 /// Approve through the actual account-bound issuer and read its committed writer.
-pub(super) async fn approve(
+pub(crate) async fn approve(
     issuer: &oauth_as::server::AuthorizationServer<OAuthStore>,
     store: &OAuthStore,
     principal: &crate::auth::principal::Principal,

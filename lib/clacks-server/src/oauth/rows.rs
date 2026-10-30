@@ -36,12 +36,8 @@ pub(crate) struct CodeRow {
     pub expires_at: OffsetDateTime,
     /// Library issued/consumed/replayed state.
     pub state: String,
-    /// Exact account key for a retained receipt.
-    pub receipt_key_version: Option<i64>,
-    /// Receipt nonce when references have been retained.
-    pub receipt_nonce: Option<Vec<u8>>,
-    /// Encrypted issued token references.
-    pub receipt_ciphertext: Option<Vec<u8>>,
+    /// Complete encrypted issued-reference receipt, if issuance retained one.
+    pub receipt: Option<String>,
     /// Granted scope set restored through the library parser.
     pub scope: String,
     /// Ordered granted resource indicators.

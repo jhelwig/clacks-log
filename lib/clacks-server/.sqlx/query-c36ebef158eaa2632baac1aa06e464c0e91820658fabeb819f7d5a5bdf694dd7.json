@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT count(*) AS \"remaining!\" FROM clacks.account_encryption_keys WHERE wrapping_key_id = $1\n",
+  "query": "SELECT count(*) AS \"remaining!\" FROM clacks.account_encryption_keys WHERE wrapping_key_reference = $1\n",
   "describe": {
     "columns": [
       {
@@ -19,5 +19,5 @@
       null
     ]
   },
-  "hash": "d8339f206e620f795571d870f73eeed1932555658493b02f52f92acb4bc426ab"
+  "hash": "c36ebef158eaa2632baac1aa06e464c0e91820658fabeb819f7d5a5bdf694dd7"
 }

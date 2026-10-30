@@ -6,8 +6,9 @@ use super::{
     store::OAuthStore,
 };
 use crate::secrets::{
+    envelope::ReceiptEnvelope,
     keys,
-    receipt::{self, EncryptedReceipt, IssuedReferences, ReceiptContext},
+    receipt::{self, IssuedReferences, ReceiptContext},
 };
 use anyhow::Context;
 use oauth_as::{
@@ -23,7 +24,7 @@ async fn encrypted(
     store: &OAuthStore,
     connection: &mut PgConnection,
     record: &AuthorizationCodeRecord,
-) -> anyhow::Result<Option<EncryptedReceipt>> {
+) -> anyhow::Result<Option<ReceiptEnvelope>> {
     let Some((access, refresh)) = record.state.minted() else {
         return Ok(None);
     };
@@ -58,16 +59,13 @@ async fn decode(
     row: CodeRow,
 ) -> anyhow::Result<AuthorizationCodeRecord> {
     let hash = digest(CredentialKind::Code, code);
-    let references = match (
-        row.receipt_key_version,
-        row.receipt_nonce,
-        row.receipt_ciphertext,
-    ) {
-        (None, None, None) => IssuedReferences {
+    let references = match row.receipt.as_deref() {
+        None => IssuedReferences {
             access_token: None,
             refresh_token: None,
         },
-        (Some(version), Some(nonce), Some(ciphertext)) => {
+        Some(value) => {
+            let value = ReceiptEnvelope::parse(value)?;
             let approval = sqlx::query_file!("sql/oauth/approval_select.sql", hash.as_slice())
                 .fetch_one(&mut *connection)
                 .await?;
@@ -76,19 +74,15 @@ async fn decode(
                 code_digest: hash,
                 purpose: approval.purpose,
             };
-            let key =
-                keys::load_version(&mut *connection, &store.keys, context.account, version).await?;
-            receipt::open(
-                &key,
-                &context,
-                &EncryptedReceipt {
-                    key_version: version,
-                    nonce,
-                    ciphertext,
-                },
-            )?
+            let key = keys::load_version(
+                &mut *connection,
+                &store.keys,
+                context.account,
+                value.key_version(),
+            )
+            .await?;
+            receipt::open(&key, &context, &value)?
         }
-        _ => anyhow::bail!("authorization code has a partial encrypted receipt"),
     };
     let mut record = AuthorizationCodeRecord::new(
         code,
@@ -196,7 +190,7 @@ pub(crate) async fn compare(
 async fn put_in(
     connection: &mut PgConnection,
     record: &AuthorizationCodeRecord,
-    receipt: Option<&EncryptedReceipt>,
+    receipt: Option<&ReceiptEnvelope>,
 ) -> anyhow::Result<()> {
     let hash = digest(CredentialKind::Code, &record.code);
     let key = record
@@ -210,9 +204,7 @@ async fn put_in(
     };
     let issued_at = OffsetDateTime::from(record.issued_at);
     let expires_at = OffsetDateTime::from(record.expires_at);
-    let version = receipt.map(|value| value.key_version);
-    let nonce = receipt.map(|value| value.nonce.as_slice());
-    let ciphertext = receipt.map(|value| value.ciphertext.as_slice());
+    let receipt = receipt.map(ReceiptEnvelope::encode);
     sqlx::query_file!(
         "sql/oauth/code_put.sql",
         hash.as_slice(),
@@ -225,9 +217,7 @@ async fn put_in(
         issued_at,
         expires_at,
         state,
-        version,
-        nonce,
-        ciphertext
+        receipt
     )
     .execute(&mut *connection)
     .await?;

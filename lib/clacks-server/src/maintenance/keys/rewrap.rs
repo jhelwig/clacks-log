@@ -4,17 +4,31 @@ use super::report::{MaintenanceEnd, RewrapReport};
 use crate::secrets::keys::{self, WrappingKeys};
 use anyhow::Context;
 use sqlx::{Connection, Either, PgConnection, postgres::PgAdvisoryLock};
-use std::num::NonZeroU16;
 use tokio_util::sync::CancellationToken;
 
 /// Explicit deployment-key migration parameters; retries use the same IDs.
 pub(crate) struct RewrapRequest {
-    /// Wrapping key currently referenced by source envelopes.
-    pub from: String,
-    /// Configured active deployment key.
-    pub to: String,
-    /// Maximum key envelopes committed for one account per transaction.
-    pub batch_size: NonZeroU16,
+    /// Exact source deployment-key ID.
+    from: String,
+    /// Distinct target deployment-key ID.
+    to: String,
+    /// Checked maximum account keys per transaction.
+    batch_size: super::MaintenanceBatchSize,
+}
+
+impl RewrapRequest {
+    /// Select distinct nonempty key IDs and a bounded transaction size.
+    pub(crate) fn new(from: String, to: String, batch_size: u16) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            !from.is_empty() && !to.is_empty() && from != to,
+            "rewrap requires distinct nonempty source and target key IDs"
+        );
+        Ok(Self {
+            from,
+            to,
+            batch_size: batch_size.try_into()?,
+        })
+    }
 }
 
 /// Rewrap all source references while preserving account-key bytes and versions.
@@ -29,10 +43,10 @@ pub(crate) async fn run(
     stop: &CancellationToken,
 ) -> anyhow::Result<RewrapReport> {
     anyhow::ensure!(
-        request.from != request.to && request.to == wrapping.active,
+        request.to == wrapping.active,
         "rewrap target must be the distinct configured active key"
     );
-    anyhow::ensure!(request.batch_size.get() <= 100, "batch size must be 1–100");
+    let source_reference = crate::secrets::envelope::wrapping_reference(&request.from);
     let lock = PgAdvisoryLock::new(super::MAINTENANCE_LOCK);
     let Either::Left(mut guard) = lock.try_acquire(connection).await? else {
         anyhow::bail!("key maintenance is busy; retry the same command");
@@ -44,7 +58,7 @@ pub(crate) async fn run(
     let result: anyhow::Result<RewrapReport> = async {
         while !stop.is_cancelled() {
             let Some(owner) = sqlx::query_file!(
-                "sql/secrets/rotation/wrapping_accounts.sql", request.from
+                "sql/secrets/rotation/wrapping_accounts.sql", source_reference
             ).fetch_optional(guard.as_mut()).await? else {
                 break;
             };
@@ -56,7 +70,7 @@ pub(crate) async fn run(
                 .fetch_one(&mut *tx).await?;
             let rows = sqlx::query_file!(
                 "sql/secrets/rotation/wrapping_batch.sql",
-                owner.account_id, request.from, i64::from(request.batch_size.get())
+                owner.account_id, source_reference, i64::from(request.batch_size.get())
             ).fetch_all(&mut *tx).await?;
             let count = u64::try_from(rows.len())?;
             for row in rows {
@@ -79,7 +93,7 @@ pub(crate) async fn run(
         }
 
         let remaining = sqlx::query_file!(
-            "sql/secrets/rotation/wrapping_count.sql", request.from
+            "sql/secrets/rotation/wrapping_count.sql", source_reference
         ).fetch_one(guard.as_mut()).await?.remaining.try_into()?;
         let end = if stop.is_cancelled() {
             MaintenanceEnd::Interrupted

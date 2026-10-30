@@ -19,6 +19,27 @@ use zeroize::Zeroizing;
 /// Session-scoped exclusion shared by the two database key-maintenance commands.
 const MAINTENANCE_LOCK: &str = "clacks.key-maintenance.v1";
 
+/// Maximum encrypted values committed in one maintenance transaction.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct MaintenanceBatchSize(std::num::NonZeroU16);
+
+impl TryFrom<u16> for MaintenanceBatchSize {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u16) -> anyhow::Result<Self> {
+        let value = std::num::NonZeroU16::new(value).context("batch size must be 1–100")?;
+        anyhow::ensure!(value.get() <= 100, "batch size must be 1–100");
+        Ok(Self(value))
+    }
+}
+
+impl MaintenanceBatchSize {
+    /// Return the checked maximum rows for a single transaction.
+    pub(crate) fn get(self) -> u16 {
+        self.0.get()
+    }
+}
+
 /// Write a fresh 32-byte raw key in a private directory without replacing any existing file.
 ///
 /// The caller must protect the destination directory and retain the resulting

@@ -8,7 +8,7 @@ pub mod identities;
 pub(crate) mod logins;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 /// Concrete PostgreSQL access shared by account requests and maintenance work.
 #[derive(Clone)]

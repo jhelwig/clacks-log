@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE clacks.account_encryption_keys SET wrapped_envelope = $3\nWHERE account_id = $1 AND key_version = $2\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d1ff7252400e31ae7a35fdb9f2f87376967764c316e8a0bfc5e088cd60dc887c"
+}

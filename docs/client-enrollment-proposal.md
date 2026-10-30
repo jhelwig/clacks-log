@@ -81,7 +81,7 @@ successful synchronization or replace these components later.
 Extend the existing `clacks` schema through release-managed migrations. Preserve
 #11's accounts, identities, sessions and account-row locking. IDs are canonical
 native text IDs, counters PostgreSQL `BIGINT` within the checked Clacks domain,
-instants `timestamptz`, digests/ciphertext `bytea`. All account-owned references
+instants `timestamptz`, digests `bytea` and complete encrypted values `text`. All account-owned references
 are account-qualified. Table names below identify the production schema.
 
 | Table | Fields, references and constraints |
@@ -89,14 +89,14 @@ are account-qualified. Table names below identify the production schema.
 | `desktop_oauth_clients` | Public `client_id` primary key, display name; child tables for allowed grants, scopes and exact registered redirects. Server-wide public metadata; no desktop client secret or user account authority. |
 | `desktop_clients` | `(account_id, actor_id)` primary key, user-visible label, authorization time, nullable closure time, creation and closure synchronization positions. References accounts and actual membership positions. Never delete shared records through this table. |
 | `desktop_grants` | `(account_id, family_id)` primary key, application `client_id`, nullable `actor_id` until initial exchange completion, grant-established time, proof-key thumbprint, state `provisional`, `active` or `revoked`, and provisional cleanup deadline. Once associated, a family never changes account or actor. Multiple historical grants can name one actor. |
-| `desktop_authorization_codes` | Code digest primary key, account, application client, exact granted redirect and explicit-redirect flag, subject, S256 PKCE challenge, key thumbprint, issued/expiry times, state `issued`, `consumed` or `replayed`. Nullable receipt ciphertext, nonce and account-key version. Ciphertext contains only the optional issued access/refresh strings required by oauth-as, not the entire record. Child tables hold scopes/resources. |
+| `desktop_authorization_codes` | Code digest primary key, account, application client, exact granted redirect and explicit-redirect flag, subject, S256 PKCE challenge, key thumbprint, issued/expiry times, state `issued`, `consumed` or `replayed`. Nullable complete versioned receipt envelope with a generated account-key reference. Ciphertext contains only the optional issued access/refresh strings required by oauth-as, not the entire record. Child tables hold scopes/resources. |
 | `desktop_code_approvals` | Code digest primary key, verified account, approval purpose `new`, `recover_active` or `replace_closed`, optional target actor, client label and code expiry. Immutable host context survives the library's remove/put-back transitions; it is not another browser pending-flow store. |
 | `desktop_access_tokens` | Access digest primary key, account/family foreign key, public client, subject, proof-key thumbprint, issued/grant-established/expiry times; child scope/resource relations. No recoverable access-token column. |
 | `desktop_refresh_tokens` | Refresh digest primary key, account/family foreign key, client, subject, key thumbprint, grant-established time, nullable expiry and library active/spent state; child scope/resource relations. Reuse only writes active records; reject unexpected retry-response payloads. No recoverable credential column. |
 | `oauth_revocations` | Library barrier scope and identifier, recorded-at and retention deadline. Unique by scope/identifier with the library's merge rules. Family identifiers include the account qualification. Keep this separate from permanent actor closure. |
 | `oauth_replay_claims` | Exact library-namespaced replay key primary key and expiry. Shared by all issuer instances. |
 | `resource_replay_claims` | Proof-key thumbprint plus proof ID primary key and expiry; all protected-request instances share the same table. Keep issuer/resource namespaces distinct. |
-| `account_encryption_keys` | `(account_id, key_version)` primary key, wrapping-key ID, wrapping nonce, wrapped random 256-bit account key, creation time and active designation. Account-owned encrypted objects reference their key version. |
+| `account_encryption_keys` | `(account_id, key_version)` primary key, complete versioned wrapping envelope for the random 256-bit account key, generated deployment-key reference, creation time and active designation. Account-owned encrypted objects reference their key version. |
 
 Scope/resource child rows are ordered only where library equality needs order;
 map the selected public record fields exactly. Do not add unsupported consent,
@@ -145,10 +145,12 @@ explicit failures, never an instruction to generate replacement keys over data.
 Use authenticated encryption for the key envelope and code-receipt secret pair.
 Bind the receipt to its account, code digest, purpose and format version through
 associated data. Preserve that binding when Consumed becomes Replayed. The
-nonce and ciphertext are storage fields, not application-generated crypto formats
-or telemetry. RustCrypto AES-256-GCM uses a fresh OS-random 12-byte nonce for each
+nonce and ciphertext belong to one complete stored encrypted value and are never
+telemetry. RustCrypto AES-256-GCM uses a fresh OS-random 12-byte nonce for each
 encryption and appends its 16-byte authentication tag to the ciphertext. Store
-these bytes directly; no nonce counter is coordinated across application instances.
+these bytes with their codec/key metadata in the compact versioned envelope
+defined by [credential protection](credential-protection-proposal.md#51-versioned-storage-codec).
+No nonce counter is coordinated across application instances.
 
 Receipt metadata remains queryable and relational. On read, restore the code
 string from the presented code; decrypt the token-reference pair only when the

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.desktop_authorization_codes\n(code_digest, account_id, client_id, redirect_uri, redirect_explicit, code_challenge,\nkey_thumbprint, issued_at, expires_at, state, receipt)\nVALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)\nON CONFLICT (code_digest) DO UPDATE SET\naccount_id=EXCLUDED.account_id, client_id=EXCLUDED.client_id, redirect_uri=EXCLUDED.redirect_uri,\nredirect_explicit=EXCLUDED.redirect_explicit, code_challenge=EXCLUDED.code_challenge,\nkey_thumbprint=EXCLUDED.key_thumbprint, issued_at=EXCLUDED.issued_at, expires_at=EXCLUDED.expires_at,\nstate=EXCLUDED.state, receipt=EXCLUDED.receipt\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Text",
+        "Text",
+        "Bool",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6c6f7b8e4089afbda6e5134d1f87ae9643b8bfe3a81d7053d9ff36287a790f7d"
+}

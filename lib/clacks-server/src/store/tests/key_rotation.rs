@@ -1,30 +1,33 @@
-//! Key rotation retains credential meaning and real authorization behavior.
+//! Key maintenance preserves real issuer receipts and authorization outcomes.
 
 mod cleanup;
 mod rewrap;
 
-use super::credentials::{account, lock, material};
 use crate::{
+    auth::oidc::VerifiedIdentity,
+    enrollment::ApprovalPurpose,
     maintenance::keys::{
         account::{self as rotation, AccountRotationRequest},
-        migration::{self, CiphertextFamily},
+        migration,
         report::MaintenanceEnd,
     },
-    secrets::{
-        credentials::{self, CredentialIdentity, CredentialPurpose},
-        keys::WrappingKeys,
-    },
+    oauth::{config, store::OAuthStore},
+    secrets::keys::WrappingKeys,
+    store::AccountStore,
 };
 use anyhow::Context;
-use clacks_model::ids::CredentialId;
+use huskarl_core::dpop::DPoP;
+use huskarl_crypto_native::asymmetric::signer::{GenerateAlgorithm, PrivateKey};
+use oauth_as::store::Storage;
 use sqlx::{Connection, PgConnection, postgres::PgPoolOptions};
-use std::num::NonZeroU16;
+use std::sync::Arc;
+use time::Duration;
 use tokio_util::sync::CancellationToken;
 
 use crate::maintenance::keys::tests::SERIAL as MAINTENANCE_TEST;
 
 #[tokio::test]
-async fn account_rotation_resumes_and_preserves_credential_meaning() -> anyhow::Result<()> {
+async fn account_rotation_resumes_and_preserves_enrollment() -> anyhow::Result<()> {
     let _maintenance = MAINTENANCE_TEST.lock().await;
     let recorder = metrics_util::debugging::DebuggingRecorder::new();
     let snapshot = recorder.snapshotter();
@@ -43,7 +46,22 @@ async fn account_rotation_resumes_and_preserves_credential_meaning() -> anyhow::
         .connect(&url)
         .await?;
     crate::maintenance::migrate::run(&pool).await?;
-    let owner = account(&pool).await?;
+    let accounts = AccountStore::new(pool.clone());
+    let login = accounts
+        .provision_login(
+            VerifiedIdentity {
+                issuer: "https://rotation-provider.example".into(),
+                subject: ulid::Ulid::generate().to_string(),
+                display_name: None,
+            },
+            Duration::days(14),
+        )
+        .await?;
+    let principal = accounts
+        .authenticate(&login, Duration::days(14))
+        .await?
+        .context("missing login")?;
+    let owner = principal.account_id;
     let mut status_connection = pool.acquire().await?;
     let keyless =
         crate::maintenance::keys::references::status(&mut status_connection, Some(owner)).await?;
@@ -52,60 +70,48 @@ async fn account_rotation_resumes_and_preserves_credential_meaning() -> anyhow::
     };
     assert!(versions.is_empty());
     drop(status_connection);
-    let directory = tempfile::tempdir()?;
 
-    let file = directory.path().join("key");
+    let directory = tempfile::tempdir()?;
+    let file = directory.path().join("W1");
+    let target_file = directory.path().join("W2");
     std::fs::write(&file, [19u8; 32])?;
-    let wrapping = WrappingKeys::load(&crate::config::WrappingKeyConfig {
+    std::fs::write(&target_file, [20u8; 32])?;
+    let source = Arc::new(WrappingKeys::load(&crate::config::WrappingKeyConfig {
         active: "W1".into(),
         files: [("W1".into(), file.clone())].into(),
-    })?;
-    let mut identities = Vec::new();
-    let mut tx = pool.begin().await?;
-    lock(&mut tx, owner).await?;
-    for _ in 0..3 {
-        let identity = CredentialIdentity {
-            account: owner,
-            credential: CredentialId::new(),
-            purpose: CredentialPurpose::QrzDirectory,
-        };
-        let saved = credentials::put_in(
-            &mut tx,
-            &wrapping,
-            identity,
-            None,
-            material(b"rotation-provider-secret"),
-        )
-        .await?;
-        identities.push(saved);
+    })?);
+    let store = OAuthStore::new(pool.clone(), source);
+    let issuer = config::issuer(store.clone(), &"https://clacks.example".parse()?);
+    let dpop = DPoP::builder()
+        .signer(PrivateKey::generate(GenerateAlgorithm::Es256, None)?)
+        .build();
+    let mut issued = Vec::new();
+    for label in ["First", "Second", "Third"] {
+        issued.push(
+            super::enrollment::approve(
+                &issuer,
+                &store,
+                &principal,
+                &dpop,
+                label,
+                ApprovalPurpose::New,
+            )
+            .await?,
+        );
     }
-    tx.commit().await?;
-    let target_file = directory.path().join("W2");
-    std::fs::write(&target_file, [20u8; 32])?;
-    let wrapping = WrappingKeys::load(&crate::config::WrappingKeyConfig {
+    let wrapping = Arc::new(WrappingKeys::load(&crate::config::WrappingKeyConfig {
         active: "W2".into(),
         files: [("W1".into(), file), ("W2".into(), target_file.clone())].into(),
-    })?;
+    })?);
     let only_target = WrappingKeys::load(&crate::config::WrappingKeyConfig {
         active: "W2".into(),
         files: [("W2".into(), target_file)].into(),
     })?;
-    let request = AccountRotationRequest {
-        account: owner,
-        from_version: 1,
-        to_version: 2,
-        batch_size: NonZeroU16::new(1).context("invalid batch")?,
-    };
+    let request = AccountRotationRequest::new(owner, 1, 2, 1)?;
     let mut connection = PgConnection::connect(&url).await?;
     rotation::cutover(&mut connection, &wrapping, &request).await?;
     assert_eq!(
-        migration::batch(
-            &mut connection,
-            &wrapping,
-            &request,
-            CiphertextFamily::Credential
-        )
-        .await?,
+        migration::batch(&mut connection, &wrapping, &request).await?,
         1
     );
     connection.close().await?;
@@ -122,21 +128,11 @@ async fn account_rotation_resumes_and_preserves_credential_meaning() -> anyhow::
     let progress = missing_source
         .downcast_ref::<crate::maintenance::keys::report::AccountRotationError>()
         .context("rotation failure lost committed progress")?;
-    assert_eq!(progress.migrated.credentials, 0);
-    assert_eq!(progress.migrated.receipts, 0);
-    assert!(matches!(
-        progress.family,
-        Some(CiphertextFamily::Credential)
-    ));
+    assert_eq!(progress.migrated_receipts, 0);
     assert!(std::error::Error::source(progress).is_some());
     let diagnostic = format!("{missing_source:#}");
     assert!(diagnostic.contains(&owner.to_string()));
-    assert!(diagnostic.contains("credential "));
-    assert!(
-        identities
-            .iter()
-            .any(|saved| diagnostic.contains(&saved.identity.credential.to_string()))
-    );
+    assert!(diagnostic.contains("source key version 1"));
 
     let stop = CancellationToken::new();
     stop.cancel();
@@ -148,9 +144,8 @@ async fn account_rotation_resumes_and_preserves_credential_meaning() -> anyhow::
     )
     .await?;
     assert_eq!(interrupted.end, MaintenanceEnd::Interrupted);
-    assert_eq!(interrupted.migrated.credentials, 0);
-    assert_eq!(interrupted.remaining.credentials, 2);
-
+    assert_eq!(interrupted.migrated_receipts, 0);
+    assert_eq!(interrupted.remaining_receipts, 2);
     let report = rotation::rotate(
         PgConnection::connect(&url).await?,
         &wrapping,
@@ -159,8 +154,8 @@ async fn account_rotation_resumes_and_preserves_credential_meaning() -> anyhow::
     )
     .await?;
     assert_eq!(report.end, MaintenanceEnd::Complete);
-    assert_eq!(report.migrated.credentials, 2);
-    assert_eq!(report.remaining.credentials, 0);
+    assert_eq!(report.migrated_receipts, 2);
+    assert_eq!(report.remaining_receipts, 0);
     let again = rotation::rotate(
         PgConnection::connect(&url).await?,
         &wrapping,
@@ -168,67 +163,40 @@ async fn account_rotation_resumes_and_preserves_credential_meaning() -> anyhow::
         &CancellationToken::new(),
     )
     .await?;
-    assert_eq!(again.migrated.credentials, 0);
-    let stale = AccountRotationRequest {
-        from_version: 2,
-        to_version: 4,
-        ..request
-    };
-    assert!(
-        rotation::rotate(
-            PgConnection::connect(&url).await?,
-            &wrapping,
-            &stale,
-            &CancellationToken::new()
-        )
-        .await
-        .is_err()
-    );
+    assert_eq!(again.migrated_receipts, 0);
+    assert!(AccountRotationRequest::new(owner, 2, 4, 1).is_err());
 
-    let mut tx = pool.begin().await?;
-    for original in identities {
-        let stored = credentials::read_in(&mut tx, &wrapping, original.identity)
+    let current_store = OAuthStore::new(pool.clone(), wrapping);
+    for client in &issued {
+        assert!(
+            current_store
+                .authorized(&client.response.access_token)
+                .await?
+                .is_some()
+        );
+        let retained = current_store
+            .take_authorization_code(&client.code)
             .await?
-            .context("missing credential")?;
-        assert_eq!(
-            stored.metadata.material_revision,
-            original.material_revision
-        );
-        assert_eq!(stored.metadata.created_at, original.created_at);
-        assert_eq!(stored.metadata.changed_at, original.changed_at);
-        assert_eq!(
-            stored
-                .material
-                .context("missing material")?
-                .bytes
-                .as_slice(),
-            b"rotation-provider-secret"
-        );
+            .context("missing retained receipt")?;
+        current_store.put_authorization_code(retained).await?;
     }
-    let active = crate::secrets::keys::load_version(&mut *tx, &wrapping, owner, 2).await?;
-    assert_eq!(active.version, 2);
-    tx.commit().await?;
     let events = std::fs::read_to_string(output.path())?;
     assert!(events.contains("account.key.cutover"));
     assert!(events.contains(&owner.to_string()));
     assert!(events.contains("\"to_version\":2"));
-    assert!(events.contains("\"credentials\":2"));
-    assert!(!events.contains("rotation-provider-secret"));
+    assert!(events.contains("\"migrated_receipts\":2"));
+    for client in &issued {
+        assert!(!events.contains(&client.code));
+        assert!(!events.contains(&client.response.access_token));
+    }
     let metric = snapshot
         .snapshot()
         .into_vec()
         .into_iter()
-        .find(|(key, _, _, _)| {
-            key.key().name() == "clacks_secret_values_reencrypted_total"
-                && key
-                    .key()
-                    .labels()
-                    .any(|label| label.key() == "family" && label.value() == "credential")
-        })
-        .context("missing committed credential count")?;
+        .find(|(key, _, _, _)| key.key().name() == "clacks_secret_values_reencrypted_total")
+        .context("missing committed receipt count")?;
     assert_eq!(metric.3, metrics_util::debugging::DebugValue::Counter(3));
-    assert_eq!(metric.0.key().labels().count(), 1);
-
+    assert_eq!(metric.0.key().labels().count(), 0);
     pool.close().await;
     Ok(())
 }
@@ -304,12 +272,7 @@ async fn taken_receipt_is_resealed_after_rotation_and_still_contains_replay() ->
         .take_authorization_code(&first.code)
         .await?
         .context("missing consumed code")?;
-    let request = AccountRotationRequest {
-        account: principal.account_id,
-        from_version: 1,
-        to_version: 2,
-        batch_size: NonZeroU16::new(1).context("invalid batch")?,
-    };
+    let request = AccountRotationRequest::new(principal.account_id, 1, 2, 1)?;
     let report = rotation::rotate(
         PgConnection::connect(&url).await?,
         &wrapping,
@@ -317,13 +280,13 @@ async fn taken_receipt_is_resealed_after_rotation_and_still_contains_replay() ->
         &CancellationToken::new(),
     )
     .await?;
-    assert_eq!(report.migrated.receipts, 1);
+    assert_eq!(report.migrated_receipts, 1);
     store.put_authorization_code(taken).await?;
     let mut connection = pool.acquire().await?;
     let counts =
         crate::maintenance::keys::references::count(&mut connection, principal.account_id, 2)
             .await?;
-    assert_eq!(counts.receipts, 2);
+    assert_eq!(counts, 2);
     drop(connection);
     assert!(
         super::enrollment::exchange(

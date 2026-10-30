@@ -1,16 +1,16 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT wrapping_key_id, count(*) AS \"account_keys!\"\nFROM clacks.account_encryption_keys GROUP BY wrapping_key_id ORDER BY wrapping_key_id\n",
+  "query": "SELECT wrapping_key_reference, count(*) AS \"account_keys!\"\nFROM clacks.account_encryption_keys GROUP BY wrapping_key_reference ORDER BY wrapping_key_reference\n",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "wrapping_key_id",
+        "name": "wrapping_key_reference",
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "clacks.account_encryption_keys",
-            "name": "wrapping_key_id"
+            "name": "wrapping_key_reference"
           }
         }
       },
@@ -29,5 +29,5 @@
       null
     ]
   },
-  "hash": "e7746c76377a75ed40137eb07374c59b375e51dbebad0d1d8e75d29d80ce56a5"
+  "hash": "09b161d1281cdec080310676e5ba2833572835aca344dd89062ea8dac71add70"
 }

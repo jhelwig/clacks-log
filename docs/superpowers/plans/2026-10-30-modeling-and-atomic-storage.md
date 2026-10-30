@@ -348,48 +348,48 @@ account ciphertext and wrapped-key envelopes. Credential reads return common
 metadata plus `Present(material)`/`Removed`; metadata-only results carry a typed
 present-format/removal status. Public provider capabilities remain downstream.
 
-- [ ] Extend existing credential/key-rotation scenarios to exercise replacement,
+- [x] Extend existing credential/key-rotation scenarios to exercise replacement,
   removal, stale writes, receipt take/put-back across cutover and partial rewrap
   with packed values. Keep their actual authorization/read-back assertions and
   safe operator export checks; do not test AES primitives or dependency codecs.
-- [ ] Implement the three exact codec shapes above using existing dependencies.
+- [x] Implement the three exact codec shapes above using existing dependencies.
   Exercise Clacks's framing contract with focused round-trip and rejection cases,
   including deployment key IDs containing delimiters/Unicode. Through production
   decrypt operations, verify that changing supported metadata or the expected
   owner/context cannot produce accepted plaintext. Do not duplicate AES tests.
-- [ ] Replace boolean-plus-options credential state and duplicated payload codec
+- [x] Replace boolean-plus-options credential state and duplicated payload codec
   with typed variants. Check positive codec/key-version domains on construction;
   retain fixed-size secret key and nonce arrays after decoding. Keep arbitrary
   provider plaintext owned by its actual codec and zeroized as today.
-- [ ] Give account-rotation requests checked construction retaining explicit
+- [x] Give account-rotation requests checked construction retaining explicit
   source/target versions and the existing positive adjacent-version rule. Keep
   the CLI's explicit retry arguments. Retain the existing 1–100 batch bound in
   a shared crate-private maintenance batch-size value; keep active-key,
   outstanding-reference, lock and resume checks against live state.
-- [ ] Revise server `0002_desktop_authorization.sql` and
+- [x] Revise server `0002_desktop_authorization.sql` and
   `0003_credential_protection.sql` directly. Replace split envelope columns with
   `wrapped_envelope`, `receipt` and `material` packed `TEXT` values as appropriate.
   Preserve account/key and credential identity/revision/timestamps. Remove the
   mirrored purpose/state/format checks; absence of material represents removal.
-- [ ] Derive key-reference projections from the codec's fixed reference field;
+- [x] Derive key-reference projections from the codec's fixed reference field;
   retain account-qualified foreign keys and maintenance indexes through generated
   stored columns where required. No independently writable key-version shadow,
   field-by-field re-encryption updates or dual schema paths.
-- [ ] Update all key/credential/receipt SQL readers and writers, rotation counts,
+- [x] Update all key/credential/receipt SQL readers and writers, rotation counts,
   batch selection, status, replay compensation and expiry cleanup. Re-encryption
   replaces one envelope inside the existing account-locked transaction; counts
   still advance only after commit. Rewrap includes inactive account keys.
-- [ ] Preserve typed owner/code/purpose AAD bindings and authenticate the storage
+- [x] Preserve typed owner/code/purpose AAD bindings and authenticate the storage
   metadata with them. Keep purpose spelling and logical revisions unchanged;
   reject codec/decryption errors without another-key fallback. Extend rotation
   checks to preserve credential/receipt plaintext and material revisions, and to
   preserve account-key bytes and credential/receipt envelopes during deployment
   rewrap. Keep interruption/resume and completed-operation no-op assertions.
-- [ ] Use existing encryption, base64 and Serde facilities. Do not add SQLx JSON
+- [x] Use existing encryption, base64 and Serde facilities. Do not add SQLx JSON
   support or an encrypted-message dependency for envelope storage. Update
   column-level maintenance grants to permit whole-envelope replacement while
   preserving runtime/maintenance/migrator separation.
-- [ ] Regenerate/check server SQLx metadata against a fresh disposable database.
+- [x] Regenerate/check server SQLx metadata against a fresh disposable database.
   Run all server store/key tests and web issuer scenarios. Update credential,
   server, deployment and backup-key docs. Commit the coherent server change.
 

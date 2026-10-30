@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT c.account_id, c.code_digest, a.purpose AS \"purpose?\", c.receipt_key_version AS key_version,\n       c.receipt_nonce AS nonce, c.receipt_ciphertext AS ciphertext\nFROM clacks.desktop_authorization_codes c\nLEFT JOIN clacks.desktop_code_approvals a ON a.code_digest = c.code_digest AND a.account_id = c.account_id\nWHERE c.account_id = $1 AND c.receipt_key_version = $2\nORDER BY c.code_digest LIMIT $3\n",
+  "query": "SELECT c.account_id, c.code_digest, a.purpose AS \"purpose?\", c.receipt\nFROM clacks.desktop_authorization_codes c\nLEFT JOIN clacks.desktop_code_approvals a ON a.code_digest = c.code_digest AND a.account_id = c.account_id\nWHERE c.account_id = $1 AND c.receipt_key_version = $2\nORDER BY c.code_digest LIMIT $3\n",
   "describe": {
     "columns": [
       {
@@ -38,34 +38,12 @@
       },
       {
         "ordinal": 3,
-        "name": "key_version",
-        "type_info": "Int8",
+        "name": "receipt",
+        "type_info": "Text",
         "origin": {
           "Table": {
             "table": "clacks.desktop_authorization_codes",
-            "name": "receipt_key_version"
-          }
-        }
-      },
-      {
-        "ordinal": 4,
-        "name": "nonce",
-        "type_info": "Bytea",
-        "origin": {
-          "Table": {
-            "table": "clacks.desktop_authorization_codes",
-            "name": "receipt_nonce"
-          }
-        }
-      },
-      {
-        "ordinal": 5,
-        "name": "ciphertext",
-        "type_info": "Bytea",
-        "origin": {
-          "Table": {
-            "table": "clacks.desktop_authorization_codes",
-            "name": "receipt_ciphertext"
+            "name": "receipt"
           }
         }
       }
@@ -81,10 +59,8 @@
       false,
       false,
       false,
-      true,
-      true,
       true
     ]
   },
-  "hash": "ce9196c94e94406eb72943a76ed232e2be1f8333a3267c99997577be0263b3fd"
+  "hash": "151d4582c13d1fe3b49cbd482c42da6ad6a9ffa93344edb4c071d120fe973af8"
 }

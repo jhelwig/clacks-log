@@ -76,35 +76,16 @@ async fn rewrap_preserves_inactive_keys_and_rejects_missing_recovery_material() 
         ApprovalPurpose::New,
     )
     .await?;
-    let identity = CredentialIdentity {
-        account: owner,
-        credential: CredentialId::new(),
-        purpose: CredentialPurpose::QrzDirectory,
-    };
-    let mut tx = pool.begin().await?;
-    lock(&mut tx, owner).await?;
-    let original = credentials::put_in(
-        &mut tx,
-        &source,
-        identity,
-        None,
-        material(b"rewrap-provider-secret"),
-    )
-    .await?;
-    tx.commit().await?;
-    let request = AccountRotationRequest {
-        account: owner,
-        from_version: 1,
-        to_version: 2,
-        batch_size: NonZeroU16::new(1).context("invalid batch")?,
-    };
+    let request = AccountRotationRequest::new(owner, 1, 2, 1)?;
     let mut connection = PgConnection::connect(&url).await?;
     rotation::cutover(&mut connection, &source, &request).await?;
-    migration::batch(
-        &mut connection,
-        &source,
-        &request,
-        CiphertextFamily::Credential,
+    let second = crate::store::tests::enrollment::approve(
+        &issuer,
+        &store,
+        &principal,
+        &dpop,
+        "Second",
+        ApprovalPurpose::New,
     )
     .await?;
     let partial = references::status(&mut connection, Some(owner)).await?;
@@ -115,27 +96,23 @@ async fn rewrap_preserves_inactive_keys_and_rejects_missing_recovery_material() 
     assert!(
         versions
             .iter()
-            .any(|row| row.version == 1 && !row.active && row.references.receipts == 1)
+            .any(|row| row.version == 1 && !row.active && row.receipts == 1)
     );
     assert!(
         versions
             .iter()
-            .any(|row| row.version == 2 && row.active && row.references.credentials == 1)
+            .any(|row| row.version == 2 && row.active && row.receipts == 1)
     );
-    let mut tx = connection.begin().await?;
-    let missing_key = credentials::read_in(&mut tx, &only_new, identity)
-        .await
-        .err()
-        .context("missing wrapping key was accepted")?;
-    assert!(format!("{missing_key:#}").contains(&from));
-    tx.rollback().await?;
+    assert!(
+        OAuthStore::new(pool.clone(), only_new.clone())
+            .take_authorization_code(&issued.code)
+            .await
+            .is_err()
+    );
+
     connection.close().await?;
 
-    let request = rewrap::RewrapRequest {
-        from: from.clone(),
-        to: to.clone(),
-        batch_size: NonZeroU16::new(1).context("invalid batch")?,
-    };
+    let request = rewrap::RewrapRequest::new(from.clone(), to.clone(), 1)?;
     let wrong_file = directory.path().join("wrong-retained-key");
     std::fs::write(&wrong_file, [99u8; 32])?;
     let wrong = WrappingKeys::load(&crate::config::WrappingKeyConfig {
@@ -184,17 +161,12 @@ async fn rewrap_preserves_inactive_keys_and_rejects_missing_recovery_material() 
     )
     .await?;
     assert_eq!(again.migrated_account_keys, 0);
-    let mut tx = pool.begin().await?;
-    let saved = credentials::read_in(&mut tx, &only_new, identity)
-        .await?
-        .context("missing material")?;
-    assert_eq!(saved.metadata.material_revision, original.material_revision);
-    assert_eq!(
-        saved.material.context("missing material")?.bytes.as_slice(),
-        b"rewrap-provider-secret"
-    );
-    tx.commit().await?;
     let new_store = OAuthStore::new(pool.clone(), only_new);
+    let retained = new_store
+        .take_authorization_code(&second.code)
+        .await?
+        .context("missing rewrapped receipt")?;
+    new_store.put_authorization_code(retained).await?;
     let new_issuer = config::issuer(new_store.clone(), &"https://clacks.example".parse()?);
     assert!(
         new_store

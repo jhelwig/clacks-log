@@ -73,10 +73,27 @@ async fn operator_exports_committed_rotation_and_flushes_failure() -> anyhow::Re
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
-        assert!(!String::from_utf8_lossy(&output.stderr).contains("operator-provider-secret"));
+        // The child owns the disposable issuer; use its actual values instead
+        // of checking an unrelated marker or the spelling of a token field.
+        let stdout = String::from_utf8(output.stdout)?;
+        let secrets: Vec<String> = serde_json::from_str(
+            stdout
+                .lines()
+                .find_map(|line| {
+                    line.split_once("CLACKS_TEST_SECRETS ")
+                        .map(|(_, value)| value)
+                })
+                .context("child omitted its disposable secret observations")?,
+        )?;
+
         let exports = exports.lock().unwrap();
         let logs = format!("{:?}", exports.logs);
-        assert!(!logs.contains("operator-provider-secret"));
+        for secret in secrets {
+            assert!(!secret.is_empty());
+            assert!(!logs.contains(&secret));
+            assert!(!String::from_utf8_lossy(&output.stderr).contains(&secret));
+        }
+
         if outcome == "complete" {
             use opentelemetry_proto::tonic::metrics::v1::{metric::Data, number_data_point::Value};
             assert!(
@@ -101,11 +118,13 @@ async fn operator_exports_committed_rotation_and_flushes_failure() -> anyhow::Re
                         matches!(&value.value, Some(opentelemetry_proto::tonic::common::v1::any_value::Value::StringValue(value)) if value == "account.key.rotation.failed"))))
                 .collect();
             assert_eq!(events.len(), 1);
-            for field in ["credentials", "receipts"] {
-                assert!(events.iter().any(|event| event.attributes.iter().any(|attribute|
-                    attribute.key == field && attribute.value.as_ref().is_some_and(|value|
-                        matches!(value.value, Some(opentelemetry_proto::tonic::common::v1::any_value::Value::IntValue(0)))))));
-            }
+            assert!(events.iter().any(|event| event.attributes.iter().any(
+                |attribute| attribute.key == "migrated_receipts"
+                    && attribute.value.as_ref().is_some_and(|value| matches!(
+                        value.value,
+                        Some(opentelemetry_proto::tonic::common::v1::any_value::Value::IntValue(0))
+                    ))
+            )));
         } else {
             use opentelemetry_proto::tonic::common::v1::any_value::Value;
             let events: Vec<_> = exports.logs.iter().flat_map(|batch| &batch.resource_logs)
@@ -133,15 +152,10 @@ async fn operator_exports_committed_rotation_and_flushes_failure() -> anyhow::Re
 #[tokio::test]
 #[ignore = "automated child process for operator exporter isolation"]
 async fn operator_process() -> anyhow::Result<()> {
-    use crate::{
-        auth::oidc::VerifiedIdentity,
-        secrets::{
-            credentials::{self, CredentialIdentity, CredentialPurpose, SecretMaterial},
-            keys::WrappingKeys,
-        },
-        store::AccountStore,
-    };
-    use clacks_model::ids::CredentialId;
+    use crate::{auth::oidc::VerifiedIdentity, secrets::keys::WrappingKeys, store::AccountStore};
+    use huskarl_core::dpop::DPoP;
+    use huskarl_crypto_native::asymmetric::signer::{GenerateAlgorithm, PrivateKey};
+    use std::sync::Arc;
     let pool = sqlx::PgPool::connect(&std::env::var("CLACKS_TEST_DATABASE_URL")?).await?;
     crate::maintenance::migrate::run(&pool).await?;
     let store = AccountStore::new(pool.clone());
@@ -155,11 +169,11 @@ async fn operator_process() -> anyhow::Result<()> {
             time::Duration::days(14),
         )
         .await?;
-    let account = store
+    let principal = store
         .authenticate(&login, time::Duration::days(14))
         .await?
-        .context("missing login")?
-        .account_id;
+        .context("missing login")?;
+    let account = principal.account_id;
     let directory = tempfile::tempdir()?;
     let outcome = std::env::var("CLACKS_OPERATOR_TEST_OUTCOME")?;
     let from = format!("{}-W1", ulid::Ulid::generate());
@@ -167,30 +181,29 @@ async fn operator_process() -> anyhow::Result<()> {
     let target = directory.path().join("W2");
     std::fs::write(&source, [61u8; 32])?;
     std::fs::write(&target, [62u8; 32])?;
-    let keys = WrappingKeys::load(&crate::config::WrappingKeyConfig {
+    let keys = Arc::new(WrappingKeys::load(&crate::config::WrappingKeyConfig {
         active: from.clone(),
         files: [(from.clone(), source.clone())].into(),
-    })?;
-    let mut tx = pool.begin().await?;
-    sqlx::query_file!("sql/account_lock.sql", account.to_string())
-        .fetch_one(&mut *tx)
-        .await?;
-    credentials::put_in(
-        &mut tx,
-        &keys,
-        CredentialIdentity {
-            account,
-            credential: CredentialId::new(),
-            purpose: CredentialPurpose::QrzDirectory,
-        },
-        None,
-        SecretMaterial {
-            payload_format: 1,
-            bytes: zeroize::Zeroizing::new(b"operator-provider-secret".to_vec()),
-        },
+    })?);
+    let oauth = crate::oauth::store::OAuthStore::new(pool.clone(), keys);
+    let issuer = crate::oauth::config::issuer(oauth.clone(), &"https://clacks.example".parse()?);
+    let dpop = DPoP::builder()
+        .signer(PrivateKey::generate(GenerateAlgorithm::Es256, None)?)
+        .build();
+    let issued = crate::store::tests::enrollment::approve(
+        &issuer,
+        &oauth,
+        &principal,
+        &dpop,
+        "Desktop",
+        crate::enrollment::ApprovalPurpose::New,
     )
     .await?;
-    tx.commit().await?;
+    println!(
+        "CLACKS_TEST_SECRETS {}",
+        serde_json::to_string(&[issued.code, issued.response.access_token])?
+    );
+
     let failed = outcome == "failed";
     if failed {
         std::fs::write(&source, [63u8; 32])?;

@@ -1,15 +1,14 @@
 //! Current encrypted-reference counts, independent of key decryption.
 
-use super::report::EncryptedCounts;
 use clacks_model::ids::AccountId;
 use sqlx::PgConnection;
 
-/// Count both encrypted schema families within the caller's snapshot or account lock.
+/// Count receipt references within the caller's snapshot or account lock.
 pub(crate) async fn count(
     connection: &mut PgConnection,
     account: AccountId,
     version: i64,
-) -> anyhow::Result<EncryptedCounts> {
+) -> anyhow::Result<u64> {
     let row = sqlx::query_file!(
         "sql/secrets/rotation/count.sql",
         account.to_string(),
@@ -17,10 +16,7 @@ pub(crate) async fn count(
     )
     .fetch_one(connection)
     .await?;
-    Ok(EncryptedCounts {
-        credentials: row.credentials.try_into()?,
-        receipts: row.receipts.try_into()?,
-    })
+    Ok(row.receipts.try_into()?)
 }
 
 /// Nonsecret account-key metadata and current references for one version.
@@ -33,7 +29,7 @@ pub(crate) struct VersionStatus {
     /// Deployment key required to decrypt this account key.
     pub wrapping_key_id: String,
     /// Current values still requiring this version.
-    pub references: EncryptedCounts,
+    pub receipts: u64,
 }
 
 /// Aggregated current account-key usage of a deployment key.
@@ -95,11 +91,10 @@ pub(crate) async fn status(
                 Ok(VersionStatus {
                     version: row.version,
                     active: row.active,
-                    wrapping_key_id: row.wrapping_key_id,
-                    references: EncryptedCounts {
-                        credentials: row.credentials.try_into()?,
-                        receipts: row.receipts.try_into()?,
-                    },
+                    wrapping_key_id: crate::secrets::envelope::wrapping_id(
+                        &row.wrapping_key_reference,
+                    )?,
+                    receipts: row.receipts.try_into()?,
                 })
             })
             .collect::<anyhow::Result<_>>()?;
@@ -112,7 +107,9 @@ pub(crate) async fn status(
             .into_iter()
             .map(|row| {
                 Ok(WrappingStatus {
-                    wrapping_key_id: row.wrapping_key_id,
+                    wrapping_key_id: crate::secrets::envelope::wrapping_id(
+                        &row.wrapping_key_reference,
+                    )?,
                     account_keys: row.account_keys.try_into()?,
                 })
             })

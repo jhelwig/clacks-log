@@ -215,12 +215,16 @@ Restore PostgreSQL and retained wrapping keys together; see
 
 ## Credential storage and key maintenance
 
-Account service material is encrypted under independent account keys, themselves
-wrapped by deployment keys. Credential rows retain account/purpose ownership,
-material revisions and removal metadata. Encryption maintenance changes envelopes,
-not provider revisions, authorization state or public configuration. The
-[credential contract](../../docs/credential-protection-proposal.md) describes
-transaction and integration obligations for later provider workflows.
+Existing enrollment recovery receipts are encrypted under independent account
+keys wrapped by deployment keys. Each receipt and wrapped key is one complete
+versioned encrypted value; generated key-reference columns support qualified
+foreign keys, maintenance and reporting without an independent writer.
+Maintenance changes envelopes, not authorization state or enrollment identities.
+The [credential contract](../../docs/credential-protection-proposal.md) defines
+receipt transactions and rotation. Directory configuration/provisioning/lookup
+(#17), QRZ publication (#31) and LoTW integration (#30) introduce their own actual
+credential storage and extend these same maintenance operations when needed.
+No generic unused service-credential store is supplied in advance.
 
 Use the existing `clacks-admin keys` commands; no web runtime or provider login
 is required. Status needs only a maintenance-role URL file. Mutating commands
@@ -276,8 +280,7 @@ versions retain current references; finish that earlier rotation first.
 The printed retry invocation quotes the original arguments for a Portable
 Operating System Interface (POSIX) shell;
 literal shell characters in paths remain part of the argument. Failures retain
-the underlying cause and identify the account, key version and ciphertext family,
-with a public credential ID for failures in a selected service-material row.
+the underlying cause and identify the account and requested source/target key versions.
 
 Operator commands emit structured JSON logs to stderr. Pass the global `--otlp`
 flag to export their traces, metrics and logs through the same OpenTelemetry SDK
@@ -293,7 +296,7 @@ cargo run -p clacks-admin -- --otlp keys rewrap --config /etc/clacks/server.toml
 Export must be enabled in this process; an instrumented running server cannot
 collect the command's metrics. The command flushes exporters on completion,
 failure and safe interruption. Rotation failure events carry numeric committed
-counts, source/target identifiers and ciphertext family where known; requested
+receipt counts and source/target identifiers; requested
 interruption is an informational outcome, with a nonzero exit after flushing.
 
 Status is a read-only snapshot: deployment aggregates by wrapping-key ID; account

@@ -17,7 +17,6 @@ use huskarl_crypto_native::asymmetric::signer::{GenerateAlgorithm, PrivateKey};
 use oauth_as::store::Storage;
 use sqlx::{Connection, PgConnection, postgres::PgPoolOptions};
 use std::{
-    num::NonZeroU16,
     sync::Arc,
     time::{Duration, SystemTime},
 };
@@ -72,7 +71,7 @@ async fn expired_approval_cleanup_keeps_retained_receipts_usable() -> anyhow::Re
     // Exercise Clacks's approval-collection query at the boundary where a
     // bounded code-collection batch has left a stored receipt behind.
     let mut tx = pool.begin().await?;
-    crate::store::tests::credentials::lock(&mut tx, principal.account_id).await?;
+    crate::store::tests::support::lock(&mut tx, principal.account_id).await?;
     let expired_at = time::OffsetDateTime::from(now + Duration::from_secs(1200));
     sqlx::query_file!(
         "sql/oauth/cleanup_desktop_code_approvals.sql",
@@ -83,12 +82,7 @@ async fn expired_approval_cleanup_keeps_retained_receipts_usable() -> anyhow::Re
     .await?;
     tx.commit().await?;
 
-    let request = AccountRotationRequest {
-        account: principal.account_id,
-        from_version: 1,
-        to_version: 2,
-        batch_size: NonZeroU16::new(100).context("invalid batch")?,
-    };
+    let request = AccountRotationRequest::new(principal.account_id, 1, 2, 100)?;
     let result = account::rotate(
         PgConnection::connect(&url).await?,
         &wrapping,
@@ -97,7 +91,7 @@ async fn expired_approval_cleanup_keeps_retained_receipts_usable() -> anyhow::Re
     )
     .await?;
     assert_eq!(result.end, MaintenanceEnd::Complete);
-    assert_eq!(result.migrated.receipts, 1);
+    assert_eq!(result.migrated_receipts, 1);
     // Migration must leave the consumed code decodable under its immutable context.
     assert!(store.take_authorization_code(&issued.code).await?.is_some());
     pool.close().await;

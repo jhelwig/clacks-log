@@ -1,38 +1,65 @@
 //! Online account-key cutover and resumable bounded migration.
 
 use super::{
-    migration::{self, CiphertextFamily},
-    references,
-    report::{AccountRotationError, AccountRotationReport, EncryptedCounts, MaintenanceEnd},
+    migration, references,
+    report::{AccountRotationError, AccountRotationReport, MaintenanceEnd},
 };
 use crate::secrets::keys::{self, WrappingKeys};
 use anyhow::Context;
 use clacks_model::ids::AccountId;
 use sqlx::{Connection, Either, PgConnection, postgres::PgAdvisoryLock};
-use std::num::NonZeroU16;
 use tokio_util::sync::CancellationToken;
 
 /// Explicit source and next version make retries unambiguous.
 pub(crate) struct AccountRotationRequest {
     /// Owning account.
-    pub account: AccountId,
-    /// Currently active source, or inactive source of an interrupted rotation.
-    pub from_version: i64,
-    /// Exact next version; never inferred from current state on retry.
-    pub to_version: i64,
-    /// Maximum rows committed in one batch, in the range 1–100.
-    pub batch_size: NonZeroU16,
+    account: AccountId,
+    /// Explicit source account-key version.
+    from_version: i64,
+    /// Adjacent positive target account-key version.
+    to_version: i64,
+    /// Checked maximum encrypted rows in one transaction.
+    batch_size: super::MaintenanceBatchSize,
 }
 
 impl AccountRotationRequest {
-    /// Refuse impossible transitions before acquiring or changing database state.
-    pub(super) fn validate(&self) -> anyhow::Result<()> {
+    /// Select an explicit adjacent positive version transition for resumable rotation.
+    pub(crate) fn new(
+        account: AccountId,
+        from_version: i64,
+        to_version: i64,
+        batch_size: u16,
+    ) -> anyhow::Result<Self> {
         anyhow::ensure!(
-            self.from_version > 0 && self.from_version.checked_add(1) == Some(self.to_version),
+            from_version > 0 && from_version.checked_add(1) == Some(to_version),
             "target must be the next positive account-key version"
         );
-        anyhow::ensure!(self.batch_size.get() <= 100, "batch size must be 1–100");
-        Ok(())
+        Ok(Self {
+            account,
+            from_version,
+            to_version,
+            batch_size: batch_size.try_into()?,
+        })
+    }
+
+    /// Return the owning account.
+    pub(crate) fn account(&self) -> AccountId {
+        self.account
+    }
+
+    /// Return the explicit source version retained across retries.
+    pub(crate) fn source_version(&self) -> i64 {
+        self.from_version
+    }
+
+    /// Return the explicit adjacent target version retained across retries.
+    pub(crate) fn target_version(&self) -> i64 {
+        self.to_version
+    }
+
+    /// Return the checked maximum rows per transaction.
+    pub(crate) fn batch_size(&self) -> super::MaintenanceBatchSize {
+        self.batch_size
     }
 }
 
@@ -45,7 +72,6 @@ pub(crate) async fn cutover(
     wrapping: &WrappingKeys,
     request: &AccountRotationRequest,
 ) -> anyhow::Result<()> {
-    request.validate()?;
     let mut tx = connection.begin().await?;
     sqlx::query_file!("sql/account_lock.sql", request.account.to_string())
         .fetch_one(&mut *tx)
@@ -76,7 +102,7 @@ pub(crate) async fn cutover(
     for row in rows.iter().filter(|row| !row.active) {
         let counts = references::count(&mut tx, request.account, row.key_version).await?;
         anyhow::ensure!(
-            counts.credentials == 0 && counts.receipts == 0,
+            counts == 0,
             "older inactive key {} still has encrypted references; resume its rotation",
             row.key_version
         );
@@ -107,39 +133,30 @@ pub(crate) async fn rotate(
     request: &AccountRotationRequest,
     stop: &CancellationToken,
 ) -> anyhow::Result<AccountRotationReport> {
-    request.validate()?;
     let lock = PgAdvisoryLock::new(super::MAINTENANCE_LOCK);
     let Either::Left(mut guard) = lock.try_acquire(connection).await? else {
         anyhow::bail!("key maintenance is busy; retry the same command");
     };
-    let mut migrated = EncryptedCounts::default();
+    let mut migrated_receipts = 0;
 
-    let mut current_family = None;
     let result: anyhow::Result<AccountRotationReport> = async {
         if !stop.is_cancelled() {
             cutover(guard.as_mut(), wrapping, request).await?;
         }
-        for family in [CiphertextFamily::Credential, CiphertextFamily::Receipt] {
-            current_family = Some(family);
             while !stop.is_cancelled() {
-                let changed = migration::batch(guard.as_mut(), wrapping, request, family)
+                let changed = migration::batch(guard.as_mut(), wrapping, request)
                     .await
                     .with_context(|| {
                         format!(
-                            "{family:?} ciphertext batch for account {}, source key version {}, target key version {} failed",
+                            "receipt batch for account {}, source key version {}, target key version {} failed",
                             request.account, request.from_version, request.to_version
                         )
                     })?;
-                match family {
-                    CiphertextFamily::Credential => migrated.credentials += changed,
-                    CiphertextFamily::Receipt => migrated.receipts += changed,
-                }
+                migrated_receipts += changed;
                 if changed == 0 {
                     break;
                 }
             }
-        }
-        current_family = None;
         let mut tx = guard.as_mut().begin().await?;
         sqlx::query_file!("sql/account_lock.sql", request.account.to_string())
             .fetch_one(&mut *tx).await?;
@@ -148,21 +165,19 @@ pub(crate) async fn rotate(
             MaintenanceEnd::Interrupted
         } else {
             anyhow::ensure!(
-                remaining.credentials == 0 && remaining.receipts == 0,
+                remaining == 0,
                 "source references remain after migration"
             );
             MaintenanceEnd::Complete
         };
         tx.commit().await?;
 
-        tracing::info!(event = "account.key.rotation", account_id = %request.account, from_version = request.from_version, to_version = request.to_version, credentials = migrated.credentials, receipts = migrated.receipts, remaining_credentials = remaining.credentials, remaining_receipts = remaining.receipts, outcome = ?end, "Account-key migration stopped");
+        tracing::info!(event = "account.key.rotation", account_id = %request.account, from_version = request.from_version, to_version = request.to_version, migrated_receipts, remaining_receipts = remaining, outcome = ?end, "Account-key migration stopped");
         Ok(AccountRotationReport {
             account: request.account, from_version: request.from_version,
             to_version: request.to_version, end,
-            migrated: EncryptedCounts {
-                credentials: migrated.credentials, receipts: migrated.receipts,
-            },
-            remaining,
+            migrated_receipts,
+            remaining_receipts: remaining,
         })
     }.await;
 
@@ -178,8 +193,7 @@ pub(crate) async fn rotate(
                 account: request.account,
                 from_version: request.from_version,
                 to_version: request.to_version,
-                migrated,
-                family: current_family,
+                migrated_receipts,
                 source,
             }
             .into()

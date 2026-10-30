@@ -13,7 +13,6 @@ use clap::{Args, Subcommand};
 use sqlx::{Connection, PgConnection, postgres::PgConnectOptions};
 use std::io::Write;
 use std::{
-    num::NonZeroU16,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -142,12 +141,7 @@ pub(crate) async fn run(command: &KeysCommand) -> anyhow::Result<MaintenanceEnd>
             KeysCommand::Rewrap { options, from, to } => {
                 let settings = KeySettings::load(&options.config)?;
                 let keys = WrappingKeys::load(&settings.wrapping_keys)?;
-                let request = RewrapRequest {
-                    from: from.clone(),
-                    to: to.clone(),
-                    batch_size: NonZeroU16::new(options.batch_size)
-                        .ok_or_else(|| anyhow::anyhow!("batch size must be positive"))?,
-                };
+                let request = RewrapRequest::new(from.clone(), to.clone(), options.batch_size)?;
                 let report = rewrap::run(
                     connection(&options.database_url_file).await?,
                     &keys,
@@ -166,13 +160,12 @@ pub(crate) async fn run(command: &KeysCommand) -> anyhow::Result<MaintenanceEnd>
             } => {
                 let settings = KeySettings::load(&options.config)?;
                 let keys = WrappingKeys::load(&settings.wrapping_keys)?;
-                let request = AccountRotationRequest {
-                    account: *account,
-                    from_version: *from_version,
-                    to_version: *to_version,
-                    batch_size: NonZeroU16::new(options.batch_size)
-                        .ok_or_else(|| anyhow::anyhow!("batch size must be positive"))?,
-                };
+                let request = AccountRotationRequest::new(
+                    *account,
+                    *from_version,
+                    *to_version,
+                    options.batch_size,
+                )?;
                 let report = account::rotate(
                     connection(&options.database_url_file).await?,
                     &keys,
@@ -209,11 +202,12 @@ pub(crate) async fn run(command: &KeysCommand) -> anyhow::Result<MaintenanceEnd>
                 ..
             } => {
                 let progress = error.downcast_ref::<super::report::AccountRotationError>();
-                let migrated = progress.map(|failure| failure.migrated).unwrap_or_default();
-                let family = progress.and_then(|failure| failure.family);
+                let migrated = progress
+                    .map(|failure| failure.migrated_receipts)
+                    .unwrap_or_default();
                 tracing::error!(event = "account.key.rotation.failed", account_id = %account,
-                    from_version, to_version, credentials = migrated.credentials,
-                    receipts = migrated.receipts, family = ?family, error = %format_args!("{error:#}"),
+                    from_version, to_version,
+                    migrated_receipts = migrated, error = %format_args!("{error:#}"),
                     "Account-key migration failed; retry the same source/target");
             }
             KeysCommand::Rewrap { from, to, .. } => {

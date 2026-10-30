@@ -28,9 +28,8 @@ INSERT INTO clacks.desktop_client_redirects VALUES
 CREATE TABLE clacks.account_encryption_keys (
     account_id TEXT NOT NULL REFERENCES clacks.accounts,
     key_version BIGINT NOT NULL,
-    wrapping_key_id TEXT NOT NULL,
-    wrapping_nonce BYTEA NOT NULL,
-    wrapped_key BYTEA NOT NULL,
+    wrapped_envelope TEXT NOT NULL,
+    wrapping_key_reference TEXT GENERATED ALWAYS AS (split_part(wrapped_envelope, '$', 5)) STORED NOT NULL,
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (account_id, key_version)
@@ -106,9 +105,8 @@ CREATE TABLE clacks.desktop_authorization_codes (
     issued_at TIMESTAMPTZ NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     state TEXT NOT NULL CHECK (state IN ('issued', 'consumed', 'replayed')),
-    receipt_key_version BIGINT,
-    receipt_nonce BYTEA,
-    receipt_ciphertext BYTEA,
+    receipt TEXT,
+    receipt_key_version BIGINT GENERATED ALWAYS AS (NULLIF(split_part(receipt, '$', 5), '')::BIGINT) STORED,
     FOREIGN KEY (account_id, receipt_key_version) REFERENCES clacks.account_encryption_keys
 );
 CREATE INDEX desktop_codes_expiration ON clacks.desktop_authorization_codes(expires_at);

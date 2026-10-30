@@ -2,15 +2,6 @@
 
 use clacks_model::ids::AccountId;
 
-/// Current ciphertext references or committed migration effects by schema family.
-#[derive(Clone, Copy, Debug, Default, serde::Serialize)]
-pub(crate) struct EncryptedCounts {
-    /// Protected service values.
-    pub credentials: u64,
-    /// Encrypted consumed-code receipts.
-    pub receipts: u64,
-}
-
 /// Whether the requested migration finished or stopped at a safe boundary.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 pub(crate) enum MaintenanceEnd {
@@ -32,9 +23,9 @@ pub(crate) struct AccountRotationReport {
     /// Completed migration or safe interruption.
     pub end: MaintenanceEnd,
     /// Rows committed by this invocation.
-    pub migrated: EncryptedCounts,
+    pub migrated_receipts: u64,
     /// Current rows still referencing the source.
-    pub remaining: EncryptedCounts,
+    pub remaining_receipts: u64,
 }
 
 /// Observed effects of one deployment wrapping-key migration invocation.
@@ -54,7 +45,9 @@ pub(crate) struct RewrapReport {
 
 /// Failed account rotation with the work already committed by this invocation.
 #[derive(Debug, thiserror::Error)]
-#[error("account {account} rotation {from_version}→{to_version} stopped after {credentials} credentials and {receipts} receipts; retry the same source/target", credentials = .migrated.credentials, receipts = .migrated.receipts)]
+#[error(
+    "account {account} rotation {from_version}→{to_version} stopped after {migrated_receipts} receipts; retry the same source/target"
+)]
 pub(crate) struct AccountRotationError {
     /// Account being maintained.
     pub account: AccountId,
@@ -63,9 +56,7 @@ pub(crate) struct AccountRotationError {
     /// Requested target account-key version.
     pub to_version: i64,
     /// Rows committed before failure, excluding the rolled-back batch.
-    pub migrated: EncryptedCounts,
-    /// Ciphertext family being processed, absent during cutover or final counting.
-    pub family: Option<super::migration::CiphertextFamily>,
+    pub migrated_receipts: u64,
     /// Failing operation, including row context when available.
     #[source]
     pub source: anyhow::Error,

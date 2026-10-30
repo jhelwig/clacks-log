@@ -2,7 +2,7 @@
 
 use crate::{
     auth::oidc::VerifiedIdentity,
-    secrets::{keys, receipt},
+    secrets::{envelope::ReceiptEnvelope, keys, receipt},
     store::AccountStore,
 };
 use sqlx::postgres::PgPoolOptions;
@@ -50,7 +50,7 @@ async fn receipt_is_account_bound_and_survives_store_reopen() -> anyhow::Result<
     };
     let wrapping = keys::WrappingKeys::load(&config)?;
     let mut transaction = pool.begin().await?;
-    super::credentials::lock(&mut transaction, account).await?;
+    super::support::lock(&mut transaction, account).await?;
     let key = keys::active_in(&mut transaction, &wrapping, account).await?;
     let context = receipt::ReceiptContext {
         account,
@@ -66,9 +66,7 @@ async fn receipt_is_account_bound_and_survives_store_reopen() -> anyhow::Result<
         "tests/sql/store_receipt.sql",
         context.code_digest.as_slice(),
         account.to_string(),
-        encrypted.key_version,
-        encrypted.nonce,
-        encrypted.ciphertext
+        encrypted.encode()
     )
     .execute(&mut *transaction)
     .await?;
@@ -81,14 +79,11 @@ async fn receipt_is_account_bound_and_survives_store_reopen() -> anyhow::Result<
         .connect(&std::env::var("CLACKS_TEST_DATABASE_URL")?)
         .await?;
     let restored = keys::WrappingKeys::load(&config)?;
-    let stored = sqlx::query_file_as!(
-        receipt::EncryptedReceipt,
-        "tests/sql/load_receipt.sql",
-        context.code_digest.as_slice()
-    )
-    .fetch_one(&pool)
-    .await?;
-    let key = keys::load_version(&pool, &restored, account, stored.key_version).await?;
+    let row = sqlx::query_file!("tests/sql/load_receipt.sql", context.code_digest.as_slice())
+        .fetch_one(&pool)
+        .await?;
+    let stored = ReceiptEnvelope::parse(&row.receipt)?;
+    let key = keys::load_version(&pool, &restored, account, stored.key_version()).await?;
     let decoded = receipt::open(&key, &context, &stored)?;
     assert_eq!(decoded.access_token.as_deref(), Some("access-secret"));
     assert_eq!(decoded.refresh_token.as_deref(), Some("refresh-secret"));

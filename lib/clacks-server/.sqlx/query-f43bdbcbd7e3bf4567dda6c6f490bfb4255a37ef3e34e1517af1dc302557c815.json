@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT key_version, wrapped_envelope FROM clacks.account_encryption_keys\nWHERE account_id = $1 AND active\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key_version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.account_encryption_keys",
+            "name": "key_version"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "wrapped_envelope",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.account_encryption_keys",
+            "name": "wrapped_envelope"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "f43bdbcbd7e3bf4567dda6c6f490bfb4255a37ef3e34e1517af1dc302557c815"
+}
