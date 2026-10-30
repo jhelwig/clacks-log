@@ -1,12 +1,8 @@
 # Credential storage and key rotation
 
-This proposal defines [issue #13](https://github.com/jhelwig/clacks-log/issues/13):
-protect the existing enrollment-recovery path and maintain its account and
-deployment keys. PR #58 also applies the modeling and atomic-storage changes in
-the [implementation plan](superpowers/plans/2026-10-30-modeling-and-atomic-storage.md).
-These are agreed delivery boundaries; the engineering defaults below do not add
-product requirements. This document specifies the target, not implementation
-completion or verification results.
+This contract defines protection of the enrollment-recovery path and maintenance
+of its account and deployment keys. The engineering defaults below do not add
+product requirements.
 
 ## 1. Settled requirements
 
