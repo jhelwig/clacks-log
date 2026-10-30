@@ -97,12 +97,12 @@ async fn profile_save_with_deleted_default_is_pending() -> anyhow::Result<()> {
     .await?;
     let a = equipment(31, "Rig A");
     let row = saved(settings::save_equipment(&store, None, &a).await?);
-    save::save(&store, row.key, Some(&row), RecordState::Deleted).await?;
+    save::save(&store, row.key(), Some(&row), RecordState::Deleted).await?;
     let home = profile(30, Some(31));
     let result = settings::save_profile(&store, None, &home).await?;
     assert_eq!(result.missing_equipment, Some(a.id()));
     let row = saved(result.outcome);
-    assert!(row.pending.is_some());
+    assert!(row.pending().is_some());
     assert_eq!(
         row.working_state(),
         Some(&RecordState::Live(RecordValue::Profile(Box::new(home))))
@@ -249,12 +249,12 @@ fn settings_telemetry_counts_commits_without_payloads() -> anyhow::Result<()> {
                     operating::save(&store, &active, &active).await?;
                     save::save(
                         &store,
-                        second_profile.key,
+                        second_profile.key(),
                         Some(&second_profile),
                         RecordState::Deleted,
                     )
                     .await?;
-                    save::save(&store, second.key, Some(&second), RecordState::Deleted).await?;
+                    save::save(&store, second.key(), Some(&second), RecordState::Deleted).await?;
                     store.close().await?;
                     Ok(())
                 })

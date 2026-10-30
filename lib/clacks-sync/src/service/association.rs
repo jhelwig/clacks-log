@@ -246,7 +246,7 @@ fn candidate(q: &Qso, input: &CandidateInput<'_>) -> anyhow::Result<Option<Vec<S
         _ => reasons.push("missing mode".into()),
     }
     if let Reported::Value(time) = c.start {
-        let (lo, hi) = time.bounds()?;
+        let (lo, hi) = time.bounds();
         let t = q.start().unix_seconds();
         let gap = if t < lo {
             i128::from(lo) - i128::from(t)

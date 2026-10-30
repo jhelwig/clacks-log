@@ -186,7 +186,7 @@ impl OperatingEditor {
             .iter()
             .chain(&snapshot.equipment)
             .filter(|r| matches!(r.working_state(), Some(RecordState::Deleted)))
-            .map(|r| r.key.id)
+            .map(|r| r.key().id)
             .collect();
         for id in &deleted {
             self.forget_source(*id);

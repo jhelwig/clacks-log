@@ -1,5 +1,8 @@
 //! Pinned, data-driven LoTW normalization shared by comparison and signing.
 
+mod configuration;
+mod frozen;
+
 use super::{
     adif::{self, AdifFields},
     destination::{Destination, ExternalRecordKey, LotwRecordKey, RemoteRecordId, Service},
@@ -91,66 +94,6 @@ pub struct LotwConfiguration {
     pub station_fields: Vec<String>,
 }
 
-impl LotwConfiguration {
-    /// Load a supplied configuration and reject unsupported mappings/ranges.
-    #[tracing::instrument(skip_all, name = "model.lotw_configuration.load", level = "debug")]
-    pub fn from_json(json: &str) -> anyhow::Result<Self> {
-        let c: Self = serde_json::from_str(json)?;
-        if c.release.is_empty()
-            || c.bands.is_empty()
-            || c.mapping.is_empty()
-            || c.mapping
-                .keys()
-                .map(|k| k.to_uppercase())
-                .collect::<BTreeSet<_>>()
-                .len()
-                != c.mapping.len()
-            || c.mapping
-                .iter()
-                .any(|(k, v)| k.trim().is_empty() || !c.modes.contains_key(v))
-            || c.bands
-                .iter()
-                .any(|b| b.label.is_empty() || b.lower_hz == 0 || b.upper_hz < b.lower_hz)
-        {
-            return Err(ServiceError::Invalid {
-                detail: "invalid LoTW normalization configuration".into(),
-            }
-            .into());
-        }
-        Ok(c)
-    }
-
-    /// Load the offline pinned compatibility configuration, returning malformed data errors.
-    pub fn bundled() -> anyhow::Result<Self> {
-        Self::from_json(include_str!("../../data/lotw-11.34.json"))
-    }
-
-    /// Classify a supplied pair using service definitions, keeping band-only pairs frequency-free.
-    pub fn band(&self, pair: &BandFrequency) -> anyhow::Result<String> {
-        let found = if let Some(hz) = pair.frequency() {
-            self.bands
-                .iter()
-                .find(|b| (b.lower_hz..=b.upper_hz).contains(&hz.get()))
-        } else {
-            pair.band().and_then(|b| {
-                self.bands
-                    .iter()
-                    .find(|v| v.label.eq_ignore_ascii_case(b.label()))
-            })
-        };
-        found.map(|b| b.label.clone()).ok_or_else(|| {
-            tracing::debug!(
-                event = "projection.conversion_unavailable",
-                reason = "unmapped_band"
-            );
-            ServiceError::Invalid {
-                detail: format!("LoTW band unavailable for {pair:?}"),
-            }
-            .into()
-        })
-    }
-}
-
 /// Public certificate identity used to prepare a submission without cryptography dependencies.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PublicSigningIdentity {
@@ -169,31 +112,39 @@ pub struct LotwMappingProvenance {
     pub upstream_commit: String,
 }
 
-/// Prepared signing values and their interpretation source, without signature bytes.
+/// Frozen signing values and the exact remote identity they describe.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "LotwSubmissionFields")]
 pub struct LotwSubmission {
-    /// Frozen mapping source; retained for interpretation rather than publication equality.
+    /// Definition source used to prepare these frozen values.
+    mapping_provenance: LotwMappingProvenance,
+    /// Selected remote collection namespace.
+    destination: crate::ids::DestinationId,
+    /// Actual own certificate identity selected for signing.
+    signing_identity: PublicSigningIdentity,
+    /// Frozen contact fields at emitted precision.
+    contact_fields: AdifFields,
+    /// Frozen emitted station fields.
+    station_fields: AdifFields,
+    /// Account-qualified native identity.
+    key: LotwRecordKey,
+}
+
+/// Input for preparing or restoring a coherent frozen LoTW submission.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LotwSubmissionFields {
+    /// Definitions used when these values were prepared.
     pub mapping_provenance: LotwMappingProvenance,
     /// Remote collection namespace.
     pub destination: crate::ids::DestinationId,
-    /// Actual own identity selected for signing.
+    /// Actual certificate identity selected for signing.
     pub signing_identity: PublicSigningIdentity,
-    /// Contact fields at their emitted precision.
+    /// Contact values at their emitted precision.
     pub contact_fields: AdifFields,
-    /// All emitted station fields.
+    /// Emitted station values.
     pub station_fields: AdifFields,
-    /// Exact remote identity frozen with these values.
+    /// Exact remote identity of these contact values.
     pub key: LotwRecordKey,
-}
-
-impl LotwSubmission {
-    /// Identify this prepared remote record without recomputing mode under newer mappings.
-    pub fn external_key(&self) -> ExternalRecordKey {
-        ExternalRecordKey {
-            destination: self.destination,
-            record: RemoteRecordId::Lotw(self.key.clone()),
-        }
-    }
 }
 
 /// Read-only inputs to prepare one real LoTW signing value.
@@ -384,7 +335,7 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
             .into());
         }
     }
-    Ok(LotwSubmission {
+    LotwSubmissionFields {
         mapping_provenance: LotwMappingProvenance {
             release: c.release.clone(),
             upstream_commit: c.upstream_commit.clone(),
@@ -394,7 +345,8 @@ fn prepare(input: &LotwProjectionInput<'_>) -> anyhow::Result<LotwSubmission> {
         contact_fields: fields,
         station_fields: station,
         key,
-    })
+    }
+    .try_into()
 }
 
 /// Evaluate explicitly mapped own IOTA for both imported baselines and real signing inputs.

@@ -29,7 +29,7 @@ pub(super) fn show(
     if let Some(tag) = tag(&review.preview.tag) {
         ui.heading(format!("Delete {}", tag.name));
     }
-    ui.monospace(review.preview.tag.key.id.to_string());
+    ui.monospace(review.preview.tag.key().id.to_string());
     let counts = &review.preview.counts;
     ui.label(format!(
         "{} contacts · {} also tagged elsewhere · {} unique to this logbook",
@@ -70,7 +70,7 @@ pub(super) fn show(
         let expected = Arc::clone(&review.preview);
         frame.send(sender, LogbookAction::DeleteTag { expected, choice });
     } else if reload {
-        let RecordId::Tag(id) = review.preview.tag.key.id else {
+        let RecordId::Tag(id) = review.preview.tag.key().id else {
             return;
         };
         frame.send(sender, LogbookAction::PreviewDeletion { id });

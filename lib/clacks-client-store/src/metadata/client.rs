@@ -83,32 +83,31 @@ pub(crate) async fn store(
     connection: &mut SqliteConnection,
     value: &ClientRecord,
 ) -> anyhow::Result<()> {
-    value.validate()?;
-    if load(connection, value.key).await?.as_ref() == Some(value) {
+    if load(connection, value.key()).await?.as_ref() == Some(value) {
         if matches!(
             value.working_state(),
             Some(clacks_sync::record::RecordState::Deleted)
         ) {
-            crate::operating::selections::forget_source_in(connection, value.key).await?;
-            crate::logbooks::selection::fallback_deleted_in(connection, value.key).await?;
+            crate::operating::selections::forget_source_in(connection, value.key()).await?;
+            crate::logbooks::selection::fallback_deleted_in(connection, value.key()).await?;
         }
         return Ok(());
     }
-    let latest = insert_observation(connection, &value.latest).await?;
-    let pending = match &value.pending {
+    let latest = insert_observation(connection, value.latest()).await?;
+    let pending = match &value.pending() {
         Some(pending) => Some(insert_pending(connection, pending).await?),
         None => None,
     };
-    let account = value.key.account.to_string();
-    let kind = crate::payload::kind(value.key.id);
-    let id = value.key.id.to_string();
+    let account = value.key().account.to_string();
+    let kind = crate::payload::kind(value.key().id);
+    let id = value.key().id.to_string();
     sqlx::query_file!("sql/client/store.sql", account, kind, id, latest, pending)
         .execute(&mut *connection)
         .await?;
     sqlx::query_file!("sql/client/retained_clear.sql", account, kind, id)
         .execute(&mut *connection)
         .await?;
-    for (ordinal, retained) in value.retained.iter().enumerate() {
+    for (ordinal, retained) in value.retained().iter().enumerate() {
         let ordinal = i64::try_from(ordinal)?;
         let envelope = insert_envelope(connection, retained).await?;
         sqlx::query_file!(
@@ -126,8 +125,8 @@ pub(crate) async fn store(
         value.working_state(),
         Some(clacks_sync::record::RecordState::Deleted)
     ) {
-        crate::operating::selections::forget_source_in(connection, value.key).await?;
-        crate::logbooks::selection::fallback_deleted_in(connection, value.key).await?;
+        crate::operating::selections::forget_source_in(connection, value.key()).await?;
+        crate::logbooks::selection::fallback_deleted_in(connection, value.key()).await?;
     }
     Ok(())
 }
@@ -162,13 +161,13 @@ pub(crate) async fn load(
         );
         retained.push(load_envelope(connection, key, row.envelope_id).await?);
     }
-    let value = ClientRecord {
+    let value: ClientRecord = clacks_sync::client::ClientRecordFields {
         key,
         latest,
         pending,
         retained,
-    };
-    value.validate()?;
+    }
+    .try_into()?;
     Ok(Some(value))
 }
 

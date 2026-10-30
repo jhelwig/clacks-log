@@ -84,14 +84,13 @@ impl WindowManifest {
         }
         let mut unique = BTreeMap::new();
         for record in records {
-            record.stamp.validate()?;
             if record.key.account != account {
                 return Err(MetadataError::Scope {
                     detail: format!("manifest record {:?} crosses account", record.key),
                 }
                 .into());
             }
-            if record.stamp.accepted_at.revision == 0 {
+            if record.stamp.accepted_at().revision == 0 {
                 return Err(MetadataError::Invalid {
                     detail: format!("zero accepted position for {:?}", record.key),
                 }
@@ -127,7 +126,6 @@ impl WindowManifest {
             }
             let mut member_keys = BTreeSet::new();
             for member in &unit.members {
-                member.stamp.validate()?;
                 anyhow::ensure!(
                     member.key.account == account
                         && unique.contains_key(&member.key)
@@ -375,7 +373,7 @@ pub fn plan_batch(
     let mut blocked = BTreeSet::new();
     for row in &candidates {
         if evidence
-            .baseline(manifest.account, row.stamp.baseline)?
+            .baseline(manifest.account, row.stamp.baseline())?
             .is_none()
         {
             blocked.insert(row.key);

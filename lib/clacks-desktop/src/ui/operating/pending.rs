@@ -38,7 +38,7 @@ pub(super) fn show(
             for record in snapshot
                 .profiles
                 .iter()
-                .filter(|r| !known_deletions.contains(&r.key.id))
+                .filter(|r| !known_deletions.contains(&r.key().id))
             {
                 if let Some(profile) = profile(record) {
                     ui.push_id(profile.id(), |ui| {
@@ -50,7 +50,7 @@ pub(super) fn show(
                                 snapshot
                                     .equipment
                                     .iter()
-                                    .filter(|r| !known_deletions.contains(&r.key.id))
+                                    .filter(|r| !known_deletions.contains(&r.key().id))
                                     .filter_map(configuration)
                                     .find(|e| e.id() == id)
                             });
@@ -113,7 +113,7 @@ pub(super) fn show(
             for equipment in snapshot
                 .equipment
                 .iter()
-                .filter(|r| !known_deletions.contains(&r.key.id))
+                .filter(|r| !known_deletions.contains(&r.key().id))
                 .filter_map(configuration)
             {
                 ui.push_id(equipment.id(), |ui| {

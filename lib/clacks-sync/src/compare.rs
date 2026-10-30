@@ -49,15 +49,13 @@ pub fn compare_records(
     right: &AcceptedRecord,
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<RecordRelation> {
-    left.validate()?;
-    right.validate()?;
     if left.key != right.key {
         return Err(MetadataError::Scope {
             detail: format!("comparison {:?} versus {:?}", left.key, right.key),
         }
         .into());
     }
-    if left.stamp.accepted_at == right.stamp.accepted_at
+    if left.stamp.accepted_at() == right.stamp.accepted_at()
         && let (Some(a), Some(b)) = (
             crate::service::payload(left),
             crate::service::payload(right),
@@ -74,11 +72,14 @@ pub fn compare_records(
             }
         }
     }
-    if left.stamp.accepted_at == right.stamp.accepted_at && !left.state.same_values(&right.state) {
+    if left.stamp.accepted_at() == right.stamp.accepted_at()
+        && !left.state.same_values(&right.state)
+    {
         return Err(MetadataError::Conflict {
             detail: format!(
                 "record {:?} has different values at {:?}",
-                left.key, left.stamp.accepted_at
+                left.key,
+                left.stamp.accepted_at()
             ),
         }
         .into());
@@ -93,27 +94,28 @@ pub(crate) fn compare_contexts(
     right: &crate::record::VersionStamp,
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<RecordRelation> {
-    let lb = evidence.baseline(key.account, left.baseline)?;
-    left.validate()?;
-    right.validate()?;
-    let rb = evidence.baseline(key.account, right.baseline)?;
+    let lb = evidence.baseline(key.account, left.baseline())?;
+    let rb = evidence.baseline(key.account, right.baseline())?;
     let (Some(lb), Some(rb)) = (lb, rb) else {
         return Ok(RecordRelation::Unknown(UnknownReason::MissingBaseline));
     };
     let positions = evidence
         .lineage
-        .compare(left.accepted_at, right.accepted_at);
-    let raw = left.vector.compare_components(&right.vector);
-    let left_covered = rb.coverage.covers(left.accepted_at);
-    let right_covered = lb.coverage.covers(right.accepted_at);
-    if left.accepted_at == right.accepted_at {
+        .compare(left.accepted_at(), right.accepted_at());
+    let raw = left.vector().compare_components(right.vector());
+    let left_covered = rb.coverage.covers(left.accepted_at());
+    let right_covered = lb.coverage.covers(right.accepted_at());
+    if left.accepted_at() == right.accepted_at() {
         let compatible_projection = lb != rb
             && left
-                .vector
+                .vector()
                 .entries()
-                .chain(right.vector.entries())
+                .chain(right.vector().entries())
                 .all(|(actor, _)| {
-                    let (l, r) = (left.vector.component(actor), right.vector.component(actor));
+                    let (l, r) = (
+                        left.vector().component(actor),
+                        right.vector().component(actor),
+                    );
                     l == r || (matches!(actor, ClockActor::Client(_)) && (l == 0 || r == 0))
                 });
         if raw == VectorRelation::Equal || compatible_projection {
@@ -129,13 +131,13 @@ pub(crate) fn compare_contexts(
     }
     // An explicit server component can prove record succession beyond global coverage.
     let l_in_r = right
-        .vector
-        .component(ClockActor::Server(left.accepted_at.timeline))
-        >= left.accepted_at.revision;
+        .vector()
+        .component(ClockActor::Server(left.accepted_at().timeline))
+        >= left.accepted_at().revision;
     let r_in_l = left
-        .vector
-        .component(ClockActor::Server(right.accepted_at.timeline))
-        >= right.accepted_at.revision;
+        .vector()
+        .component(ClockActor::Server(right.accepted_at().timeline))
+        >= right.accepted_at().revision;
     let before =
         l_in_r || matches!(positions, PositionRelation::Before) || (left_covered && !right_covered);
     let after =
@@ -148,10 +150,10 @@ pub(crate) fn compare_contexts(
     }
     if before {
         if !left_covered
-            && left.vector.entries().any(|(actor, n)| {
+            && left.vector().entries().any(|(actor, n)| {
                 matches!(actor, ClockActor::Client(_))
-                    && n > right.vector.component(actor)
-                    && (lb == rb || right.vector.component(actor) != 0)
+                    && n > right.vector().component(actor)
+                    && (lb == rb || right.vector().component(actor) != 0)
             })
         {
             return Err(MetadataError::Conflict {

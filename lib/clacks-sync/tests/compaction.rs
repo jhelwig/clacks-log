@@ -110,10 +110,12 @@ fn projection_removes_closed_actor_without_changing_originals_or_native_state() 
         clients: vec![closed, active],
     };
     let mut shared = accepted(600, "shared");
-    shared.stamp.vector = shared
-        .stamp
-        .vector
-        .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 3)]).unwrap());
+    support::edit_stamp(&mut shared.stamp, |stamp| {
+        stamp.vector = stamp
+            .vector
+            .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 3)]).unwrap());
+        Ok(())
+    });
     let records = [shared.clone()];
     let plan = plan_baseline(
         id(20),
@@ -129,17 +131,22 @@ fn projection_removes_closed_actor_without_changing_originals_or_native_state() 
     assert!(plan.removable_clients.contains(&id(4)));
     let projected = plan.projected.first().unwrap();
     assert_eq!(
-        projected.stamp.vector.component(ClockActor::Client(id(4))),
+        projected
+            .stamp
+            .vector()
+            .component(ClockActor::Client(id(4))),
         0
     );
-    assert_eq!(projected.state, shared.state);
-    assert_eq!(projected.stamp.accepted_at, shared.stamp.accepted_at);
-    let client = clacks_sync::client::ClientRecord {
-        key: shared.key,
+    assert_eq!(projected.state(), shared.state());
+    assert_eq!(projected.stamp.accepted_at(), shared.stamp.accepted_at());
+    let client = clacks_sync::client::ClientRecordFields {
+        key: shared.key(),
         latest: clacks_sync::record::Observation::Accepted(shared.clone()),
         pending: None,
         retained: vec![],
-    };
+    }
+    .try_into()
+    .expect("coherent client fixture");
     let interpretations = [b.clone(), plan.baseline.clone()];
     let projected_view = EvidenceView {
         lineage: &b.lineage,
@@ -157,7 +164,7 @@ fn projection_removes_closed_actor_without_changing_originals_or_native_state() 
         source.clone(),
         clacks_sync::transfer::WindowMode::Full,
         vec![clacks_sync::transfer::RecordRequirement {
-            key: shared.key,
+            key: shared.key(),
             stamp: shared.stamp.clone(),
             deleted: false,
         }],
@@ -187,13 +194,13 @@ fn projection_removes_closed_actor_without_changing_originals_or_native_state() 
     let original = accepted(200, "original");
     let pending = PendingRecord {
         witness: None,
-        key: original.key,
+        key: original.key(),
         original: OriginalBasis::Accepted(original.clone()),
-        working: accepted(200, "local").state,
+        working: accepted(200, "local").state().clone(),
         prepared: None,
     };
     let witness = seal_basis(&pending, &shared, &checkpoint(700), &ev).unwrap();
-    assert_eq!(witness.original, OriginalBasis::Accepted(original));
+    assert_eq!(witness.original(), &OriginalBasis::Accepted(original));
     assert!(
         seal_basis(
             &pending,
@@ -220,7 +227,10 @@ fn projection_removes_closed_actor_without_changing_originals_or_native_state() 
     .unwrap();
     assert!(!pinned.removable_clients.contains(&id(4)));
     let mut unavailable = shared.stamp.clone();
-    unavailable.baseline = id(99);
+    support::edit_stamp(&mut unavailable, |stamp| {
+        stamp.baseline = id(99);
+        Ok(())
+    });
     let captured = support::telemetry::capture(|| {
         plan_baseline(
             id(22),
@@ -250,7 +260,10 @@ fn projection_removes_closed_actor_without_changing_originals_or_native_state() 
         Some("surviving_baseline_unavailable")
     );
     let mut unavailable = shared.clone();
-    unavailable.stamp.baseline = id(99);
+    support::edit_stamp(&mut unavailable.stamp, |stamp| {
+        stamp.baseline = id(99);
+        Ok(())
+    });
     let captured = support::telemetry::capture(|| {
         plan_baseline(
             id(23),
@@ -269,7 +282,7 @@ fn projection_removes_closed_actor_without_changing_originals_or_native_state() 
             .event("compaction.projection_blocked")
             .fields
             .get("record_id"),
-        Some(&shared.key.id.to_string())
+        Some(&shared.key().id.to_string())
     );
 }
 
@@ -284,9 +297,9 @@ fn witness_cannot_certify_an_observation_beyond_its_checkpoint() {
     let original = accepted(200, "original");
     let pending = PendingRecord {
         witness: None,
-        key: original.key,
+        key: original.key(),
         original: OriginalBasis::Accepted(original),
-        working: accepted(200, "local").state,
+        working: accepted(200, "local").state().clone(),
         prepared: None,
     };
     assert!(seal_basis(&pending, &accepted(600, "shared"), &checkpoint(300), &ev).is_err());
@@ -364,9 +377,9 @@ fn a_sealed_pending_basis_remains_usable_after_old_baseline_collection() {
     let shared = accepted(600, "A");
     let mut pending = PendingRecord {
         witness: None,
-        key: original.key,
+        key: original.key(),
         original: OriginalBasis::Accepted(original),
-        working: accepted(200, "B").state,
+        working: accepted(200, "B").state().clone(),
         prepared: None,
     };
     let witness = seal_basis(&pending, &shared, &checkpoint(700), &ev).unwrap();
@@ -382,19 +395,27 @@ fn a_sealed_pending_basis_remains_usable_after_old_baseline_collection() {
         baselines: &defs,
     };
     let mut shared = shared;
-    shared.stamp.baseline = id(20);
-    let client = clacks_sync::client::ClientRecord {
+    support::edit_stamp(&mut shared.stamp, |stamp| {
+        stamp.baseline = id(20);
+        Ok(())
+    });
+    let client = clacks_sync::client::ClientRecordFields {
         retained: Vec::new(),
-        key: shared.key,
+        key: shared.key(),
         latest: clacks_sync::record::Observation::Accepted(shared),
         pending: Some(pending),
-    };
+    }
+    .try_into()
+    .expect("coherent client fixture");
     let mut future = accepted(960, "A");
-    future.stamp.baseline = id(20);
+    support::edit_stamp(&mut future.stamp, |stamp| {
+        stamp.baseline = id(20);
+        Ok(())
+    });
     let update = clacks_sync::client::receive_accepted(&client, &future, &ev).unwrap();
     assert!(update.review.is_none());
     assert!(matches!(
-        clacks_sync::client::prepare_change(
+        clacks_sync::client::preparation::prepare_change(
             &client,
             id(4),
             &clacks_sync::client::LocalCounter {

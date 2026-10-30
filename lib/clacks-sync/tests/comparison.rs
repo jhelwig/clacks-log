@@ -25,15 +25,18 @@ fn record_context_can_exceed_global_recovery_prefix() {
     .unwrap();
     let a = accepted(180, "a");
     let mut c = accepted(181, "b");
-    c.stamp.accepted_at = Position {
-        timeline: id(4),
-        revision: 5,
-    };
-    c.stamp.vector = RecordVector::from_entries([
-        (ClockActor::Server(id(2)), 180),
-        (ClockActor::Server(id(4)), 5),
-    ])
-    .unwrap();
+    support::edit_stamp(&mut c.stamp, |stamp| {
+        stamp.accepted_at = Position {
+            timeline: id(4),
+            revision: 5,
+        };
+        stamp.vector = RecordVector::from_entries([
+            (ClockActor::Server(id(2)), 180),
+            (ClockActor::Server(id(4)), 5),
+        ])
+        .unwrap();
+        Ok(())
+    });
     let ev = EvidenceView {
         lineage: &l,
         baselines: &defs,
@@ -43,9 +46,9 @@ fn record_context_can_exceed_global_recovery_prefix() {
         RecordRelation::Before
     );
     assert!(
-        !l.coverage_at(c.stamp.accepted_at)
+        !l.coverage_at(c.stamp.accepted_at())
             .unwrap()
-            .covers(a.stamp.accepted_at)
+            .covers(a.stamp.accepted_at())
     );
     let missing = EvidenceView {
         lineage: &l,
@@ -75,12 +78,14 @@ fn conflicting_identity_and_baseline_definitions_are_errors() {
     };
     assert!(compare_records(&accepted(1, "a"), &accepted(1, "b"), &ev).is_err());
     let mut cross = accepted(2, "b");
-    cross.key.account = id(9);
+    support::edit_accepted(&mut cross, |cross| {
+        cross.key.account = id(9);
+    });
     assert!(compare_records(&accepted(1, "a"), &cross, &ev).is_err());
 }
 
 #[test]
-fn complete_incomparable_contexts_diverge_and_opposite_proof_errors() {
+fn complete_incomparable_contexts_diverge() {
     let (_, b) = AccountMetadata::initialize(id(1), id(2), id(3));
     let defs = [b.clone()];
     let mut l = b.lineage;
@@ -95,11 +100,14 @@ fn complete_incomparable_contexts_diverge_and_opposite_proof_errors() {
     .unwrap();
     let a = accepted(180, "a");
     let mut c = accepted(181, "b");
-    c.stamp.accepted_at = Position {
-        timeline: id(4),
-        revision: 5,
-    };
-    c.stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(4)), 5)]).unwrap();
+    support::edit_stamp(&mut c.stamp, |stamp| {
+        stamp.accepted_at = Position {
+            timeline: id(4),
+            revision: 5,
+        };
+        stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(4)), 5)]).unwrap();
+        Ok(())
+    });
     let ev = EvidenceView {
         lineage: &l,
         baselines: &defs,
@@ -108,12 +116,6 @@ fn complete_incomparable_contexts_diverge_and_opposite_proof_errors() {
         compare_records(&a, &c, &ev).unwrap(),
         RecordRelation::Divergent
     );
-    let mut contradictory = a.clone();
-    contradictory.stamp.vector = contradictory
-        .stamp
-        .vector
-        .join(&RecordVector::from_entries([(ClockActor::Server(id(2)), 200)]).unwrap());
-    assert!(compare_records(&contradictory, &accepted(200, "c"), &ev).is_err());
 }
 
 #[test]
@@ -128,12 +130,17 @@ fn explicit_server_succession_survives_retired_component_projection() {
         baselines: &defs,
     };
     let mut a = accepted(400, "old");
-    a.stamp.vector = a
-        .stamp
-        .vector
-        .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 1)]).unwrap());
+    support::edit_stamp(&mut a.stamp, |stamp| {
+        stamp.vector = stamp
+            .vector
+            .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 1)]).unwrap());
+        Ok(())
+    });
     let mut b = accepted(600, "new");
-    b.stamp.baseline = id(20);
+    support::edit_stamp(&mut b.stamp, |stamp| {
+        stamp.baseline = id(20);
+        Ok(())
+    });
     assert_eq!(
         compare_records(&a, &b, &ev).unwrap(),
         RecordRelation::Before
@@ -152,12 +159,17 @@ fn same_acceptance_compares_across_projection_above_common_prefix() {
         baselines: &defs,
     };
     let mut a = accepted(600, "same");
-    a.stamp.vector = a
-        .stamp
-        .vector
-        .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 3)]).unwrap());
+    support::edit_stamp(&mut a.stamp, |stamp| {
+        stamp.vector = stamp
+            .vector
+            .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 3)]).unwrap());
+        Ok(())
+    });
     let mut b = accepted(600, "same");
-    b.stamp.baseline = id(20);
+    support::edit_stamp(&mut b.stamp, |stamp| {
+        stamp.baseline = id(20);
+        Ok(())
+    });
     assert_eq!(
         compare_records(&a, &b, &ev).unwrap(),
         RecordRelation::SameVersion
@@ -176,16 +188,23 @@ fn projection_does_not_excuse_disagreeing_positive_components() {
         baselines: &defs,
     };
     let mut old = accepted(600, "same");
-    old.stamp.vector = old
-        .stamp
-        .vector
-        .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 3)]).unwrap());
+    support::edit_stamp(&mut old.stamp, |stamp| {
+        stamp.vector = stamp
+            .vector
+            .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 3)]).unwrap());
+        Ok(())
+    });
     let mut projected = old.clone();
-    projected.stamp.baseline = id(20);
-    projected.stamp.vector = projected
-        .stamp
-        .vector
-        .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 4)]).unwrap());
+    support::edit_stamp(&mut projected.stamp, |stamp| {
+        stamp.baseline = id(20);
+        Ok(())
+    });
+    support::edit_stamp(&mut projected.stamp, |stamp| {
+        stamp.vector = stamp
+            .vector
+            .join(&RecordVector::from_entries([(ClockActor::Client(id(4)), 4)]).unwrap());
+        Ok(())
+    });
     assert!(compare_records(&old, &projected, &ev).is_err());
 }
 
@@ -193,8 +212,8 @@ fn projection_does_not_excuse_disagreeing_positive_components() {
 fn receipt_and_preparation_apply_whole_record_policy() {
     use clacks_sync::{
         client::{
-            ClientRecord, LocalCounter, OriginalBasis, PendingRecord, Preparation, ReviewReason,
-            VersionCondition, prepare_change, receive_accepted,
+            LocalCounter, OriginalBasis, PendingRecord, Preparation, ReviewReason,
+            VersionCondition, preparation::prepare_change, receive_accepted,
         },
         record::{Observation, RecordState, RecordValue},
     };
@@ -205,7 +224,7 @@ fn receipt_and_preparation_apply_whole_record_policy() {
         baselines: &baselines,
     };
     let original = accepted(1, "original");
-    let mut tagged = original.state.clone();
+    let mut tagged = original.state().clone();
     let RecordState::Live(RecordValue::Qso(qso)) = &mut tagged else {
         panic!("qso")
     };
@@ -213,7 +232,7 @@ fn receipt_and_preparation_apply_whole_record_policy() {
         qso.tags.insert(id(20));
         Ok(())
     });
-    let mut other_tag = original.state.clone();
+    let mut other_tag = original.state().clone();
     let RecordState::Live(RecordValue::Qso(qso)) = &mut other_tag else {
         panic!("qso")
     };
@@ -221,7 +240,7 @@ fn receipt_and_preparation_apply_whole_record_policy() {
         qso.tags.insert(id(21));
         Ok(())
     });
-    let edited = accepted(1, "shared edit").state;
+    let edited = accepted(1, "shared edit").state().clone();
     struct Case {
         local: RecordState,
         shared: RecordState,
@@ -235,19 +254,19 @@ fn receipt_and_preparation_apply_whole_record_policy() {
         pending,
     } in [
         Case {
-            local: original.state.clone(),
-            shared: original.state.clone(),
+            local: original.state().clone(),
+            shared: original.state().clone(),
             review: false,
             pending: false,
         },
         Case {
             local: tagged.clone(),
-            shared: original.state.clone(),
+            shared: original.state().clone(),
             review: false,
             pending: true,
         },
         Case {
-            local: original.state.clone(),
+            local: original.state().clone(),
             shared: edited.clone(),
             review: false,
             pending: false,
@@ -272,13 +291,13 @@ fn receipt_and_preparation_apply_whole_record_policy() {
         },
         Case {
             local: RecordState::Deleted,
-            shared: original.state.clone(),
+            shared: original.state().clone(),
             review: false,
             pending: true,
         },
         Case {
             local: RecordState::Deleted,
-            shared: edited,
+            shared: edited.clone(),
             review: true,
             pending: true,
         },
@@ -289,39 +308,46 @@ fn receipt_and_preparation_apply_whole_record_policy() {
             pending: true,
         },
     ] {
-        let current = ClientRecord {
-            key: original.key,
+        let current = clacks_sync::client::ClientRecordFields {
+            key: original.key(),
             latest: Observation::Accepted(original.clone()),
             retained: vec![],
             pending: Some(PendingRecord {
-                key: original.key,
+                key: original.key(),
                 original: OriginalBasis::Accepted(original.clone()),
                 working: local.clone(),
                 prepared: None,
                 witness: None,
             }),
-        };
+        }
+        .try_into()
+        .expect("coherent client fixture");
         let mut incoming = accepted(2, "shared edit");
-        incoming.state = shared;
+
+        support::edit_accepted(&mut incoming, |incoming| {
+            incoming.state = shared;
+        });
         let receipt = receive_accepted(&current, &incoming, &evidence).unwrap();
         assert_eq!(
-            receipt.record.latest,
-            Observation::Accepted(incoming.clone())
+            receipt.record.latest(),
+            &Observation::Accepted(incoming.clone())
         );
-        assert_eq!(receipt.record.pending.is_some(), pending);
+        assert_eq!(receipt.record.pending().is_some(), pending);
         assert_eq!(
             receipt.review.as_ref().map(|r| &r.reason),
             review.then_some(&ReviewReason::BothDifferent)
         );
-        if let Some(pending) = &receipt.record.pending {
+        if let Some(pending) = &receipt.record.pending() {
             assert_eq!(pending.working, local);
             assert_eq!(pending.original, OriginalBasis::Accepted(original.clone()));
         }
         // Preparation must apply the same policy even before a receipt update was saved.
-        let preparing = ClientRecord {
+        let preparing = clacks_sync::client::ClientRecordFields {
             latest: Observation::Accepted(incoming.clone()),
-            ..current
-        };
+            ..current.into_fields()
+        }
+        .try_into()
+        .expect("coherent client fixture");
         let result = prepare_change(
             &preparing,
             id(4),
@@ -340,16 +366,16 @@ fn receipt_and_preparation_apply_whole_record_policy() {
             assert_eq!(input.reason, ReviewReason::BothDifferent);
             assert_eq!(input.local, local);
             assert_eq!(input.shared, Observation::Accepted(incoming));
-            assert_eq!(record.pending.unwrap().working, local);
+            assert_eq!(record.pending().unwrap().working, local);
         } else if pending {
             let Preparation::Ready { change, .. } = result else {
                 panic!("local proposal")
             };
-            assert_eq!(change.state, local);
+            assert_eq!(change.state(), &local);
             assert_eq!(
-                change.expected,
-                VersionCondition::Is {
-                    key: incoming.key,
+                change.expected(),
+                &VersionCondition::Is {
+                    key: incoming.key(),
                     stamp: incoming.stamp
                 }
             );
@@ -357,7 +383,7 @@ fn receipt_and_preparation_apply_whole_record_policy() {
             let Preparation::Unchanged { record } = result else {
                 panic!("settled values")
             };
-            assert!(record.pending.is_none());
+            assert!(record.pending().is_none());
         }
     }
 }

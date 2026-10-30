@@ -179,7 +179,7 @@ pub(super) fn evaluate(
                         match lotw::project(&LotwProjectionInput {
                             qso,
                             destination,
-                            signing: &original.signing_identity,
+                            signing: original.signing_identity(),
                             configuration: &context.lotw,
                             definitions: &context.definitions,
                         })? {

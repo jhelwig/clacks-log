@@ -17,7 +17,7 @@ pub(in crate::ui) fn row(value: RecordValue) -> ClientRecord {
         account: "00000000000000000000000001".parse::<AccountId>().unwrap(),
         id: value.id(),
     };
-    ClientRecord {
+    clacks_sync::client::ClientRecordFields {
         key,
         latest: Observation::Unavailable {
             key,
@@ -35,6 +35,8 @@ pub(in crate::ui) fn row(value: RecordValue) -> ClientRecord {
             witness: None,
         }),
     }
+    .try_into()
+    .expect("coherent client fixture")
 }
 
 pub(in crate::ui) fn snapshot() -> SettingsSnapshot {

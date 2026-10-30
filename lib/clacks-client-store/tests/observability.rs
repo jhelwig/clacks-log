@@ -70,14 +70,14 @@ fn telemetry_counts_only_committed_domain_changes_and_excludes_payloads() -> any
                     let source = InstalledCheckpoint {
                         account: support::id(1),
                         baseline: baseline.id,
-                        coverage: Coverage::from(qso.stamp.accepted_at),
+                        coverage: Coverage::from(qso.stamp.accepted_at()),
                     };
                     let manifest = WindowManifest::new(
                         source.account,
                         source.clone(),
                         WindowMode::Full,
                         vec![RecordRequirement {
-                            key: qso.key,
+                            key: qso.key(),
                             stamp: qso.stamp.clone(),
                             deleted: false,
                         }],

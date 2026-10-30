@@ -354,17 +354,7 @@ impl ServicePayload {
         }
         match self {
             Self::Download(v) => v.validate()?,
-            Self::Acquisition(v) => {
-                anyhow::ensure!(
-                    matches!(v.phase, download::AcquisitionPhase::Active)
-                        == v.finished_at.is_none(),
-                    "acquisition phase/close time mismatch"
-                );
-                anyhow::ensure!(
-                    !v.complete || matches!(v.phase, download::AcquisitionPhase::Completed),
-                    "incomplete request claims full coverage"
-                );
-            }
+            Self::Acquisition(_) => {}
             Self::Destination(v) => {
                 super::destination::validate_destinations(std::slice::from_ref(v))?
             }
@@ -384,9 +374,6 @@ impl ServicePayload {
                         detail: format!("observation {} crosses destination", v.id),
                     }
                     .into());
-                }
-                if let observation::Reported::Value(start) = v.facts.contact.start {
-                    start.bounds()?;
                 }
             }
             Self::Result(v)

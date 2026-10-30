@@ -41,9 +41,9 @@ async fn working_history_is_unique_snapshot_consistent_and_deletions_are_reviewa
         ..Default::default()
     };
     assert_eq!(old.contact_page(&query).await?.rows.len(), 1);
-    save::save(&store, row.key, Some(&row), RecordState::Deleted).await?;
+    save::save(&store, row.key(), Some(&row), RecordState::Deleted).await?;
     assert_eq!(old.contact_page(&query).await?.rows.len(), 1);
-    assert!(old.record(row.key).await?.unwrap().pending.is_some());
+    assert!(old.record(row.key()).await?.unwrap().pending().is_some());
     old.close().await?;
     let mut new = read::snapshot(&store).await?;
     assert!(
@@ -174,8 +174,8 @@ async fn expression_pages_preserve_native_labels_and_review_identity() -> anyhow
             })
             .await?;
         let Some(row) = page.first() else { break };
-        keys.insert(row.record.key.id);
-        cursor = Some(row.record.key.id);
+        keys.insert(row.record.key().id);
+        cursor = Some(row.record.key().id);
     }
     assert_eq!(keys.len(), 4);
     assert!(

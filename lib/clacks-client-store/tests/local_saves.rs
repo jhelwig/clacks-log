@@ -19,10 +19,10 @@ async fn save_reopen_without_server_and_reject_stale_edits() -> anyhow::Result<(
         panic!("new local save expected")
     };
     assert!(matches!(
-        first.pending.as_ref().unwrap().original,
+        first.pending().as_ref().unwrap().original,
         OriginalBasis::Unavailable { .. }
     ));
-    assert!(first.pending.as_ref().unwrap().prepared.is_none());
+    assert!(first.pending().as_ref().unwrap().prepared.is_none());
     let mut changed = original.clone();
     support::edit(&mut changed, |changed| {
         changed.comment = Some("intervening edit".into());

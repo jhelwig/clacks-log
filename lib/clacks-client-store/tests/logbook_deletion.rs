@@ -29,7 +29,13 @@ async fn effective_tag_deletion_clears_only_the_matching_selected_kind() -> anyh
     else {
         panic!("create");
     };
-    save::save(&workspace.store, qso.key, Some(&qso), RecordState::Deleted).await?;
+    save::save(
+        &workspace.store,
+        qso.key(),
+        Some(&qso),
+        RecordState::Deleted,
+    )
+    .await?;
     assert_eq!(
         settings::snapshot(&workspace.store)
             .await?
@@ -37,7 +43,13 @@ async fn effective_tag_deletion_clears_only_the_matching_selected_kind() -> anyh
             .selected_view,
         SelectedView::Logbook(id(20))
     );
-    save::save(&workspace.store, tag.key, Some(&tag), RecordState::Deleted).await?;
+    save::save(
+        &workspace.store,
+        tag.key(),
+        Some(&tag),
+        RecordState::Deleted,
+    )
+    .await?;
     assert_eq!(
         settings::snapshot(&workspace.store)
             .await?
@@ -73,7 +85,7 @@ async fn unrelated_fact_edit_invalidates_exact_deletion_basis() -> anyhow::Resul
         value.contacted_station.callsign = clacks_model::scalar::RecordedCallsign::new("W1AW")?;
         Ok(())
     });
-    let current = save::save(&workspace.store, row.key, Some(&row), contact(value)).await?;
+    let current = save::save(&workspace.store, row.key(), Some(&row), contact(value)).await?;
     let SaveOutcome::Saved(current) = current else {
         panic!("updated contact")
     };
@@ -83,7 +95,10 @@ async fn unrelated_fact_edit_invalidates_exact_deletion_basis() -> anyhow::Resul
         TagDeleteOutcome::Stale { .. }
     ));
     assert_eq!(settings::snapshot(&workspace.store).await?, before);
-    assert_eq!(save::load(&workspace.store, row.key).await?, Some(current));
+    assert_eq!(
+        save::load(&workspace.store, row.key()).await?,
+        Some(current)
+    );
     workspace.store.close().await?;
     Ok(())
 }
@@ -105,7 +120,7 @@ async fn unchanged_counts_do_not_validate_changed_preview_members() -> anyhow::R
     let preview = deletion::preview(&workspace.store, id(20)).await?;
     save::save(
         &workspace.store,
-        first.key,
+        first.key(),
         Some(&first),
         RecordState::Deleted,
     )
@@ -131,7 +146,7 @@ async fn unchanged_counts_do_not_validate_changed_preview_members() -> anyhow::R
         TagDeleteOutcome::Stale { .. }
     ));
     assert_eq!(
-        save::load(&workspace.store, first.key)
+        save::load(&workspace.store, first.key())
             .await?
             .unwrap()
             .working_state(),

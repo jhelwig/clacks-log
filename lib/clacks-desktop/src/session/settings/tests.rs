@@ -174,7 +174,7 @@ async fn shutdown_drains_admitted_settings_write_and_rejects_later_requests() ->
             .settings
             .profiles
             .iter()
-            .any(|row| row.key.id == clacks_sync::record::RecordId::Profile(home.id))
+            .any(|row| row.key().id == clacks_sync::record::RecordId::Profile(home.id))
     );
     reopened.store.close().await?;
     Ok(())

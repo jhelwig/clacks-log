@@ -93,7 +93,7 @@ async fn a_later_acquired_unconfirmed_report_supersedes_an_imported_positive() -
         2,
         imported(&qso, 40, Service::Qrz, ImportedClaim::Confirmed)?,
     );
-    let RecordState::Live(RecordValue::Service(s)) = &imported.state else {
+    let RecordState::Live(RecordValue::Service(s)) = &imported.state() else {
         panic!("service")
     };
     let ServicePayload::Imported(a) = &s.payload else {
@@ -156,10 +156,16 @@ async fn a_later_acquired_unconfirmed_report_supersedes_an_imported_positive() -
             },
         })),
     );
-    let RecordState::Live(RecordValue::Service(s)) = &mut observation.state else {
+    let mut state = observation.state().clone();
+    let RecordState::Live(RecordValue::Service(s)) = &mut state else {
         panic!("service")
     };
     s.support.acquisition = Some(support::accepted(3, support::contact(qso.clone())).stamp);
+    observation = clacks_sync::record::AcceptedRecord::new(
+        observation.key(),
+        state,
+        observation.stamp.clone(),
+    )?;
     let association = carrier(
         5,
         ServicePayload::Association(ExternalAssociation {
@@ -178,7 +184,8 @@ async fn a_later_acquired_unconfirmed_report_supersedes_an_imported_positive() -
             association: Some(support::id(52)),
         }),
     );
-    let RecordState::Live(RecordValue::Service(s)) = &mut disposition.state else {
+    let mut state = disposition.state().clone();
+    let RecordState::Live(RecordValue::Service(s)) = &mut state else {
         panic!("service")
     };
     s.support.required = vec![
@@ -186,6 +193,11 @@ async fn a_later_acquired_unconfirmed_report_supersedes_an_imported_positive() -
         SupportRequirement::CoveredEffect(VersionReference::from(&original)),
         SupportRequirement::CoveredEffect(VersionReference::from(&association)),
     ];
+    disposition = clacks_sync::record::AcceptedRecord::new(
+        disposition.key(),
+        state,
+        disposition.stamp.clone(),
+    )?;
     super::install(
         &store,
         &[original, imported, observation, association, disposition],

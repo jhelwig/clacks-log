@@ -110,18 +110,18 @@ pub async fn install(
     let mut local = std::collections::BTreeMap::new();
     for requirement in &manifest.records {
         if let Some(row) = client::load(&mut transaction, requirement.key).await? {
-            local.insert(row.key, row);
+            local.insert(row.key(), row);
         }
     }
     let mut queue: Vec<_> = incoming.iter().chain(&progress.staged).cloned().collect();
-    queue.extend(local.values().filter_map(|row| match &row.latest {
+    queue.extend(local.values().filter_map(|row| match &row.latest() {
         Observation::Accepted(value) => Some(value.clone()),
         _ => None,
     }));
     while let Some(value) = queue.pop() {
         let clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Service(
             service,
-        )) = &value.state
+        )) = &value.state()
         else {
             continue;
         };
@@ -159,7 +159,7 @@ pub async fn install(
             if let std::collections::btree_map::Entry::Vacant(entry) = local.entry(key)
                 && let Some(row) = client::load(&mut transaction, key).await?
             {
-                if let Observation::Accepted(value) = &row.latest {
+                if let Observation::Accepted(value) = &row.latest() {
                     queue.push(value.clone());
                 }
                 entry.insert(row);
@@ -177,12 +177,12 @@ pub async fn install(
             .count(),
     )?;
     for update in &batch.client_updates {
-        binding::remove(&mut transaction, update.record.key).await?;
+        binding::remove(&mut transaction, update.record.key()).await?;
     }
     let mut installed_count = 0_u64;
     for update in &mut batch.client_updates {
-        let previous = synchronization::current(&mut transaction, update.record.key).await?;
-        if previous.latest != update.record.latest {
+        let previous = synchronization::current(&mut transaction, update.record.key()).await?;
+        if previous.latest() != update.record.latest() {
             installed_count += 1;
         }
         synchronization::store_update(&mut transaction, &previous, update).await?;
@@ -193,11 +193,11 @@ pub async fn install(
         }
     }
     for update in &batch.client_updates {
-        binding::insert(&mut transaction, update.record.key).await?;
+        binding::insert(&mut transaction, update.record.key()).await?;
     }
     if batch.client_updates.iter().any(|update| {
         matches!(
-            update.record.key.id,
+            update.record.key().id,
             clacks_sync::record::RecordId::Service(_)
         )
     }) {
@@ -237,9 +237,9 @@ pub async fn finish(
     let mut installed = vec![];
     for requirement in &manifest.records {
         if let Some(row) = client::load(&mut transaction, requirement.key).await?
-            && let Observation::Accepted(value) = row.latest
+            && let Observation::Accepted(value) = row.latest()
         {
-            installed.push(value);
+            installed.push(value.clone());
         }
     }
     let next = match previous {

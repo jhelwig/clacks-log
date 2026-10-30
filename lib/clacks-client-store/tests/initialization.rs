@@ -61,10 +61,10 @@ async fn created_definitions_survive_reopen_as_unpublished_values() -> anyhow::R
         };
         let record = save::load(&store, key).await?.unwrap();
 
-        assert!(matches!(record.latest, Observation::Unavailable { .. }));
+        assert!(matches!(record.latest(), Observation::Unavailable { .. }));
         assert!(
             record
-                .pending
+                .pending()
                 .as_ref()
                 .is_some_and(|pending| pending.prepared.is_none())
         );
@@ -87,10 +87,10 @@ async fn created_definitions_survive_reopen_as_unpublished_values() -> anyhow::R
         )
         .await?
         .unwrap();
-        assert!(matches!(record.latest, Observation::Unavailable { .. }));
+        assert!(matches!(record.latest(), Observation::Unavailable { .. }));
         assert!(
             record
-                .pending
+                .pending()
                 .as_ref()
                 .is_some_and(|pending| pending.prepared.is_none())
         );

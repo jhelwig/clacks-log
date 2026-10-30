@@ -151,7 +151,7 @@ fn starts_compete_on_destination_control_guard() -> anyhow::Result<()> {
             );
         }
         assert_eq!(plan.accepted.len(), 2);
-        assert!(plan.accepted.iter().any(|r| r.key == acquisition_key));
+        assert!(plan.accepted.iter().any(|r| r.key() == acquisition_key));
     }
     let active_reads: Vec<_> = a
         .accepted
@@ -165,7 +165,7 @@ fn starts_compete_on_destination_control_guard() -> anyhow::Result<()> {
         .find_map(|row| {
             if let clacks_sync::record::RecordState::Live(
                 clacks_sync::record::RecordValue::Service(record),
-            ) = &row.state
+            ) = &row.state()
                 && let ServicePayload::Download(control) = &record.payload
             {
                 Some(control)
@@ -224,7 +224,7 @@ impl ReadFixture {
             .find_map(|r| {
                 if let clacks_sync::record::RecordState::Live(
                     clacks_sync::record::RecordValue::Service(s),
-                ) = &r.state
+                ) = &r.state()
                     && let clacks_model::service::evidence::ServicePayload::Download(c) = &s.payload
                 {
                     Some(c.clone())
@@ -273,7 +273,7 @@ impl ReadFixture {
         assert_eq!(c.expected_head, self.account.head);
         self.account = c.next_account;
         for row in c.accepted {
-            self.rows.retain(|r| r.key != row.key);
+            self.rows.retain(|r| r.key() != row.key());
             self.rows.push(row);
         }
         Ok(())
@@ -352,7 +352,7 @@ impl ReadFixture {
             .find_map(|r| {
                 if let clacks_sync::record::RecordState::Live(
                     clacks_sync::record::RecordValue::Service(s),
-                ) = &r.state
+                ) = &r.state()
                     && let ServicePayload::Acquisition(a) = &s.payload
                 {
                     Some(a.clone())
@@ -540,7 +540,7 @@ impl ReadFixture {
             .filter_map(|r| {
                 if let clacks_sync::record::RecordState::Live(
                     clacks_sync::record::RecordValue::Service(s),
-                ) = &r.state
+                ) = &r.state()
                     && let ServicePayload::Observation(o) = &s.payload
                     && matches!(o.identity, RemoteIdentity::Complete(_))
                 {
@@ -563,6 +563,38 @@ impl ReadFixture {
         else {
             panic!()
         };
+        let closed = c
+            .accepted
+            .iter()
+            .find_map(|row| {
+                if let clacks_sync::record::RecordState::Live(
+                    clacks_sync::record::RecordValue::Service(record),
+                ) = &row.state()
+                    && let ServicePayload::Acquisition(value) = &record.payload
+                    && value.id == a.id
+                {
+                    Some(value)
+                } else {
+                    None
+                }
+            })
+            .expect("completion publishes the acquisition outcome");
+        assert_eq!(closed.complete(), complete);
+        assert_eq!(closed.finished_at(), Some(UtcTimestamp::new(1, 0)?));
+        assert_eq!(
+            closed.phase,
+            if complete {
+                clacks_model::service::evidence::download::AcquisitionPhase::Completed {
+                    at: UtcTimestamp::new(1, 0)?,
+                }
+            } else {
+                clacks_model::service::evidence::download::AcquisitionPhase::Failed {
+                    at: UtcTimestamp::new(1, 0)?,
+                    reason: "incomplete response".into(),
+                }
+            }
+        );
+
         self.install(c)
     }
 }
@@ -597,7 +629,7 @@ fn semantic_repeat_and_return_after_change_survive_reload() -> anyhow::Result<()
         f.rows
             .iter()
             .filter(|r| matches!(
-                r.key.id,
+                r.key().id,
                 clacks_sync::record::RecordId::Service(
                     clacks_model::service::evidence::ServiceRecordId::Observation(_)
                 )
@@ -872,7 +904,7 @@ fn service_payload(
     r: &clacks_sync::record::AcceptedRecord,
 ) -> Option<&clacks_sync::service::ServiceRecord> {
     if let clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Service(s)) =
-        &r.state
+        &r.state()
     {
         Some(s)
     } else {

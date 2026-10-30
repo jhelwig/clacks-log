@@ -98,18 +98,18 @@ pub enum EquipmentDeleteOutcome {
 }
 
 /// Delete a station profile without changing copied station facts or selected equipment.
-#[tracing::instrument(skip_all, name = "client_store.profile.delete", fields(account_id = %store.account, profile_id = %expected.key.id))]
+#[tracing::instrument(skip_all, name = "client_store.profile.delete", fields(account_id = %store.account, profile_id = %expected.key().id))]
 pub async fn delete_profile(
     store: &ClientStore,
     expected: &ClientRecord,
 ) -> anyhow::Result<SaveOutcome> {
     anyhow::ensure!(
-        matches!(expected.key.id, clacks_sync::record::RecordId::Profile(_)),
+        matches!(expected.key().id, clacks_sync::record::RecordId::Profile(_)),
         "profile deletion requires a profile record"
     );
     crate::save::save(
         store,
-        expected.key,
+        expected.key(),
         Some(expected),
         clacks_sync::record::RecordState::Deleted,
     )
@@ -125,7 +125,7 @@ pub async fn preview_equipment_deletion(
 }
 
 /// Commit reviewed profile-reference repairs and equipment deletion atomically, or report stale state.
-#[tracing::instrument(skip_all, name = "client_store.equipment.delete", fields(account_id = %store.account, equipment_id = %expected.equipment.key.id))]
+#[tracing::instrument(skip_all, name = "client_store.equipment.delete", fields(account_id = %store.account, equipment_id = %expected.equipment.key().id))]
 pub async fn delete_equipment(
     store: &ClientStore,
     expected: &EquipmentDeletionPreview,

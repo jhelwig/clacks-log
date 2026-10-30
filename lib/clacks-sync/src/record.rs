@@ -162,18 +162,52 @@ impl Position {
 
 /// Accepted record context interpreted under a retained baseline.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "StampFields")]
 pub struct VersionStamp {
     /// Original acceptance position, preserved during recovery installation.
-    pub accepted_at: Position,
+    accepted_at: Position,
     /// Interpretation for projected components.
-    pub baseline: BaselineId,
+    baseline: BaselineId,
     /// Explicit residual record-local counters.
-    pub vector: RecordVector,
+    vector: RecordVector,
 }
 
 impl VersionStamp {
+    /// Construct accepted causal context with its matching server component.
+    ///
+    /// Acceptance requires a positive bounded revision. The baseline's meaning
+    /// and account ownership are established by the caller's retained evidence.
+    pub fn new(
+        accepted_at: Position,
+        baseline: BaselineId,
+        vector: RecordVector,
+    ) -> Result<Self, MetadataError> {
+        let value = Self {
+            accepted_at,
+            baseline,
+            vector,
+        };
+        value.validate()?;
+        Ok(value)
+    }
+
+    /// Return the original acceptance position, including after projection.
+    pub fn accepted_at(&self) -> Position {
+        self.accepted_at
+    }
+
+    /// Return the baseline used to interpret projected components.
+    pub fn baseline(&self) -> BaselineId {
+        self.baseline
+    }
+
+    /// Borrow the residual record-local counters without changing their meaning.
+    pub fn vector(&self) -> &RecordVector {
+        &self.vector
+    }
+
     /// Require a positive accepted position and its matching server component within the counter domain.
-    pub fn validate(&self) -> Result<(), MetadataError> {
+    fn validate(&self) -> Result<(), MetadataError> {
         self.accepted_at.validate()?;
         if self.accepted_at.revision == 0 {
             return Err(MetadataError::Invalid {
@@ -198,16 +232,27 @@ impl VersionStamp {
 
 /// Saved accepted value and its causal identity.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "AcceptedFields")]
 pub struct AcceptedRecord {
     /// Account-qualified native identity.
-    pub key: RecordKey,
+    pub(crate) key: RecordKey,
     /// Native state or retained deletion.
-    pub state: RecordState,
+    pub(crate) state: RecordState,
     /// Actual acceptance context.
     pub stamp: VersionStamp,
 }
 
 impl AcceptedRecord {
+    /// Return the owning account and native record identity.
+    pub fn key(&self) -> RecordKey {
+        self.key
+    }
+
+    /// Borrow the saved native value or retained deletion.
+    pub fn state(&self) -> &RecordState {
+        &self.state
+    }
+
     /// Validate native state and the acceptance component before constructing an envelope.
     pub fn new(key: RecordKey, state: RecordState, stamp: VersionStamp) -> anyhow::Result<Self> {
         let record = Self { key, state, stamp };
@@ -217,7 +262,6 @@ impl AcceptedRecord {
 
     /// Validate a deserialized envelope before a synchronization transition uses it.
     pub fn validate(&self) -> anyhow::Result<()> {
-        self.stamp.validate()?;
         self.state.validate(self.key)?;
         Ok(())
     }
@@ -269,5 +313,43 @@ impl Observation {
             Self::Absent { checkpoint, .. } => Ok(checkpoint.validate()?),
             Self::Unavailable { .. } => Ok(()),
         }
+    }
+}
+
+/// Serialized accepted context validated at the native restoration boundary.
+#[derive(Deserialize)]
+struct StampFields {
+    /// Original acceptance position.
+    accepted_at: Position,
+    /// Interpretation of residual counters.
+    baseline: BaselineId,
+    /// Recorded per-actor counters.
+    vector: RecordVector,
+}
+
+impl TryFrom<StampFields> for VersionStamp {
+    type Error = MetadataError;
+
+    fn try_from(fields: StampFields) -> Result<Self, Self::Error> {
+        Self::new(fields.accepted_at, fields.baseline, fields.vector)
+    }
+}
+
+/// Untrusted serialized envelope input checked before native use.
+#[derive(Deserialize)]
+struct AcceptedFields {
+    /// Account-qualified native identity.
+    key: RecordKey,
+    /// Saved native state or retained deletion.
+    state: RecordState,
+    /// Accepted causal context.
+    stamp: VersionStamp,
+}
+
+impl TryFrom<AcceptedFields> for AcceptedRecord {
+    type Error = anyhow::Error;
+
+    fn try_from(fields: AcceptedFields) -> anyhow::Result<Self> {
+        Self::new(fields.key, fields.state, fields.stamp)
     }
 }

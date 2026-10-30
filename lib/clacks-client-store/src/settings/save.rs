@@ -16,7 +16,7 @@ use clacks_sync::{
 fn check_basis(key: RecordKey, expected: Option<&ClientRecord>) -> anyhow::Result<()> {
     if let Some(expected) = expected {
         anyhow::ensure!(
-            expected.key == key,
+            expected.key() == key,
             "editor basis belongs to another record or account"
         );
     }

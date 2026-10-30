@@ -96,14 +96,15 @@ fn explains_local_rejections_without_logging_payloads_or_claiming_success() -> a
         application: "Clacks",
         version: "test",
     };
-    let mut a = support::submission();
+    let mut fields = support::submission().into_fields();
     let (result, observed) = capture(
         || import_pkcs12(&support::fixture("no-mac.p12"), "sentinel-password"),
         true,
     );
     assert!(result.is_err());
     event(&observed, "certificate.import.rejected");
-    a.signing_identity.dxcc = "1".into();
+    fields.signing_identity.dxcc = "1".into();
+    let a = fields.try_into().unwrap();
     let (result, observed) = capture(
         || {
             write_batch(

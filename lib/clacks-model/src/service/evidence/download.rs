@@ -64,34 +64,53 @@ impl DownloadControl {
     }
 }
 
-/// Whether a request is still open or was explicitly closed.
+/// Whether a request remains active or closed with a concrete outcome.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AcquisitionPhase {
     /// Response/page processing may continue.
     Active,
-    /// All requested input is represented durably and coverage was completed.
-    Completed,
-    /// Explicit failure/cancellation, with no completed-coverage claim.
-    Failed(String),
+    /// All requested input and coverage completed at the supplied time.
+    Completed {
+        /// Explicit caller-supplied completion time.
+        at: UtcTimestamp,
+    },
+    /// Processing closed without a completed-coverage claim.
+    Failed {
+        /// Explicit caller-supplied failure/cancellation time.
+        at: UtcTimestamp,
+        /// Retained diagnostic for the incomplete acquisition.
+        reason: String,
+    },
 }
 
-/// Recoverable query coordination; original provenance is also embedded in semantic observations.
+/// Recoverable query coordination with one coherent acquisition outcome.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AcquisitionState {
     /// Stable request identity.
     pub id: AcquisitionId,
     /// Exact public query parameters.
     pub query: QueryIdentity,
-    /// Current explicit phase.
+    /// Active processing or a closed outcome with its required timestamp.
     pub phase: AcquisitionPhase,
     /// Diagnostic start time supplied by the caller.
     pub started_at: UtcTimestamp,
-    /// Explicit close time, when closed.
-    pub finished_at: Option<UtcTimestamp>,
-    /// Whether all requested pages/windows completed.
-    pub complete: bool,
-    /// Semantic occurrences retained for this response, including reused unchanged evidence.
+    /// Semantic occurrences retained for this response, including reused evidence.
     pub retained_inputs: BTreeSet<ObservationId>,
+}
+
+impl AcquisitionState {
+    /// Return the explicit close time, or absence while processing remains active.
+    pub fn finished_at(&self) -> Option<UtcTimestamp> {
+        match self.phase {
+            AcquisitionPhase::Active => None,
+            AcquisitionPhase::Completed { at } | AcquisitionPhase::Failed { at, .. } => Some(at),
+        }
+    }
+
+    /// Report whether the entire requested input and its coverage completed.
+    pub fn complete(&self) -> bool {
+        matches!(self.phase, AcquisitionPhase::Completed { .. })
+    }
 }
 
 /// Compare watermark domains while excluding the since lower bound itself.

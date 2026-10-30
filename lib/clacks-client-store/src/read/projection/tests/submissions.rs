@@ -124,7 +124,7 @@ async fn historical_qrz_submission_coverage_uses_its_retained_book() -> anyhow::
     };
     save::save(
         &store,
-        saved.key,
+        saved.key(),
         Some(&saved),
         support::contact(qso.clone()),
     )
@@ -273,7 +273,7 @@ async fn lotw_coverage_retains_its_public_signing_and_account_context() -> anyho
     };
     save::save(
         &store,
-        saved.key,
+        saved.key(),
         Some(&saved),
         support::contact(qso.clone()),
     )

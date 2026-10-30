@@ -1,5 +1,7 @@
 //! Membership-bounded common coverage, local basis witnesses and safe projection.
 
+mod witness;
+
 use crate::{
     account::{AccountMetadata, Baseline, EvidenceView, InstalledCheckpoint},
     client::{OriginalBasis, PendingRecord, VersionCondition},
@@ -16,21 +18,22 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// Self-contained retained original values and their established comparison relationship.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "witness::WitnessFields")]
 pub struct BasisWitness {
     /// Native identity to which this relationship applies.
-    pub key: RecordKey,
+    pub(crate) key: RecordKey,
     /// Actual original values and context, never relabeled to the checkpoint.
-    pub original: OriginalBasis,
+    pub(crate) original: OriginalBasis,
     /// Actual observed accepted version.
-    pub observed: VersionStamp,
+    pub(crate) observed: VersionStamp,
     /// Complete installed prefixes at observation.
-    pub checkpoint: InstalledCheckpoint,
+    pub(crate) checkpoint: InstalledCheckpoint,
     /// Established original-to-observed relationship.
-    pub relation: RecordRelation,
+    pub(crate) relation: EstablishedBasisRelation,
     /// Position-dependent ancestry needed to interpret the witness.
-    pub lineage: Lineage,
+    pub(crate) lineage: Lineage,
     /// Baseline meanings needed by the original, observed version and checkpoint.
-    pub baselines: Vec<Baseline>,
+    pub(crate) baselines: Vec<Baseline>,
 }
 
 /// Rows and surviving context references from one consistent compaction view.
@@ -202,11 +205,11 @@ pub fn seal_basis(
         }
         .into());
     }
-    if !expanded(checkpoint, evidence)?.covers(observed.stamp.accepted_at) {
+    if !expanded(checkpoint, evidence)?.covers(observed.stamp.accepted_at()) {
         return Err(MetadataError::Incomplete {
             detail: format!(
                 "witness checkpoint does not cover observed {:?}",
-                observed.stamp.accepted_at
+                observed.stamp.accepted_at()
             ),
         }
         .into());
@@ -248,6 +251,23 @@ pub fn seal_basis(
         }
         .into());
     }
+    let relation = EstablishedBasisRelation::try_from(relation)?;
+    let original_baseline = match &pending.original {
+        OriginalBasis::Accepted(value) => Some(value.stamp.baseline()),
+        OriginalBasis::SubsumedOwn { witness, .. } => Some(witness.baseline()),
+        OriginalBasis::NeverCreated { checkpoint, .. } => Some(checkpoint.baseline),
+        OriginalBasis::Unavailable { .. } => None,
+    };
+    let baselines = evidence
+        .baselines
+        .iter()
+        .filter(|baseline| {
+            baseline.id == checkpoint.baseline
+                || baseline.id == observed.stamp.baseline()
+                || Some(baseline.id) == original_baseline
+        })
+        .cloned()
+        .collect();
     Ok(BasisWitness {
         key: pending.key,
         original: pending.original.clone(),
@@ -255,7 +275,7 @@ pub fn seal_basis(
         checkpoint: checkpoint.clone(),
         relation,
         lineage: evidence.lineage.clone(),
-        baselines: evidence.baselines.iter().filter(|b| b.id==checkpoint.baseline || b.id==observed.stamp.baseline || matches!(&pending.original,OriginalBasis::Accepted(a) if a.stamp.baseline==b.id) || matches!(&pending.original,OriginalBasis::SubsumedOwn{witness,..} if witness.baseline==b.id)).cloned().collect(),
+        baselines,
     })
 }
 
@@ -307,25 +327,25 @@ pub fn plan_baseline(
         .collect();
     for surviving in input.surviving {
         if evidence
-            .baseline(input.account.account, surviving.baseline)?
+            .baseline(input.account.account, surviving.baseline())?
             .is_none()
         {
             tracing::debug!(
                 event = "compaction.collection_blocked",
                 reason = "surviving_baseline_unavailable",
-                baseline_id = %surviving.baseline,
+                baseline_id = %surviving.baseline(),
             );
             removable.clear();
             break;
         }
         removable.retain(|actor| {
-            let retained = surviving.vector.component(ClockActor::Client(*actor)) != 0;
+            let retained = surviving.vector().component(ClockActor::Client(*actor)) != 0;
             if retained {
                 tracing::debug!(
                     event = "compaction.collection_blocked",
                     reason = "surviving_context_references_actor",
                     actor_id = %actor,
-                    baseline_id = %surviving.baseline,
+                    baseline_id = %surviving.baseline(),
                 );
             }
             !retained
@@ -335,13 +355,13 @@ pub fn plan_baseline(
     for stamp in &service_retention.interpretation {
         if !projectable(stamp, &coverage, evidence, input.account.account)? {
             removable.retain(|actor| {
-                let retained = stamp.vector.component(ClockActor::Client(*actor)) != 0;
+                let retained = stamp.vector().component(ClockActor::Client(*actor)) != 0;
                 if retained {
                     tracing::debug!(
                         event = "compaction.collection_blocked",
                         reason = "service_support_not_projectable",
                         actor_id = %actor,
-                        baseline_id = %stamp.baseline,
+                        baseline_id = %stamp.baseline(),
                     );
                 }
                 !retained
@@ -362,12 +382,12 @@ pub fn plan_baseline(
             }
             .into());
         }
-        let interpretation = evidence.baseline(record.key.account, record.stamp.baseline)?;
+        let interpretation = evidence.baseline(record.key.account, record.stamp.baseline())?;
         let represents_prefix = coverage.entries().all(|(timeline, revision)| {
             matches!(
                 evidence
                     .lineage
-                    .compare(Position { timeline, revision }, record.stamp.accepted_at),
+                    .compare(Position { timeline, revision }, record.stamp.accepted_at()),
                 PositionRelation::Before | PositionRelation::Equal | PositionRelation::After
             )
         });
@@ -375,11 +395,11 @@ pub fn plan_baseline(
             tracing::debug!(
                 event = "compaction.projection_blocked",
                 record_id = %record.key.id,
-                baseline_id = %record.stamp.baseline,
+                baseline_id = %record.stamp.baseline(),
                 baseline_available = interpretation.is_some(),
                 represents_prefix,
             );
-            for (actor, _) in record.stamp.vector.entries() {
+            for (actor, _) in record.stamp.vector().entries() {
                 if let ClockActor::Client(actor) = actor {
                     removable.remove(&actor);
                 }
@@ -387,12 +407,12 @@ pub fn plan_baseline(
         }
     }
     for record in input.records {
-        let interpretation = evidence.baseline(record.key.account, record.stamp.baseline)?;
+        let interpretation = evidence.baseline(record.key.account, record.stamp.baseline())?;
         let represents_prefix = coverage.entries().all(|(timeline, revision)| {
             !matches!(
                 evidence
                     .lineage
-                    .compare(Position { timeline, revision }, record.stamp.accepted_at),
+                    .compare(Position { timeline, revision }, record.stamp.accepted_at()),
                 PositionRelation::Unknown(_) | PositionRelation::Divergent
             )
         });
@@ -400,11 +420,11 @@ pub fn plan_baseline(
             continue;
         }
         let mut next = record.clone();
-        next.stamp.vector =
-            RecordVector::from_entries(record.stamp.vector.entries().filter(
+        let vector =
+            RecordVector::from_entries(record.stamp.vector().entries().filter(
                 |(actor, _)| !matches!(actor,ClockActor::Client(c) if removable.contains(c)),
             ))?;
-        next.stamp.baseline = id;
+        next.stamp = VersionStamp::new(record.stamp.accepted_at(), id, vector)?;
         if let crate::record::RecordState::Live(crate::record::RecordValue::Service(service)) =
             &mut next.state
         {
@@ -468,12 +488,12 @@ fn projectable(
     evidence: &EvidenceView<'_>,
     account: clacks_model::ids::AccountId,
 ) -> anyhow::Result<bool> {
-    Ok(evidence.baseline(account, stamp.baseline)?.is_some()
+    Ok(evidence.baseline(account, stamp.baseline())?.is_some()
         && coverage.entries().all(|(timeline, revision)| {
             !matches!(
                 evidence
                     .lineage
-                    .compare(Position { timeline, revision }, stamp.accepted_at),
+                    .compare(Position { timeline, revision }, stamp.accepted_at()),
                 PositionRelation::Unknown(_) | PositionRelation::Divergent
             )
         }))
@@ -489,11 +509,34 @@ fn project_support(
     account: clacks_model::ids::AccountId,
 ) -> anyhow::Result<()> {
     if projectable(stamp, coverage, evidence, account)? {
-        stamp.vector =
-            RecordVector::from_entries(stamp.vector.entries().filter(
+        let vector =
+            RecordVector::from_entries(stamp.vector().entries().filter(
                 |(actor, _)| !matches!(actor,ClockActor::Client(c) if removable.contains(c)),
             ))?;
-        stamp.baseline = id;
+        *stamp = VersionStamp::new(stamp.accepted_at(), id, vector)?;
     }
     Ok(())
+}
+
+/// Proven original-to-observed ordering retained by a sealed basis witness.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EstablishedBasisRelation {
+    /// Original and observation describe the same acceptance.
+    SameVersion,
+    /// Original causally precedes the observation.
+    Before,
+}
+
+impl TryFrom<RecordRelation> for EstablishedBasisRelation {
+    type Error = MetadataError;
+
+    fn try_from(value: RecordRelation) -> Result<Self, Self::Error> {
+        match value {
+            RecordRelation::SameVersion => Ok(Self::SameVersion),
+            RecordRelation::Before => Ok(Self::Before),
+            other => Err(MetadataError::Incomplete {
+                detail: format!("cannot seal original relationship {other:?}"),
+            }),
+        }
+    }
 }

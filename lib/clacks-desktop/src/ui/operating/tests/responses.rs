@@ -52,14 +52,10 @@ fn deleted_source_clears_selection_while_retaining_pending_values() {
     ui.run();
     replace(&mut ui, "Transmit power", "25");
     let mut updated = ui.state().snapshot.as_ref().clone();
-    updated
-        .profiles
-        .first_mut()
-        .unwrap()
-        .pending
-        .as_mut()
-        .unwrap()
-        .working = RecordState::Deleted;
+    let profile = updated.profiles.first_mut().unwrap();
+    let mut fields = profile.clone().into_fields();
+    fields.pending.as_mut().unwrap().working = RecordState::Deleted;
+    *profile = fields.try_into().unwrap();
     updated.operating.selected_profile = None;
     ui.state_mut().snapshot = Arc::new(updated);
     ui.run();

@@ -101,14 +101,14 @@ pub(super) async fn insert_prepared(
     connection: &mut SqliteConnection,
     value: &PreparedChange,
 ) -> anyhow::Result<i64> {
-    let key = value.key;
-    let payload = crate::payload::insert(connection, key, &value.state).await?;
-    let vector = clock::insert_vector(connection, key, &value.vector).await?;
-    let condition = insert_condition(connection, &value.expected).await?;
+    let key = value.key();
+    let payload = crate::payload::insert(connection, key, value.state()).await?;
+    let vector = clock::insert_vector(connection, key, value.vector()).await?;
+    let condition = insert_condition(connection, value.expected()).await?;
     let account = key.account.to_string();
     let kind = crate::payload::kind(key.id);
     let id = key.id.to_string();
-    let actor = value.actor.to_string();
+    let actor = value.actor().to_string();
     let prepared = sqlx::query_file!(
         "sql/prepared/insert.sql",
         account,
@@ -122,7 +122,7 @@ pub(super) async fn insert_prepared(
     .fetch_one(&mut *connection)
     .await?
     .prepared_id;
-    for (ordinal, dependency) in value.dependencies.iter().enumerate() {
+    for (ordinal, dependency) in value.dependencies().iter().enumerate() {
         let ordinal = i64::try_from(ordinal)?;
         let condition = insert_condition(connection, dependency).await?;
         sqlx::query_file!(
@@ -163,12 +163,13 @@ pub(super) async fn load_prepared(
         );
         dependencies.push(load_condition(connection, key.account, row.condition_id).await?);
     }
-    Ok(PreparedChange {
+    clacks_sync::client::PreparedChangeFields {
         key,
         state,
         vector,
         actor: row.actor_id.parse()?,
         expected,
         dependencies,
-    })
+    }
+    .try_into()
 }

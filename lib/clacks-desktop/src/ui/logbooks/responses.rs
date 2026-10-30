@@ -59,7 +59,7 @@ impl LogbooksUi {
                 self.acknowledged_view = Some(selected_view);
                 if let Some(frame) = &mut frame {
                     if let Some(review) = frame.deletion.take()
-                        && let RecordId::Tag(id) = review.preview.tag.key.id
+                        && let RecordId::Tag(id) = review.preview.tag.key().id
                     {
                         self.deleted_tags.insert(id);
                         self.acknowledged_tags.remove(&id);
@@ -99,7 +99,7 @@ impl LogbooksUi {
             }
             SettingsResponse::Logbooks(LogbookResponse::Saved(outcome)) => match *outcome {
                 SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record) => {
-                    if let RecordId::Tag(id) = record.key.id {
+                    if let RecordId::Tag(id) = record.key().id {
                         self.acknowledged_tags.insert(id, record);
                     }
                     if let Some(frame) = &mut frame {

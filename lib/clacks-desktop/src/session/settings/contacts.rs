@@ -133,11 +133,11 @@ pub(crate) async fn execute(
         )),
         ContactAction::Delete { expected } => {
             anyhow::ensure!(
-                matches!(expected.key.id, RecordId::Qso(_)),
+                matches!(expected.key().id, RecordId::Qso(_)),
                 "Only a contact can be deleted here"
             );
             let outcome =
-                save::save(store, expected.key, Some(&expected), RecordState::Deleted).await?;
+                save::save(store, expected.key(), Some(&expected), RecordState::Deleted).await?;
             Ok(ContactResponse::Deleted(outcome))
         }
     }

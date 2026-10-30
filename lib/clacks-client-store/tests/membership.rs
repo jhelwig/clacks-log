@@ -56,7 +56,7 @@ async fn membership_preserves_per_contact_values() -> anyhow::Result<()> {
         (a, BTreeSet::from([id(21), id(22)])),
         (b, BTreeSet::from([id(22)])),
     ] {
-        let current = save::load(&store, old.key).await?.unwrap();
+        let current = save::load(&store, old.key()).await?.unwrap();
         let Some(RecordState::Live(RecordValue::Qso(mut expected))) = old.working_state().cloned()
         else {
             panic!("qso")
@@ -69,14 +69,14 @@ async fn membership_preserves_per_contact_values() -> anyhow::Result<()> {
             current.working_state(),
             Some(&RecordState::Live(RecordValue::Qso(expected)))
         );
-        assert_eq!(current.latest, old.latest);
-        assert_eq!(current.retained, old.retained);
+        assert_eq!(current.latest(), old.latest());
+        assert_eq!(current.retained(), old.retained());
         assert_eq!(
-            current.pending.as_ref().unwrap().original,
-            old.pending.as_ref().unwrap().original
+            current.pending().as_ref().unwrap().original,
+            old.pending().as_ref().unwrap().original
         );
     }
-    assert_eq!(save::load(&store, untouched.key).await?, Some(untouched));
+    assert_eq!(save::load(&store, untouched.key()).await?, Some(untouched));
     let b = save::load(&store, qso_key(id(11))).await?.unwrap();
     change_tags(&store, &[b], &BTreeSet::new(), &[id(22)].into(), |_| {
         ControlFlow::Continue(())
@@ -116,7 +116,7 @@ async fn membership_retains_stale_and_cancelled_results() -> anyhow::Result<()> 
         newer.comment = Some("intervening correction".into());
         Ok(())
     });
-    save::save(&store, b.key, Some(&b), contact(newer)).await?;
+    save::save(&store, b.key(), Some(&b), contact(newer)).await?;
     let report = change_tags(
         &store,
         &[a.clone(), b, c.clone()],
@@ -140,8 +140,8 @@ async fn membership_retains_stale_and_cancelled_results() -> anyhow::Result<()> 
         panic!("qso")
     };
     assert_eq!(value.comment().as_deref(), Some("intervening correction"));
-    let a = save::load(&store, a.key).await?.unwrap();
-    let c = save::load(&store, c.key).await?.unwrap();
+    let a = save::load(&store, a.key()).await?.unwrap();
+    let c = save::load(&store, c.key()).await?.unwrap();
     let report = change_tags(
         &store,
         &[a.clone(), c.clone()],
@@ -159,7 +159,7 @@ async fn membership_retains_stale_and_cancelled_results() -> anyhow::Result<()> 
     assert!(matches!(report.stop, Some(TagChangeStop::Cancelled)));
     assert_eq!(report.entries.len(), 1);
     assert_eq!(report.unprocessed, vec![id(12)]);
-    assert_eq!(save::load(&store, c.key).await?, Some(c.clone()));
+    assert_eq!(save::load(&store, c.key()).await?, Some(c.clone()));
     let unchanged = change_tags(
         &store,
         std::slice::from_ref(&c),
@@ -171,7 +171,7 @@ async fn membership_retains_stale_and_cancelled_results() -> anyhow::Result<()> 
     assert!(
         matches!(&unchanged.entries.first().unwrap().outcome, SaveOutcome::Unchanged(row) if row == &c)
     );
-    save::save(&store, c.key, Some(&c), RecordState::Deleted).await?;
+    save::save(&store, c.key(), Some(&c), RecordState::Deleted).await?;
     let deleted = change_tags(&store, &[c], &[id(22)].into(), &BTreeSet::new(), |_| {
         ControlFlow::Continue(())
     })

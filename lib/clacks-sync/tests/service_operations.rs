@@ -17,25 +17,28 @@ use clacks_sync::{
 fn binding_plans_guard_the_external_namespace_and_selected_target() -> anyhow::Result<()> {
     let a = support::accepted(200, "q1");
     let mut b = support::accepted(200, "q2");
-    let RecordId::Qso(q1) = a.key.id else {
+    let RecordId::Qso(q1) = a.key().id else {
         panic!()
     };
     let q2 = support::id(99);
-    b.key.id = RecordId::Qso(q2);
-    if let clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(q)) =
-        &mut b.state
-    {
-        support::edit(q, |q| {
-            q.id = q2;
-            Ok(())
-        });
-    }
+    support::edit_accepted(&mut b, |b| {
+        b.key.id = RecordId::Qso(q2);
+
+        if let clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(q)) =
+            &mut b.state
+        {
+            support::edit(q, |q| {
+                q.id = q2;
+                Ok(())
+            });
+        }
+    });
     let key = ExternalRecordKey {
         destination: support::id(42),
         record: RemoteRecordId::Qrz("7".parse().unwrap()),
     };
     let index = ExternalBindingObservation {
-        account: a.key.account,
+        account: a.key().account,
         external: key.clone(),
         binding: None,
     };
@@ -52,7 +55,7 @@ fn binding_plans_guard_the_external_namespace_and_selected_target() -> anyhow::R
         state: AssociationState::Active,
     };
     let ServiceDecision::Ready(p1) = plan_binding(&BindingInput {
-        account: a.key.account,
+        account: a.key().account,
         association: &a1,
         index: &index,
         target: &Observation::Accepted(a),
@@ -61,7 +64,7 @@ fn binding_plans_guard_the_external_namespace_and_selected_target() -> anyhow::R
         panic!()
     };
     let ServiceDecision::Ready(p2) = plan_binding(&BindingInput {
-        account: b.key.account,
+        account: b.key().account,
         association: &a2,
         index: &index,
         target: &Observation::Accepted(b),
@@ -293,7 +296,7 @@ fn candidates_respect_identity_hierarchy_and_time_coverage() -> anyhow::Result<(
     };
     use clacks_sync::service::association::{CandidateInput, classify_candidates};
     let row = support::accepted(200, "fixture");
-    let RecordId::Qso(qid) = row.key.id else {
+    let RecordId::Qso(qid) = row.key().id else {
         panic!()
     };
     let q = support::qso(qid);
@@ -318,8 +321,9 @@ fn candidates_respect_identity_hierarchy_and_time_coverage() -> anyhow::Result<(
         assert!(c.confident.is_empty());
         assert_eq!(c.possible.len(), count);
     }
-    obs.facts.contact.start =
-        Reported::Value(ObservedStart::Minute(UtcSecond::from_unix_seconds(960)));
+    obs.facts.contact.start = Reported::Value(ObservedStart::Minute(
+        UtcSecond::from_unix_seconds(960).try_into().unwrap(),
+    ));
     assert_eq!(classify(&obs)?.confident, vec![qid]);
     if let Reported::Value(m) = &mut obs.facts.contact.mode {
         m.concrete = "MFSK".into();
@@ -337,7 +341,7 @@ fn candidates_respect_identity_hierarchy_and_time_coverage() -> anyhow::Result<(
 fn occupied_historical_binding_never_automatically_reactivates() -> anyhow::Result<()> {
     use clacks_sync::service::BindingVersion;
     let row = support::accepted(200, "fixture");
-    let RecordId::Qso(qso) = row.key.id else {
+    let RecordId::Qso(qso) = row.key().id else {
         panic!()
     };
     let key = ExternalRecordKey {
@@ -356,7 +360,7 @@ fn occupied_historical_binding_never_automatically_reactivates() -> anyhow::Resu
         (a.id, AssociationState::DeletedQso),
     ] {
         let index = ExternalBindingObservation {
-            account: row.key.account,
+            account: row.key().account,
             external: key.clone(),
             binding: Some(BindingVersion {
                 association: id,
@@ -367,7 +371,7 @@ fn occupied_historical_binding_never_automatically_reactivates() -> anyhow::Resu
         };
         let captured = support::telemetry::capture(|| {
             plan_binding(&BindingInput {
-                account: row.key.account,
+                account: row.key().account,
                 association: &a,
                 index: &index,
                 target: &Observation::Accepted(row.clone()),
@@ -391,7 +395,7 @@ fn occupied_historical_binding_never_automatically_reactivates() -> anyhow::Resu
     };
     assert!(
         plan_binding(&BindingInput {
-            account: row.key.account,
+            account: row.key().account,
             association: &a,
             index: &foreign,
             target: &Observation::Accepted(row)
@@ -452,14 +456,17 @@ fn result_after_contact_deletion_retains_frozen_attempt_and_job_outcome() -> any
             batch: None,
         };
         let mut a = support::accepted(199, "fixture");
-        a.key.id = RecordId::Service(ServiceRecordId::Attempt(attempt.id));
-        a.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-            payload: ServicePayload::Attempt(attempt.clone()),
-            support: ServiceSupport {
-                destination: Some(destination.clone()),
-                ..Default::default()
-            },
-        })));
+        support::edit_accepted(&mut a, |a| {
+            a.key.id = RecordId::Service(ServiceRecordId::Attempt(attempt.id));
+
+            a.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+                payload: ServicePayload::Attempt(attempt.clone()),
+                support: ServiceSupport {
+                    destination: Some(destination.clone()),
+                    ..Default::default()
+                },
+            })));
+        });
         let result = SubmissionResult {
             external_attempt: None,
             id: support::id(511),
@@ -472,7 +479,10 @@ fn result_after_contact_deletion_retains_frozen_attempt_and_job_outcome() -> any
             external: None,
         };
         let mut deleted = support::accepted(200, "fixture");
-        deleted.state = RecordState::Deleted;
+
+        support::edit_accepted(&mut deleted, |deleted| {
+            deleted.state = RecordState::Deleted;
+        });
         let reads = [
             Observation::Accepted(deleted),
             Observation::Accepted(a),
@@ -513,7 +523,7 @@ fn result_after_contact_deletion_retains_frozen_attempt_and_job_outcome() -> any
             commit
                 .accepted
                 .iter()
-                .all(|r| !matches!(r.state, RecordState::Live(RecordValue::Qso(_))))
+                .all(|r| !matches!(r.state(), RecordState::Live(RecordValue::Qso(_))))
         );
         Ok(())
     });
@@ -547,7 +557,7 @@ fn generic_binding_admission_rejects_historical_reactivation() -> anyhow::Result
         service::{BindingVersion, ServiceRecord, ServiceSupport},
     };
     let q = support::accepted(200, "fixture");
-    let RecordId::Qso(qso) = q.key.id else {
+    let RecordId::Qso(qso) = q.key().id else {
         panic!()
     };
     let destination = Destination {
@@ -567,26 +577,29 @@ fn generic_binding_admission_rejects_historical_reactivation() -> anyhow::Result
         state: AssociationState::Superseded,
     };
     let mut old = q.clone();
-    old.key = RecordKey {
-        account: q.key.account,
-        id: RecordId::Service(ServiceRecordId::Association(a.id)),
-    };
-    old.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload: ServicePayload::Association(a.clone()),
-        support: ServiceSupport {
-            destination: Some(destination.clone()),
-            ..Default::default()
-        },
-    })));
+
+    support::edit_accepted(&mut old, |old| {
+        old.key = RecordKey {
+            account: q.key().account,
+            id: RecordId::Service(ServiceRecordId::Association(a.id)),
+        };
+        old.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload: ServicePayload::Association(a.clone()),
+            support: ServiceSupport {
+                destination: Some(destination.clone()),
+                ..Default::default()
+            },
+        })));
+    });
     let current = Observation::Accepted(old.clone());
-    let mut new = old.state.clone();
+    let mut new = old.state().clone();
     if let RecordState::Live(RecordValue::Service(s)) = &mut new
         && let ServicePayload::Association(a) = &mut s.payload
     {
         a.state = AssociationState::Active;
     }
     let bindings = [ExternalBindingObservation {
-        account: q.key.account,
+        account: q.key().account,
         external: a.external.clone(),
         binding: Some(BindingVersion {
             association: a.id,
@@ -609,7 +622,7 @@ fn generic_binding_admission_rejects_historical_reactivation() -> anyhow::Result
         clients: vec![],
     };
     let change = ServerChange {
-        key: old.key,
+        key: old.key(),
         state: new,
         expected: VersionCondition::from_observation(&current)?,
         dependencies: vec![],
@@ -717,25 +730,28 @@ fn completed_review_commits_binding_and_effect_with_exact_observation() -> anyho
         service::{ServiceRecord, ServiceSupport, operation::ServiceOperation},
     };
     let q = support::accepted(200, "fixture");
-    let RecordId::Qso(qso) = q.key.id else {
+    let RecordId::Qso(qso) = q.key().id else {
         panic!()
     };
     let obs = remote(&support::qso(qso));
     let mut row = q.clone();
-    row.key.id = RecordId::Service(ServicePayload::Observation(Box::new(obs.clone())).id());
-    row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload: ServicePayload::Observation(Box::new(obs.clone())),
-        support: ServiceSupport {
-            destination: Some(Destination {
-                id: support::id(42),
-                collection: RemoteCollection::Qrz {
-                    book_id: Some("7".parse().unwrap()),
-                },
-                description: "book".into(),
-            }),
-            ..Default::default()
-        },
-    })));
+    support::edit_accepted(&mut row, |row| {
+        row.key.id = RecordId::Service(ServicePayload::Observation(Box::new(obs.clone())).id());
+
+        row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload: ServicePayload::Observation(Box::new(obs.clone())),
+            support: ServiceSupport {
+                destination: Some(Destination {
+                    id: support::id(42),
+                    collection: RemoteCollection::Qrz {
+                        book_id: Some("7".parse().unwrap()),
+                    },
+                    description: "book".into(),
+                }),
+                ..Default::default()
+            },
+        })));
+    });
     let key = ExternalRecordKey {
         destination: support::id(42),
         record: RemoteRecordId::Qrz("7".parse().unwrap()),
@@ -854,7 +870,7 @@ fn completed_review_commits_binding_and_effect_with_exact_observation() -> anyho
         .accepted
         .iter()
         .filter_map(|r| {
-            if let RecordState::Live(RecordValue::Service(s)) = &r.state {
+            if let RecordState::Live(RecordValue::Service(s)) = &r.state() {
                 Some(s)
             } else {
                 None
@@ -893,7 +909,7 @@ fn contact_deletion_is_coupled_to_all_known_bindings_and_suppression() -> anyhow
         },
     };
     let q = support::accepted(200, "fixture");
-    let RecordId::Qso(qso) = q.key.id else {
+    let RecordId::Qso(qso) = q.key().id else {
         panic!()
     };
     let external = ExternalRecordKey {
@@ -907,22 +923,25 @@ fn contact_deletion_is_coupled_to_all_known_bindings_and_suppression() -> anyhow
         state: AssociationState::Active,
     };
     let mut a = q.clone();
-    a.key.id = RecordId::Service(ServicePayload::Association(association.clone()).id());
-    a.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload: ServicePayload::Association(association.clone()),
-        support: ServiceSupport {
-            destination: Some(Destination {
-                id: support::id(42),
-                collection: RemoteCollection::Qrz {
-                    book_id: Some("7".parse().unwrap()),
-                },
-                description: "book".into(),
-            }),
-            ..Default::default()
-        },
-    })));
+    support::edit_accepted(&mut a, |a| {
+        a.key.id = RecordId::Service(ServicePayload::Association(association.clone()).id());
+
+        a.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload: ServicePayload::Association(association.clone()),
+            support: ServiceSupport {
+                destination: Some(Destination {
+                    id: support::id(42),
+                    collection: RemoteCollection::Qrz {
+                        book_id: Some("7".parse().unwrap()),
+                    },
+                    description: "book".into(),
+                }),
+                ..Default::default()
+            },
+        })));
+    });
     let binding = ExternalBindingObservation {
-        account: q.key.account,
+        account: q.key().account,
         external: external.clone(),
         binding: Some(BindingVersion {
             association: association.id,
@@ -931,6 +950,7 @@ fn contact_deletion_is_coupled_to_all_known_bindings_and_suppression() -> anyhow
             state: AssociationState::Active,
         }),
     };
+
     association.state = AssociationState::DeletedQso;
     let suppression = DeletionSuppression {
         id: support::id(802),
@@ -1022,22 +1042,28 @@ fn returned_external_identity_cannot_bind_an_unsubmitted_contact() -> anyhow::Re
         state: AssociationState::Active,
     };
     let mut target = support::accepted(200, "fixture");
-    target.key.id = RecordId::Qso(association.qso);
-    if let RecordState::Live(RecordValue::Qso(q)) = &mut target.state {
-        support::edit(q, |q| {
-            q.id = association.qso;
-            Ok(())
-        });
-    }
+    support::edit_accepted(&mut target, |target| {
+        target.key.id = RecordId::Qso(association.qso);
+
+        if let RecordState::Live(RecordValue::Qso(q)) = &mut target.state {
+            support::edit(q, |q| {
+                q.id = association.qso;
+                Ok(())
+            });
+        }
+    });
     let mut a = support::accepted(199, "fixture");
-    a.key.id = RecordId::Service(ServicePayload::Attempt(attempt.clone()).id());
-    a.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload: ServicePayload::Attempt(attempt.clone()),
-        support: ServiceSupport {
-            destination: Some(destination),
-            ..Default::default()
-        },
-    })));
+    support::edit_accepted(&mut a, |a| {
+        a.key.id = RecordId::Service(ServicePayload::Attempt(attempt.clone()).id());
+
+        a.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload: ServicePayload::Attempt(attempt.clone()),
+            support: ServiceSupport {
+                destination: Some(destination),
+                ..Default::default()
+            },
+        })));
+    });
     let reads = [
         Observation::Accepted(a),
         Observation::Accepted(target),
@@ -1112,7 +1138,7 @@ fn client_import_can_reference_a_tag_created_in_the_same_operation() -> anyhow::
     };
     let qr = absent(RecordId::Qso(q.id()));
     let tr = absent(RecordId::Tag(tag.id));
-    let qc = PreparedChange {
+    let qc: PreparedChange = clacks_sync::client::PreparedChangeFields {
         key: qr.key(),
         state: RecordState::Live(RecordValue::Qso(Box::new(q))),
         vector: RecordVector::default()
@@ -1121,7 +1147,9 @@ fn client_import_can_reference_a_tag_created_in_the_same_operation() -> anyhow::
         actor,
         expected: VersionCondition::from_observation(&qr)?,
         dependencies: vec![VersionCondition::from_observation(&tr)?],
-    };
+    }
+    .try_into()
+    .expect("valid prepared fixture");
     let tc = ServerChange {
         key: tr.key(),
         state: RecordState::Live(RecordValue::Tag(Box::new(tag))),
@@ -1154,9 +1182,9 @@ fn client_import_can_reference_a_tag_created_in_the_same_operation() -> anyhow::
     let qso = commit
         .accepted
         .iter()
-        .find(|row| row.key == qso_key)
+        .find(|row| row.key() == qso_key)
         .unwrap();
-    assert_eq!(qso.stamp.vector.component(ClockActor::Client(actor)), 1);
+    assert_eq!(qso.stamp.vector().component(ClockActor::Client(actor)), 1);
     Ok(())
 }
 
@@ -1189,11 +1217,14 @@ fn qrz_destination_can_establish_its_previously_unknown_book_id() -> anyhow::Res
         ..old.clone()
     };
     let mut row = support::accepted(200, "fixture");
-    row.key.id = RecordId::Service(ServicePayload::Destination(old.clone()).id());
-    row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload: ServicePayload::Destination(old.clone()),
-        support: ServiceSupport::default(),
-    })));
+    support::edit_accepted(&mut row, |row| {
+        row.key.id = RecordId::Service(ServicePayload::Destination(old.clone()).id());
+
+        row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload: ServicePayload::Destination(old.clone()),
+            support: ServiceSupport::default(),
+        })));
+    });
     let current = Observation::Accepted(row);
     let bases = [b.clone()];
     let ev = EvidenceView {
@@ -1330,20 +1361,23 @@ fn adding_downloaded_contact_requires_a_selected_tag() -> anyhow::Result<()> {
     assert!(q.tags().is_empty());
     let obs = remote(&q);
     let mut row = support::accepted(200, "fixture");
-    row.key.id = RecordId::Service(ServicePayload::Observation(Box::new(obs.clone())).id());
-    row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload: ServicePayload::Observation(Box::new(obs.clone())),
-        support: ServiceSupport {
-            destination: Some(Destination {
-                id: support::id(42),
-                collection: RemoteCollection::Qrz {
-                    book_id: Some("7".parse().unwrap()),
-                },
-                description: "book".into(),
-            }),
-            ..Default::default()
-        },
-    })));
+    support::edit_accepted(&mut row, |row| {
+        row.key.id = RecordId::Service(ServicePayload::Observation(Box::new(obs.clone())).id());
+
+        row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload: ServicePayload::Observation(Box::new(obs.clone())),
+            support: ServiceSupport {
+                destination: Some(Destination {
+                    id: support::id(42),
+                    collection: RemoteCollection::Qrz {
+                        book_id: Some("7".parse().unwrap()),
+                    },
+                    description: "book".into(),
+                }),
+                ..Default::default()
+            },
+        })));
+    });
     let association = ExternalAssociation {
         id: support::id(601),
         external: ExternalRecordKey {
@@ -1410,10 +1444,13 @@ fn adding_downloaded_contact_requires_a_selected_tag() -> anyhow::Result<()> {
         });
     }
     let mut tag = support::accepted(199, "tag");
-    tag.key.id = RecordId::Tag(tag_id);
-    tag.state = RecordState::Live(RecordValue::Tag(Box::new(
-        clacks_model::tag::LogbookTag::new(tag_id, "Downloaded".into()),
-    )));
+    support::edit_accepted(&mut tag, |tag| {
+        tag.key.id = RecordId::Tag(tag_id);
+
+        tag.state = RecordState::Live(RecordValue::Tag(Box::new(
+            clacks_model::tag::LogbookTag::new(tag_id, "Downloaded".into()),
+        )));
+    });
     let mut reads = reads.to_vec();
     reads.push(Observation::Accepted(tag));
     assert!(matches!(

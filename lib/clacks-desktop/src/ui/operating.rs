@@ -271,12 +271,15 @@ impl SettingsUi {
             effective.to_mut().operating = acknowledged.clone();
         }
         for record in self.acknowledged_records.values() {
-            let rows = match record.key.id {
+            let rows = match record.key().id {
                 RecordId::Profile(_) => &mut effective.to_mut().profiles,
                 RecordId::Equipment(_) => &mut effective.to_mut().equipment,
                 _ => continue,
             };
-            if let Some(previous) = rows.iter_mut().find(|previous| previous.key == record.key) {
+            if let Some(previous) = rows
+                .iter_mut()
+                .find(|previous| previous.key() == record.key())
+            {
                 *previous = record.clone();
             } else {
                 rows.push(record.clone());
@@ -490,10 +493,10 @@ impl SettingsUi {
         for record in snapshot.profiles.iter().chain(&snapshot.equipment) {
             match record.working_state() {
                 Some(RecordState::Deleted) => {
-                    self.known_deletions.insert(record.key.id);
+                    self.known_deletions.insert(record.key().id);
                 }
                 Some(RecordState::Live(_)) => {
-                    self.known_deletions.remove(&record.key.id);
+                    self.known_deletions.remove(&record.key().id);
                 }
                 None => {}
             }

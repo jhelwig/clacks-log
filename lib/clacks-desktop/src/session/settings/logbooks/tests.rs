@@ -156,7 +156,7 @@ async fn dismissed_logbook_requests_drain_during_shutdown() -> anyhow::Result<()
             .logbooks
             .tags
             .iter()
-            .any(|row| row.key.id == clacks_sync::record::RecordId::Tag(tag.id))
+            .any(|row| row.key().id == clacks_sync::record::RecordId::Tag(tag.id))
     );
     assert_eq!(
         reopened.settings.logbooks.selected_view,

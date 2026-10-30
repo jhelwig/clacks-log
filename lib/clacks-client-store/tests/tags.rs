@@ -68,7 +68,7 @@ async fn all_tag_deletion_choices_apply_to_the_complete_membership_basis() -> an
             Ok(())
         });
         let deleted = saved(&store, contact(deleted), qso_key(id(13))).await?;
-        save::save(&store, deleted.key, Some(&deleted), RecordState::Deleted).await?;
+        save::save(&store, deleted.key(), Some(&deleted), RecordState::Deleted).await?;
         let preview = deletion::preview(&store, id(20)).await?;
         assert_eq!(
             preview.counts,

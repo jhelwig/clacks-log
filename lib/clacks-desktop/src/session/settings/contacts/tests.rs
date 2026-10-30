@@ -152,7 +152,7 @@ async fn membership_preparation_captures_the_selected_basis() -> anyhow::Result<
     });
     save::save(
         &store,
-        first.key,
+        first.key(),
         Some(&first),
         RecordState::Live(RecordValue::Qso(next)),
     )
@@ -200,7 +200,7 @@ async fn membership_preparation_captures_the_selected_basis() -> anyhow::Result<
             .is_err()
     );
     let b = save::load(&store, key(&store, b.id())).await?.unwrap();
-    save::save(&store, b.key, Some(&b), RecordState::Deleted).await?;
+    save::save(&store, b.key(), Some(&b), RecordState::Deleted).await?;
     assert!(membership::prepare(&store, &ids).await.is_err());
     store.close().await?;
     let captured = std::fs::read_to_string(output.path())?;

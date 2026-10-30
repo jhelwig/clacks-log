@@ -3,8 +3,8 @@ use clacks_sync::{
     acceptance::{AcceptanceDecision, AcceptanceInput, plan_acceptance},
     account::{AccountMetadata, EvidenceView, InstalledCheckpoint},
     client::{
-        ClientRecord, LocalCounter, OriginalBasis, PendingRecord, Preparation, prepare_change,
-        receive_accepted,
+        ClientRecord, LocalCounter, OriginalBasis, PendingRecord, Preparation,
+        preparation::prepare_change, receive_accepted,
     },
     compaction::{CompactionInput, plan_baseline},
     compare::{RecordRelation, compare_records},
@@ -46,18 +46,20 @@ fn prepared_acceptance_lost_response_and_later_local_edit_compose() {
     };
     let m = members(200);
     let a = accepted(200, "A");
-    let c = ClientRecord {
+    let c = clacks_sync::client::ClientRecordFields {
         retained: Vec::new(),
-        key: a.key,
+        key: a.key(),
         latest: Observation::Accepted(a.clone()),
         pending: Some(PendingRecord {
             witness: None,
-            key: a.key,
+            key: a.key(),
             original: OriginalBasis::Accepted(a.clone()),
-            working: accepted(200, "B").state,
+            working: accepted(200, "B").state().clone(),
             prepared: None,
         }),
-    };
+    }
+    .try_into()
+    .expect("coherent client fixture");
     let Preparation::Ready {
         mut record,
         change,
@@ -92,7 +94,9 @@ fn prepared_acceptance_lost_response_and_later_local_edit_compose() {
     .unwrap() else {
         panic!("accepted")
     };
-    record.pending.as_mut().unwrap().working = accepted(200, "C").state;
+    support::edit_client(&mut record, |fields| {
+        fields.pending.as_mut().unwrap().working = accepted(200, "C").state().clone();
+    });
     let reloaded: ClientRecord =
         serde_json::from_str(&serde_json::to_string(&record).unwrap()).unwrap();
     let update = receive_accepted(&reloaded, &commit.accepted, &ev).unwrap();
@@ -104,7 +108,7 @@ fn prepared_acceptance_lost_response_and_later_local_edit_compose() {
     };
     assert_eq!(
         later
-            .vector
+            .vector()
             .component(clacks_sync::clock::ClockActor::Client(id(4))),
         2
     );
@@ -151,15 +155,21 @@ fn revocation_and_projection_keep_post_boundary_record_order_interpretable() {
         }),
     });
     let mut old = accepted(400, "old");
-    old.stamp.vector = old.stamp.vector.join(
-        &clacks_sync::clock::RecordVector::from_entries([(
-            clacks_sync::clock::ClockActor::Client(id(4)),
-            1,
-        )])
-        .unwrap(),
-    );
+    support::edit_stamp(&mut old.stamp, |stamp| {
+        stamp.vector = stamp.vector.join(
+            &clacks_sync::clock::RecordVector::from_entries([(
+                clacks_sync::clock::ClockActor::Client(id(4)),
+                1,
+            )])
+            .unwrap(),
+        );
+        Ok(())
+    });
     let mut latest = accepted(600, "latest");
-    latest.stamp.vector = latest.stamp.vector.join(&old.stamp.vector);
+    support::edit_stamp(&mut latest.stamp, |stamp| {
+        stamp.vector = stamp.vector.join(old.stamp.vector());
+        Ok(())
+    });
     let defs = [b.clone()];
     let ev = EvidenceView {
         lineage: &b.lineage,
@@ -246,7 +256,7 @@ fn partial_install_reload_completion_and_recovery_ancestry_compose() {
         source.clone(),
         WindowMode::Full,
         vec![RecordRequirement {
-            key: retained.key,
+            key: retained.key(),
             stamp: retained.stamp.clone(),
             deleted: false,
         }],

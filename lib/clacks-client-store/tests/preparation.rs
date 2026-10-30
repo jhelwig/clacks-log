@@ -30,7 +30,7 @@ async fn unenrolled_cannot_prepare_or_allocate_an_author() -> anyhow::Result<()>
         save::load(&store, key)
             .await?
             .unwrap()
-            .pending
+            .pending()
             .unwrap()
             .prepared
             .is_none()

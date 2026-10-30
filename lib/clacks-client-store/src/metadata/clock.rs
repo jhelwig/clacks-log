@@ -75,14 +75,13 @@ pub(crate) async fn insert_stamp(
     key: RecordKey,
     stamp: &VersionStamp,
 ) -> anyhow::Result<i64> {
-    stamp.validate()?;
-    let vector = insert_vector(connection, key, &stamp.vector).await?;
+    let vector = insert_vector(connection, key, stamp.vector()).await?;
     let account = key.account.to_string();
     let kind = crate::payload::kind(key.id);
     let id = key.id.to_string();
-    let timeline = stamp.accepted_at.timeline.to_string();
-    let revision = i64::try_from(stamp.accepted_at.revision)?;
-    let baseline = stamp.baseline.to_string();
+    let timeline = stamp.accepted_at().timeline.to_string();
+    let revision = i64::try_from(stamp.accepted_at().revision)?;
+    let baseline = stamp.baseline().to_string();
     Ok(sqlx::query_file!(
         "sql/stamp/insert.sql",
         account,
@@ -110,14 +109,13 @@ pub(crate) async fn load_stamp(
     let row = sqlx::query_file!("sql/stamp/select.sql", stamp, account, kind, id)
         .fetch_one(&mut *connection)
         .await?;
-    let stamp = VersionStamp {
-        accepted_at: Position {
+    let stamp = VersionStamp::new(
+        Position {
             timeline: row.timeline_id.parse()?,
             revision: row.revision.try_into()?,
         },
-        baseline: row.baseline_id.parse()?,
-        vector: load_vector(connection, key, row.vector_id).await?,
-    };
-    stamp.validate()?;
+        row.baseline_id.parse()?,
+        load_vector(connection, key, row.vector_id).await?,
+    )?;
     Ok(stamp)
 }

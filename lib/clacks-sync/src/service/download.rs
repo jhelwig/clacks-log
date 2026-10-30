@@ -95,8 +95,6 @@ pub fn plan_start(
         query: input.query.clone(),
         phase: AcquisitionPhase::Active,
         started_at: input.at,
-        finished_at: None,
-        complete: false,
         retained_inputs: Default::default(),
     };
     group(
@@ -366,17 +364,16 @@ pub fn plan_progress(
     acquisition
         .retained_inputs
         .extend(input.retained_inputs.iter().copied());
-    acquisition.complete = complete;
-    acquisition.finished_at = Some(input.at);
     acquisition.phase = if complete {
-        AcquisitionPhase::Completed
+        AcquisitionPhase::Completed { at: input.at }
     } else {
-        AcquisitionPhase::Failed(
-            input
+        AcquisitionPhase::Failed {
+            at: input.at,
+            reason: input
                 .failure
                 .clone()
                 .unwrap_or_else(|| "incomplete response".into()),
-        )
+        }
     };
     let mut control = input.control.clone();
     control.active = None;

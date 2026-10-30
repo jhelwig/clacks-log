@@ -100,8 +100,6 @@ async fn incremental_service_dependencies(update_acquisition: bool) -> anyhow::R
         query,
         phase: AcquisitionPhase::Active,
         started_at: UtcTimestamp::new(10, 0)?,
-        finished_at: None,
-        complete: false,
         retained_inputs: Default::default(),
     };
     let rows = vec![
@@ -112,12 +110,12 @@ async fn incremental_service_dependencies(update_acquisition: bool) -> anyhow::R
     let source = InstalledCheckpoint {
         account: support::id(1),
         baseline: baseline.id,
-        coverage: Coverage::from(rows.last().expect("seed rows").stamp.accepted_at),
+        coverage: Coverage::from(rows.last().expect("seed rows").stamp.accepted_at()),
     };
     let requirements = |rows: &[AcceptedRecord]| {
         rows.iter()
             .map(|value| RecordRequirement {
-                key: value.key,
+                key: value.key(),
                 stamp: value.stamp.clone(),
                 deleted: false,
             })
@@ -151,7 +149,7 @@ async fn incremental_service_dependencies(update_acquisition: bool) -> anyhow::R
         after: source.coverage.clone(),
     };
     let next_source = InstalledCheckpoint {
-        coverage: Coverage::from(next.stamp.accepted_at),
+        coverage: Coverage::from(next.stamp.accepted_at()),
         ..source
     };
     let manifest = WindowManifest::new(
@@ -170,11 +168,11 @@ async fn incremental_service_dependencies(update_acquisition: bool) -> anyhow::R
     let retry = transfer::install(&store, &next_source, &mode, &[]).await?;
     assert!(retry.staged.is_empty());
     assert_eq!(
-        save::load(&store, next.key)
+        save::load(&store, next.key())
             .await?
             .expect("installed row")
-            .latest,
-        clacks_sync::record::Observation::Accepted(next)
+            .latest(),
+        &clacks_sync::record::Observation::Accepted(next)
     );
     assert_eq!(
         transfer::finish(&store, &next_source, &mode).await?,

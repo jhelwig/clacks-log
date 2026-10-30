@@ -75,7 +75,7 @@ impl SettingsUi {
                 match result.outcome {
                     SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record) => {
                         if refresh_failed {
-                            self.acknowledged_records.insert(record.key.id, record.clone());
+                            self.acknowledged_records.insert(record.key().id, record.clone());
                             self.completion_notice = Some("Profile saved locally. Refresh settings to recover the remaining view; do not repeat the save.".into());
                         }
                         if result.missing_equipment.is_some() {
@@ -89,7 +89,7 @@ impl SettingsUi {
             SettingsResponse::SaveEquipment(outcome) => match outcome {
                 SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record) => {
                     if refresh_failed {
-                        self.acknowledged_records.insert(record.key.id, record);
+                        self.acknowledged_records.insert(record.key().id, record);
                         self.completion_notice = Some("Equipment saved locally. Refresh settings to recover the remaining view; do not repeat the save.".into());
                     }
                     pop = true;
@@ -97,12 +97,12 @@ impl SettingsUi {
                 SaveOutcome::Stale { current } => stale(frame, current),
             },
             SettingsResponse::DeleteProfile(outcome) => match outcome {
-                SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record) => { deleted = Some(record.key.id); pop = true; }
+                SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record) => { deleted = Some(record.key().id); pop = true; }
                 SaveOutcome::Stale { current } => stale(frame, current),
             },
             SettingsResponse::PreviewEquipmentDeletion(preview) => next = Some(Screen::DeleteEquipment(Box::new(DeletionReview { preview, choices: BTreeMap::new() }))),
             SettingsResponse::DeleteEquipment(EquipmentDeleteOutcome::Applied) => {
-                if let Screen::DeleteEquipment(review) = &frame.screen { deleted = Some(review.preview.equipment.key.id); }
+                if let Screen::DeleteEquipment(review) = &frame.screen { deleted = Some(review.preview.equipment.key().id); }
                 pop = true;
             },
             SettingsResponse::DeleteEquipment(EquipmentDeleteOutcome::Stale(preview)) => {
@@ -172,7 +172,7 @@ pub(super) fn stale_review(ui: &mut egui::Ui, frame: &mut Frame) {
                 {
                     if let Screen::Profile(editor) = &mut frame.screen
                         && current.as_ref().is_some_and(|r| {
-                            r.key.id == clacks_sync::record::RecordId::Profile(editor.id)
+                            r.key().id == clacks_sync::record::RecordId::Profile(editor.id)
                         })
                     {
                         editor.expected = current.clone();
@@ -193,7 +193,7 @@ pub(super) fn stale_review(ui: &mut egui::Ui, frame: &mut Frame) {
                 {
                     if let Screen::EquipmentEdit(editor) = &mut frame.screen
                         && current.as_ref().is_some_and(|r| {
-                            r.key.id == clacks_sync::record::RecordId::Equipment(editor.id)
+                            r.key().id == clacks_sync::record::RecordId::Equipment(editor.id)
                         })
                     {
                         editor.expected = current.clone();

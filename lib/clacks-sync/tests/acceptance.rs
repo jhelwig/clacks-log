@@ -36,19 +36,21 @@ fn accepts_once_with_atomic_conditions_and_rejects_closed_actor() {
         };
         let a = accepted(200, "A");
         let current = Observation::Accepted(a.clone());
-        let change = PreparedChange {
-            key: a.key,
-            state: accepted(200, "B").state,
+        let change: PreparedChange = clacks_sync::client::PreparedChangeFields {
+            key: a.key(),
+            state: accepted(200, "B").state().clone(),
             vector: a
                 .stamp
-                .vector
+                .vector()
                 .increment(ClockActor::Client(id(4)), 0)
                 .unwrap()
                 .0,
             actor: id(4),
             expected: VersionCondition::from_observation(&current).unwrap(),
             dependencies: vec![],
-        };
+        }
+        .try_into()
+        .expect("valid prepared fixture");
         let AcceptanceDecision::Commit(commit) = plan_acceptance(
             &change,
             &AcceptanceInput {
@@ -64,12 +66,12 @@ fn accepts_once_with_atomic_conditions_and_rejects_closed_actor() {
         .unwrap() else {
             panic!("commit")
         };
-        assert_eq!(commit.accepted.stamp.accepted_at.revision, 201);
+        assert_eq!(commit.accepted.stamp.accepted_at().revision, 201);
         assert_eq!(
             commit
                 .accepted
                 .stamp
-                .vector
+                .vector()
                 .component(ClockActor::Client(id(4))),
             1
         );
@@ -193,7 +195,7 @@ fn empty_account_seeds_groups_without_a_client_actor() {
         panic!("seed")
     };
     assert_eq!(
-        commit.accepted.stamp.vector.entries().collect::<Vec<_>>(),
+        commit.accepted.stamp.vector().entries().collect::<Vec<_>>(),
         vec![(ClockActor::Server(id(2)), 1)]
     );
 }
@@ -214,7 +216,7 @@ fn missing_tag_rejects_without_changing_local_values() {
     };
     let a = accepted(200, "A");
     let current = Observation::Accepted(a.clone());
-    let mut state = a.state.clone();
+    let mut state = a.state().clone();
     if let RecordState::Live(RecordValue::Qso(q)) = &mut state {
         support::edit(q, |q| {
             q.tags.insert(id(8));
@@ -222,7 +224,7 @@ fn missing_tag_rejects_without_changing_local_values() {
         });
     }
     let change = ServerChange {
-        key: a.key,
+        key: a.key(),
         state: state.clone(),
         expected: VersionCondition::from_observation(&current).unwrap(),
         dependencies: vec![],
@@ -263,8 +265,8 @@ fn context_only_acceptance_is_not_a_native_change_and_guards_epochs() {
     let a = accepted(200, "A");
     let current = Observation::Accepted(a.clone());
     let change = ServerChange {
-        key: a.key,
-        state: a.state.clone(),
+        key: a.key(),
+        state: a.state().clone(),
         expected: VersionCondition::from_observation(&current).unwrap(),
         dependencies: vec![],
     };
@@ -348,7 +350,7 @@ fn stale_tag_dependency_and_invalid_group_are_diagnostic() {
             a.stamp.clone(),
         )
         .unwrap();
-        let mut state = a.state.clone();
+        let mut state = a.state().clone();
         if let RecordState::Live(RecordValue::Qso(q)) = &mut state {
             support::edit(q, |q| {
                 q.tags.insert(id(8));
@@ -357,11 +359,14 @@ fn stale_tag_dependency_and_invalid_group_are_diagnostic() {
         }
         let dep = VersionCondition::from_observation(&Observation::Accepted(tag.clone())).unwrap();
         let mut deleted = tag;
-        deleted.state = RecordState::Deleted;
+
+        support::edit_accepted(&mut deleted, |deleted| {
+            deleted.state = RecordState::Deleted;
+        });
         deleted.stamp = accepted(201, "x").stamp;
         let refs = [Observation::Accepted(deleted)];
         let change = ServerChange {
-            key: a.key,
+            key: a.key(),
             state,
             expected: VersionCondition::from_observation(&current).unwrap(),
             dependencies: vec![dep],
@@ -460,11 +465,14 @@ fn server_change_cannot_relabel_an_uninterpretable_current_baseline() {
         clients: vec![],
     };
     let mut a = accepted(200, "A");
-    a.stamp.baseline = id(99);
+    support::edit_stamp(&mut a.stamp, |stamp| {
+        stamp.baseline = id(99);
+        Ok(())
+    });
     let current = Observation::Accepted(a.clone());
     let change = ServerChange {
-        key: a.key,
-        state: a.state.clone(),
+        key: a.key(),
+        state: a.state().clone(),
         expected: VersionCondition::from_observation(&current).unwrap(),
         dependencies: vec![],
     };

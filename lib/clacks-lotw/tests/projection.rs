@@ -134,8 +134,9 @@ fn native_projection_survives_storage_and_signing_without_remapping() -> anyhow:
         }
         assert_eq!(original, stored);
         assert_eq!(original.external_key(), stored.external_key());
-        let mut mismatched = stored.clone();
-        mismatched.signing_identity.dxcc = "1".into();
+        let mut fields = stored.clone().into_fields();
+        fields.signing_identity.dxcc = "1".into();
+        let mismatched = fields.try_into().unwrap();
         assert!(
             write_batch(
                 &mut Vec::new(),

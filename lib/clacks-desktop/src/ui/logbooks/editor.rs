@@ -42,7 +42,7 @@ impl LogbooksUi {
                                     ui.monospace(tag.id.to_string());
                                     if ui.button("Copy ID").clicked() { ui.ctx().copy_text(tag.id.to_string()); }
                                     if ui.button("Edit logbook").clicked() {
-                                        frame.form = Some(TagForm::new(records.iter().find(|row| row.key.id==RecordId::Tag(tag.id)).cloned()));
+                                        frame.form = Some(TagForm::new(records.iter().find(|row| row.key().id==RecordId::Tag(tag.id)).cloned()));
                                         frame.notice = None;
                                     }
                                     if ui.button("Delete logbook").clicked() {
@@ -129,7 +129,7 @@ fn show_form(
         );
         let current = records
             .iter()
-            .find(|row| row.key.id == RecordId::Tag(form.editor.id))
+            .find(|row| row.key().id == RecordId::Tag(form.editor.id))
             .filter(|row| tag(row).is_some());
         if ui
             .add_enabled(current.is_some(), egui::Button::new("Reload saved logbook"))

@@ -462,7 +462,7 @@ async fn filtered_counts_and_rows_share_a_snapshot() -> anyhow::Result<()> {
     let record = save::load(&f.store, support::qso_key(support::id(10)))
         .await?
         .unwrap();
-    save::save(&f.store, record.key, Some(&record), RecordState::Deleted).await?;
+    save::save(&f.store, record.key(), Some(&record), RecordState::Deleted).await?;
     query.show_selected = false;
     query.offset = 1;
     let page = snapshot.contact_page(&query).await?;

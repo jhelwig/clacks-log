@@ -139,7 +139,10 @@ fn retained_server_distributed_envelope_preserves_acceptance_and_deletion() {
         baselines: &defs,
     };
     let mut retained = accepted(60, "accepted from A and distributed to C");
-    retained.state = RecordState::Deleted;
+
+    support::edit_accepted(&mut retained, |retained| {
+        retained.state = RecordState::Deleted;
+    });
     let current = Observation::Accepted(accepted(30, "older backup"));
     let RecoveredDecision::Install {
         envelope, journal, ..
@@ -163,7 +166,7 @@ fn retained_server_distributed_envelope_preserves_acceptance_and_deletion() {
     };
     assert_eq!(envelope, retained);
     assert_eq!(journal.installed_at.timeline, id(5));
-    assert_eq!(journal.stamp.accepted_at.timeline, id(2));
+    assert_eq!(journal.stamp.accepted_at().timeline, id(2));
     let defs = [];
     let missing = EvidenceView {
         lineage: &lineage,
@@ -234,12 +237,15 @@ fn equal_divergent_values_join_context_without_business_review() {
     account.head.revision = 10;
     let incoming = accepted(60, "same");
     let mut competing = incoming.clone();
-    competing.stamp.accepted_at = account.head;
-    competing.stamp.vector = clacks_sync::clock::RecordVector::from_entries([(
-        clacks_sync::clock::ClockActor::Server(id(5)),
-        10,
-    )])
-    .unwrap();
+    support::edit_stamp(&mut competing.stamp, |stamp| {
+        stamp.accepted_at = account.head;
+        stamp.vector = clacks_sync::clock::RecordVector::from_entries([(
+            clacks_sync::clock::ClockActor::Server(id(5)),
+            10,
+        )])
+        .unwrap();
+        Ok(())
+    });
     let RecoveredDecision::Reconciled(commit) = plan_recovered_install(
         &incoming,
         None,
@@ -262,7 +268,7 @@ fn equal_divergent_values_join_context_without_business_review() {
         commit
             .accepted
             .stamp
-            .vector
+            .vector()
             .component(clacks_sync::clock::ClockActor::Server(id(2))),
         60
     );
@@ -295,7 +301,7 @@ fn sparse_certified_absence_uses_ancestry_at_the_checkpoint_cut() {
     };
     let incoming = accepted(180, "old");
     let absent = Observation::Absent {
-        key: incoming.key,
+        key: incoming.key(),
         checkpoint: InstalledCheckpoint {
             account: id(1),
             baseline: id(3),
@@ -354,10 +360,16 @@ fn unknown_order_never_approves_differing_values_and_unavailable_is_two_way() {
             baselines: &defs,
         };
         let mut incoming = accepted(10, "incoming");
-        incoming.stamp.baseline = id(20);
+        support::edit_stamp(&mut incoming.stamp, |stamp| {
+            stamp.baseline = id(20);
+            Ok(())
+        });
         let mut shared = accepted(5, "original");
-        shared.stamp.accepted_at.timeline = id(5);
-        shared.stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
+        support::edit_stamp(&mut shared.stamp, |stamp| {
+            stamp.accepted_at.timeline = id(5);
+            stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
+            Ok(())
+        });
         let shared = Observation::Accepted(shared);
         let original = OriginalBasis::Accepted(accepted(1, "original"));
         let input = clacks_sync::acceptance::AcceptanceInput {
@@ -375,9 +387,12 @@ fn unknown_order_never_approves_differing_values_and_unavailable_is_two_way() {
         };
         assert!(matches!(review.reason, ReviewReason::OrderingUnknown(_)));
         returned_reason = Some(review.reason.clone());
-        incoming.stamp.baseline = id(3);
+        support::edit_stamp(&mut incoming.stamp, |stamp| {
+            stamp.baseline = id(3);
+            Ok(())
+        });
         let missing = OriginalBasis::Unavailable {
-            key: incoming.key,
+            key: incoming.key(),
             reason: clacks_sync::error::UnknownReason::MissingOriginal,
         };
         let RecoveredDecision::Review(review) =
@@ -424,59 +439,73 @@ fn tagged_qso_and_equipment_profile_context_joins_have_reference_guards() {
         baselines: &defs,
     };
     let mut q = accepted(10, "same");
-    if let RecordState::Live(RecordValue::Qso(q)) = &mut q.state {
-        support::edit(q, |q| {
-            q.tags.insert(id(30));
-            Ok(())
-        });
-    }
+    support::edit_accepted(&mut q, |q| {
+        if let RecordState::Live(RecordValue::Qso(q)) = &mut q.state {
+            support::edit(q, |q| {
+                q.tags.insert(id(30));
+                Ok(())
+            });
+        }
+    });
     let mut tag = accepted(10, "tag");
-    tag.key = RecordKey {
-        account: id(1),
-        id: RecordId::Tag(id(30)),
-    };
-    tag.state = RecordState::Live(RecordValue::Tag(Box::new(
-        clacks_model::tag::LogbookTag::new(id(30), "tag".into()),
-    )));
+
+    support::edit_accepted(&mut tag, |tag| {
+        tag.key = RecordKey {
+            account: id(1),
+            id: RecordId::Tag(id(30)),
+        };
+        tag.state = RecordState::Live(RecordValue::Tag(Box::new(
+            clacks_model::tag::LogbookTag::new(id(30), "tag".into()),
+        )));
+    });
     let mut profile = accepted(10, "profile");
-    profile.key = RecordKey {
-        account: id(1),
-        id: RecordId::Profile(id(40)),
-    };
-    profile.state = RecordState::Live(RecordValue::Profile(Box::new(
-        (clacks_model::profile::SavedLocationProfileFields {
-            id: id(40),
-            name: "profile".into(),
-            station: (support::qso(id(10)).own_station().clone()),
-            default_equipment: Some(id(50)),
-        })
-        .try_into()
-        .expect("valid native fixture"),
-    )));
+
+    support::edit_accepted(&mut profile, |profile| {
+        profile.key = RecordKey {
+            account: id(1),
+            id: RecordId::Profile(id(40)),
+        };
+        profile.state = RecordState::Live(RecordValue::Profile(Box::new(
+            (clacks_model::profile::SavedLocationProfileFields {
+                id: id(40),
+                name: "profile".into(),
+                station: (support::qso(id(10)).own_station().clone()),
+                default_equipment: Some(id(50)),
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        )));
+    });
     let mut equipment = accepted(10, "equipment");
-    equipment.key = RecordKey {
-        account: id(1),
-        id: RecordId::Equipment(id(50)),
-    };
-    equipment.state = RecordState::Live(RecordValue::Equipment(Box::new(
-        (clacks_model::profile::EquipmentConfigurationFields {
-            id: id(50),
-            name: "rig".into(),
-            values: clacks_model::equipment::EquipmentValuesFields {
-                equipment_description: Some("rig".into()),
-                ..Default::default()
-            },
-        })
-        .try_into()
-        .expect("valid native fixture"),
-    )));
+
+    support::edit_accepted(&mut equipment, |equipment| {
+        equipment.key = RecordKey {
+            account: id(1),
+            id: RecordId::Equipment(id(50)),
+        };
+        equipment.state = RecordState::Live(RecordValue::Equipment(Box::new(
+            (clacks_model::profile::EquipmentConfigurationFields {
+                id: id(50),
+                name: "rig".into(),
+                values: clacks_model::equipment::EquipmentValuesFields {
+                    equipment_description: Some("rig".into()),
+                    ..Default::default()
+                },
+            })
+            .try_into()
+            .expect("valid native fixture"),
+        )));
+    });
     for (incoming, reference) in [(q, tag), (profile, equipment)] {
         let mut shared = incoming.clone();
-        shared.stamp.accepted_at = Position {
-            timeline: id(5),
-            revision: 5,
-        };
-        shared.stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
+        support::edit_stamp(&mut shared.stamp, |stamp| {
+            stamp.accepted_at = Position {
+                timeline: id(5),
+                revision: 5,
+            };
+            stamp.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 5)]).unwrap();
+            Ok(())
+        });
         let shared = Observation::Accepted(shared);
         let refs = [Observation::Accepted(reference.clone())];
         let input = clacks_sync::acceptance::AcceptanceInput {
@@ -493,7 +522,7 @@ fn tagged_qso_and_equipment_profile_context_joins_have_reference_guards() {
             panic!("equal reference-bearing values reconcile")
         };
         assert_eq!(commit.dependencies.len(), 1);
-        assert_eq!(commit.dependencies.first().unwrap().key(), reference.key);
+        assert_eq!(commit.dependencies.first().unwrap().key(), reference.key());
         let missing = clacks_sync::acceptance::AcceptanceInput {
             destination_registry: None,
             bindings: &[],

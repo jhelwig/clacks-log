@@ -90,6 +90,9 @@ fn projection_freezes_actual_values_and_whole_receive_override() -> anyhow::Resu
             .and_then(serde_json::Value::as_str),
         Some(c.upstream_commit.as_str())
     );
+    let mut inconsistent = stored.clone();
+    inconsistent["key"]["mode"] = serde_json::json!("CW");
+    assert!(serde_json::from_value::<lotw::LotwSubmission>(inconsistent).is_err());
     support::edit(&mut q, |q| {
         q.comment = Some("not sent".into());
 
@@ -107,8 +110,8 @@ fn projection_freezes_actual_values_and_whole_receive_override() -> anyhow::Resu
     });
     let rx = get(&q)?;
     assert_ne!(original.external_key(), rx.external_key());
-    assert!(!rx.contact_fields.contains_key("FREQ_RX"));
-    assert_eq!(rx.signing_identity.dxcc, "291");
+    assert!(!rx.contact_fields().contains_key("FREQ_RX"));
+    assert_eq!(rx.signing_identity().dxcc, "291");
     Ok(())
 }
 
@@ -153,11 +156,14 @@ fn entity_dependent_subdivisions_and_county_parent_are_resolved() -> anyhow::Res
         panic!("normal US state/county must be ready")
     };
     assert_eq!(
-        r.value.station_fields.get("US_STATE").map(String::as_str),
+        r.value.station_fields().get("US_STATE").map(String::as_str),
         Some("WA")
     );
     assert_eq!(
-        r.value.station_fields.get("US_COUNTY").map(String::as_str),
+        r.value
+            .station_fields()
+            .get("US_COUNTY")
+            .map(String::as_str),
         Some("King")
     );
     support::edit(&mut q, |q| {
@@ -195,7 +201,7 @@ fn entity_dependent_subdivisions_and_county_parent_are_resolved() -> anyhow::Res
         let ProjectionDecision::Ready(r) = project(&q, entity)? else {
             panic!("entity dependency must be resolved")
         };
-        assert_eq!(r.value.station_fields.get(field), Some(&value.value));
+        assert_eq!(r.value.station_fields().get(field), Some(&value.value));
     }
     Ok(())
 }

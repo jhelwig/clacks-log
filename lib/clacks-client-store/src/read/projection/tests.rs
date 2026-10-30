@@ -75,7 +75,7 @@ async fn retained_evidence_projects_current_service_status() -> anyhow::Result<(
     let save::SaveOutcome::Saved(row) = row else {
         panic!("save")
     };
-    save::save(&store, row.key, Some(&row), support::contact(qso.clone())).await?;
+    save::save(&store, row.key(), Some(&row), support::contact(qso.clone())).await?;
     let mut snapshot = read::snapshot(&store).await?;
     let facts = projection::load(
         &mut snapshot.transaction,
@@ -110,7 +110,7 @@ async fn install(
     let source = InstalledCheckpoint {
         account: support::id(1),
         baseline: baseline.id,
-        coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at),
+        coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at()),
     };
     let manifest = WindowManifest::new(
         source.account,
@@ -118,7 +118,7 @@ async fn install(
         WindowMode::Full,
         rows.iter()
             .map(|r| RecordRequirement {
-                key: r.key,
+                key: r.key(),
                 stamp: r.stamp.clone(),
                 deleted: false,
             })
@@ -288,7 +288,8 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
                 association: Some(support::id(n + 3)),
             }),
         );
-        let RecordState::Live(RecordValue::Service(s)) = &mut disposition.state else {
+        let mut state = disposition.state().clone();
+        let RecordState::Live(RecordValue::Service(s)) = &mut state else {
             panic!("service")
         };
         s.support.required = vec![
@@ -296,6 +297,11 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
             SupportRequirement::CoveredEffect(VersionReference::from(&original)),
             SupportRequirement::CoveredEffect(VersionReference::from(&association)),
         ];
+        disposition = clacks_sync::record::AcceptedRecord::new(
+            disposition.key(),
+            state,
+            disposition.stamp.clone(),
+        )?;
         rows.extend([observation, association, disposition]);
     }
     install(&store, &rows).await?;
@@ -349,7 +355,7 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
         Ok(())
     });
     let save::SaveOutcome::Saved(old) =
-        save::save(&store, old.key, Some(&old), support::contact(qso.clone())).await?
+        save::save(&store, old.key(), Some(&old), support::contact(qso.clone())).await?
     else {
         panic!("save")
     };
@@ -396,7 +402,7 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
         );
         Ok(())
     });
-    save::save(&store, old.key, Some(&old), support::contact(qso.clone())).await?;
+    save::save(&store, old.key(), Some(&old), support::contact(qso.clone())).await?;
     let mut snapshot = read::snapshot(&store).await?;
     let facts = projection::load(
         &mut snapshot.transaction,

@@ -31,17 +31,17 @@ pub(crate) async fn review_in(
     connection: &mut SqliteConnection,
     record: &ClientRecord,
 ) -> anyhow::Result<Option<clacks_sync::client::ReviewInput>> {
-    let Some(actor) = actor_in(connection, record.key).await? else {
+    let Some(actor) = actor_in(connection, record.key()).await? else {
         return Ok(None);
     };
-    if record.pending.is_none() || matches!(record.latest, Observation::Unavailable { .. }) {
+    if record.pending().is_none() || matches!(record.latest(), Observation::Unavailable { .. }) {
         return Ok(None);
     }
     let update = clacks_sync::client::receive_rejection(
         record,
         &clacks_sync::acceptance::RejectionReason::ActorUnknown { actor },
     )?;
-    review::store(connection, record.key, update.review.as_ref()).await?;
+    review::store(connection, record.key(), update.review.as_ref()).await?;
     Ok(update.review)
 }
 
@@ -51,9 +51,10 @@ pub(crate) async fn preserve_in(
     previous: &ClientRecord,
     update: &mut ClientUpdate,
 ) -> anyhow::Result<()> {
-    if actor_in(connection, previous.key).await?.is_some() && previous.pending.is_some() {
-        update.record.pending = previous.pending.clone();
-        update.record.validate()?;
+    if actor_in(connection, previous.key()).await?.is_some() && previous.pending().is_some() {
+        let mut fields = update.record.clone().into_fields();
+        fields.pending = previous.pending().cloned();
+        update.record = fields.try_into()?;
     }
     Ok(())
 }
@@ -96,11 +97,13 @@ pub(crate) async fn completed_in(
         let mut record = crate::metadata::client::load(connection, key)
             .await?
             .ok_or_else(|| anyhow::anyhow!("held record disappeared inside its transaction"))?;
-        if full && !matches!(record.latest, Observation::Accepted(_)) {
-            record.latest = Observation::Absent {
+        if full && !matches!(record.latest(), Observation::Accepted(_)) {
+            let mut fields = record.into_fields();
+            fields.latest = Observation::Absent {
                 key,
                 checkpoint: checkpoint.clone(),
             };
+            record = fields.try_into()?;
             crate::metadata::client::store(connection, &record).await?;
         }
         review_in(connection, &record).await?;

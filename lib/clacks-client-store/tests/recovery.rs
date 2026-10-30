@@ -52,7 +52,7 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
         acceptance::{AcceptanceDecision, AcceptanceInput, plan_acceptance},
         account::{AccountMetadata, EvidenceView, InstalledCheckpoint},
         client::{
-            ClientRecord, LocalCounter, OriginalBasis, PendingRecord, Preparation, prepare_change,
+            LocalCounter, OriginalBasis, PendingRecord, Preparation, preparation::prepare_change,
         },
         compaction::{CompactionInput, plan_baseline},
         membership::{ClientMembership, MembershipSnapshot},
@@ -99,7 +99,7 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
         lineage: &baseline.lineage,
         baselines: &bases,
     };
-    let client = ClientRecord {
+    let client = clacks_sync::client::ClientRecordFields {
         key,
         latest: absent.clone(),
         retained: vec![],
@@ -117,7 +117,9 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
             prepared: None,
             witness: None,
         }),
-    };
+    }
+    .try_into()
+    .expect("coherent client fixture");
     let Preparation::Ready { change, .. } = prepare_change(
         &client,
         support::id(9),
@@ -202,9 +204,9 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
     )
     .await?;
     let sealed = save::load(&store, key).await?.unwrap();
-    let witness = sealed.pending.as_ref().unwrap().witness.as_ref().unwrap();
-    assert_eq!(witness.observed, commit.accepted.stamp);
-    assert_eq!(witness.original, sealed.pending.as_ref().unwrap().original);
+    let witness = sealed.pending().as_ref().unwrap().witness.as_ref().unwrap();
+    assert_eq!(witness.observed(), &commit.accepted.stamp);
+    assert_eq!(witness.original(), &sealed.pending().unwrap().original);
     let projected = baseline_plan.projected.first().unwrap();
     synchronization::receive(&store, projected).await?;
     retention::collect_unreferenced(&store).await?;
@@ -214,7 +216,7 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
         Some(RecordState::Live(_))
     ));
     assert_eq!(
-        retained.pending.as_ref().unwrap().witness,
+        retained.pending().as_ref().unwrap().witness,
         Some(witness.clone())
     );
     // Incompatible meaning for the same baseline cannot replace interpretation or receipt.
@@ -258,10 +260,10 @@ async fn rollback_ancestry_and_recovered_envelopes_preserve_local_tail_and_old_r
     let completed = InstalledCheckpoint {
         account: restored.account,
         baseline: baseline.id,
-        coverage: Coverage::from(accepted.stamp.accepted_at),
+        coverage: Coverage::from(accepted.stamp.accepted_at()),
     };
     let requirement = RecordRequirement {
-        key: accepted.key,
+        key: accepted.key(),
         stamp: accepted.stamp.clone(),
         deleted: false,
     };
@@ -283,13 +285,13 @@ async fn rollback_ancestry_and_recovered_envelopes_preserve_local_tail_and_old_r
     )
     .await?;
     transfer::finish(&store, &completed, &WindowMode::Full).await?;
-    let row = save::load(&store, accepted.key).await?.unwrap();
+    let row = save::load(&store, accepted.key()).await?.unwrap();
     let mut qso = support::qso(support::id(10));
     support::edit(&mut qso, |qso| {
         qso.comment = Some("Keep local changes across server restoration".into());
         Ok(())
     });
-    save::save(&store, accepted.key, Some(&row), support::contact(qso)).await?;
+    save::save(&store, accepted.key(), Some(&row), support::contact(qso)).await?;
     let membership = MembershipSnapshot {
         account: restored.account,
         generation: 0,
@@ -320,14 +322,14 @@ async fn rollback_ancestry_and_recovered_envelopes_preserve_local_tail_and_old_r
     let mut ancestry = baseline.lineage.clone();
     ancestry.add_boundary(fork.boundary.clone())?;
     retention::install_interpretation(&store, &completed, &[], &ancestry).await?;
-    let retained = save::load(&store, accepted.key).await?.unwrap();
-    assert_eq!(retained.latest, Observation::Accepted(accepted.clone()));
+    let retained = save::load(&store, accepted.key()).await?.unwrap();
+    assert_eq!(retained.latest(), &Observation::Accepted(accepted.clone()));
     let evidence = EvidenceView {
         lineage: &ancestry,
         baselines: &bases,
     };
     let absence = Observation::Absent {
-        key: accepted.key,
+        key: accepted.key(),
         checkpoint: InstalledCheckpoint {
             account: restored.account,
             baseline: baseline.id,
@@ -373,10 +375,10 @@ async fn rollback_ancestry_and_recovered_envelopes_preserve_local_tail_and_old_r
     transfer::remember(&store, &recovered).await?;
     transfer::install(&store, &source, &WindowMode::Full, &[envelope]).await?;
     let receipt = transfer::finish(&store, &source, &WindowMode::Full).await?;
-    assert!(receipt.coverage.covers(accepted.stamp.accepted_at));
+    assert!(receipt.coverage.covers(accepted.stamp.accepted_at()));
     retention::collect_unreferenced(&store).await?;
     assert_eq!(
-        save::load(&store, accepted.key)
+        save::load(&store, accepted.key())
             .await?
             .unwrap()
             .working_state(),
@@ -387,8 +389,8 @@ async fn rollback_ancestry_and_recovered_envelopes_preserve_local_tail_and_old_r
     let mut snapshot = read::snapshot(&store).await?;
     assert_eq!(snapshot.checkpoint().await?, Some(receipt));
     assert_eq!(
-        snapshot.record(accepted.key).await?.unwrap().latest,
-        Observation::Accepted(accepted)
+        snapshot.record(accepted.key()).await?.unwrap().latest(),
+        &Observation::Accepted(accepted)
     );
     snapshot.close().await?;
     store.close().await?;
@@ -432,14 +434,14 @@ async fn insufficient_installed_coverage_keeps_the_original_without_fabricating_
     transfer::finish(&store, &checkpoint, &WindowMode::Full).await?;
     let accepted = support::accepted(1, support::contact(support::qso(support::id(10))));
     synchronization::receive(&store, &accepted).await?;
-    let row = save::load(&store, accepted.key).await?.unwrap();
+    let row = save::load(&store, accepted.key()).await?.unwrap();
     let mut qso = support::qso(support::id(10));
     support::edit(&mut qso, |qso| {
         qso.comment = Some("Pending beyond installed receipt".into());
         Ok(())
     });
     let SaveOutcome::Saved(pending) =
-        save::save(&store, accepted.key, Some(&row), support::contact(qso)).await?
+        save::save(&store, accepted.key(), Some(&row), support::contact(qso)).await?
     else {
         panic!("saved")
     };
@@ -470,7 +472,118 @@ async fn insufficient_installed_coverage_keeps_the_original_without_fabricating_
     )
     .await?;
     retention::collect_unreferenced(&store).await?;
-    assert_eq!(save::load(&store, accepted.key).await?, Some(pending));
+    assert_eq!(save::load(&store, accepted.key()).await?, Some(pending));
+    store.close().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn absence_witness_survives_a_new_baseline_and_workspace_reopen() -> anyhow::Result<()> {
+    use clacks_client_store::transfer;
+    use clacks_sync::{
+        account::{AccountMetadata, InstalledCheckpoint},
+        client::OriginalBasis,
+        record::{AcceptedRecord, VersionStamp},
+        transfer::{RecordRequirement, WindowManifest, WindowMode},
+    };
+    let directory = tempfile::tempdir()?;
+    let file = directory.path().join("workspace.sqlite");
+    let store = ClientStore::create(&file, support::id(1), StoreSettings::default()).await?;
+    let (account, old_baseline) =
+        AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
+    let old_checkpoint = InstalledCheckpoint {
+        account: account.account,
+        baseline: old_baseline.id,
+        coverage: account.installed,
+    };
+    let initial = WindowManifest::new(
+        account.account,
+        old_checkpoint.clone(),
+        WindowMode::Full,
+        vec![],
+        vec![],
+        vec![old_baseline.clone()],
+        vec![],
+    )?;
+    transfer::remember(&store, &initial).await?;
+    transfer::finish(&store, &old_checkpoint, &WindowMode::Full).await?;
+
+    let key = support::qso_key(support::id(10));
+    let SaveOutcome::Saved(local) = save::save(
+        &store,
+        key,
+        None,
+        support::contact(support::qso(support::id(10))),
+    )
+    .await?
+    else {
+        panic!("local save")
+    };
+    assert!(matches!(&local.pending().unwrap().original,
+        OriginalBasis::NeverCreated { checkpoint, .. } if checkpoint.baseline == old_baseline.id));
+    let mut next_baseline = old_baseline.clone();
+    next_baseline.id = support::id(4);
+    let mut remote = support::qso(support::id(10));
+    support::edit(&mut remote, |fields| {
+        fields.comment = Some("Independent remote creation".into());
+        Ok(())
+    });
+    let remote = support::accepted(1, support::contact(remote));
+    let accepted = AcceptedRecord::new(
+        key,
+        remote.state().clone(),
+        VersionStamp::new(
+            remote.stamp.accepted_at(),
+            next_baseline.id,
+            remote.stamp.vector().clone(),
+        )?,
+    )?;
+    let source = InstalledCheckpoint {
+        account: account.account,
+        baseline: next_baseline.id,
+        coverage: clacks_sync::lineage::Coverage::from(accepted.stamp.accepted_at()),
+    };
+    let manifest = WindowManifest::new(
+        account.account,
+        source.clone(),
+        WindowMode::Full,
+        vec![RecordRequirement {
+            key,
+            stamp: accepted.stamp.clone(),
+            deleted: false,
+        }],
+        vec![],
+        vec![old_baseline.clone(), next_baseline],
+        vec![],
+    )?;
+    transfer::remember(&store, &manifest).await?;
+    transfer::install(&store, &source, &WindowMode::Full, &[accepted]).await?;
+    transfer::finish(&store, &source, &WindowMode::Full).await?;
+    retention::install_interpretation(&store, &source, &[], &old_baseline.lineage).await?;
+    store.close().await?;
+
+    let store = ClientStore::open(&file, account.account, StoreSettings::default()).await?;
+    let restored = save::load(&store, key)
+        .await?
+        .expect("pending QSO retained");
+    let pending = restored
+        .pending()
+        .expect("independent creations require review");
+    let witness = pending
+        .witness
+        .as_ref()
+        .expect("original comparison evidence sealed");
+    assert!(
+        matches!(witness.original(), OriginalBasis::NeverCreated { checkpoint, .. }
+        if checkpoint == &old_checkpoint)
+    );
+    assert!(
+        witness
+            .baselines()
+            .iter()
+            .any(|baseline| baseline.id == old_baseline.id)
+    );
+    assert_eq!(restored.working_state(), local.working_state());
     store.close().await?;
     Ok(())
 }

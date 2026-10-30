@@ -10,8 +10,9 @@ fn stale_save_preserves_the_correction_and_offers_review_without_resurrection() 
     let original = fixtures::row(RecordValue::Qso(Box::new(fixtures::contact())));
     let mut editor = editor::ContactEditor::from_record(original.clone()).unwrap();
     editor.form.comment = "My unsaved correction".into();
-    let mut deleted = original;
-    deleted.pending.as_mut().unwrap().working = RecordState::Deleted;
+    let mut fields = original.into_fields();
+    fields.pending.as_mut().unwrap().working = RecordState::Deleted;
+    let deleted: clacks_sync::client::ClientRecord = fields.try_into().unwrap();
     let mut view = ContactsUi {
         editor: Some(editor),
         ..Default::default()
@@ -372,13 +373,13 @@ fn history_membership_request_uses_all_selected_ids() {
     let first = rows.next().unwrap();
     let second = rows.next().unwrap();
     let third = rows.next().unwrap();
-    let clacks_sync::record::RecordId::Qso(first_id) = first.key.id else {
+    let clacks_sync::record::RecordId::Qso(first_id) = first.key().id else {
         panic!("qso")
     };
-    let clacks_sync::record::RecordId::Qso(second_id) = second.key.id else {
+    let clacks_sync::record::RecordId::Qso(second_id) = second.key().id else {
         panic!("qso")
     };
-    let clacks_sync::record::RecordId::Qso(third_id) = third.key.id else {
+    let clacks_sync::record::RecordId::Qso(third_id) = third.key().id else {
         panic!("qso")
     };
     request

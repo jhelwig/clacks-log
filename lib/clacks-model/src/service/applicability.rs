@@ -339,17 +339,17 @@ pub fn submitted_fields(projection: &SubmissionProjection) -> AdifFields {
     match projection {
         SubmissionProjection::Qrz(v) => v.fields.clone(),
         SubmissionProjection::Lotw(v) => {
-            let mut fields = v.contact_fields.clone();
+            let mut fields = v.contact_fields().clone();
             fields.extend(
-                v.station_fields
+                v.station_fields()
                     .iter()
                     .map(|(k, v)| (format!("STATION:{k}"), v.clone())),
             );
             fields.insert(
                 "STATION:CALL".into(),
-                v.signing_identity.callsign.as_str().into(),
+                v.signing_identity().callsign.as_str().into(),
             );
-            fields.insert("STATION:DXCC".into(), v.signing_identity.dxcc.clone());
+            fields.insert("STATION:DXCC".into(), v.signing_identity().dxcc.clone());
             fields
         }
     }

@@ -189,10 +189,10 @@ pub(super) fn evaluate(
             .filter(|r| {
                 baselines
                     .iter()
-                    .any(|b| b.key == r.key && b.stamp == r.stamp)
+                    .any(|b| b.key == r.key() && b.stamp == r.stamp)
             })
             .filter_map(|r| {
-                if let RecordState::Live(RecordValue::Qso(q)) = &r.state {
+                if let RecordState::Live(RecordValue::Qso(q)) = &r.state() {
                     Some(q.as_ref())
                 } else {
                     None
@@ -284,7 +284,7 @@ fn acquired_after_imports(
     };
     imports.iter().all(|assertion| {
         evidence.accepted.iter().any(|accepted| {
-            let RecordState::Live(RecordValue::Service(value)) = &accepted.state else {
+            let RecordState::Live(RecordValue::Service(value)) = &accepted.state() else {
                 return false;
             };
             let ServicePayload::Imported(value) = &value.payload else {
@@ -306,7 +306,7 @@ fn acquired_after_imports(
                     matches!(
                         interpretation
                             .lineage
-                            .compare(accepted.stamp.accepted_at, read.accepted_at),
+                            .compare(accepted.stamp.accepted_at(), read.accepted_at()),
                         PositionRelation::Before | PositionRelation::Equal
                     )
                 })

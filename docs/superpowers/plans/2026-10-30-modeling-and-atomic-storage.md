@@ -276,33 +276,33 @@ private fields. Introduce `EstablishedBasisRelation::{SameVersion, Before}`;
 `seal_basis` remains the producer of sealed witnesses. `AcquisitionState` exposes
 phase/finish/completion accessors derived from one state, not independent fields.
 
-- [ ] Extend the existing metadata/compaction/download scenarios to demonstrate
+- [x] Extend the existing metadata/compaction/download scenarios to demonstrate
   rejected inconsistent restored acceptance context and an acquisition's actual
   active/completed/failed lifecycle. Exercise existing same-version/before sealed
   witnesses; do not add tests proving Rust exhaustiveness or field privacy.
-- [ ] Protect accepted stamp/envelope fields and coupled client pending/prepared
+- [x] Protect accepted stamp/envelope fields and coupled client pending/prepared
   state. Use existing transition functions to produce valid updates; decode raw
   fields through checked construction. Keep account/head/reference comparisons
   at their current transaction/application boundaries.
-- [ ] Narrow witness relation and retain its coupled original/observed evidence.
+- [x] Narrow witness relation and retain its coupled original/observed evidence.
   Restore the witness through checked construction with its supplied lineage and
   baselines. Do not imply that a type proves ancestry without causal comparison.
-- [ ] Replace acquisition's phase plus optional finish time plus completion flag
+- [x] Replace acquisition's phase plus optional finish time plus completion flag
   with `Active`, `Completed { at }`, `Failed { at, reason }`. Derive finish time
   and completion. Update `plan_start`/`plan_finish` without changing watermark or
   partial-input behavior. Preserve the current native serialized shape through
   an explicit private input/output representation.
-- [ ] Protect `LotwSubmission`'s frozen fields/key/signing identity. Native
+- [x] Protect `LotwSubmission`'s frozen fields/key/signing identity. Native
   projection and storage restoration construct it through one internal
   consistency check. Move only self-consistency checking out of signing's input
   preparation; keep selected certificate, current eligibility, signature-definition
   compatibility and transport-format checks in clacks-lotw. No dependency cycle,
   re-normalization of old attempts or encoding modes in Rust variants.
-- [ ] Retain complete/incomplete provider evidence, optional issued references
+- [x] Retain complete/incomplete provider evidence, optional issued references
   and `Reported<T>` as currently defined. For minute-covered observed timestamps,
   retain checked alignment/bounds after construction rather than accepting any
   `UtcSecond` as a minute. Do not alter QSO timestamp resolution.
-- [ ] Update owning sync/service docs. Run model, sync and LoTW integration suites
+- [x] Update owning sync/service docs. Run model, sync and LoTW integration suites
   and a workspace check. Commit the usable native evidence refactor.
 
 ## Task 3: Coherent operating and enrollment workflow state

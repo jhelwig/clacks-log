@@ -6,7 +6,9 @@ use crate::{
     rows::client::OriginalBasisRow,
 };
 use clacks_sync::{
-    client::OriginalBasis, compaction::BasisWitness, compare::RecordRelation, record::RecordKey,
+    client::OriginalBasis,
+    compaction::{BasisWitness, EstablishedBasisRelation},
+    record::RecordKey,
 };
 use sqlx::SqliteConnection;
 
@@ -160,14 +162,13 @@ pub(super) async fn insert_witness(
     value: &BasisWitness,
     original: i64,
 ) -> anyhow::Result<i64> {
-    let key = value.key;
-    let observed = clock::insert_stamp(connection, key, &value.observed).await?;
-    let checkpoint = lineage::insert_checkpoint(connection, &value.checkpoint).await?;
-    let lineage = lineage::insert_lineage(connection, &value.lineage).await?;
-    let relation = match value.relation {
-        RecordRelation::SameVersion => "same",
-        RecordRelation::Before => "before",
-        _ => anyhow::bail!("witness lacks an established original relationship"),
+    let key = value.key();
+    let observed = clock::insert_stamp(connection, key, value.observed()).await?;
+    let checkpoint = lineage::insert_checkpoint(connection, value.checkpoint()).await?;
+    let lineage = lineage::insert_lineage(connection, value.lineage()).await?;
+    let relation = match value.relation() {
+        EstablishedBasisRelation::SameVersion => "same",
+        EstablishedBasisRelation::Before => "before",
     };
     let account = key.account.to_string();
     let kind = crate::payload::kind(key.id);
@@ -186,7 +187,7 @@ pub(super) async fn insert_witness(
     .fetch_one(&mut *connection)
     .await?
     .witness_id;
-    for (ordinal, baseline) in value.baselines.iter().enumerate() {
+    for (ordinal, baseline) in value.baselines().iter().enumerate() {
         let ordinal = i64::try_from(ordinal)?;
         let baseline = lineage::insert_baseline(connection, baseline).await?;
         sqlx::query_file!(
@@ -228,17 +229,15 @@ pub(super) async fn load_witness(
         );
         baselines.push(lineage::load_baseline(connection, key.account, row.baseline_row).await?);
     }
-    Ok(BasisWitness {
-        key,
-        original,
-        observed,
-        checkpoint,
-        lineage,
-        baselines,
-        relation: match row.relation.as_str() {
-            "same" => RecordRelation::SameVersion,
-            "before" => RecordRelation::Before,
-            _ => anyhow::bail!("invalid witness relationship"),
-        },
-    })
+    let value = BasisWitness::restore(original, observed, checkpoint, lineage, baselines)?;
+    let relation = match row.relation.as_str() {
+        "same" => EstablishedBasisRelation::SameVersion,
+        "before" => EstablishedBasisRelation::Before,
+        _ => anyhow::bail!("invalid witness relationship"),
+    };
+    anyhow::ensure!(
+        value.relation() == relation,
+        "witness relationship differs from retained evidence"
+    );
+    Ok(value)
 }

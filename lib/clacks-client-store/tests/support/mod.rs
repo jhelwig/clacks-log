@@ -81,14 +81,15 @@ pub fn accepted(revision: u64, state: RecordState) -> clacks_sync::record::Accep
     AcceptedRecord::new(
         key(value),
         state,
-        VersionStamp {
-            accepted_at: Position {
+        VersionStamp::new(
+            Position {
                 timeline: id(2),
                 revision,
             },
-            baseline: id(3),
-            vector: RecordVector::from_entries([(ClockActor::Server(id(2)), revision)]).unwrap(),
-        },
+            id(3),
+            RecordVector::from_entries([(ClockActor::Server(id(2)), revision)]).unwrap(),
+        )
+        .expect("valid accepted fixture context"),
     )
     .unwrap()
 }

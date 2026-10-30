@@ -29,14 +29,27 @@ fn accepted_envelopes_validate_native_state_and_identity() {
         id: RecordId::Qso(id(2)),
     };
     let timeline = id(3);
-    let stamp = VersionStamp {
-        accepted_at: Position {
+    let stamp = VersionStamp::new(
+        Position {
             timeline,
             revision: 1,
         },
-        baseline: id(4),
-        vector: RecordVector::from_entries([(ClockActor::Server(timeline), 1)]).unwrap(),
-    };
+        id(4),
+        RecordVector::from_entries([(ClockActor::Server(timeline), 1)]).unwrap(),
+    )
+    .expect("valid accepted fixture context");
+    let mut incoming = serde_json::to_value(&stamp).unwrap();
+    incoming["accepted_at"]["revision"] = serde_json::json!(2);
+    assert!(serde_json::from_value::<VersionStamp>(incoming).is_err());
+    let envelope = AcceptedRecord::new(
+        key,
+        RecordState::Live(RecordValue::Qso(Box::new(qso(id(2))))),
+        stamp.clone(),
+    )
+    .unwrap();
+    let mut incoming = serde_json::to_value(envelope).unwrap();
+    incoming["key"]["id"] = serde_json::to_value(RecordId::Qso(id(99))).unwrap();
+    assert!(serde_json::from_value::<AcceptedRecord>(incoming).is_err());
     let q = qso(id(2));
     assert!(
         AcceptedRecord::new(

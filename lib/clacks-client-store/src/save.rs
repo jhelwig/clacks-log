@@ -62,7 +62,7 @@ pub(crate) async fn save_in(
         return Ok(SaveOutcome::Unchanged(current.clone()));
     }
     let mut record = match current {
-        Some(current) => current,
+        Some(current) => current.into_fields(),
         None => {
             let latest = match crate::metadata::lineage::current_checkpoint(connection, key.account)
                 .await?
@@ -73,7 +73,7 @@ pub(crate) async fn save_in(
                     reason: UnknownReason::MissingOriginal,
                 },
             };
-            ClientRecord {
+            clacks_sync::client::ClientRecordFields {
                 key,
                 latest,
                 pending: None,
@@ -103,6 +103,7 @@ pub(crate) async fn save_in(
             witness: None,
         });
     }
+    let record: ClientRecord = record.try_into()?;
     client::store(connection, &record).await?;
     if crate::metadata::review::load(connection, key)
         .await?

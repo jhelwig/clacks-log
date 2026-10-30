@@ -13,7 +13,7 @@ use clacks_model::{
     scalar::{Milliwatts, RecordedCallsign},
 };
 use clacks_sync::{
-    client::{ClientRecord, OriginalBasis, PendingRecord},
+    client::{OriginalBasis, PendingRecord},
     error::UnknownReason,
     record::{Observation, RecordId, RecordKey, RecordState},
 };
@@ -306,7 +306,7 @@ fn deletion_refresh_clears_sources_without_losing_pending_values_or_rebasing_rea
         account: clacks_model::ids::AccountId::new(),
         id: RecordId::Profile(profile.id()),
     };
-    let row = ClientRecord {
+    let row = clacks_sync::client::ClientRecordFields {
         key,
         latest: Observation::Unavailable {
             key,
@@ -323,7 +323,9 @@ fn deletion_refresh_clears_sources_without_losing_pending_values_or_rebasing_rea
             witness: None,
         }),
         retained: vec![],
-    };
+    }
+    .try_into()
+    .expect("coherent client fixture");
     let mut current = active.clone();
     current.selected_profile = None;
     let view = SettingsSnapshot {

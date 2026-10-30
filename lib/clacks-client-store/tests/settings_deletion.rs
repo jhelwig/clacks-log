@@ -214,7 +214,7 @@ async fn replacement_edit_or_deletion_aborts_review() -> anyhow::Result<()> {
         let preview = settings::preview_equipment_deletion(&f.store, f.a.id()).await?;
         let old = record(&f.store, RecordId::Equipment(f.b.id())).await;
         if delete {
-            save::save(&f.store, old.key, Some(&old), RecordState::Deleted).await?;
+            save::save(&f.store, old.key(), Some(&old), RecordState::Deleted).await?;
         } else {
             let mut changed = f.b.clone();
             {
@@ -282,16 +282,16 @@ async fn install(
     let source = InstalledCheckpoint {
         account: id(1),
         baseline: baseline.id,
-        coverage: Coverage::from(accepted.stamp.accepted_at),
+        coverage: Coverage::from(accepted.stamp.accepted_at()),
     };
     let manifest = WindowManifest::new(
         id(1),
         source.clone(),
         WindowMode::Full,
         vec![RecordRequirement {
-            key: accepted.key,
+            key: accepted.key(),
             stamp: accepted.stamp.clone(),
-            deleted: matches!(accepted.state, RecordState::Deleted),
+            deleted: matches!(accepted.state(), RecordState::Deleted),
         }],
         vec![],
         vec![baseline],
@@ -337,7 +337,11 @@ async fn effective_received_deletion_forgets_source() -> anyhow::Result<()> {
             2,
             RecordState::Live(RecordValue::Equipment(Box::new(a.clone()))),
         );
-        deleted.state = RecordState::Deleted;
+        deleted = clacks_sync::record::AcceptedRecord::new(
+            deleted.key(),
+            RecordState::Deleted,
+            deleted.stamp.clone(),
+        )?;
         install(&store, deleted, baseline).await?;
         let current = operating::load(&store).await?;
         assert_eq!(current.current, active.current);
@@ -405,7 +409,7 @@ async fn invalid_or_unreviewed_deletion_choices_have_no_effects() -> anyhow::Res
     }
     let row = record(&f.store, RecordId::Equipment(f.a.id())).await;
     assert!(
-        save::save(&f.store, row.key, Some(&row), RecordState::Deleted)
+        save::save(&f.store, row.key(), Some(&row), RecordState::Deleted)
             .await
             .is_err()
     );

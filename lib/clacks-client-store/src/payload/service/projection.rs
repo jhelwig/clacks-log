@@ -16,7 +16,7 @@ use clacks_model::{
                 SubmissionProjection, SubmissionResult,
             },
         },
-        lotw::{LotwMappingProvenance, LotwSubmission, PublicSigningIdentity},
+        lotw::{LotwMappingProvenance, LotwSubmissionFields, PublicSigningIdentity},
         qrz::QrzSubmission,
     },
 };
@@ -113,16 +113,17 @@ async fn projection(
         },
         SubmissionProjection::Lotw(value) => ProjectionFields {
             service: "lotw",
-            mapping_release: Some(value.mapping_provenance.release.as_str()),
-            mapping_commit: Some(value.mapping_provenance.upstream_commit.as_str()),
-            signing_call: Some(value.signing_identity.callsign.as_str()),
-            signing_dxcc: Some(value.signing_identity.dxcc.as_str()),
+            mapping_release: Some(value.mapping_provenance().release.as_str()),
+            mapping_commit: Some(value.mapping_provenance().upstream_commit.as_str()),
+            signing_call: Some(value.signing_identity().callsign.as_str()),
+            signing_dxcc: Some(value.signing_identity().dxcc.as_str()),
             external_id: Some(
                 identity::external(connection, key.account, &value.external_key()).await?,
             ),
-            contact_map: fields(connection, payload, "lotw_contact", &value.contact_fields).await?,
+            contact_map: fields(connection, payload, "lotw_contact", value.contact_fields())
+                .await?,
             station_map: Some(
-                fields(connection, payload, "lotw_station", &value.station_fields).await?,
+                fields(connection, payload, "lotw_station", value.station_fields()).await?,
             ),
         },
     };
@@ -190,37 +191,45 @@ async fn load_projection(
             let RemoteRecordId::Lotw(key) = external.record else {
                 anyhow::bail!("LoTW projection has QRZ identity")
             };
-            SubmissionProjection::Lotw(Box::new(LotwSubmission {
-                destination,
-                mapping_provenance: LotwMappingProvenance {
-                    release: row
-                        .mapping_release
-                        .context("LoTW projection lacks mapping release")?,
-                    upstream_commit: row
-                        .mapping_commit
-                        .context("LoTW projection lacks mapping commit")?,
-                },
-                signing_identity: PublicSigningIdentity {
-                    callsign: RecordedCallsign::new(
-                        &row.signing_call
-                            .context("LoTW projection lacks signing call")?,
-                    )?,
-                    dxcc: row
-                        .signing_dxcc
-                        .context("LoTW projection lacks signing entity")?,
-                },
-                key,
-                contact_fields: load_fields(connection, payload, "lotw_contact", row.contact_map)
+            SubmissionProjection::Lotw(Box::new(
+                LotwSubmissionFields {
+                    destination,
+                    mapping_provenance: LotwMappingProvenance {
+                        release: row
+                            .mapping_release
+                            .context("LoTW projection lacks mapping release")?,
+                        upstream_commit: row
+                            .mapping_commit
+                            .context("LoTW projection lacks mapping commit")?,
+                    },
+                    signing_identity: PublicSigningIdentity {
+                        callsign: RecordedCallsign::new(
+                            &row.signing_call
+                                .context("LoTW projection lacks signing call")?,
+                        )?,
+                        dxcc: row
+                            .signing_dxcc
+                            .context("LoTW projection lacks signing entity")?,
+                    },
+                    key,
+                    contact_fields: load_fields(
+                        connection,
+                        payload,
+                        "lotw_contact",
+                        row.contact_map,
+                    )
                     .await?,
-                station_fields: load_fields(
-                    connection,
-                    payload,
-                    "lotw_station",
-                    row.station_map
-                        .context("LoTW projection lacks station map")?,
-                )
-                .await?,
-            }))
+                    station_fields: load_fields(
+                        connection,
+                        payload,
+                        "lotw_station",
+                        row.station_map
+                            .context("LoTW projection lacks station map")?,
+                    )
+                    .await?,
+                }
+                .try_into()?,
+            ))
         }
         _ => anyhow::bail!("invalid submission projection variant"),
     })

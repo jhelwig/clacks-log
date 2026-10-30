@@ -47,7 +47,7 @@ pub(in crate::ui::operating) fn show(
             for saved in snapshot
                 .profiles
                 .iter()
-                .filter(|record| !known_deletions.contains(&record.key.id))
+                .filter(|record| !known_deletions.contains(&record.key().id))
                 .filter_map(profile)
             {
                 if ui
@@ -58,7 +58,7 @@ pub(in crate::ui::operating) fn show(
                         snapshot
                             .equipment
                             .iter()
-                            .filter(|record| !known_deletions.contains(&record.key.id))
+                            .filter(|record| !known_deletions.contains(&record.key().id))
                             .filter_map(configuration)
                             .find(|equipment| equipment.id() == id)
                     });
@@ -108,7 +108,7 @@ pub(in crate::ui::operating) fn show(
             for saved in snapshot
                 .equipment
                 .iter()
-                .filter(|record| !known_deletions.contains(&record.key.id))
+                .filter(|record| !known_deletions.contains(&record.key().id))
                 .filter_map(configuration)
             {
                 if ui

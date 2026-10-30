@@ -33,7 +33,7 @@ fn staged_input_counts_new_commits_without_counting_retries() -> anyhow::Result<
                 let source = InstalledCheckpoint {
                     account: support::id(1),
                     baseline: baseline.id,
-                    coverage: Coverage::from(second.stamp.accepted_at),
+                    coverage: Coverage::from(second.stamp.accepted_at()),
                 };
                 let manifest = WindowManifest::new(
                     source.account,
@@ -42,7 +42,7 @@ fn staged_input_counts_new_commits_without_counting_retries() -> anyhow::Result<
                     [&first, &second]
                         .into_iter()
                         .map(|row| RecordRequirement {
-                            key: row.key,
+                            key: row.key(),
                             stamp: row.stamp.clone(),
                             deleted: false,
                         })

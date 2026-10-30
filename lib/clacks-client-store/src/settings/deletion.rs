@@ -46,7 +46,7 @@ async fn preview_in(
     account: AccountId,
     equipment: ClientRecord,
 ) -> anyhow::Result<EquipmentDeletionPreview> {
-    let RecordId::Equipment(id) = equipment.key.id else {
+    let RecordId::Equipment(id) = equipment.key().id else {
         anyhow::bail!("equipment review requires an equipment record")
     };
     let view = super::read::load_in(connection, account).await?;
@@ -54,7 +54,7 @@ async fn preview_in(
         .equipment
         .into_iter()
         .filter(|r| {
-            r.key.id != equipment.key.id
+            r.key().id != equipment.key().id
                 && matches!(
                     r.working_state(),
                     Some(RecordState::Live(RecordValue::Equipment(_)))
@@ -101,7 +101,7 @@ pub(super) async fn apply(
     expected: &EquipmentDeletionPreview,
     replacements: &[ProfileEquipmentReplacement],
 ) -> anyhow::Result<EquipmentDeleteOutcome> {
-    let key = expected.equipment.key;
+    let key = expected.equipment.key();
     let RecordId::Equipment(target) = key.id else {
         anyhow::bail!("equipment deletion requires an equipment record")
     };
@@ -112,19 +112,19 @@ pub(super) async fn apply(
     let mut reviewed = BTreeMap::new();
     for row in &expected.referring_profiles {
         anyhow::ensure!(
-            row.key.account == store.account
-                && matches!(row.key.id, RecordId::Profile(_))
-                && reviewed.insert(row.key, row).is_none(),
+            row.key().account == store.account
+                && matches!(row.key().id, RecordId::Profile(_))
+                && reviewed.insert(row.key(), row).is_none(),
             "invalid or duplicate reviewed profile"
         );
     }
     let mut candidates = BTreeMap::new();
     for row in &expected.replacement_equipment {
         anyhow::ensure!(
-            row.key.account == store.account
-                && matches!(row.key.id, RecordId::Equipment(_))
-                && row.key != key
-                && candidates.insert(row.key, row).is_none(),
+            row.key().account == store.account
+                && matches!(row.key().id, RecordId::Equipment(_))
+                && row.key() != key
+                && candidates.insert(row.key(), row).is_none(),
             "invalid or duplicate reviewed replacement"
         );
     }
@@ -145,7 +145,7 @@ pub(super) async fn apply(
     let actual: BTreeMap<_, _> = fresh
         .referring_profiles
         .iter()
-        .map(|r| (r.key, r))
+        .map(|r| (r.key(), r))
         .collect();
     if fresh.equipment != expected.equipment {
         tracing::info!(event = "equipment.deletion_review_changed", account_id = %store.account, equipment_id = %target, reason = "target_changed");
@@ -202,11 +202,11 @@ pub(super) async fn apply(
         };
         let mut next = (**profile).clone().into_fields();
         next.default_equipment = *choices
-            .get(&row.key)
+            .get(&row.key())
             .ok_or_else(|| anyhow::anyhow!("profile choice is missing"))?;
         let outcome = save::save_in(
             &mut transaction,
-            row.key,
+            row.key(),
             Some(row),
             RecordState::Live(RecordValue::Profile(Box::new(next.try_into()?))),
         )

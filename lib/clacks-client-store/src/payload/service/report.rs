@@ -109,7 +109,7 @@ pub(super) async fn contact(
     let (start_kind, start) = match start {
         None => (None, None),
         Some(ObservedStart::Second(at)) => (Some("second"), Some(at.unix_seconds())),
-        Some(ObservedStart::Minute(at)) => (Some("minute"), Some(at.unix_seconds())),
+        Some(ObservedStart::Minute(at)) => (Some("minute"), Some(at.start().unix_seconds())),
     };
     let (band_state, band) = split(&value.band);
     let band = band.map(String::as_str);
@@ -174,12 +174,11 @@ pub(super) async fn load_contact(
     let start = match (row.start_kind.as_deref(), row.start) {
         (None, None) => None,
         (Some("second"), Some(at)) => Some(ObservedStart::Second(UtcSecond::from_unix_seconds(at))),
-        (Some("minute"), Some(at)) => Some(ObservedStart::Minute(UtcSecond::from_unix_seconds(at))),
+        (Some("minute"), Some(at)) => Some(ObservedStart::Minute(
+            UtcSecond::from_unix_seconds(at).try_into()?,
+        )),
         _ => anyhow::bail!("invalid observed start columns"),
     };
-    if let Some(start) = start {
-        start.bounds()?;
-    }
     let confirmation = row
         .confirmation
         .map(|value| match value.as_str() {

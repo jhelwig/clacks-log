@@ -41,14 +41,17 @@ fn equal_attempts_remain_distinct_and_closed_poll_staging_can_be_collected() -> 
         second.id = support::id(102);
         let carrier = |payload: ServicePayload| {
             let mut row = support::accepted(200, "fixture");
-            row.key.id = RecordId::Service(payload.id());
-            row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-                payload,
-                support: ServiceSupport {
-                    destination: Some(destination.clone()),
-                    ..Default::default()
-                },
-            })));
+            support::edit_accepted(&mut row, |row| {
+                row.key.id = RecordId::Service(payload.id());
+
+                row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+                    payload,
+                    support: ServiceSupport {
+                        destination: Some(destination.clone()),
+                        ..Default::default()
+                    },
+                })));
+            });
             row
         };
         let a = carrier(ServicePayload::Attempt(attempt));
@@ -62,17 +65,17 @@ fn equal_attempts_remain_distinct_and_closed_poll_staging_can_be_collected() -> 
                 own_call: None,
                 since: None,
             },
-            phase: AcquisitionPhase::Completed,
+            phase: AcquisitionPhase::Completed {
+                at: clacks_model::scalar::UtcTimestamp::new(1, 0)?,
+            },
             started_at: UtcTimestamp::new(0, 0)?,
-            finished_at: Some(UtcTimestamp::new(1, 0)?),
-            complete: true,
             retained_inputs: Default::default(),
         }));
         let r = requirements(&[a.clone(), b.clone(), poll.clone()], &[])?;
-        assert!(r.semantic_keys.contains(&a.key));
-        assert!(r.semantic_keys.contains(&b.key));
-        assert!(r.removable_staging.contains(&poll.key));
-        assert!(!r.removable_staging.contains(&a.key));
+        assert!(r.semantic_keys.contains(&a.key()));
+        assert!(r.semantic_keys.contains(&b.key()));
+        assert!(r.removable_staging.contains(&poll.key()));
+        assert!(!r.removable_staging.contains(&a.key()));
         Ok(())
     });
     captured.event_count("service.retention.calculated", "required_record", 2.);
@@ -110,8 +113,8 @@ fn compaction_projects_embedded_contexts_without_changing_evidence_identity() ->
         generation: 0,
         clients: vec![ClientMembership {
             actor,
-            created_at: support::accepted(1, "fixture").stamp.accepted_at,
-            closed_at: Some(support::accepted(150, "fixture").stamp.accepted_at),
+            created_at: support::accepted(1, "fixture").stamp.accepted_at(),
+            closed_at: Some(support::accepted(150, "fixture").stamp.accepted_at()),
             acknowledged: None,
         }],
     };
@@ -121,10 +124,13 @@ fn compaction_projects_embedded_contexts_without_changing_evidence_identity() ->
         baselines: &bases,
     };
     let mut stamp = support::accepted(100, "fixture").stamp;
-    stamp.vector = stamp.vector.join(&RecordVector::from_entries([(
-        ClockActor::Client(actor),
-        1,
-    )])?);
+    support::edit_stamp(&mut stamp, |stamp| {
+        stamp.vector = stamp.vector.join(&RecordVector::from_entries([(
+            ClockActor::Client(actor),
+            1,
+        )])?);
+        Ok(())
+    });
     let destination = Destination {
         id: support::id(42),
         collection: RemoteCollection::Qrz {
@@ -141,22 +147,25 @@ fn compaction_projects_embedded_contexts_without_changing_evidence_identity() ->
             own_call: None,
             since: None,
         },
-        phase: AcquisitionPhase::Completed,
+        phase: AcquisitionPhase::Completed {
+            at: clacks_model::scalar::UtcTimestamp::new(1, 0)?,
+        },
         started_at: clacks_model::scalar::UtcTimestamp::new(0, 0)?,
-        finished_at: Some(clacks_model::scalar::UtcTimestamp::new(1, 0)?),
-        complete: true,
         retained_inputs: Default::default(),
     });
     let mut row = support::accepted(200, "fixture");
-    row.key.id = RecordId::Service(payload.id());
-    row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload: payload.clone(),
-        support: ServiceSupport {
-            acquisition: Some(stamp.clone()),
-            destination: Some(destination),
-            ..Default::default()
-        },
-    })));
+    support::edit_accepted(&mut row, |row| {
+        row.key.id = RecordId::Service(payload.id());
+
+        row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload: payload.clone(),
+            support: ServiceSupport {
+                acquisition: Some(stamp.clone()),
+                destination: Some(destination),
+                ..Default::default()
+            },
+        })));
+    });
     let plan = plan_baseline(
         support::id(10),
         &CompactionInput {
@@ -169,14 +178,14 @@ fn compaction_projects_embedded_contexts_without_changing_evidence_identity() ->
     )?;
     assert!(plan.removable_clients.contains(&actor));
     let projected = plan.projected.first().unwrap();
-    let RecordState::Live(RecordValue::Service(s)) = &projected.state else {
+    let RecordState::Live(RecordValue::Service(s)) = &projected.state() else {
         panic!()
     };
     assert_eq!(s.payload, payload);
     let p = s.support.acquisition.as_ref().unwrap();
-    assert_eq!(p.accepted_at, stamp.accepted_at);
-    assert_eq!(p.baseline, plan.baseline.id);
-    assert_eq!(p.vector.component(ClockActor::Client(actor)), 0);
+    assert_eq!(p.accepted_at(), stamp.accepted_at());
+    assert_eq!(p.baseline(), plan.baseline.id);
+    assert_eq!(p.vector().component(ClockActor::Client(actor)), 0);
     Ok(())
 }
 
@@ -192,7 +201,7 @@ fn compacted_service_support_is_equivalent_during_receipt_both_directions() -> a
     };
     use clacks_sync::{
         account::{AccountMetadata, EvidenceView},
-        client::{ClientRecord, receive_accepted},
+        client::receive_accepted,
         compare::{RecordRelation, compare_records},
         record::{Observation, RecordId, RecordState, RecordValue},
         service::{ServiceRecord, ServiceSupport},
@@ -221,41 +230,54 @@ fn compacted_service_support_is_equivalent_during_receipt_both_directions() -> a
             own_call: None,
             since: None,
         },
-        phase: AcquisitionPhase::Completed,
+        phase: AcquisitionPhase::Completed {
+            at: clacks_model::scalar::UtcTimestamp::new(1, 0)?,
+        },
         started_at: clacks_model::scalar::UtcTimestamp::new(0, 0)?,
-        finished_at: Some(clacks_model::scalar::UtcTimestamp::new(1, 0)?),
-        complete: true,
         retained_inputs: Default::default(),
     });
     let mut old = support::accepted(200, "fixture");
-    old.key.id = RecordId::Service(payload.id());
-    old.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload,
-        support: ServiceSupport {
-            acquisition: Some(support::accepted(100, "fixture").stamp),
-            destination: Some(destination),
-            ..Default::default()
-        },
-    })));
+    support::edit_accepted(&mut old, |old| {
+        old.key.id = RecordId::Service(payload.id());
+
+        old.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload,
+            support: ServiceSupport {
+                acquisition: Some(support::accepted(100, "fixture").stamp),
+                destination: Some(destination),
+                ..Default::default()
+            },
+        })));
+    });
     let mut projected = old.clone();
-    projected.stamp.baseline = projected_baseline.id;
-    if let RecordState::Live(RecordValue::Service(s)) = &mut projected.state {
-        s.support.acquisition.as_mut().unwrap().baseline = projected_baseline.id;
-    }
+    support::edit_stamp(&mut projected.stamp, |stamp| {
+        stamp.baseline = projected_baseline.id;
+        Ok(())
+    });
+    support::edit_accepted(&mut projected, |projected| {
+        if let RecordState::Live(RecordValue::Service(s)) = &mut projected.state {
+            support::edit_stamp(s.support.acquisition.as_mut().unwrap(), |stamp| {
+                stamp.baseline = projected_baseline.id;
+                Ok(())
+            });
+        }
+    });
     for (a, b) in [(&old, &projected), (&projected, &old)] {
         assert_eq!(
             compare_records(a, b, &evidence)?,
             RecordRelation::SameVersion
         );
-        let current = ClientRecord {
-            key: a.key,
+        let current = clacks_sync::client::ClientRecordFields {
+            key: a.key(),
             latest: Observation::Accepted(a.clone()),
             retained: vec![],
             pending: None,
-        };
+        }
+        .try_into()
+        .expect("coherent client fixture");
         let received = receive_accepted(&current, b, &evidence)?;
         assert!(received.review.is_none());
-        assert!(received.record.pending.is_none());
+        assert!(received.record.pending().is_none());
     }
     Ok(())
 }

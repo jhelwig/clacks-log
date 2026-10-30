@@ -87,12 +87,6 @@ impl ServiceRecord {
     /// Validate carrier structure and account isolation without claiming its support is installed.
     pub fn validate(&self, account: AccountId) -> anyhow::Result<()> {
         self.payload.validate()?;
-        if let Some(acquisition) = &self.support.acquisition {
-            acquisition.validate()?;
-        }
-        for requirement in &self.support.required {
-            requirement.reference().stamp.validate()?;
-        }
         if self
             .support
             .required
@@ -186,14 +180,15 @@ pub(crate) fn check_integrity(
             a.payload == b.payload
                 && a.support.operation == b.support.operation
                 && a.support.destination == b.support.destination
-                && a.support.acquisition.as_ref().map(|s| s.accepted_at)
-                    == b.support.acquisition.as_ref().map(|s| s.accepted_at)
+                && a.support.acquisition.as_ref().map(|s| s.accepted_at())
+                    == b.support.acquisition.as_ref().map(|s| s.accepted_at())
                 && a.support.required.len() == b.support.required.len()
                 && a.support.required.iter().all(|r| {
                     b.support.required.iter().any(|v| {
                         std::mem::discriminant(r) == std::mem::discriminant(v)
                             && r.reference().key == v.reference().key
-                            && r.reference().stamp.accepted_at == v.reference().stamp.accepted_at
+                            && r.reference().stamp.accepted_at()
+                                == v.reference().stamp.accepted_at()
                             && r.reference().deleted == v.reference().deleted
                     })
                 })
@@ -215,14 +210,14 @@ pub(crate) fn check_integrity(
 pub(crate) fn same_support_values(a: &ServiceSupport, b: &ServiceSupport) -> bool {
     a.operation == b.operation
         && a.destination == b.destination
-        && a.acquisition.as_ref().map(|s| s.accepted_at)
-            == b.acquisition.as_ref().map(|s| s.accepted_at)
+        && a.acquisition.as_ref().map(|s| s.accepted_at())
+            == b.acquisition.as_ref().map(|s| s.accepted_at())
         && a.required.len() == b.required.len()
         && a.required.iter().all(|r| {
             b.required.iter().any(|s| {
                 std::mem::discriminant(r) == std::mem::discriminant(s)
                     && r.reference().key == s.reference().key
-                    && r.reference().stamp.accepted_at == s.reference().stamp.accepted_at
+                    && r.reference().stamp.accepted_at() == s.reference().stamp.accepted_at()
                     && r.reference().deleted == s.reference().deleted
             })
         })
@@ -246,7 +241,7 @@ pub(crate) fn compare_support(
         let Some(s) = b.support.required.iter().find(|s| {
             std::mem::discriminant(r) == std::mem::discriminant(*s)
                 && r.reference().key == s.reference().key
-                && r.reference().stamp.accepted_at == s.reference().stamp.accepted_at
+                && r.reference().stamp.accepted_at() == s.reference().stamp.accepted_at()
         }) else {
             return Ok(RecordRelation::Divergent);
         };

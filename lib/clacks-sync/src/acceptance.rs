@@ -184,7 +184,7 @@ pub fn plan_acceptance(
         .into());
     }
     if let Observation::Accepted(current) = input.current
-        && current.stamp.vector.component(own) >= count
+        && current.stamp.vector().component(own) >= count
     {
         metrics::counter!("clacks_sync_acceptance_plans_total", "origin" => "client", "decision" => "covered").increment(1);
         tracing::debug!(
@@ -196,9 +196,9 @@ pub fn plan_acceptance(
     }
     if let VersionCondition::Is { stamp, .. } = &change.expected
         && (!matches!(
-            stamp.vector.compare_components(&change.vector),
+            stamp.vector().compare_components(&change.vector),
             VectorRelation::Before
-        ) || count <= stamp.vector.component(own))
+        ) || count <= stamp.vector().component(own))
     {
         return Err(MetadataError::Invalid {
             detail: format!(
@@ -252,7 +252,7 @@ pub fn plan_server_acceptance(
     }
     validate_input(change.key, &change.state, &change.expected, input, evidence)?;
     let context = match input.current {
-        Observation::Accepted(v) => v.stamp.vector.clone(),
+        Observation::Accepted(v) => v.stamp.vector().clone(),
         _ => RecordVector::default(),
     };
     let decision = plan_commit(
@@ -314,24 +314,26 @@ fn validate_input(
     }
     if let Observation::Accepted(current) = input.current
         && evidence
-            .baseline(key.account, current.stamp.baseline)?
+            .baseline(key.account, current.stamp.baseline())?
             .is_none()
     {
         return Err(MetadataError::Incomplete {
             detail: format!(
                 "current record {:?} baseline {} unavailable",
-                key, current.stamp.baseline
+                key,
+                current.stamp.baseline()
             ),
         }
         .into());
     }
     if let VersionCondition::Is { stamp, .. } = expected
-        && evidence.baseline(key.account, stamp.baseline)?.is_none()
+        && evidence.baseline(key.account, stamp.baseline())?.is_none()
     {
         return Err(MetadataError::Incomplete {
             detail: format!(
                 "expected record {:?} baseline {} unavailable",
-                key, stamp.baseline
+                key,
+                stamp.baseline()
             ),
         }
         .into());
@@ -455,11 +457,7 @@ fn plan_commit(
     let accepted = AcceptedRecord::new(
         key,
         state.clone(),
-        VersionStamp {
-            accepted_at: next_account.head,
-            baseline: input.account.baseline,
-            vector,
-        },
+        VersionStamp::new(next_account.head, input.account.baseline, vector)?,
     )?;
     let native_changed = match input.current {
         Observation::Accepted(old) => !old.state.same_values(state),
@@ -493,7 +491,7 @@ pub(crate) fn plan_reconciled(
     let expected = VersionCondition::from_observation(input.current)?;
     validate_input(incoming.key, state, &expected, input, evidence)?;
     if evidence
-        .baseline(incoming.key.account, incoming.stamp.baseline)?
+        .baseline(incoming.key.account, incoming.stamp.baseline())?
         .is_none()
     {
         return Err(MetadataError::Incomplete {
@@ -502,8 +500,8 @@ pub(crate) fn plan_reconciled(
         .into());
     }
     let context = match input.current {
-        Observation::Accepted(v) => v.stamp.vector.join(&incoming.stamp.vector),
-        _ => incoming.stamp.vector.clone(),
+        Observation::Accepted(v) => v.stamp.vector().join(incoming.stamp.vector()),
+        _ => incoming.stamp.vector().clone(),
     };
     let mut dependencies = Vec::new();
     for key in required_references(incoming.key, state) {

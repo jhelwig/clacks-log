@@ -105,7 +105,7 @@ async fn restored_observations_select_provider_fields_using_retained_coverage_an
     let source = InstalledCheckpoint {
         account: id(1),
         baseline: baseline.id,
-        coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at),
+        coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at()),
     };
     let manifest = WindowManifest::new(
         id(1),
@@ -113,7 +113,7 @@ async fn restored_observations_select_provider_fields_using_retained_coverage_an
         WindowMode::Full,
         rows.iter()
             .map(|row| RecordRequirement {
-                key: row.key,
+                key: row.key(),
                 stamp: row.stamp.clone(),
                 deleted: false,
             })
@@ -129,7 +129,11 @@ async fn restored_observations_select_provider_fields_using_retained_coverage_an
     let store = ClientStore::open(&file, id(1), StoreSettings::default()).await?;
     let mut restored = Vec::new();
     for row in rows {
-        let Observation::Accepted(value) = save::load(&store, row.key).await?.unwrap().latest
+        let Observation::Accepted(value) = save::load(&store, row.key())
+            .await?
+            .unwrap()
+            .into_fields()
+            .latest
         else {
             panic!("installed service observation")
         };

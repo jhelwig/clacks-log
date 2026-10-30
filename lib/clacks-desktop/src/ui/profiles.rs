@@ -39,7 +39,7 @@ pub(super) fn show(
             for record in snapshot
                 .profiles
                 .iter()
-                .filter(|r| !known_deletions.contains(&r.key.id))
+                .filter(|r| !known_deletions.contains(&r.key().id))
             {
                 if let Some(profile) = profile(record) {
                     ui.push_id(profile.id(), |ui| {
@@ -93,7 +93,7 @@ pub(super) fn show(
                     for record in snapshot
                         .profiles
                         .iter()
-                        .filter(|r| !known_deletions.contains(&r.key.id))
+                        .filter(|r| !known_deletions.contains(&r.key().id))
                     {
                         if let Some(p) = profile(record)
                             && ui

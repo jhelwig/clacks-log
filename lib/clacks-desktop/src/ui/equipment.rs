@@ -27,7 +27,7 @@ pub(super) fn default_selector(
         .map(|id| {
             records
                 .iter()
-                .filter(|r| !known_deletions.contains(&r.key.id))
+                .filter(|r| !known_deletions.contains(&r.key().id))
                 .filter_map(configuration)
                 .find(|e| e.id() == id)
                 .map(equipment_label)
@@ -40,7 +40,7 @@ pub(super) fn default_selector(
             ui.selectable_value(selected, None, "None");
             for e in records
                 .iter()
-                .filter(|r| !known_deletions.contains(&r.key.id))
+                .filter(|r| !known_deletions.contains(&r.key().id))
                 .filter_map(configuration)
             {
                 ui.selectable_value(selected, Some(e.id()), equipment_label(e));
@@ -71,7 +71,7 @@ pub(super) fn show(
             for record in snapshot
                 .equipment
                 .iter()
-                .filter(|r| !known_deletions.contains(&r.key.id))
+                .filter(|r| !known_deletions.contains(&r.key().id))
             {
                 if let Some(equipment) = configuration(record) {
                     ui.push_id(equipment.id(), |ui| {
@@ -117,7 +117,7 @@ pub(super) fn show(
                     for record in snapshot
                         .equipment
                         .iter()
-                        .filter(|r| !known_deletions.contains(&r.key.id))
+                        .filter(|r| !known_deletions.contains(&r.key().id))
                     {
                         if let Some(e) = configuration(record)
                             && ui

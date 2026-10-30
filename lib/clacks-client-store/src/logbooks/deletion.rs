@@ -149,18 +149,18 @@ pub async fn delete_tag(
     let expected_tag = &expected.tag;
     let expected_members = &expected.members;
     anyhow::ensure!(
-        expected_tag.key.account == store.account,
+        expected_tag.key().account == store.account,
         crate::error::StoreError::WrongAccount {
             expected: store.account,
-            actual: expected_tag.key.account
+            actual: expected_tag.key().account
         }
     );
-    let RecordId::Tag(tag) = expected_tag.key.id else {
+    let RecordId::Tag(tag) = expected_tag.key().id else {
         anyhow::bail!("tag deletion requires a tag key")
     };
     let mut transaction = store.write().await?;
     let selected_before = selection::load_in(&mut transaction).await?;
-    let current = client::load(&mut transaction, expected_tag.key).await?;
+    let current = client::load(&mut transaction, expected_tag.key()).await?;
     if current.as_ref() != Some(expected_tag) {
         tracing::debug!(event = "tag.deletion_stale", account_id = %store.account, tag_id = %tag, reason = "tag_changed");
         return Ok(TagDeleteOutcome::Stale {
@@ -174,13 +174,13 @@ pub async fn delete_tag(
         ),
         "tag has no live working value"
     );
-    let members = members_in(&mut transaction, expected_tag.key).await?;
+    let members = members_in(&mut transaction, expected_tag.key()).await?;
     let members: std::collections::BTreeMap<_, _> =
-        members.into_iter().map(|row| (row.key, row)).collect();
+        members.into_iter().map(|row| (row.key(), row)).collect();
     let mut expected = std::collections::BTreeMap::new();
     for row in expected_members {
         anyhow::ensure!(
-            row.key.account == store.account && expected.insert(row.key, row.clone()).is_none(),
+            row.key().account == store.account && expected.insert(row.key(), row.clone()).is_none(),
             "invalid or duplicate deletion-preview member"
         );
     }
@@ -201,7 +201,7 @@ pub async fn delete_tag(
     let mut deleted = 0;
     let mut updated = 0;
     for row in members.values() {
-        let RecordId::Qso(id) = row.key.id else {
+        let RecordId::Qso(id) = row.key().id else {
             anyhow::bail!("invalid tag member kind")
         };
         let next = if plan.mark_deleted.contains(&id) {
@@ -216,7 +216,7 @@ pub async fn delete_tag(
                 clacks_model::contact::Qso::try_from(fields)?,
             )))
         };
-        match save_in(&mut transaction, row.key, Some(row), next).await? {
+        match save_in(&mut transaction, row.key(), Some(row), next).await? {
             SaveOutcome::Saved(_) => {
                 if plan.mark_deleted.contains(&id) {
                     deleted += 1;
@@ -234,7 +234,7 @@ pub async fn delete_tag(
         !matches!(
             save_in(
                 &mut transaction,
-                expected_tag.key,
+                expected_tag.key(),
                 Some(expected_tag),
                 RecordState::Deleted
             )

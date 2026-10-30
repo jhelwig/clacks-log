@@ -839,3 +839,18 @@ identity. Structural serialization differences are distinct from whole-record
 value changes. Provider ordering contradictions retain explicit uncertainty;
 workers refresh affected fields instead of asking users to reconcile provider
 facts as manually recorded QSO edits.
+
+## Native construction boundaries
+
+An acquisition has one lifecycle state: active, completed with a finish time, or
+failed with a finish time and diagnostic reason. Completion and finish-time
+accessors derive from that state. Native serialization retains its established
+phase, completion and finish fields; restoration rejects contradictory values.
+An incomplete read never advances the complete coverage watermark.
+
+A frozen LoTW submission binds its signing callsign, emitted identity fields and
+remote key at construction and restoration. These checks use the frozen labels,
+without consulting newer normalization catalogs. Certificate eligibility,
+signature definitions and supported protocol text remain signing-time checks.
+Minute-covered observations carry a checked aligned minute covering sixty seconds;
+ordinary contact timestamps retain whole-second resolution.

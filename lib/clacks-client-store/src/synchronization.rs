@@ -72,12 +72,13 @@ pub(crate) async fn current(
             reason: UnknownReason::MissingOriginal,
         },
     };
-    Ok(ClientRecord {
+    clacks_sync::client::ClientRecordFields {
         key,
         latest,
         pending: None,
         retained: vec![],
-    })
+    }
+    .try_into()
 }
 
 /// Persist a core update and its review together without clearing an unchanged rejection review.
@@ -89,7 +90,7 @@ pub(crate) async fn store_update(
     crate::enrollment::holds::preserve_in(connection, previous, update).await?;
     client::store(connection, &update.record).await?;
     if update.review.is_some() || update.record != *previous {
-        review::store(connection, update.record.key, update.review.as_ref()).await?;
+        review::store(connection, update.record.key(), update.review.as_ref()).await?;
     }
     Ok(())
 }
@@ -125,15 +126,15 @@ pub async fn prepare(store: &ClientStore, key: RecordKey) -> anyhow::Result<Prep
     let row = current(&mut transaction, key).await?;
     let counter = client::counter(&mut transaction, key, binding.actor).await?;
     let mut dependencies = vec![];
-    if let Some(pending) = &row.pending
+    if let Some(pending) = &row.pending()
         && pending.prepared.is_none()
     {
         for key in acceptance::required_references(key, &pending.working) {
             let dependency = current(&mut transaction, key).await?;
-            match &dependency.latest {
-                Observation::Accepted(value) if !matches!(value.state, RecordState::Deleted) => {
+            match &dependency.latest() {
+                Observation::Accepted(value) if !matches!(value.state(), RecordState::Deleted) => {
                     dependencies.push(clacks_sync::client::VersionCondition::from_observation(
-                        &dependency.latest,
+                        dependency.latest(),
                     )?)
                 }
                 Observation::Unavailable { .. } => {
@@ -160,7 +161,7 @@ pub async fn prepare(store: &ClientStore, key: RecordKey) -> anyhow::Result<Prep
             }
         }
     }
-    let result = clacks_sync::client::prepare_change(
+    let result = clacks_sync::client::preparation::prepare_change(
         &row,
         binding.actor,
         &counter,
@@ -192,15 +193,15 @@ pub async fn prepare(store: &ClientStore, key: RecordKey) -> anyhow::Result<Prep
 }
 
 /// Incorporate one genuine accepted response without advancing the completed account receipt.
-#[tracing::instrument(skip_all,name="client_store.receive",level="debug",fields(account_id=%store.account,record_id=%incoming.key.id))]
+#[tracing::instrument(skip_all,name="client_store.receive",level="debug",fields(account_id=%store.account,record_id=%incoming.key().id))]
 pub async fn receive(
     store: &ClientStore,
     incoming: &AcceptedRecord,
 ) -> anyhow::Result<ClientUpdate> {
-    check_account(store, incoming.key)?;
+    check_account(store, incoming.key())?;
     let mut transaction = store.write().await?;
     let context = evidence(&mut transaction, store.account).await?;
-    let row = current(&mut transaction, incoming.key).await?;
+    let row = current(&mut transaction, incoming.key()).await?;
     let mut update = clacks_sync::client::receive_accepted(&row, incoming, &context.view())?;
     store_update(&mut transaction, &row, &mut update).await?;
     if let Some(review) =
@@ -208,9 +209,9 @@ pub async fn receive(
     {
         update.review = Some(review);
     }
-    metadata::binding::remove(&mut transaction, incoming.key).await?;
-    metadata::binding::insert(&mut transaction, incoming.key).await?;
-    if matches!(incoming.key.id, clacks_sync::record::RecordId::Service(_)) {
+    metadata::binding::remove(&mut transaction, incoming.key()).await?;
+    metadata::binding::insert(&mut transaction, incoming.key()).await?;
+    if matches!(incoming.key().id, clacks_sync::record::RecordId::Service(_)) {
         metadata::binding::validate_namespaces(&mut transaction, store.account).await?;
     }
     transaction.commit().await?;
@@ -234,35 +235,35 @@ pub async fn reject(
 }
 
 /// Commit an explicit resolution only while both the record and shown review still match.
-#[tracing::instrument(skip_all,name="client_store.resolve",fields(account_id=%store.account,record_id=%expected.key.id))]
+#[tracing::instrument(skip_all,name="client_store.resolve",fields(account_id=%store.account,record_id=%expected.key().id))]
 pub async fn resolve(
     store: &ClientStore,
     expected: &ClientRecord,
     shown: &ReviewInput,
     chosen: RecordState,
 ) -> anyhow::Result<SaveOutcome> {
-    check_account(store, expected.key)?;
+    check_account(store, expected.key())?;
     let mut transaction = store.write().await?;
-    let row = client::load(&mut transaction, expected.key).await?;
-    let saved = review::load(&mut transaction, expected.key).await?;
+    let row = client::load(&mut transaction, expected.key()).await?;
+    let saved = review::load(&mut transaction, expected.key()).await?;
     if row.as_ref() != Some(expected)
         || saved.as_ref() != Some(shown)
         || expected.working_state() != Some(&shown.local)
-        || expected.latest != shown.shared
-        || expected.retained != shown.retained
-        || expected.pending.as_ref().map(|pending| &pending.original) != Some(&shown.original)
+        || expected.latest() != &shown.shared
+        || expected.retained() != shown.retained
+        || expected.pending().map(|pending| &pending.original) != Some(&shown.original)
     {
         return Ok(SaveOutcome::Stale { current: row });
     }
     let context = evidence(&mut transaction, store.account).await?;
-    let record = clacks_sync::client::resolve_review(shown, chosen, &context.view())?;
+    let record = clacks_sync::client::preparation::resolve_review(shown, chosen, &context.view())?;
     client::store(&mut transaction, &record).await?;
-    review::store(&mut transaction, expected.key, None).await?;
+    review::store(&mut transaction, expected.key(), None).await?;
     if let clacks_sync::client::ReviewReason::ExcludedActor(former) = shown.reason {
-        crate::enrollment::holds::clear_in(&mut transaction, expected.key, former).await?;
+        crate::enrollment::holds::clear_in(&mut transaction, expected.key(), former).await?;
     }
     transaction.commit().await?;
-    tracing::info!(event="record.resolved",account_id=%store.account,record_id=%expected.key.id,review_reason=?shown.reason);
+    tracing::info!(event="record.resolved",account_id=%store.account,record_id=%expected.key().id,review_reason=?shown.reason);
     Ok(SaveOutcome::Saved(record))
 }
 

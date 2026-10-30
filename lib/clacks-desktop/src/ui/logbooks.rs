@@ -122,7 +122,7 @@ impl LogbooksUi {
         let detected_fallback = if let Some(SelectedView::Logbook(id)) = previous
             && snapshot.selected_view == SelectedView::AllContacts
             && snapshot.tags.iter().any(|row| {
-                row.key.id == RecordId::Tag(id)
+                row.key().id == RecordId::Tag(id)
                     && matches!(row.working_state(), Some(RecordState::Deleted))
             }) {
             Some(id)
@@ -137,7 +137,7 @@ impl LogbooksUi {
             && snapshot
                 .tags
                 .iter()
-                .find(|row| row.key.id == RecordId::Tag(form.editor.id))
+                .find(|row| row.key().id == RecordId::Tag(form.editor.id))
                 != form.expected.as_ref()
         {
             form.stale = true;
@@ -301,7 +301,7 @@ impl LogbooksUi {
     fn records(&self, snapshot: &LogbookSnapshot) -> Vec<ClientRecord> {
         let mut records = snapshot.tags.clone();
         for (id, record) in &self.acknowledged_tags {
-            records.retain(|row| row.key.id != RecordId::Tag(*id));
+            records.retain(|row| row.key().id != RecordId::Tag(*id));
             records.push(record.clone());
         }
         records
@@ -367,9 +367,9 @@ impl LogbooksUi {
                     snapshot
                         .tags
                         .iter()
-                        .find(|row| row.key.id == RecordId::Tag(id))
+                        .find(|row| row.key().id == RecordId::Tag(id))
                 })
-                .map(|row| row.key.account);
+                .map(|row| row.key().account);
             if let Some(account) = account {
                 tracing::info!(event="logbook.view_fallback_observed", account_id=%account, tag_id=%id, cause="deleted_tag");
             } else {

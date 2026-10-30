@@ -51,7 +51,7 @@ async fn accepted_namespaces_must_be_distinct_even_without_an_external_binding()
         let source = InstalledCheckpoint {
             account: support::id(1),
             baseline: baseline.id,
-            coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at),
+            coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at()),
         };
         let manifest = WindowManifest::new(
             source.account,
@@ -59,7 +59,7 @@ async fn accepted_namespaces_must_be_distinct_even_without_an_external_binding()
             WindowMode::Full,
             rows.iter()
                 .map(|value| RecordRequirement {
-                    key: value.key,
+                    key: value.key(),
                     stamp: value.stamp.clone(),
                     deleted: false,
                 })
@@ -75,7 +75,7 @@ async fn accepted_namespaces_must_be_distinct_even_without_an_external_binding()
                 .is_err()
         );
         for row in rows {
-            assert!(save::load(&store, row.key).await?.is_none());
+            assert!(save::load(&store, row.key()).await?.is_none());
         }
         assert_eq!(
             transfer::progress(&store, &source, &WindowMode::Full)
@@ -149,7 +149,7 @@ async fn known_snapshot_refines_a_historical_unknown_book_without_rewriting_it()
     let source = InstalledCheckpoint {
         account: support::id(1),
         baseline: baseline.id,
-        coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at),
+        coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at()),
     };
     let manifest = WindowManifest::new(
         source.account,
@@ -157,7 +157,7 @@ async fn known_snapshot_refines_a_historical_unknown_book_without_rewriting_it()
         WindowMode::Full,
         rows.iter()
             .map(|value| RecordRequirement {
-                key: value.key,
+                key: value.key(),
                 stamp: value.stamp.clone(),
                 deleted: false,
             })
@@ -170,8 +170,8 @@ async fn known_snapshot_refines_a_historical_unknown_book_without_rewriting_it()
     transfer::install(&store, &source, &WindowMode::Full, &rows).await?;
     for row in rows {
         assert_eq!(
-            save::load(&store, row.key).await?.unwrap().latest,
-            clacks_sync::record::Observation::Accepted(row)
+            save::load(&store, row.key()).await?.unwrap().latest(),
+            &clacks_sync::record::Observation::Accepted(row)
         );
     }
     store.close().await?;

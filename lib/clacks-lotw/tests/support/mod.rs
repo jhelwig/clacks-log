@@ -27,13 +27,13 @@ pub fn submission() -> clacks_model::service::lotw::LotwSubmission {
         scalar::{RecordedCallsign, UtcSecond},
         service::{
             destination::LotwRecordKey,
-            lotw::{LotwMappingProvenance, LotwSubmission},
+            lotw::{LotwMappingProvenance, LotwSubmissionFields},
         },
     };
     let identity = clacks_lotw::certificate::inspect_certificate(&fixture("1024/station.der"))
         .unwrap()
         .identity;
-    LotwSubmission {
+    LotwSubmissionFields {
         mapping_provenance: LotwMappingProvenance {
             release: "11.34".into(),
             upstream_commit: "6ce824363e27da455c6cf6fd440b9c401945bfcb".into(),
@@ -70,6 +70,8 @@ pub fn submission() -> clacks_model::service::lotw::LotwSubmission {
             mode: "FT8".into(),
         },
     }
+    .try_into()
+    .expect("coherent frozen submission")
 }
 
 pub struct Field {

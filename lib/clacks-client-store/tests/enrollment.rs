@@ -121,8 +121,8 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
     save::save(&store, key, Some(&frozen), support::contact(edited)).await?;
     let pending = save::load(&store, key).await?.unwrap();
     assert_eq!(
-        pending.pending.as_ref().unwrap().prepared,
-        frozen.pending.as_ref().unwrap().prepared
+        pending.pending().as_ref().unwrap().prepared,
+        frozen.pending().as_ref().unwrap().prepared
     );
     assert!(matches!(
         synchronization::prepare(&store, key).await?,
@@ -131,7 +131,7 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
 
     let accepted = support::accepted(1, support::contact(support::qso(support::id(10))));
     let source = InstalledCheckpoint {
-        coverage: Coverage::from(accepted.stamp.accepted_at),
+        coverage: Coverage::from(accepted.stamp.accepted_at()),
         ..checkpoint
     };
     let window = WindowManifest::new(
@@ -160,27 +160,27 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
     let reviews = snapshot.review(&Default::default()).await?;
     let shown = reviews
         .iter()
-        .find(|row| row.record.key == key)
+        .find(|row| row.record.key() == key)
         .and_then(|row| row.review.as_ref())
         .unwrap();
     assert_eq!(shown.reason, ReviewReason::ExcludedActor(old.actor));
     let absent_review = reviews
         .iter()
-        .find(|row| row.record.key == unsubmitted)
+        .find(|row| row.record.key() == unsubmitted)
         .and_then(|row| row.review.as_ref())
         .cloned()
         .expect("unsubmitted contact has no resolvable authorization review");
     assert_eq!(absent_review.reason, ReviewReason::ExcludedActor(old.actor));
     let unsent = save::load(&store, unsubmitted).await?.unwrap();
     assert!(matches!(
-        unsent.latest,
+        unsent.latest(),
         clacks_sync::record::Observation::Absent { .. }
     ));
 
     let current = save::load(&store, key).await?.unwrap();
     assert_eq!(
-        current.pending.as_ref().unwrap().prepared,
-        frozen.pending.as_ref().unwrap().prepared
+        current.pending().as_ref().unwrap().prepared,
+        frozen.pending().as_ref().unwrap().prepared
     );
     let chosen = current.working_state().unwrap().clone();
     let shown = shown.clone();
@@ -196,7 +196,7 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
         SaveOutcome::Saved(_)
     ));
 
-    account.head = accepted.stamp.accepted_at;
+    account.head = accepted.stamp.accepted_at();
     account.installed = source.coverage;
     account.membership_generation = 1;
     let next = MembershipSnapshot {

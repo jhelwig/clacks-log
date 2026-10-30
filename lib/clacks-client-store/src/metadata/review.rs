@@ -89,7 +89,10 @@ pub(crate) async fn store(
     .execute(&mut *connection)
     .await?;
     for (ordinal, value) in review.retained.iter().enumerate() {
-        anyhow::ensure!(value.key == key, "review alternative crosses record scope");
+        anyhow::ensure!(
+            value.key() == key,
+            "review alternative crosses record scope"
+        );
         let envelope = observation::insert_envelope(connection, value).await?;
         let ordinal = i64::try_from(ordinal)?;
         sqlx::query_file!(

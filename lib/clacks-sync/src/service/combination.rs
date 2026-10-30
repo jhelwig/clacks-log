@@ -134,13 +134,23 @@ fn order(
     let (Some(a), Some(b)) = (&sa.acquisition, &sb.acquisition) else {
         return Ok(None);
     };
-    if view.evidence.baseline(view.account, a.baseline)?.is_none()
-        || view.evidence.baseline(view.account, b.baseline)?.is_none()
+    if view
+        .evidence
+        .baseline(view.account, a.baseline())?
+        .is_none()
+        || view
+            .evidence
+            .baseline(view.account, b.baseline())?
+            .is_none()
     {
         return Ok(None);
     }
     Ok(
-        match view.evidence.lineage.compare(a.accepted_at, b.accepted_at) {
+        match view
+            .evidence
+            .lineage
+            .compare(a.accepted_at(), b.accepted_at())
+        {
             PositionRelation::Before => Some(std::cmp::Ordering::Less),
             PositionRelation::After => Some(std::cmp::Ordering::Greater),
             PositionRelation::Equal => Some(std::cmp::Ordering::Equal),

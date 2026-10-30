@@ -113,7 +113,7 @@ pub fn requirements(
             records.iter().any(|row| {
                 row.key == m.key
                     && (super::payload(row).is_none() || result.semantic_keys.contains(&row.key))
-                    && (row.stamp.accepted_at == m.stamp.accepted_at
+                    && (row.stamp.accepted_at() == m.stamp.accepted_at()
                         || super::payload(row)
                             .is_some_and(|s| s.support.operation == Some(unit.id)))
             })

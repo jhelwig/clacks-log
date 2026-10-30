@@ -53,7 +53,7 @@ impl ContactEditor {
 
     /// Return the native identity retained by this saved editor.
     pub fn id(&self) -> anyhow::Result<QsoId> {
-        match self.expected.key.id {
+        match self.expected.key().id {
             RecordId::Qso(id) => Ok(id),
             _ => anyhow::bail!("Editor does not contain a contact"),
         }

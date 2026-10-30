@@ -29,16 +29,19 @@ fn collection_never_uses_acknowledgment_as_permission_to_drop_semantic_facts() -
         },
     });
     let mut row = support::accepted(200, "fixture");
-    row.key.id = RecordId::Service(payload.id());
-    row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
-        payload,
-        support: ServiceSupport {
-            destination: Some(destination),
-            ..Default::default()
-        },
-    })));
+    support::edit_accepted(&mut row, |row| {
+        row.key.id = RecordId::Service(payload.id());
+
+        row.state = RecordState::Live(RecordValue::Service(Box::new(ServiceRecord {
+            payload,
+            support: ServiceSupport {
+                destination: Some(destination),
+                ..Default::default()
+            },
+        })));
+    });
     let r = requirements(&[row.clone()], &[])?;
     assert!(validate_collection(&r, &[]).is_err());
-    validate_collection(&r, &[row.key])?;
+    validate_collection(&r, &[row.key()])?;
     Ok(())
 }
