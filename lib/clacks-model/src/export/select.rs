@@ -139,7 +139,7 @@ pub(crate) fn evaluate_fields(
     fields: &[FieldBinding],
     context: &ExpressionContext<'_>,
 ) -> anyhow::Result<BTreeMap<String, String>> {
-    let group_id = compiled.definition().id;
+    let group_id = compiled.definition().id();
     let mut output = BTreeMap::new();
     for binding in fields {
         let enabled = match &binding.when {
@@ -264,11 +264,11 @@ pub(crate) fn select_mappings_with_compiled<'a>(
         };
         let mut plan = match profile.purpose {
             OutputPurpose::OrdinaryInterchange => GroupExportPlan {
-                fields: definition.export_mappings.ordinary_interchange.clone(),
+                fields: definition.export_mappings().ordinary_interchange.clone(),
                 ..Default::default()
             },
             OutputPurpose::Targeted => definition
-                .export_mappings
+                .export_mappings()
                 .targeted
                 .get(&profile.id)
                 .cloned()

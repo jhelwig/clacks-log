@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT name, identifier_required, syntax, bears_location, catalog_id, catalog_display, catalog_lookup FROM group_payload WHERE payload_id = ? AND account = ? AND record_id = ?\n",
+  "query": "SELECT name, identifier_config, bears_location, catalog_binding, ordinary_bindings FROM group_payload WHERE payload_id = ? AND account = ? AND record_id = ?\n",
   "describe": {
     "columns": [
       {
@@ -15,30 +15,19 @@
         }
       },
       {
-        "name": "identifier_required",
+        "name": "identifier_config",
         "ordinal": 1,
-        "type_info": "Integer",
-        "origin": {
-          "Table": {
-            "table": "group_payload",
-            "name": "identifier_required"
-          }
-        }
-      },
-      {
-        "name": "syntax",
-        "ordinal": 2,
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "group_payload",
-            "name": "syntax"
+            "name": "identifier_config"
           }
         }
       },
       {
         "name": "bears_location",
-        "ordinal": 3,
+        "ordinal": 2,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -48,35 +37,24 @@
         }
       },
       {
-        "name": "catalog_id",
+        "name": "catalog_binding",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "group_payload",
+            "name": "catalog_binding"
+          }
+        }
+      },
+      {
+        "name": "ordinary_bindings",
         "ordinal": 4,
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "group_payload",
-            "name": "catalog_id"
-          }
-        }
-      },
-      {
-        "name": "catalog_display",
-        "ordinal": 5,
-        "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "group_payload",
-            "name": "catalog_display"
-          }
-        }
-      },
-      {
-        "name": "catalog_lookup",
-        "ordinal": 6,
-        "type_info": "Integer",
-        "origin": {
-          "Table": {
-            "table": "group_payload",
-            "name": "catalog_lookup"
+            "name": "ordinary_bindings"
           }
         }
       }
@@ -87,12 +65,10 @@
     "nullable": [
       false,
       false,
-      true,
       false,
       true,
-      true,
-      true
+      false
     ]
   },
-  "hash": "fa8c591d3d84ba38d227630bb57703433e3a6b1fdd1edce50ef1c44aaf81edbf"
+  "hash": "a936e7850b3d7c989471fa83b738152af2d43f0d7402eb344e124c7461987efa"
 }

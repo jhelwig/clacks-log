@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO output_profile_payload (payload_id, account, record_id, name, purpose, contextual_fields) VALUES (?, ?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "4541a64c4800a76554209fe9ff87e96ed37b50c5b7b174092ebe05764552d707"
+}

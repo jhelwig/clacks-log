@@ -77,7 +77,7 @@ pub fn select_location(
         || recorded.references.iter().any(|r| {
             definitions
                 .get(r.group_id)
-                .is_some_and(|d| d.bears_location_context)
+                .is_some_and(|d| d.bears_location_context())
         })
     {
         return Some(Sourced {

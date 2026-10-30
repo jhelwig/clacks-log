@@ -117,7 +117,7 @@ pub fn lookup_reference(
     let Some(definition) = definitions.get(association.group_id) else {
         return Ok(CatalogFinding::NotConfigured);
     };
-    let Some(binding) = &definition.catalog else {
+    let Some(binding) = &definition.catalog() else {
         return Ok(CatalogFinding::NotConfigured);
     };
     let Some(catalog) = catalogs.get(&binding.dataset_id) else {

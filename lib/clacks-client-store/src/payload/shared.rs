@@ -97,21 +97,18 @@ pub(super) async fn insert(
                 OutputPurpose::OrdinaryInterchange => "ordinary",
                 OutputPurpose::Targeted => "targeted",
             };
+            let fields = serde_json::to_string(&profile.contextual_fields)?;
             sqlx::query_file!(
                 "sql/export/profile_insert.sql",
                 payload,
                 account,
                 id,
                 profile.name,
-                purpose
+                purpose,
+                fields
             )
             .execute(&mut *connection)
             .await?;
-            for field in &profile.contextual_fields {
-                sqlx::query_file!("sql/export/context_insert.sql", payload, field)
-                    .execute(&mut *connection)
-                    .await?;
-            }
         }
         _ => anyhow::bail!("not a shared snapshot payload"),
     }
@@ -184,12 +181,7 @@ pub(super) async fn load(
                 "targeted" => OutputPurpose::Targeted,
                 _ => anyhow::bail!("unknown output purpose"),
             };
-            let fields = sqlx::query_file!("sql/export/context_select.sql", payload)
-                .fetch_all(connection)
-                .await?
-                .into_iter()
-                .map(|row| row.field)
-                .collect();
+            let fields = serde_json::from_str(&row.contextual_fields)?;
             RecordValue::OutputProfile(Box::new(OutputProfile {
                 id,
                 name: row.name,

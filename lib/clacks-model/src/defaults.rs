@@ -45,14 +45,17 @@ impl AccountDefinitions {
 
         for group in &self.groups {
             compile_definition(group)?;
-            for target in group.export_mappings.targeted.keys() {
+            for target in group.export_mappings().targeted.keys() {
                 let profile = profiles.get(target).ok_or_else(|| {
-                    anyhow::anyhow!("group {} targets missing output profile {target}", group.id)
+                    anyhow::anyhow!(
+                        "group {} targets missing output profile {target}",
+                        group.id()
+                    )
                 })?;
                 anyhow::ensure!(
                     profile.purpose == OutputPurpose::Targeted,
                     "group {} targets an ordinary output profile",
-                    group.id
+                    group.id()
                 );
             }
         }

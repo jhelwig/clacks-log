@@ -188,7 +188,7 @@ pub(crate) async fn load(
                 context
                     .definitions
                     .get(r.group_id)
-                    .map(|g| (g.id, g.name.clone()))
+                    .map(|g| (g.id(), g.name().to_owned()))
             })
             .collect();
         result.push(ContactProjection {

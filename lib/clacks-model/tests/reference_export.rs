@@ -163,12 +163,17 @@ fn omission_is_explicit_and_reported() -> TestResult {
 #[test]
 fn no_program_name_switch() -> TestResult {
     let defs = support::definitions();
-    let mut generic = defs.get(support::id::<GroupId>(1)).unwrap().clone();
+    let mut generic = defs
+        .get(support::id::<GroupId>(1))
+        .unwrap()
+        .clone()
+        .into_fields();
     generic.id = support::id::<GroupId>(4);
     generic.name = "User group with equivalent capabilities".into();
+    let generic = clacks_model::group::GroupDefinition::try_from(generic)?;
     let plan = plan_reference_export(
-        &[contact(generic.id)],
-        &context(true, generic.id),
+        &[contact(generic.id())],
+        &context(true, generic.id()),
         &DefinitionSet::new(vec![generic])?,
         &support::profiles(),
         &BTreeMap::new(),

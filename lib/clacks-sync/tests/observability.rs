@@ -27,11 +27,12 @@ fn seed(account_id: AccountId, group_id: u128) -> anyhow::Result<AcceptanceDecis
     };
     let groups: Vec<clacks_model::group::GroupDefinition> =
         serde_json::from_str(include_str!("support/definitions.json"))?;
-    let mut group = groups.into_iter().next().unwrap();
+    let mut group = groups.into_iter().next().unwrap().into_fields();
     group.id = support::id(group_id);
+    let group = clacks_model::group::GroupDefinition::try_from(group)?;
     let key = RecordKey {
         account: account_id,
-        id: RecordId::Group(group.id),
+        id: RecordId::Group(group.id()),
     };
     let absent = Observation::Absent {
         key,
@@ -76,7 +77,7 @@ fn parallel_accounts_keep_cross_library_operation_context() {
         let root = captured.observations.spans.iter().find(|s|s.name=="caller").unwrap();
         assert_eq!(sync.parent,root.id);
         for model in captured.observations.spans.iter().filter(|s|s.name=="model.reference_definition.compile") {
-            assert_eq!(model.parent,sync.id);
+            assert_eq!(model.parent,root.id);
         }
         assert!(captured.observations.spans.iter().any(|s|s.name=="model.reference_definition.compile"));
         captured

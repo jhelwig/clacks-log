@@ -440,7 +440,7 @@ reference without rewriting the recorded identifier. Location output requires
 an explicit mapping consistent with recorded source/location rules; a catalog
 center cannot silently satisfy it.
 
-Malformed expressions, regexes, missing capture names and incompatible output
+Saved `GroupDefinition` construction and deserialization compile the complete\nconfiguration before accepting it. Editable `GroupDefinitionFields` are checked\nwhen replaced; changing definitions never rewrites recorded associations.\n\nMalformed expressions, regexes, missing capture names and incompatible output
 bindings produce definition/configuration diagnostics. Unknown groups retain
 their recorded values; they are not evidence of a malformed user QSO. The implementation uses Rust
 regex and typed declarative-expression encoding; the model implements those

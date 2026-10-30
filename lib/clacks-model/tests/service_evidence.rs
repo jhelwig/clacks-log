@@ -116,7 +116,11 @@ fn explicitly_mapped_own_iota_is_part_of_imported_lotw_baseline() -> anyhow::Res
         },
     };
     let original = support::definitions();
-    let mut def = original.get(support::id::<GroupId>(1)).unwrap().clone();
+    let mut def = original
+        .get(support::id::<GroupId>(1))
+        .unwrap()
+        .clone()
+        .into_fields();
     def.identifier.syntax = None;
     def.export_mappings.ordinary_interchange = vec![FieldBinding {
         field: "MY_IOTA".into(),
@@ -126,7 +130,7 @@ fn explicitly_mapped_own_iota_is_part_of_imported_lotw_baseline() -> anyhow::Res
         },
         when: BindingCondition::AssociationPresent(StationSide::Own),
     }];
-    let defs = DefinitionSet::new(vec![def])?;
+    let defs = DefinitionSet::new(vec![def.try_into()?])?;
     let profiles = support::profiles();
     let resolutions = Default::default();
     let export = ExportContext {

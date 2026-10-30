@@ -57,7 +57,7 @@ async fn created_definitions_survive_reopen_as_unpublished_values() -> anyhow::R
     for group in &definitions.groups {
         let key = RecordKey {
             account,
-            id: RecordId::Group(group.id),
+            id: RecordId::Group(group.id()),
         };
         let record = save::load(&store, key).await?.unwrap();
 
@@ -146,12 +146,12 @@ async fn reopen_preserves_changed_definitions() -> anyhow::Result<()> {
     .await?;
     let key = RecordKey {
         account,
-        id: RecordId::Group(group.id),
+        id: RecordId::Group(group.id()),
     };
     let expected = save::load(&store, key).await?;
-    let mut changed = group.clone();
+    let mut changed = group.clone().into_fields();
     changed.name = "Local custom name".into();
-    let value = RecordState::Live(RecordValue::Group(Box::new(changed)));
+    let value = RecordState::Live(RecordValue::Group(Box::new(changed.try_into()?)));
     save::save(&store, key, expected.as_ref(), value.clone()).await?;
 
     store.close().await?;

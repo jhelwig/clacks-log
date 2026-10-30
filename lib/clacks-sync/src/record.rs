@@ -10,7 +10,7 @@ use clacks_model::ids::{
 };
 use clacks_model::{
     contact::Qso,
-    export::{OutputProfile, rules::compile_definition},
+    export::OutputProfile,
     group::GroupDefinition,
     profile::{EquipmentConfiguration, SavedLocationProfile},
     tag::LogbookTag,
@@ -89,7 +89,7 @@ impl RecordValue {
             Self::Tag(v) => RecordId::Tag(v.id),
             Self::Profile(v) => RecordId::Profile(v.id()),
             Self::Equipment(v) => RecordId::Equipment(v.id()),
-            Self::Group(v) => RecordId::Group(v.id),
+            Self::Group(v) => RecordId::Group(v.id()),
             Self::OutputProfile(v) => RecordId::OutputProfile(v.id),
         }
     }
@@ -130,10 +130,8 @@ impl RecordState {
             match v {
                 RecordValue::Service(v) => v.validate(key.account)?,
 
-                RecordValue::Group(v) => {
-                    compile_definition(v)?;
-                }
-                RecordValue::Qso(_)
+                RecordValue::Group(_)
+                | RecordValue::Qso(_)
                 | RecordValue::Profile(_)
                 | RecordValue::Equipment(_)
                 | RecordValue::Tag(_)

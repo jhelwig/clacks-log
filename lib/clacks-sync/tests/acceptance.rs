@@ -163,7 +163,7 @@ fn empty_account_seeds_groups_without_a_client_actor() {
     let group = groups.first().unwrap().clone();
     let key = RecordKey {
         account: id(1),
-        id: RecordId::Group(group.id),
+        id: RecordId::Group(group.id()),
     };
     let absent = Observation::Absent {
         key,
@@ -387,45 +387,6 @@ fn stale_tag_dependency_and_invalid_group_are_diagnostic() {
             .unwrap(),
             AcceptanceDecision::Stale(_)
         ));
-        let mut groups: Vec<clacks_model::group::GroupDefinition> =
-            serde_json::from_str(include_str!("support/definitions.json")).unwrap();
-        let mut group = groups.remove(0);
-        group.identifier.syntax = Some("[".into());
-        let key = RecordKey {
-            account: id(1),
-            id: RecordId::Group(group.id),
-        };
-        let absent = Observation::Absent {
-            key,
-            checkpoint: InstalledCheckpoint {
-                account: id(1),
-                baseline: id(3),
-                coverage: b.coverage.clone(),
-            },
-        };
-        let change = ServerChange {
-            key,
-            state: RecordState::Live(RecordValue::Group(Box::new(group))),
-            expected: VersionCondition::from_observation(&absent).unwrap(),
-            dependencies: vec![],
-        };
-        let err = plan_server_acceptance(
-            &change,
-            &AcceptanceInput {
-                destination_registry: None,
-                bindings: &[],
-                account: &account,
-                membership: &members,
-                current: &absent,
-                references: &[],
-            },
-            &ev,
-        )
-        .unwrap_err();
-        assert!(
-            err.downcast_ref::<clacks_model::group::DefinitionError>()
-                .is_some()
-        );
     });
 
     let span = captured.event("acceptance.decided");

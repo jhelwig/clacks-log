@@ -428,28 +428,28 @@ without reconstructing artificial expression-node and sequence tables.
 planning APIs. Definition mappers encode/decode private versioned storage
 documents containing existing native identifier, catalog and rule values.
 
-- [ ] Extend existing definition/export scenarios to save/reopen a group with a
+- [x] Extend existing definition/export scenarios to save/reopen a group with a
   capture/join expression, ordered normalization, catalog display/lookup and
   targeted partitions/expansions. Compare actual export/lookup preparation
   outcomes, including unknown associations and explicit-edit normalization.
-- [ ] Revise client migration `0003_shared_values.sql` in place: keep group
+- [x] Revise client migration `0003_shared_values.sql` in place: keep group
   identity/name/location-context facts; pack identifier configuration, optional
   catalog binding, ordinary bindings and targeted plan bodies. Keep each target's
   output-profile foreign key and owning payload relationship.
-- [ ] Pack output-profile context-field sets. Remove expression-node,
+- [x] Pack output-profile context-field sets. Remove expression-node,
   normalization/display-detail and plan-field/partition/expansion table creation
   and their SQL. Do not retain separate expression documents referenced only from
   an already packed plan: embed that expression in its owning document.
-- [ ] Replace `payload/definitions/expression.rs` reconstruction and associated
+- [x] Replace `payload/definitions/expression.rs` reconstruction and associated
   row DTOs/orphan traversal with ordinary serialization at the owner boundary.
   Keep the bounded Rust rule compiler, errors and data-driven definitions.
-- [ ] Give saved `GroupDefinition` checked construction/restoration and protected
+- [x] Give saved `GroupDefinition` checked construction/restoration and protected
   invariant-bearing contents as well. Raw definition input remains data-driven;
   the existing compiler validates regexes, bindings and plans before acceptance.
   Keep legitimate compilation/evaluation errors and account/profile-reference
   checks; do not hard-code program kinds, reinterpret historical associations or
   add a second compiled-definition persistence format.
-- [ ] Revise affected later migration references/retention queries, update scoped
+- [x] Revise affected later migration references/retention queries, update scoped
   SQL metadata and run definition, client persistence and export suites. Commit
   with the matching current contract/guide updates.
 

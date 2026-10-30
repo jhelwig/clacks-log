@@ -128,8 +128,8 @@ fn lotw_readiness_keeps_unfamiliar_values_out_of_telemetry() -> anyhow::Result<(
 fn catalog_outcomes_and_invalid_definition_keep_diagnostics_private() -> anyhow::Result<()> {
     use clacks_model::{
         catalog::{CatalogFinding, lookup_reference},
-        export::rules::compile_definition,
         group::DefinitionSet,
+        group::GroupDefinition,
     };
     let support::CatalogCase {
         association,
@@ -142,9 +142,13 @@ fn catalog_outcomes_and_invalid_definition_keep_diagnostics_private() -> anyhow:
         captured.result.as_ref().unwrap(),
         &CatalogFinding::NotConfigured
     );
-    let mut bad = defs.get(association.group_id).unwrap().clone();
+    let mut bad = defs
+        .get(association.group_id)
+        .unwrap()
+        .clone()
+        .into_fields();
     bad.identifier.syntax = Some("[CANARY-INVALID".into());
-    let captured = capture(|| compile_definition(&bad));
+    let captured = capture(|| GroupDefinition::try_from(bad));
     assert!(
         captured
             .result

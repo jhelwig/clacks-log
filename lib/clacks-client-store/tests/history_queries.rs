@@ -33,7 +33,7 @@ struct Fixture {
 async fn fixture() -> anyhow::Result<Fixture> {
     let directory = tempfile::tempdir()?;
     let seed = account_definitions()?;
-    let group = |name| seed.groups.iter().find(|g| g.name == name).unwrap().id;
+    let group = |name| seed.groups.iter().find(|g| g.name() == name).unwrap().id();
     let store = ClientStore::create_with_definitions(
         &directory.path().join("history.sqlite"),
         support::id(1),
@@ -565,11 +565,12 @@ async fn catalog_and_group_interpretation_changes_do_not_require_qso_edits() -> 
     let mut definition = account_definitions()?
         .groups
         .into_iter()
-        .find(|g| g.name == "POTA")
-        .unwrap();
+        .find(|g| g.name() == "POTA")
+        .unwrap()
+        .into_fields();
     definition.id = support::id(99);
     definition.name = "Later group".into();
-    let value = RecordValue::Group(Box::new(definition));
+    let value = RecordValue::Group(Box::new(definition.try_into()?));
     save::save(
         &f.store,
         support::key(&value),

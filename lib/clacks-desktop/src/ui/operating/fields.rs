@@ -291,7 +291,7 @@ fn station_fields(
                     .map(|id| {
                         definitions
                             .get(id)
-                            .map(|g| g.name.clone())
+                            .map(|g| g.name().to_owned())
                             .unwrap_or_else(|| format!("Unknown group {id}"))
                     })
                     .unwrap_or_else(|| "Select group".into());
@@ -301,8 +301,8 @@ fn station_fields(
                         for group in definitions.iter() {
                             ui.selectable_value(
                                 &mut row.group,
-                                Some(group.id),
-                                format!("{} · {}", group.name, group.id),
+                                Some(group.id()),
+                                format!("{} · {}", group.name(), group.id()),
                             );
                         }
                     });

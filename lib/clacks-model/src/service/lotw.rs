@@ -369,7 +369,7 @@ pub(crate) fn own_iota(q: &Qso, definitions: &DefinitionSet) -> anyhow::Result<O
             };
             for (name, value) in crate::export::select::evaluate_fields(
                 &compiled,
-                &def.export_mappings.ordinary_interchange,
+                &def.export_mappings().ordinary_interchange,
                 &context,
             )? {
                 if name == "MY_IOTA"

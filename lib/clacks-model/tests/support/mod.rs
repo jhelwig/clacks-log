@@ -139,11 +139,17 @@ pub fn profiles() -> ProfileSet {
 
 pub fn contest_definitions() -> DefinitionSet {
     let defs = definitions();
-    let mut b = defs.get(id::<GroupId>(2)).unwrap().clone();
+    let mut b = defs.get(id::<GroupId>(2)).unwrap().clone().into_fields();
     b.id = id::<GroupId>(3);
     b.name = "Other contest".into();
     b.export_mappings.ordinary_interchange[0].value = ValueExpression::Literal("CONTEST-B".into());
-    DefinitionSet::new(defs.iter().cloned().chain([b]).collect()).unwrap()
+    DefinitionSet::new(
+        defs.iter()
+            .cloned()
+            .chain([b.try_into().unwrap()])
+            .collect(),
+    )
+    .unwrap()
 }
 
 /// Apply a valid fixture correction through the saved-contact input boundary.

@@ -35,7 +35,7 @@ async fn settings_snapshot_is_one_account_and_one_read_basis() -> anyhow::Result
     settings::save_equipment(&store, None, &a).await?;
     settings::save_equipment(&store, None, &b).await?;
     settings::save_profile(&store, None, &home).await?;
-    let group = GroupDefinition {
+    let group = GroupDefinition::try_from(clacks_model::group::GroupDefinitionFields {
         id: id(50),
         name: "Field event".into(),
         identifier: IdentifierDefinition {
@@ -46,7 +46,8 @@ async fn settings_snapshot_is_one_account_and_one_read_basis() -> anyhow::Result
         bears_location_context: true,
         catalog: None,
         export_mappings: Default::default(),
-    };
+    })
+    .expect("valid group fixture");
     let value = RecordValue::Group(Box::new(group));
     save::save(&store, support::key(&value), None, RecordState::Live(value)).await?;
     let active = state(&home, &b);

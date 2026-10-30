@@ -273,7 +273,7 @@ fn existing_references_survive_definition_changes_but_explicit_edits_use_rules()
     let mut native = home().station().clone();
     native.references.insert(association.clone());
     let mut form = StationForm::from_snapshot(&native);
-    let definition = GroupDefinition {
+    let definition = GroupDefinition::try_from(clacks_model::group::GroupDefinitionFields {
         id: group,
         name: "Event".into(),
         identifier: IdentifierDefinition {
@@ -284,7 +284,8 @@ fn existing_references_survive_definition_changes_but_explicit_edits_use_rules()
         bears_location_context: true,
         catalog: None,
         export_mappings: Default::default(),
-    };
+    })
+    .expect("valid group fixture");
     let defs = DefinitionSet::new(vec![definition]).unwrap();
     assert_eq!(form.build(&defs).unwrap().references, native.references);
     form.references = vec![ReferenceForm::new()];

@@ -186,7 +186,7 @@ impl CompiledGroupDefinition<'_> {
     /// Attach this group’s identity and a definition location to a configuration diagnostic.
     fn error(&self, path: &str, reason: impl Into<String>) -> DefinitionError {
         DefinitionError::InvalidDefinition {
-            group_id: self.definition.id,
+            group_id: self.definition.id(),
             path: path.into(),
             reason: reason.into(),
         }
@@ -434,7 +434,7 @@ impl CompiledGroupDefinition<'_> {
                 let q = context
                     .qso
                     .ok_or_else(|| self.error("expression", "QSO context missing"))?;
-                ExpressionValue::Collection(reference_identifiers(q, self.definition.id, *side))
+                ExpressionValue::Collection(reference_identifiers(q, self.definition.id(), *side))
             }
             ValueExpression::Capture {
                 value,
@@ -484,12 +484,12 @@ impl CompiledGroupDefinition<'_> {
         association: &ReferenceAssociation,
     ) -> Result<ReferenceAssociation, DefinitionError> {
         let d = self.definition;
-        if association.group_id != d.id {
+        if association.group_id != d.id() {
             return Err(self.error("identifier", "definition ID does not match association"));
         }
 
         let mut value = association.identifier().clone();
-        for operation in &d.identifier.normalization {
+        for operation in &d.identifier().normalization {
             value = value.map(|v| match operation {
                 TextNormalization::Trim => v.trim().into(),
                 TextNormalization::Uppercase => v.to_uppercase(),
@@ -497,19 +497,19 @@ impl CompiledGroupDefinition<'_> {
             });
         }
         value = value.filter(|v| !v.trim().is_empty());
-        if d.identifier.required && value.is_none() {
-            return Err(DefinitionError::MissingIdentifier { group_id: d.id });
+        if d.identifier().required && value.is_none() {
+            return Err(DefinitionError::MissingIdentifier { group_id: d.id() });
         }
         if let Some(v) = &value
             && let Some(pattern) = self.patterns.get("identifier.syntax")
             && !pattern.is_match(v)
         {
             return Err(DefinitionError::InvalidIdentifier {
-                group_id: d.id,
+                group_id: d.id(),
                 value: v.clone(),
             });
         }
-        ReferenceAssociation::new(d.id, value)
+        ReferenceAssociation::new(d.id(), value)
             .map_err(|error| self.error("identifier", error.to_string()))
     }
 }
@@ -543,7 +543,7 @@ pub(crate) fn reference_identifiers(qso: &Qso, group: GroupId, side: StationSide
     name = "model.reference_definition.compile",
     level = "trace",
     fields(
-        group_id = %definition.id,
+        group_id = %definition.id(),
     ),
 )]
 pub fn compile_definition(
@@ -554,13 +554,13 @@ pub fn compile_definition(
         patterns: BTreeMap::new(),
         pattern_paths: BTreeMap::new(),
     };
-    if definition.name.trim().is_empty() {
+    if definition.name().trim().is_empty() {
         return Err(compiled.error("name", "group name cannot be blank"));
     }
-    if let Some(pattern) = &definition.identifier.syntax {
+    if let Some(pattern) = &definition.identifier().syntax {
         compiled.add_pattern("identifier.syntax", pattern)?;
     }
-    if let Some(catalog) = &definition.catalog {
+    if let Some(catalog) = &definition.catalog() {
         if catalog.display_name.trim().is_empty()
             || catalog
                 .details
@@ -581,12 +581,12 @@ pub fn compile_definition(
         }
     }
     compiled.check_plan(
-        &definition.export_mappings.ordinary_interchange,
+        &definition.export_mappings().ordinary_interchange,
         &[],
         &[],
         "ordinary_interchange",
     )?;
-    for (id, plan) in &definition.export_mappings.targeted {
+    for (id, plan) in &definition.export_mappings().targeted {
         compiled.check_plan(
             &plan.fields,
             &plan.file_partition,

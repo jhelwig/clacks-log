@@ -180,7 +180,7 @@ fn choices(
                         add(
                             format!(
                                 "{}{}",
-                                quote(&group.name),
+                                quote(group.name()),
                                 if field.kind() == FieldType::Reference {
                                     "/"
                                 } else {

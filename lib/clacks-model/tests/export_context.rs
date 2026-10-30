@@ -76,12 +76,16 @@ fn per_contact_context_is_unambiguous_or_explicit() {
         }
         assert_eq!(q, before);
     }
-    let mut equivalent = defs.get(support::id::<GroupId>(3)).unwrap().clone();
+    let mut equivalent = defs
+        .get(support::id::<GroupId>(3))
+        .unwrap()
+        .clone()
+        .into_fields();
     equivalent.export_mappings.ordinary_interchange[0].value =
         ValueExpression::Literal("CQ-WW-SSB".into());
     let same = DefinitionSet::new(vec![
         defs.get(support::id::<GroupId>(2)).unwrap().clone(),
-        equivalent,
+        equivalent.try_into().unwrap(),
     ])
     .unwrap();
     let mut q = support::qso(support::id::<QsoId>(1));

@@ -152,7 +152,12 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
     use clacks_sync::service::{ServiceSupport, SupportRequirement, VersionReference};
     let directory = tempfile::tempdir()?;
     let seed = account_definitions()?;
-    let pota = seed.groups.iter().find(|g| g.name == "POTA").unwrap().id;
+    let pota = seed
+        .groups
+        .iter()
+        .find(|g| g.name() == "POTA")
+        .unwrap()
+        .id();
     let store = ClientStore::create_with_definitions(
         &directory.path().join("history.sqlite"),
         support::id(1),

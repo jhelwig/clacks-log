@@ -254,15 +254,10 @@ fallback and current catalog interpretation never rewrite them.
 | `profile_payload` | `P`, name, station child key, nullable default equipment ID. Callsign required by the station. |
 | `equipment_payload` | `P`, name, copied-equipment child key. |
 | `equipment_snapshot` | Account-qualified equipment key, optional equipment description, antenna description, notes. No configuration display name in QSO copies. |
-| `group_payload` | `P`, name, identifier-required flag, syntax, location-context flag, optional catalog binding key. |
-| `group_normalization` | `(P, ordinal)`, native text transformation. Preserve sequence order. |
-| Catalog columns on `group_payload`, `catalog_display_detail` | Owned binding, dataset ID, lookup-expression key, display-name metadata field; ordered detail labels/metadata fields. Descriptive catalog entries themselves remain separate from recorded associations. |
-| `output_profile_payload`, `output_context_field` | `P`, name, purpose variant; unordered contextual field set. |
-| `export_plan` | Owned plan key, group `P`, ordinary/targeted discriminator, nullable output-profile ID. One ordinary plan; at most one targeted plan per profile. |
-| `export_field`, `export_partition`, `export_expansion` | Owned plan key and ordinal; field name/expression/condition; partition variant/expression or side/binding; expansion side/binding/keep-one flag. |
-| `export_expression` | Owned expression key, group `P`, native variant, literal/path/side/binding/pattern/capture/separator fields as applicable; child expression key for Capture/Join. This is the existing bounded mapping expression tree, not a generic record-property store. Reject cycles, orphan roots and variant mismatches. |
-
-Position kind/null checks distinguish no position, grid area and explicit point.
+| `group_payload` | `P`, name and location-context flag; complete versioned JSON identifier rules, optional catalog binding and ordinary export bindings. Ordered transformations and nested expressions remain inside their owning documents. |
+| `output_profile_payload` | `P`, name, purpose and one versioned JSON contextual-field set. |
+| `export_plan` | Group `P`, account-qualified output-profile identity and one versioned JSON targeted plan. Fields, partitions, expansions and their expressions form one owned rule document. |
+The checked position model distinguishes no position, grid area and explicit point.
 Store all supplied locator lengths through twelve characters; own-location entry
 validation still requires four. Coordinate/grid consistency and unknown-mode
 preservation follow the native constructors rather than current catalog joins.
