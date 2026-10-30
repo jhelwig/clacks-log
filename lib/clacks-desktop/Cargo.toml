@@ -82,3 +82,6 @@ reqwest = { workspace = true, features = ["cookies", "json"] }
 rsa.workspace = true
 rand.workspace = true
 chrono.workspace = true
+
+[lints]
+workspace = true

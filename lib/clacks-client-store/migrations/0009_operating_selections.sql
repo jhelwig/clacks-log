@@ -10,10 +10,7 @@ CREATE TABLE operating_state_new (
     equipment_record TEXT,
     FOREIGN KEY (current_values, account) REFERENCES operating_value(operating_id, account),
     FOREIGN KEY (loaded_profile, account, profile_kind, profile_record) REFERENCES payload(payload_id, account, kind, record_id),
-    FOREIGN KEY (loaded_equipment, account, equipment_kind, equipment_record) REFERENCES payload(payload_id, account, kind, record_id),
-    CHECK ((loaded_profile IS NULL) = (profile_record IS NULL)),
-    CHECK ((loaded_equipment IS NULL) = (equipment_record IS NULL)),
-    CHECK (current_values IS NOT NULL OR (loaded_profile IS NULL AND loaded_equipment IS NULL))
+    FOREIGN KEY (loaded_equipment, account, equipment_kind, equipment_record) REFERENCES payload(payload_id, account, kind, record_id)
 ) STRICT;
 
 -- Snapshot identities differ even for equal values. Compare the complete station,

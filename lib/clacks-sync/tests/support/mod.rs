@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 pub mod telemetry;
 
 use clacks_model::contact::{BandFrequency, OwnOperatingContext, Qso};

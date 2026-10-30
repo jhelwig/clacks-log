@@ -223,7 +223,8 @@ pub(super) async fn station(
     let (name_state, name) = split(&value.name);
     let name = name.map(String::as_str);
     let (position_state, position) = split(&value.position);
-    let position = PositionFields::new(position);
+    let position = crate::rows::contact::PositionFields::from(position);
+
     let (dxcc_state, dxcc) = split(&value.dxcc);
     let dxcc = dxcc.map(String::as_str);
     let (primary_state, primary) = split(&value.primary_subdivision);

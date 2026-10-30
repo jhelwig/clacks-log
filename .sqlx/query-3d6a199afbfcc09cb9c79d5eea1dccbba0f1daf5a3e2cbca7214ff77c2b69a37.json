@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT qso_id, service, destination_id, claim, date, source, source_record, mapping, native_end, fields_map, has_location, coverage FROM service_assertion WHERE payload_id = ? AND account = ?\n",
+  "query": "SELECT qso_id, service, destination_id, claim, date, source, source_record, mapping, native_end, fields, has_location, coverage FROM service_assertion WHERE payload_id = ? AND account = ?\n",
   "describe": {
     "columns": [
       {
@@ -103,13 +103,13 @@
         }
       },
       {
-        "name": "fields_map",
+        "name": "fields",
         "ordinal": 9,
-        "type_info": "Integer",
+        "type_info": "Text",
         "origin": {
           "Table": {
             "table": "service_assertion",
-            "name": "fields_map"
+            "name": "fields"
           }
         }
       },
@@ -154,5 +154,5 @@
       false
     ]
   },
-  "hash": "63e3cc7c18e9e856469285c83ef803c8dcf615bb27e5e87d7c3418adf2d430e6"
+  "hash": "3d6a199afbfcc09cb9c79d5eea1dccbba0f1daf5a3e2cbca7214ff77c2b69a37"
 }

@@ -1,7 +1,6 @@
 //! Real native persistence and issuer interoperability; no synthetic authorization service.
 
 #[path = "../../../clacks-web/tests/support/provider.rs"]
-#[allow(dead_code)] // Shared provider support also exposes deployment-registration probes.
 mod provider;
 
 use super::{EnrollmentRequest, EnrollmentStatus, credentials, flow};
@@ -21,7 +20,7 @@ impl Drop for NativeEntry {
 
 #[tokio::test]
 async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<()> {
-    let provider = provider::start().await?;
+    let provider = provider::start(None).await?;
     let directory = tempfile::tempdir()?;
     let database = directory.path().join("database-url");
     std::fs::write(

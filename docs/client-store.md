@@ -104,7 +104,7 @@ recorded labels.
 | Whole-second UTC time | Signed `INTEGER` Unix seconds, including dates before 1970. UTC means Coordinated Universal Time. |
 | Operational timestamp | Signed seconds plus an integer nanosecond fraction, `0 <= fraction < 1,000,000,000`. Preserve this precision for lookup tie-breaking and provenance; do not add precision metadata to QSO times. |
 | Coordinates | Signed integer millionths of a degree; explicit-point/grid-area discriminator and retained locator length. No stored authoritative grid-center coordinates for a grid area. |
-| Boolean/closed state variants | Integer or text discriminators with checks and variant-specific nullability. These describe native structure, not current catalog recognition. |
+| Boolean/closed state variants | Physical Boolean integers or text discriminators bound from native alternatives. Rust owns coupled-variant validity; decoder rows must be converted before use. |
 | Optional recorded text | `NULL` for absent. Preserve nonblank text exactly; no blanket database trimming or case folding. Native entry validation owns normalization. |
 | Mode | Kind `parent` or `specialization`, preserved label, nullable recorded parent context. No foreign key to the current recognition catalog. |
 | Band | Preserved nullable text. No catalog-membership check. A frequency may be valid without a recognized band. |
@@ -193,7 +193,7 @@ libraries do not already implement them merely because they are specified here.
 | `client_record` | Record key, `latest_observation_id`, `pending_id?` | Durable `ClientRecord` root. Stale-save protection checks the edit/review basis inside the write transaction without requiring another generation counter. |
 | `retained_accepted` | Record key, ordinal, `envelope_id` | Exact ordered representation of the core's retained incomparable alternatives. Not edit history. |
 | `pending_record` | `pending_id`, record key, `original_id`, `working_P`, `prepared_id?`, `basis_witness_id?` | Current unpublished saved work. One per record. |
-| `original_basis` | `original_id`, record key, variant, accepted envelope/checkpoint/subsumed payload/vector/witness stamp/reason as appropriate | All four `OriginalBasis` variants, with exact variant-specific checks. |
+| `original_basis` | `original_id`, record key, variant, accepted envelope/checkpoint/subsumed payload/vector/witness stamp/reason as appropriate | All four `OriginalBasis` variants, bound directly from native alternatives. |
 | `prepared_change` | `prepared_id`, record key, `P`, actor, vector ID, expected-condition ID | At most one unsettled frozen change per pending record. |
 | `prepared_dependency` | `(prepared_id, ordinal)`, condition ID | Actual ordered dependency conditions. |
 | `version_condition` | Condition ID, record key, kind, stamp ID or absence checkpoint ID | Existing `Is`/`Absent` preconditions; no invented serialized predicate language. |
@@ -204,10 +204,18 @@ All references crossing these tables include account and record qualification,
 either directly in a composite foreign key or through an equivalent unique
 qualified parent key. A payload for QSO X cannot occupy a role for QSO Y. A stamp
 cannot be shared across different record identities just because its numeric
-components match. Optional role references have explicit null/variant checks.
+components match. Native alternatives determine which optional role references
+are bound; decoders reject inconsistent stored combinations.
 
 Live payload completeness is enforced by the owning transactional mapper plus
-native validation; SQL checks/foreign keys enforce the locally expressible parts.
+checked native construction; foreign keys retain relational ownership.
+Rust construction owns domain enum, range, normalization and coupled-variant
+validity. Database checks retain fixed-family foreign-key qualification,
+singleton cardinality and physical Boolean representation. Keys, nullability,
+uniqueness, account ownership and transactional guards remain database concerns.
+SQL decoder rows are incomplete inputs; write paths bind from native variants
+or a private encoding constructed exclusively from those variants.
+
 SQLite cannot express an arbitrary cross-table assertion as a `CHECK`. Do not
 claim the type discriminator alone proves a complete live payload. Readers reject
 missing/extra/wrong-kind child rows with a concrete integrity error rather than

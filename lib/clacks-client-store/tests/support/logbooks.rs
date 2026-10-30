@@ -18,7 +18,6 @@ pub struct Workspace {
     /// Own the temporary files until the scenario completes.
     pub _directory: tempfile::TempDir,
     /// Actual database used for reopened-workspace checks.
-    #[allow(dead_code)]
     pub path: PathBuf,
     /// Production account store under test.
     pub store: ClientStore,
@@ -39,7 +38,6 @@ impl Workspace {
 }
 
 /// Insert a native tag through the actual guarded store.
-#[allow(dead_code)]
 pub async fn insert(store: &ClientStore, value: u128, name: &str) -> anyhow::Result<ClientRecord> {
     let tag = LogbookTag::new(id(value), name.into());
     let key = RecordKey {

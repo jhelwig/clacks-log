@@ -1,6 +1,4 @@
 mod support;
-#[allow(dead_code)]
-#[path = "../../clacks-model/tests/support/telemetry.rs"]
 mod telemetry;
 
 use clacks_geography::artifact::{read::open_bundle, write::write_bundle};

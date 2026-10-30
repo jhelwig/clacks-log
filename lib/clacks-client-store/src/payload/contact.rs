@@ -1,6 +1,6 @@
 //! Typed relational mappings for recorded contacts and copied station facts.
 
-use crate::rows::contact::{ModeFields, PositionFields};
+use crate::rows::contact::PositionFields;
 use clacks_model::{
     contact::{BandFrequency, OperatorInformation, Qso, StationSnapshot},
     equipment::EquipmentValues,
@@ -91,7 +91,8 @@ pub(crate) async fn insert_station(
         .await?
         .station_id;
     if let Some(location) = &station.location {
-        let position = PositionFields::new(location.position().as_ref());
+        let position = crate::rows::contact::PositionFields::from(location.position().as_ref());
+
         let cq = location.cq_zone().map(|zone| i64::from(zone.get()));
         let itu = location.itu_zone().map(|zone| i64::from(zone.get()));
         sqlx::query_file!(
@@ -283,46 +284,68 @@ pub(super) async fn insert(
         .as_ref()
         .and_then(BandFrequency::band)
         .map(Band::label);
-    let mode = match qso.mode().identity() {
-        ModeIdentity::Parent { label } => ModeFields {
-            kind: "parent",
-            label,
-            parent: None,
-        },
-        ModeIdentity::Specialization { label, parent } => ModeFields {
-            kind: "specialization",
-            label,
-            parent,
-        },
-    };
-    sqlx::query_file!(
-        "sql/contact/insert.sql",
-        payload,
-        account_text,
-        id,
-        start,
-        end,
-        own,
-        contacted,
-        own_call,
-        own_name,
-        contacted_call,
-        contacted_name,
-        power,
-        equipment,
-        frequency,
-        band,
-        receive_frequency,
-        receive_band,
-        mode.kind,
-        mode.label,
-        mode.parent,
-        qso.sent_report(),
-        qso.received_report(),
-        qso.comment()
-    )
-    .execute(&mut *connection)
-    .await?;
+    match qso.mode().identity() {
+        ModeIdentity::Parent { label } => {
+            sqlx::query_file!(
+                "sql/contact/insert.sql",
+                payload,
+                account_text,
+                id,
+                start,
+                end,
+                own,
+                contacted,
+                own_call,
+                own_name,
+                contacted_call,
+                contacted_name,
+                power,
+                equipment,
+                frequency,
+                band,
+                receive_frequency,
+                receive_band,
+                "parent",
+                label,
+                None::<String>,
+                qso.sent_report(),
+                qso.received_report(),
+                qso.comment()
+            )
+            .execute(&mut *connection)
+            .await?;
+        }
+        ModeIdentity::Specialization { label, parent } => {
+            sqlx::query_file!(
+                "sql/contact/insert.sql",
+                payload,
+                account_text,
+                id,
+                start,
+                end,
+                own,
+                contacted,
+                own_call,
+                own_name,
+                contacted_call,
+                contacted_name,
+                power,
+                equipment,
+                frequency,
+                band,
+                receive_frequency,
+                receive_band,
+                "specialization",
+                label,
+                parent,
+                qso.sent_report(),
+                qso.received_report(),
+                qso.comment()
+            )
+            .execute(&mut *connection)
+            .await?;
+        }
+    }
     for tag in qso.tags() {
         super::identity(
             connection,

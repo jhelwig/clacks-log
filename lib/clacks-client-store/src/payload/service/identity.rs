@@ -1,8 +1,6 @@
 //! Credential-free destination snapshots and exact provider record keys.
 
-mod key;
-
-use crate::rows::service::{CollectionFields, DestinationRow};
+use crate::rows::service::{CollectionRow, DestinationRow};
 use clacks_model::{
     ids::AccountId,
     service::{
@@ -47,31 +45,41 @@ pub(super) async fn descriptor(
     .await?;
     let account = account.to_string();
     let destination = value.id.to_string();
-    let fields = match &value.collection {
-        RemoteCollection::Lotw { account } => CollectionFields {
-            collection: "lotw",
-            lotw_account: Some(account.as_str()),
-            qrz_book: None,
-        },
-        RemoteCollection::Qrz { book_id } => CollectionFields {
-            collection: "qrz",
-            lotw_account: None,
-            qrz_book: book_id.as_ref().map(|id| id.as_str()),
-        },
-    };
-    Ok(sqlx::query_file!(
-        "sql/service/descriptor_insert.sql",
-        payload,
-        account,
-        destination,
-        fields.collection,
-        fields.lotw_account,
-        fields.qrz_book,
-        value.description
-    )
-    .fetch_one(connection)
-    .await?
-    .descriptor_id)
+    Ok(match &value.collection {
+        RemoteCollection::Lotw {
+            account: lotw_account,
+        } => {
+            sqlx::query_file!(
+                "sql/service/descriptor_insert.sql",
+                payload,
+                account,
+                destination,
+                "lotw",
+                lotw_account,
+                None::<String>,
+                value.description
+            )
+            .fetch_one(connection)
+            .await?
+            .descriptor_id
+        }
+        RemoteCollection::Qrz { book_id } => {
+            let book = book_id.as_ref().map(|id| id.as_str());
+            sqlx::query_file!(
+                "sql/service/descriptor_insert.sql",
+                payload,
+                account,
+                destination,
+                "qrz",
+                None::<String>,
+                book,
+                value.description
+            )
+            .fetch_one(connection)
+            .await?
+            .descriptor_id
+        }
+    })
 }
 
 /// Restore a descriptor only within its owning payload and account.
@@ -91,19 +99,19 @@ pub(super) async fn load_descriptor(
     )
     .fetch_one(connection)
     .await?;
-    let collection = match (CollectionFields {
+    let collection = match (CollectionRow {
         collection: row.collection.as_str(),
         lotw_account: row.lotw_account.as_deref(),
         qrz_book: row.qrz_book.as_deref(),
     }) {
-        CollectionFields {
+        CollectionRow {
             collection: "lotw",
             lotw_account: Some(account),
             qrz_book: None,
         } => RemoteCollection::Lotw {
             account: account.to_owned(),
         },
-        CollectionFields {
+        CollectionRow {
             collection: "qrz",
             lotw_account: None,
             qrz_book,
@@ -137,7 +145,7 @@ pub(super) async fn external(
     .await?;
     let account = account.to_string();
     let destination = value.destination.to_string();
-    let canonical = key::encode(&value.record)?;
+    let canonical = serde_json::to_string(&value.record)?;
     sqlx::query_file!("sql/external/insert.sql", account, destination, canonical)
         .execute(&mut *connection)
         .await?;
@@ -159,7 +167,7 @@ pub(super) async fn load_external(
     let row = sqlx::query_file!("sql/external/select.sql", external, account)
         .fetch_one(connection)
         .await?;
-    let record = key::decode(&row.canonical_key)?;
+    let record = serde_json::from_str(&row.canonical_key)?;
     Ok(ExternalRecordKey {
         destination: row.destination_id.parse()?,
         record,

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT destination_id, service, mapping_release, mapping_commit, signing_call, signing_dxcc, external_id, contact_map, station_map FROM submission_projection WHERE projection_id = ? AND payload_id = ? AND account = ?\n",
+  "query": "SELECT destination_id, service, mapping_release, mapping_commit, signing_call, signing_dxcc, external_id, contact_fields, station_fields FROM submission_projection WHERE projection_id = ? AND payload_id = ? AND account = ?\n",
   "describe": {
     "columns": [
       {
@@ -81,24 +81,24 @@
         }
       },
       {
-        "name": "contact_map",
+        "name": "contact_fields",
         "ordinal": 7,
-        "type_info": "Integer",
+        "type_info": "Text",
         "origin": {
           "Table": {
             "table": "submission_projection",
-            "name": "contact_map"
+            "name": "contact_fields"
           }
         }
       },
       {
-        "name": "station_map",
+        "name": "station_fields",
         "ordinal": 8,
-        "type_info": "Integer",
+        "type_info": "Text",
         "origin": {
           "Table": {
             "table": "submission_projection",
-            "name": "station_map"
+            "name": "station_fields"
           }
         }
       }
@@ -118,5 +118,5 @@
       true
     ]
   },
-  "hash": "bc9aff01a803ef2d6c93230db637524d6505a7a43fe8a30a37d32b7a2a18b387"
+  "hash": "b3777936fc6ff61a66264e4d6dd4afef1246c43d35dae330b63f6a8793d9e00b"
 }

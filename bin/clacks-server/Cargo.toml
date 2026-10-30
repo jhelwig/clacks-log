@@ -27,3 +27,6 @@ clacks-web = { workspace = true, features = ["ssr"] }
 
 [features]
 ssr = []
+
+[lints]
+workspace = true

@@ -1,7 +1,7 @@
 //! Durable client-owned resolution context returned by native transitions.
 
 use super::client::{observation, original};
-use crate::rows::review::ReviewReasonFields;
+use crate::rows::review::ReviewReasonRow;
 use clacks_sync::{
     client::{ReviewInput, ReviewReason},
     record::RecordKey,
@@ -28,66 +28,103 @@ pub(crate) async fn store(
     let original = original::insert_original(connection, &review.original).await?;
     let payload = crate::payload::insert(connection, key, &review.local).await?;
     let shared = observation::insert_observation(connection, &review.shared).await?;
-    let fields = match &review.reason {
-        ReviewReason::BothDifferent => ReviewReasonFields {
-            reason: "different".into(),
-            unknown_reason: None,
-            reference_kind: None,
-            reference_id: None,
-            actor_id: None,
-        },
-        ReviewReason::MissingOriginal => ReviewReasonFields {
-            reason: "original".into(),
-            unknown_reason: None,
-            reference_kind: None,
-            reference_id: None,
-            actor_id: None,
-        },
-        ReviewReason::OrderingUnknown(value) => ReviewReasonFields {
-            reason: "ordering".into(),
-            unknown_reason: Some(observation::unknown(*value).into()),
-            reference_kind: None,
-            reference_id: None,
-            actor_id: None,
-        },
+    match &review.reason {
+        ReviewReason::BothDifferent => {
+            sqlx::query_file!(
+                "sql/review/insert.sql",
+                account,
+                kind,
+                id,
+                original,
+                payload,
+                shared,
+                "different",
+                None::<String>,
+                None::<String>,
+                None::<String>,
+                None::<String>
+            )
+            .execute(&mut *connection)
+            .await?;
+        }
+        ReviewReason::MissingOriginal => {
+            sqlx::query_file!(
+                "sql/review/insert.sql",
+                account,
+                kind,
+                id,
+                original,
+                payload,
+                shared,
+                "original",
+                None::<String>,
+                None::<String>,
+                None::<String>,
+                None::<String>
+            )
+            .execute(&mut *connection)
+            .await?;
+        }
+        ReviewReason::OrderingUnknown(value) => {
+            sqlx::query_file!(
+                "sql/review/insert.sql",
+                account,
+                kind,
+                id,
+                original,
+                payload,
+                shared,
+                "ordering",
+                observation::unknown(*value),
+                None::<String>,
+                None::<String>,
+                None::<String>
+            )
+            .execute(&mut *connection)
+            .await?;
+        }
         ReviewReason::MissingReference(value) => {
             anyhow::ensure!(
                 value.account == key.account,
                 "review reference crosses account"
             );
             crate::payload::identity(connection, *value).await?;
-            ReviewReasonFields {
-                reason: "reference".into(),
-                unknown_reason: None,
-                reference_kind: Some(crate::payload::kind(value.id).into()),
-                reference_id: Some(value.id.to_string()),
-                actor_id: None,
-            }
+            sqlx::query_file!(
+                "sql/review/insert.sql",
+                account,
+                kind,
+                id,
+                original,
+                payload,
+                shared,
+                "reference",
+                None::<String>,
+                crate::payload::kind(value.id),
+                value.id.to_string(),
+                None::<String>
+            )
+            .execute(&mut *connection)
+            .await?;
         }
-        ReviewReason::ExcludedActor(value) => ReviewReasonFields {
-            reason: "actor".into(),
-            unknown_reason: None,
-            reference_kind: None,
-            reference_id: None,
-            actor_id: Some(value.to_string()),
-        },
-    };
-    sqlx::query_file!(
-        "sql/review/insert.sql",
-        account,
-        kind,
-        id,
-        original,
-        payload,
-        shared,
-        fields.reason,
-        fields.unknown_reason,
-        fields.reference_kind,
-        fields.reference_id,
-        fields.actor_id
-    )
-    .execute(&mut *connection)
-    .await?;
+        ReviewReason::ExcludedActor(value) => {
+            sqlx::query_file!(
+                "sql/review/insert.sql",
+                account,
+                kind,
+                id,
+                original,
+                payload,
+                shared,
+                "actor",
+                None::<String>,
+                None::<String>,
+                None::<String>,
+                value.to_string()
+            )
+            .execute(&mut *connection)
+            .await?;
+        }
+    }
     for (ordinal, value) in review.retained.iter().enumerate() {
         anyhow::ensure!(
             value.key() == key,
@@ -123,28 +160,28 @@ pub(crate) async fn load(
     else {
         return Ok(None);
     };
-    let reason = match (ReviewReasonFields {
+    let reason = match (ReviewReasonRow {
         reason: row.reason,
         unknown_reason: row.unknown_reason,
         reference_kind: row.reference_kind,
         reference_id: row.reference_id,
         actor_id: row.actor_id,
     }) {
-        ReviewReasonFields {
+        ReviewReasonRow {
             reason,
             unknown_reason: None,
             reference_kind: None,
             reference_id: None,
             actor_id: None,
         } if reason == "different" => ReviewReason::BothDifferent,
-        ReviewReasonFields {
+        ReviewReasonRow {
             reason,
             unknown_reason: None,
             reference_kind: None,
             reference_id: None,
             actor_id: None,
         } if reason == "original" => ReviewReason::MissingOriginal,
-        ReviewReasonFields {
+        ReviewReasonRow {
             reason,
             unknown_reason: Some(value),
             reference_kind: None,
@@ -153,7 +190,7 @@ pub(crate) async fn load(
         } if reason == "ordering" => {
             ReviewReason::OrderingUnknown(observation::read_unknown(&value)?)
         }
-        ReviewReasonFields {
+        ReviewReasonRow {
             reason,
             unknown_reason: None,
             reference_kind: Some(kind),
@@ -163,7 +200,7 @@ pub(crate) async fn load(
             account: key.account,
             id: crate::payload::record_id(&kind, &id)?,
         }),
-        ReviewReasonFields {
+        ReviewReasonRow {
             reason,
             unknown_reason: None,
             reference_kind: None,

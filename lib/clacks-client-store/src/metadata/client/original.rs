@@ -19,68 +19,93 @@ pub(crate) async fn insert_original(
 ) -> anyhow::Result<i64> {
     let key = value.key();
     crate::payload::identity(connection, key).await?;
-    let row = match value {
-        OriginalBasis::Accepted(value) => OriginalBasisRow {
-            variant: "accepted".into(),
-            envelope_id: Some(insert_envelope(connection, value).await?),
-            checkpoint_id: None,
-            payload_id: None,
-            vector_id: None,
-            stamp_id: None,
-            unknown_reason: None,
-        },
-        OriginalBasis::NeverCreated { checkpoint, .. } => OriginalBasisRow {
-            variant: "absent".into(),
-            envelope_id: None,
-            checkpoint_id: Some(lineage::insert_checkpoint(connection, checkpoint).await?),
-            payload_id: None,
-            vector_id: None,
-            stamp_id: None,
-            unknown_reason: None,
-        },
+    let account = key.account.to_string();
+    let kind = crate::payload::kind(key.id);
+    let id = key.id.to_string();
+    Ok(match value {
+        OriginalBasis::Accepted(value) => {
+            let envelope = insert_envelope(connection, value).await?;
+            sqlx::query_file!(
+                "sql/original/insert.sql",
+                account,
+                kind,
+                id,
+                "accepted",
+                envelope,
+                None::<i64>,
+                None::<i64>,
+                None::<i64>,
+                None::<i64>,
+                None::<String>
+            )
+            .fetch_one(connection)
+            .await?
+            .original_id
+        }
+        OriginalBasis::NeverCreated { checkpoint, .. } => {
+            let checkpoint = lineage::insert_checkpoint(connection, checkpoint).await?;
+            sqlx::query_file!(
+                "sql/original/insert.sql",
+                account,
+                kind,
+                id,
+                "absent",
+                None::<i64>,
+                checkpoint,
+                None::<i64>,
+                None::<i64>,
+                None::<i64>,
+                None::<String>
+            )
+            .fetch_one(connection)
+            .await?
+            .original_id
+        }
         OriginalBasis::SubsumedOwn {
             state,
             vector,
             witness,
             ..
-        } => OriginalBasisRow {
-            variant: "subsumed".into(),
-            envelope_id: None,
-            checkpoint_id: None,
-            payload_id: Some(crate::payload::insert(connection, key, state).await?),
-            vector_id: Some(clock::insert_vector(connection, key, vector).await?),
-            stamp_id: Some(clock::insert_stamp(connection, key, witness).await?),
-            unknown_reason: None,
-        },
-        OriginalBasis::Unavailable { reason, .. } => OriginalBasisRow {
-            variant: "unavailable".into(),
-            envelope_id: None,
-            checkpoint_id: None,
-            payload_id: None,
-            vector_id: None,
-            stamp_id: None,
-            unknown_reason: Some(unknown(*reason).into()),
-        },
-    };
-    let account = key.account.to_string();
-    let kind = crate::payload::kind(key.id);
-    let id = key.id.to_string();
-    Ok(sqlx::query_file!(
-        "sql/original/insert.sql",
-        account,
-        kind,
-        id,
-        row.variant,
-        row.envelope_id,
-        row.checkpoint_id,
-        row.payload_id,
-        row.vector_id,
-        row.stamp_id,
-        row.unknown_reason
-    )
-    .fetch_one(connection)
-    .await?
-    .original_id)
+        } => {
+            let payload = crate::payload::insert(connection, key, state).await?;
+            let vector = clock::insert_vector(connection, key, vector).await?;
+            let stamp = clock::insert_stamp(connection, key, witness).await?;
+            sqlx::query_file!(
+                "sql/original/insert.sql",
+                account,
+                kind,
+                id,
+                "subsumed",
+                None::<i64>,
+                None::<i64>,
+                payload,
+                vector,
+                stamp,
+                None::<String>
+            )
+            .fetch_one(connection)
+            .await?
+            .original_id
+        }
+        OriginalBasis::Unavailable { reason, .. } => {
+            sqlx::query_file!(
+                "sql/original/insert.sql",
+                account,
+                kind,
+                id,
+                "unavailable",
+                None::<i64>,
+                None::<i64>,
+                None::<i64>,
+                None::<i64>,
+                None::<i64>,
+                unknown(*reason)
+            )
+            .fetch_one(connection)
+            .await?
+            .original_id
+        }
+    })
 }
 
 /// Restore all original-basis alternatives without relabeling their retained contexts.

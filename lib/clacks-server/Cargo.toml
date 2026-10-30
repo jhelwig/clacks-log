@@ -57,3 +57,6 @@ opentelemetry-proto.workspace = true
 prost.workspace = true
 metrics-util.workspace = true
 huskarl-core.workspace = true
+
+[lints]
+workspace = true

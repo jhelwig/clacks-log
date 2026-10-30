@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT (SELECT count(*) FROM destination_descriptor d WHERE d.payload_id = ?1\n            AND NOT EXISTS (SELECT 1 FROM service_support s WHERE s.payload_id = ?1 AND s.descriptor_id = d.descriptor_id)\n            AND NOT EXISTS (SELECT 1 FROM service_destination s WHERE s.payload_id = ?1 AND s.descriptor_id = d.descriptor_id))\n     + (SELECT count(*) FROM service_query q WHERE q.payload_id = ?1\n            AND NOT EXISTS (SELECT 1 FROM stream_progress s WHERE s.payload_id = ?1 AND s.query_id = q.query_id)\n            AND NOT EXISTS (SELECT 1 FROM service_acquisition s WHERE s.payload_id = ?1 AND s.query_id = q.query_id)\n            AND NOT EXISTS (SELECT 1 FROM service_observation s WHERE s.payload_id = ?1 AND s.query_id = q.query_id))\n     + (SELECT count(*) FROM submission_projection p WHERE p.payload_id = ?1\n            AND NOT EXISTS (SELECT 1 FROM service_attempt s WHERE s.payload_id = ?1 AND s.projection_id = p.projection_id))\n     + (SELECT count(*) FROM contact_report r WHERE r.payload_id = ?1\n            AND NOT EXISTS (SELECT 1 FROM service_observation s WHERE s.payload_id = ?1 AND s.contact_report = r.report_id))\n     + (SELECT count(*) FROM station_report r WHERE r.payload_id = ?1\n            AND NOT EXISTS (SELECT 1 FROM service_observation s WHERE s.payload_id = ?1 AND (s.own_report = r.report_id OR s.counterpart_report = r.report_id))) AS \"orphans!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "orphans!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "197deb9cf6fc74acb53249f8817d3c64b4695ea561df54664c779724b64c0cc4"
+}

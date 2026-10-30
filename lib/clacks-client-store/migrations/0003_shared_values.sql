@@ -4,8 +4,8 @@ CREATE TABLE tag_payload (
     kind TEXT NOT NULL DEFAULT 'tag' CHECK (kind = 'tag'),
     record_id TEXT NOT NULL,
     name TEXT NOT NULL,
-    lotw_policy TEXT NOT NULL CHECK (lotw_policy IN ('enable', 'forbid', 'neither')),
-    qrz_policy TEXT NOT NULL CHECK (qrz_policy IN ('enable', 'forbid', 'neither')),
+    lotw_policy TEXT NOT NULL,
+    qrz_policy TEXT NOT NULL,
     FOREIGN KEY (payload_id, account, kind, record_id) REFERENCES payload(payload_id, account, kind, record_id) ON DELETE CASCADE
 ) STRICT;
 

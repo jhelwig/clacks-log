@@ -22,36 +22,38 @@ pub(crate) async fn insert_condition(
     let account = key.account.to_string();
     let kind = crate::payload::kind(key.id).to_string();
     let record_id = key.id.to_string();
-    let row = match value {
-        VersionCondition::Is { stamp, .. } => ConditionRow {
-            account,
-            kind,
-            record_id,
-            variant: "is".into(),
-            stamp_id: Some(clock::insert_stamp(connection, key, stamp).await?),
-            checkpoint_id: None,
-        },
-        VersionCondition::Absent { checkpoint, .. } => ConditionRow {
-            account,
-            kind,
-            record_id,
-            variant: "absent".into(),
-            stamp_id: None,
-            checkpoint_id: Some(lineage::insert_checkpoint(connection, checkpoint).await?),
-        },
-    };
-    Ok(sqlx::query_file!(
-        "sql/condition/insert.sql",
-        row.account,
-        row.kind,
-        row.record_id,
-        row.variant,
-        row.stamp_id,
-        row.checkpoint_id
-    )
-    .fetch_one(connection)
-    .await?
-    .condition_id)
+    Ok(match value {
+        VersionCondition::Is { stamp, .. } => {
+            let stamp = clock::insert_stamp(connection, key, stamp).await?;
+            sqlx::query_file!(
+                "sql/condition/insert.sql",
+                account,
+                kind,
+                record_id,
+                "is",
+                stamp,
+                None::<i64>
+            )
+            .fetch_one(connection)
+            .await?
+            .condition_id
+        }
+        VersionCondition::Absent { checkpoint, .. } => {
+            let checkpoint = lineage::insert_checkpoint(connection, checkpoint).await?;
+            sqlx::query_file!(
+                "sql/condition/insert.sql",
+                account,
+                kind,
+                record_id,
+                "absent",
+                None::<i64>,
+                checkpoint
+            )
+            .fetch_one(connection)
+            .await?
+            .condition_id
+        }
+    })
 }
 
 /// Restore a condition's own record identity, including differently keyed dependencies.

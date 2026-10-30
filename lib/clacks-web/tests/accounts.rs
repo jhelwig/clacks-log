@@ -18,7 +18,7 @@ async fn logout_rejects_stale_cookie_on_another_instance() -> anyhow::Result<()>
         .with_writer(logs.reopen()?)
         .finish();
     tracing::subscriber::set_global_default(subscriber)?;
-    let provider = support::provider::start().await?;
+    let provider = support::provider::start(None).await?;
     let directory = tempfile::tempdir()?;
     let url_file = directory.path().join("database-url");
     std::fs::write(

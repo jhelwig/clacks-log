@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT destination_id, identity, external_id, incomplete_service, available_map, contact_report, own_report, counterpart_report, qso_order, confirmation_order, acquisition_id, query_id, observed_seconds, observed_nanos FROM service_observation WHERE payload_id = ? AND account = ?\n",
+  "query": "SELECT destination_id, identity, external_id, incomplete_service, available_fields, contact_report, own_report, counterpart_report, qso_order, confirmation_order, acquisition_id, query_id, observed_seconds, observed_nanos FROM service_observation WHERE payload_id = ? AND account = ?\n",
   "describe": {
     "columns": [
       {
@@ -48,13 +48,13 @@
         }
       },
       {
-        "name": "available_map",
+        "name": "available_fields",
         "ordinal": 4,
-        "type_info": "Integer",
+        "type_info": "Text",
         "origin": {
           "Table": {
             "table": "service_observation",
-            "name": "available_map"
+            "name": "available_fields"
           }
         }
       },
@@ -178,5 +178,5 @@
       false
     ]
   },
-  "hash": "04be41ebcab99da7c9540db1b922a4c8af41c836006952a147d64c9286137ef6"
+  "hash": "dfa219bf4615d9e149af83269b03a5dac89cab0c24d9696acf7c02ecf1ce6004"
 }

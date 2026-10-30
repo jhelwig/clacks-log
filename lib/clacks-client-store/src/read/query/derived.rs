@@ -1,12 +1,9 @@
 //! Operation-local native facts, composed with SQLx's ordinary transaction lifetime.
 
 use super::compiler;
-use crate::{
-    read::{
-        contacts::{ContactColumn, ContactPageQuery},
-        projection::{self, ProjectionNeeds},
-    },
-    rows::contact::PositionFields,
+use crate::read::{
+    contacts::{ContactColumn, ContactPageQuery},
+    projection::{self, ProjectionNeeds},
 };
 use clacks_model::ids::AccountId;
 use sqlx::{Row, SqliteConnection};
@@ -112,18 +109,20 @@ pub(super) async fn populate(
                 .and_then(|l| l.position().as_ref());
             let own_grid = own.map(|p| p.display_locator().to_string());
             let contact_grid = contact.map(|p| p.display_locator().to_string());
-            let own = PositionFields::new(own);
-            let contact = PositionFields::new(contact);
+            let own = crate::rows::contact::PositionFields::from(own);
+
+            let contact = crate::rows::contact::PositionFields::from(contact);
+
             sqlx::query(include_str!("../../../sql/read/query/facts_insert.sql"))
                 .bind(value.id.to_string())
                 .bind(value.facts.name.map(|s| s.value))
-                .bind(own.kind)
-                .bind(own.locator)
+                .bind(own.kind.as_deref())
+                .bind(own.locator.as_deref())
                 .bind(own.latitude)
                 .bind(own.longitude)
                 .bind(own_grid)
-                .bind(contact.kind)
-                .bind(contact.locator)
+                .bind(contact.kind.as_deref())
+                .bind(contact.locator.as_deref())
                 .bind(contact.latitude)
                 .bind(contact.longitude)
                 .bind(contact_grid)

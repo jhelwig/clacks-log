@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO submission_projection (payload_id, account, destination_id, service, contact_map) VALUES (?, ?, ?, 'qrz', ?) RETURNING projection_id AS \"projection_id!: i64\"\n",
+  "query": "INSERT INTO submission_projection (payload_id, account, destination_id, service, contact_fields) VALUES (?, ?, ?, 'qrz', ?) RETURNING projection_id AS \"projection_id!: i64\"\n",
   "describe": {
     "columns": [
       {
@@ -22,5 +22,5 @@
       null
     ]
   },
-  "hash": "3f3d855e780cc7b0dfd6a503b545bf9ac8644af59474c2f67558425e1e556e44"
+  "hash": "99b09ae944359a1bde287184e6198cd29da9184efe0311524efdf2ea5af472d3"
 }

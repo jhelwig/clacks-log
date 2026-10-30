@@ -515,25 +515,25 @@ the existing native `RecordVector`/`Coverage` values.
 **Deliverable:** Remaining fresh-schema SQL expresses database responsibilities;
 remaining write paths consume valid models without recreating invalid options.
 
-- [ ] Inspect every remaining `CHECK` in both stores against the database
+- [x] Inspect every remaining `CHECK` in both stores against the database
   responsibilities above. Remove mirrored enum/range/text/variant checks from
   original declarations, including contact/shared/sync/review and server auth
   tables. Retain qualified family references, uniqueness and genuine physical
   type representation. Do not remove keys or indexes indiscriminately.
-- [ ] Finish observation/original-basis/version-condition/review mapper changes:
+- [x] Finish observation/original-basis/version-condition/review mapper changes:
   replace writable decoder-shaped records with direct exhaustive variant binding
   or closed encoded variants containing their required references. Keep named
   raw rows solely for SQLx input decoding. No anonymous column tuples.
-- [ ] Audit repeated intrinsic validation across trusted paths and remove checks
+- [x] Audit repeated intrinsic validation across trusted paths and remove checks
   made unnecessary by Tasks 1–5. Retain raw decoding errors, external library
   conversion, current authorization, stale-save conditions, tag/source deletion
   checks and causal/reference comparisons. Do not replace removed validation
   with `debug_assert!` or unsafe assumptions.
-- [ ] Update existing behavior tests that manually assembled invalid saved values
+- [x] Update existing behavior tests that manually assembled invalid saved values
   to exercise real input rejection where Clacks has a policy. Remove tests whose
   only assertion proves SQL constraints, Serde, SQLx, private fields or an enum
   match. Preserve valid lifecycle/matching/reconciliation outcomes.
-- [ ] Run the relevant existing suites and workspace Clippy. Update current docs
+- [x] Run the relevant existing suites and workspace Clippy. Update current docs
   that prescribe optional validation or SQL variant checks. Commit the completed
   constraint/model boundary cleanup; do not check in a review inventory.
 

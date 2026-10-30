@@ -7,16 +7,16 @@ CREATE TABLE coverage (
 CREATE TABLE lineage (
     lineage_id INTEGER PRIMARY KEY,
     account TEXT NOT NULL REFERENCES store_account(account),
-    initial_timeline TEXT NOT NULL CHECK (length(initial_timeline) = 26),
+    initial_timeline TEXT NOT NULL,
     UNIQUE (lineage_id, account)
 ) STRICT;
 CREATE TABLE timeline_boundary (
     lineage_id INTEGER NOT NULL,
     account TEXT NOT NULL,
-    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
-    timeline_id TEXT NOT NULL CHECK (length(timeline_id) = 26),
-    revision INTEGER NOT NULL CHECK (revision >= 0),
-    kind TEXT NOT NULL CHECK (kind IN ('fork','recovered')),
+    ordinal INTEGER NOT NULL,
+    timeline_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    kind TEXT NOT NULL,
     coverage_id INTEGER NOT NULL,
     PRIMARY KEY (lineage_id, ordinal),
     UNIQUE (lineage_id, timeline_id, revision),
@@ -26,10 +26,10 @@ CREATE TABLE timeline_boundary (
 CREATE TABLE baseline (
     baseline_row INTEGER PRIMARY KEY,
     account TEXT NOT NULL REFERENCES store_account(account),
-    baseline_id TEXT NOT NULL CHECK (length(baseline_id) = 26),
+    baseline_id TEXT NOT NULL,
     coverage_id INTEGER NOT NULL,
     lineage_id INTEGER NOT NULL,
-    membership_generation INTEGER NOT NULL CHECK (membership_generation >= 0),
+    membership_generation INTEGER NOT NULL,
     UNIQUE (account, baseline_id),
     UNIQUE (baseline_row, account),
     FOREIGN KEY (coverage_id, account) REFERENCES coverage(coverage_id, account),
@@ -38,7 +38,7 @@ CREATE TABLE baseline (
 CREATE TABLE checkpoint (
     checkpoint_id INTEGER PRIMARY KEY,
     account TEXT NOT NULL REFERENCES store_account(account),
-    baseline_id TEXT NOT NULL CHECK (length(baseline_id) = 26),
+    baseline_id TEXT NOT NULL,
     coverage_id INTEGER NOT NULL,
     UNIQUE (checkpoint_id, account),
     FOREIGN KEY (coverage_id, account) REFERENCES coverage(coverage_id, account)
@@ -56,30 +56,29 @@ CREATE TABLE current_lineage (
 ) STRICT;
 CREATE TABLE account_metadata (
     account TEXT PRIMARY KEY REFERENCES store_account(account),
-    head_timeline TEXT NOT NULL CHECK (length(head_timeline) = 26),
-    head_revision INTEGER NOT NULL CHECK (head_revision >= 0),
-    baseline_id TEXT NOT NULL CHECK (length(baseline_id) = 26),
+    head_timeline TEXT NOT NULL,
+    head_revision INTEGER NOT NULL,
+    baseline_id TEXT NOT NULL,
     coverage_id INTEGER NOT NULL,
-    membership_generation INTEGER NOT NULL CHECK (membership_generation >= 0),
+    membership_generation INTEGER NOT NULL,
     FOREIGN KEY (coverage_id, account) REFERENCES coverage(coverage_id, account)
 ) STRICT;
 CREATE TABLE membership_snapshot (
     account TEXT PRIMARY KEY REFERENCES account_metadata(account),
-    generation INTEGER NOT NULL CHECK (generation >= 0)
+    generation INTEGER NOT NULL
 ) STRICT;
 CREATE TABLE client_membership (
     account TEXT NOT NULL REFERENCES membership_snapshot(account) ON DELETE CASCADE,
-    actor_id TEXT NOT NULL CHECK (length(actor_id) = 26),
-    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
-    created_timeline TEXT NOT NULL CHECK (length(created_timeline) = 26),
-    created_revision INTEGER NOT NULL CHECK (created_revision >= 0),
-    closed_timeline TEXT CHECK (closed_timeline IS NULL OR length(closed_timeline) = 26),
-    closed_revision INTEGER CHECK (closed_revision >= 0),
+    actor_id TEXT NOT NULL,
+    ordinal INTEGER NOT NULL,
+    created_timeline TEXT NOT NULL,
+    created_revision INTEGER NOT NULL,
+    closed_timeline TEXT,
+    closed_revision INTEGER,
     checkpoint_id INTEGER,
     PRIMARY KEY (account, actor_id),
     UNIQUE (account, ordinal),
-    FOREIGN KEY (checkpoint_id, account) REFERENCES checkpoint(checkpoint_id, account),
-    CHECK ((closed_timeline IS NULL) = (closed_revision IS NULL))
+    FOREIGN KEY (checkpoint_id, account) REFERENCES checkpoint(checkpoint_id, account)
 ) STRICT;
 CREATE TABLE accepted_record (
     envelope_id INTEGER PRIMARY KEY,
@@ -97,56 +96,47 @@ CREATE TABLE record_observation (
     account TEXT NOT NULL,
     kind TEXT NOT NULL,
     record_id TEXT NOT NULL,
-    variant TEXT NOT NULL CHECK (variant IN ('accepted','absent','unavailable')),
+    variant TEXT NOT NULL,
     envelope_id INTEGER,
     checkpoint_id INTEGER,
-    unknown_reason TEXT CHECK (unknown_reason IN ('baseline','lineage','original','collected')),
+    unknown_reason TEXT,
     UNIQUE (observation_id, account, kind, record_id),
     FOREIGN KEY (account, kind, record_id) REFERENCES record_identity(account, kind, record_id),
     FOREIGN KEY (envelope_id, account, kind, record_id) REFERENCES accepted_record(envelope_id, account, kind, record_id),
-    FOREIGN KEY (checkpoint_id, account) REFERENCES checkpoint(checkpoint_id, account),
-    CHECK ((variant = 'accepted' AND envelope_id IS NOT NULL AND checkpoint_id IS NULL AND unknown_reason IS NULL)
-        OR (variant = 'absent' AND envelope_id IS NULL AND checkpoint_id IS NOT NULL AND unknown_reason IS NULL)
-        OR (variant = 'unavailable' AND envelope_id IS NULL AND checkpoint_id IS NULL AND unknown_reason IS NOT NULL))
+    FOREIGN KEY (checkpoint_id, account) REFERENCES checkpoint(checkpoint_id, account)
 ) STRICT;
 CREATE TABLE original_basis (
     original_id INTEGER PRIMARY KEY,
     account TEXT NOT NULL,
     kind TEXT NOT NULL,
     record_id TEXT NOT NULL,
-    variant TEXT NOT NULL CHECK (variant IN ('accepted','absent','subsumed','unavailable')),
+    variant TEXT NOT NULL,
     envelope_id INTEGER,
     checkpoint_id INTEGER,
     payload_id INTEGER,
     vector_id INTEGER,
     stamp_id INTEGER,
-    unknown_reason TEXT CHECK (unknown_reason IN ('baseline','lineage','original','collected')),
+    unknown_reason TEXT,
     UNIQUE (original_id, account, kind, record_id),
     FOREIGN KEY (account, kind, record_id) REFERENCES record_identity(account, kind, record_id),
     FOREIGN KEY (envelope_id, account, kind, record_id) REFERENCES accepted_record(envelope_id, account, kind, record_id),
     FOREIGN KEY (checkpoint_id, account) REFERENCES checkpoint(checkpoint_id, account),
     FOREIGN KEY (payload_id, account, kind, record_id) REFERENCES payload(payload_id, account, kind, record_id),
     FOREIGN KEY (vector_id, account, kind, record_id) REFERENCES record_vector(vector_id, account, kind, record_id),
-    FOREIGN KEY (stamp_id, account, kind, record_id) REFERENCES version_stamp(stamp_id, account, kind, record_id),
-    CHECK ((variant = 'accepted' AND envelope_id IS NOT NULL AND checkpoint_id IS NULL AND payload_id IS NULL AND vector_id IS NULL AND stamp_id IS NULL AND unknown_reason IS NULL)
-        OR (variant = 'absent' AND envelope_id IS NULL AND checkpoint_id IS NOT NULL AND payload_id IS NULL AND vector_id IS NULL AND stamp_id IS NULL AND unknown_reason IS NULL)
-        OR (variant = 'subsumed' AND envelope_id IS NULL AND checkpoint_id IS NULL AND payload_id IS NOT NULL AND vector_id IS NOT NULL AND stamp_id IS NOT NULL AND unknown_reason IS NULL)
-        OR (variant = 'unavailable' AND envelope_id IS NULL AND checkpoint_id IS NULL AND payload_id IS NULL AND vector_id IS NULL AND stamp_id IS NULL AND unknown_reason IS NOT NULL))
+    FOREIGN KEY (stamp_id, account, kind, record_id) REFERENCES version_stamp(stamp_id, account, kind, record_id)
 ) STRICT;
 CREATE TABLE version_condition (
     condition_id INTEGER PRIMARY KEY,
     account TEXT NOT NULL,
     kind TEXT NOT NULL,
     record_id TEXT NOT NULL,
-    variant TEXT NOT NULL CHECK (variant IN ('is','absent')),
+    variant TEXT NOT NULL,
     stamp_id INTEGER,
     checkpoint_id INTEGER,
     UNIQUE (condition_id, account, kind, record_id),
     FOREIGN KEY (account, kind, record_id) REFERENCES record_identity(account, kind, record_id),
     FOREIGN KEY (stamp_id, account, kind, record_id) REFERENCES version_stamp(stamp_id, account, kind, record_id),
-    FOREIGN KEY (checkpoint_id, account) REFERENCES checkpoint(checkpoint_id, account),
-    CHECK ((variant = 'is' AND stamp_id IS NOT NULL AND checkpoint_id IS NULL)
-        OR (variant = 'absent' AND stamp_id IS NULL AND checkpoint_id IS NOT NULL))
+    FOREIGN KEY (checkpoint_id, account) REFERENCES checkpoint(checkpoint_id, account)
 ) STRICT;
 CREATE TABLE prepared_change (
     prepared_id INTEGER PRIMARY KEY,
@@ -155,7 +145,7 @@ CREATE TABLE prepared_change (
     record_id TEXT NOT NULL,
     payload_id INTEGER NOT NULL,
     vector_id INTEGER NOT NULL,
-    actor_id TEXT NOT NULL CHECK (length(actor_id) = 26),
+    actor_id TEXT NOT NULL,
     condition_id INTEGER NOT NULL,
     UNIQUE (prepared_id, account, kind, record_id),
     FOREIGN KEY (payload_id, account, kind, record_id) REFERENCES payload(payload_id, account, kind, record_id),
@@ -164,7 +154,7 @@ CREATE TABLE prepared_change (
 ) STRICT;
 CREATE TABLE prepared_dependency (
     prepared_id INTEGER NOT NULL REFERENCES prepared_change(prepared_id) ON DELETE CASCADE,
-    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    ordinal INTEGER NOT NULL,
     condition_id INTEGER NOT NULL REFERENCES version_condition(condition_id),
     PRIMARY KEY (prepared_id, ordinal)
 ) STRICT;
@@ -176,7 +166,7 @@ CREATE TABLE basis_witness (
     original_id INTEGER NOT NULL,
     observed_stamp INTEGER NOT NULL,
     checkpoint_id INTEGER NOT NULL,
-    relation TEXT NOT NULL CHECK (relation IN ('same','before')),
+    relation TEXT NOT NULL,
     lineage_id INTEGER NOT NULL,
     UNIQUE (witness_id, account, kind, record_id),
     FOREIGN KEY (original_id, account, kind, record_id) REFERENCES original_basis(original_id, account, kind, record_id),
@@ -186,7 +176,7 @@ CREATE TABLE basis_witness (
 ) STRICT;
 CREATE TABLE witness_baseline (
     witness_id INTEGER NOT NULL REFERENCES basis_witness(witness_id) ON DELETE CASCADE,
-    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    ordinal INTEGER NOT NULL,
     baseline_row INTEGER NOT NULL REFERENCES baseline(baseline_row),
     PRIMARY KEY (witness_id, ordinal)
 ) STRICT;
@@ -220,7 +210,7 @@ CREATE TABLE retained_accepted (
     account TEXT NOT NULL,
     kind TEXT NOT NULL,
     record_id TEXT NOT NULL,
-    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    ordinal INTEGER NOT NULL,
     envelope_id INTEGER NOT NULL,
     PRIMARY KEY (account, kind, record_id, ordinal),
     FOREIGN KEY (account, kind, record_id) REFERENCES client_record(account, kind, record_id) ON DELETE CASCADE,
@@ -230,8 +220,8 @@ CREATE TABLE local_counter (
     account TEXT NOT NULL,
     kind TEXT NOT NULL,
     record_id TEXT NOT NULL,
-    actor_id TEXT NOT NULL CHECK (length(actor_id) = 26),
-    high_water INTEGER NOT NULL CHECK (high_water >= 0),
+    actor_id TEXT NOT NULL,
+    high_water INTEGER NOT NULL,
     PRIMARY KEY (account, kind, record_id, actor_id),
     FOREIGN KEY (account, kind, record_id) REFERENCES record_identity(account, kind, record_id)
 ) STRICT;
@@ -241,17 +231,16 @@ CREATE TABLE transfer_window (
     window_id INTEGER PRIMARY KEY,
     account TEXT NOT NULL REFERENCES store_account(account),
     source_checkpoint INTEGER NOT NULL,
-    mode TEXT NOT NULL CHECK (mode IN ('full','incremental')),
+    mode TEXT NOT NULL,
     after_coverage INTEGER,
     UNIQUE (window_id, account),
     FOREIGN KEY (source_checkpoint, account) REFERENCES checkpoint(checkpoint_id, account),
-    FOREIGN KEY (after_coverage, account) REFERENCES coverage(coverage_id, account),
-    CHECK ((mode = 'full' AND after_coverage IS NULL) OR (mode = 'incremental' AND after_coverage IS NOT NULL))
+    FOREIGN KEY (after_coverage, account) REFERENCES coverage(coverage_id, account)
 ) STRICT;
 CREATE TABLE window_requirement (
     window_id INTEGER NOT NULL,
     account TEXT NOT NULL,
-    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    ordinal INTEGER NOT NULL,
     kind TEXT NOT NULL,
     record_id TEXT NOT NULL,
     stamp_id INTEGER NOT NULL,
@@ -264,10 +253,10 @@ CREATE TABLE window_requirement (
 CREATE TABLE window_boundary (
     window_id INTEGER NOT NULL,
     account TEXT NOT NULL,
-    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
-    timeline_id TEXT NOT NULL CHECK (length(timeline_id) = 26),
-    revision INTEGER NOT NULL CHECK (revision >= 0),
-    kind TEXT NOT NULL CHECK (kind IN ('fork','recovered')),
+    ordinal INTEGER NOT NULL,
+    timeline_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    kind TEXT NOT NULL,
     coverage_id INTEGER NOT NULL,
     PRIMARY KEY (window_id, ordinal),
     FOREIGN KEY (window_id, account) REFERENCES transfer_window(window_id, account) ON DELETE CASCADE,
@@ -275,21 +264,21 @@ CREATE TABLE window_boundary (
 ) STRICT;
 CREATE TABLE window_baseline (
     window_id INTEGER NOT NULL REFERENCES transfer_window(window_id) ON DELETE CASCADE,
-    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    ordinal INTEGER NOT NULL,
     baseline_row INTEGER NOT NULL REFERENCES baseline(baseline_row),
     PRIMARY KEY (window_id, ordinal)
 ) STRICT;
 CREATE TABLE window_unit (
     window_id INTEGER NOT NULL REFERENCES transfer_window(window_id) ON DELETE CASCADE,
-    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
-    operation_id TEXT NOT NULL CHECK (length(operation_id) = 26),
+    ordinal INTEGER NOT NULL,
+    operation_id TEXT NOT NULL,
     PRIMARY KEY (window_id, operation_id),
     UNIQUE (window_id, ordinal)
 ) STRICT;
 CREATE TABLE window_unit_member (
     window_id INTEGER NOT NULL,
     operation_id TEXT NOT NULL,
-    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    ordinal INTEGER NOT NULL,
     account TEXT NOT NULL,
     kind TEXT NOT NULL,
     record_id TEXT NOT NULL,
@@ -302,7 +291,7 @@ CREATE TABLE window_unit_member (
 ) STRICT;
 CREATE TABLE window_progress (
     window_id INTEGER PRIMARY KEY REFERENCES transfer_window(window_id) ON DELETE CASCADE,
-    generation INTEGER NOT NULL CHECK (generation >= 0)
+    generation INTEGER NOT NULL
 ) STRICT;
 CREATE TABLE window_installed (
     window_id INTEGER NOT NULL,
@@ -314,7 +303,7 @@ CREATE TABLE window_installed (
 ) STRICT;
 CREATE TABLE window_staged (
     window_id INTEGER NOT NULL,
-    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    ordinal INTEGER NOT NULL,
     account TEXT NOT NULL,
     kind TEXT NOT NULL,
     record_id TEXT NOT NULL,

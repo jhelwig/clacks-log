@@ -24,7 +24,6 @@ use std::{
 
 pub struct Provider {
     pub issuer: openidconnect::IssuerUrl,
-    pub registrations: Arc<AtomicUsize>,
     signing: Arc<CoreRsaPrivateSigningKey>,
     grants: Arc<Mutex<BTreeMap<String, TokenGrant>>>,
     task: tokio::task::JoinHandle<()>,
@@ -101,7 +100,7 @@ impl Provider {
     }
 }
 
-pub async fn start() -> anyhow::Result<Provider> {
+pub async fn start(registrations: Option<Arc<AtomicUsize>>) -> anyhow::Result<Provider> {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let base = format!("http://{}", listener.local_addr()?);
     let issuer = openidconnect::IssuerUrl::new(base.clone())?;
@@ -112,7 +111,7 @@ pub async fn start() -> anyhow::Result<Provider> {
             .map_err(anyhow::Error::msg)?,
     );
     let keys = CoreJsonWebKeySet::new(vec![signing.as_verification_key()]);
-    let registrations = Arc::new(AtomicUsize::new(0));
+    let registrations = registrations.unwrap_or_default();
     let count = registrations.clone();
     let token_registrations = registrations.clone();
     let grants: Arc<Mutex<BTreeMap<String, TokenGrant>>> = Default::default();
@@ -161,7 +160,6 @@ pub async fn start() -> anyhow::Result<Provider> {
     });
     Ok(Provider {
         issuer,
-        registrations,
         signing,
         grants,
         task,

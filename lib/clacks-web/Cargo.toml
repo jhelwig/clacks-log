@@ -48,3 +48,6 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"
 name = "integration"
 path = "tests/integration.rs"
 required-features = ["ssr"]
+
+[lints]
+workspace = true

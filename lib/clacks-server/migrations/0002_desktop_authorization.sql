@@ -78,7 +78,7 @@ CREATE TABLE clacks.desktop_grants (
     actor_id TEXT,
     grant_established_at TIMESTAMPTZ NOT NULL,
     key_thumbprint TEXT NOT NULL,
-    state TEXT NOT NULL CHECK (state IN ('provisional', 'active', 'revoked')),
+    state TEXT NOT NULL,
     provisional_until TIMESTAMPTZ,
     PRIMARY KEY (account_id, family_id),
     FOREIGN KEY (account_id, actor_id) REFERENCES clacks.desktop_clients
@@ -89,7 +89,7 @@ CREATE INDEX desktop_grants_provisional ON clacks.desktop_grants(provisional_unt
 CREATE TABLE clacks.desktop_code_approvals (
     code_digest BYTEA PRIMARY KEY,
     account_id TEXT NOT NULL REFERENCES clacks.accounts,
-    purpose TEXT NOT NULL CHECK (purpose IN ('new', 'recover_active', 'replace_closed')),
+    purpose TEXT NOT NULL,
     target_actor TEXT,
     label TEXT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL
@@ -104,7 +104,7 @@ CREATE TABLE clacks.desktop_authorization_codes (
     key_thumbprint TEXT NOT NULL,
     issued_at TIMESTAMPTZ NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
-    state TEXT NOT NULL CHECK (state IN ('issued', 'consumed', 'replayed')),
+    state TEXT NOT NULL,
     receipt TEXT,
     receipt_key_version BIGINT GENERATED ALWAYS AS (NULLIF(split_part(receipt, '$', 5), '')::BIGINT) STORED,
     FOREIGN KEY (account_id, receipt_key_version) REFERENCES clacks.account_encryption_keys
@@ -147,7 +147,7 @@ CREATE TABLE clacks.desktop_refresh_tokens (
     account_id TEXT NOT NULL,
     family_id TEXT NOT NULL,
     expires_at TIMESTAMPTZ,
-    state TEXT NOT NULL CHECK (state IN ('active', 'spent')),
+    state TEXT NOT NULL,
     FOREIGN KEY (account_id, family_id) REFERENCES clacks.desktop_grants ON DELETE CASCADE
 );
 CREATE TABLE clacks.desktop_refresh_scopes (

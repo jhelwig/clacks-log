@@ -1,6 +1,6 @@
 //! Query coverage and recoverable destination download coordination.
 
-use super::{documents::FieldSetDocument, reference};
+use super::reference;
 use clacks_model::{
     ids::AccountId,
     scalar::{RecordedCallsign, UtcSecond, UtcTimestamp},
@@ -37,7 +37,7 @@ pub(super) async fn query(
     };
     let call = value.own_call.as_ref().map(RecordedCallsign::as_str);
     let since = value.since.map(UtcSecond::unix_seconds);
-    let selected_fields = FieldSetDocument::encode(&value.selected_fields)?;
+    let selected_fields = serde_json::to_string(&value.selected_fields)?;
     let id = sqlx::query_file!(
         "sql/service/query_insert.sql",
         payload,
@@ -65,7 +65,7 @@ pub(super) async fn load_query(
     let row = sqlx::query_file!("sql/service/query_select.sql", query, payload, account)
         .fetch_one(&mut *connection)
         .await?;
-    let fields = FieldSetDocument::decode(&row.selected_fields)?;
+    let fields = serde_json::from_str(&row.selected_fields)?;
     Ok(QueryIdentity {
         destination: row.destination_id.parse()?,
         stream: match row.stream.as_str() {

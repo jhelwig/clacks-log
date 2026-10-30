@@ -15,7 +15,7 @@ pub(crate) struct DestinationRow {
 }
 
 /// Borrowed namespace columns for one public destination descriptor.
-pub(crate) struct CollectionFields<'a> {
+pub(crate) struct CollectionRow<'a> {
     /// Provider collection discriminator.
     pub(crate) collection: &'a str,
     /// LoTW account namespace.
@@ -25,7 +25,7 @@ pub(crate) struct CollectionFields<'a> {
 }
 
 /// Columns distinguishing complete keys from incompletely identified observations.
-pub(crate) struct RemoteIdentityFields<'a> {
+pub(crate) struct RemoteIdentityRow<'a> {
     /// Complete or incomplete identity discriminator.
     pub(crate) identity: &'a str,
     /// Exact external-record key for a complete identity.
@@ -33,5 +33,5 @@ pub(crate) struct RemoteIdentityFields<'a> {
     /// Provider discriminator for an incomplete identity.
     pub(crate) incomplete_service: Option<&'a str>,
     /// Available identity fields when the full key is unknown.
-    pub(crate) available_map: Option<i64>,
+    pub(crate) available_fields: Option<&'a str>,
 }
