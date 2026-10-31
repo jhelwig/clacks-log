@@ -1,12 +1,8 @@
-# Account synchronization integration proposal (#14)
+# Account synchronization integration
 
-Proposal for review for [issue #14](https://github.com/jhelwig/clacks-log/issues/14).
-This document maps the existing production components into the running
-client/server workflow. It does not authorize implementation or make the
-engineering defaults below agreed product decisions.
-
-The [implementation plan](superpowers/plans/2026-10-30-account-synchronization.md)
-maps this proposal to production changes and verification tasks.
+This document describes how the production synchronization components fit the
+running client/server workflow. Engineering defaults remain distinct from agreed
+product decisions.
 
 The [synchronization contract](synchronization.md), [metadata model](synchronization-model.md),
 [client-store contract](client-store.md), [enrollment contract](client-enrollment-proposal.md)
@@ -249,8 +245,8 @@ local definition initialization.
 | --- | --- | --- |
 | Accept pending proposal | Existing account lock; current actor/grant authority; target and required references; reverse references for deletion; external ownership; baseline/lineage | Native accepted envelope, head, account revision, journal and required index effects together |
 | Install returned accepted state | Current returning actor authority and existing recovery-plan conditions | Original accepted stamp preserved, local installation journal position and updated history state |
-| Incorporate client receipt | Actual current client roles and required interpretation/dependencies | Accepted state, preserved pending basis, review/staging and receipt progress together |
-| Complete incoming coverage | Completed discovery, all represented requirements and coupled effects, prior checkpoint | New checkpoint and required pending comparison evidence; reload committed result before acknowledgment |
+| Incorporate client receipt | Actual current client roles and required interpretation/dependencies | Accepted state, preserved pending basis, review/staging and interpretation together |
+| Complete incoming coverage | Completed discovery, all represented requirements and coupled effects, prior checkpoint | New checkpoint and required pending comparison evidence |
 | Record client acknowledgment | Bound actor, retained interpretation and previously established transfer completion | That actor's durable acknowledged coverage, without changing other clients |
 | Publish recovery coverage | Existing recovery-plan guards and durably incorporated accepted state | Position-dependent lineage boundary and account coverage together |
 
