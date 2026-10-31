@@ -380,7 +380,56 @@ History and Worked Before use this client's saved working values, including newl
 
 ## Pending and conflict review (D182)
 
-Provide account-wide review of this client's pending and conflicted work, with tag and record-type filters. Include hidden pending contact deletions, QSOs referencing deleted tags, and pending/conflicted shared profiles and equipment configurations. Untagged QSOs and records without tag membership remain accessible through the account-wide review. Do not require selecting a deleted tag to find its pending references. Review scope does not change current-logbook history/Worked Before or publish unresolved local proposals to other clients. Exact layout remains deferred.
+The [#15 integration proposal](conflict-review-proposal.md) describes proposed
+production wiring and distinguishes engineering defaults from agreed behavior.
+
+Present this client's account-wide work as **Unsynchronized changes**, in a
+separate non-modal window that leaves the workbench and unfinished QSO usable
+(D383). Clearly separate **Conflicts** from **Pending sync** in independently
+collapsible sections. Retain record-type filtering; omit the logbook selector.
+Logbooks are QSO memberships, not synchronization buckets.
+
+Include hidden pending contact deletions, QSOs referencing deleted tags, and
+pending/conflicted shared profiles and equipment configurations. Untagged QSOs
+and records without tag membership remain accessible. Review scope does not
+change current-logbook history/Worked Before or publish unresolved local
+proposals to other clients. Ordinary pending changes need no resolution.
+
+D382 requires explicit choices for every differing local/shared scalar field
+before saving a synchronization resolution. Start those fields unselected and provide
+**Use all local** and **Use all shared** shortcuts. Equal fields require no
+choice. The shortcuts select values without saving the resolution.
+
+D384 also allows entering a new resolved value directly, with the compared
+values and their change attribution still available. A valid entered value
+satisfies that field's explicit-choice requirement. Apply existing validation;
+editing alone does not save or publish the resolution.
+
+For logbook membership, show both compared sets and an editable resolved set
+using ordinary checked/unchecked boxes. Field-level **Use local** and **Use
+shared** shortcuts replace the checked set without saving; the user can then
+adjust it, including retaining members from both sides. The checked set always
+defines the resolved membership, including an empty set for an untagged QSO.
+Omit indeterminate checkbox states and a separate **Use selection** action.
+**Save resolution** saves the membership with the rest of the resolved record.
+This explicit selection does not introduce automatic tag merging.
+
+Initialize that checked set from the QSO's local working membership (D387),
+not from an intersection or union. It is the resolved membership immediately;
+no additional field confirmation is needed. Other differing scalar fields
+still require explicit choices before saving the record.
+
+D385 preserves a resolution draft and its displayed comparison when newer
+values arrive. Indicate that the comparison is outdated and require refreshing
+it before saving. Retain entered values for reconsideration during refresh;
+do not discard them or silently approve them against the new comparison.
+Existing stale-save protection and conditional shared acceptance still apply.
+
+D386 preserves unfinished resolution drafts when switching between conflicts
+within the review window. Returning restores that record's draft, subject to
+D385's comparison refresh. Switching does not save; closing the window discards
+unsaved resolution drafts under the existing Cancel behavior. Completed saves
+remain saved.
 
 ## Worked Before
 
