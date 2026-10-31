@@ -1,0 +1,163 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT t.account_id,t.family_id,g.client_id,g.key_thumbprint,g.grant_established_at,\nt.issued_at,t.expires_at,g.state AS family_state,g.provisional_until,g.actor_id,c.closed_at,\nCOALESCE((SELECT string_agg(scope,' ' ORDER BY scope) FROM clacks.desktop_access_scopes WHERE access_digest=t.access_digest),'') AS \"scope!\",\nARRAY(SELECT resource FROM clacks.desktop_access_resources WHERE access_digest=t.access_digest ORDER BY ordinal) AS \"resources!\"\nFROM clacks.desktop_access_tokens t JOIN clacks.desktop_grants g USING (account_id,family_id)\nLEFT JOIN clacks.desktop_clients c ON c.account_id=g.account_id AND c.actor_id=g.actor_id\nWHERE t.access_digest=$1 AND t.account_id=$2\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "account_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_access_tokens",
+            "name": "account_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "family_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_access_tokens",
+            "name": "family_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "client_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_grants",
+            "name": "client_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "key_thumbprint",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_grants",
+            "name": "key_thumbprint"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "grant_established_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_grants",
+            "name": "grant_established_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "issued_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_access_tokens",
+            "name": "issued_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "expires_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_access_tokens",
+            "name": "expires_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "family_state",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_grants",
+            "name": "state"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "provisional_until",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_grants",
+            "name": "provisional_until"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "actor_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_grants",
+            "name": "actor_id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "closed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_clients",
+            "name": "closed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "scope!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 12,
+        "name": "resources!",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "7145b5bd65afd00b94bb796bbf2a5a0233de33b2f8ba832949f7d2fa711cae36"
+}

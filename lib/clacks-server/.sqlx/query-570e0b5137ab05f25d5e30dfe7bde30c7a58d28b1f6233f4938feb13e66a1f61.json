@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.group_payload (payload_id, account, record_id, name, identifier_config, bears_location, catalog_binding, ordinary_bindings) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bool",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "570e0b5137ab05f25d5e30dfe7bde30c7a58d28b1f6233f4938feb13e66a1f61"
+}

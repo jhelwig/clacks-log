@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.external_key (account, destination_id, canonical_key) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "84f7cb840e58846a1765c287b1ce42deb032f50cba2cdc343c5cdf8529099ad6"
+}

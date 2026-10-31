@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE clacks.desktop_clients SET acknowledged_checkpoint_id = $3\nWHERE account_id = $1 AND actor_id = $2 AND closed_at IS NULL\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4de853544a01e349062216b2a3bfbd6b719d5ea7ac97069114635c6b9da192bf"
+}

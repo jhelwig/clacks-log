@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.retained_accepted(account, kind, record_id, envelope_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "352af947527a3a281afd7b867e5d128c2d509f2456ba578a979864c3a7075a5f"
+}

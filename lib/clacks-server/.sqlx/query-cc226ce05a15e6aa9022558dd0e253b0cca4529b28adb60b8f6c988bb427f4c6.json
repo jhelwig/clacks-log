@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.station_snapshot (account, callsign) VALUES ($1, $2) RETURNING station_id AS \"station_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "station_id!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_snapshot",
+            "name": "station_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "cc226ce05a15e6aa9022558dd0e253b0cca4529b28adb60b8f6c988bb427f4c6"
+}

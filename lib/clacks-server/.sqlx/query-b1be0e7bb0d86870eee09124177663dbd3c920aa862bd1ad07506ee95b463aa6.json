@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (SELECT count(*) FROM clacks.destination_descriptor d WHERE d.payload_id = $1\n            AND NOT EXISTS (SELECT 1 FROM clacks.service_support s WHERE s.payload_id = $1 AND s.descriptor_id = d.descriptor_id)\n            AND NOT EXISTS (SELECT 1 FROM clacks.service_destination s WHERE s.payload_id = $1 AND s.descriptor_id = d.descriptor_id))\n     + (SELECT count(*) FROM clacks.service_query q WHERE q.payload_id = $1\n            AND NOT EXISTS (SELECT 1 FROM clacks.stream_progress s WHERE s.payload_id = $1 AND s.query_id = q.query_id)\n            AND NOT EXISTS (SELECT 1 FROM clacks.service_acquisition s WHERE s.payload_id = $1 AND s.query_id = q.query_id)\n            AND NOT EXISTS (SELECT 1 FROM clacks.service_observation s WHERE s.payload_id = $1 AND s.query_id = q.query_id))\n     + (SELECT count(*) FROM clacks.submission_projection p WHERE p.payload_id = $1\n            AND NOT EXISTS (SELECT 1 FROM clacks.service_attempt s WHERE s.payload_id = $1 AND s.projection_id = p.projection_id))\n     + (SELECT count(*) FROM clacks.contact_report r WHERE r.payload_id = $1\n            AND NOT EXISTS (SELECT 1 FROM clacks.service_observation s WHERE s.payload_id = $1 AND s.contact_report = r.report_id))\n     + (SELECT count(*) FROM clacks.station_report r WHERE r.payload_id = $1\n            AND NOT EXISTS (SELECT 1 FROM clacks.service_observation s WHERE s.payload_id = $1 AND (s.own_report = r.report_id OR s.counterpart_report = r.report_id))) AS \"orphans!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "orphans!: i64",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b1be0e7bb0d86870eee09124177663dbd3c920aa862bd1ad07506ee95b463aa6"
+}

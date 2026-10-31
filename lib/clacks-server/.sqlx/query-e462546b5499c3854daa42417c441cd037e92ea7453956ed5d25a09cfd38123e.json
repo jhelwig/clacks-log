@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT envelope_id FROM clacks.retained_accepted WHERE account = $1 AND kind = $2 AND record_id = $3 ORDER BY envelope_id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "envelope_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.retained_accepted",
+            "name": "envelope_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e462546b5499c3854daa42417c441cd037e92ea7453956ed5d25a09cfd38123e"
+}

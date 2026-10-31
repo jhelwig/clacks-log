@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.qso_tag (payload_id, account, tag_id) VALUES ($1, $2, $3)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "93c08e8c481b25aae1f30db4be062f7566478ca5a8e3793a8b740d86ee4d2010"
+}

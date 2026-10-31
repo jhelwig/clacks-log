@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT initial_timeline FROM clacks.lineage WHERE lineage_id = $1 AND account = $2\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "initial_timeline",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.lineage",
+            "name": "initial_timeline"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fd5e1a309614b5b4f75a53667e0004005c29b9141978d81781fa515ab0bda60a"
+}

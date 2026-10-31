@@ -6,9 +6,6 @@ pub(crate) mod flow;
 #[cfg(all(test, any(target_os = "macos", windows)))]
 mod tests;
 pub(crate) mod worker;
-#[cfg(test)]
-#[path = "enrollment/worker_tests.rs"]
-mod worker_tests;
 
 use clacks_client_store::identity::EnrollmentBinding;
 use clacks_sync::protocol::ClientIdentity;

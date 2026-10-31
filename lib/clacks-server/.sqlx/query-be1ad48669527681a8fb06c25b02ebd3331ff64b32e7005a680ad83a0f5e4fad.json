@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.accepted_head (account, kind, record_id, envelope_id) VALUES ($1, $2, $3, $4)\nON CONFLICT (account, kind, record_id) DO UPDATE SET envelope_id = EXCLUDED.envelope_id\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "be1ad48669527681a8fb06c25b02ebd3331ff64b32e7005a680ad83a0f5e4fad"
+}

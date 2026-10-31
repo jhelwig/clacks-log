@@ -446,8 +446,8 @@ SQLite still records only key creation; unreadable credentials are preserved.
 A rejected, uninstalled destination can be corrected with **Use this destination**,
 then resumed without another browser
 approval. Completed or uncertain bindings retain their saved destination.
-Until synchronization is implemented, an
-enrolled workspace is awaiting its initial synchronization.
+An enrolled workspace receives its initial account state through the session-owned
+synchronization task.
 
 ### Native credential integration
 
@@ -463,3 +463,25 @@ before committing its nonsecret SQLite reference, then clean up superseded entri
 Directory replacement/removal must preserve enrollment entries. No directory
 bundle format, provisioning endpoint or extra cache table is supplied by this
 adapter extraction.
+
+## Account synchronization
+
+An enrolled session owns its authenticated WebSocket task and reconnects using
+the existing protected Huskarl authorization. Every cycle completes incoming
+account discovery before publishing any pending proposal or frozen retry. Local
+saves remain independently durable offline. Accepted recovery facts travel
+separately from new pending edits, preserving original author/context.
+
+After committed receipt, normal settings/history/Worked Before views reload.
+Copied active operating values retain their existing selection and adjustment
+rules. The status bar shows connection state and the current error; there is no
+aggregate successful-sync timestamp. Ordinary unresolved records remain local
+without blocking unrelated publication. Full conflict-review interaction is #15.
+
+Server-reported failures retain their operational category for structured logs
+and show the safe server explanation as the current connection error. Every
+acknowledgment wait, including accepted-facts completion, uses the same response
+handling for failures, account change notices and returned review inputs.
+Reconnect uses the existing protected authorization and durable checkpoints.
+Dependency support is included with ordinary pages rather than requested by a
+separate exact-version exchange.

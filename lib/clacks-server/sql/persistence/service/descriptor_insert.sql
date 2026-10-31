@@ -1,0 +1,1 @@
+INSERT INTO clacks.destination_descriptor (payload_id, account, destination_id, collection, lotw_account, qrz_book, description) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING descriptor_id AS "descriptor_id!: i64"

@@ -1,0 +1,185 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT destination_id, identity, external_id, incomplete_service, available_fields, contact_report, own_report, counterpart_report, qso_order, confirmation_order, acquisition_id, query_id, observed_seconds, observed_nanos FROM clacks.service_observation WHERE payload_id = $1 AND account = $2\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "destination_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "destination_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "identity",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "identity"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "external_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "incomplete_service",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "incomplete_service"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "available_fields",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "available_fields"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "contact_report",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "contact_report"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "own_report",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "own_report"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "counterpart_report",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "counterpart_report"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "qso_order",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "qso_order"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "confirmation_order",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "confirmation_order"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "acquisition_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "acquisition_id"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "query_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "query_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "observed_seconds",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "observed_seconds"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "observed_nanos",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_observation",
+            "name": "observed_nanos"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d093ddfeb36b12d162ca1b264c84daec84b8d075c23006158c570979eff49696"
+}

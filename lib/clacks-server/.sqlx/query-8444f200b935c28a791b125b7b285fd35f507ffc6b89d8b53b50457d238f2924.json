@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.service_support (payload_id, account, kind, record_id, operation_id, acquisition_stamp, descriptor_id) VALUES ($1, $2, $3, $4, $5, $6, $7)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8444f200b935c28a791b125b7b285fd35f507ffc6b89d8b53b50457d238f2924"
+}

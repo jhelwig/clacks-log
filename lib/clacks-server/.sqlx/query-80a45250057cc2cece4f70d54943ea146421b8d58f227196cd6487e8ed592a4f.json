@@ -1,0 +1,136 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT account_id, actor_id, label, authorized_at, closed_at, created_timeline, created_revision, closed_timeline, closed_revision, acknowledged_checkpoint_id\nFROM clacks.desktop_clients WHERE account_id = $1 ORDER BY authorized_at, actor_id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "account_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_clients",
+            "name": "account_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "actor_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_clients",
+            "name": "actor_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_clients",
+            "name": "label"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "authorized_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_clients",
+            "name": "authorized_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "closed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_clients",
+            "name": "closed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_timeline",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_clients",
+            "name": "created_timeline"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_revision",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_clients",
+            "name": "created_revision"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "closed_timeline",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_clients",
+            "name": "closed_timeline"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "closed_revision",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_clients",
+            "name": "closed_revision"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "acknowledged_checkpoint_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.desktop_clients",
+            "name": "acknowledged_checkpoint_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "80a45250057cc2cece4f70d54943ea146421b8d58f227196cd6487e8ed592a4f"
+}

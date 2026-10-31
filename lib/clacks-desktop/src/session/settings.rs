@@ -1,7 +1,7 @@
 //! Typed settings requests on the existing application runtime.
 
 #[cfg(test)]
-mod query_tests;
+mod tests;
 
 pub(crate) mod contacts;
 pub(crate) mod logbooks;
@@ -246,4 +246,23 @@ pub(super) async fn execute(
         response,
         snapshot,
     })
+}
+
+impl SettingsAction {
+    /// Identify account data writes whose settled outcomes should wake native synchronization.
+    pub(crate) fn is_shared_write(&self) -> bool {
+        matches!(
+            self,
+            Self::Contacts(
+                contacts::ContactAction::Save { .. }
+                    | contacts::ContactAction::Delete { .. }
+                    | contacts::ContactAction::ChangeMembership(_)
+            ) | Self::Logbooks(
+                logbooks::LogbookAction::SaveTag { .. } | logbooks::LogbookAction::DeleteTag { .. }
+            ) | Self::SaveProfile { .. }
+                | Self::SaveEquipment { .. }
+                | Self::DeleteProfile { .. }
+                | Self::DeleteEquipment { .. }
+        )
+    }
 }

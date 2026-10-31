@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.coupled_unit(account, operation_id) VALUES ($1,$2) ON CONFLICT DO NOTHING\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "691b1dfbc12d2d0f5a9c3bfaf45e96aeaea386083b4f8e9274f083767360bbdb"
+}

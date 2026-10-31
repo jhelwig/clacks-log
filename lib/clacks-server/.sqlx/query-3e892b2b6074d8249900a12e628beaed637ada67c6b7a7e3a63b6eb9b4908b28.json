@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.sync_baselines (account_id, baseline_id, coverage_id, lineage_id, membership_generation, root_timeline)\nVALUES ($1, $2, $3, $4, $5, (SELECT initial_timeline FROM clacks.lineage WHERE lineage_id = $4 AND account = $1))\nRETURNING baseline_row AS \"baseline_row!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "baseline_row!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.sync_baselines",
+            "name": "baseline_row"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3e892b2b6074d8249900a12e628beaed637ada67c6b7a7e3a63b6eb9b4908b28"
+}

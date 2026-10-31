@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT name, purpose, contextual_fields FROM clacks.output_profile_payload WHERE payload_id = $1 AND account = $2 AND record_id = $3\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.output_profile_payload",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "purpose",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.output_profile_payload",
+            "name": "purpose"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "contextual_fields",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.output_profile_payload",
+            "name": "contextual_fields"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "caad26bbfba4a524c8ded0be6f88d7cef3616be92cece2e39cbe879eef6f5f67"
+}

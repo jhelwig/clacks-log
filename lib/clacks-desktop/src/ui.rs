@@ -242,12 +242,17 @@ impl eframe::App for DesktopApp {
                 .finish(ui.ctx(), appearance::AppearanceAction::Cancel);
         }
         self.appearance.update_fonts(ui.ctx(), &self.commands);
+        let settings_changed = self.settings_view.has_changed().unwrap_or(false);
         let snapshot = if !closing && matches!(state, SessionStatus::Ready { .. }) {
             self.settings_view.borrow_and_update().clone()
         } else {
             None
         };
         if let Some(snapshot) = &snapshot {
+            if settings_changed {
+                self.workbench
+                    .invalidate_contacts(snapshot.logbooks.selected_view);
+            }
             let restored = match state {
                 SessionStatus::Ready {
                     restored_view_from, ..

@@ -1,0 +1,160 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT uninterpreted_band, uninterpreted_receive_band, own_call, worked_call, start, band, receive_band, frequency, receive_frequency, mode, mode_parent, mode_group FROM clacks.confirmation_basis WHERE payload_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "uninterpreted_band",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.confirmation_basis",
+            "name": "uninterpreted_band"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "uninterpreted_receive_band",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.confirmation_basis",
+            "name": "uninterpreted_receive_band"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "own_call",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.confirmation_basis",
+            "name": "own_call"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "worked_call",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.confirmation_basis",
+            "name": "worked_call"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "start",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.confirmation_basis",
+            "name": "start"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "band",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.confirmation_basis",
+            "name": "band"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "receive_band",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.confirmation_basis",
+            "name": "receive_band"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "frequency",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.confirmation_basis",
+            "name": "frequency"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "receive_frequency",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.confirmation_basis",
+            "name": "receive_frequency"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "mode",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.confirmation_basis",
+            "name": "mode"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "mode_parent",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.confirmation_basis",
+            "name": "mode_parent"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "mode_group",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.confirmation_basis",
+            "name": "mode_group"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "a4e3fbd6d29be8098d3043b085e42ea03d374529b3134495d7eb0973ee7011d7"
+}

@@ -190,3 +190,5 @@ pub(crate) mod enrollment;
 mod support;
 
 mod key_rotation;
+
+mod synchronization;

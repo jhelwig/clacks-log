@@ -1,0 +1,161 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT qso_id, service, destination_id, claim, date, source, source_record, mapping, native_end, fields, has_location, coverage FROM clacks.service_assertion WHERE payload_id = $1 AND account = $2\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "qso_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_assertion",
+            "name": "qso_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "service",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_assertion",
+            "name": "service"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "destination_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_assertion",
+            "name": "destination_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "claim",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_assertion",
+            "name": "claim"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "date",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_assertion",
+            "name": "date"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_assertion",
+            "name": "source"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "source_record",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_assertion",
+            "name": "source_record"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "mapping",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_assertion",
+            "name": "mapping"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "native_end",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_assertion",
+            "name": "native_end"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "fields",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_assertion",
+            "name": "fields"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "has_location",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_assertion",
+            "name": "has_location"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "coverage",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_assertion",
+            "name": "coverage"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "42bb50bd72a21938c2096826015d76354042569bcbe7cc18da5205ba803465f8"
+}

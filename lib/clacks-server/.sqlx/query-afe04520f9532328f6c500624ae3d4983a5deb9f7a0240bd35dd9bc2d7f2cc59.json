@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT kind, record_id, envelope_id FROM clacks.staged_accepted WHERE account = $1 ORDER BY kind, record_id, envelope_id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.staged_accepted",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "record_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.staged_accepted",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "envelope_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.staged_accepted",
+            "name": "envelope_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "afe04520f9532328f6c500624ae3d4983a5deb9f7a0240bd35dd9bc2d7f2cc59"
+}

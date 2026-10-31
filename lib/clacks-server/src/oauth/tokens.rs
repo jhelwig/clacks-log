@@ -362,6 +362,8 @@ pub(crate) async fn authorized(
         family: row.family_id,
         key_thumbprint: row.key_thumbprint,
         scope: ScopeSet::parse(&row.scope)?,
+        access_digest: hash,
+        expires_at: row.expires_at,
     };
     transaction.commit().await?;
     Ok(Some(result))

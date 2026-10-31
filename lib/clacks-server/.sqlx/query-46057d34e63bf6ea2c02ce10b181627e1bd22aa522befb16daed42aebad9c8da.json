@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT b.association_id, b.envelope_id\nFROM clacks.external_key e LEFT JOIN clacks.current_external_binding b ON b.account = e.account AND b.external_id = e.external_id\nWHERE e.account = $1 AND e.destination_id = $2 AND e.canonical_key = $3\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "association_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.current_external_binding",
+            "name": "association_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "envelope_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.current_external_binding",
+            "name": "envelope_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "46057d34e63bf6ea2c02ce10b181627e1bd22aa522befb16daed42aebad9c8da"
+}

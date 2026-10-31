@@ -1,0 +1,2 @@
+INSERT INTO clacks.station_report (payload_id, name_state, name, position_state, position_kind, locator, latitude, longitude, grid_length, dxcc_state, dxcc, primary_state, primary_subdivision, secondary_state, secondary_subdivision, cq_state, cq_zone, itu_state, itu_zone, references_state)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING report_id AS "report_id!: i64"

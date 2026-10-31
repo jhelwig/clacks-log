@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT callsign FROM clacks.station_snapshot WHERE station_id = $1 AND account = $2\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "callsign",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_snapshot",
+            "name": "callsign"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d7f237cf7d2294e9360db19abcae45280bb571c401f33ca465193ff10cd25afd"
+}

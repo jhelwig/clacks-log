@@ -1,7 +1,7 @@
 //! Browser-approved desktop membership, separate from OAuth application registration.
 
 pub mod approval;
-mod membership;
+pub(crate) mod membership;
 mod recovery;
 
 use crate::{
@@ -18,6 +18,7 @@ use sqlx::{PgConnection, PgPool};
 use time::OffsetDateTime;
 
 /// Verified client authority for one protected resource request.
+#[derive(Clone)]
 pub(crate) struct AuthorizedClient {
     /// Owning account from durable token/enrollment association.
     pub account: AccountId,
@@ -29,6 +30,10 @@ pub(crate) struct AuthorizedClient {
     pub key_thumbprint: String,
     /// Stored granted permissions.
     pub scope: ScopeSet,
+    /// Existing one-way access lookup used to recheck this connection's authority.
+    pub access_digest: [u8; 32],
+    /// Original access expiration; refreshing requires another authenticated upgrade.
+    pub expires_at: OffsetDateTime,
 }
 
 /// Account and former writer selected together for desktop recovery.
@@ -177,7 +182,9 @@ pub async fn revoke(
     principal: &Principal,
     actor: ClientActorId,
 ) -> anyhow::Result<()> {
-    revoke_in_store(&state.store.pool, principal, actor).await
+    revoke_in_store(&state.store.pool, principal, actor).await?;
+    let _ = state.store.changes.send(principal.account_id);
+    Ok(())
 }
 
 /// Apply explicit client revocation to the durable account-owned membership.

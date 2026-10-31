@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT destination_id, canonical_key FROM clacks.external_key WHERE external_id = $1 AND account = $2\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "destination_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.external_key",
+            "name": "destination_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "canonical_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.external_key",
+            "name": "canonical_key"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "75b87ffdc1a90b9c26fa535dc1137d96f8c0817f4c3402493707cf2d21eb2316"
+}

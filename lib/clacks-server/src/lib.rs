@@ -7,6 +7,7 @@ pub mod store;
 
 pub mod http;
 pub mod runtime;
+pub(crate) mod synchronization;
 
 pub mod telemetry;
 

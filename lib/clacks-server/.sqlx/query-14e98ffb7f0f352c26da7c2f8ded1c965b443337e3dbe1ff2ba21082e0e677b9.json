@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.equipment_payload (payload_id, account, record_id, name, snapshot_id) VALUES ($1, $2, $3, $4, $5)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "14e98ffb7f0f352c26da7c2f8ded1c965b443337e3dbe1ff2ba21082e0e677b9"
+}

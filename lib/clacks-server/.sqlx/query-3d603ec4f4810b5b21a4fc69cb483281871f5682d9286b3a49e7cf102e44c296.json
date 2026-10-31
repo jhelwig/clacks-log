@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT deleted FROM clacks.payload WHERE payload_id = $1 AND account = $2 AND kind = $3 AND record_id = $4\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "deleted",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "clacks.payload",
+            "name": "deleted"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3d603ec4f4810b5b21a4fc69cb483281871f5682d9286b3a49e7cf102e44c296"
+}

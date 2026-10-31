@@ -1,0 +1,77 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT ordinal, timeline_id, revision, kind, coverage_id FROM clacks.timeline_boundary WHERE lineage_id = $1 AND account = $2 ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ordinal",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.timeline_boundary",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "timeline_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.timeline_boundary",
+            "name": "timeline_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "revision",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.timeline_boundary",
+            "name": "revision"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.timeline_boundary",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "coverage_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.timeline_boundary",
+            "name": "coverage_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6a59e19fab0dba3e4da12b24cde68fee8c6cdf4d3053f22c6d928c8feb7c340b"
+}

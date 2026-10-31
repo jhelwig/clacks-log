@@ -1,5 +1,8 @@
 //! Session-owned enrollment orchestration and explicit durable completion retries.
 
+#[cfg(test)]
+mod tests;
+
 use super::{
     EnrollmentCommand, EnrollmentRequest, EnrollmentStatus, completion, credentials, flow,
 };

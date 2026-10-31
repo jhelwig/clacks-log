@@ -1,0 +1,1 @@
+INSERT INTO clacks.service_result (payload_id, account, destination_id, scope, batch_id, outcome, outcome_detail, phase, at_seconds, at_nanos, diagnostic, external_id, external_attempt) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)

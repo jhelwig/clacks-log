@@ -1,0 +1,67 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT timeline_id, revision, baseline_id, vector_id FROM clacks.version_stamp WHERE stamp_id = $1 AND account = $2 AND kind = $3 AND record_id = $4\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "timeline_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.version_stamp",
+            "name": "timeline_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "revision",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.version_stamp",
+            "name": "revision"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "baseline_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.version_stamp",
+            "name": "baseline_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "vector_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.version_stamp",
+            "name": "vector_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "022accf5de9b9e9ecb8362d615943c935d2224411ed4702d585313dfb8383f06"
+}

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT attempt_id FROM clacks.result_member WHERE payload_id = $1 ORDER BY attempt_id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "attempt_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.result_member",
+            "name": "attempt_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "376edf6fd471881f9fd0ab7fc628f269b2e8a2a8f6f089f446d8839379e32027"
+}

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT descriptor_id FROM clacks.service_destination WHERE payload_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "descriptor_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_destination",
+            "name": "descriptor_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c1f4d5e7a6d422e2cb5d6e071922a82cbfc44f95949b0b668de9b7435a44dd24"
+}

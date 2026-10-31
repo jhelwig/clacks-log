@@ -1,0 +1,1 @@
+SELECT destination_id, scope, batch_id, outcome, outcome_detail, phase, at_seconds, at_nanos, diagnostic, external_id, external_attempt FROM clacks.service_result WHERE payload_id = $1 AND account = $2

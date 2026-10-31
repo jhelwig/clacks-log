@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT a.envelope_id FROM clacks.accepted_record a JOIN clacks.version_stamp s ON s.stamp_id = a.stamp_id\nWHERE a.account = $1 AND a.kind = $2 AND a.record_id = $3 AND s.timeline_id = $4 AND s.revision = $5 AND s.baseline_id = $6 ORDER BY a.envelope_id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "envelope_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.accepted_record",
+            "name": "envelope_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "dc840d0d4fc1127930cd3c210bfac2c412de27fc40ab1ac3689316d40324e4e3"
+}

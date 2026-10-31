@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (SELECT count(*) FROM clacks.qso_payload WHERE payload_id = $1)\n     + (SELECT count(*) FROM clacks.tag_payload WHERE payload_id = $1)\n     + (SELECT count(*) FROM clacks.profile_payload WHERE payload_id = $1)\n     + (SELECT count(*) FROM clacks.equipment_payload WHERE payload_id = $1)\n     + (SELECT count(*) FROM clacks.output_profile_payload WHERE payload_id = $1)\n     + (SELECT count(*) FROM clacks.group_payload WHERE payload_id = $1)\n     + (SELECT count(*) FROM clacks.service_support WHERE payload_id = $1) AS \"roots!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "roots!: i64",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "006c5aa4246e6cb7eb14d01211942c4852eef1bc0b2b0c002af9c3c0c933754d"
+}

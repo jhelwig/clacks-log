@@ -185,7 +185,8 @@ async fn operator_process() -> anyhow::Result<()> {
         active: from.clone(),
         files: [(from.clone(), source.clone())].into(),
     })?);
-    let oauth = crate::oauth::store::OAuthStore::new(pool.clone(), keys);
+    let oauth =
+        crate::oauth::store::OAuthStore::new(crate::store::AccountStore::new(pool.clone()), keys);
     let issuer = crate::oauth::config::issuer(oauth.clone(), &"https://clacks.example".parse()?);
     let dpop = DPoP::builder()
         .signer(PrivateKey::generate(GenerateAlgorithm::Es256, None)?)

@@ -19,12 +19,18 @@ pub(crate) struct OAuthStore {
     pub(crate) pool: PgPool,
     /// Retained wrapping-key versions loaded by runtime composition.
     pub(crate) keys: Arc<WrappingKeys>,
+    /// Settled account lifecycle changes wake the same application's native connections.
+    pub(crate) changes: tokio::sync::broadcast::Sender<clacks_model::ids::AccountId>,
 }
 
 impl OAuthStore {
     /// Bind an already migrated runtime pool and protected key configuration.
-    pub(crate) fn new(pool: PgPool, keys: Arc<WrappingKeys>) -> Self {
-        Self { pool, keys }
+    pub(crate) fn new(store: crate::store::AccountStore, keys: Arc<WrappingKeys>) -> Self {
+        Self {
+            pool: store.pool,
+            changes: store.changes,
+            keys,
+        }
     }
 
     /// Resolve current actor authorization without treating a token as account authority alone.

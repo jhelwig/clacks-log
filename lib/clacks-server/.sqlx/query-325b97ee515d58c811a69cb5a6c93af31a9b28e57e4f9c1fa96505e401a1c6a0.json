@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.confirmation_basis (payload_id, uninterpreted_band, uninterpreted_receive_band, own_call, worked_call, start, band, receive_band, frequency, receive_frequency, mode, mode_parent, mode_group) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Text",
+        "Text",
+        "Int8",
+        "Int8",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "325b97ee515d58c811a69cb5a6c93af31a9b28e57e4f9c1fa96505e401a1c6a0"
+}

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.export_plan (payload_id, account, profile_id, body) VALUES ($1, $2, $3, $4)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dcacd1945e76ff62d80ac92f847f125486aa30466bb7f17f01ce1430c15b290f"
+}

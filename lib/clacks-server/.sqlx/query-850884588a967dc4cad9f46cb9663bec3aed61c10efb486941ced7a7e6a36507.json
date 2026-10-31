@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.coverage (account, body) VALUES ($1, $2) RETURNING coverage_id AS \"coverage_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "coverage_id!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.coverage",
+            "name": "coverage_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "850884588a967dc4cad9f46cb9663bec3aed61c10efb486941ced7a7e6a36507"
+}

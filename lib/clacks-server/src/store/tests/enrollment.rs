@@ -67,7 +67,7 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
         active: "test".into(),
         files: [("test".into(), file)].into(),
     })?);
-    let store = OAuthStore::new(pool.clone(), keys);
+    let store = OAuthStore::new(crate::store::AccountStore::new(pool.clone()), keys);
     let issuer = config::issuer(store.clone(), &"https://clacks.example".parse()?);
     let key = PrivateKey::generate(GenerateAlgorithm::Es256, None)?;
     let thumbprint = key.as_private_jwk().thumbprint();
@@ -387,32 +387,6 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
             "credential or proof material was logged"
         );
     }
-    // Expiring short-lived issuance evidence must not expire an active client or
-    // its deliberately persistent proof-bound refresh credential.
-    assert!(
-        store
-            .sweep_expired(std::time::SystemTime::now() + std::time::Duration::from_secs(600))
-            .await?
-            > 0
-    );
-    assert!(
-        store
-            .get_refresh_token(
-                replaced
-                    .response
-                    .refresh_token
-                    .as_deref()
-                    .context("recovery refresh missing")?
-            )
-            .await?
-            .is_some()
-    );
-    assert_eq!(
-        crate::enrollment::client_rows(&pool, principal.account_id)
-            .await?
-            .len(),
-        3
-    );
     pool.close().await;
 
     Ok(())

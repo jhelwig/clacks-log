@@ -1,0 +1,1 @@
+INSERT INTO clacks.service_acquisition (payload_id, account, query_id, phase, failure, started_seconds, started_nanos, finished_seconds, finished_nanos, complete) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)

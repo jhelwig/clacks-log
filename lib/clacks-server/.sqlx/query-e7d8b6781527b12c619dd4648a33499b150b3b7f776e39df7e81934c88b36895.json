@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT external_id AS \"external_id!: i64\" FROM clacks.external_key WHERE account = $1 AND destination_id = $2 AND canonical_key = $3\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "external_id!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.external_key",
+            "name": "external_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e7d8b6781527b12c619dd4648a33499b150b3b7f776e39df7e81934c88b36895"
+}

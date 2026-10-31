@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.reported_reference (report_id, account, group_id, identifier) VALUES ($1, $2, $3, $4)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e90f15da1911272fb8cb4e801e096f263871b8a7394ec70e6b1ccf2385439193"
+}

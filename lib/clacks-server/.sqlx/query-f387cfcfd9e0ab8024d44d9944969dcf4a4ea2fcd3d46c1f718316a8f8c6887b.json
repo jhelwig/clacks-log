@@ -1,0 +1,39 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT record_id AS \"record_id!: String\", kind AS \"kind!: String\",\n       count(*) OVER () AS \"total!: i64\"\nFROM (\n    SELECT h.record_id, h.kind\n    FROM clacks.qso_tag t JOIN clacks.accepted_record a ON a.payload_id = t.payload_id AND a.account = t.account\n    JOIN clacks.accepted_head h ON h.envelope_id = a.envelope_id AND h.account = a.account\n    WHERE h.account = $1 AND h.kind = 'qso' AND t.tag_id = $2 AND $3 = 'tag'\n    UNION ALL\n    SELECT h.record_id, h.kind\n    FROM clacks.profile_payload p JOIN clacks.accepted_record a ON a.payload_id = p.payload_id AND a.account = p.account\n    JOIN clacks.accepted_head h ON h.envelope_id = a.envelope_id AND h.account = a.account\n    WHERE h.account = $1 AND h.kind = 'profile' AND p.equipment_id = $2 AND $3 = 'equipment'\n) AS referrers\nORDER BY kind, record_id LIMIT 10\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "record_id!: String",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind!: String",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "total!: i64",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "f387cfcfd9e0ab8024d44d9944969dcf4a4ea2fcd3d46c1f718316a8f8c6887b"
+}

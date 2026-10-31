@@ -8,15 +8,36 @@ use eframe::egui;
 pub(super) fn status(ui: &mut egui::Ui, state: &SessionStatus) {
     let label = match state {
         SessionStatus::Opening => "Opening local workspace…",
-        SessionStatus::Ready { identity, .. } if identity.enrolled => {
-            "Local workspace ready · Awaiting initial sync"
-        }
+        SessionStatus::Ready {
+            identity,
+            synchronization,
+            ..
+        } if identity.enrolled => match synchronization {
+            crate::synchronization::Status::Disconnected => {
+                "Local workspace ready · Server disconnected"
+            }
+            crate::synchronization::Status::Connecting => {
+                "Local workspace ready · Connecting to server…"
+            }
+            crate::synchronization::Status::Connected => "Local workspace ready · Server connected",
+            crate::synchronization::Status::Failed(_) => {
+                "Local workspace ready · Synchronization unavailable"
+            }
+        },
         SessionStatus::Ready { .. } => "Local workspace ready · Standalone account",
         SessionStatus::Failed { .. } => "Workspace needs attention",
         SessionStatus::Closing { .. } => "Closing workspace…",
         SessionStatus::Closed => "Workspace closed",
     };
-    ui.small(egui::RichText::new(label).color(theme::palette(ui.ctx().theme()).muted));
+    let response =
+        ui.small(egui::RichText::new(label).color(theme::palette(ui.ctx().theme()).muted));
+    if let SessionStatus::Ready {
+        synchronization: crate::synchronization::Status::Failed(message),
+        ..
+    } = state
+    {
+        response.on_hover_text(message);
+    }
 }
 
 /// Present an active opening or failure state with its real recovery action.

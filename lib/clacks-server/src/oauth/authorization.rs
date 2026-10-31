@@ -160,6 +160,7 @@ pub(crate) async fn compare(
     expected: &AuthorizationCodeState,
     record: AuthorizationCodeRecord,
 ) -> anyhow::Result<bool> {
+    let account: clacks_model::ids::AccountId = record.subject.parse()?;
     let hash = digest(CredentialKind::Code, &record.code);
     let mut transaction = store.pool.begin().await?;
     sqlx::query_file!("sql/account_lock.sql", record.subject)
@@ -181,6 +182,7 @@ pub(crate) async fn compare(
     let receipt = encrypted(store, &mut transaction, &record).await?;
     put_in(&mut transaction, &record, receipt.as_ref()).await?;
     transaction.commit().await?;
+    let _ = store.changes.send(account);
     metrics::counter!("clacks_client_authorizations_total").increment(1);
     tracing::info!(event="client.authorization.activated", account_id=%record.subject, actor_id=%actor, "Client authorization committed");
     Ok(true)

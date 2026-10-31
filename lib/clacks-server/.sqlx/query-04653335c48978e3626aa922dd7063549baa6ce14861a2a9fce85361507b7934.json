@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.current_external_binding WHERE account = $1 AND association_id = $2\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "04653335c48978e3626aa922dd7063549baa6ce14861a2a9fce85361507b7934"
+}

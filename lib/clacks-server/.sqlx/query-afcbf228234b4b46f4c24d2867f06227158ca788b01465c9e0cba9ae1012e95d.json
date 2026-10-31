@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.record_vector (account, kind, record_id, body) VALUES ($1, $2, $3, $4) RETURNING vector_id AS \"vector_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "vector_id!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.record_vector",
+            "name": "vector_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "afcbf228234b4b46f4c24d2867f06227158ca788b01465c9e0cba9ae1012e95d"
+}

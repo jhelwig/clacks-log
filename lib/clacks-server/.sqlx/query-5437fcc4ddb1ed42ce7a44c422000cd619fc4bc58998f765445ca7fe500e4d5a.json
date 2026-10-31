@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.accepted_record (account, kind, record_id, payload_id, stamp_id) VALUES ($1, $2, $3, $4, $5) RETURNING envelope_id AS \"envelope_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "envelope_id!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.accepted_record",
+            "name": "envelope_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5437fcc4ddb1ed42ce7a44c422000cd619fc4bc58998f765445ca7fe500e4d5a"
+}

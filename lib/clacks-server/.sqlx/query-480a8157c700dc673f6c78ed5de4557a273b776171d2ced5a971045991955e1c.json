@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT baseline_row FROM clacks.sync_baselines WHERE account_id = $1 ORDER BY baseline_row\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "baseline_row",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.sync_baselines",
+            "name": "baseline_row"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "480a8157c700dc673f6c78ed5de4557a273b776171d2ced5a971045991955e1c"
+}

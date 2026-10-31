@@ -50,6 +50,8 @@ pub(crate) enum SessionStatus {
     Opening,
     /// The real store and initial persisted defaults are available.
     Ready {
+        /// Current native connection or error, independently of pending record resolution.
+        synchronization: crate::synchronization::Status,
         /// Stable local account and enrollment status.
         identity: WorkspaceStatus,
         /// Tag whose known deletion caused startup to select All contacts.
@@ -128,6 +130,12 @@ pub(crate) async fn run(
     ));
 
     let mut work = JoinSet::new();
+    let mut sync_work = JoinSet::new();
+    let mut sync_stop = CancellationToken::new();
+    let (sync_updates, mut sync_progress) =
+        watch::channel(crate::synchronization::Status::Disconnected);
+    let (local_changes, _) = watch::channel(());
+    let mut settings_progress = settings_updates.subscribe();
     let mut font_work = JoinSet::new();
     let mut enrollment_work = JoinSet::new();
     let mut enrollment_progress = enrollment_updates.subscribe();
@@ -152,6 +160,7 @@ pub(crate) async fn run(
             && work.is_empty()
             && font_work.is_empty()
             && enrollment_work.is_empty()
+            && sync_work.is_empty()
         {
             break;
         }
@@ -199,6 +208,7 @@ pub(crate) async fn run(
                         let started = Instant::now();
                         closing = Some(started);
                         enrollment_stop.cancel();
+                        sync_stop.cancel();
                         settings_requests.close();
                         while let Ok(request) = settings_requests.try_recv() { let _ = request.reply.send(settings::SettingsResponse::Closing); }
                         tracing::info!(event = "desktop.shutdown_requested");
@@ -237,9 +247,28 @@ pub(crate) async fn run(
                 }
             },
             _ = enrollment_progress.changed() => {
-                enrollment_progress.borrow_and_update();
+                let ready = matches!(*enrollment_progress.borrow_and_update(), EnrollmentStatus::Ready {..});
+                if ready && closing.is_none() && let Some(workspace) = &opened {
+                    sync_stop.cancel();
+                    while sync_work.join_next().await.is_some() {}
+                    sync_stop = CancellationToken::new();
+                    start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_stop).await?;
+                }
                 if let Some(context) = context.get() {context.request_repaint();}
             },
+            _ = settings_progress.changed() => {
+                settings_progress.borrow_and_update();
+                if let Some(context) = context.get() {context.request_repaint();}
+            },
+            _ = sync_progress.changed() => {
+                let synchronization = sync_progress.borrow_and_update().clone();
+                let next = match &*status.borrow() {
+                    SessionStatus::Ready {identity, restored_view_from, ..} if closing.is_none() => Some(SessionStatus::Ready {identity:*identity, restored_view_from:*restored_view_from, synchronization}),
+                    _ => None,
+                };
+                if let Some(next) = next {publish(&status, &context, next);}
+            },
+            _ = sync_work.join_next(), if !sync_work.is_empty() => {},
             result = opening.join_next(), if !opening.is_empty() => {
                 if let Some(result) = result {
                     let result = result.map_err(anyhow::Error::from).and_then(std::convert::identity);
@@ -277,10 +306,12 @@ pub(crate) async fn run(
                                     &status,
                                     &context,
                                     SessionStatus::Ready {
+                                        synchronization: crate::synchronization::Status::Disconnected,
                                         identity: workspace.identity,
                                         restored_view_from: workspace.restored_view_from,
                                     },
                                 );
+                                start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_stop).await?;
                             }
                             opened = Some(workspace);
                         }
@@ -303,7 +334,14 @@ pub(crate) async fn run(
                 match request {
                     Some(request) => {
                         if let Some(workspace) = &opened {
-                            work.spawn(settings::execute(workspace.store.clone(), request).in_current_span().with_current_subscriber());
+                            let store = workspace.store.clone();
+                            let changes = local_changes.clone();
+                            work.spawn(async move {
+                                let shared = request.action.is_shared_write();
+                                let result = settings::execute(store, request).await;
+                                if shared && result.is_some() {changes.send_replace(());}
+                                result
+                            }.in_current_span().with_current_subscriber());
                         } else {
                             let _ = request.reply.send(settings::SettingsResponse::Failed("The local workspace is not ready".into()));
                         }
@@ -394,4 +432,30 @@ async fn activation_notices(
             }
         }
     }
+}
+
+/// Start the actual enrolled workspace's driver under the owning session lifetime.
+async fn start_sync(
+    tasks: &mut JoinSet<()>,
+    store: &clacks_client_store::store::ClientStore,
+    changes: &watch::Sender<()>,
+    status: &watch::Sender<crate::synchronization::Status>,
+    updates: &watch::Sender<Option<Arc<SettingsSnapshot>>>,
+    stop: &CancellationToken,
+) -> anyhow::Result<()> {
+    if let Some(binding) = clacks_client_store::identity::binding(store).await? {
+        tasks.spawn(
+            crate::synchronization::run(
+                store.clone(),
+                binding,
+                changes.subscribe(),
+                status.clone(),
+                updates.clone(),
+                stop.clone(),
+            )
+            .in_current_span()
+            .with_current_subscriber(),
+        );
+    }
+    Ok(())
 }

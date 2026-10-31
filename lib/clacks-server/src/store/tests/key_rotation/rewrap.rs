@@ -62,7 +62,10 @@ async fn rewrap_preserves_inactive_keys_and_rejects_missing_recovery_material() 
         active: to.clone(),
         files: [(to.clone(), file2)].into(),
     })?);
-    let store = OAuthStore::new(pool.clone(), source.clone());
+    let store = OAuthStore::new(
+        crate::store::AccountStore::new(pool.clone()),
+        source.clone(),
+    );
     let issuer = config::issuer(store.clone(), &"https://clacks.example".parse()?);
     let dpop = DPoP::builder()
         .signer(PrivateKey::generate(GenerateAlgorithm::Es256, None)?)
@@ -104,10 +107,13 @@ async fn rewrap_preserves_inactive_keys_and_rejects_missing_recovery_material() 
             .any(|row| row.version == 2 && row.active && row.receipts == 1)
     );
     assert!(
-        OAuthStore::new(pool.clone(), only_new.clone())
-            .take_authorization_code(&issued.code)
-            .await
-            .is_err()
+        OAuthStore::new(
+            crate::store::AccountStore::new(pool.clone()),
+            only_new.clone()
+        )
+        .take_authorization_code(&issued.code)
+        .await
+        .is_err()
     );
 
     connection.close().await?;
@@ -161,7 +167,7 @@ async fn rewrap_preserves_inactive_keys_and_rejects_missing_recovery_material() 
     )
     .await?;
     assert_eq!(again.migrated_account_keys, 0);
-    let new_store = OAuthStore::new(pool.clone(), only_new);
+    let new_store = OAuthStore::new(crate::store::AccountStore::new(pool.clone()), only_new);
     let retained = new_store
         .take_authorization_code(&second.code)
         .await?

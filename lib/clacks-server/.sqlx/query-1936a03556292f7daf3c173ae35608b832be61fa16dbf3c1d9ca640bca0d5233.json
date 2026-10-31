@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT observation_id FROM clacks.acquisition_input WHERE payload_id = $1 ORDER BY observation_id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "observation_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.acquisition_input",
+            "name": "observation_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1936a03556292f7daf3c173ae35608b832be61fa16dbf3c1d9ca640bca0d5233"
+}

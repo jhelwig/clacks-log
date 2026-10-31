@@ -80,7 +80,7 @@ async fn account_rotation_resumes_and_preserves_enrollment() -> anyhow::Result<(
         active: "W1".into(),
         files: [("W1".into(), file.clone())].into(),
     })?);
-    let store = OAuthStore::new(pool.clone(), source);
+    let store = OAuthStore::new(crate::store::AccountStore::new(pool.clone()), source);
     let issuer = config::issuer(store.clone(), &"https://clacks.example".parse()?);
     let dpop = DPoP::builder()
         .signer(PrivateKey::generate(GenerateAlgorithm::Es256, None)?)
@@ -166,7 +166,7 @@ async fn account_rotation_resumes_and_preserves_enrollment() -> anyhow::Result<(
     assert_eq!(again.migrated_receipts, 0);
     assert!(AccountRotationRequest::new(owner, 2, 4, 1).is_err());
 
-    let current_store = OAuthStore::new(pool.clone(), wrapping);
+    let current_store = OAuthStore::new(crate::store::AccountStore::new(pool.clone()), wrapping);
     for client in &issued {
         assert!(
             current_store
@@ -245,7 +245,10 @@ async fn taken_receipt_is_resealed_after_rotation_and_still_contains_replay() ->
         active: "W1".into(),
         files: [("W1".into(), file)].into(),
     })?);
-    let store = OAuthStore::new(pool.clone(), wrapping.clone());
+    let store = OAuthStore::new(
+        crate::store::AccountStore::new(pool.clone()),
+        wrapping.clone(),
+    );
     let issuer = config::issuer(store.clone(), &"https://clacks.example".parse()?);
     let dpop = DPoP::builder()
         .signer(PrivateKey::generate(GenerateAlgorithm::Es256, None)?)

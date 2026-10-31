@@ -1,0 +1,78 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT destination_id, stream, own_call, since, selected_fields FROM clacks.service_query WHERE query_id = $1 AND payload_id = $2 AND account = $3\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "destination_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_query",
+            "name": "destination_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "stream",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_query",
+            "name": "stream"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "own_call",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_query",
+            "name": "own_call"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "since",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_query",
+            "name": "since"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "selected_fields",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_query",
+            "name": "selected_fields"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "28217f99cd8fe7a2059e87d7b9ba1632914864decc5e7f7abe089015ab18bace"
+}

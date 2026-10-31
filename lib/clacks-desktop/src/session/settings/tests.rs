@@ -1,168 +1,132 @@
+//! Query reporting and cancellation at the runtime's actual admission boundary.
+
 use super::*;
-use crate::session::settings::{SettingsAction, SettingsRequest, SettingsResponse};
-use clacks_client_store::{
-    operating::{OperatingSaveOutcome, OperatingState},
-    save::SaveOutcome,
+use clacks_client_store::read::{
+    contacts::ContactPageQuery, query_state::QueryState, worked_before::WorkedBeforeQuery,
 };
-use clacks_model::scalar::RecordedCallsign;
-use tokio::sync::oneshot;
+use metrics_util::debugging::{DebugValue, DebuggingRecorder};
 
-#[tokio::test(flavor = "multi_thread")]
-async fn settings_requests_save_without_apply_then_publish_committed_operation()
--> anyhow::Result<()> {
-    let mut fixture = Fixture::new()?;
-    let paths = fixture.resources.paths.clone();
-    let requests = fixture.settings.clone();
-    let mut settings = fixture.settings_view.clone();
-    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
-    next_matching(&mut fixture.status, |s| {
-        matches!(s, SessionStatus::Ready { .. })
-    })
-    .await?;
-    let initial = settings.borrow_and_update().clone().unwrap();
-    assert_eq!(initial.operating, OperatingState::default());
-    let home = clacks_model::profile::SavedLocationProfileFields {
-        id: Default::default(),
-        name: "Home".into(),
-        station: clacks_model::contact::StationSnapshot {
-            callsign: RecordedCallsign::new("W7HEX")?,
-            location: None,
-            references: Default::default(),
-        },
-        default_equipment: None,
-    };
-    let (reply, response) = oneshot::channel();
-    requests
-        .send(SettingsRequest {
-            action: SettingsAction::SaveProfile {
-                expected: None,
-                next: (home.clone()).try_into().expect("valid native fixture"),
-            },
-            reply,
-        })
-        .await?;
-    let response = tokio::time::timeout(Duration::from_secs(15), response).await??;
-    assert!(
-        matches!(response, SettingsResponse::SaveProfile(ref result) if matches!(result.outcome, SaveOutcome::Saved(_)))
-    );
-    while settings
-        .borrow_and_update()
-        .as_ref()
-        .unwrap()
-        .profiles
-        .is_empty()
-    {
-        settings.changed().await?;
-    }
-    assert_eq!(
-        settings.borrow().as_ref().unwrap().operating,
-        OperatingState::default()
-    );
-    let desired = OperatingState::new(
-        Some(clacks_model::profile::CurrentOperatingValues {
-            station: home.station.clone(),
-            operator: None,
-            transmit_power: None,
-            equipment: None,
-        }),
-        Some((home).try_into().expect("valid native fixture")),
-        None,
-    )
-    .expect("coherent operating fixture");
-    let (reply, response) = oneshot::channel();
-    requests
-        .send(SettingsRequest {
-            action: SettingsAction::Apply {
-                expected: OperatingState::default(),
-                next: desired.clone(),
-            },
-            reply,
-        })
-        .await?;
-    assert!(matches!(
-        tokio::time::timeout(Duration::from_secs(15), response).await??,
-        SettingsResponse::Apply(OperatingSaveOutcome::Saved(_))
-    ));
-    assert_eq!(settings.borrow().as_ref().unwrap().operating, desired);
-    fixture.commands.send(SessionCommand::BeginShutdown).await?;
-    tokio::time::timeout(Duration::from_secs(15), task).await???;
-    let reopened = crate::workspace::open(&paths).await?;
-    assert_eq!(reopened.settings.operating, desired);
-    reopened.store.close().await?;
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn shutdown_drains_admitted_settings_write_and_rejects_later_requests() -> anyhow::Result<()>
-{
-    use sqlx::Connection;
-    let mut fixture = Fixture::new()?;
-    let paths = fixture.resources.paths.clone();
-    let requests = fixture.settings.clone();
-    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
-    next_matching(&mut fixture.status, |s| {
-        matches!(s, SessionStatus::Ready { .. })
-    })
-    .await?;
-    let mut blocker = sqlx::SqliteConnection::connect_with(
-        &sqlx::sqlite::SqliteConnectOptions::new().filename(&paths.database),
-    )
-    .await?;
-    let held = blocker.begin_with("BEGIN IMMEDIATE").await?;
-    let home = clacks_model::profile::SavedLocationProfileFields {
-        id: Default::default(),
-        name: "Home".into(),
-        station: clacks_model::contact::StationSnapshot {
-            callsign: RecordedCallsign::new("W7HEX")?,
-            location: None,
-            references: Default::default(),
-        },
-        default_equipment: None,
-    };
-    let (reply, response) = oneshot::channel();
-    requests
-        .send(SettingsRequest {
-            action: SettingsAction::SaveProfile {
-                expected: None,
-                next: (home.clone()).try_into().expect("valid native fixture"),
-            },
-            reply,
-        })
-        .await?;
-    // Reserving the entire bounded channel proves the session consumed the request.
-    // With Ready already published, that branch admits it into the drainable work set.
-    let permits = tokio::time::timeout(Duration::from_secs(15), requests.reserve_many(8)).await??;
-    drop(permits);
-    fixture.commands.send(SessionCommand::BeginShutdown).await?;
-    next_matching(&mut fixture.status, |s| {
-        matches!(s, SessionStatus::Closing { .. })
-    })
-    .await?;
-    assert!(!task.is_finished());
-    let (reply, _) = oneshot::channel();
-    assert!(
-        requests
-            .send(SettingsRequest {
-                action: SettingsAction::Refresh,
-                reply
+#[test]
+fn query_metrics_count_completed_reads_and_only_read_failures() -> anyhow::Result<()> {
+    let recorder = DebuggingRecorder::new();
+    let snapshotter = recorder.snapshotter();
+    metrics::with_local_recorder(&recorder, || -> anyhow::Result<()> {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?
+            .block_on(async {
+                let directory = tempfile::tempdir()?;
+                let store = ClientStore::create(
+                    &directory.path().join("query.sqlite"),
+                    Default::default(),
+                    Default::default(),
+                )
+                .await?;
+                let filter = clacks_model::query::parse(
+                    "comment:PRIVATE_QUERY_SENTINEL",
+                    clacks_model::recognition::RecognitionCatalog::adif_318()?,
+                )?;
+                for action in [
+                    contacts::ContactAction::Page {
+                        query: ContactPageQuery {
+                            filter,
+                            ..Default::default()
+                        },
+                    },
+                    contacts::ContactAction::WorkedBefore {
+                        query: WorkedBeforeQuery {
+                            call_prefix: "PRIVATE_QUERY_SENTINEL".into(),
+                            ..Default::default()
+                        },
+                    },
+                    contacts::ContactAction::Page {
+                        query: ContactPageQuery {
+                            limit: 0,
+                            ..Default::default()
+                        },
+                    },
+                ] {
+                    let (reply, _receiver) = oneshot::channel();
+                    let completion = execute(
+                        store.clone(),
+                        SettingsRequest {
+                            action: SettingsAction::Contacts(action),
+                            reply,
+                        },
+                    )
+                    .await
+                    .unwrap();
+                    assert!(completion.snapshot.is_none());
+                }
+                // Discarded reads are cancelled; an admitted write still commits after dismissal.
+                let (reply, receiver) = oneshot::channel();
+                drop(receiver);
+                assert!(
+                    execute(
+                        store.clone(),
+                        SettingsRequest {
+                            action: SettingsAction::Contacts(contacts::ContactAction::Page {
+                                query: Default::default()
+                            }),
+                            reply
+                        }
+                    )
+                    .await
+                    .is_none()
+                );
+                let state = QueryState {
+                    edited: "unfinished private text".into(),
+                    applied: String::new(),
+                };
+                let (reply, receiver) = oneshot::channel();
+                drop(receiver);
+                assert!(
+                    execute(
+                        store.clone(),
+                        SettingsRequest {
+                            action: SettingsAction::Contacts(
+                                contacts::ContactAction::SaveQueryState {
+                                    state: state.clone()
+                                }
+                            ),
+                            reply
+                        }
+                    )
+                    .await
+                    .is_some()
+                );
+                let mut read = clacks_client_store::read::snapshot(&store).await?;
+                assert_eq!(read.history_query_state().await?, state);
+                read.close().await?;
+                store.close().await?;
+                Ok(())
             })
-            .await
-            .is_err()
-    );
-    held.rollback().await?;
-    blocker.close().await?;
-    assert!(
-        matches!(tokio::time::timeout(Duration::from_secs(15), response).await??, SettingsResponse::SaveProfile(ref result) if matches!(result.outcome, SaveOutcome::Saved(_)))
-    );
-    task.await??;
-    let reopened = crate::workspace::open(&paths).await?;
-    assert!(
-        reopened
-            .settings
-            .profiles
-            .iter()
-            .any(|row| row.key().id == clacks_sync::record::RecordId::Profile(home.id))
-    );
-    reopened.store.close().await?;
+    })?;
+    let metrics = snapshotter.snapshot().into_vec();
+    let queries: Vec<_> = metrics
+        .iter()
+        .filter(|(key, _, _, _)| key.key().name().starts_with("client_store.contact_query."))
+        .collect();
+    assert_eq!(queries.len(), 3);
+    for (key, _, _, value) in queries {
+        let labels: Vec<_> = key.key().labels().map(|l| (l.key(), l.value())).collect();
+        let kind = labels.first().unwrap().1;
+        assert_eq!(labels, vec![("kind", kind)]);
+        assert!(matches!(kind, "history" | "worked_before"));
+        match value {
+            DebugValue::Counter(count) => {
+                assert_eq!(
+                    key.key().name(),
+                    "client_store.contact_query.failures_total"
+                );
+                assert_eq!(kind, "history");
+                assert_eq!(*count, 1);
+            }
+            DebugValue::Histogram(values) => {
+                assert_eq!(values.len(), if kind == "history" { 2 } else { 1 })
+            }
+            _ => panic!("unexpected query metric"),
+        }
+    }
     Ok(())
 }

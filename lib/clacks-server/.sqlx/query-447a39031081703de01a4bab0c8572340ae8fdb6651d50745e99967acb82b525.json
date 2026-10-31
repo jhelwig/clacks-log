@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.service_suppression (payload_id, account, external_id, qso_id) VALUES ($1, $2, $3, $4)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "447a39031081703de01a4bab0c8572340ae8fdb6651d50745e99967acb82b525"
+}

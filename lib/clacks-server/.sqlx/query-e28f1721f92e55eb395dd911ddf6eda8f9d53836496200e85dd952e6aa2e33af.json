@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT operation_id FROM clacks.coupled_member\nWHERE account = $1 AND kind = $2 AND record_id = $3 ORDER BY operation_id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "operation_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.coupled_member",
+            "name": "operation_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e28f1721f92e55eb395dd911ddf6eda8f9d53836496200e85dd952e6aa2e33af"
+}

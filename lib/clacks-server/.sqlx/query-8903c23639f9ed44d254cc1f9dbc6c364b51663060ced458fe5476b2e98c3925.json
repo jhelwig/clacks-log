@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT name, station_id, equipment_id FROM clacks.profile_payload WHERE payload_id = $1 AND account = $2 AND record_id = $3\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.profile_payload",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "station_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.profile_payload",
+            "name": "station_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "equipment_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.profile_payload",
+            "name": "equipment_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "8903c23639f9ed44d254cc1f9dbc6c364b51663060ced458fe5476b2e98c3925"
+}

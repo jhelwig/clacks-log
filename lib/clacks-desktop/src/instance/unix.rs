@@ -1,7 +1,6 @@
 //! Current-user Unix endpoint permissions and stable lock-file identity.
 
 #[cfg(test)]
-#[path = "unix_tests.rs"]
 mod tests;
 
 use super::{ActivationAddress, suffix};
