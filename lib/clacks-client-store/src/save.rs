@@ -110,16 +110,20 @@ pub(crate) async fn save_in(
     }
     let record: ClientRecord = record.try_into()?;
     client::store(connection, &record).await?;
-    if crate::metadata::review::load(connection, key)
-        .await?
-        .is_some_and(|review| {
-            matches!(
-                review.reason,
-                clacks_sync::client::ReviewReason::ExcludedActor(_)
-            )
-        })
-    {
-        crate::enrollment::holds::review_in(connection, &record).await?;
+    if let Some(mut shown) = crate::metadata::review::load(connection, key).await? {
+        if matches!(
+            shown.reason,
+            clacks_sync::client::ReviewReason::ExcludedActor(_)
+        ) {
+            crate::enrollment::holds::review_in(connection, &record).await?;
+        } else {
+            shown.local = record
+                .pending()
+                .ok_or_else(|| anyhow::anyhow!("Local save has no pending working value"))?
+                .working
+                .clone();
+            crate::metadata::review::store(connection, key, Some(&shown)).await?;
+        }
     }
     Ok(SaveOutcome::Saved(record))
 }

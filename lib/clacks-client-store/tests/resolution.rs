@@ -42,8 +42,39 @@ async fn resolution_save_rechecks_basis_and_live_references() -> anyhow::Result<
     let mut snapshot = read::snapshot(store).await?;
     let row = snapshot.review_record(accepted.key()).await?.unwrap();
     snapshot.close().await?;
+    let opened = row;
+    support::edit(&mut local, |qso| {
+        qso.comment = Some("Later local correction".into());
+        Ok(())
+    });
+    save::save(
+        store,
+        accepted.key(),
+        Some(&opened.record),
+        support::contact(local.clone()),
+    )
+    .await?;
+    assert!(matches!(
+        synchronization::resolve(
+            store,
+            &opened.record,
+            opened.review.as_ref().unwrap(),
+            support::contact(local.clone())
+        )
+        .await?,
+        SaveOutcome::Stale { .. }
+    ));
+    let mut snapshot = read::snapshot(store).await?;
+    let row = snapshot.review_record(accepted.key()).await?.unwrap();
+    snapshot.close().await?;
     let shown = row.review.as_ref().unwrap();
+    assert_eq!(
+        Some(&shown.local),
+        row.record.working_state(),
+        "ordinary edits must refresh the compared local values without resolving the conflict"
+    );
     let tag = logbook_support::insert(store, 30, "Portable").await?;
+
     support::edit(&mut local, |qso| {
         qso.tags.insert(support::id(30));
         Ok(())

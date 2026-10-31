@@ -1,8 +1,9 @@
-# Unsynchronized changes: integration proposal for #15
+# Unsynchronized changes: integration contract for #15
 
-Status: proposed integration design for review. D382–D387 are agreed behavior;
-choices marked **Engineering default** below are recommendations, not additional
-accepted decisions. This document does not authorize implementation.
+D382–D387 define agreed behavior. Choices marked **Engineering default** below
+describe the implementation's engineering choices, not additional product
+decisions. The implementation uses the existing synchronization and storage
+contracts described here.
 
 ## 1. Intent and boundaries
 
@@ -33,11 +34,15 @@ restoration browsing, equipment restoration/cloning, or account-wide atomic save
 - Membership is an editable set, initially the local working set. Checked
   logbooks always define the result. Field-level **Use local** / **Use shared**
   replace the set; individual changes can combine memberships or leave the QSO
-  untagged. No indeterminate boxes or **Use selection** action applies.
+  untagged. Refresh available logbook names and choices as the catalog changes,
+  preserving the resolved set and search. No indeterminate boxes or **Use
+  selection** action applies.
 - Preserve drafts when switching records. When compared inputs change, preserve
   the draft and displayed comparison, indicate that newer values exist, and
   require an explicit refreshed comparison before saving. Refresh keeps entered
   values for reconsideration, without silently approving them against new inputs.
+  A previously chosen deletion requires renewed approval when competing native
+  values change; refreshing exposes those values before saving.
 - **Save resolution** saves one validated record locally. It does not claim
   shared acceptance. Closing the window discards unsaved resolution drafts like
   Cancel and does not undo completed saves.
@@ -72,8 +77,10 @@ Keep only loaded rows and visited drafts in memory, not every account payload.
 A saved resolution leaves Conflicts and appears under Pending sync until normal
 synchronization settles it. Retain the just-saved detail long enough to show the
 actual save acknowledgment; do not immediately jump to another conflict.
-Ordinary pending items show their local change, including deletion, without
-resolution controls or an implied user task.
+Ordinary pending items show read-only working field values and explicit deletion
+state, without resolution controls or an implied user task. If a selected item
+settles during review, show its accepted state rather than continuing to label it
+as pending synchronization.
 
 ### Comparison and editing
 
@@ -99,8 +106,10 @@ it proven concurrency. Keep metadata failures distinct from user-value conflicts
 Retained accepted alternatives in `ReviewInput.retained` must remain accessible.
 **Engineering default:** show distinct additional native values as labeled
 comparison sources, with their accepted timeline/revision available as context.
-They are not extra QSO rows in history. Selection can copy a value from such a
-source, or the user can type a result. **Use all shared** always means the shown
+They are not extra QSO rows in history. Selection can copy individual fields or
+populate the complete native version, including its live/deleted state. This
+also supports a recovery comparison whose only live values are retained. The
+user can type a result after selecting a live version. **Use all shared** always means the shown
 `review.shared`, not an arbitrarily selected retained alternative. Preserve all
 native retained evidence through the existing core resolution operation.
 
@@ -122,8 +131,8 @@ for an ordinary unchanged membership field. Initialize newly differing fields
 without a choice; retain an existing membership draft rather than resetting it.
 
 If refresh shows the conflict has already settled, explain that fact; do not
-silently save an old draft as a new edit. Keep it available until the user
-switches away or closes the window. No new distributed conflict is invented.
+silently save an old draft as a new edit. Keep its unfinished inputs available
+until the window closes. No new distributed conflict is invented.
 
 ## 4. Review cases and permitted actions
 
@@ -275,15 +284,10 @@ continues normal receive-first synchronization and unrelated publication.
 
 ### Reads
 
-Reuse `ReadSnapshot`, `ReviewRow`, `ClientRecord`, `ReviewInput`, and existing
-payload/original/observation/retained tables. Current `ReviewQuery` supplies a
-combined identity-qualified page, but no section selection, counts or exact
-selected-review read. Its optional tag filter has no production desktop caller
-and conflicts with D383's interface. Remove that unused filter when replacing
-its query contract; do not retain it solely for tests.
-
-Extend checked query files with section filtering/counts and a selected-key read
-that returns the record and review in the same short snapshot. Include the
+`ReadSnapshot::review_page` returns native `ReviewRow` records with independent
+section/type filtering, full counts and kind-qualified continuation.
+`review_record` returns the exact saved roles and persisted comparison in the
+same short snapshot. There is no tag filter in account-wide review. Include the
 existing authorization hold when determining blocked presentation. Conflicts
 means actual persisted review or an explicit existing admission hold; it does
 not mean merely differing local/shared values detected again by SQL or UI.
@@ -300,7 +304,7 @@ summary table or new generation counter.
 ### Resolution save
 
 Use the existing `synchronization::resolve(store, expected, shown, chosen)` as
-the integration boundary. It already checks the complete saved record and shown
+the integration boundary. It checks the complete saved record and shown
 review in an immediate transaction, invokes core `resolve_review`, stores the
 new pending record, clears that review and releases only a matching old-actor
 hold. Preserve this atomicity and `SaveOutcome::Stale` behavior.
@@ -330,7 +334,7 @@ silently retry the old choices. If review vanished, report the current state.
 
 ### Blocked-deletion retry
 
-Add a narrowly scoped store action whose production caller is the blocked
+Use `synchronization::retry_deletion`, whose production caller is the blocked
 reference panel. Guard the exact shown target/review and reread current surviving
 accepted references in the same write transaction. If references remain, return
 the refreshed count/list without clearing review or altering the target. If
@@ -347,7 +351,7 @@ No new schema, snapshot manifest, retained action-intent record or synchronizati
 protocol is required by this proposal. Checked query changes require SQLx offline
 metadata updates using the existing project tooling.
 
-## 9. Verification boundaries and remaining design status
+## 9. Verification boundaries and engineering choices
 
 Meaningful regression scenarios should establish these Clacks decisions, reusing
 fixtures and real production operations where needed:
@@ -380,12 +384,9 @@ user-action outcomes, no field values, comments, payload dumps or telemetry
 abstractions. CI availability and unavailable native Windows checks must be
 reported rather than treated as passing.
 
-No new product decision is asserted here. The engineering defaults requiring
-review include composite comparison boundaries, reconfirmation after refresh,
-offline use of available comparisons, and the bounded read/retry integration.
-The final specification should incorporate the accepted proposal and carry
-forward the earlier behavior without reopening it.
+The engineering defaults include composite comparison boundaries,
+reconfirmation after refresh, offline use of usable comparisons, and bounded
+read/retry integration. They do not change the agreed product behavior.
 
 The [#15 implementation plan](superpowers/plans/2026-10-31-unsynchronized-changes.md)
-translates this proposal into production increments. Its preparation does not
-change the agreed/default distinction or authorize execution.
+records the implementation increments and verification boundaries.

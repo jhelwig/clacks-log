@@ -490,3 +490,45 @@ fn retained_live_values_remain_selectable_when_both_current_versions_are_deleted
     assert_eq!(&draft.build(&Default::default()).unwrap(), retained.state());
     Ok(())
 }
+
+#[test]
+fn refreshed_live_changes_require_renewing_a_deletion_choice() -> anyhow::Result<()> {
+    let mut basis = basis();
+    basis.review.local = RecordState::Deleted;
+    let mut fields = basis.record.clone().into_fields();
+    fields.pending.as_mut().unwrap().working = RecordState::Deleted;
+    basis.record = fields.try_into()?;
+    let mut draft = ResolutionDraft::new(basis.clone())?;
+    draft.select_all(ComparisonSource::Local)?;
+    assert_eq!(
+        draft.build(&Default::default()).unwrap(),
+        RecordState::Deleted
+    );
+
+    let Observation::Accepted(shared) = &mut basis.review.shared else {
+        panic!("shared")
+    };
+    let mut values = qso(shared.state()).clone().into_fields();
+    values.comment = Some("New on-air correction".into());
+    *shared = AcceptedRecord::new(
+        shared.key(),
+        RecordState::Live(RecordValue::Qso(Box::new(values.try_into()?))),
+        shared.stamp.clone(),
+    )?;
+    sync_record(&mut basis);
+    draft.observe(&basis);
+    draft.refresh(basis)?;
+    assert_eq!(draft.deletion_choice(), None);
+    assert!(!draft.fields().is_empty());
+    assert!(draft.build(&Default::default()).is_err());
+    assert!(matches!(
+        draft.source_input(FieldId::Qso(QsoField::Comment), &ComparisonSource::Shared)?,
+        FieldInput::Text { value } if value == "New on-air correction"
+    ));
+    draft.select_all(ComparisonSource::Local)?;
+    assert_eq!(
+        draft.build(&Default::default()).unwrap(),
+        RecordState::Deleted
+    );
+    Ok(())
+}

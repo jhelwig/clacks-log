@@ -380,8 +380,8 @@ History and Worked Before use this client's saved working values, including newl
 
 ## Pending and conflict review (D182)
 
-The [#15 integration proposal](conflict-review-proposal.md) describes proposed
-production wiring and distinguishes engineering defaults from agreed behavior.
+The [#15 integration contract](conflict-review-proposal.md) describes production
+wiring and distinguishes engineering choices from agreed behavior.
 
 Present this client's account-wide work as **Unsynchronized changes**, in a
 separate non-modal window that leaves the workbench and unfinished QSO usable

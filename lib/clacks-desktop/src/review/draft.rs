@@ -235,6 +235,16 @@ impl ResolutionDraft {
             next.record.key() == self.basis.record.key(),
             "Refresh belongs to another record"
         );
+        let deletion_inputs_changed = self.basis.review.local != next.review.local
+            || self.basis.source(&ComparisonSource::Shared).ok()
+                != next.source(&ComparisonSource::Shared).ok()
+            || !self
+                .basis
+                .review
+                .retained
+                .iter()
+                .map(|value| value.state())
+                .eq(next.review.retained.iter().map(|value| value.state()));
         for field in self.fields() {
             let changed = !same(&self.basis.review.local, Some(&next.review.local), field)
                 || match (
@@ -267,7 +277,7 @@ impl ResolutionDraft {
                 Ok(RecordState::Deleted)
             ),
         );
-        if was_deleted != now_deleted {
+        if was_deleted != now_deleted || (self.deleted == Some(true) && deletion_inputs_changed) {
             self.deleted = None;
         }
         self.basis = next;

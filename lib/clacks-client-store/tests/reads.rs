@@ -52,7 +52,7 @@ async fn working_history_is_unique_snapshot_consistent_and_deletions_are_reviewa
             .rows
             .is_empty()
     );
-    let review = new.review(&ReviewQuery::default()).await?;
+    let review = new.review_page(&ReviewQuery::default()).await?.rows;
     assert_eq!(review.len(), 1);
     assert_eq!(
         review.first().unwrap().record.working_state(),
@@ -167,12 +167,13 @@ async fn expression_pages_preserve_native_labels_and_review_identity() -> anyhow
     let mut keys = std::collections::BTreeSet::new();
     loop {
         let page = snapshot
-            .review(&ReviewQuery {
+            .review_page(&ReviewQuery {
                 after: cursor,
                 limit: 1,
                 ..Default::default()
             })
-            .await?;
+            .await?
+            .rows;
         let Some(row) = page.first() else { break };
         keys.insert(row.record.key().id);
         cursor = Some(row.record.key().id);
@@ -184,11 +185,12 @@ async fn expression_pages_preserve_native_labels_and_review_identity() -> anyhow
     );
     assert_eq!(
         snapshot
-            .review(&ReviewQuery {
+            .review_page(&ReviewQuery {
                 kind: Some(RecordKind::Tag),
                 ..Default::default()
             })
             .await?
+            .rows
             .len(),
         1
     );

@@ -138,6 +138,26 @@ fn comparison_edits_comment_and_membership_before_admitting_resolution() -> anyh
                 saved: None,
             },
         );
+    let replacement =
+        clacks_model::tag::LogbookTag::new(clacks_model::ids::TagId::new(), "Replacement".into());
+    ui.get_by_label("Search logbooks").click();
+    ui.run();
+    ui.get_by_label("Search logbooks").type_text("Replacement");
+    ui.run();
+    ui.state_mut()
+        .settings
+        .logbooks
+        .tags
+        .push(fixtures::row(RecordValue::Tag(Box::new(
+            replacement.clone(),
+        ))));
+    ui.run();
+    assert!(ui.query_by_label("Replacement").is_some());
+    assert!(ui.query_by_label("Logbook 0").is_none());
+    assert_eq!(ui.state().editor.draft.membership(), Some(&tags));
+    ui.get_by_label("Search logbooks")
+        .set_text_value_accesskit("");
+    ui.run();
     ui.get_by_label("Resolved Comment").focus();
     ui.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
     ui.get_by_label("Resolved Comment")
@@ -311,6 +331,91 @@ fn navigation_retains_drafts_and_late_reads_do_not_replace_the_selected_record()
     );
     assert!(
         matches!(ui.state().drafts.get(&second_key).unwrap().draft.input(FieldId::Tag(TagField::Name))?, FieldInput::Text { value } if value == "Unfinished name correction")
+    );
+    Ok(())
+}
+
+#[test]
+fn pending_values_are_inspectable_without_resolution_controls() -> anyhow::Result<()> {
+    use crate::ui::tests::fixtures;
+    let equipment: clacks_model::profile::EquipmentConfiguration =
+        clacks_model::profile::EquipmentConfigurationFields {
+            id: Default::default(),
+            name: "Portable rig".into(),
+            values: clacks_model::equipment::EquipmentValuesFields {
+                notes: Some("New feed line".into()),
+                ..Default::default()
+            },
+        }
+        .try_into()?;
+    let mut previous = equipment.clone().into_fields();
+    previous.values.notes = Some("Original cable".into());
+    let basis = crate::review::tests::saved_basis(
+        RecordValue::Equipment(Box::new(equipment.clone())),
+        RecordValue::Equipment(Box::new(previous.try_into()?)),
+    );
+    let key = basis.record.key();
+    let row = ReviewRow {
+        record: basis.record,
+        review: None,
+        authorization_hold: None,
+    };
+    let (requests, _received) = mpsc::channel(1);
+    let view = ReviewUi {
+        selected: Some(key),
+        detail: Some(row.clone()),
+        settings: Some(Box::new(fixtures::snapshot())),
+        ..Default::default()
+    };
+    let ui = Harness::builder()
+        .with_size(egui::vec2(1000.0, 800.0))
+        .build_ui_state(
+            |ui, view: &mut ReviewUi| view.show_detail(ui, &requests),
+            view,
+        );
+    assert!(ui.query_by_label("New feed line").is_some());
+    assert!(ui.query_by_label("Save resolution").is_none());
+    Ok(())
+}
+
+#[test]
+fn settled_detail_does_not_claim_pending_synchronization() -> anyhow::Result<()> {
+    use crate::session::settings::review::ReviewResponse;
+    use crate::ui::tests::fixtures;
+    let basis = crate::review::tests::basis();
+    let key = basis.record.key();
+    let mut fields = basis.record.into_fields();
+    fields.pending = None;
+    let accepted = ReviewRow {
+        record: fields.try_into()?,
+        review: None,
+        authorization_hold: None,
+    };
+    let (requests, _received) = mpsc::channel(1);
+    let mut view = ReviewUi {
+        selected: Some(key),
+        ..Default::default()
+    };
+    let (reply, response) = oneshot::channel();
+    view.reply = Some(response);
+    reply
+        .send(SettingsResponse::Review(ReviewResponse::Record {
+            key,
+            row: Some(Box::new(accepted)),
+            settings: Box::new(fixtures::snapshot()),
+        }))
+        .unwrap();
+    view.poll();
+    let ui = Harness::builder()
+        .with_size(egui::vec2(1000.0, 800.0))
+        .build_ui_state(
+            |ui, view: &mut ReviewUi| view.show_detail(ui, &requests),
+            view,
+        );
+    assert!(ui.query_by_label("Saved in the shared log.").is_some());
+    assert!(
+        ui.query_by_label("Saved locally; pending synchronization.")
+            .is_none()
     );
     Ok(())
 }

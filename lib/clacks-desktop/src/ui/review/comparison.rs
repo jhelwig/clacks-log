@@ -30,19 +30,9 @@ pub(super) struct ReviewEditor {
     /// Include equal fields as context when explicitly requested.
     show_unchanged: bool,
     /// Searchable membership choices for this one resolved QSO.
-    membership: Option<MembershipEditor>,
+    membership: Option<MembershipPicker>,
     /// Record has settled or become unavailable since opening this draft.
     pub settled: bool,
-}
-
-/// A single-target picker and the opening set needed for its explicit intent.
-struct MembershipEditor {
-    /// Shared catalog/search/control model, never a two-contact mixed selection.
-    picker: MembershipPicker,
-    /// Set used when calculating the picker's explicit changes.
-    opening: BTreeSet<TagId>,
-    /// Last set reflected in the picker, including explicit checkbox edits.
-    current: BTreeSet<TagId>,
 }
 
 /// A user action; saving is executed through the existing session, not in rendering.
@@ -370,67 +360,7 @@ impl ReviewEditor {
             }
         }
         match input {
-            Ok(FieldInput::Membership { tags: values }) => {
-                ui.label(
-                    values
-                        .iter()
-                        .map(|id| {
-                            tags.get(id)
-                                .cloned()
-                                .unwrap_or_else(|| format!("Unavailable logbook · {id}"))
-                        })
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                );
-            }
-            Ok(FieldInput::References { rows }) => {
-                ui.label(
-                    rows.iter()
-                        .map(|row| {
-                            format!(
-                                "{}{}",
-                                row.group
-                                    .map(|id| definitions
-                                        .get(id)
-                                        .map(|group| group.name().to_owned())
-                                        .unwrap_or_else(|| format!("Unrecognized group · {id}")))
-                                    .unwrap_or_else(|| "No group selected".into()),
-                                if row.identifier.is_empty() {
-                                    String::new()
-                                } else {
-                                    format!(": {}", row.identifier)
-                                }
-                            )
-                        })
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                );
-            }
-            Ok(FieldInput::Equipment { selected }) => {
-                let caption = selected
-                    .map(|id| {
-                        settings
-                            .equipment
-                            .iter()
-                            .find_map(|row| match row.working_state() {
-                                Some(RecordState::Live(
-                                    clacks_sync::record::RecordValue::Equipment(value),
-                                )) if value.id() == id => Some(format!("{} · {id}", value.name())),
-                                _ => None,
-                            })
-                            .unwrap_or_else(|| format!("Unavailable equipment · {id}"))
-                    })
-                    .unwrap_or_else(|| "No default equipment".into());
-                ui.label(caption);
-            }
-            Ok(input) => {
-                let text = egui::RichText::new(input.display());
-                ui.label(if field.radio_data() {
-                    text.monospace()
-                } else {
-                    text
-                });
-            }
+            Ok(input) => super::value::show(ui, field, &input, tags, definitions, settings),
             Err(_) => {
                 ui.weak(
                     if matches!(self.draft.basis.source(&source), Ok(RecordState::Deleted)) {
@@ -454,16 +384,10 @@ impl ReviewEditor {
     ) {
         if let FieldId::Qso(QsoField::Tags) = field {
             let current = self.draft.membership().cloned().unwrap_or_default();
-            let state = self.membership.get_or_insert_with(|| MembershipEditor {
-                picker: MembershipPicker::new(&settings.logbooks, std::slice::from_ref(&current)),
-                opening: current.clone(),
-                current: current.clone(),
+            let picker = self.membership.get_or_insert_with(|| {
+                MembershipPicker::new(&settings.logbooks, std::slice::from_ref(&current))
             });
-            if state.current != current {
-                state.picker.replace_single(&settings.logbooks, &current);
-                state.opening = current.clone();
-                state.current = current;
-            }
+            picker.replace_single(&settings.logbooks, &current);
             let mut sources = vec![ComparisonSource::Local, ComparisonSource::Shared];
             sources.extend(self.draft.basis.review.retained.iter().map(|value| {
                 ComparisonSource::Retained {
@@ -473,16 +397,14 @@ impl ReviewEditor {
             for source in sources {
                 if let Ok(FieldInput::Membership { tags }) = self.draft.source_input(field, &source)
                 {
-                    state.picker.include_context(tags);
+                    picker.include_context(tags);
                 }
             }
             ui.label("Resolved membership");
-            if tag_picker::show_contents(ui, &mut state.picker) {
-                let intent = state.picker.intent();
-                let mut tags: BTreeSet<_> =
-                    state.opening.difference(&intent.remove).copied().collect();
+            if tag_picker::show_contents(ui, picker) {
+                let intent = picker.intent();
+                let mut tags: BTreeSet<_> = current.difference(&intent.remove).copied().collect();
                 tags.extend(intent.add);
-                state.current = tags.clone();
                 self.draft
                     .set_custom(field, FieldInput::Membership { tags });
                 self.validation.edited(now);

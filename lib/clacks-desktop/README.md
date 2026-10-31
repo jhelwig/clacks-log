@@ -476,7 +476,7 @@ After committed receipt, normal settings/history/Worked Before views reload.
 Copied active operating values retain their existing selection and adjustment
 rules. The status bar shows connection state and the current error; there is no
 aggregate successful-sync timestamp. Ordinary unresolved records remain local
-without blocking unrelated publication. Full conflict-review interaction is #15.
+without blocking unrelated publication. The Unsynchronized changes window owns\nexplicit local conflict resolution.
 
 Server-reported failures retain their operational category for structured logs
 and show the safe server explanation as the current connection error. Every

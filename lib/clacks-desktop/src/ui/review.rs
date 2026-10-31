@@ -5,6 +5,7 @@ mod detail;
 mod editors;
 mod references;
 mod state;
+mod value;
 
 #[cfg(test)]
 mod tests;

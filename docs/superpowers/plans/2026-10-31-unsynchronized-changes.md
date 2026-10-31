@@ -13,10 +13,10 @@ transitions retain ownership of conflict detection, preparation and acceptance.
 **Tech Stack:** Rust 1.99.1, eframe/egui 0.37.0 with wgpu, Tokio, SQLx 0.9.0,
 SQLite, clacks-model, clacks-sync, egui_kittest and existing telemetry facilities.
 
-**Spec:** [#15 integration proposal](../../conflict-review-proposal.md), together
+**Spec:** [#15 integration contract](../../conflict-review-proposal.md), together
 with [D382–D387](../../decisions.md#d382) and the linked product/UI/sync contracts.
-The user requested this plan from that proposal; this is not authorization to
-implement it or a claim that every engineering default was separately agreed.
+Engineering defaults are implementation choices, not additional agreed product
+decisions.
 
 ## Global constraints
 
@@ -227,59 +227,59 @@ Identity, causal metadata, directory fallback and service evidence are not
 editable QSO fields. Composite controls enforce existing calculations, not a
 new conflict-trigger model.
 
-- [ ] Write `resolution_preserves_selected_native_values` in review/tests.rs.
+- [x] Write `resolution_preserves_selected_native_values` in review/tests.rs.
   Use a whole-record conflict whose shared side includes an imported two-character
   own locator and unfamiliar mode/band. Select source values, edit a different
   comment, then assert exact native position/basis, mode, band and timestamp
   preservation. Assert genuinely typed new own position still requires four
   characters. Do not round-trip all selected values through ContactForm text.
-- [ ] Write `resolution_choices_are_explicit_and_membership_starts_local` in
+- [x] Write `resolution_choices_are_explicit_and_membership_starts_local` in
   that module: differing scalar fields cannot build while unchosen; an explicit
   clear and custom valid text count as choices; equal fields need none. Initial
   membership equals local, Use shared replaces it, adding the local-only tag
   produces Main/Field Day/Portable, and clearing all tags yields an active QSO.
-- [ ] Write `resolution_draft_refresh_preserves_inputs` with two drafts:
+- [x] Write `resolution_draft_refresh_preserves_inputs` with two drafts:
   navigation preserves both; unrelated record changes do not invalidate them;
   a changed basis disables Save and keeps the old displayed comparison. Refresh
   retains typed inputs, preserves unaffected choices and requires reconsidering
   changed inputs. A late reply for the first record cannot overwrite the second.
   Closing discards drafts without reverting a completed save.
-- [ ] Run `SQLX_OFFLINE=true cargo test -p clacks-desktop --lib review --locked
+- [x] Run `SQLX_OFFLINE=true cargo test -p clacks-desktop --lib review --locked
   --offline`; establish that the new behavior is absent before implementation.
-- [ ] Implement typed comparison using genuine original/native local/shared
+- [x] Implement typed comparison using genuine original/native local/shared
   values. Do not manufacture attribution for MissingOriginal or unknown ordering.
   Copy source selections as native field values, assemble QsoFields and validate
   the final QSO. Use existing parsers/controls only for explicitly edited inputs.
   Extract only narrowly shared controls, with actual existing-screen callers.
-- [ ] Reuse the membership picker with exactly one resolved set. Include IDs
+- [x] Reuse the membership picker with exactly one resolved set. Include IDs
   from local/shared/retained sets in its available context so an unavailable or
   shared-only membership is not lost. Source replacement and checkbox changes
   update the resolved set immediately; no mixed state or extra Apply action.
-- [ ] Implement real resolved editors and source buttons. Show all available
+- [x] Implement real resolved editors and source buttons. Show all available
   native alternatives without duplicating QSO history. Use fixed timestamp
   editors, existing debounce and field errors, edited highlights and disabled
   Save. Do not display a flashing Checking changes row.
-- [ ] Wire exact basis/record identity to Resolve and shared-write wake. An
+- [x] Wire exact basis/record identity to Resolve and shared-write wake. An
   admitted save becomes read-only with Saving feedback; its result belongs to
   the originating record even after navigation/closure. Retain the result when a
   subsequent settings read fails; do not silently retry with a newer basis.
-- [ ] Extend the existing workspace-change notification path after actual sync
+- [x] Extend the existing workspace-change notification path after actual sync
   incorporation and local saves. Bounded rereads compare bases; do not use the
   Connected status as invalidation. Do not add another bus, polling loop or
   persisted generation. Disconnected usable comparisons may be resolved; an
   Unavailable observation is not a shared empty/deleted value and cannot save.
-- [ ] Add `resolution_save_rechecks_basis_and_live_references` to the existing
+- [x] Add `resolution_save_rechecks_basis_and_live_references` to the existing
   store integration executable: a real intervening update returns Stale and
   changes nothing; valid resolution clears only its review, becomes pending,
   and preserves native values/retained evidence. A newly deleted tag fails
   resolution validation instead of clearing the reference issue; an existing
   live but unpublished tag is allowed and retains prerequisite ordering.
-- [ ] Add one focused egui_kittest scenario that custom-edits a comment and
+- [x] Add one focused egui_kittest scenario that custom-edits a comment and
   changes membership, asserts the exact Resolve request and disabled Save for
   invalid input/outdated comparison, then accepts Saved/Stale responses. Use
   native snapshots and existing simulated-clock facilities; do not host a store
   merely to click controls or repeat all field tests in the GUI.
-- [ ] Run the focused desktop/store scenarios, formatting and affected clippy
+- [x] Run the focused desktop/store scenarios, formatting and affected clippy
   checks. Inspect the real assembled window at wide/narrow sizes with working
   QSO entry alongside it. Update delivered docs and commit with context about
   preserving native facts and requiring a refreshed comparison.
@@ -301,27 +301,27 @@ name/independent LoTW and QRZ policy fields. Reuse ProfileEditor, EquipmentEdito
 EquipmentForm and the normal policy controls without their ordinary save/apply
 handlers. All submissions remain ReviewAction::Resolve from Task 2.
 
-- [ ] Write `saved_source_resolution_does_not_apply_operating_values`: combine
+- [x] Write `saved_source_resolution_does_not_apply_operating_values`: combine
   profile fields and replace/remove its equipment default through actual
   resolution; assert saved reusable facts change while active copied values,
   loaded baselines and historical QSO snapshots retain the existing contracts.
   Resolve equipment values and a duplicate-named tag with independent service
   policies in the same scenario where useful, not a fixture per text field.
-- [ ] Run the affected review/store test filters to show absent behavior, then
+- [x] Run the affected review/store test filters to show absent behavior, then
   implement the typed choices, direct editors and existing domain construction.
   Preserve unknown reference associations and unchanged historical values;
   apply current definition normalization/validation only to explicit edits.
-- [ ] Ensure selecting saved sources in this window cannot call OperatingEditor
+- [x] Ensure selecting saved sources in this window cannot call OperatingEditor
   Apply or load a saved profile. Deletion continues through the existing
   metadata::client::store cleanup; no duplicate UI cleanup or silent reload.
-- [ ] Render profile/equipment/tag differences and exact field errors in the
+- [x] Render profile/equipment/tag differences and exact field errors in the
   same comparison layout. Surface missing equipment as an explicit reference
   repair rather than automatically dropping the default. Do not add management
   screens for service records, group definitions or export profiles.
-- [ ] Add a bounded component request assertion to the existing review test for
+- [x] Add a bounded component request assertion to the existing review test for
   a reusable-record save and Cancel. Verify no Apply/SaveProfile/SaveEquipment
   request escapes instead of Resolve. Reuse the existing test host.
-- [ ] Run affected tests, inspect one assembled reusable-record conflict and
+- [x] Run affected tests, inspect one assembled reusable-record conflict and
   update the relevant crate docs. Commit this completed workflow with a wrapped
   body explaining why reusable record resolution does not apply operating values.
   Focused store command: `SQLX_OFFLINE=true cargo test -p clacks-client-store
@@ -358,42 +358,42 @@ production entry points.
   profile editor requests for explicit referrer repair, or open that referrer's
   review when it has its own conflict.
 
-- [ ] Write `blocked_deletion_waits_for_accepted_reference_repair`: accepted
+- [x] Write `blocked_deletion_waits_for_accepted_reference_repair`: accepted
   fourth QSO references a locally deleted tag; local membership removal alone
   leaves StillReferenced and the review intact. Install the actual accepted
   repaired QSO, retry and assert the same pending deletion is eligible. A new
   concurrent accepted reference returns a refreshed block through ordinary
   rejection. The test detects Clacks confusing local repair with shared repair.
-- [ ] Include equipment/profile references using the same owning scenario's
+- [x] Include equipment/profile references using the same owning scenario's
   real operations. Assert full count and bounded referrer pages, not merely the
   rejection's sample. Exact target/review changes return Stale without clearing
   an old-actor hold, consuming counters twice or overwriting intervening values.
-- [ ] Run the focused store test before implementing the checked reference reads
+- [x] Run the focused store test before implementing the checked reference reads
   and retry. Guard the exact record/review in one immediate transaction, recheck
   accepted referrers, and only then reuse core resolve_review with Deleted to
   rebase that explicit deletion for normal preparation. Do not reserve a new
   proposal counter here; the normal preparation transaction does that later.
   Use the same store path as guarded resolution, without nested transactions.
-- [ ] Present both deletion/edit orientations as explicit record-state choices.
+- [x] Present both deletion/edit orientations as explicit record-state choices.
   Keep a pending deletion hidden from ordinary history until an explicit live
   result is saved. Cancelling a pending tag deletion does not undo separately
   saved QSO effects. Missing references require explicit removal/replacement;
   never resurrect a tag or silently delete an unexpected referring QSO.
-- [ ] Present Referenced with total count, affected records, Refresh references,
+- [x] Present Referenced with total count, affected records, Refresh references,
   Retry deletion and the permitted keep-live target choice. Repairs awaiting
   acceptance remain visible as such. References changing after retry are handled
   by the ordinary server acceptance/rejection path, not a background retry loop.
-- [ ] Add `reauthorized_work_requires_usable_explicit_review` to the existing
+- [x] Add `reauthorized_work_requires_usable_explicit_review` to the existing
   enrollment/recovery scenario: held work before comparison is visible but cannot
   save; usable catch-up creates ExcludedActor review; explicit resolution releases
   only that matching hold. Unrelated records continue. Reuse the current hold
   and completed-receipt transitions; do not rename old vectors/prepared bytes.
-- [ ] Exercise MissingOriginal and OrderingUnknown using existing actual recovery
+- [x] Exercise MissingOriginal and OrderingUnknown using existing actual recovery
   fixtures. Assert truthful explanations, no invented three-way attribution, and
   saving only when usable compared shared state exists. Keep retained accepted
   alternatives accessible and preserved by the native transition. Noneditable
   record kinds show safe diagnostics instead of a fabricated general editor.
-- [ ] Add a focused UI test for opening the correct referring record and issuing
+- [x] Add a focused UI test for opening the correct referring record and issuing
   the exact Refresh/Retry request. Run affected store/desktop tests, regenerate
   SQL metadata and commit with context about shared references and explicit
   operator repair. Update proposal-derived docs to describe delivered behavior.
@@ -409,19 +409,19 @@ and the existing authenticated sync test host used by
 product/UI/sync docs and the integration proposal's status. Do not create an
 in-repository acceptance/review report.
 
-- [ ] In the existing real session fixture, resolve a QSO then process an actual
+- [x] In the existing real session fixture, resolve a QSO then process an actual
   subsequent settings-refresh failure; assert the committed result remains
   authoritative and reopening reads the saved pending value. Close/navigate
   after admission and assert the owning write result is not cancelled or applied
   to another draft. Do not invent failpoints or injected DB behavior to provoke
   the refresh failure; use an existing ordinary failure case or verify result
   handling at the typed component boundary instead of manufacturing one.
-- [ ] Extend the existing authenticated endpoint scenario to run the production
+- [x] Extend the existing authenticated endpoint scenario to run the production
   synchronization loop awakened by a real session resolution. Assert acceptance
   settles that pending row and an unrelated edit progresses while another review
   remains unresolved. Reuse the disposable PostgreSQL/enrollment setup; do not
   replace WebSockets, authentication, or add a fake transport.
-- [ ] Run the focused tests and checks below, then the existing workspace checks
+- [x] Run the focused tests and checks below, then the existing workspace checks
   with disposable PostgreSQL if available. Read the machine-local inventory
   before touching server configuration; record unavailable checks explicitly.
 - [ ] Inspect the production executable with real local working fixtures created
@@ -430,17 +430,20 @@ in-repository acceptance/review report.
   repair, stale refresh, busy/error feedback and reopening after save. Check
   light/dark appearance, widths, full field widths, section framing, typography
   and keyboard behavior. The workbench remains usable and its draft unchanged.
-- [ ] Check telemetry using the existing configured test subscriber at the owning
+  macOS inspection covered dark/light presentation, navigation, combined values,
+  pending details, save/reopen and preserved workbench input. The complete narrow
+  and rare-recovery visual matrix and native Windows acceptance remain unchecked.
+- [x] Check telemetry using the existing configured test subscriber at the owning
   boundary: safe record IDs/reasons and save outcomes, no callsigns/comments/
   resolved payload dumps. Do not add generic operation metrics or retest tracing.
-- [ ] Reconcile current docs and usage links. Keep D382–D387 as agreed decisions;
+- [x] Reconcile current docs and usage links. Keep D382–D387 as agreed decisions;
   identify defaults adopted during this implementation as implementation choices,
   not invented user approvals. Retain useful contract content at stable paths.
-- [ ] Audit changed tests for a concrete Clacks requirement and failure they catch;
+- [x] Audit changed tests for a concrete Clacks requirement and failure they catch;
   audit changed production APIs for real callers, Rust idiom and redundant
   framework machinery. Run the branch review required by native execution and
   fold any fixes into the appropriate substantive commits.
-- [ ] Before final delivery, inspect the actual diff and commit messages. Document
+- [x] Before final delivery, inspect the actual diff and commit messages. Document
   native macOS evidence and unavailable Windows acceptance separately. Windows
   tests remain disabled; do not reactivate CI or promise results while the stated
   monthly CI limit prevents runs. Hold branch push/PR until requested.

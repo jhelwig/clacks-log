@@ -503,7 +503,7 @@ lifecycle and unfinished-work rules.
 
 ## Unsynchronized changes (D383)
 
-The [#15 integration proposal](conflict-review-proposal.md) maps this interaction
+The [#15 integration contract](conflict-review-proposal.md) maps this interaction
 contract to existing editors and storage, with engineering defaults identified.
 
 Open account-wide review in a separate non-modal **Unsynchronized changes**

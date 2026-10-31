@@ -1,7 +1,7 @@
 //! Native field identities for operator-owned synchronization comparisons.
 
 pub(super) mod qso;
-pub(super) mod record;
+pub(crate) mod record;
 pub(super) mod station;
 
 use clacks_model::reference::StationSide;

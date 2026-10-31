@@ -293,3 +293,8 @@ exact blocked-deletion comparison and accepted references in one immediate
 transaction. A successful retry rebases the existing pending deletion; normal
 preparation allocates its proposal counter later. Other resolution paths also
 reject a tag/equipment deletion while accepted referrers survive.
+
+An ordinary local edit made while review is pending refreshes that comparison's
+local values atomically with the working record. It preserves the conflict and
+its original/shared evidence. A previously opened review still becomes stale;
+the operator must explicitly refresh it before resolving the new working facts.

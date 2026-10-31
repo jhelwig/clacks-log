@@ -295,9 +295,14 @@ History and Worked Before show this client’s saved working version with pendin
 
 ## Account-wide local review (D182)
 
-See the [#15 integration proposal](conflict-review-proposal.md) for proposed
-presentation, editor reuse and storage wiring. Its engineering defaults remain
-subject to review.
+An ordinary saved edit during review updates the persisted comparison's local
+values in the same transaction as its working record, preserving the conflict
+and original/shared evidence. Already opened comparisons remain pinned and
+require explicit refresh before resolution against the changed values.
+
+See the [#15 integration contract](conflict-review-proposal.md) for presentation,
+editor reuse and storage wiring. Its engineering choices are distinguished from
+agreed behavior.
 
 The **Unsynchronized changes** window spans this client's work throughout the
 account (D383). Separate **Conflicts** and **Pending sync** into independently

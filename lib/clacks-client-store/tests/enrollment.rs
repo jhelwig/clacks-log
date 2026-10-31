@@ -158,7 +158,7 @@ async fn reauthorized_work_requires_usable_explicit_review() -> anyhow::Result<(
         .await?;
     incoming.finish(&store).await?;
     let mut snapshot = clacks_client_store::read::snapshot(&store).await?;
-    let reviews = snapshot.review(&Default::default()).await?;
+    let reviews = snapshot.review_page(&Default::default()).await?.rows;
     let shown = reviews
         .iter()
         .find(|row| row.record.key() == key)

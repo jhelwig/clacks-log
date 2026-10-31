@@ -135,12 +135,6 @@ pub struct ReviewPage {
 }
 
 impl ReadSnapshot {
-    /// Read pending and unresolved records account-wide, including deleted and untagged values.
-    #[tracing::instrument(skip_all, name = "client_store.review.read", level = "debug", fields(account_id = %self.account, limit = query.limit))]
-    pub async fn review(&mut self, query: &ReviewQuery) -> anyhow::Result<Vec<ReviewRow>> {
-        Ok(self.review_page(query).await?.rows)
-    }
-
     /// Read one bounded section and full counts using the same durable snapshot.
     ///
     /// Use the returned continuation only with the same section/type selection.

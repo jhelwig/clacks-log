@@ -8,6 +8,7 @@ use crate::{
         settings::{
             SettingsAction, SettingsRequest, SettingsResponse,
             contacts::{ContactAction, ContactResponse},
+            review::{ReviewAction, ReviewResponse},
         },
     },
 };
@@ -184,6 +185,7 @@ pub(super) async fn verify(
         identity::bind(&store, None, binding.clone()).await?;
         store.close().await?;
     }
+    let second_database = second.resources.paths.database.clone();
     let first_task = tokio::spawn(session::run(first.resources, first.input, first.updates));
     let second_task = tokio::spawn(session::run(second.resources, second.input, second.updates));
     session::tests::next_matching(&mut first.status, |state| {
@@ -254,6 +256,45 @@ pub(super) async fn verify(
     second.commands.send(SessionCommand::BeginShutdown).await?;
     second_task.await??;
     drop(second._owner);
+    // Real offline edits remain local until this independently authorized client resumes.
+    let offline_store = ClientStore::open_discovered(&second_database, Default::default()).await?;
+    let key = clacks_sync::record::RecordKey {
+        account: second_binding.account,
+        id: clacks_sync::record::RecordId::Qso(id),
+    };
+    let offline_basis = clacks_client_store::save::load(&offline_store, key)
+        .await?
+        .unwrap();
+    let mut offline_values = corrected.clone().into_fields();
+    offline_values.comment = Some("Offline correction awaiting review".into());
+    clacks_client_store::save::save(
+        &offline_store,
+        key,
+        Some(&offline_basis),
+        clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(Box::new(
+            offline_values.try_into()?,
+        ))),
+    )
+    .await?;
+    let mut unrelated = corrected.clone().into_fields();
+    unrelated.id = QsoId::new();
+    unrelated.comment = Some("Unrelated offline contact".into());
+    let unrelated = clacks_model::contact::Qso::try_from(unrelated)?;
+    let unrelated_id = unrelated.id();
+    let unrelated_key = clacks_sync::record::RecordKey {
+        account: second_binding.account,
+        id: clacks_sync::record::RecordId::Qso(unrelated_id),
+    };
+    clacks_client_store::save::save(
+        &offline_store,
+        unrelated_key,
+        None,
+        clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(Box::new(
+            unrelated,
+        ))),
+    )
+    .await?;
+    offline_store.close().await?;
     let expected = contact(&first.settings, &mut first.settings_view, id, |row| {
         row.pending().is_none()
     })
@@ -281,7 +322,42 @@ pub(super) async fn verify(
         matches!(state, session::SessionStatus::Ready { .. })
     })
     .await?;
-    contact(&second.settings, &mut second.settings_view, id, |row| row.pending().is_none() && matches!(row.working_state(),Some(clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(qso))) if qso.comment().as_deref() == Some("Catch up after offline restart"))).await?;
+    contact(&second.settings, &mut second.settings_view, id, |row| row.pending().is_some() && matches!(row.latest(), clacks_sync::record::Observation::Accepted(shared) if matches!(shared.state(), clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(qso)) if qso.comment().as_deref() == Some("Catch up after offline restart")))).await?;
+    // Unrelated pending work publishes while the first contact still requires review.
+    contact(
+        &first.settings,
+        &mut first.settings_view,
+        unrelated_id,
+        |row| row.pending().is_none(),
+    )
+    .await?;
+    let SettingsResponse::Review(ReviewResponse::Record {
+        row: Some(review), ..
+    }) = action(
+        &second.settings,
+        SettingsAction::Review(ReviewAction::ReadRecord { key }),
+    )
+    .await?
+    else {
+        panic!("review record")
+    };
+    let shown = review.review.clone().expect("real concurrent correction");
+    let Some(clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(local))) =
+        review.record.working_state()
+    else {
+        panic!("local contact")
+    };
+    let mut resolved = local.as_ref().clone().into_fields();
+    resolved.comment = Some("Explicit combined resolution".into());
+    assert!(
+        matches!(action(&second.settings, SettingsAction::Review(ReviewAction::Resolve {
+        expected: Box::new(review.record), shown: Box::new(shown),
+        chosen: clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(Box::new(resolved.try_into()?))),
+    })).await?, SettingsResponse::Review(ReviewResponse::Resolved { outcome, .. }) if matches!(*outcome, SaveOutcome::Saved(_)))
+    );
+    contact(&second.settings, &mut second.settings_view, id, |row| row.pending().is_none() && matches!(row.working_state(),Some(clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(qso))) if qso.comment().as_deref() == Some("Explicit combined resolution"))).await?;
+    contact(&first.settings, &mut first.settings_view, id, |row| row.pending().is_none() && matches!(row.working_state(),Some(clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(qso))) if qso.comment().as_deref() == Some("Explicit combined resolution"))).await?;
+
     browser
         .post(format!(
             "{origin}{}",

@@ -101,9 +101,9 @@ impl MembershipPicker {
         }
     }
 
-    /// Replace one contact's resolved set while retaining the current search text.
+    /// Refresh catalog choices and one contact's resolved set, retaining search text.
     ///
-    /// Use after an explicit local/shared source shortcut in conflict review.
+    /// Use when the available logbooks or the resolved membership changes.
     pub fn replace_single(&mut self, catalog: &LogbookSnapshot, membership: &BTreeSet<TagId>) {
         let search = std::mem::take(&mut self.search);
         *self = Self::new(catalog, std::slice::from_ref(membership));
