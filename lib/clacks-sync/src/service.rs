@@ -3,9 +3,7 @@
 pub mod association;
 pub mod combination;
 pub mod dependency;
-pub mod download;
 pub mod operation;
-pub mod recovery;
 pub mod retention;
 
 use crate::{
@@ -348,80 +346,4 @@ pub(crate) fn check_namespace(
         }));
     }
     Ok(Ok(()))
-}
-
-/// Retain an admitted namespace refinement for later members of the same transaction.
-pub(crate) fn retain_destination(destinations: &mut Vec<Destination>, row: &AcceptedRecord) {
-    let Some(record) = payload(row) else {
-        return;
-    };
-    let proposed = match &record.payload {
-        ServicePayload::Destination(d) => Some(d),
-        _ => record.support.destination.as_ref(),
-    };
-    let Some(proposed) = proposed else {
-        return;
-    };
-    if let Some(old) = destinations.iter_mut().find(|d| d.id == proposed.id) {
-        if matches!(
-            &old.collection,
-            clacks_model::service::destination::RemoteCollection::Qrz { book_id: None }
-        ) && matches!(
-            &proposed.collection,
-            clacks_model::service::destination::RemoteCollection::Qrz { book_id: Some(_) }
-        ) {
-            *old = proposed.clone();
-        }
-    } else {
-        destinations.push(proposed.clone());
-    }
-}
-
-/// Identify candidates that establish a known namespace before unrelated members are admitted.
-///
-/// This only supplies planning priority; ordinary admission must still validate the
-/// proposed identity and all source guards before retaining it.
-fn refines_destination(destinations: &[Destination], state: &RecordState) -> bool {
-    let RecordState::Live(RecordValue::Service(record)) = state else {
-        return false;
-    };
-    let proposed = match &record.payload {
-        ServicePayload::Destination(d) => Some(d),
-        _ => record.support.destination.as_ref(),
-    };
-    proposed.is_some_and(|proposed| {
-        matches!(
-            &proposed.collection,
-            clacks_model::service::destination::RemoteCollection::Qrz { book_id: Some(_) }
-        ) && destinations.iter().any(|old| {
-            old.id == proposed.id
-                && matches!(
-                    &old.collection,
-                    clacks_model::service::destination::RemoteCollection::Qrz { book_id: None }
-                )
-        })
-    })
-}
-
-/// Prioritize namespace refinements and their pending prerequisites before unrelated candidates.
-pub(crate) fn namespace_prerequisites(
-    destinations: &[Destination],
-    candidates: &[(RecordKey, &RecordState, Vec<RecordKey>)],
-) -> std::collections::BTreeSet<RecordKey> {
-    let mut required: std::collections::BTreeSet<_> = candidates
-        .iter()
-        .filter(|(_, state, _)| refines_destination(destinations, state))
-        .map(|(key, _, _)| *key)
-        .collect();
-    loop {
-        let before = required.len();
-        for (key, _, dependencies) in candidates {
-            if required.contains(key) {
-                required.extend(dependencies.iter().copied());
-            }
-        }
-        if required.len() == before {
-            return required;
-        }
-    }
 }

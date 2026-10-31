@@ -136,11 +136,9 @@ fn service_operations_preserve_input_scope_and_missing_record_identity() -> anyh
         },
     };
     use clacks_sync::service::{
-        ExternalBindingObservation, ServiceRecord, ServiceSupport, ServiceView,
-        association::{BindingInput, plan_binding},
+        ServiceRecord, ServiceSupport, ServiceView,
         combination::{ObservationSelectionInput, select_observations},
         dependency::{self, DependencyStatus},
-        operation::ServiceDecision,
     };
     let (account, baseline) =
         AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
@@ -155,7 +153,6 @@ fn service_operations_preserve_input_scope_and_missing_record_identity() -> anyh
         bindings: &[],
         evidence: &evidence,
     };
-    let target = Observation::Accepted(support::accepted(200, "fixture"));
     for n in [42, 43] {
         let destination = Destination {
             id: support::id(n),
@@ -197,11 +194,6 @@ fn service_operations_preserve_input_scope_and_missing_record_identity() -> anyh
             destination: destination.id,
             record: RemoteRecordId::Qrz("7".parse().unwrap()),
         };
-        let index = ExternalBindingObservation {
-            account: account.account,
-            external: external.clone(),
-            binding: None,
-        };
         let association = ExternalAssociation {
             id: support::id(n + 200),
             external: external.clone(),
@@ -233,24 +225,6 @@ fn service_operations_preserve_input_scope_and_missing_record_identity() -> anyh
             Some(&missing.first().unwrap().key.id.to_string())
         );
         assert!(!event.fields.contains_key("duration_seconds"));
-        let captured = capture(|| {
-            plan_binding(&BindingInput {
-                account: account.account,
-                association: &association,
-                index: &index,
-                target: &target,
-            })
-        });
-        assert!(matches!(captured.result, Ok(ServiceDecision::Ready(_))));
-        let span = captured.span("sync.association.binding.plan");
-        assert_eq!(
-            span.fields.get("association_id"),
-            Some(&association.id.to_string())
-        );
-        assert_eq!(
-            span.fields.get("destination_id"),
-            Some(&destination.id.to_string())
-        );
         let captured = capture(|| {
             select_observations(&ObservationSelectionInput {
                 external: &external,

@@ -1,11 +1,6 @@
-//! Account-wide downloaded-contact matching and guarded external bindings.
+//! Account-wide downloaded-contact matching.
 
-use super::{ExternalBindingGuard, ExternalBindingObservation, operation::ServiceDecision};
-use crate::{
-    client::VersionCondition,
-    record::{AcceptedRecord, Observation, RecordId, RecordState, RecordValue},
-};
-use clacks_model::service::evidence::processing::{AssociationState, ExternalAssociation};
+use crate::record::{AcceptedRecord, RecordState, RecordValue};
 use clacks_model::{
     contact::{BandFrequency, Qso},
     ids::{AccountId, QsoId},
@@ -19,103 +14,6 @@ use clacks_model::{
         lotw::{LotwConfiguration, normalize_mode},
     },
 };
-
-/// Selected association and the explicit transactional index/target observations.
-pub struct BindingInput<'a> {
-    /// Account owning both records.
-    pub account: AccountId,
-    /// Requested binding state.
-    pub association: &'a ExternalAssociation,
-    /// Unique-index lookup, including certified absence.
-    pub index: &'a ExternalBindingObservation,
-    /// Selected contact or retained contact deletion.
-    pub target: &'a Observation,
-}
-
-/// Binding mutation guarded against competing assignments and target changes.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BindingChange {
-    /// Approved binding values.
-    pub association: ExternalAssociation,
-    /// Unique namespace condition required in the real transaction.
-    pub guard: ExternalBindingGuard,
-    /// Selected target version required in the real transaction.
-    pub target: VersionCondition,
-}
-
-/// Validate a binding choice without treating an omitted index read as absence.
-#[tracing::instrument(
-    skip_all,
-    name = "sync.association.binding.plan",
-    level = "debug",
-    fields(
-        account_id = %input.account,
-        qso_id = %input.association.qso,
-        association_id = %input.association.id,
-        destination_id = %input.association.external.destination,
-    ),
-)]
-pub fn plan_binding(input: &BindingInput<'_>) -> anyhow::Result<ServiceDecision<BindingChange>> {
-    let a = input.association;
-    anyhow::ensure!(
-        input.index.account == input.account
-            && input.target.key().account == input.account
-            && input.index.external == a.external,
-        "binding account/namespace mismatch"
-    );
-    anyhow::ensure!(
-        input.target.key().id == RecordId::Qso(a.qso),
-        "binding target differs from selected QSO"
-    );
-    input.target.validate()?;
-    if let Some(b) = &input.index.binding
-        && (b.association != a.id
-            || b.qso != a.qso
-            || (b.state != AssociationState::Active && a.state == AssociationState::Active))
-    {
-        tracing::debug!(
-            event = "association.binding_conflict",
-            existing_association_id = %b.association,
-            existing_qso_id = %b.qso,
-            existing_state = ?b.state,
-            requested_state = ?a.state,
-        );
-        return Ok(ServiceDecision::Review(
-            "external record already has a different or historical binding".into(),
-        ));
-    }
-    let valid = matches!(
-        (a.state, input.target),
-        (
-            AssociationState::Active,
-            Observation::Accepted(AcceptedRecord {
-                state: RecordState::Live(RecordValue::Qso(_)),
-                ..
-            })
-        ) | (
-            AssociationState::DeletedQso,
-            Observation::Accepted(AcceptedRecord {
-                state: RecordState::Deleted,
-                ..
-            })
-        )
-    ) || a.state == AssociationState::Superseded;
-    if !valid {
-        tracing::debug!(event = "association.target_incompatible", requested_state = ?a.state);
-        return Ok(ServiceDecision::Incomplete(
-            "binding target state unavailable or incompatible".into(),
-        ));
-    }
-    Ok(ServiceDecision::Ready(BindingChange {
-        association: a.clone(),
-        guard: ExternalBindingGuard {
-            account: input.account,
-            external: a.external.clone(),
-            expected: input.index.binding.clone(),
-        },
-        target: VersionCondition::from_observation(input.target)?,
-    }))
-}
 
 /// Read view used for matching a downloaded report across every account tag.
 pub struct CandidateInput<'a> {
