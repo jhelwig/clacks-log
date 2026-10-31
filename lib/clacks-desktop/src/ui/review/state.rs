@@ -131,7 +131,13 @@ impl ReviewUi {
                             }
                         } else if self.open
                             && self.selected == Some(key)
-                            && matches!(row.record.key().id, RecordId::Qso(_))
+                            && matches!(
+                                row.record.key().id,
+                                RecordId::Qso(_)
+                                    | RecordId::Profile(_)
+                                    | RecordId::Equipment(_)
+                                    | RecordId::Tag(_)
+                            )
                         {
                             match super::comparison::ReviewEditor::new(basis) {
                                 Ok(editor) => {

@@ -494,3 +494,15 @@ and bounded continuation. Ordinary pending deletions remain visible here while
 hidden from contact history. Logbook membership does not scope synchronization.
 The window reads committed workspace snapshots through the normal session; it
 leaves the selected history view and unfinished logging entry in place.
+
+Conflicting contacts, saved station profiles, equipment configurations and
+logbook tags use explicit per-field choices and direct validated edits. Source
+choices copy native values, including unfamiliar labels and imported location
+precision. Membership starts with the local set and is edited directly.
+Resolving a saved source does not load it into active operating settings.
+
+Drafts remain in the review window while navigating. New comparison evidence
+marks a draft outdated; explicit refresh retains its inputs and requires
+reconsidering fields whose compared values changed. Saving checks the exact
+record, review and live references in one transaction, and creates pending local
+work for the normal synchronization path.

@@ -107,3 +107,57 @@ async fn resolution_save_rechecks_basis_and_live_references() -> anyhow::Result<
     store.close().await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn saved_source_resolution_does_not_apply_operating_values() -> anyhow::Result<()> {
+    use crate::settings_support;
+    use clacks_client_store::{
+        operating::{self, OperatingState},
+        settings,
+    };
+    use clacks_sync::record::RecordValue;
+    let workspace = logbook_support::Workspace::new().await?;
+    let store = &workspace.store;
+    let equipment = settings_support::equipment(40, "Rig A");
+    settings::save_equipment(store, None, &equipment).await?;
+    let profile = settings_support::profile(41, None);
+    let original = support::accepted(
+        1,
+        RecordState::Live(RecordValue::Profile(Box::new(profile.clone()))),
+    );
+    let (_, baseline) = AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
+    let mut incoming = remember(store, &original, baseline).await?;
+    incoming
+        .page(store, std::slice::from_ref(&original))
+        .await?;
+    incoming.finish(store).await?;
+    let active = settings_support::operating(&profile, &equipment);
+    operating::save(store, &OperatingState::default(), &active).await?;
+    let history = support::qso(support::id(101));
+    let history_key = support::qso_key(history.id());
+    save::save(store, history_key, None, support::contact(history)).await?;
+    let history_before = save::load(store, history_key).await?;
+    let before = save::load(store, original.key()).await?.unwrap();
+    let mut local = profile.clone().into_fields();
+    local.name = "Local name".into();
+    settings::save_profile(store, Some(&before), &local.try_into()?).await?;
+    let mut remote = profile.into_fields();
+    remote.name = "Shared name".into();
+    let shared = support::accepted(
+        2,
+        RecordState::Live(RecordValue::Profile(Box::new(remote.clone().try_into()?))),
+    );
+    synchronization::receive(store, &shared).await?;
+    let mut snapshot = read::snapshot(store).await?;
+    let row = snapshot.review_record(original.key()).await?.unwrap();
+    snapshot.close().await?;
+    remote.default_equipment = Some(equipment.id());
+    let chosen = RecordState::Live(RecordValue::Profile(Box::new(remote.try_into()?)));
+    assert!(
+        matches!(synchronization::resolve(store, &row.record, row.review.as_ref().unwrap(), chosen.clone()).await?, SaveOutcome::Saved(record) if record.working_state() == Some(&chosen))
+    );
+    assert_eq!(operating::load(store).await?, active);
+    assert_eq!(save::load(store, history_key).await?, history_before);
+    store.close().await?;
+    Ok(())
+}

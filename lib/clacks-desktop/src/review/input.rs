@@ -34,6 +34,16 @@ pub(crate) enum FieldInput {
         /// Existing editable reference rows, including their preservation metadata.
         rows: Vec<ReferenceForm>,
     },
+    /// Selected native optional equipment reference.
+    Equipment {
+        /// Default configuration, absent for no default.
+        selected: Option<clacks_model::ids::EquipmentConfigurationId>,
+    },
+    /// Independent service upload policy.
+    Policy {
+        /// Explicit contribution of the tag.
+        value: clacks_model::tag::AutomaticUploadPolicy,
+    },
     /// Direct resolved membership; never a mixed selection of contacts.
     Membership {
         /// Complete set that will be saved.
@@ -93,6 +103,10 @@ impl FieldInput {
                         .join(", ")
                 }
             }
+            Self::Equipment { selected } => selected
+                .map(|id| id.to_string())
+                .unwrap_or_else(|| "No default".into()),
+            Self::Policy { value } => format!("{value:?}"),
             Self::Membership { tags } => {
                 if tags.is_empty() {
                     "Untagged".into()

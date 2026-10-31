@@ -251,3 +251,152 @@ fn sync_record(basis: &mut ComparisonBasis) {
     fields.latest = basis.review.shared.clone();
     basis.record = fields.try_into().unwrap();
 }
+
+#[test]
+fn saved_source_fields_require_explicit_choices_without_loading_operating_values()
+-> anyhow::Result<()> {
+    use super::fields::ProfileField;
+    let station = clacks_model::contact::StationSnapshot {
+        callsign: RecordedCallsign::new("W7HEX")?,
+        location: None,
+        references: Default::default(),
+    };
+    let profile: clacks_model::profile::SavedLocationProfile =
+        clacks_model::profile::SavedLocationProfileFields {
+            id: Default::default(),
+            name: "Home".into(),
+            station,
+            default_equipment: None,
+        }
+        .try_into()?;
+    let mut changed = profile.clone().into_fields();
+    changed.name = "Portable".into();
+    let basis = saved_basis(
+        RecordValue::Profile(Box::new(profile.clone())),
+        RecordValue::Profile(Box::new(changed.try_into()?)),
+    );
+    let mut draft = ResolutionDraft::new(basis)?;
+    assert!(draft.build(&Default::default()).is_err());
+    draft.select(
+        FieldId::Profile(ProfileField::Name),
+        ComparisonSource::Shared,
+    )?;
+    let RecordState::Live(RecordValue::Profile(resolved)) =
+        draft.build(&Default::default()).unwrap()
+    else {
+        panic!("profile")
+    };
+    assert_eq!(resolved.name(), "Portable");
+    assert_eq!(resolved.station(), profile.station());
+    Ok(())
+}
+
+pub(crate) fn saved_basis(local: RecordValue, shared: RecordValue) -> ComparisonBasis {
+    let source = basis();
+    let key = RecordKey {
+        account: source.record.key().account,
+        id: local.id(),
+    };
+    let Observation::Accepted(old) = source.review.shared else {
+        panic!("accepted")
+    };
+    let shared = Observation::Accepted(
+        AcceptedRecord::new(key, RecordState::Live(shared), old.stamp).unwrap(),
+    );
+    let local = RecordState::Live(local);
+    let original = OriginalBasis::Unavailable {
+        key,
+        reason: clacks_sync::error::UnknownReason::MissingOriginal,
+    };
+    let record = clacks_sync::client::ClientRecordFields {
+        key,
+        latest: shared.clone(),
+        retained: vec![],
+        pending: Some(PendingRecord {
+            key,
+            original: original.clone(),
+            working: local.clone(),
+            prepared: None,
+            witness: None,
+        }),
+    }
+    .try_into()
+    .unwrap();
+    ComparisonBasis {
+        record,
+        review: ReviewInput {
+            original,
+            local,
+            shared,
+            reason: ReviewReason::MissingOriginal,
+            retained: vec![],
+        },
+    }
+}
+
+#[test]
+fn saved_equipment_and_independent_upload_policies_resolve_as_native_fields() -> anyhow::Result<()>
+{
+    use super::fields::{EquipmentField, TagField};
+    use clacks_model::{
+        profile::EquipmentConfigurationFields,
+        tag::{AutomaticUploadPolicy, LogbookTag},
+    };
+    let original: clacks_model::profile::EquipmentConfiguration = EquipmentConfigurationFields {
+        id: Default::default(),
+        name: "Rig A".into(),
+        values: clacks_model::equipment::EquipmentValuesFields {
+            equipment_description: Some("KX3".into()),
+            ..Default::default()
+        },
+    }
+    .try_into()?;
+    let mut changed = original.clone().into_fields();
+    changed.values.antenna_description = Some("Vertical".into());
+    let mut draft = ResolutionDraft::new(saved_basis(
+        RecordValue::Equipment(Box::new(original)),
+        RecordValue::Equipment(Box::new(changed.try_into()?)),
+    ))?;
+    draft.select(
+        FieldId::Equipment(EquipmentField::Antenna),
+        ComparisonSource::Shared,
+    )?;
+    draft.set_custom(
+        FieldId::Equipment(EquipmentField::Name),
+        FieldInput::Text {
+            value: "Portable rig".into(),
+        },
+    );
+    let RecordState::Live(RecordValue::Equipment(value)) =
+        draft.build(&Default::default()).unwrap()
+    else {
+        panic!("equipment")
+    };
+    assert_eq!(value.name(), "Portable rig");
+    assert_eq!(
+        value.values().equipment_description().as_deref(),
+        Some("KX3")
+    );
+    assert_eq!(
+        value.values().antenna_description().as_deref(),
+        Some("Vertical")
+    );
+    let mut local = LogbookTag::new(Default::default(), "Main".into());
+    local.automatic_upload.lotw = AutomaticUploadPolicy::Enable;
+    let mut shared = local.clone();
+    shared.automatic_upload.lotw = AutomaticUploadPolicy::Forbid;
+    shared.automatic_upload.qrz = AutomaticUploadPolicy::Enable;
+    let mut draft = ResolutionDraft::new(saved_basis(
+        RecordValue::Tag(Box::new(local)),
+        RecordValue::Tag(Box::new(shared)),
+    ))?;
+    draft.select(FieldId::Tag(TagField::Lotw), ComparisonSource::Local)?;
+    draft.select(FieldId::Tag(TagField::Qrz), ComparisonSource::Shared)?;
+    let RecordState::Live(RecordValue::Tag(value)) = draft.build(&Default::default()).unwrap()
+    else {
+        panic!("tag")
+    };
+    assert_eq!(value.automatic_upload.lotw, AutomaticUploadPolicy::Enable);
+    assert_eq!(value.automatic_upload.qrz, AutomaticUploadPolicy::Enable);
+    Ok(())
+}

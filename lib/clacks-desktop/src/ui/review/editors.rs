@@ -17,6 +17,7 @@ pub(super) fn show(
     label: &str,
     input: &mut FieldInput,
     definitions: &DefinitionSet,
+    settings: &clacks_client_store::settings::SettingsSnapshot,
     errors: &[FieldError],
     edited: bool,
 ) -> bool {
@@ -78,6 +79,22 @@ pub(super) fn show(
         }
         FieldInput::References { rows } => {
             operating_fields::references(ui, "review.references", rows, definitions, errors)
+        }
+        FieldInput::Equipment { selected } => {
+            let before = *selected;
+            crate::ui::equipment::default_selector(
+                ui,
+                "review.default_equipment",
+                selected,
+                &settings.equipment,
+                &Default::default(),
+            );
+            before != *selected
+        }
+        FieldInput::Policy { value } => {
+            let before = *value;
+            crate::ui::logbooks::editor::policy(ui, label, value, edited);
+            before != *value
         }
         FieldInput::Membership { .. } => false,
     }

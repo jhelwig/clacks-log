@@ -1,6 +1,7 @@
 //! Native field identities for the concrete recorded-contact comparison.
 
 pub(super) mod qso;
+pub(super) mod settings;
 pub(super) mod station;
 
 use clacks_model::reference::StationSide;
@@ -10,6 +11,12 @@ use clacks_model::reference::StationSide;
 pub(crate) enum FieldId {
     /// One recorded contact field.
     Qso(QsoField),
+    /// Saved station profile field.
+    Profile(ProfileField),
+    /// Reusable equipment field.
+    Equipment(EquipmentField),
+    /// Named logbook field.
+    Tag(TagField),
 }
 
 /// Station snapshot members; position remains one coupled native value.
@@ -122,7 +129,26 @@ impl FieldId {
 
     /// Label the native field without treating its label as its identity.
     pub fn label(self) -> String {
-        let Self::Qso(field) = self;
+        let field = match self {
+            Self::Qso(field) => field,
+            Self::Profile(ProfileField::Station(field)) => {
+                return Self::Qso(QsoField::Station {
+                    side: StationSide::Own,
+                    field,
+                })
+                .label();
+            }
+            Self::Profile(ProfileField::Name)
+            | Self::Equipment(EquipmentField::Name)
+            | Self::Tag(TagField::Name) => return "Name".into(),
+            Self::Profile(ProfileField::DefaultEquipment) => return "Default equipment".into(),
+            Self::Equipment(EquipmentField::Description) => return "Equipment".into(),
+            Self::Equipment(EquipmentField::Antenna) => return "Antenna".into(),
+            Self::Equipment(EquipmentField::Notes) => return "Equipment notes".into(),
+            Self::Tag(TagField::Lotw) => return "LoTW automatic uploads".into(),
+            Self::Tag(TagField::Qrz) => return "QRZ automatic uploads".into(),
+        };
+
         match field {
             QsoField::Station { side, field } => format!(
                 "{} {}",
@@ -160,4 +186,39 @@ impl FieldId {
             QsoField::Tags => "Logbook membership".into(),
         }
     }
+}
+
+/// Individually resolved reusable station-profile facts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum ProfileField {
+    /// Display name.
+    Name,
+    /// One recorded station member.
+    Station(StationField),
+    /// Optional reusable equipment identity.
+    DefaultEquipment,
+}
+
+/// Individually resolved equipment configuration facts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum EquipmentField {
+    /// Display name.
+    Name,
+    /// Copied rig description.
+    Description,
+    /// Copied antenna description.
+    Antenna,
+    /// Equipment notes.
+    Notes,
+}
+
+/// Named-tag facts; service policies are independent choices.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum TagField {
+    /// Display name.
+    Name,
+    /// LoTW automatic-upload contribution.
+    Lotw,
+    /// QRZ automatic-upload contribution.
+    Qrz,
 }

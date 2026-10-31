@@ -24,7 +24,7 @@ fn review_sections_request_independent_pages() {
 }
 
 #[test]
-fn resolution_drafts_preserve_navigation_and_originating_outcomes() -> anyhow::Result<()> {
+fn originating_outcomes_preserve_stale_drafts_and_survive_window_close() -> anyhow::Result<()> {
     use crate::review::{
         comparison::ComparisonSource,
         fields::{FieldId, QsoField},
@@ -48,8 +48,6 @@ fn resolution_drafts_preserve_navigation_and_originating_outcomes() -> anyhow::R
         },
     );
     view.drafts.insert(key, editor);
-    view.selected = None;
-    view.selected = Some(key);
     assert!(
         matches!(view.drafts.get(&key).unwrap().draft.input(FieldId::Qso(QsoField::Comment))?, FieldInput::Text { value } if value == "My combined comment")
     );

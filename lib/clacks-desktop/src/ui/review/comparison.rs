@@ -229,7 +229,7 @@ impl ReviewEditor {
         for error in self
             .errors
             .iter()
-            .filter(|error| error.field == "Contact" || error.field == "Comparison")
+            .filter(|error| error.field == "Record" || error.field == "Comparison")
         {
             feedback::problem(ui, &error.message);
         }
@@ -375,6 +375,7 @@ impl ReviewEditor {
                 &label,
                 &mut input,
                 definitions,
+                settings,
                 if self.draft.needs_choice(field) {
                     &[]
                 } else {

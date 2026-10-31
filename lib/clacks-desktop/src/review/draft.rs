@@ -2,14 +2,14 @@
 
 use super::{
     comparison::{ComparisonBasis, ComparisonSource},
-    fields::{self, FieldId, QsoField},
+    fields::{FieldId, QsoField, settings::NativeFields},
     input::FieldInput,
 };
 use crate::operating::{FieldError, issue};
-use clacks_model::{contact::input::QsoFields, group::DefinitionSet, ids::TagId};
+use clacks_model::{group::DefinitionSet, ids::TagId};
 use clacks_sync::{
     client::OriginalBasis,
-    record::{Observation, RecordState, RecordValue},
+    record::{Observation, RecordState},
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -19,7 +19,7 @@ pub(crate) struct ResolutionDraft {
     /// Exact saved roles shown and required by the guarded save.
     pub basis: ComparisonBasis,
     /// Native source-selected fields; invalid cross-field combinations remain editable.
-    seed: QsoFields,
+    seed: NativeFields,
     /// Explicitly edited text/control inputs, parsed only when building a result.
     custom: BTreeMap<FieldId, FieldInput>,
     /// Fields with an explicit resolved choice against the current comparison.
@@ -39,13 +39,8 @@ impl ResolutionDraft {
             basis.record.key() == basis.review.shared.key(),
             "Comparison belongs to another record"
         );
-        let seed = match &basis.review.local {
-            RecordState::Live(RecordValue::Qso(qso)) => qso.clone().into_fields(),
-            _ => match basis.source(&ComparisonSource::Shared)? {
-                RecordState::Live(RecordValue::Qso(qso)) => qso.clone().into_fields(),
-                _ => anyhow::bail!("This comparison has no live contact values"),
-            },
-        };
+        let seed = NativeFields::from_state(&basis.review.local)
+            .or_else(|_| NativeFields::from_state(basis.source(&ComparisonSource::Shared)?))?;
         Ok(Self {
             basis,
             seed,
@@ -61,13 +56,16 @@ impl ResolutionDraft {
     pub fn membership(&self) -> Option<&BTreeSet<TagId>> {
         match self.custom.get(&FieldId::Qso(QsoField::Tags)) {
             Some(FieldInput::Membership { tags }) => Some(tags),
-            _ => Some(&self.seed.tags),
+            _ => match &self.seed {
+                NativeFields::Qso(value) => Some(&value.tags),
+                _ => None,
+            },
         }
     }
 
     /// Return native fields in normal contact presentation order.
     pub fn fields(&self) -> Vec<FieldId> {
-        FieldId::qso_fields()
+        self.seed.fields()
     }
 
     /// Identify an actual local/shared difference without parsing displayed text.
@@ -88,6 +86,9 @@ impl ResolutionDraft {
             return "Original values unavailable";
         }
         let original = self.basis.review.original.state();
+        if original.is_none() {
+            return "No original recorded values";
+        }
         let local_same = original.is_some_and(|v| same(v, Some(&self.basis.review.local), field));
         let shared_same = original
             .is_some_and(|v| same(v, self.basis.source(&ComparisonSource::Shared).ok(), field));
@@ -101,9 +102,8 @@ impl ResolutionDraft {
 
     /// Copy a selected existing native field without a text round trip.
     pub fn select(&mut self, field: FieldId, source: ComparisonSource) -> anyhow::Result<()> {
-        let from = qso_fields(self.basis.source(&source)?)?;
-        let FieldId::Qso(qso_field) = field;
-        fields::qso::copy(&mut self.seed, &from, qso_field)?;
+        let from = NativeFields::from_state(self.basis.source(&source)?)?;
+        self.seed.copy(&from, field)?;
         self.custom.remove(&field);
         self.confirmed.insert(field);
         self.reconsider.remove(&field);
@@ -113,7 +113,7 @@ impl ResolutionDraft {
 
     /// Populate all choices from one existing native version without saving.
     pub fn select_all(&mut self, source: ComparisonSource) -> anyhow::Result<()> {
-        self.seed = qso_fields(self.basis.source(&source)?)?;
+        self.seed = NativeFields::from_state(self.basis.source(&source)?)?;
         self.custom.clear();
         self.reconsider.clear();
         for field in self.fields() {
@@ -136,8 +136,7 @@ impl ResolutionDraft {
         if let Some(input) = self.custom.get(&field) {
             return Ok(input.clone());
         }
-        let FieldId::Qso(field) = field;
-        Ok(fields::qso::input(&self.seed, field))
+        self.seed.input(field)
     }
 
     /// Format a source only for comparison display; copying uses native values.
@@ -146,9 +145,8 @@ impl ResolutionDraft {
         field: FieldId,
         source: &ComparisonSource,
     ) -> anyhow::Result<FieldInput> {
-        let value = qso_fields(self.basis.source(source)?)?;
-        let FieldId::Qso(field) = field;
-        Ok(fields::qso::input(&value, field))
+        let value = NativeFields::from_state(self.basis.source(source)?)?;
+        value.input(field)
     }
 
     /// Borrow a chosen source for standard selected-control presentation.
@@ -206,9 +204,8 @@ impl ResolutionDraft {
                 if self.confirmed.remove(&field) || self.custom.contains_key(&field) {
                     self.reconsider.insert(field);
                     self.sources.remove(&field);
-                } else if let Ok(from) = qso_fields(&next.review.local) {
-                    let FieldId::Qso(qso_field) = field;
-                    fields::qso::copy(&mut self.seed, &from, qso_field)?;
+                } else if let Ok(from) = NativeFields::from_state(&next.review.local) {
+                    self.seed.copy(&from, field)?;
                 }
             }
         }
@@ -242,36 +239,24 @@ impl ResolutionDraft {
         }
         let mut result = self.seed.clone();
         for (field, input) in &self.custom {
-            let FieldId::Qso(qso_field) = *field;
-            if let Err(error) = fields::qso::edit(&mut result, qso_field, input, definitions) {
+            if let Err(error) = result.edit(*field, input, definitions) {
                 errors.push(issue(&field.label(), error));
             }
         }
         if !errors.is_empty() {
             return Err(errors);
         }
-        let qso = result
-            .try_into()
-            .map_err(|error: anyhow::Error| vec![issue("Contact", error)])?;
-        Ok(RecordState::Live(RecordValue::Qso(Box::new(qso))))
-    }
-}
-
-/// Recover editable native contact members, refusing incompatible sources.
-fn qso_fields(state: &RecordState) -> anyhow::Result<QsoFields> {
-    match state {
-        RecordState::Live(RecordValue::Qso(value)) => Ok(value.clone().into_fields()),
-        _ => anyhow::bail!("This source has no live contact fields"),
+        result.build().map_err(|error| vec![issue("Record", error)])
     }
 }
 
 /// Compare one field only when both actual source values are available.
 fn same(a: &RecordState, b: Option<&RecordState>, field: FieldId) -> bool {
-    match (qso_fields(a), b.map(qso_fields).transpose()) {
-        (Ok(a), Ok(Some(b))) => {
-            let FieldId::Qso(field) = field;
-            fields::qso::same(&a, &b, field)
-        }
+    match (
+        NativeFields::from_state(a),
+        b.map(NativeFields::from_state).transpose(),
+    ) {
+        (Ok(a), Ok(Some(b))) => a.same(&b, field),
         _ => false,
     }
 }
