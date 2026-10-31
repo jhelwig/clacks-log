@@ -159,6 +159,13 @@ successful cases; abbreviated deadlines belong to cases that explicitly test
 slow or unavailable collectors. Keep narrow library-producer captures separate
 from verification of application composition.
 
+Desktop reporting checks that run database workers or other background threads
+use the process-owned subscriber throughout the workflow. Do not install an
+alternative thread-local capture subscriber around that work. Isolate checks
+requiring a different subscriber in the existing composition-test process, and
+keep the workflow's domain and reporting assertions together rather than
+repeating its storage setup solely to capture telemetry.
+
 Use ordinary existing functional tests to verify return values, domain data,
 synchronization semantics and serialization after instrumentation changes. Keep
 test collectors and fixtures in tests; no public production API exists solely

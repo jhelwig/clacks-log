@@ -1,6 +1,7 @@
 //! Composition checks use isolated processes to keep global framework state separate.
 
 mod collector;
+mod membership;
 mod operations;
 mod output;
 mod session;
@@ -72,7 +73,7 @@ fn log_output_failure_is_degraded_operation() -> anyhow::Result<()> {
 fn child_entry() -> anyhow::Result<()> {
     let directory = tempfile::tempdir()?;
     let case = std::env::var("CLACKS_TELEMETRY_CASE")?;
-    let collector = (case != "unavailable" && case != "unwritable")
+    let collector = (!matches!(case.as_str(), "unavailable" | "unwritable" | "membership"))
         .then(|| {
             collector::Collector::start(match case.as_str() {
                 "secrets" => collector::Reply::RejectSecret,
@@ -189,6 +190,8 @@ fn child_entry() -> anyhow::Result<()> {
     } else {
         let account = if let Some(key) = retry_key {
             key.account
+        } else if case == "membership" {
+            runtime.block_on(membership::run(&paths))?
         } else {
             runtime.block_on(operations::save_contact(&paths))?
         };
@@ -268,6 +271,9 @@ fn child_entry() -> anyhow::Result<()> {
                     "recorded callsigns must not enter telemetry"
                 );
             }
+        }
+        if case == "membership" {
+            membership::assert_report(&contents, account);
         }
         if case == "slow" {
             assert!(
@@ -462,4 +468,10 @@ fn literal_file_headers_and_decoded_environment_headers_reach_the_collector_unch
 #[test]
 fn retry_acknowledgment_keeps_correlation_without_logging_contact_facts() -> anyhow::Result<()> {
     child_case("retry")
+}
+
+#[test]
+fn membership_preparation_captures_the_selected_basis_and_reports_settled_changes()
+-> anyhow::Result<()> {
+    child_case("membership")
 }
