@@ -194,7 +194,7 @@ pub fn resolve_review(
         }
         Observation::Absent { key, checkpoint } => OriginalBasis::NeverCreated {
             key: *key,
-            checkpoint: checkpoint.clone(),
+            checkpoint: Some(checkpoint.clone()),
         },
         Observation::Unavailable { .. } => {
             return Err(MetadataError::Incomplete {

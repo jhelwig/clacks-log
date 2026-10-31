@@ -223,6 +223,9 @@ pub fn seal_basis(
             checkpoint: original,
             ..
         } => {
+            let original = original.as_ref().ok_or_else(|| MetadataError::Incomplete {
+                detail: "local creation has no certified absence checkpoint".into(),
+            })?;
             let source = expanded(original, evidence)?;
             if source.entries().all(|(timeline, revision)| {
                 checkpoint.coverage.covers(Position { timeline, revision })
@@ -255,7 +258,9 @@ pub fn seal_basis(
     let original_baseline = match &pending.original {
         OriginalBasis::Accepted(value) => Some(value.stamp.baseline()),
         OriginalBasis::SubsumedOwn { witness, .. } => Some(witness.baseline()),
-        OriginalBasis::NeverCreated { checkpoint, .. } => Some(checkpoint.baseline),
+        OriginalBasis::NeverCreated { checkpoint, .. } => {
+            checkpoint.as_ref().map(|value| value.baseline)
+        }
         OriginalBasis::Unavailable { .. } => None,
     };
     let baselines = evidence

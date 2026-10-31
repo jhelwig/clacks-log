@@ -107,11 +107,11 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
             key,
             original: OriginalBasis::NeverCreated {
                 key,
-                checkpoint: InstalledCheckpoint {
+                checkpoint: Some(InstalledCheckpoint {
                     account: account.account,
                     baseline: baseline.id,
                     coverage: account.installed.clone(),
-                },
+                }),
             },
             working: support::contact(support::qso(support::id(10))),
             prepared: None,
@@ -523,7 +523,7 @@ async fn absence_witness_survives_a_new_baseline_and_workspace_reopen() -> anyho
         panic!("local save")
     };
     assert!(matches!(&local.pending().unwrap().original,
-        OriginalBasis::NeverCreated { checkpoint, .. } if checkpoint.baseline == old_baseline.id));
+        OriginalBasis::NeverCreated { checkpoint: Some(checkpoint), .. } if checkpoint.baseline == old_baseline.id));
     let mut next_baseline = old_baseline.clone();
     next_baseline.id = support::id(4);
     let mut remote = support::qso(support::id(10));
@@ -577,7 +577,7 @@ async fn absence_witness_survives_a_new_baseline_and_workspace_reopen() -> anyho
         .as_ref()
         .expect("original comparison evidence sealed");
     assert!(
-        matches!(witness.original(), OriginalBasis::NeverCreated { checkpoint, .. }
+        matches!(witness.original(), OriginalBasis::NeverCreated { checkpoint: Some(checkpoint), .. }
         if checkpoint == &old_checkpoint)
     );
     assert!(

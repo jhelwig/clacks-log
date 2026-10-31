@@ -21,12 +21,12 @@ use serde::{Deserialize, Serialize};
 pub enum OriginalBasis {
     /// A previously incorporated accepted version.
     Accepted(AcceptedRecord),
-    /// Certified absence before local creation.
+    /// Known local creation, optionally accompanied by certified shared absence.
     NeverCreated {
         /// Account-qualified native identity.
         key: RecordKey,
-        /// Complete view establishing absence.
-        checkpoint: InstalledCheckpoint,
+        /// Complete view establishing shared absence, when already received.
+        checkpoint: Option<InstalledCheckpoint>,
     },
     /// Frozen own values known incorporated, without inventing their acceptance position.
     SubsumedOwn {
