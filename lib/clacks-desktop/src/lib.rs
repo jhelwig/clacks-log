@@ -7,6 +7,7 @@ mod instance;
 mod logbooks;
 mod logging;
 mod operating;
+mod review;
 mod session;
 mod synchronization;
 mod telemetry;

@@ -101,6 +101,30 @@ impl MembershipPicker {
         }
     }
 
+    /// Replace one contact's resolved set while retaining the current search text.
+    ///
+    /// Use after an explicit local/shared source shortcut in conflict review.
+    pub fn replace_single(&mut self, catalog: &LogbookSnapshot, membership: &BTreeSet<TagId>) {
+        let search = std::mem::take(&mut self.search);
+        *self = Self::new(catalog, std::slice::from_ref(membership));
+        self.search = search;
+    }
+
+    /// Keep unavailable source memberships visible without selecting or assigning them.
+    pub fn include_context(&mut self, tags: impl IntoIterator<Item = TagId>) {
+        for id in tags {
+            if !self.choices.iter().any(|choice| choice.id == id) {
+                self.choices.push(TagChoice {
+                    id,
+                    label: format!("Unavailable logbook · {id}"),
+                    initial: MembershipMark::None,
+                    current: MembershipMark::None,
+                    available: false,
+                });
+            }
+        }
+    }
+
     /// Return only explicit changes from the opening membership basis.
     pub fn intent(&self) -> MembershipIntent {
         let mut intent = MembershipIntent {

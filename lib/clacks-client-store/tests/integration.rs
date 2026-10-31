@@ -40,3 +40,5 @@ mod worked_before;
 mod membership;
 
 mod enrollment;
+
+mod resolution;

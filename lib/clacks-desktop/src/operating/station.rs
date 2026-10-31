@@ -55,7 +55,10 @@ impl ReferenceForm {
     }
 
     /// Apply group rules only to new or explicitly changed associations.
-    fn build(&self, definitions: &DefinitionSet) -> Result<ReferenceAssociation, FieldError> {
+    pub(crate) fn build(
+        &self,
+        definitions: &DefinitionSet,
+    ) -> Result<ReferenceAssociation, FieldError> {
         if !self.edited
             && let Some(original) = &self.original
         {

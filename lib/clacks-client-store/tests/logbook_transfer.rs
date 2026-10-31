@@ -19,7 +19,7 @@ use clacks_sync::{
 use logbook_support::Workspace;
 use support::id;
 
-async fn remember(
+pub(crate) async fn remember(
     store: &clacks_client_store::store::ClientStore,
     accepted: &AcceptedRecord,
     baseline: Baseline,

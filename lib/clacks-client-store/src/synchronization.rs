@@ -254,7 +254,19 @@ pub async fn resolve(
         return Ok(SaveOutcome::Stale { current: row });
     }
     let context = evidence(&mut transaction, store.account).await?;
+    for reference in acceptance::required_references(expected.key(), &chosen) {
+        let target = client::load(&mut transaction, reference).await?;
+        anyhow::ensure!(
+            target
+                .as_ref()
+                .and_then(ClientRecord::working_state)
+                .is_some_and(|state| matches!(state, RecordState::Live(_))),
+            "Cannot save resolution: referenced record {} is unavailable or deleted",
+            reference.id
+        );
+    }
     let record = clacks_sync::client::preparation::resolve_review(shown, chosen, &context.view())?;
+
     client::store(&mut transaction, &record).await?;
     review::store(&mut transaction, expected.key(), None).await?;
     if let clacks_sync::client::ReviewReason::ExcludedActor(former) = shown.reason {

@@ -1,15 +1,16 @@
 //! Non-modal account-wide pending-work presentation on the normal session path.
 
+mod comparison;
+mod editors;
+mod state;
+
 #[cfg(test)]
 mod tests;
 
 use super::{feedback, theme};
-use crate::session::settings::{
-    SettingsAction, SettingsRequest, SettingsResponse,
-    review::{ReviewAction, ReviewResponse},
-};
+use crate::session::settings::{SettingsRequest, SettingsResponse, review::ReviewAction};
 use clacks_client_store::{
-    read::review::{RecordKind, ReviewCounts, ReviewQuery, ReviewRow, ReviewSection},
+    read::review::{RecordKind, ReviewCounts, ReviewRow, ReviewSection},
     settings::SettingsSnapshot,
 };
 use clacks_sync::record::{RecordId, RecordKey, RecordState, RecordValue};
@@ -28,6 +29,14 @@ struct Section {
 /// Window-owned selection and requests, independent of logging inputs.
 #[derive(Default)]
 pub(super) struct ReviewUi {
+    /// Independent unsaved native drafts for visited conflicts.
+    drafts: std::collections::BTreeMap<RecordKey, comparison::ReviewEditor>,
+    /// Explicit comparison refresh requested for one record.
+    refresh_for: Option<RecordKey>,
+    /// Record whose admitted resolution awaits acknowledgment.
+    saving: Option<RecordKey>,
+    /// Validated frame output awaiting admission on the existing runtime.
+    submit: Option<SaveRequest>,
     /// Whether its native viewport should be shown.
     open: bool,
     /// Current record-type restriction; no logbook scope applies.
@@ -99,6 +108,19 @@ impl ReviewUi {
                     });
             },
         );
+        if let Some(save) = self.submit.take() {
+            let key = save.expected.key();
+            if self.request(
+                ReviewAction::Resolve {
+                    expected: save.expected,
+                    shown: save.shown,
+                    chosen: save.chosen,
+                },
+                requests,
+            ) {
+                self.saving = Some(key);
+            }
+        }
         if self.reply.is_none()
             && let Some(section) = self.refresh.pop()
         {
@@ -201,7 +223,7 @@ impl ReviewUi {
                                 if ui
                                     .selectable_label(
                                         self.selected == Some(key),
-                                        caption(row, &self.tag_labels),
+                                        caption(&row.record, &self.tag_labels),
                                     )
                                     .on_hover_text(key.id.to_string())
                                     .clicked()
@@ -237,144 +259,26 @@ impl ReviewUi {
             });
     }
 
-    /// Identify real local work without presenting absent evidence as a deletion.
-    fn show_detail(&mut self, ui: &mut egui::Ui) {
-        let Some(row) = &self.detail else {
-            ui.label("Select a record to review.");
-            return;
-        };
-        ui.heading(caption(row, &self.tag_labels));
-        ui.label(format!("ID: {}", row.record.key().id));
-        if let Some(review) = &row.review {
-            ui.label(reason_label(&review.reason));
-        } else if row.authorization_hold.is_some() || !row.record.retained().is_empty() {
-            ui.label("Waiting for comparison data. Local work is preserved.");
-        } else {
-            ui.label(
-                if matches!(row.record.working_state(), Some(RecordState::Deleted)) {
-                    "Deletion saved locally; pending synchronization."
-                } else {
-                    "Saved locally; pending synchronization."
-                },
-            );
-        }
-    }
-
     /// Close only this review window, leaving committed work and logging untouched.
     fn close(&mut self) {
+        self.drafts.clear();
+        self.selected = None;
         self.open = false;
         self.detail = None;
         self.settings = None;
-    }
-
-    /// Admit a bounded read without blocking the egui thread.
-    fn request(&mut self, action: ReviewAction, requests: &mpsc::Sender<SettingsRequest>) {
-        if self.reply.is_some() {
-            return;
-        }
-        let (reply, response) = oneshot::channel();
-        match requests.try_send(SettingsRequest {
-            action: SettingsAction::Review(action),
-            reply,
-        }) {
-            Ok(()) => {
-                self.reply = Some(response);
-                self.notice = None;
-            }
-            Err(_) => self.notice = Some("The workspace is busy. Try again.".into()),
-        }
-    }
-
-    /// Request a page for exactly the current section and type filter.
-    fn read_page(
-        &mut self,
-        section: ReviewSection,
-        after: Option<RecordId>,
-        requests: &mpsc::Sender<SettingsRequest>,
-    ) {
-        self.request(
-            ReviewAction::ReadPage {
-                query: ReviewQuery {
-                    section: Some(section),
-                    kind: self.kind,
-                    after,
-                    limit: 100,
-                },
-            },
-            requests,
-        );
-    }
-
-    /// Accept the originating reply while ignoring obsolete view selections.
-    fn poll(&mut self) {
-        let response = match self.reply.as_mut().map(oneshot::Receiver::try_recv) {
-            Some(Ok(response)) => response,
-            Some(Err(oneshot::error::TryRecvError::Closed)) => {
-                self.reply = None;
-                self.notice = Some("The review read stopped; refresh to retry.".into());
-                return;
-            }
-            _ => return,
-        };
-        self.reply = None;
-        match response {
-            SettingsResponse::Review(ReviewResponse::Page {
-                query,
-                page,
-                settings,
-            }) if query.kind == self.kind => {
-                let section = match query.section {
-                    Some(ReviewSection::Conflicts) => &mut self.conflicts,
-                    Some(ReviewSection::PendingSync) => &mut self.pending_sync,
-                    None => return,
-                };
-                if query.after.is_none() {
-                    section.rows.clear();
-                }
-                section.rows.extend(page.rows);
-                section.next = page.next;
-                self.counts = Some(page.counts);
-                self.catalog(settings);
-            }
-            SettingsResponse::Review(ReviewResponse::Record { key, row, settings })
-                if self.selected == Some(key) =>
-            {
-                self.detail = row.map(|value| *value);
-                self.catalog(settings);
-            }
-            SettingsResponse::Failed(message) => self.notice = Some(message),
-            SettingsResponse::Closing => self.notice = Some("The workspace is closing.".into()),
-            _ => {}
-        }
-    }
-
-    /// Replace names and definitions from a completed consistent source read.
-    fn catalog(&mut self, settings: Box<SettingsSnapshot>) {
-        let tags = settings
-            .logbooks
-            .tags
-            .iter()
-            .filter_map(|row| match row.working_state() {
-                Some(RecordState::Live(RecordValue::Tag(tag))) => Some(tag.as_ref()),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        self.tag_labels = super::logbooks::labels::labels(&tags);
-        self.settings = Some(settings);
     }
 }
 
 /// Produce an operator-facing caption from real working or retained facts.
 fn caption(
-    row: &ReviewRow,
+    row: &clacks_sync::client::ClientRecord,
     tags: &std::collections::BTreeMap<clacks_model::ids::TagId, String>,
 ) -> String {
     let value = row
-        .record
         .working_state()
         .filter(|state| matches!(state, RecordState::Live(_)))
-        .or_else(|| row.record.pending().and_then(|p| p.original.state()))
-        .or_else(|| match row.record.latest() {
+        .or_else(|| row.pending().and_then(|p| p.original.state()))
+        .or_else(|| match row.latest() {
             clacks_sync::record::Observation::Accepted(v) => Some(v.state()),
             _ => None,
         });
@@ -393,7 +297,7 @@ fn caption(
         Some(RecordState::Live(RecordValue::Equipment(equipment))) => {
             format!("Equipment · {}", equipment.name())
         }
-        _ => row.record.key().id.to_string(),
+        _ => row.key().id.to_string(),
     }
 }
 
@@ -427,4 +331,14 @@ fn kind_label(kind: RecordKind) -> &'static str {
         RecordKind::Equipment => "Equipment",
         _ => "Other record",
     }
+}
+
+/// One explicit chosen record ready for the guarded store transaction.
+struct SaveRequest {
+    /// Exact saved roles displayed when choosing values.
+    expected: Box<clacks_sync::client::ClientRecord>,
+    /// Exact compared values and retained evidence.
+    shown: Box<clacks_sync::client::ReviewInput>,
+    /// Complete validated result; editing did not save it.
+    chosen: RecordState,
 }
