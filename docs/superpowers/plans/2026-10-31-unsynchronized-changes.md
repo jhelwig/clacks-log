@@ -148,33 +148,33 @@ Add review tests to the existing tests/integration.rs module declarations.
   requests: &mpsc::Sender<SettingsRequest>)` uses the Worked Before viewport
   pattern and stable ID `clacks.unsynchronized_changes`.
 
-- [ ] Add a failing `review_sections_include_hidden_and_held_work` scenario to
+- [x] Add a failing `review_sections_include_hidden_and_held_work` scenario to
   `tests/reads.rs`: create actual pending edits/deletion and existing review/hold
   states using production operations; assert distinct section membership, full
   filtered counts and no duplicate row when a record has both pending and review.
   A held row without usable ReviewInput is Conflicts/Waiting for comparison data.
   Retained-only recovery work stays visible under Conflicts as blocked evidence.
-- [ ] Extend that scenario with a bounded continuation, record-type filtering,
+- [x] Extend that scenario with a bounded continuation, record-type filtering,
   untagged QSO, duplicate tag names and exact detail read. Assert pages/counts
   share the selected snapshot; the deleted QSO is identifiable from retained
   facts without appearing in normal history. Remove old tag-filter assertions
   that no longer express an agreed review requirement.
-- [ ] Run `SQLX_OFFLINE=true cargo test -p clacks-client-store --test integration
+- [x] Run `SQLX_OFFLINE=true cargo test -p clacks-client-store --test integration
   review_ --locked --offline`; establish failure at the changed Clacks contract.
-- [ ] Implement checked section predicates and counts from actual review/hold/
+- [x] Implement checked section predicates and counts from actual review/hold/
   retained state. Do not classify concurrency in SQL. Reuse kind-qualified
   cursors; collect only a page plus bounded lookahead and obtain next from it.
   Remove the unused tag filter/join and replaced query metadata.
-- [ ] Implement the real session read requests, appbar action and viewport.
+- [x] Implement the real session read requests, appbar action and viewport.
   Conflicts and Pending sync collapse independently; each keeps its own loaded
   page/cursor. Counts label records. Unsupported record kinds remain visible
   with safe identity/reason, not silently filtered out or made into JSON editors.
-- [ ] Add one egui_kittest test `review_sections_preserve_workbench_context`:
+- [x] Add one egui_kittest test `review_sections_preserve_workbench_context`:
   open the production component with native snapshots, collapse either section,
   change type filter and request more rows; assert actual typed read requests,
   section expansion state and unchanged workbench draft/view. Do not test native
   viewport creation as a framework capability.
-- [ ] Regenerate/verify scoped SQLite SQL metadata using the commands in the
+- [x] Regenerate/verify scoped SQLite SQL metadata using the commands in the
   verification section. Run the read scenario and desktop `review` tests. Update
   crate usage docs and commit this usable read-only window with a wrapped body
   explaining account-wide scope and why the tag filter was removed.

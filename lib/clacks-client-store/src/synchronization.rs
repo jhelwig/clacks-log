@@ -299,6 +299,8 @@ pub async fn state(store: &ClientStore) -> anyhow::Result<SyncState> {
             pending.push(crate::read::review::ReviewRow {
                 record,
                 review: review::load(&mut transaction, key).await?,
+                authorization_hold: crate::enrollment::holds::actor_in(&mut transaction, key)
+                    .await?,
             });
         }
     }

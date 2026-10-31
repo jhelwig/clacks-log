@@ -276,3 +276,12 @@ A completed transfer window creates ordinary actor-exclusion reviews for held
 pending work, including records absent from a full account view. Certified
 absence uses that completed checkpoint. Originals and prepared proposals stay
 intact, and only explicit exact-basis resolution releases the authorization hold.
+
+### Account-wide review reads
+
+`ReadSnapshot::review_page` selects Conflicts or Pending sync and returns full
+filtered counts plus a kind-qualified continuation. Persisted admission holds
+and retained recovery work are blocked review items, even before comparison
+values are available. `review_record` reads an exact record and its persisted
+review consistently, including after the pending operation settles. These reads
+use short ordinary snapshots; callers keep copied inputs while deciding.

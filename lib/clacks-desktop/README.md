@@ -485,3 +485,12 @@ handling for failures, account change notices and returned review inputs.
 Reconnect uses the existing protected authorization and durable checkpoints.
 Dependency support is included with ordinary pages rather than requested by a
 separate exact-version exchange.
+
+## Unsynchronized changes
+
+The application-bar action opens a separate non-modal, account-wide window.
+Conflicts and Pending sync are independently collapsible, with type filtering
+and bounded continuation. Ordinary pending deletions remain visible here while
+hidden from contact history. Logbook membership does not scope synchronization.
+The window reads committed workspace snapshots through the normal session; it
+leaves the selected history view and unfinished logging entry in place.

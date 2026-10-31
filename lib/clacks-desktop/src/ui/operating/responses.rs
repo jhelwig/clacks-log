@@ -115,6 +115,7 @@ impl SettingsUi {
             SettingsResponse::DeleteEquipment(EquipmentDeleteOutcome::Unavailable { .. }) => frame.notice = Some("The configuration is no longer available. No deletion or profile repair was applied. Cancel and refresh.".into()),
             SettingsResponse::Failed(message) => frame.notice = Some(message),
             SettingsResponse::Closing => frame.notice = Some("The application is closing; this request did not start.".into()),
+            SettingsResponse::Review(_) => frame.notice = Some("Unexpected review response in settings.".into()),
             SettingsResponse::RefreshFailed { .. } => frame.notice = Some("A refresh failed. Refresh settings before continuing.".into()),
         }
         if let Some(id) = deleted {
