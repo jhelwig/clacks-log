@@ -341,8 +341,9 @@ are never overwritten or accepted merely because their path looks right.
 Bind SQLite only after the native bundle is durably saved. Use the existing exact
 prior-binding guard and one immediate transaction. SQLite stores only the native
 reference plus non-secret server/account/actor values. Request the actual initial
-state through #14 when available; before then show enrolled/awaiting initial
-synchronization, not a fake last-successful-sync time.
+state through #14. Enrollment completion does not establish synchronization
+progress; distinguish enrolled/awaiting initial synchronization from received
+account state.
 
 ### Interrupted local completion
 

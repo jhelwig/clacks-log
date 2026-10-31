@@ -110,7 +110,7 @@ recorded labels.
 | Band | Preserved nullable text. No catalog-membership check. A frequency may be valid without a recognized band. |
 | Frequency | One positive SQLite `INTEGER` column per recorded frequency, in whole hertz; `NULL` when absent. Valid range is 1 through 9,223,372,036,854,775,807. |
 | Transmit power | One positive SQLite `INTEGER` column, in whole milliwatts; `NULL` when absent. Valid range is 1 through 9,223,372,036,854,775,807. |
-| Clacks-controlled counters | SQLite `INTEGER` constrained to 0 through 9,223,372,036,854,775,807: record-vector components, local counter high-water marks, timeline revisions/coverage, membership generations and transfer-progress generations. Explicit vector components and accepted revisions are nonzero; origins and initial generations may be zero. No additional local save/checkpoint generation counters are prescribed. |
+| Clacks-controlled counters | SQLite `INTEGER` constrained to 0 through 9,223,372,036,854,775,807: record-vector components, local counter high-water marks, timeline revisions/coverage, membership generations. Explicit vector components and accepted revisions are nonzero; origins and initial generations may be zero. No additional local save/checkpoint generation counters are prescribed. |
 | QRZ book and record IDs | SQLite `TEXT` containing validated canonical decimal digits, without leading zeros except for zero itself. Use binary text equality, uniqueness and joins; do not use lexical order as numeric order. Unknown book IDs remain `NULL`. Preserve existing domain validity rules separately from encoding. |
 
 Use ordinary integer predicates, sorting and aggregation for frequency and
@@ -277,31 +277,24 @@ uniqueness including nullable-element cases.
 
 Metadata is relational too. Locally allocated keys below identify saved objects,
 not new wire identities. Reuse the same metadata families for main state,
-originals, witnesses, manifests and service support. Keep immutable historical
+originals, witnesses and service support. Keep immutable historical
 interpretations distinct when their meanings differ.
 
 | Table/family | Required contents |
 | --- | --- |
-| `account_metadata` | Account, observed head timeline/revision, baseline, installed-coverage ID, membership generation. Advertised head is not the installed checkpoint. Absent before actual synchronization metadata exists. |
 | `record_vector` | Record-qualified owner and one JSON native vector. Server timeline and client actor roles remain distinct; native checked decoding preserves counter bounds and duplicate meaning. |
 | `coverage` | Account-qualified owner and one JSON native prefix map, preserving explicit zero coverage. Relational references retain each checkpoint, boundary and retention root. |
-| `checkpoint`, `installed_checkpoint` | Immutable account/baseline/coverage object; singleton current installed checkpoint reference. Use the core's expected checkpoint and progress conditions; no additional local generation or maximum-observed-record shortcut. |
+| `checkpoint`, `installed_checkpoint` | Immutable account/baseline/coverage object; singleton current installed checkpoint reference. Use the actual completion transaction and prior checkpoint; no additional local generation or maximum-observed-record shortcut. |
 | `lineage`, `timeline_boundary`, `current_lineage` | Lineage ID/account/root timeline, boundary at timeline/revision, kind and included coverage. Preserve the position at which ancestry became known. |
 | `baseline` | Account/native baseline ID, coverage, complete lineage snapshot, membership generation. Conflicting contents under one baseline ID fail; do not upsert over them. |
-| `membership_snapshot`, `client_membership` | Account/generation, actor, created/closed positions, optional acknowledged checkpoint. Closed actor metadata is evidence, not permission to accept new work. |
 | `basis_witness`, `witness_baseline` | Record key, original basis, observed stamp, checkpoint, relation, lineage snapshot, ordered retained baseline references. Preserve actual original/observed contexts; never relabel to a newer checkpoint. |
-| `transfer_window` | Window key, account, immutable source checkpoint, mode and incremental-after coverage when present. Logical identity is exact `(source, mode)` in that account. |
-| `window_requirement` | Window plus record key, exact required stamp and deletion flag. |
-| `window_boundary`, `window_baseline` | Window references to its complete interpretation requirements. |
-| `window_unit`, `window_unit_member` | Window, operation ID, exact ordered member version references and deletion flags. |
-| `window_progress` | Window, generation value. |
-| `window_installed`, `window_staged`, `window_completed_unit` | Installed key set; ordered staged accepted envelopes; completed operation ID set. Staging is not installation. |
 
-Compare decoded manifests using `validate_replacement` under the same source/mode
-identity. Surrogate IDs or a source-checkpoint hash do not substitute for checking
-all immutable contents. Persist exact dependency stamps/deletion flags rather
-than only native IDs. Rows referenced by a witness or staged unit remain reachable
-even when they are no longer the latest shared version.
+Receipt requirements and sequence state belong to the live connection. The
+store persists accepted values, exact support, independently staged input and
+coupled descriptors, not transfer-attempt tables. Complete coverage is saved
+only after the matching discovery end and actual represented values are verified
+in the write transaction. A disconnected receipt is discarded; a new one reuses
+committed semantic state from the last completed checkpoint.
 
 The store retains metadata necessary to replay the existing transitions; it does
 not become the authority deciding server admission, retirement or common coverage.
@@ -532,8 +525,8 @@ or telemetry wrapper is needed. Composition may reuse private transaction helper
 | Prepare outgoing change | Current client row, actor, counter, native reference conditions, current baseline/lineage/witness | Core `prepare_change` result plus counter reservation and exact frozen payload/dependencies. Commit before exposing a sendable result. Existing prepared version is retried, not reallocated. |
 | Receive accepted/rejected response | Current client row, frozen change, current context; `receive_accepted`/`receive_rejection` | Resulting accepted observation and pending/original/retained/witness changes together. A response does not certify completion of an account window. |
 | Store manifest | Existing same-source/mode manifest and current interpretation | Complete immutable manifest, requirements/units, initial progress. Unequal replacement fails. |
-| Install transfer batch | Persisted manifest/progress, current client rows, support, baseline/lineage and binding conditions; current selected view | `plan_batch` accepted/client updates, staged inputs, installed keys, completed units, next progress generation and any selected-view fallback caused by an effective tag deletion, all together. Never install a partial atomic unit. Staging alone does not make a deletion effective. |
-| Complete transfer window | Committed installed rows, requirements/successors, complete units and interpretation, current checkpoint/progress generation | `finish_window` conditional installed-checkpoint update. The first installation requires a full window, no existing checkpoint and the same complete-state verification; never invent an already-installed checkpoint. Commit, then reload checkpoint before returning acknowledgment evidence. |
+| Install transfer batch | Connection-owned receipt requirements; actual current client rows, support, interpretation and binding conditions | Shared readiness and client reconciliation; accepted values, comparison evidence, semantic staged inputs, coupled descriptors and any selected-view fallback commit together. Then advance the connection receipt. |
+| Complete discovery | Matching source end, actual stored requirements/successors, complete units, interpretation and prior checkpoint | Verify all obligations inside the checkpoint transaction. Initial receipt requires a full source. Acknowledge only the committed checkpoint; neither receipt state nor record maxima establish coverage. |
 | Install baseline/projection | Existing interpretations, pending originals, sealed witness requirements, every touched version | New interpretation, projected contexts, required local witnesses, progress/checkpoint changes only when proven. Collect old detail only after new evidence is durable and no remaining root needs it. |
 | Resolve review | Exact current original/working/shared/retained versions compared with the basis presented for review | Core `resolve_review` result and retained dependencies. Stale review returns refreshed review input rather than applying an old choice to unseen state. Preparation/counter changes follow core results, not a parallel store algorithm. |
 
@@ -547,7 +540,7 @@ separate writer task. Snapshot holders must not call nested pool operations and
 wait for another connection while holding all available connections.
 
 Contention before the transaction starts is bounded. Do not blindly replay a
-commit whose outcome is uncertain. Reload durable prepared/progress identities
+commit whose outcome is uncertain. Reload durable prepared proposals and the completed checkpoint
 before retrying; report a storage failure without claiming saved/synchronized.
 An error before commit rolls back that transaction. A process can die after
 commit but before its caller receives success: reopening discovers the committed
@@ -563,8 +556,7 @@ UI cache invalidation and reloading complement this transactional check but do
 not replace it. Do not hold a transaction open while the user edits or decides.
 Use existing state/version comparisons or another suitable standard precondition;
 do not prescribe additional per-record, save or checkpoint generation counters.
-The synchronization core's existing membership and transfer-progress generations
-retain their defined roles. This is ordinary local concurrency protection, not a
+Membership generations retain their admission role. This is ordinary local concurrency protection, not a
 new distributed conflict policy or a separate user-facing resolution workflow.
 
 Imported QSO and imported assertions must eventually share a transaction under
@@ -590,15 +582,15 @@ heuristics. Neither local save advances the account's installed checkpoint.
 
 ### 8.2. Interrupted transfer and a coupled evidence unit
 
-Window W requires QSO Q and an association/disposition unit. One request delivers
-only the association. `plan_batch` stages it; the transaction saves staged input
-and progress generation 3 without making the unit current or complete. Restart
-reopens generation 3 and the staged envelope. Receiving the remaining unit
-members computes a new batch against current rows, installing the complete unit
-and generation 4 atomically. A crash before commit leaves generation 3; a crash
-after commit leaves the complete generation 4. Only `finish_window` verification
-can advance the checkpoint. A lost acknowledgment is regenerated by reloading
-that committed checkpoint; no record maximum or observed source head is used.
+A discovery requires QSO Q and an association/disposition unit. One page delivers
+only the association. The transaction saves that accepted input and its coupled
+descriptor in semantic staging without making the incomplete effects current or
+advancing coverage. If disconnected, discard the connection receipt. After
+reopening, start fresh discovery from the last completed checkpoint; the staging
+and descriptor remain available. Receiving the missing members permits atomic
+installation of the complete effects. Only matching source exhaustion and
+verification of actual stored obligations permit a checkpoint acknowledgment.
+
 
 ### 8.3. Stale editor or resolution input
 
@@ -718,7 +710,7 @@ spans/events with truthful attempted/committed wording. Routine reads/batch
 planning detail uses `debug`; warn for incompatible/corrupt state needing
 attention. The handling boundary records unexpected storage errors once.
 Use `#[instrument(skip_all, ...)]`, default targets and direct safe fields:
-account/record/window IDs where useful, schema versions, batch counts, generation
+account/record IDs where useful, schema versions, batch counts, generation
 and bounded outcomes. Never dump QSO values, SQL arguments, directory credentials
 or protected-store handles. No generic completion observer, lifecycle wrapper,
 manual span timer or redundant operation/component fields.
@@ -773,13 +765,13 @@ Required verification for the store:
    references, exact prepared retries,
    accepted-own responses with later edits and incomparable retained alternatives
    through the production core and actual transactions.
-4. Verify continuation from saved frozen proposals and incomplete transfer windows
-   by reopening and using the production retry/install operations. Do not add
+4. Verify continuation from saved frozen proposals and fresh discovery reusing
+   semantic staged input by reopening and using production retry/install operations. Do not add
    child-process scaffolding to kill a process after completed database calls;
    that does not establish an additional Clacks transaction guarantee. SQLite,
    operating-system and filesystem durability remain explicit dependencies.
-5. Exercise staging/complete coupled units, support dependencies, immutable
-   manifest replacement, checkpoint completion and lost acknowledgment. Assert
+5. Exercise staging/complete coupled units, support dependencies, ordered discovery
+   completion, checkpoint completion and lost acknowledgment. Assert
    no false installed prefix after partial transfer or rollback. Verify exact
    external binding uniqueness across occupied, superseded and deleted-QSO
    states; pending alternatives must not replace the current accepted binding.

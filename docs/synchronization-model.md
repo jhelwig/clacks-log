@@ -182,6 +182,10 @@ assertion that the current shared value still equals the prepared value.
 Unavailable original evidence, a known never-created record and an accepted
 deletion are distinct. Ordinary pending edits retain their originals. The
 unavailable case is a recovery condition, not a normal incomplete saved record.
+Known local creation can precede any complete shared view: its original absence
+then has no certified checkpoint yet. This does not establish shared absence or
+permit publication before catch-up. A genuinely unavailable original is not
+converted into local creation merely because the server lacks the identity.
 
 ### 3.4 Account coverage and lineage
 
@@ -233,17 +237,29 @@ Create an account's initial timeline T1 at revision zero with an empty-history
 baseline. Seeded shared definitions are ordinary server-authored accepted
 records after that point, not data separately installed on each enrolled client.
 Enrollment starts from an empty accepted replica and an available baseline plus
-consistent full-state window. Installing that window establishes complete
-account coverage; an advertised head alone does not.
+full-state reconciliation. Complete durable representation of that source
+coverage establishes account coverage; an advertised head alone does not.
 
 For an eligible incremental checkpoint, the bounded journal identifies changed
-record keys and the consistent source view supplies their current versions or
+record keys and the source supplies their required versions or qualifying
 successors. The journal need not retain every intermediate payload. When it is
-unavailable, compare exact, ordered manifests of current accepted record keys,
-versions and deletion descriptors, then transfer the missing/different state.
-A hash tree is not required. A manifest lacking deletion/absence semantics is
-not a complete state comparison. The same operations serve either transfer
-direction; only new-change admission is specific to the acceptance server.
+unavailable, compare current accepted record keys, versions and deletion
+descriptors, then transfer missing/different state. Discovery must establish
+exhaustive coverage through its advertised target, including under concurrent
+changes; per-record vectors alone cannot establish that coverage. Neither a
+fixed whole-account manifest, a hash tree nor a long-lived database snapshot is
+an architectural requirement. Deletion/absence semantics remain essential to a
+complete state comparison. The same operations serve either transfer direction;
+only new-change admission is specific to the acceptance server.
+
+The core's incremental receipt registers exact obligations and accepted input per
+ordered page. The source fixes a complete target before traversal, may supply
+newer qualifying successors, and seals the discovered set only after exhaustion.
+The receiver commits actual rows, interpretation and progress before acknowledging
+pages, then verifies all obligations before advancing coverage. Record-only repair
+retains individual facts without claiming complete prefixes. See the
+[integration contract](synchronization-integration-proposal.md) for concrete
+SQLite/PostgreSQL responsibilities and wire flow.
 
 ## 4. Version preparation, comparison and acceptance
 
@@ -324,11 +340,18 @@ does not choose fields. A stale prepared version already covered by the retained
 record context is not accepted again. Return current accepted state/context;
 there is no requirement to reconstruct the original response.
 
-Use per-record acceptance by default. Coupled effects, such as a tag-deletion
-operation and its selected contact effects, require explicit dependency and
-transaction grouping in the consuming workflow. Nothing here promises one
-account-wide commit or a custom write queue. PostgreSQL/SQLite integration later
-implements these transaction obligations using ordinary database facilities.
+Use per-record acceptance by default. Tag deletion and its locally chosen QSO
+effects are pending record states; do not infer a durable action or require an
+indivisible synchronized action group from their local transaction. Before
+accepting a tag deletion, validate that no active QSO would retain a reference
+to it in the resulting accepted state. Recheck this reverse-reference condition
+in the acceptance transaction, ordered against concurrent membership changes.
+Flag surviving references for explicit resolution without changing ordinary
+whole-record conflict classification or automatically expanding QSO deletions.
+Required coupled service effects retain their explicit dependency and atomic
+transaction rules. Nothing here promises one account-wide commit or a custom
+write queue. PostgreSQL/SQLite integration implements these obligations using
+ordinary database facilities.
 
 For two different accepted versions with equal native values, the client can
 propose recording their combined context without a field-resolution flow. The
@@ -350,12 +373,12 @@ complete key enumeration and deletion/absence meaning. Its required set cannot
 silently change while pages are being installed. If its source snapshot/journal
 is no longer available, negotiate a new window and reuse already-known versions.
 
-Install each bounded batch and its progress durably. On a client, install the
+Install each bounded batch durably and advance the connection-owned receipt only after commit. On a client, install the
 accepted envelope even if local work conflicts, preserving the original and
 working values separately. This lets an unresolved business conflict coexist
 with acknowledgment of the received shared version.
 
-Before declaring a window complete, verify that every required version is
+Before declaring discovery complete, verify that every required version is
 present or covered by a retained successor and all required metadata is durable.
 Then atomically install the resulting coverage/checkpoint and preserve pending
 comparison evidence. Only afterward acknowledge it. No new global acknowledgment
@@ -365,7 +388,7 @@ lost acknowledgment allows safe repeat transfer.
 The partial-window version set is completion bookkeeping, not a second causal
 history. Unlike WinFS's fine-grained account exceptions, it does not advertise
 partial receipt as a complete prefix. The tradeoff is extra repeated enumeration
-when a source window must be replaced. Durable installed records/progress still
+when a source window must be replaced. Durable installed records and semantic staging still
 allow useful work across interruptions; a whole-account transaction is not
 required.
 
@@ -680,9 +703,9 @@ The production core supplies metadata types and transition logic for:
 
 - record comparison and context combination under the existing conflict policy;
 - preparation, incorporated-version recognition and conditional-acceptance plans;
-- complete-window installation/progress and durable acknowledgment preconditions;
+- connection-owned discovery completion and durable acknowledgment preconditions;
 - timeline coverage comparison, recovery-boundary validation and fuller-state plans;
-- membership-sensitive retirement, baseline planning and safe metadata projection.
+- membership admission/revocation and preserved basis interpretation. Baseline compaction and physical collection require the consuming maintenance workflow.
 
 Use actual native QSO/tag/profile/equipment values in verification. Tests drive
 these production operations; there is no separate simulated synchronization
@@ -708,7 +731,7 @@ obligations:
 The worked cases show the intended transitions. In particular, baseline
 projection is the application-specific part requiring careful implementation and
 validation; published vector algorithms do not prove it merely because the
-metadata contains a map of counters. The production core guide defines implemented operations and downstream transaction obligations.
+metadata contains a map of counters. The production core guide distinguishes integrated operations from downstream maintenance obligations.
 
 ### Client storage integration
 
@@ -718,8 +741,7 @@ counters, revisions and generations use the nonnegative signed 64-bit range, wit
 their existing zero/nonzero rules and checked exhaustion. This range applies to
 native validation as well as storage; Rust `u64` fields do not require retaining
 the full unsigned range. Client stale-save protection must not prescribe extra
-local generation counters; existing membership and transfer-progress generations
-retain their defined synchronization purposes.
+local generation counters; membership generations retain their admission purpose.
 
 ### Service evidence within the account scope
 
@@ -731,8 +753,8 @@ checked before causal shortcuts. Provider field selection is separate from the
 whole-record manual-edit policy.
 
 Related effects use `service::operation::CoupledRequirement` descriptors in
-complete transfer manifests. Durable window progress retains staged inputs and
-completed units under its existing generation guard. Staged receipt is not
+discovery obligations. Connection-owned receipt state tracks completion; semantic
+staging and coupled descriptors remain durable independently of that receipt. Staged receipt is not
 installed account coverage. The [crate guide](../lib/clacks-sync/README.md#service-processing-and-retention)
 explains storage conditions, dependency closure, equivalent effect coverage,
 recovery and collection; it does not introduce another acknowledgment protocol.

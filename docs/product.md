@@ -171,6 +171,8 @@ The tag is deleted in every case. Count distinct QSO identities, not memberships
 
 A pending QSO referencing a deleted tag remains local until the user explicitly removes that membership or replaces it with an existing tag (D250). Removing its last membership can leave it active and untagged. Do not silently discard the contact, recreate the tag or rewrite its memberships; unrelated synchronization continues. An existing QSO that was itself marked deleted still follows ordinary QSO deletion/edit reconciliation.
 
+Conversely, a pending tag deletion is flagged if an active QSO would retain a reference to the tag in accepted shared state. This is reference validation rather than a competing tag-record edit. Recheck surviving references at shared acceptance, including concurrently added memberships. Reconcile stored record states without inferring the user action that produced them or automatically deleting newly discovered QSOs.
+
 ### Editing and reconciliation
 
 The tag set participates in ordinary whole-record three-way comparison (D243). A tag change concurrent with a contact-fact change, or different concurrent tag changes, can require user resolution when both sides changed and their resulting records differ. Equal results and one-sided changes bypass that flow. Do not split synchronized membership records or automatically merge tag sets to avoid these accepted MVP conflicts; refine behavior from real use. See [synchronization](synchronization.md#accepted-conflict-semantics).
