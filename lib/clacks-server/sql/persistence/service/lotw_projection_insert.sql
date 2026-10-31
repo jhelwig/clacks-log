@@ -1,0 +1,1 @@
+INSERT INTO clacks.submission_projection (payload_id, account, destination_id, service, mapping_release, mapping_commit, signing_call, signing_dxcc, external_id, contact_fields, station_fields) VALUES ($1, $2, $3, 'lotw', $4, $5, $6, $7, $8, $9, $10) RETURNING projection_id AS "projection_id!: i64"

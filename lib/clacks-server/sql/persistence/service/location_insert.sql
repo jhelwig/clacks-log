@@ -1,0 +1,1 @@
+INSERT INTO clacks.imported_location (payload_id, position_kind, locator, latitude, longitude, grid_length, dxcc, primary_subdivision, secondary_subdivision, cq_zone, itu_zone) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)

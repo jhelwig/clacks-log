@@ -34,7 +34,6 @@ async fn created_definitions_survive_reopen_as_unpublished_values() -> anyhow::R
     );
     let mut snapshot = clacks_client_store::read::snapshot(&store).await?;
     assert!(snapshot.checkpoint().await?.is_none());
-    assert!(snapshot.account_view().await?.is_none());
     snapshot.close().await?;
 
     let error = identity::bind(

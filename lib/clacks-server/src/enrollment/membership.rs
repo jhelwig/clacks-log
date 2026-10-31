@@ -7,10 +7,10 @@ use crate::oauth::{
     revocation,
     rows::{AccessRow, RefreshRow},
 };
-use clacks_model::ids::{AccountId, BaselineId, ClientActorId, TimelineId};
+use crate::store::metadata::account::{load as account_in, save as save_account};
+use clacks_model::ids::{AccountId, ClientActorId};
 use clacks_sync::{
     account::AccountMetadata,
-    lineage::Coverage,
     membership::{ClientMembership, MembershipSnapshot},
     record::Position,
 };
@@ -38,61 +38,12 @@ struct MemberRow {
     closed_timeline: Option<String>,
     /// Revision carrying the closure event, if revoked.
     closed_revision: Option<i64>,
-}
-
-/// Load the real account metadata, initializing only the initial admission representation.
-async fn account_in(
-    connection: &mut PgConnection,
-    account: AccountId,
-) -> anyhow::Result<AccountMetadata> {
-    let account_text = account.to_string();
-    let row = sqlx::query_file!("sql/enrollment/state_select.sql", account_text)
-        .fetch_optional(&mut *connection)
-        .await?;
-    if let Some(row) = row {
-        let head = Position {
-            timeline: row.timeline_id.parse()?,
-            revision: row.revision.try_into()?,
-        };
-        return Ok(AccountMetadata {
-            account,
-            head,
-            baseline: row.baseline_id.parse()?,
-            installed: Coverage::from(head),
-            membership_generation: row.membership_generation.try_into()?,
-        });
-    }
-    let timeline = TimelineId::new();
-    let baseline = BaselineId::new();
-    sqlx::query_file!(
-        "sql/enrollment/baseline_insert.sql",
-        account_text,
-        baseline.to_string(),
-        timeline.to_string()
-    )
-    .execute(&mut *connection)
-    .await?;
-    sqlx::query_file!(
-        "sql/enrollment/coverage_insert.sql",
-        account_text,
-        baseline.to_string(),
-        timeline.to_string()
-    )
-    .execute(&mut *connection)
-    .await?;
-    sqlx::query_file!(
-        "sql/enrollment/state_insert.sql",
-        account_text,
-        timeline.to_string(),
-        baseline.to_string()
-    )
-    .execute(connection)
-    .await?;
-    Ok(AccountMetadata::initialize(account, timeline, baseline).0)
+    /// Actual durable receipt acknowledged by this client.
+    acknowledged_checkpoint_id: Option<i64>,
 }
 
 /// Materialize a membership view from the same guarded connection as the account head.
-async fn snapshot(
+pub(crate) async fn snapshot(
     connection: &mut PgConnection,
     account: &AccountMetadata,
 ) -> anyhow::Result<MembershipSnapshot> {
@@ -101,7 +52,7 @@ async fn snapshot(
         "sql/enrollment/client_select.sql",
         account.account.to_string()
     )
-    .fetch_all(connection)
+    .fetch_all(&mut *connection)
     .await?;
     let mut clients = Vec::new();
     for row in rows {
@@ -124,7 +75,17 @@ async fn snapshot(
                 revision: row.created_revision.try_into()?,
             },
             closed_at,
-            acknowledged: None,
+            acknowledged: match row.acknowledged_checkpoint_id {
+                Some(id) => Some(
+                    crate::store::metadata::lineage::load_checkpoint(
+                        connection,
+                        account.account,
+                        id,
+                    )
+                    .await?,
+                ),
+                None => None,
+            },
         });
     }
     let result = MembershipSnapshot {
@@ -134,25 +95,6 @@ async fn snapshot(
     };
     result.validate(account)?;
     Ok(result)
-}
-
-/// Save an already planned head/admission generation inside the owning transaction.
-async fn save_account(
-    connection: &mut PgConnection,
-    account: &AccountMetadata,
-) -> anyhow::Result<()> {
-    let revision = i64::try_from(account.head.revision)?;
-    let generation = i64::try_from(account.membership_generation)?;
-    sqlx::query_file!(
-        "sql/enrollment/state_update.sql",
-        account.account.to_string(),
-        account.head.timeline.to_string(),
-        revision,
-        generation
-    )
-    .execute(connection)
-    .await?;
-    Ok(())
 }
 
 /// Activate only the issued family identified by this code's successful conditional transition.

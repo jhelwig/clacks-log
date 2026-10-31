@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT name, snapshot_id FROM clacks.equipment_payload WHERE payload_id = $1 AND account = $2 AND record_id = $3\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.equipment_payload",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "snapshot_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.equipment_payload",
+            "name": "snapshot_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "f8fecdd279d2cbf0ecfde26f1aad2e7f0679217b4de704a1a3c607d0fc35bd4e"
+}

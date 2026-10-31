@@ -1,0 +1,137 @@
+//! Membership decisions and reporting under the desktop's process-owned subscriber.
+
+use crate::{
+    session::settings::contacts::{
+        ContactAction, execute,
+        membership::{self, MembershipSubmission},
+    },
+    workspace::WorkspacePaths,
+};
+use clacks_client_store::{
+    save::{self, SaveOutcome},
+    store::{ClientStore, StoreSettings},
+};
+use clacks_model::ids::{AccountId, QsoId, TagId};
+use clacks_sync::record::{RecordId, RecordKey, RecordState, RecordValue};
+use tokio::sync::watch;
+use tokio_util::sync::CancellationToken;
+
+/// Exercise captured bases, partial progress and cancellation through actual membership operations.
+pub(super) async fn run(paths: &WorkspacePaths) -> anyhow::Result<AccountId> {
+    let store = ClientStore::create(
+        &paths.database,
+        Default::default(),
+        StoreSettings::default(),
+    )
+    .await?;
+
+    let a = super::operations::contact()?;
+    let b = super::operations::contact()?;
+    for qso in [&a, &b] {
+        execute(
+            &store,
+            ContactAction::Save {
+                expected: None,
+                next: Box::new(qso.clone()),
+            },
+        )
+        .await?;
+    }
+
+    let account = store.account_id();
+    let ids = [a.id(), b.id()].into();
+    let basis = membership::prepare(&store, &ids).await?;
+    assert_eq!(basis.records.len(), 2);
+
+    let first = basis.records.first().unwrap().clone();
+    let Some(RecordState::Live(RecordValue::Qso(mut next))) = first.working_state().cloned() else {
+        panic!("qso")
+    };
+    crate::test_support::edit(&mut next, |next| {
+        next.comment = Some("newer fact".into());
+        Ok(())
+    });
+    save::save(
+        &store,
+        first.key(),
+        Some(&first),
+        RecordState::Live(RecordValue::Qso(next)),
+    )
+    .await?;
+
+    let (progress, receiver) = watch::channel(Default::default());
+    let report = membership::apply(
+        &store,
+        MembershipSubmission {
+            basis: basis.records,
+            add: [TagId::new()].into(),
+            remove: Default::default(),
+            cancel: CancellationToken::new(),
+            progress,
+        },
+    )
+    .await?;
+
+    assert_eq!(report.entries.len(), 2);
+    assert!(matches!(
+        report.entries.first().unwrap().outcome,
+        SaveOutcome::Stale { .. }
+    ));
+    assert_eq!(receiver.borrow().changed, 1);
+    assert_eq!(receiver.borrow().stale, 1);
+
+    let basis = membership::prepare(&store, &ids).await?;
+    let cancel = CancellationToken::new();
+    cancel.cancel();
+
+    let (progress, receiver) = watch::channel(Default::default());
+    let report = membership::apply(
+        &store,
+        MembershipSubmission {
+            basis: basis.records,
+            add: [TagId::new()].into(),
+            remove: Default::default(),
+            cancel,
+            progress,
+        },
+    )
+    .await?;
+
+    assert!(report.entries.is_empty());
+    assert_eq!(report.unprocessed.len(), 2);
+    assert_eq!(receiver.borrow().changed, 0);
+
+    assert!(
+        membership::prepare(&store, &[QsoId::new()].into())
+            .await
+            .is_err()
+    );
+    let b = save::load(
+        &store,
+        RecordKey {
+            account,
+            id: RecordId::Qso(b.id()),
+        },
+    )
+    .await?
+    .unwrap();
+    save::save(&store, b.key(), Some(&b), RecordState::Deleted).await?;
+    assert!(membership::prepare(&store, &ids).await.is_err());
+
+    store.close().await?;
+    Ok(account)
+}
+
+/// Inspect settled membership diagnostics after the production writer has flushed.
+pub(super) fn assert_report(contents: &str, account: AccountId) {
+    let event = contents
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .find(|event| event["fields"]["event"] == "membership.change.completed")
+        .unwrap();
+    assert_eq!(event["fields"]["account_id"], account.to_string());
+    assert_eq!(event["fields"]["changed"], 1);
+    assert_eq!(event["fields"]["stale"], 1);
+    assert_eq!(event["fields"]["unprocessed"], 0);
+    assert!(!contents.contains("newer fact"));
+}

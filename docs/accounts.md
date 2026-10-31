@@ -252,7 +252,7 @@ Publication/confirmation-service configuration uses the server-owned configurati
 
 ## Per-client synchronization diagnostics (D142)
 
-MVP diagnostics show each enrolled client's connection state, last successful synchronization, and any current synchronization error. These are sufficient; the earlier separate catch-up-status suggestion does not establish a progress percentage, missing-record count, or measure of how current a client is. Exact presentation and timestamp/error semantics remain open. During restore, these diagnostics help the user judge which sources are available, not prove that unavailable data has been recovered.
+MVP diagnostics show each enrolled client's connection state and any current synchronization error. Do not show an overall last-successful-synchronization timestamp; one timestamp cannot represent bidirectional synchronization, pending work and conflicts. No replacement aggregate success indicator, progress percentage, missing-record count or measure of currentness is selected. Prioritize working synchronization rather than designing a broader status summary. During restore, connection/error diagnostics help the user judge which sources are available, not prove that unavailable data has been recovered.
 
 ## Desktop/web service responsibilities (D67)
 

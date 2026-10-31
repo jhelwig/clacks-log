@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.checkpoint (account, baseline_id, coverage_id) VALUES ($1, $2, $3) RETURNING checkpoint_id AS \"checkpoint_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "checkpoint_id!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.checkpoint",
+            "name": "checkpoint_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "59641a022058daf52a5e24a665c380fbce3d3fdc1a7ffa10a9742e8997f65c6a"
+}

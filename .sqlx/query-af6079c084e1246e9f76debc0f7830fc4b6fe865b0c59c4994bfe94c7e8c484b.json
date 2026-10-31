@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO staged_accepted(account, kind, record_id, envelope_id) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "af6079c084e1246e9f76debc0f7830fc4b6fe865b0c59c4994bfe94c7e8c484b"
+}

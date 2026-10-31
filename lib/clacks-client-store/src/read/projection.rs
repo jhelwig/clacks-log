@@ -1,5 +1,8 @@
 //! Native read projections shared by history and Worked Before.
 
+#[cfg(test)]
+mod tests;
+
 mod evidence;
 mod station;
 

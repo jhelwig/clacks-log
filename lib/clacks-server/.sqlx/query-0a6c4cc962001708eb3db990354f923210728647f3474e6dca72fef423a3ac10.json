@@ -1,0 +1,113 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT query_id, phase, failure, started_seconds, started_nanos, finished_seconds, finished_nanos, complete FROM clacks.service_acquisition WHERE payload_id = $1 AND account = $2\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "query_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_acquisition",
+            "name": "query_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "phase",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_acquisition",
+            "name": "phase"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "failure",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_acquisition",
+            "name": "failure"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "started_seconds",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_acquisition",
+            "name": "started_seconds"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "started_nanos",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_acquisition",
+            "name": "started_nanos"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "finished_seconds",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_acquisition",
+            "name": "finished_seconds"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "finished_nanos",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_acquisition",
+            "name": "finished_nanos"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "complete",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_acquisition",
+            "name": "complete"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "0a6c4cc962001708eb3db990354f923210728647f3474e6dca72fef423a3ac10"
+}

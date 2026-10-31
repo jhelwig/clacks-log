@@ -53,6 +53,7 @@ opentelemetry-appender-tracing.workspace = true
 metrics-opentelemetry.workspace = true
 
 [dev-dependencies]
+tokio-tungstenite.workspace = true
 opentelemetry-proto.workspace = true
 prost.workspace = true
 metrics-util.workspace = true

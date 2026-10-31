@@ -646,8 +646,8 @@ Arrows below mean “depends on”:
 
 ```text
 clacks-sync ───────────────> clacks-model
-future clacks-lotw ────────> clacks-model
-future server library ───> clacks-sync + clacks-lotw + clacks-model
+clacks-lotw ────────> clacks-model
+clacks-server ───> clacks-sync + clacks-lotw + clacks-model
 ```
 
 | Module | Ownership |
@@ -657,10 +657,10 @@ future server library ───> clacks-sync + clacks-lotw + clacks-model
 | `clacks-model::service::lotw` | Data-driven normalization, normalized submissions, remote keys, service-specific applicability. |
 | `clacks-model::service::qrz` | QRZ submission/ADIF projection and service-specific confirmation interpretation. |
 | `clacks-model::service::applicability` | Pure publication-coverage and confirmation-applicability calculations consuming selected evidence. |
-| `clacks-sync::service` | Admission/combination/recovery, dependency interpretation, association guards and coupled transition plans. |
-| Existing synchronization modules | Envelopes, vectors, timeline/baseline interpretation, transfer, acknowledgment and collection. |
-| Future `clacks-lotw::certificate` | Certificate/archive/key handling and signing eligibility. |
-| Future `clacks-lotw::signing` | Signing specifications, protocol/signature-input serialization and cryptography. |
+| `clacks-sync::service` | Evidence admission/combination, dependency interpretation and coupled-effect descriptors consumed by receipt/recovery. Service execution belongs to its consuming integration workflows. |
+| Existing synchronization modules | Envelopes, vectors, timeline/baseline interpretation, discovery, receipt and acknowledgment. Physical collection and baseline compaction require the consuming maintenance workflow. |
+| `clacks-lotw::certificate` | Certificate/archive/key handling and signing eligibility. |
+| `clacks-lotw::signing` | Signing specifications, protocol/signature-input serialization and cryptography. |
 
 One shared normalized LoTW submission flows from accepted QSO, selected public
 signing identity and explicit mapping data to comparison, retained attempt

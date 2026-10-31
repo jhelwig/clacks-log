@@ -1,0 +1,269 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT own_call_state, own_call, worked_call_state, worked_call, start_state, start_kind, start, band_state, band, receive_band_state, receive_band, frequency_state, frequency, receive_frequency_state, receive_frequency, mode_state, mode, mode_parent, mode_group, confirmation_state, confirmation FROM clacks.contact_report WHERE report_id = $1 AND payload_id = $2\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "own_call_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "own_call_state"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "own_call",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "own_call"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "worked_call_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "worked_call_state"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "worked_call",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "worked_call"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "start_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "start_state"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "start_kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "start_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "start",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "start"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "band_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "band_state"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "band",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "band"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "receive_band_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "receive_band_state"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "receive_band",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "receive_band"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "frequency_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "frequency_state"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "frequency",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "frequency"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "receive_frequency_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "receive_frequency_state"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "receive_frequency",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "receive_frequency"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "mode_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "mode_state"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "mode",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "mode"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "mode_parent",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "mode_parent"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "mode_group",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "mode_group"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "confirmation_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "confirmation_state"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "confirmation",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.contact_report",
+            "name": "confirmation"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "870d4274040532833cbe9ceb502d0c74988d6a49fd2a01cebeb410cbd5e4e648"
+}

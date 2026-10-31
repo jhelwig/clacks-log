@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT name, lotw_policy, qrz_policy FROM clacks.tag_payload WHERE payload_id = $1 AND account = $2 AND record_id = $3\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.tag_payload",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "lotw_policy",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.tag_payload",
+            "name": "lotw_policy"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "qrz_policy",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.tag_payload",
+            "name": "qrz_policy"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "cc12bf69f81557b9ab8e90df9ce382be1381757f4aebd5abe5fe6a1d5df46c8c"
+}

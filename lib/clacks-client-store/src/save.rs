@@ -61,6 +61,7 @@ pub(crate) async fn save_in(
     {
         return Ok(SaveOutcome::Unchanged(current.clone()));
     }
+    let newly_created = current.is_none();
     let mut record = match current {
         Some(current) => current.into_fields(),
         None => {
@@ -88,7 +89,11 @@ pub(crate) async fn save_in(
             Observation::Accepted(value) => OriginalBasis::Accepted(value.clone()),
             Observation::Absent { checkpoint, .. } => OriginalBasis::NeverCreated {
                 key,
-                checkpoint: checkpoint.clone(),
+                checkpoint: Some(checkpoint.clone()),
+            },
+            Observation::Unavailable { .. } if newly_created => OriginalBasis::NeverCreated {
+                key,
+                checkpoint: None,
             },
             Observation::Unavailable { reason, .. } => OriginalBasis::Unavailable {
                 key,

@@ -1,0 +1,2 @@
+INSERT INTO clacks.contact_report (payload_id, own_call_state, own_call, worked_call_state, worked_call, start_state, start_kind, start, band_state, band, receive_band_state, receive_band, frequency_state, frequency, receive_frequency_state, receive_frequency, mode_state, mode, mode_parent, mode_group, confirmation_state, confirmation)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22) RETURNING report_id AS "report_id!: i64"

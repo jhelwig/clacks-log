@@ -18,7 +18,7 @@ pub(crate) struct OriginalBasisRow {
     pub(crate) variant: String,
     /// Original accepted envelope.
     pub(crate) envelope_id: Option<i64>,
-    /// Completed coverage certifying that the record had not been created.
+    /// Certified shared absence, when available for a known local creation.
     pub(crate) checkpoint_id: Option<i64>,
     /// Original native value retained after acceptance of this client's own change.
     pub(crate) payload_id: Option<i64>,

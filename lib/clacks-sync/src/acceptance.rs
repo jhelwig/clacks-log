@@ -80,6 +80,15 @@ pub struct ServerChange {
 /// Normal admission/reference failure requiring caller action.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RejectionReason {
+    /// Deletion would leave active accepted referrers; no user action is inferred.
+    Referenced {
+        /// Deletion target still referenced by active records.
+        key: RecordKey,
+        /// Bounded examples of surviving referrers, not the complete set.
+        referrers: Vec<RecordKey>,
+        /// Number of surviving active referrers at this acceptance check.
+        total: u64,
+    },
     /// Required service support or unique binding needs remedy/review.
     ServiceCondition {
         /// Identifying dependency/namespace condition.

@@ -25,6 +25,7 @@ fn workspace_details_are_disclosed_only_on_request() {
             enrolled: false,
         },
         restored_view_from: None,
+        synchronization: crate::synchronization::Status::Disconnected,
     });
     let mut ui = mount(window);
     assert!(ui.query_by_label_contains("Diagnostic logs:").is_none());

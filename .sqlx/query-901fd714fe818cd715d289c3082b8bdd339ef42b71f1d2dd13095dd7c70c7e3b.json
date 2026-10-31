@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ordinal, kind, record_id, stamp_id, deleted FROM coupled_member WHERE account = ? AND operation_id = ? ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "ordinal",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "coupled_member",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "name": "kind",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "coupled_member",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "record_id",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "coupled_member",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "name": "stamp_id",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "coupled_member",
+            "name": "stamp_id"
+          }
+        }
+      },
+      {
+        "name": "deleted",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "coupled_member",
+            "name": "deleted"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "901fd714fe818cd715d289c3082b8bdd339ef42b71f1d2dd13095dd7c70c7e3b"
+}

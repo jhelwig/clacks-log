@@ -1,0 +1,245 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT name_state, name, position_state, position_kind, locator, latitude, longitude, grid_length, dxcc_state, dxcc, primary_state, primary_subdivision, secondary_state, secondary_subdivision, cq_state, cq_zone, itu_state, itu_zone, references_state FROM clacks.station_report WHERE report_id = $1 AND payload_id = $2\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "name_state"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "position_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "position_state"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "position_kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "position_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "locator",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "locator"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "latitude",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "latitude"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "longitude",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "longitude"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "grid_length",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "grid_length"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "dxcc_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "dxcc_state"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "dxcc",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "dxcc"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "primary_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "primary_state"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "primary_subdivision",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "primary_subdivision"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "secondary_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "secondary_state"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "secondary_subdivision",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "secondary_subdivision"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "cq_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "cq_state"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "cq_zone",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "cq_zone"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "itu_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "itu_state"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "itu_zone",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "itu_zone"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "references_state",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.station_report",
+            "name": "references_state"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "d28d39c0a6891887520aa2b2771c8baa907839047cf40916ca873aff9c326473"
+}

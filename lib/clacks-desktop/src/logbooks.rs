@@ -1,5 +1,8 @@
 //! Editable logbook fields independent of committed records and view selection.
 
+#[cfg(test)]
+mod tests;
+
 use crate::operating::FieldError;
 use clacks_model::{
     ids::TagId,

@@ -121,3 +121,42 @@ fn unavailable(error: anyhow::Error) -> ClientAuthError {
     tracing::error!(reason=%error, "Client authorization storage unavailable");
     ClientAuthError::Unavailable
 }
+
+/// Recheck the access, grant and actor bound to an admitted connection before its next operation.
+///
+/// The initial HTTP upgrade still verifies a fresh proof. This lookup prevents an open
+/// socket from retaining authority after ordinary token/grant/client invalidation.
+pub(crate) async fn check_current(
+    connection: &mut sqlx::PgConnection,
+    client: &AuthorizedClient,
+) -> Result<(), ClientAuthError> {
+    let owner = client.account.to_string();
+    let row = sqlx::query_file_as!(
+        super::rows::AccessRow,
+        "sql/oauth/connection_authority.sql",
+        client.access_digest.as_slice(),
+        owner
+    )
+    .fetch_optional(connection)
+    .await
+    .map_err(|error| unavailable(error.into()))?
+    .ok_or(ClientAuthError::Invalid)?;
+    let grant = super::grant::GrantState::from_columns(
+        &row.family_state,
+        row.actor_id.as_deref(),
+        row.provisional_until,
+    )
+    .map_err(unavailable)?;
+    if grant.active_actor(row.closed_at) != Some(client.actor)
+        || row.family_id != client.family
+        || row.key_thumbprint != client.key_thumbprint
+        || row.expires_at <= time::OffsetDateTime::now_utc()
+        || client.expires_at <= time::OffsetDateTime::now_utc()
+    {
+        return Err(ClientAuthError::Invalid);
+    }
+    if !row.scope.split_whitespace().any(|scope| scope == "sync") {
+        return Err(ClientAuthError::Scope);
+    }
+    Ok(())
+}

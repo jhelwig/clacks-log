@@ -2,7 +2,7 @@
 
 Clacks Log is an amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
-Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The client-storage library persists those values, pending work, evidence and complete-window receipts in SQLite. The desktop foundation creates or reopens a local account, presents startup diagnostics and coordinates activation and graceful shutdown. The desktop supports local manual contact entry, editing and individual deletion. The server provides PostgreSQL-backed accounts and OIDC login/identity management; synchronization networking and external-service adapters remain downstream capabilities.
+Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The client-storage library persists those values, pending work, evidence and complete-window receipts in SQLite. The desktop foundation creates or reopens a local account, presents startup diagnostics and coordinates activation and graceful shutdown. The desktop supports local manual contact entry, editing and individual deletion. The server provides PostgreSQL-backed accounts and OIDC login/identity management; enrolled desktops synchronize through authenticated WebSockets, while external-service adapters remain downstream capabilities.
 
 ## Documentation
 
@@ -21,6 +21,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [Offline manual contact entry, editing and deletion](docs/manual-logging.md)
 - [Geographic-pipeline specification](docs/geographic-pipeline.md)
 - [Synchronization behavior](docs/synchronization.md) and [metadata model](docs/synchronization-model.md)
+- [Synchronization integration contract](docs/synchronization-integration-proposal.md)
 - [Accounts and enrollment](docs/accounts.md)
 - [Desktop enrollment schema and workflow proposal](docs/client-enrollment-proposal.md)
 - [Credential storage and key rotation](docs/credential-protection-proposal.md)
@@ -58,8 +59,8 @@ selection and in-memory reference-export planning. See its crate guide for usage
 Run `cargo run --bin clacks-log -- --help`, or start a separate local workspace
 with `cargo run --bin clacks-log -- --workspace /absolute/path/to/workspace`.
 The [desktop guide](lib/clacks-desktop/README.md) covers configuration, logs,
-activation, shutdown and native Windows acceptance. Manual logging works offline; synchronization networking remains a downstream
-capability.
+activation, shutdown and native Windows acceptance. Manual logging works offline;
+enrolled workspaces reconnect automatically for account-wide synchronization.
 
 ## Synchronization library
 
@@ -143,8 +144,7 @@ days and reports compilation units and their dependency timelines.
 The [account server](lib/clacks-server/README.md),
 [web interface](lib/clacks-web/README.md) and
 [Linux deployment](deploy/server/README.md) provide the production account,
-identity-management and release-operations foundation. Synchronization endpoints
-remain later capability work. Full workspace tests require the disposable
+identity-management, synchronization and release-operations foundation. Full workspace tests require the disposable
 PostgreSQL database and role-specific environment variables documented in the
 server guide; they never skip silently when that configuration is missing.
 

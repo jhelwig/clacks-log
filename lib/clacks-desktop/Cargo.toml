@@ -8,6 +8,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+tokio-tungstenite.workspace = true
+futures-util.workspace = true
 huskarl.workspace = true
 huskarl-core.workspace = true
 huskarl-crypto-native.workspace = true

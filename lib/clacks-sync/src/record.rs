@@ -143,7 +143,7 @@ impl RecordState {
 }
 
 /// Position within a server history; ordering requires timeline interpretation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Position {
     /// Server history identity.
     pub timeline: TimelineId,
@@ -159,7 +159,7 @@ impl Position {
 }
 
 /// Accepted record context interpreted under a retained baseline.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "StampFields")]
 pub struct VersionStamp {
     /// Original acceptance position, preserved during recovery installation.

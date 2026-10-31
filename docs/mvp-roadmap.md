@@ -68,10 +68,11 @@ Milestones:
   context with own-station/contacted-station reference sets. Recognition and
   source separation preserve recorded meaning across clients and upgrades.
 - Implement the production synchronization and recovery logic for whole-record
-  comparison, deletion, offline edits, timeline recovery, authorized-client
-  retention and actor retirement. Explain conservative reconciliation when
-  ordering evidence is unavailable. Later storage and transport work integrates
-  and extends this implementation; it does not replace a separate simulation.
+  comparison, deletion, offline edits, timeline recovery and retained comparison
+  evidence. Explain conservative reconciliation when ordering evidence is
+  unavailable. Later storage and transport work integrates these components.
+  Baseline collection and actor-retirement execution belong to the consuming
+  maintenance workflow, rather than dormant planners or a separate simulation.
 - Implement production shared service-evidence and external-record association
   components for imports, synchronization and later publication. Preserve provenance and recovery
   meaning; an external record may associate with at most one local QSO within an

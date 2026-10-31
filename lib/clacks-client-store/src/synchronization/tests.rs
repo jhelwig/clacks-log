@@ -68,8 +68,6 @@ async fn frozen_restart_receipt_later_edit_and_rejection_preserve_their_actual_r
     lineage::set_lineage(&mut transaction, &baseline.lineage).await?;
     lineage::set_checkpoint(&mut transaction, &checkpoint).await?;
     transaction.commit().await?;
-    assert!(observe_account(&store, None, &account, &membership).await?);
-    assert!(!observe_account(&store, None, &account, &membership).await?);
     let absent_key = RecordKey {
         account: id(1),
         id: RecordId::Tag(id(21)),
@@ -192,7 +190,30 @@ async fn frozen_restart_receipt_later_edit_and_rejection_preserve_their_actual_r
         includes: clacks_sync::lineage::Coverage::from(account.head),
         kind: clacks_sync::lineage::BoundaryKind::ForkOrigin,
     })?;
-    crate::retention::install_interpretation(&store, &checkpoint, &[], &forked).await?;
+    let mut receipt = crate::transfer::begin(
+        &store,
+        &clacks_sync::transfer::discovery::DiscoveryStart {
+            source: checkpoint.clone(),
+            mode: clacks_sync::transfer::WindowMode::Incremental {
+                after: checkpoint.coverage.clone(),
+            },
+        },
+    )
+    .await?;
+    crate::transfer::install_page(
+        &store,
+        &mut receipt,
+        &clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![],
+            accepted: vec![],
+            support: vec![],
+            baselines: vec![],
+            boundaries: forked.boundaries().to_vec(),
+            units: vec![],
+        },
+    )
+    .await?;
     let alternative = clacks_sync::record::AcceptedRecord::new(
         key,
         state("restored branch"),

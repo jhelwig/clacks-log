@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.submission_projection (payload_id, account, destination_id, service, contact_fields) VALUES ($1, $2, $3, 'qrz', $4) RETURNING projection_id AS \"projection_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "projection_id!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.submission_projection",
+            "name": "projection_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "234f858e2ad365909d54a4b109ecac16b323bdcdeb2da63823fcdbf513ddf211"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE clacks.sync_accounts SET current_lineage_id = $2 WHERE account_id = $1\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "729f3dc66aa4c744ec4a81dc6a0e33d4c793dbf317ed5832c1972ae622e2801e"
+}

@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT ordinal, requirement, account, kind, record_id, stamp_id, deleted FROM clacks.support_requirement WHERE payload_id = $1 ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ordinal",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.support_requirement",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "requirement",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.support_requirement",
+            "name": "requirement"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "account",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.support_requirement",
+            "name": "account"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.support_requirement",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "record_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.support_requirement",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "stamp_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.support_requirement",
+            "name": "stamp_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "deleted",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "clacks.support_requirement",
+            "name": "deleted"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "479c639c7c33d2b9df5c022e2720dadddbfa5909c39b635d0dea27f9668fcdcb"
+}

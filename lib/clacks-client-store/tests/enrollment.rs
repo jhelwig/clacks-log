@@ -7,14 +7,12 @@ use clacks_client_store::{
     save::{self, SaveOutcome},
     store::{ClientStore, StoreSettings},
     synchronization::{self, PrepareOutcome},
-    transfer,
 };
 use clacks_sync::{
     account::{AccountMetadata, InstalledCheckpoint},
     client::{Preparation, ReviewReason},
     lineage::Coverage,
-    membership::{ClientMembership, MembershipSnapshot},
-    transfer::{RecordRequirement, WindowManifest, WindowMode},
+    transfer::{RecordRequirement, WindowMode},
 };
 
 #[tokio::test]
@@ -38,35 +36,30 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
     )
     .await?;
 
-    let (mut account, baseline) =
+    let (account, baseline) =
         AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
     let checkpoint = InstalledCheckpoint {
         account: account.account,
         baseline: baseline.id,
         coverage: account.installed.clone(),
     };
-    let empty = WindowManifest::new(
-        account.account,
-        checkpoint.clone(),
-        WindowMode::Full,
-        vec![],
-        vec![],
-        vec![baseline.clone()],
-        vec![],
-    )?;
-    transfer::remember(&store, &empty).await?;
-    transfer::finish(&store, &checkpoint, &WindowMode::Full).await?;
-    let membership = MembershipSnapshot {
-        account: account.account,
-        generation: 0,
-        clients: vec![ClientMembership {
-            actor: old.actor,
-            created_at: account.head,
-            closed_at: None,
-            acknowledged: None,
-        }],
+    let empty = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: checkpoint.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![],
+            boundaries: vec![],
+            baselines: vec![baseline.clone()],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
     };
-    synchronization::observe_account(&store, None, &account, &membership).await?;
+    let incoming = crate::incoming::Incoming::begin(&store, &empty).await?;
+    incoming.finish(&store).await?;
     let key = support::qso_key(support::id(10));
     save::save(
         &store,
@@ -134,28 +127,30 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
         coverage: Coverage::from(accepted.stamp.accepted_at()),
         ..checkpoint
     };
-    let window = WindowManifest::new(
-        account.account,
-        source.clone(),
-        WindowMode::Full,
-        vec![RecordRequirement {
-            key,
-            stamp: accepted.stamp.clone(),
-            deleted: false,
-        }],
-        vec![],
-        vec![baseline],
-        vec![],
-    )?;
-    transfer::remember(&store, &window).await?;
-    transfer::install(
-        &store,
-        &source,
-        &WindowMode::Full,
-        std::slice::from_ref(&accepted),
-    )
-    .await?;
-    transfer::finish(&store, &source, &WindowMode::Full).await?;
+    let window = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: source.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![RecordRequirement {
+                key,
+                stamp: accepted.stamp.clone(),
+                deleted: false,
+            }],
+            boundaries: vec![],
+            baselines: vec![baseline],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let mut incoming = crate::incoming::Incoming::begin(&store, &window).await?;
+    incoming
+        .page(&store, std::slice::from_ref(&accepted))
+        .await?;
+    incoming.finish(&store).await?;
     let mut snapshot = clacks_client_store::read::snapshot(&store).await?;
     let reviews = snapshot.review(&Default::default()).await?;
     let shown = reviews
@@ -196,29 +191,6 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
         SaveOutcome::Saved(_)
     ));
 
-    account.head = accepted.stamp.accepted_at();
-    account.installed = source.coverage;
-    account.membership_generation = 1;
-    let next = MembershipSnapshot {
-        account: account.account,
-        generation: 1,
-        clients: vec![ClientMembership {
-            actor: fresh.actor,
-            created_at: account.head,
-            closed_at: None,
-            acknowledged: None,
-        }],
-    };
-    synchronization::observe_account(
-        &store,
-        Some(&(
-            AccountMetadata::initialize(support::id(1), support::id(2), support::id(3)).0,
-            membership,
-        )),
-        &account,
-        &next,
-    )
-    .await?;
     assert!(
         matches!(synchronization::prepare(&store,key).await?,PrepareOutcome::Core(value) if matches!(*value,Preparation::Ready { .. }))
     );

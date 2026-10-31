@@ -1,0 +1,126 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT destination_id, service, mapping_release, mapping_commit, signing_call, signing_dxcc, external_id, contact_fields, station_fields FROM clacks.submission_projection WHERE projection_id = $1 AND payload_id = $2 AND account = $3\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "destination_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.submission_projection",
+            "name": "destination_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "service",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.submission_projection",
+            "name": "service"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "mapping_release",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.submission_projection",
+            "name": "mapping_release"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "mapping_commit",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.submission_projection",
+            "name": "mapping_commit"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "signing_call",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.submission_projection",
+            "name": "signing_call"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "signing_dxcc",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.submission_projection",
+            "name": "signing_dxcc"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "external_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.submission_projection",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "contact_fields",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.submission_projection",
+            "name": "contact_fields"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "station_fields",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.submission_projection",
+            "name": "station_fields"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "7eccfef7d6ec7d80c6d1b908011344c67aa39602a8b70f79bb8c2d06649afcce"
+}

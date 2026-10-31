@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT DISTINCT operation_id FROM coupled_member WHERE account = ? AND kind = ? AND record_id = ? ORDER BY operation_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "operation_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "coupled_member",
+            "name": "operation_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b79dc6c1c9edc668c78a85f0703afd1c4ca73aa16b86340cce618cb53063bb9e"
+}

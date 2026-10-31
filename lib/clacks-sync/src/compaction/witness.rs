@@ -88,6 +88,9 @@ impl BasisWitness {
             OriginalBasis::NeverCreated {
                 checkpoint: source, ..
             } => {
+                let source = source.as_ref().ok_or_else(|| MetadataError::Incomplete {
+                    detail: "local creation has no certified absence checkpoint".into(),
+                })?;
                 anyhow::ensure!(
                     source.account == key.account,
                     MetadataError::Scope {

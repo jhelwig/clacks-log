@@ -51,6 +51,7 @@ pub fn router(state: ServerState, pages: Router<ServerState>) -> Router {
         .route_layer(middleware::from_fn_with_state(state.clone(), same_origin))
         .layer(state.sessions.clone())
         .merge(crate::oauth::http::router())
+        .merge(crate::synchronization::router())
         .layer(middleware::from_fn(response_policy))
         .layer(request_trace)
         .with_state(state)

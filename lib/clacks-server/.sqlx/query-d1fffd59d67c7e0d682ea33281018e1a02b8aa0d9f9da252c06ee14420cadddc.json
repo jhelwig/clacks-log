@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.staged_accepted WHERE account = $1 AND envelope_id = $2\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d1fffd59d67c7e0d682ea33281018e1a02b8aa0d9f9da252c06ee14420cadddc"
+}

@@ -168,7 +168,7 @@ and remove temporary synthetic credential files when done.
 
 For the image, ingress, health, shutdown and backup procedures, see
 [Linux deployment](../../deploy/server/README.md). The server currently provides
-account management, not the later sync/upload endpoints.
+account management and account synchronization; external upload/download workers remain downstream.
 
 Run the client and server metadata checks sequentially. Their committed caches
 are separate, but SQLx uses one `target/sqlx-prepare-check` scratch directory;
@@ -180,7 +180,7 @@ The embedded oauth-as issuer serves authorization-code and persistent refresh
 flows, with opaque access tokens and Demonstrating Proof of Possession (DPoP)
 binding on both credentials. Browser approval chooses the authenticated account;
 `/api/client` returns the currently authorized account/actor directly from
-PostgreSQL. This does not implement the WebSocket synchronization transport.
+PostgreSQL. `/api/sync` authorizes a DPoP-bound WebSocket against that same grant.
 
 A deployment wrapping key encrypts each account's independently generated
 encryption key before that account key is stored in PostgreSQL. The account key
@@ -310,3 +310,33 @@ Zero current source references does not prove old backups are disposable. Missin
 keys or invalid envelopes are failures, not absent credentials or permission to
 regenerate material. See [backup/recovery](../../docs/backup-recovery.md) before
 restoring a database or removing keys from a deployment.
+
+## Account synchronization
+
+The concrete PostgreSQL adapter stores native queryable payloads relationally,
+accepted heads, original acceptance contexts and installation journal positions.
+New proposals and returned accepted facts use the existing native transitions
+under the account lock. Tag deletion checks active accepted QSO references in that
+transaction; equipment deletion likewise checks accepted profile references. Returned facts preserve their original stamp and may stage until
+support/coupled effects are available; they do not impersonate a new client edit.
+Unresolved returned alternatives remain available for client-owned review and do
+not certify recovered coverage. Completion checks accepted heads or proven
+successors. An accepted position ahead of the restored timeline triggers the
+existing exceptional fork without claiming completion of that position’s prefix.
+
+`store::discovery::Source` uses short repeatable-read reads, choosing retained
+journal catch-up or full accepted-state traversal through a fixed target. No
+transaction remains open while waiting for a network acknowledgment. Open
+connections recheck current access/grant/actor authority, cancel blocked network
+writes during shutdown, and close at access expiry for ordinary refresh. Server
+shutdown drains admitted storage operations before closing the database pool.
+In-process account notices wake subscribers; durable state provides correctness.
+
+Synchronization responses classify incompatible protocols, invalid wire requests,
+lost client authority and unavailable storage/source state. Only fixed safe
+explanations are sent; arbitrary native/SQL error chains remain excluded.
+Server diagnostics include account/actor and the failure category, plus the
+database error code when available. Normal shutdown and access expiry do not
+produce failure responses. Broken transports are not used for another write.
+All failure writes remain subject to cancellation and the authorization deadline.
+A failed exchange preserves committed work and advertises no unverified coverage.

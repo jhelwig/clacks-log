@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.service_query (payload_id, account, destination_id, stream, own_call, since, selected_fields) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING query_id AS \"query_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "query_id!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.service_query",
+            "name": "query_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a97e46f2ee901b50ebd20d959e66ca52a759954cd45e9b30780093be53548f53"
+}

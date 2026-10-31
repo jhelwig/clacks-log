@@ -1,7 +1,6 @@
 //! Durable client-owned resolution context returned by native transitions.
 
 use super::client::{observation, original};
-use crate::rows::review::ReviewReasonRow;
 use clacks_sync::{
     client::{ReviewInput, ReviewReason},
     record::RecordKey,
@@ -29,102 +28,29 @@ pub(crate) async fn store(
     let payload = crate::payload::insert(connection, key, &review.local).await?;
     let shared = observation::insert_observation(connection, &review.shared).await?;
     match &review.reason {
-        ReviewReason::BothDifferent => {
-            sqlx::query_file!(
-                "sql/review/insert.sql",
-                account,
-                kind,
-                id,
-                original,
-                payload,
-                shared,
-                "different",
-                None::<String>,
-                None::<String>,
-                None::<String>,
-                None::<String>
-            )
-            .execute(&mut *connection)
-            .await?;
-        }
-        ReviewReason::MissingOriginal => {
-            sqlx::query_file!(
-                "sql/review/insert.sql",
-                account,
-                kind,
-                id,
-                original,
-                payload,
-                shared,
-                "original",
-                None::<String>,
-                None::<String>,
-                None::<String>,
-                None::<String>
-            )
-            .execute(&mut *connection)
-            .await?;
-        }
-        ReviewReason::OrderingUnknown(value) => {
-            sqlx::query_file!(
-                "sql/review/insert.sql",
-                account,
-                kind,
-                id,
-                original,
-                payload,
-                shared,
-                "ordering",
-                observation::unknown(*value),
-                None::<String>,
-                None::<String>,
-                None::<String>
-            )
-            .execute(&mut *connection)
-            .await?;
-        }
-        ReviewReason::MissingReference(value) => {
-            anyhow::ensure!(
-                value.account == key.account,
-                "review reference crosses account"
-            );
-            crate::payload::identity(connection, *value).await?;
-            sqlx::query_file!(
-                "sql/review/insert.sql",
-                account,
-                kind,
-                id,
-                original,
-                payload,
-                shared,
-                "reference",
-                None::<String>,
-                crate::payload::kind(value.id),
-                value.id.to_string(),
-                None::<String>
-            )
-            .execute(&mut *connection)
-            .await?;
-        }
-        ReviewReason::ExcludedActor(value) => {
-            sqlx::query_file!(
-                "sql/review/insert.sql",
-                account,
-                kind,
-                id,
-                original,
-                payload,
-                shared,
-                "actor",
-                None::<String>,
-                None::<String>,
-                None::<String>,
-                value.to_string()
-            )
-            .execute(&mut *connection)
-            .await?;
-        }
+        ReviewReason::MissingReference(value) => anyhow::ensure!(
+            value.account == key.account,
+            "review reference crosses account"
+        ),
+        ReviewReason::Referenced { referrers, .. } => anyhow::ensure!(
+            referrers.iter().all(|value| value.account == key.account),
+            "review referrer crosses account"
+        ),
+        _ => {}
     }
+    let reason = serde_json::to_string(&review.reason)?;
+    sqlx::query_file!(
+        "sql/review/insert.sql",
+        account,
+        kind,
+        id,
+        original,
+        payload,
+        shared,
+        reason
+    )
+    .execute(&mut *connection)
+    .await?;
     for (ordinal, value) in review.retained.iter().enumerate() {
         anyhow::ensure!(
             value.key() == key,
@@ -160,55 +86,7 @@ pub(crate) async fn load(
     else {
         return Ok(None);
     };
-    let reason = match (ReviewReasonRow {
-        reason: row.reason,
-        unknown_reason: row.unknown_reason,
-        reference_kind: row.reference_kind,
-        reference_id: row.reference_id,
-        actor_id: row.actor_id,
-    }) {
-        ReviewReasonRow {
-            reason,
-            unknown_reason: None,
-            reference_kind: None,
-            reference_id: None,
-            actor_id: None,
-        } if reason == "different" => ReviewReason::BothDifferent,
-        ReviewReasonRow {
-            reason,
-            unknown_reason: None,
-            reference_kind: None,
-            reference_id: None,
-            actor_id: None,
-        } if reason == "original" => ReviewReason::MissingOriginal,
-        ReviewReasonRow {
-            reason,
-            unknown_reason: Some(value),
-            reference_kind: None,
-            reference_id: None,
-            actor_id: None,
-        } if reason == "ordering" => {
-            ReviewReason::OrderingUnknown(observation::read_unknown(&value)?)
-        }
-        ReviewReasonRow {
-            reason,
-            unknown_reason: None,
-            reference_kind: Some(kind),
-            reference_id: Some(id),
-            actor_id: None,
-        } if reason == "reference" => ReviewReason::MissingReference(RecordKey {
-            account: key.account,
-            id: crate::payload::record_id(&kind, &id)?,
-        }),
-        ReviewReasonRow {
-            reason,
-            unknown_reason: None,
-            reference_kind: None,
-            reference_id: None,
-            actor_id: Some(value),
-        } if reason == "actor" => ReviewReason::ExcludedActor(value.parse()?),
-        _ => anyhow::bail!("invalid review reason variant"),
-    };
+    let reason = serde_json::from_str::<ReviewReason>(&row.reason)?;
     let mut retained = vec![];
     for row in sqlx::query_file!("sql/review/retained.sql", account, kind, id)
         .fetch_all(&mut *connection)

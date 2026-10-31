@@ -8,6 +8,7 @@ mod logbooks;
 mod logging;
 mod operating;
 mod session;
+mod synchronization;
 mod telemetry;
 mod ui;
 mod workspace;
@@ -23,10 +24,6 @@ pub fn run() -> anyhow::Result<()> {
     let configuration = config::resolve(arguments, &context)?;
     application::run(configuration)
 }
-
-#[cfg(test)]
-#[path = "logbooks/tests.rs"]
-mod logbook_tests;
 
 pub(crate) mod enrollment;
 

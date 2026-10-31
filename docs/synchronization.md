@@ -13,6 +13,10 @@ The library supplies conditional row transitions; actual database commits and
 transport remain downstream integration work. Published research explains the
 chosen mechanisms without proving every application-specific recovery transition.
 
+The [integration proposal for #14](synchronization-integration-proposal.md) maps
+these components into real storage and WebSocket exchanges. Its engineering
+defaults are proposals for review, not additional agreed product requirements.
+
 ## Working changes and symmetric synchronization (D59)
 
 Use the same state/history negotiation and transfer mechanism for client-to-server and server-to-client synchronization. A restored server can request missing synchronized state from clients just as a behind client can request it from the server. The server's coordination of accepted state and external service jobs does not make its stored history infallible.
@@ -140,6 +144,8 @@ Deletion is an edit for conflict purposes. D138 treats deleted as a possible com
 
 There is no agreed server-side collection of unresolved competing versions and no last-writer-wins merge policy. Accepted state, locally pending changes, and any historical/audit storage have different roles.
 
+Reference validation also applies to deletions in the reverse direction (D250). Flag a pending tag deletion when an active QSO would retain a reference to that tag in accepted shared state. Recheck actual surviving references atomically at acceptance: a membership accepted first can block the deletion, while a membership proposed after accepted deletion fails the forward reference check. This is not a competing edit to the tag record. After receive-first catch-up, three unchanged QSOs locally marked deleted have no record conflicts, and a fourth QSO's one-sided membership addition has no record conflict; the tag deletion is flagged for that fourth QSO's surviving reference. Do not infer preserved user-action intent or automatically delete the fourth QSO.
+
 ## Comparison-to-submission race (D146)
 
 A client comparison can become stale before its result reaches shared storage. D146 requires atomic conditional acceptance: the relevant shared state must still match what the client compared when its submission is accepted. Otherwise the client receives newer state and repeats its whole-record comparison, entering user resolution only under D137/D138. The server's storage precondition check does not interpret business differences, resolve them, or retain unresolved competing business records.
@@ -199,6 +205,8 @@ D153 explicitly permits detecting rollback and requiring manual client reconcili
 ## Catch-up and streaming (D61)
 
 On connection or reconnection, batch-negotiate and transfer missing synchronized state in both directions. After catch-up, stream updates as available while connected. Interrupted streams reconnect through catch-up, including cases where a server has restored older state. Logging/edits remain locally durable throughout; conflicts remain subject to D04.
+
+Client catch-up is receive-first: durably incorporate all server updates covered by the completed inbound catch-up and compare pending work against that shared state before publishing any local changes. This includes retries of previously prepared proposals; received state may already establish their incorporation. Logging and local saves continue during catch-up. Once inbound catch-up is complete, unresolved records remain local while eligible changes can publish. Changes accepted after that catch-up point remain subject to D146's conditional acceptance checks.
 
 The protocol needs a gap-free handoff between catch-up and live updates. Changes made during catch-up must be included or queued for subsequent delivery. Retry/overlap must have no second effect, and acknowledgments must not discard work that the peer has not durably accepted. D235 selects encrypted WebSocket transport. Exact snapshot boundaries, subscription/acknowledgment design and backpressure remain specification work. Streaming notifications do not imply retaining a permanent history event for every intermediate edit.
 

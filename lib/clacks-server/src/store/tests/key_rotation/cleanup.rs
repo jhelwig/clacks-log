@@ -53,7 +53,10 @@ async fn expired_approval_cleanup_keeps_retained_receipts_usable() -> anyhow::Re
         active: "cleanup".into(),
         files: [("cleanup".into(), file)].into(),
     })?);
-    let store = OAuthStore::new(pool.clone(), wrapping.clone());
+    let store = OAuthStore::new(
+        crate::store::AccountStore::new(pool.clone()),
+        wrapping.clone(),
+    );
     let issuer = config::issuer(store.clone(), &"https://clacks.example".parse()?);
     let dpop = DPoP::builder()
         .signer(PrivateKey::generate(GenerateAlgorithm::Es256, None)?)

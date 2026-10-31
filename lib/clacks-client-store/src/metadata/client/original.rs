@@ -43,7 +43,10 @@ pub(crate) async fn insert_original(
             .original_id
         }
         OriginalBasis::NeverCreated { checkpoint, .. } => {
-            let checkpoint = lineage::insert_checkpoint(connection, checkpoint).await?;
+            let checkpoint = match checkpoint {
+                Some(value) => Some(lineage::insert_checkpoint(connection, value).await?),
+                None => None,
+            };
             sqlx::query_file!(
                 "sql/original/insert.sql",
                 account,
@@ -142,14 +145,19 @@ pub(crate) async fn load_original(
         OriginalBasisRow {
             variant,
             envelope_id: None,
-            checkpoint_id: Some(checkpoint),
+            checkpoint_id: checkpoint,
             payload_id: None,
             vector_id: None,
             stamp_id: None,
             unknown_reason: None,
         } if variant == "absent" => OriginalBasis::NeverCreated {
             key,
-            checkpoint: lineage::load_checkpoint(connection, key.account, checkpoint).await?,
+            checkpoint: match checkpoint {
+                Some(value) => {
+                    Some(lineage::load_checkpoint(connection, key.account, value).await?)
+                }
+                None => None,
+            },
         },
         OriginalBasisRow {
             variant,

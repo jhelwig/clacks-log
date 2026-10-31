@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.equipment_snapshot (account, equipment_description, antenna_description, notes) VALUES ($1, $2, $3, $4) RETURNING equipment_id AS \"equipment_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "equipment_id!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.equipment_snapshot",
+            "name": "equipment_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4e747d62f97c3b5846b5cee8eb372d8a769d5a7d99fe496398f7d682796b9054"
+}

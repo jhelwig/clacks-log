@@ -44,6 +44,7 @@ impl AccountStore {
             )
             .fetch_optional(&mut *transaction)
             .await?;
+            let newly_created = found.is_none();
             let principal = if let Some(binding) = found {
                 sqlx::query_file!("sql/account_lock.sql", binding.account_id)
                     .fetch_one(&mut *transaction)
@@ -89,6 +90,7 @@ impl AccountStore {
                     }
                     return Err(error.into());
                 }
+                super::synchronization::initialize(&mut transaction, account_id).await?;
                 Principal {
                     account_id,
                     identity_id,
@@ -105,6 +107,10 @@ impl AccountStore {
             .execute(&mut *transaction)
             .await?;
             transaction.commit().await?;
+            if newly_created {
+                tracing::info!(event = "account.created", account_id = %principal.account_id);
+                metrics::counter!("clacks_accounts_created_total").increment(1);
+            }
             tracing::info!(account_id = %principal.account_id, identity_id = %principal.identity_id, "Browser login established");
             return Ok(reference);
         }

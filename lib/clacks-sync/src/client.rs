@@ -2,6 +2,7 @@
 
 pub mod preparation;
 mod reconciliation;
+pub mod returned;
 mod state;
 
 use reconciliation::{review_reason, witness_evidence};
@@ -21,12 +22,12 @@ use serde::{Deserialize, Serialize};
 pub enum OriginalBasis {
     /// A previously incorporated accepted version.
     Accepted(AcceptedRecord),
-    /// Certified absence before local creation.
+    /// Known local creation, optionally accompanied by certified shared absence.
     NeverCreated {
         /// Account-qualified native identity.
         key: RecordKey,
-        /// Complete view establishing absence.
-        checkpoint: InstalledCheckpoint,
+        /// Complete view establishing shared absence, when already received.
+        checkpoint: Option<InstalledCheckpoint>,
     },
     /// Frozen own values known incorporated, without inventing their acceptance position.
     SubsumedOwn {
@@ -241,6 +242,13 @@ pub struct PreparedChangeFields {
 /// Why a preserved local record needs an explicit user choice.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReviewReason {
+    /// A pending deletion would leave active shared records referring to its target.
+    Referenced {
+        /// Bounded examples of the surviving shared references.
+        referrers: Vec<RecordKey>,
+        /// Full referrer count at the shared acceptance check.
+        total: u64,
+    },
     /// Both sides changed the original to differing values.
     BothDifferent,
     /// The original value is unavailable.
@@ -473,6 +481,20 @@ pub fn receive_rejection(
         .into());
     };
     let reason = match reason {
+        crate::acceptance::RejectionReason::Referenced {
+            key,
+            referrers,
+            total,
+        } => {
+            anyhow::ensure!(
+                *key == current.key && referrers.iter().all(|value| value.account == key.account),
+                "blocked deletion crosses record/account"
+            );
+            ReviewReason::Referenced {
+                referrers: referrers.clone(),
+                total: *total,
+            }
+        }
         crate::acceptance::RejectionReason::ServiceCondition { .. } => {
             return Ok(ClientUpdate {
                 record: current.clone(),
@@ -503,4 +525,75 @@ pub fn receive_rejection(
             reason,
         }),
     })
+}
+
+/// Incorporate an explicit stale response and release only the matching rejected frozen proposal.
+///
+/// A lost response must keep its frozen change for retry. This transition is used only after
+/// the server explicitly reports that this exact proposal's comparison failed.
+pub fn receive_stale(
+    current: &ClientRecord,
+    change: &PreparedChange,
+    observed: &Observation,
+    evidence: &EvidenceView<'_>,
+) -> anyhow::Result<ClientUpdate> {
+    current.validate()?;
+    observed.validate()?;
+    anyhow::ensure!(
+        change.key() == current.key
+            && observed.key().account == current.key.account
+            && (observed.key() == current.key
+                || change
+                    .dependencies()
+                    .iter()
+                    .any(|condition| condition.key() == observed.key())),
+        "stale response does not belong to this proposal"
+    );
+    let mut update = if observed.key() == current.key {
+        match observed {
+            Observation::Accepted(value) => receive_accepted(current, value, evidence)?,
+            _ => {
+                let mut record = current.clone();
+                if let Observation::Accepted(value) = record.latest()
+                    && !record.retained.contains(value)
+                {
+                    record.retained.push(value.clone());
+                }
+                record.latest = observed.clone();
+                let review = if let Some(pending) = &record.pending {
+                    review_reason(pending, observed, evidence)?.map(|reason| ReviewInput {
+                        original: pending.original.clone(),
+                        local: pending.working.clone(),
+                        shared: observed.clone(),
+                        reason,
+                        retained: record.retained.clone(),
+                    })
+                } else {
+                    None
+                };
+                ClientUpdate { record, review }
+            }
+        }
+    } else {
+        ClientUpdate {
+            record: current.clone(),
+            review: None,
+        }
+    };
+    if let Some(pending) = &mut update.record.pending
+        && pending.prepared.as_ref() == Some(change)
+    {
+        pending.prepared = None;
+    }
+    if observed.key() != current.key
+        && !matches!(observed, Observation::Accepted(value) if matches!(value.state(), RecordState::Live(_)))
+    {
+        return receive_rejection(
+            &update.record,
+            &crate::acceptance::RejectionReason::MissingReference {
+                key: observed.key(),
+            },
+        );
+    }
+    Ok(update)
 }

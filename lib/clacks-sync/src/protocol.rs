@@ -1,5 +1,7 @@
 //! Shared application wire values used before synchronization begins.
 
+pub mod messages;
+
 use clacks_model::ids::{AccountId, ClientActorId};
 use serde::{Deserialize, Serialize};
 

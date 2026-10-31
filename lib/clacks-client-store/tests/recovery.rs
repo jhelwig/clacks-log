@@ -1,12 +1,11 @@
 use crate::support;
 use clacks_client_store::{
-    retention,
     save::{self, SaveOutcome},
     store::{ClientStore, StoreSettings},
 };
 
 #[tokio::test]
-async fn collection_reclaims_replaced_values_without_losing_pending_work() -> anyhow::Result<()> {
+async fn replaced_working_values_survive_workspace_reopen() -> anyhow::Result<()> {
     let dir = tempfile::tempdir()?;
     let file = dir.path().join("workspace.sqlite");
     let store = ClientStore::create(&file, support::id(1), StoreSettings::default()).await?;
@@ -31,9 +30,7 @@ async fn collection_reclaims_replaced_values_without_losing_pending_work() -> an
     else {
         panic!("save")
     };
-    assert!(retention::collect_unreferenced(&store).await? > 0);
     assert_eq!(save::load(&store, key).await?, Some(next.clone()));
-    assert_eq!(retention::collect_unreferenced(&store).await?, 0);
     store.close().await?;
     let store = ClientStore::open(&file, support::id(1), StoreSettings::default()).await?;
     assert_eq!(save::load(&store, key).await?, Some(next));
@@ -42,11 +39,11 @@ async fn collection_reclaims_replaced_values_without_losing_pending_work() -> an
 }
 
 #[tokio::test]
-async fn received_compaction_seals_pending_basis_and_preserves_original_context()
--> anyhow::Result<()> {
+async fn received_baseline_seals_pending_basis_and_preserves_original_context() -> anyhow::Result<()>
+{
     use clacks_client_store::{
         identity::{self, EnrollmentBinding},
-        synchronization, transfer,
+        synchronization,
     };
     use clacks_sync::{
         acceptance::{AcceptanceDecision, AcceptanceInput, plan_acceptance},
@@ -54,10 +51,9 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
         client::{
             LocalCounter, OriginalBasis, PendingRecord, Preparation, preparation::prepare_change,
         },
-        compaction::{CompactionInput, plan_baseline},
         membership::{ClientMembership, MembershipSnapshot},
         record::{Observation, RecordState},
-        transfer::{RecordRequirement, WindowManifest, WindowMode},
+        transfer::{RecordRequirement, WindowMode},
     };
     let dir = tempfile::tempdir()?;
     let file = dir.path().join("workspace.sqlite");
@@ -107,11 +103,11 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
             key,
             original: OriginalBasis::NeverCreated {
                 key,
-                checkpoint: InstalledCheckpoint {
+                checkpoint: Some(InstalledCheckpoint {
                     account: account.account,
                     baseline: baseline.id,
                     coverage: account.installed.clone(),
-                },
+                }),
             },
             working: support::contact(support::qso(support::id(10))),
             prepared: None,
@@ -153,28 +149,30 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
         baseline: baseline.id,
         coverage: commit.next_account.installed.clone(),
     };
-    let manifest = WindowManifest::new(
-        account.account,
-        source.clone(),
-        WindowMode::Full,
-        vec![RecordRequirement {
-            key,
-            stamp: commit.accepted.stamp.clone(),
-            deleted: false,
-        }],
-        vec![],
-        bases.to_vec(),
-        vec![],
-    )?;
-    transfer::remember(&store, &manifest).await?;
-    transfer::install(
-        &store,
-        &source,
-        &WindowMode::Full,
-        std::slice::from_ref(&commit.accepted),
-    )
-    .await?;
-    transfer::finish(&store, &source, &WindowMode::Full).await?;
+    let manifest = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: source.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![RecordRequirement {
+                key,
+                stamp: commit.accepted.stamp.clone(),
+                deleted: false,
+            }],
+            boundaries: vec![],
+            baselines: bases.to_vec(),
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let mut incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
+    incoming
+        .page(&store, std::slice::from_ref(&commit.accepted))
+        .await?;
+    incoming.finish(&store).await?;
     let row = save::load(&store, key).await?.unwrap();
     let mut qso = support::qso(support::id(10));
     support::edit(&mut qso, |qso| {
@@ -185,34 +183,35 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
     membership.clients.first_mut().unwrap().acknowledged = Some(source.clone());
     let retired =
         clacks_sync::membership::revoke(support::id(9), &commit.next_account, &membership)?;
-    let baseline_plan = plan_baseline(
-        support::id(4),
-        &CompactionInput {
-            account: &retired.next_account,
-            membership: &retired.next,
-            records: std::slice::from_ref(&commit.accepted),
-            surviving: &[],
-        },
-        &evidence,
-    )?;
-    assert!(baseline_plan.removable_clients.contains(&support::id(9)));
-    retention::install_interpretation(
+    let received_baseline = clacks_sync::account::Baseline {
+        id: support::id(4),
+        account: source.account,
+        coverage: source.coverage.clone(),
+        lineage: baseline.lineage.clone(),
+        membership_generation: retired.next_account.membership_generation,
+    };
+    receive_interpretation(
         &store,
         &source,
-        std::slice::from_ref(&baseline_plan.baseline),
-        &baseline_plan.baseline.lineage,
+        std::slice::from_ref(&received_baseline),
+        &received_baseline.lineage,
     )
     .await?;
     let sealed = save::load(&store, key).await?.unwrap();
     let witness = sealed.pending().as_ref().unwrap().witness.as_ref().unwrap();
     assert_eq!(witness.observed(), &commit.accepted.stamp);
     assert_eq!(witness.original(), &sealed.pending().unwrap().original);
-    let projected = baseline_plan.projected.first().unwrap();
+    let mut projected = commit.accepted.clone();
+    projected.stamp = clacks_sync::record::VersionStamp::new(
+        projected.stamp.accepted_at(),
+        received_baseline.id,
+        projected.stamp.vector().clone(),
+    )?;
+
     store.close().await?;
     let store = ClientStore::open(&file, support::id(1), StoreSettings::default()).await?;
     // Reconcile using the restored sealed basis, rather than in-memory setup.
-    synchronization::receive(&store, projected).await?;
-    retention::collect_unreferenced(&store).await?;
+    synchronization::receive(&store, &projected).await?;
     let retained = save::load(&store, key).await?.unwrap();
     assert!(matches!(
         retained.working_state(),
@@ -223,10 +222,10 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
         Some(witness.clone())
     );
     // Incompatible meaning for the same baseline cannot replace interpretation or receipt.
-    let mut invalid = baseline_plan.baseline;
+    let mut invalid = received_baseline;
     invalid.membership_generation += 1;
     assert!(
-        retention::install_interpretation(&store, &source, &[invalid.clone()], &invalid.lineage)
+        receive_interpretation(&store, &source, &[invalid.clone()], &invalid.lineage)
             .await
             .is_err()
     );
@@ -241,7 +240,7 @@ async fn received_compaction_seals_pending_basis_and_preserves_original_context(
 #[tokio::test]
 async fn rollback_ancestry_and_recovered_envelopes_preserve_local_tail_and_old_receipt()
 -> anyhow::Result<()> {
-    use clacks_client_store::{read, transfer};
+    use clacks_client_store::read;
     use clacks_sync::{
         acceptance::AcceptanceInput,
         account::{AccountMetadata, EvidenceView, InstalledCheckpoint},
@@ -252,7 +251,7 @@ async fn rollback_ancestry_and_recovered_envelopes_preserve_local_tail_and_old_r
             HistoryCheck, HistoryObservation, RecoveredDecision, check_history,
             plan_recovered_install, plan_recovery_fork,
         },
-        transfer::{RecordRequirement, WindowManifest, WindowMode},
+        transfer::{RecordRequirement, WindowMode},
     };
     let directory = tempfile::tempdir()?;
     let file = directory.path().join("workspace.sqlite");
@@ -270,24 +269,26 @@ async fn rollback_ancestry_and_recovered_envelopes_preserve_local_tail_and_old_r
         stamp: accepted.stamp.clone(),
         deleted: false,
     };
-    let manifest = WindowManifest::new(
-        restored.account,
-        completed.clone(),
-        WindowMode::Full,
-        vec![requirement.clone()],
-        vec![],
-        vec![baseline.clone()],
-        vec![],
-    )?;
-    transfer::remember(&store, &manifest).await?;
-    transfer::install(
-        &store,
-        &completed,
-        &WindowMode::Full,
-        std::slice::from_ref(&accepted),
-    )
-    .await?;
-    transfer::finish(&store, &completed, &WindowMode::Full).await?;
+    let manifest = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: completed.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![requirement.clone()],
+            boundaries: vec![],
+            baselines: vec![baseline.clone()],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let mut incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
+    incoming
+        .page(&store, std::slice::from_ref(&accepted))
+        .await?;
+    incoming.finish(&store).await?;
     let row = save::load(&store, accepted.key()).await?.unwrap();
     let mut qso = support::qso(support::id(10));
     support::edit(&mut qso, |qso| {
@@ -324,7 +325,7 @@ async fn rollback_ancestry_and_recovered_envelopes_preserve_local_tail_and_old_r
     let fork = plan_recovery_fork(support::id(5), &restored, &membership, &restored.installed)?;
     let mut ancestry = baseline.lineage.clone();
     ancestry.add_boundary(fork.boundary.clone())?;
-    retention::install_interpretation(&store, &completed, &[], &ancestry).await?;
+    receive_interpretation(&store, &completed, &[], &ancestry).await?;
     let retained = save::load(&store, accepted.key()).await?.unwrap();
     assert_eq!(retained.latest(), &Observation::Accepted(accepted.clone()));
     let evidence = EvidenceView {
@@ -366,20 +367,25 @@ async fn rollback_ancestry_and_recovered_envelopes_preserve_local_tail_and_old_r
         baseline: baseline.id,
         coverage: next_account.installed,
     };
-    let recovered = WindowManifest::new(
-        restored.account,
-        source.clone(),
-        WindowMode::Full,
-        vec![requirement],
-        vec![fork.boundary],
-        bases.to_vec(),
-        vec![],
-    )?;
-    transfer::remember(&store, &recovered).await?;
-    transfer::install(&store, &source, &WindowMode::Full, &[envelope]).await?;
-    let receipt = transfer::finish(&store, &source, &WindowMode::Full).await?;
+    let recovered = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: source.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![requirement],
+            boundaries: vec![fork.boundary],
+            baselines: bases.to_vec(),
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let mut incoming = crate::incoming::Incoming::begin(&store, &recovered).await?;
+    incoming.page(&store, &[envelope]).await?;
+    let receipt = incoming.finish(&store).await?;
     assert!(receipt.coverage.covers(accepted.stamp.accepted_at()));
-    retention::collect_unreferenced(&store).await?;
     assert_eq!(
         save::load(&store, accepted.key())
             .await?
@@ -403,12 +409,10 @@ async fn rollback_ancestry_and_recovered_envelopes_preserve_local_tail_and_old_r
 #[tokio::test]
 async fn insufficient_installed_coverage_keeps_the_original_without_fabricating_a_witness()
 -> anyhow::Result<()> {
-    use clacks_client_store::{synchronization, transfer};
+    use clacks_client_store::synchronization;
     use clacks_sync::{
-        account::{AccountMetadata, EvidenceView, InstalledCheckpoint},
-        compaction::{CompactionInput, plan_baseline},
-        membership::MembershipSnapshot,
-        transfer::{WindowManifest, WindowMode},
+        account::{AccountMetadata, InstalledCheckpoint},
+        transfer::WindowMode,
     };
     let directory = tempfile::tempdir()?;
     let store = ClientStore::create(
@@ -424,17 +428,23 @@ async fn insufficient_installed_coverage_keeps_the_original_without_fabricating_
         baseline: baseline.id,
         coverage: account.installed.clone(),
     };
-    let manifest = WindowManifest::new(
-        account.account,
-        checkpoint.clone(),
-        WindowMode::Full,
-        vec![],
-        vec![],
-        vec![baseline.clone()],
-        vec![],
-    )?;
-    transfer::remember(&store, &manifest).await?;
-    transfer::finish(&store, &checkpoint, &WindowMode::Full).await?;
+    let manifest = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: checkpoint.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![],
+            boundaries: vec![],
+            baselines: vec![baseline.clone()],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
+    incoming.finish(&store).await?;
     let accepted = support::accepted(1, support::contact(support::qso(support::id(10))));
     synchronization::receive(&store, &accepted).await?;
     let row = save::load(&store, accepted.key()).await?.unwrap();
@@ -448,33 +458,11 @@ async fn insufficient_installed_coverage_keeps_the_original_without_fabricating_
     else {
         panic!("saved")
     };
-    let bases = [baseline.clone()];
-    let membership = MembershipSnapshot {
-        account: account.account,
-        generation: 0,
-        clients: vec![],
+    let received_baseline = clacks_sync::account::Baseline {
+        id: support::id(4),
+        ..baseline.clone()
     };
-    let compacted = plan_baseline(
-        support::id(4),
-        &CompactionInput {
-            account: &account,
-            membership: &membership,
-            records: &[],
-            surviving: &[],
-        },
-        &EvidenceView {
-            lineage: &baseline.lineage,
-            baselines: &bases,
-        },
-    )?;
-    retention::install_interpretation(
-        &store,
-        &checkpoint,
-        &[compacted.baseline],
-        &baseline.lineage,
-    )
-    .await?;
-    retention::collect_unreferenced(&store).await?;
+    receive_interpretation(&store, &checkpoint, &[received_baseline], &baseline.lineage).await?;
     assert_eq!(save::load(&store, accepted.key()).await?, Some(pending));
     store.close().await?;
     Ok(())
@@ -482,12 +470,11 @@ async fn insufficient_installed_coverage_keeps_the_original_without_fabricating_
 
 #[tokio::test]
 async fn absence_witness_survives_a_new_baseline_and_workspace_reopen() -> anyhow::Result<()> {
-    use clacks_client_store::transfer;
     use clacks_sync::{
         account::{AccountMetadata, InstalledCheckpoint},
         client::OriginalBasis,
         record::{AcceptedRecord, VersionStamp},
-        transfer::{RecordRequirement, WindowManifest, WindowMode},
+        transfer::{RecordRequirement, WindowMode},
     };
     let directory = tempfile::tempdir()?;
     let file = directory.path().join("workspace.sqlite");
@@ -499,17 +486,23 @@ async fn absence_witness_survives_a_new_baseline_and_workspace_reopen() -> anyho
         baseline: old_baseline.id,
         coverage: account.installed,
     };
-    let initial = WindowManifest::new(
-        account.account,
-        old_checkpoint.clone(),
-        WindowMode::Full,
-        vec![],
-        vec![],
-        vec![old_baseline.clone()],
-        vec![],
-    )?;
-    transfer::remember(&store, &initial).await?;
-    transfer::finish(&store, &old_checkpoint, &WindowMode::Full).await?;
+    let initial = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: old_checkpoint.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![],
+            boundaries: vec![],
+            baselines: vec![old_baseline.clone()],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let incoming = crate::incoming::Incoming::begin(&store, &initial).await?;
+    incoming.finish(&store).await?;
 
     let key = support::qso_key(support::id(10));
     let SaveOutcome::Saved(local) = save::save(
@@ -523,7 +516,7 @@ async fn absence_witness_survives_a_new_baseline_and_workspace_reopen() -> anyho
         panic!("local save")
     };
     assert!(matches!(&local.pending().unwrap().original,
-        OriginalBasis::NeverCreated { checkpoint, .. } if checkpoint.baseline == old_baseline.id));
+        OriginalBasis::NeverCreated { checkpoint: Some(checkpoint), .. } if checkpoint.baseline == old_baseline.id));
     let mut next_baseline = old_baseline.clone();
     next_baseline.id = support::id(4);
     let mut remote = support::qso(support::id(10));
@@ -546,23 +539,29 @@ async fn absence_witness_survives_a_new_baseline_and_workspace_reopen() -> anyho
         baseline: next_baseline.id,
         coverage: clacks_sync::lineage::Coverage::from(accepted.stamp.accepted_at()),
     };
-    let manifest = WindowManifest::new(
-        account.account,
-        source.clone(),
-        WindowMode::Full,
-        vec![RecordRequirement {
-            key,
-            stamp: accepted.stamp.clone(),
-            deleted: false,
-        }],
-        vec![],
-        vec![old_baseline.clone(), next_baseline],
-        vec![],
-    )?;
-    transfer::remember(&store, &manifest).await?;
-    transfer::install(&store, &source, &WindowMode::Full, &[accepted]).await?;
-    transfer::finish(&store, &source, &WindowMode::Full).await?;
-    retention::install_interpretation(&store, &source, &[], &old_baseline.lineage).await?;
+    let manifest = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: source.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![RecordRequirement {
+                key,
+                stamp: accepted.stamp.clone(),
+                deleted: false,
+            }],
+            boundaries: vec![],
+            baselines: vec![old_baseline.clone(), next_baseline],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let mut incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
+    incoming.page(&store, &[accepted]).await?;
+    incoming.finish(&store).await?;
+    receive_interpretation(&store, &source, &[], &old_baseline.lineage).await?;
     store.close().await?;
 
     let store = ClientStore::open(&file, account.account, StoreSettings::default()).await?;
@@ -577,7 +576,7 @@ async fn absence_witness_survives_a_new_baseline_and_workspace_reopen() -> anyho
         .as_ref()
         .expect("original comparison evidence sealed");
     assert!(
-        matches!(witness.original(), OriginalBasis::NeverCreated { checkpoint, .. }
+        matches!(witness.original(), OriginalBasis::NeverCreated { checkpoint: Some(checkpoint), .. }
         if checkpoint == &old_checkpoint)
     );
     assert!(
@@ -589,4 +588,37 @@ async fn absence_witness_survives_a_new_baseline_and_workspace_reopen() -> anyho
     assert_eq!(restored.working_state(), local.working_state());
     store.close().await?;
     Ok(())
+}
+
+/// Supply received interpretation through an ordinary incremental page.
+async fn receive_interpretation(
+    store: &ClientStore,
+    checkpoint: &clacks_sync::account::InstalledCheckpoint,
+    baselines: &[clacks_sync::account::Baseline],
+    lineage: &clacks_sync::lineage::Lineage,
+) -> anyhow::Result<()> {
+    let mut receipt = clacks_client_store::transfer::begin(
+        store,
+        &clacks_sync::transfer::discovery::DiscoveryStart {
+            source: checkpoint.clone(),
+            mode: clacks_sync::transfer::WindowMode::Incremental {
+                after: checkpoint.coverage.clone(),
+            },
+        },
+    )
+    .await?;
+    clacks_client_store::transfer::install_page(
+        store,
+        &mut receipt,
+        &clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![],
+            accepted: vec![],
+            support: vec![],
+            baselines: baselines.to_vec(),
+            boundaries: lineage.boundaries().to_vec(),
+            units: vec![],
+        },
+    )
+    .await
 }

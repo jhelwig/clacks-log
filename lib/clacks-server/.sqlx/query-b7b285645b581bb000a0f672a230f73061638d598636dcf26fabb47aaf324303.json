@@ -1,0 +1,137 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT position_kind, locator, latitude, longitude, grid_length, dxcc, primary_subdivision, secondary_subdivision, cq_zone, itu_zone FROM clacks.recorded_location WHERE station_id = $1 AND account = $2\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "position_kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.recorded_location",
+            "name": "position_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "locator",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.recorded_location",
+            "name": "locator"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "latitude",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.recorded_location",
+            "name": "latitude"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "longitude",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.recorded_location",
+            "name": "longitude"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "grid_length",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.recorded_location",
+            "name": "grid_length"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "dxcc",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.recorded_location",
+            "name": "dxcc"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "primary_subdivision",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.recorded_location",
+            "name": "primary_subdivision"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "secondary_subdivision",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.recorded_location",
+            "name": "secondary_subdivision"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "cq_zone",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.recorded_location",
+            "name": "cq_zone"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "itu_zone",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.recorded_location",
+            "name": "itu_zone"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "b7b285645b581bb000a0f672a230f73061638d598636dcf26fabb47aaf324303"
+}

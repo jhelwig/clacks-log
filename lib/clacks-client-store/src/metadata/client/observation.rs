@@ -211,3 +211,32 @@ pub(crate) async fn load_observation(
     value.validate()?;
     Ok(value)
 }
+
+/// Resolve the exact native stamp and deletion state from immutable accepted storage.
+pub(crate) async fn exact(
+    connection: &mut SqliteConnection,
+    reference: &clacks_sync::service::VersionReference,
+) -> anyhow::Result<Option<AcceptedRecord>> {
+    let key = reference.key;
+    for row in sqlx::query_file!(
+        "sql/client/envelope_candidates.sql",
+        key.account.to_string(),
+        crate::payload::kind(key.id),
+        key.id.to_string(),
+        reference.stamp.accepted_at().timeline.to_string(),
+        i64::try_from(reference.stamp.accepted_at().revision)?,
+        reference.stamp.baseline().to_string()
+    )
+    .fetch_all(&mut *connection)
+    .await?
+    {
+        let value = load_envelope(connection, key, row.envelope_id).await?;
+        if value.stamp == reference.stamp
+            && matches!(value.state(), clacks_sync::record::RecordState::Deleted)
+                == reference.deleted
+        {
+            return Ok(Some(value));
+        }
+    }
+    Ok(None)
+}

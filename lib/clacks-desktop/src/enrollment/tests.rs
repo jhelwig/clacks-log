@@ -3,6 +3,8 @@
 #[path = "../../../clacks-web/tests/support/provider.rs"]
 mod provider;
 
+mod synchronization;
+
 use super::{EnrollmentRequest, EnrollmentStatus, credentials, flow};
 use anyhow::Context;
 use leptos::server_fn::ServerFn;
@@ -122,7 +124,8 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
             .context("missing provider redirect")?
             .to_str()?,
     )?;
-    let returned = provider.authorize(&provider_request, &ulid::Ulid::generate().to_string())?;
+    let subject = ulid::Ulid::generate().to_string();
+    let returned = provider.authorize(&provider_request, &subject)?;
     browser
         .get(format!("{origin}/auth/callback/test"))
         .query(&[("state", returned.state), ("code", returned.code)])
@@ -331,13 +334,13 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
     .await?;
     assert_eq!(
         clacks_client_store::identity::binding(&opened).await?,
-        Some(completed.binding)
+        Some(completed.binding.clone())
     );
     let mut snapshot = clacks_client_store::read::snapshot(&opened).await?;
     assert!(snapshot.checkpoint().await?.is_none());
-    assert!(snapshot.account_view().await?.is_none());
     snapshot.close().await?;
     opened.close().await?;
+    synchronization::verify(&origin, &completed.binding, &browser, &provider, &subject).await?;
     assert_eq!(
         clacks_client_store::enrollment::attempt(&initiating)
             .await?
@@ -386,7 +389,7 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
         .await?;
     assert_eq!(
         clients.as_array().context("missing client listing")?.len(),
-        1
+        2
     );
     credentials::remove(&reference)?;
     server.abort();

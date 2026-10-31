@@ -54,32 +54,6 @@ CREATE TABLE current_lineage (
     lineage_id INTEGER NOT NULL,
     FOREIGN KEY (lineage_id, account) REFERENCES lineage(lineage_id, account)
 ) STRICT;
-CREATE TABLE account_metadata (
-    account TEXT PRIMARY KEY REFERENCES store_account(account),
-    head_timeline TEXT NOT NULL,
-    head_revision INTEGER NOT NULL,
-    baseline_id TEXT NOT NULL,
-    coverage_id INTEGER NOT NULL,
-    membership_generation INTEGER NOT NULL,
-    FOREIGN KEY (coverage_id, account) REFERENCES coverage(coverage_id, account)
-) STRICT;
-CREATE TABLE membership_snapshot (
-    account TEXT PRIMARY KEY REFERENCES account_metadata(account),
-    generation INTEGER NOT NULL
-) STRICT;
-CREATE TABLE client_membership (
-    account TEXT NOT NULL REFERENCES membership_snapshot(account) ON DELETE CASCADE,
-    actor_id TEXT NOT NULL,
-    ordinal INTEGER NOT NULL,
-    created_timeline TEXT NOT NULL,
-    created_revision INTEGER NOT NULL,
-    closed_timeline TEXT,
-    closed_revision INTEGER,
-    checkpoint_id INTEGER,
-    PRIMARY KEY (account, actor_id),
-    UNIQUE (account, ordinal),
-    FOREIGN KEY (checkpoint_id, account) REFERENCES checkpoint(checkpoint_id, account)
-) STRICT;
 CREATE TABLE accepted_record (
     envelope_id INTEGER PRIMARY KEY,
     account TEXT NOT NULL,
@@ -227,94 +201,29 @@ CREATE TABLE local_counter (
 ) STRICT;
 
 
-CREATE TABLE transfer_window (
-    window_id INTEGER PRIMARY KEY,
-    account TEXT NOT NULL REFERENCES store_account(account),
-    source_checkpoint INTEGER NOT NULL,
-    mode TEXT NOT NULL,
-    after_coverage INTEGER,
-    UNIQUE (window_id, account),
-    FOREIGN KEY (source_checkpoint, account) REFERENCES checkpoint(checkpoint_id, account),
-    FOREIGN KEY (after_coverage, account) REFERENCES coverage(coverage_id, account)
-) STRICT;
-CREATE TABLE window_requirement (
-    window_id INTEGER NOT NULL,
-    account TEXT NOT NULL,
-    ordinal INTEGER NOT NULL,
-    kind TEXT NOT NULL,
-    record_id TEXT NOT NULL,
-    stamp_id INTEGER NOT NULL,
-    deleted INTEGER NOT NULL CHECK (deleted IN (0,1)),
-    PRIMARY KEY (window_id, ordinal),
-    UNIQUE (window_id, account, kind, record_id),
-    FOREIGN KEY (window_id, account) REFERENCES transfer_window(window_id, account) ON DELETE CASCADE,
-    FOREIGN KEY (stamp_id, account, kind, record_id) REFERENCES version_stamp(stamp_id, account, kind, record_id)
-) STRICT;
-CREATE TABLE window_boundary (
-    window_id INTEGER NOT NULL,
-    account TEXT NOT NULL,
-    ordinal INTEGER NOT NULL,
-    timeline_id TEXT NOT NULL,
-    revision INTEGER NOT NULL,
-    kind TEXT NOT NULL,
-    coverage_id INTEGER NOT NULL,
-    PRIMARY KEY (window_id, ordinal),
-    FOREIGN KEY (window_id, account) REFERENCES transfer_window(window_id, account) ON DELETE CASCADE,
-    FOREIGN KEY (coverage_id, account) REFERENCES coverage(coverage_id, account)
-) STRICT;
-CREATE TABLE window_baseline (
-    window_id INTEGER NOT NULL REFERENCES transfer_window(window_id) ON DELETE CASCADE,
-    ordinal INTEGER NOT NULL,
-    baseline_row INTEGER NOT NULL REFERENCES baseline(baseline_row),
-    PRIMARY KEY (window_id, ordinal)
-) STRICT;
-CREATE TABLE window_unit (
-    window_id INTEGER NOT NULL REFERENCES transfer_window(window_id) ON DELETE CASCADE,
-    ordinal INTEGER NOT NULL,
-    operation_id TEXT NOT NULL,
-    PRIMARY KEY (window_id, operation_id),
-    UNIQUE (window_id, ordinal)
-) STRICT;
-CREATE TABLE window_unit_member (
-    window_id INTEGER NOT NULL,
-    operation_id TEXT NOT NULL,
-    ordinal INTEGER NOT NULL,
-    account TEXT NOT NULL,
-    kind TEXT NOT NULL,
-    record_id TEXT NOT NULL,
-    stamp_id INTEGER NOT NULL,
-    deleted INTEGER NOT NULL CHECK (deleted IN (0,1)),
-    PRIMARY KEY (window_id, operation_id, ordinal),
-    FOREIGN KEY (window_id, operation_id) REFERENCES window_unit(window_id, operation_id) ON DELETE CASCADE,
-    FOREIGN KEY (window_id, account, kind, record_id) REFERENCES window_requirement(window_id, account, kind, record_id),
-    FOREIGN KEY (stamp_id, account, kind, record_id) REFERENCES version_stamp(stamp_id, account, kind, record_id)
-) STRICT;
-CREATE TABLE window_progress (
-    window_id INTEGER PRIMARY KEY REFERENCES transfer_window(window_id) ON DELETE CASCADE,
-    generation INTEGER NOT NULL
-) STRICT;
-CREATE TABLE window_installed (
-    window_id INTEGER NOT NULL,
-    account TEXT NOT NULL,
-    kind TEXT NOT NULL,
-    record_id TEXT NOT NULL,
-    PRIMARY KEY (window_id, account, kind, record_id),
-    FOREIGN KEY (window_id, account, kind, record_id) REFERENCES window_requirement(window_id, account, kind, record_id) ON DELETE CASCADE
-) STRICT;
-CREATE TABLE window_staged (
-    window_id INTEGER NOT NULL,
-    ordinal INTEGER NOT NULL,
+CREATE TABLE staged_accepted (
     account TEXT NOT NULL,
     kind TEXT NOT NULL,
     record_id TEXT NOT NULL,
     envelope_id INTEGER NOT NULL,
-    PRIMARY KEY (window_id, ordinal),
-    FOREIGN KEY (window_id, account) REFERENCES transfer_window(window_id, account) ON DELETE CASCADE,
-    FOREIGN KEY (envelope_id, account, kind, record_id) REFERENCES accepted_record(envelope_id, account, kind, record_id)
+    PRIMARY KEY(account, envelope_id),
+    FOREIGN KEY(envelope_id, account, kind, record_id) REFERENCES accepted_record(envelope_id, account, kind, record_id)
 ) STRICT;
-CREATE TABLE window_completed_unit (
-    window_id INTEGER NOT NULL,
+CREATE TABLE coupled_unit (
+    account TEXT NOT NULL REFERENCES store_account(account),
     operation_id TEXT NOT NULL,
-    PRIMARY KEY (window_id, operation_id),
-    FOREIGN KEY (window_id, operation_id) REFERENCES window_unit(window_id, operation_id) ON DELETE CASCADE
+    PRIMARY KEY(account, operation_id)
 ) STRICT;
+CREATE TABLE coupled_member (
+    account TEXT NOT NULL,
+    operation_id TEXT NOT NULL,
+    ordinal INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    record_id TEXT NOT NULL,
+    stamp_id INTEGER NOT NULL,
+    deleted INTEGER NOT NULL,
+    PRIMARY KEY(account, operation_id, ordinal),
+    FOREIGN KEY(account, operation_id) REFERENCES coupled_unit(account, operation_id),
+    FOREIGN KEY(stamp_id, account, kind, record_id) REFERENCES version_stamp(stamp_id, account, kind, record_id)
+) STRICT;
+CREATE INDEX coupled_member_identity ON coupled_member(account, kind, record_id);

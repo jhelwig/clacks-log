@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.staged_accepted(account, kind, record_id, envelope_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5759638e32a17d626842aed3d1cebf3e68432fdf9f02134f0e10a1bbec148ddd"
+}

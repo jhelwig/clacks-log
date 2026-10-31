@@ -1,5 +1,5 @@
-#[path = "observability/export.rs"]
 mod export;
+
 use crate::support;
 
 use clacks_model::export::ExportContext;

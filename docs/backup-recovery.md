@@ -36,7 +36,7 @@ The user pauses all uploads for rollback/restore, lets normal synchronization re
 
 Conflict detection and resolution belong to clients. A client announcing a conflict may never return, resolve it, or submit the resolution. Server publication must not depend on receiving that resolution; the per-QSO automatic rollback-conflict pause proposal is rejected. Normal upload eligibility, cooldown, routing, and service-failure pause rules still apply after the user's restore pause is lifted.
 
-D142 provides per-client connection state, last successful synchronization, and current sync error as sufficient MVP diagnostics for this operator judgment. No separate catch-up/currentness metric is required. These do not establish that unavailable clients have no missing state.
+D142 provides per-client connection state and current sync error for this operator judgment. It excludes an overall last-successful-synchronization timestamp; one timestamp cannot summarize bidirectional progress and unresolved work. No separate catch-up/currentness metric is required. These diagnostics do not establish that unavailable clients have no missing state.
 
 ## Limits of available recovery evidence (D143)
 

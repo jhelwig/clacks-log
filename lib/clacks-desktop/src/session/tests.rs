@@ -1,7 +1,7 @@
 //! Headless tests of the production session with real workspace resources.
 
-#[path = "settings/tests.rs"]
-mod settings_tests;
+mod logbooks;
+mod settings;
 
 use super::*;
 use crate::{
@@ -19,7 +19,7 @@ pub(crate) struct Fixture {
     pub(crate) updates: watch::Sender<SessionStatus>,
     pub(crate) commands: mpsc::Sender<SessionCommand>,
     pub(crate) input: mpsc::Receiver<SessionCommand>,
-    pub(crate) settings: mpsc::Sender<settings::SettingsRequest>,
+    pub(crate) settings: mpsc::Sender<super::settings::SettingsRequest>,
     pub(crate) settings_view:
         watch::Receiver<Option<Arc<clacks_client_store::settings::SettingsSnapshot>>>,
 }
@@ -27,6 +27,11 @@ pub(crate) struct Fixture {
 impl Fixture {
     pub(crate) fn new() -> anyhow::Result<Self> {
         let directory = tempfile::tempdir()?;
+        Self::with_directory(directory)
+    }
+
+    /// Reopen the same real workspace after its prior session and owner have stopped.
+    pub(crate) fn with_directory(directory: tempfile::TempDir) -> anyhow::Result<Self> {
         let config = config::resolve(
             Cli::try_parse_from(["clacks-log"])?,
             &StartupContext {
@@ -161,6 +166,3 @@ async fn close_while_failed_preserves_file_and_releases_resources() -> anyhow::R
     assert!(matches!(instance::elect(&paths)?, Election::Owner(_)));
     Ok(())
 }
-
-#[path = "settings/logbooks/tests.rs"]
-mod logbooks_tests;

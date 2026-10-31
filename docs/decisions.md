@@ -254,7 +254,7 @@ Enrolled clients must synchronize after an indefinite offline period without exp
 
 #### D61
 
-Synchronization performs batch catch-up on connection/reconnection, followed by streaming updates while connected when updates are available. Use the same negotiation/transfer mechanism in both directions. Reconnection catches up any missed state; exact transport and handoff mechanics remain open.
+Synchronization performs batch catch-up on connection/reconnection, followed by streaming updates while connected when updates are available. Use the same negotiation/transfer mechanism in both directions. Before publishing any local changes or retrying prepared proposals, the client must durably ingest all server updates covered by completed inbound catch-up and compare pending work against that shared state. Local logging/saves continue during catch-up; after it completes, eligible changes can publish while unresolved records stay local. Later shared changes remain subject to D146 conditional acceptance. Reconnection catches up any missed state; D235 selects encrypted WebSockets, with exact handoff mechanics remaining engineering work.
 
 #### D62
 
@@ -584,7 +584,7 @@ During rollback/restore, the user pauses all uploads and explicitly resumes them
 
 #### D142
 
-MVP per-client sync diagnostics are connection state, last successful synchronization, and any current sync error. These are sufficient; no separate catch-up/currentness metric or progress requirement is selected. The information supports operator recovery judgment without proving that unavailable sources have been recovered.
+MVP per-client sync diagnostics include connection state and any current sync error. Do not show an overall last-successful-synchronization timestamp: one timestamp cannot represent the state of bidirectional synchronization, pending work and conflicts. No replacement aggregate success indicator, catch-up/currentness metric or progress requirement is selected. Prioritize working synchronization; these diagnostics support operator recovery judgment without proving that unavailable sources have been recovered.
 
 #### D143
 
@@ -1023,6 +1023,8 @@ Include adding and removing existing tags for individual QSOs and selected group
 #### D250
 
 When synchronizing a QSO that references a deleted tag, preserve the pending QSO locally and require explicit removal of that membership or replacement with an existing tag before shared acceptance. Removing the last membership may leave the QSO active and untagged under D249. Do not silently discard the QSO, recreate the deleted tag or automatically rewrite its tag set. Unrelated synchronization continues. Apply ordinary whole-record reconciliation to existing QSOs; if the QSO itself was marked deleted, the pending edit remains a QSO deletion/edit case, not merely a missing-tag issue. This replaces D157’s missing-owner-logbook framing for tag references, retaining D243 reconciliation and D244’s selected QSO deletion effects. No implementation is authorized.
+
+Validate references in the reverse direction as well: flag a pending tag deletion if an active QSO would still reference that tag in accepted shared state. This is a reference-validity issue, not a competing edit to the tag record. Recheck surviving references in the deletion's acceptance transaction so a concurrently accepted membership cannot bypass the check. If deletion is accepted first, a later QSO proposal referencing that tag follows the forward check above. Reconciliation uses resulting record states; it must not infer a retained delete-all action or automatically delete an additional QSO. Nonconflicting QSO deletions and membership additions retain their ordinary record-comparison classification; unrelated synchronization continues.
 
 #### D251
 

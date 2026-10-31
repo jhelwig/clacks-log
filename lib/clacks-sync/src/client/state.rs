@@ -90,7 +90,15 @@ impl ClientRecord {
             p.working.validate(self.key)?;
             match &p.original {
                 OriginalBasis::Accepted(original) => original.validate()?,
-                OriginalBasis::NeverCreated { checkpoint, .. } => checkpoint.validate()?,
+                OriginalBasis::NeverCreated { checkpoint, .. } => {
+                    if let Some(checkpoint) = checkpoint {
+                        checkpoint.validate()?;
+                        anyhow::ensure!(
+                            checkpoint.account == self.key.account,
+                            "absence basis crosses account"
+                        );
+                    }
+                }
                 OriginalBasis::SubsumedOwn { .. } | OriginalBasis::Unavailable { .. } => {}
             }
             if let Some(state) = p.original.state() {

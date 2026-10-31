@@ -17,7 +17,5 @@ mod service_admission;
 mod service_downloads;
 mod service_operations;
 mod service_recovery;
-mod service_retention;
-mod service_scenarios;
 mod service_transfer;
 mod transfer;

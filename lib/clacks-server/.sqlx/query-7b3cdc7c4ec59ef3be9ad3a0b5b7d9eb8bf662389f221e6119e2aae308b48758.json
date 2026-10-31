@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT baseline_row AS \"baseline_row!: i64\" FROM clacks.sync_baselines WHERE account_id = $1 AND baseline_id = $2\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "baseline_row!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.sync_baselines",
+            "name": "baseline_row"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7b3cdc7c4ec59ef3be9ad3a0b5b7d9eb8bf662389f221e6119e2aae308b48758"
+}

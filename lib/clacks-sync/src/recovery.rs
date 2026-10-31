@@ -268,10 +268,10 @@ pub fn plan_recovered_install(
     if let Observation::Accepted(old) = current {
         crate::service::check_integrity(incoming.key, &old.state, &incoming.state)?;
     }
-    let mut reference_keys = std::collections::BTreeSet::new();
+    let mut references = Vec::new();
     for reference in input.references {
         reference.validate()?;
-        if reference.key().account != account.account || !reference_keys.insert(reference.key()) {
+        if reference.key().account != account.account || references.contains(&reference) {
             return Err(MetadataError::Scope {
                 detail: format!(
                     "duplicate/cross-account recovery reference {:?}",
@@ -280,6 +280,7 @@ pub fn plan_recovered_install(
             }
             .into());
         }
+        references.push(reference);
     }
     if incoming.key.account != account.account
         || current.key() != incoming.key

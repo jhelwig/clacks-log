@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT kind AS \"kind!: String\", record_id AS \"record_id!: String\" FROM (\n    SELECT kind, record_id FROM clacks.accepted_head WHERE account = $1\n    UNION SELECT kind, record_id FROM clacks.retained_accepted WHERE account = $1\n) AS identities\nWHERE (kind, record_id) > ($2,$3)\nORDER BY kind, record_id LIMIT $4\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind!: String",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "record_id!: String",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "301d261267facd059f9f3faa1e8597a8959569b2774534836bf6ce695d21f86f"
+}

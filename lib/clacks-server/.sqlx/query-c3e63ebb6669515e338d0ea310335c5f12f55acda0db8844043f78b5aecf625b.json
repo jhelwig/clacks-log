@@ -1,0 +1,258 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT start, \"end\", own_station, contacted_station, own_operator_call, own_operator_name, contacted_operator_call, contacted_operator_name, power, equipment_id, frequency, band, receive_frequency, receive_band, mode_kind, mode_label, mode_parent, sent_report, received_report, comment FROM clacks.qso_payload WHERE payload_id = $1 AND account = $2 AND record_id = $3\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "start",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "start"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "end",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "end"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "own_station",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "own_station"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "contacted_station",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "contacted_station"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "own_operator_call",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "own_operator_call"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "own_operator_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "own_operator_name"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "contacted_operator_call",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "contacted_operator_call"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "contacted_operator_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "contacted_operator_name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "power",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "power"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "equipment_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "equipment_id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "frequency",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "frequency"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "band",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "band"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "receive_frequency",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "receive_frequency"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "receive_band",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "receive_band"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "mode_kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "mode_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "mode_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "mode_label"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "mode_parent",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "mode_parent"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "sent_report",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "sent_report"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "received_report",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "received_report"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "comment",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.qso_payload",
+            "name": "comment"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "c3e63ebb6669515e338d0ea310335c5f12f55acda0db8844043f78b5aecf625b"
+}

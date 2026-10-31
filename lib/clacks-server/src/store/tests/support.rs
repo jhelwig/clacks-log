@@ -1,5 +1,7 @@
 //! Shared account and transaction setup for issuer/key-maintenance tests.
 
+pub(super) mod synchronization;
+
 use clacks_model::ids::AccountId;
 use sqlx::PgConnection;
 

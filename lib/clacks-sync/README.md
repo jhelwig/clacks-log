@@ -2,7 +2,7 @@
 
 `clacks-sync` implements record vectors,
 baseline-aware comparison, durable client working/prepared rows, conditional
-acceptance, complete transfer windows, membership-bounded compaction and
+acceptance, verified discovery completion, retained basis witnesses and
 exceptional timeline recovery. Native payloads come from `clacks-model`.
 The [synchronization contract](../../docs/synchronization.md) defines product behavior;
 the [metadata design](../../docs/synchronization-model.md)
@@ -16,8 +16,10 @@ explains the representation and examples.
 | `lineage`, `compare` | Position-dependent ancestry, explained missing evidence and whole-record change attribution |
 | `client`, `client::preparation` | Prepare/retry one frozen version, incorporate accepted own versions, retain later edits, resolve client review |
 | `acceptance` | Check client admission or server-origin changes; return envelope, journal, account and reference guards |
-| `transfer` | Validate immutable manifests, plan bounded batches and verify every version/deletion before checkpoint advance |
-| `membership`, `compaction` | Close admission, select common authorized coverage, preserve original-value witnesses and project eligible closed writers |
+| `transfer` | Accumulate discovery obligations, plan bounded batches and verify every version/deletion before checkpoint advance |
+| `transfer::discovery`, `transfer::receipt` | Select eligible journal discovery, register ordered page obligations and verify the matching discovery end before complete-prefix advancement |
+| `protocol::messages` | Versioned native WebSocket messages, with symmetric accepted-state transfer and committed proposal outcomes |
+| `membership`, `compaction` | Close admission and preserve original-value witnesses and their causal interpretation |
 | `recovery` | Detect witnessed regression, establish exceptional boundaries, return retained accepted state and reconcile compatible equal results |
 
 A record vector describes one record, not receipt of the account. Positions have
@@ -62,17 +64,20 @@ library. These obligations cannot be established by a pure row planner:
 2. Save a prepared client version and its counter reservation together before
    sending it. Later local editing changes working values, not frozen values.
    Save incorporated shared values and pending/original updates atomically.
-3. Enumerate a manifest from one consistent source view. Full enumeration includes
-   deletion descriptors; incremental enumeration uses an eligible real journal.
-   Store the manifest immutably under its source checkpoint and mode. Reject an
-   unequal replacement with that same identity by comparing the existing manifest;
-   source identity alone cannot detect a changed list the planner was never given.
-4. Load client rows within each batch's real write transaction, then save accepted
-   values, comparison evidence, appended installed keys and progress generation
-   together. The batch guard prevents stale progress writes. It does not turn an
-   earlier read of client rows into a safe later write.
+3. Capture a fixed complete target, then discover obligations in bounded reads.
+   Use an eligible real journal or full accepted-state traversal, including
+   deletion descriptors. A newer proven successor can satisfy an older obligation
+   without increasing the advertised complete target. Each attempt registers its
+   own ordered pages; `ReceiptState` is connection-owned and requires the matching
+   discovery end before completion. Reconnect starts a fresh receipt.
+4. Load affected client records and dependencies in each batch's write transaction.
+   Save native installation, comparison evidence, exact supporting facts and staged
+   coupled effects. `plan_readiness` shares dependency decisions between adapters;
+   the client batch planner applies working/original reconciliation. Staging
+   does not establish complete coverage. Do not put older support versions in
+   client conflict alternatives.
 5. Verify completion against committed installed rows and baseline/lineage metadata.
-   Save checkpoint advancement under the previous checkpoint and progress revision.
+   Save checkpoint advancement after checking the actual previous checkpoint in its transaction.
    Reload the committed checkpoint before acknowledgment or recovered-coverage
    publication. A proposed update, advertised revision or high record counter is
    not durable completion evidence.
@@ -97,8 +102,9 @@ library. These obligations cannot be established by a pure row planner:
 The adapters also own authentication, account isolation in queries, persistent
 uniqueness, enrollment, journal retention, concrete schema/protocol negotiation
 and atomic persistence of coupled workflow operations. The service modules below
-provide their guarded transition plans without treating provider contradictions
-as competing recorded-QSO edits.
+provide evidence interpretation and dependency rules without treating provider
+contradictions as competing recorded-QSO edits. Consuming workflows own service
+execution and maintenance transactions.
 
 ## Verification and limits
 
@@ -109,8 +115,8 @@ integration must test actual commits and interruptions on those systems.
 
 Covered own versions survive lost responses. Partial windows cannot certify full
 prefixes. Indefinitely offline authorized clients retain their acknowledgment
-obligations; inactivity never retires them. Projection preserves native values,
-deletions and actual acceptance positions. Missing interpretation yields explained
+obligations; inactivity never retires them. Future collection must preserve native
+values, deletions and actual acceptance positions. Missing interpretation yields explained
 unknown ordering rather than invented concurrency.
 
 Regression detection is deliberately limited. A restored writable server that
@@ -132,119 +138,33 @@ write conditions. `service::combination` validates immutable identity and select
 provider fields using their own timestamp scope and original acquisition context.
 Response arrival time does not establish freshness.
 
-`service::association` classifies candidates across an account and constructs
-unique-index guards. `service::operation::plan_operation` returns one
-`CoupledCommit` for related native/evidence changes, using ordinary acceptance
-and checked revisions. Recheck its original head, membership generation,
-source-version conditions and every external-index condition in the same real
-transaction. Commit all accepted rows, journal rows, unit descriptors and actual
-worker job updates atomically. Client proposals retain their author/vector and
-original transaction guards while resolving same-operation dependencies against
-prospective accepted versions. Adding an unmatched downloaded contact requires a
-selected live tag; this does not prohibit untagged contacts in other workflows.
-An observed absent external-index entry requires
-protection against a competing insert, not just a missing row lock.
+`service::association` classifies candidates and binding conditions. Actual
+external-service workers/importers must apply related QSO, disposition and
+binding effects atomically using ordinary acceptance and source guards. Their
+execution and job coordination are integration obligations of those consuming
+workflows, not an unconsumed generic operation planner in this crate.
 
-`service::download` serializes starts through one deterministic control row per
-destination and scopes progress to stream, filters and selected fields. The worker
-must supply complete parsed-response accounting, retain every input or its
-unchanged represented equivalent with processing state, and advance watermarks
-only after all requested pages/windows succeed. A page cursor is not a permanent
-change watermark. Close failures explicitly; late results keep their original
-request identity and cannot take a later request's control/progress.
+Transfer receipts are connection-owned. `register_page` checks ordered input;
+`finish_receipt` checks the matching source end and actual represented versions
+and interpretation before complete-prefix advancement. Semantic staging and
+coupled descriptors persist independently, so reconnect can start fresh without
+losing accepted input. Current heads and exact historical support have separate
+roles. An unresolved recovered alternative cannot certify accepted server coverage.
 
-Transfer adapters persist the immutable manifest once and call
-`WindowManifest::validate_replacement` if that identity already exists. Persist
-`InstallBatch.staged` and `completed_units` with its progress generation, alongside
-accepted/client updates and installed keys. Staging does not acknowledge a full
-prefix. A complete unit may span transport messages; its effects install together.
-A later accepted successor/deletion can represent an old effect without restoring
-its old body. Preserve client pending originals and working values on receipt.
+`transfer::readiness` consumes accepted candidates, current heads, exact support
+and coupled descriptors without manufacturing client records. Client batch
+planning applies actual working-record reconciliation afterward. Server recovery
+uses its real account transaction, conditional acceptance and coupled-group
+savepoints; no client updates are generated and discarded by that path.
 
-`service::recovery::plan_recovered_operation` authenticates the returning carrier
-separately from original authors and retains original acceptance stamps. Keep
-incomplete input staged for retry, restore required interpretation, and use
-existing client review for maintained binding conflicts. Recovery does not
-schedule or dispatch a service request.
+Operational failures describe incompatibility, invalid input, lost authority and
+source/storage unavailability. Fresh negotiation handles an unavailable journal.
+There is no on-demand exact-version protocol, last-page retransmission cache or
+persistent receipt identity.
 
-Before collection, obtain `service::retention::requirements` from the complete
-relevant row/unit view and enforce `validate_collection` alongside interpretation
-checks. Distinct semantic facts have no time-based expiry. Only unneeded closed
-acquisition coordination is removable. `compaction::plan_baseline` projects
-embedded service support as well as envelope context when its meaning is
-established; unresolved interpretations remain required. Include surviving unit,
-window and other external contexts in `CompactionInput.surviving` until equivalent
-summaries cover them. Preserve old baselines when a valid replacement is absent.
-Acknowledgment permits redundant sync-history collection, not deletion of
-submission/confirmation history or deletion memory.
-
-All new service destinations require a complete `DestinationRegistryObservation`
-at the compared account head. The real transaction must preserve a single stable
-namespace per remote collection, retain it after credential removal, and register
-new public descriptors atomically with acceptance. Generic acceptance and recovery
-perform the same namespace checks as coupled operations. A destination ID cannot
-be repurposed for a different remote collection. A QRZ destination may refine an
-unknown book ID to its established ID under the same namespace and guards.
-Established IDs cannot change or be cleared, and older evidence with an unknown
-book ID remains interpretable. Refinements and their pending prerequisites take
-priority over unrelated members, and each accepted refinement updates the
-operation's prospective registry. Supply the complete registry in
-`ServiceOperationInput.destinations` and `DownloadContext.destinations`; recovery
-accepts its explicit guarded registry observation.
-
-`RecordState::same_values` is the whole-record value-policy comparison. Structural
-`Eq` also compares clock representation. Baseline-aware record comparison proves
-that projected support contexts remain equivalent, so metadata projection does
-not create a recorded edit or manual conflict. Covered historical bindings need
-not pass conditions for reinstalling their old active state.
-
-`SelectedObservations.uncertain` identifies fields needing provider refresh;
-workers must not treat contradictory provider ordering as a manual QSO edit.
-Selection retains conflicting values from maximal mutually reachable ordering
-components. A later refresh that dominates them can establish a value again.
-
-`SelectedObservations.current_supporting` identifies occurrences whose supplied
-fields are all established and undominated, while `supporting` includes the complete
-retained input used by selection. Ordering-only refreshes reuse a disposition
-only when its reviewed occurrence represents the current facts; an older
-rejection of different content cannot suppress new review work.
-
-`SelectedObservations.confirmation_supporting` identifies the occurrences
-establishing the selected confirmation specifically. Read adapters use those
-occurrences to locate retained confirmed-QSO baselines; newer receipt fields
-do not imply that their observation also supplied the current confirmation.
-
-## Observability
-
-The [production observability contract](../../docs/observability.md) applies to
-this library. Meaningful operations use `#[tracing::instrument(skip_all, ...)]`
-with explicit safe input fields and default module-path targets. Standard
-subscribers/exporters supplied by application composition own lifecycle
-presentation, context and span timing. Instrumentation preserves normal function
-bodies, early returns and error propagation.
-
-`record::RecordId` implements `Display` using the contained native ID's canonical text.
-No telemetry-specific wrapper is needed. Annotation fields use constants or
-simple input/field access; derived context is reported where domain code resolves it.
-
-Local events and metrics report domain decisions and actual produced plans:
-readiness, proposed/staged work, retry/review reasons and relevant quantities.
-They do not report generic function completion or duplicate span timing. Metric
-families have their own coherent bounded dimensions; IDs remain trace fields. The
-model counts projection-readiness decisions; sync counts acceptance decisions
-and ready/staged transfer plans. These include repeated or tentative calculations.
-Shared export planning, compaction and coupled service planning report useful
-quantities through events, without successful-call-only counters.
-A propagated error produces no fabricated plan/proposal result. Error handling
-and overall workflow success/error/latency measurements belong to their owning
-runtime boundary; span timing does not automatically populate metric histograms.
-
-Filtering cannot gate domain work or metrics, and domain events do not mutate
-caller spans. The library installs no subscriber, recorder or exporter. Returned
-values, concrete errors and synchronized records are independent of configuration.
-
-Significant recovery and explicit conflict-resolution operations use `info`;
-witnessed server-history regression uses `warn`. Routine planning detail remains
-`debug` or `trace`. These levels describe the significance of the attempted
-operation or reported decision, without asserting a durable commit. See the
-[level-selection policy](../../docs/observability.md#level-selection-policy).
+Basis witnesses and expanded coverage interpretation are integrated with client
+receipt and comparison. Common-baseline compaction and physical collection remain
+maintenance workflow obligations. The oldest authorized client's acknowledged
+coverage bounds collection; pending originals, deletion memory and service evidence
+retain their independent obligations. No unconsumed collector or compaction planner
+is shipped as a substitute for that integration.

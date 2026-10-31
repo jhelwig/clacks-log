@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.current_external_binding (account, external_id, association_id, envelope_id)\nSELECT h.account, s.external_id, h.record_id, a.envelope_id\nFROM clacks.accepted_head h JOIN clacks.accepted_record a ON a.envelope_id = h.envelope_id\nJOIN clacks.service_association s ON s.payload_id = a.payload_id\nWHERE h.account = $1 AND h.kind = 'association' AND h.record_id = $2\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1e963d059ca80215dad672d654d5e4101efbd2cd27d5732bdefdf0fa135b19e7"
+}

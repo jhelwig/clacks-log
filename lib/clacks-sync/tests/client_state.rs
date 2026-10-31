@@ -419,3 +419,102 @@ fn incomparable_receipt_retains_context_and_joins_equal_values_without_review() 
     assert_eq!(update.record.pending().unwrap().original, original);
     assert!(!update.record.retained().is_empty());
 }
+
+#[test]
+fn explicit_stale_response_releases_only_the_rejected_frozen_change() {
+    let (_, baseline) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let definitions = [baseline.clone()];
+    let evidence = EvidenceView {
+        lineage: &baseline.lineage,
+        baselines: &definitions,
+    };
+    let Preparation::Ready {
+        record,
+        change,
+        counter,
+    } = prepare_change(
+        &pending(),
+        id(4),
+        &LocalCounter {
+            actor: id(4),
+            high_water: 0,
+        },
+        &[],
+        &evidence,
+    )
+    .unwrap()
+    else {
+        panic!("ready")
+    };
+    // Without an explicit response, the exact frozen proposal must still be retried.
+    assert!(matches!(
+        prepare_change(&record, id(4), &counter, &[], &evidence).unwrap(),
+        Preparation::Retry { .. }
+    ));
+    let absent = Observation::Absent {
+        key: record.key(),
+        checkpoint: clacks_sync::account::InstalledCheckpoint {
+            account: id(1),
+            baseline: id(3),
+            coverage: clacks_sync::lineage::Coverage::from_entries([(id(2), 201)]).unwrap(),
+        },
+    };
+    let missing = clacks_sync::client::receive_stale(&record, &change, &absent, &evidence).unwrap();
+    assert!(matches!(
+        missing.review.as_ref().map(|value| &value.reason),
+        Some(clacks_sync::client::ReviewReason::BothDifferent)
+    ));
+    assert_eq!(
+        missing.record.pending().unwrap().original,
+        record.pending().unwrap().original
+    );
+    let update =
+        clacks_sync::client::receive_stale(&record, &change, record.latest(), &evidence).unwrap();
+    assert!(update.record.pending().unwrap().prepared.is_none());
+    assert_eq!(
+        update.record.pending().unwrap().working,
+        record.pending().unwrap().working
+    );
+    let Preparation::Ready {
+        change: replacement,
+        ..
+    } = prepare_change(&update.record, id(4), &counter, &[], &evidence).unwrap()
+    else {
+        panic!("new preparation")
+    };
+    assert_eq!(replacement.vector().component(ClockActor::Client(id(4))), 2);
+}
+
+#[test]
+fn returned_review_preserves_later_local_work_and_the_shared_reason() {
+    let current = pending();
+    let shared = Observation::Accepted(accepted(201, "shared"));
+    let input = clacks_sync::client::ReviewInput {
+        original: OriginalBasis::Unavailable {
+            key: current.key(),
+            reason: clacks_sync::error::UnknownReason::MissingOriginal,
+        },
+        local: accepted(200, "older returned value").state().clone(),
+        shared: shared.clone(),
+        reason: clacks_sync::client::ReviewReason::Referenced {
+            referrers: vec![],
+            total: 1,
+        },
+        retained: vec![accepted(200, "older returned value")],
+    };
+    let update = clacks_sync::client::returned::receive_review(&current, &input).unwrap();
+    assert_eq!(update.record.latest(), &shared);
+    assert_eq!(update.record.working_state(), current.working_state());
+    assert_eq!(
+        update.record.pending().unwrap().original,
+        current.pending().unwrap().original
+    );
+    let review = update.review.unwrap();
+    assert_eq!(review.reason, input.reason);
+    assert_eq!(review.local, current.pending().unwrap().working);
+    assert!(
+        review
+            .retained
+            .contains(&accepted(200, "older returned value"))
+    );
+}

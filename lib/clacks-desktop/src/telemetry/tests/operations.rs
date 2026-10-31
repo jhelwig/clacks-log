@@ -54,7 +54,7 @@ pub(super) async fn save_contact(paths: &WorkspacePaths) -> anyhow::Result<Accou
 }
 
 /// Native recorded facts shared by actual composition operations.
-fn contact() -> anyhow::Result<Qso> {
+pub(super) fn contact() -> anyhow::Result<Qso> {
     Qso::try_from(clacks_model::contact::input::QsoFields {
         id: QsoId::new(),
         start: UtcSecond::from_unix_seconds(1000),

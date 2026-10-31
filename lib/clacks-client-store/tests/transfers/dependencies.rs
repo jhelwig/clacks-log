@@ -2,11 +2,10 @@ use crate::support;
 use clacks_client_store::{
     save,
     store::{ClientStore, StoreSettings},
-    transfer,
 };
 use clacks_sync::{
     account::{AccountMetadata, InstalledCheckpoint},
-    transfer::{WindowManifest, WindowMode},
+    transfer::WindowMode,
 };
 
 #[tokio::test]
@@ -121,20 +120,27 @@ async fn incremental_service_dependencies(update_acquisition: bool) -> anyhow::R
             })
             .collect()
     };
-    let manifest = WindowManifest::new(
-        source.account,
-        source.clone(),
-        WindowMode::Full,
-        requirements(&rows),
-        vec![],
-        vec![baseline.clone()],
-        vec![],
-    )?;
-    transfer::remember(&store, &manifest).await?;
-    let seed = transfer::install(&store, &source, &WindowMode::Full, &rows).await?;
-    assert_eq!(seed.accepted.len(), 3);
-    assert!(seed.staged.is_empty());
-    transfer::finish(&store, &source, &WindowMode::Full).await?;
+    let manifest = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: source.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: requirements(&rows),
+            boundaries: vec![],
+            baselines: vec![baseline.clone()],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let mut incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
+    incoming.page(&store, &rows).await?;
+    for row in &rows {
+        assert!(save::load(&store, row.key()).await?.is_some());
+    }
+    incoming.finish(&store).await?;
     let next = if update_acquisition {
         acquisition.retained_inputs.insert(support::id(60));
         carrier(4, ServicePayload::Acquisition(acquisition), true)
@@ -152,21 +158,24 @@ async fn incremental_service_dependencies(update_acquisition: bool) -> anyhow::R
         coverage: Coverage::from(next.stamp.accepted_at()),
         ..source
     };
-    let manifest = WindowManifest::new(
-        next_source.account,
-        next_source.clone(),
-        mode.clone(),
-        requirements(std::slice::from_ref(&next)),
-        vec![],
-        vec![baseline],
-        vec![],
-    )?;
-    transfer::remember(&store, &manifest).await?;
-    let batch = transfer::install(&store, &next_source, &mode, std::slice::from_ref(&next)).await?;
-    assert_eq!(batch.accepted, vec![next.clone()]);
-    assert!(batch.staged.is_empty());
-    let retry = transfer::install(&store, &next_source, &mode, &[]).await?;
-    assert!(retry.staged.is_empty());
+    let manifest = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: next_source.clone(),
+            mode: mode.clone(),
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: requirements(std::slice::from_ref(&next)),
+            boundaries: vec![],
+            baselines: vec![baseline],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let mut incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
+    incoming.page(&store, std::slice::from_ref(&next)).await?;
+    incoming.page(&store, &[]).await?;
     assert_eq!(
         save::load(&store, next.key())
             .await?
@@ -174,10 +183,7 @@ async fn incremental_service_dependencies(update_acquisition: bool) -> anyhow::R
             .latest(),
         &clacks_sync::record::Observation::Accepted(next)
     );
-    assert_eq!(
-        transfer::finish(&store, &next_source, &mode).await?,
-        next_source
-    );
+    assert_eq!(incoming.finish(&store).await?, next_source);
     store.close().await?;
     Ok(())
 }

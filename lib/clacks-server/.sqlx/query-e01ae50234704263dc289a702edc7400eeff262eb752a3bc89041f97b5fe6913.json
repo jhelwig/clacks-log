@@ -1,0 +1,78 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT name, identifier_config, bears_location, catalog_binding, ordinary_bindings FROM clacks.group_payload WHERE payload_id = $1 AND account = $2 AND record_id = $3\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.group_payload",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "identifier_config",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.group_payload",
+            "name": "identifier_config"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "bears_location",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "clacks.group_payload",
+            "name": "bears_location"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "catalog_binding",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.group_payload",
+            "name": "catalog_binding"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "ordinary_bindings",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.group_payload",
+            "name": "ordinary_bindings"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "e01ae50234704263dc289a702edc7400eeff262eb752a3bc89041f97b5fe6913"
+}

@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.payload (account, kind, record_id, deleted) VALUES ($1, $2, $3, $4) RETURNING payload_id AS \"payload_id!: i64\"\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "payload_id!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.payload",
+            "name": "payload_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "aac91aa21791e718fca8ad1b43799da5e4a67b0e027239c2c2559541dca29769"
+}

@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT equipment_description, antenna_description, notes FROM clacks.equipment_snapshot WHERE equipment_id = $1 AND account = $2\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "equipment_description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.equipment_snapshot",
+            "name": "equipment_description"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "antenna_description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.equipment_snapshot",
+            "name": "antenna_description"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "notes",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.equipment_snapshot",
+            "name": "notes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "5fb8d45ce0699517f6a09359d5f207a5875e2e85a89a157c1ed2a38b0e6de86d"
+}

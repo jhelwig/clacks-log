@@ -7,7 +7,7 @@ use clacks_sync::{client::OriginalBasis, record::RecordState};
 use support::{contact, id, qso, qso_key};
 
 #[tokio::test]
-async fn save_reopen_without_server_and_reject_stale_edits() -> anyhow::Result<()> {
+async fn new_creation_before_first_receipt_keeps_known_absence() -> anyhow::Result<()> {
     let dir = tempfile::tempdir()?;
     let file = dir.path().join("workspace.sqlite");
     let store = ClientStore::create(&file, id(1), StoreSettings::default()).await?;
@@ -20,7 +20,10 @@ async fn save_reopen_without_server_and_reject_stale_edits() -> anyhow::Result<(
     };
     assert!(matches!(
         first.pending().as_ref().unwrap().original,
-        OriginalBasis::Unavailable { .. }
+        OriginalBasis::NeverCreated {
+            checkpoint: None,
+            ..
+        }
     ));
     assert!(first.pending().as_ref().unwrap().prepared.is_none());
     let mut changed = original.clone();

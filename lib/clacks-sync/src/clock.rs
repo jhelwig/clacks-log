@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Role-qualified writer of a record version.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Hash, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ClockActor {
     /// An enrolled client preparing a record change.
     Client(ClientActorId),
@@ -28,7 +28,7 @@ pub enum VectorRelation {
 }
 
 /// Explicit nonzero writer counters for one record and baseline.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "Vec<(ClockActor, u64)>", into = "Vec<(ClockActor, u64)>")]
 pub struct RecordVector(BTreeMap<ClockActor, u64>);
 

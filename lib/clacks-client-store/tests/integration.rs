@@ -1,6 +1,9 @@
 //! Native integration scenarios share fixtures and one linked executable.
 
+mod incoming;
 mod support;
+
+use clacks_client_store::{store, transfer};
 
 #[path = "support/logbooks.rs"]
 mod logbook_support;

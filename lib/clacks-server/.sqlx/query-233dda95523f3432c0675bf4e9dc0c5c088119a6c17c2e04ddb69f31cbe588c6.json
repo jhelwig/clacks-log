@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.record_identity (account, kind, record_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "233dda95523f3432c0675bf4e9dc0c5c088119a6c17c2e04ddb69f31cbe588c6"
+}

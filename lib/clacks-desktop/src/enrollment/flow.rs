@@ -196,15 +196,7 @@ async fn finish(
     tokio::task::spawn_blocking(move || credentials::save_refresh(&saved_reference, refresh))
         .await??;
 
-    let source = GrantTokenSource::builder()
-        .grant(refresh_grant(&bundle, &http, key)?)
-        .grant_parameters(NoSource)
-        .refresh_store(InMemoryRefreshTokenStore::default())
-        .build();
-    source.prime(response).await?;
-    let authorizer = HttpAuthorizer::builder()
-        .cache(InMemoryTokenCache::builder().source(source).build())
-        .build();
+    let authorizer = authorizer(&bundle, key, &http, Some(response)).await?;
     let target: Uri = format!("{}api/client", origin(&bundle.server)?).parse()?;
     let headers = authorizer.get_headers(&Method::GET, &target).await?;
     let identity: clacks_sync::protocol::ClientIdentity = http
@@ -226,4 +218,53 @@ async fn finish(
         server: origin(&bundle.server)?.to_string(),
         credential_reference: reference.into(),
     })
+}
+
+/// Compose Huskarl's standard refresh source/cache for enrollment and ongoing resources.
+async fn authorizer(
+    bundle: &CredentialBundle,
+    key: PrivateKey,
+    http: &reqwest_oauth::Client,
+    response: Option<huskarl::grant::core::TokenResponse>,
+) -> anyhow::Result<HttpAuthorizer> {
+    use huskarl::cache::RefreshTokenStore;
+    let refresh_store = InMemoryRefreshTokenStore::default();
+    if let Some(refresh) = &bundle.refresh {
+        anyhow::ensure!(
+            refresh.dpop_jkt() == Some(key.as_private_jwk().thumbprint().as_str()),
+            "The saved refresh credential does not match its proof key"
+        );
+        refresh_store.set(refresh).await?;
+    }
+    let source = GrantTokenSource::builder()
+        .grant(refresh_grant(bundle, http, key)?)
+        .grant_parameters(NoSource)
+        .refresh_store(refresh_store)
+        .build();
+    if let Some(response) = response {
+        source.prime(response).await?;
+    }
+    let authorizer = HttpAuthorizer::builder()
+        .cache(InMemoryTokenCache::builder().source(source).build())
+        .build();
+    Ok(authorizer)
+}
+
+/// Obtain standard protected-request authorization from this workspace's existing native credential.
+pub(crate) async fn protected(
+    binding: &clacks_client_store::identity::EnrollmentBinding,
+) -> anyhow::Result<HttpAuthorizer> {
+    let reference = binding.credential_reference.clone();
+    let bundle = tokio::task::spawn_blocking(move || credentials::load(&reference)).await??;
+    anyhow::ensure!(
+        origin(&bundle.server)? == origin(&binding.server)?,
+        "Saved credential belongs to another server"
+    );
+    anyhow::ensure!(
+        bundle.refresh.is_some(),
+        "Browser authorization is required"
+    );
+    let key = signer(&bundle)?;
+    let http = transport()?;
+    authorizer(&bundle, key, &http, None).await
 }

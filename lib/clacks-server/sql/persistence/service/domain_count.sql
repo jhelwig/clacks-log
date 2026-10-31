@@ -1,0 +1,10 @@
+SELECT (SELECT count(*) FROM clacks.service_destination WHERE payload_id = $1)
+     + (SELECT count(*) FROM clacks.service_assertion WHERE payload_id = $1)
+     + (SELECT count(*) FROM clacks.service_attempt WHERE payload_id = $1)
+     + (SELECT count(*) FROM clacks.service_result WHERE payload_id = $1)
+     + (SELECT count(*) FROM clacks.service_observation WHERE payload_id = $1)
+     + (SELECT count(*) FROM clacks.service_association WHERE payload_id = $1)
+     + (SELECT count(*) FROM clacks.service_disposition WHERE payload_id = $1)
+     + (SELECT count(*) FROM clacks.service_suppression WHERE payload_id = $1)
+     + (SELECT count(*) FROM clacks.service_download WHERE payload_id = $1)
+     + (SELECT count(*) FROM clacks.service_acquisition WHERE payload_id = $1) AS "roots!: i64"

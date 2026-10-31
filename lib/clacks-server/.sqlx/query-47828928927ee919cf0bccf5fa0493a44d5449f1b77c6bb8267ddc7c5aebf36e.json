@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE clacks.sync_accounts SET timeline_id = $2, revision = $3, baseline_id = $4, membership_generation = $5, installed_coverage_id = $6 WHERE account_id = $1\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "47828928927ee919cf0bccf5fa0493a44d5449f1b77c6bb8267ddc7c5aebf36e"
+}

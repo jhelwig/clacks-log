@@ -1,0 +1,1 @@
+SELECT position_kind, locator, latitude, longitude, grid_length, dxcc, primary_subdivision, secondary_subdivision, cq_zone, itu_zone FROM clacks.recorded_location WHERE station_id = $1 AND account = $2

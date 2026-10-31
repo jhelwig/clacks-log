@@ -1,7 +1,7 @@
 # Local account store
 
 `clacks-client-store` owns one SQLite database per local account workspace.
-Native values, saved roles, operating defaults and transfer windows use real SQLx transactions. The
+Native values, saved roles, operating defaults and received account state use real SQLx transactions. The
 [storage contract](../../docs/client-store.md) defines the payload and
 synchronization workflows implemented by this library.
 
@@ -106,10 +106,9 @@ application or project task dispatcher.
 
 `save` and `operating` commit guarded offline edits and owned defaults. `synchronization`
 commits native preparation, receipt, rejection and explicit resolution with their
-comparison roles. `observe_account` stores an authenticated coordinator's supplied
-account/membership view under an exact prior-value check; authentication and recovery
-policy remain with that coordinator. Observed server head and membership are separate
-from the client's completed installed checkpoint. No record response advances receipt.
+comparison roles. No individual record response advances completed account coverage.
+The client retains its actual checkpoint and causal interpretation, without an
+unused mirror of server account/membership metadata.
 
 ## Transactional workflows
 
@@ -152,17 +151,23 @@ from the client's completed installed checkpoint. No record response advances re
   source edits do not reload them. Manual adjustments clear the affected selection.
 - `synchronization::prepare` persists reservations and frozen values before returning
   them. `receive`, `reject` and `resolve` save actual core-produced role/review updates.
-- `transfer` remembers immutable manifests, stages incomplete coupled units,
-  installs complete batches and their unique external ownership together, and
-  reloads the completed checkpoint after commit. A first receipt requires a full window.
+- `transfer::{begin, install_page, complete}` owns page transactions and final
+  checkpoint installation. The caller holds connection-local `ReceiptState`;
+  requirements are not persisted as transfer attempts. Commit data before updating
+  that state or acknowledging a page. Complete only against a matching discovery
+  end and actual stored obligations. Reconnect starts a fresh receipt while semantic
+  staging, exact support, coupled descriptors and pending work remain durable.
+  `discovery::Source` returns accepted heads/support, never pending working values.
+  Its `repair` traversal offers individual accepted knowledge beyond the peer’s
+  complete coverage, including retained-only records, without certifying a prefix.
   Dependency loading follows incoming, staged and local accepted versions, including
   support already stored outside the window. Without an embedded destination
   description, it supplies the stored destination to the native dependency checks.
 - `retention` installs received interpretation while sealing covered pending bases.
-  Insufficient coverage keeps original evidence; collection removes unreachable local
-  structures while retaining immutable service facts, required support and deletion memory.
+  Insufficient coverage keeps original evidence. Physical collection is a later
+  consuming maintenance workflow; this store does not run an unintegrated collector.
 - `read::snapshot` establishes one read transaction for history, review, operating
-  values, record roles and receipt/account diagnostics. Keep it only for a bounded
+  values, record roles and completed-checkpoint diagnostics. Keep it only for a bounded
   operation; it can retain WAL pages until closed or dropped. History filters use
   bound values and one working payload per QSO; review includes pending deletions.
 

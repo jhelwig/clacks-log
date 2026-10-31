@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT ordinal, query_id, watermark FROM clacks.stream_progress WHERE payload_id = $1 ORDER BY ordinal\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ordinal",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.stream_progress",
+            "name": "ordinal"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "query_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.stream_progress",
+            "name": "query_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "watermark",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.stream_progress",
+            "name": "watermark"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "f43a9f97cc96fe3cd31aa2089e28d945fc68d9104207f3af6d64c84a96ca4a98"
+}
