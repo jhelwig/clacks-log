@@ -61,6 +61,15 @@ pub(super) struct Workbench {
 }
 
 impl Workbench {
+    /// Open an existing referring contact without changing entry inputs or history scope.
+    pub fn open_contact(
+        &mut self,
+        id: clacks_model::ids::QsoId,
+        requests: &mpsc::Sender<SettingsRequest>,
+    ) {
+        self.contacts.open(id, requests);
+    }
+
     /// Invalidate both contact consumers after a committed data or definition change.
     pub fn invalidate_contacts(
         &mut self,

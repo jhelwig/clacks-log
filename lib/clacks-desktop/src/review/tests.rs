@@ -42,7 +42,7 @@ pub(crate) fn basis() -> ComparisonBasis {
     shared.comment = Some("Rain".into());
     shared.tags = [*local.tags.first().unwrap(), TagId::new()].into();
     let key = RecordKey {
-        account: Default::default(),
+        account: "00000000000000000000000001".parse().unwrap(),
         id: RecordId::Qso(original.id()),
     };
     let timeline = Default::default();
@@ -398,5 +398,95 @@ fn saved_equipment_and_independent_upload_policies_resolve_as_native_fields() ->
     };
     assert_eq!(value.automatic_upload.lotw, AutomaticUploadPolicy::Enable);
     assert_eq!(value.automatic_upload.qrz, AutomaticUploadPolicy::Enable);
+    Ok(())
+}
+
+#[test]
+fn deletion_and_live_versions_require_an_explicit_state_choice() -> anyhow::Result<()> {
+    for local_deleted in [true, false] {
+        let mut basis = basis();
+        if local_deleted {
+            basis.review.local = RecordState::Deleted;
+            let mut fields = basis.record.clone().into_fields();
+            fields.pending.as_mut().unwrap().working = RecordState::Deleted;
+            basis.record = fields.try_into()?;
+        } else {
+            let Observation::Accepted(shared) = &basis.review.shared else {
+                panic!("shared")
+            };
+            basis.review.shared = Observation::Accepted(AcceptedRecord::new(
+                shared.key(),
+                RecordState::Deleted,
+                shared.stamp.clone(),
+            )?);
+            sync_record(&mut basis);
+        }
+        let mut draft = ResolutionDraft::new(basis)?;
+        assert!(draft.build(&Default::default()).is_err());
+        draft.select_all(if local_deleted {
+            ComparisonSource::Local
+        } else {
+            ComparisonSource::Shared
+        })?;
+        assert_eq!(
+            draft.build(&Default::default()).unwrap(),
+            RecordState::Deleted
+        );
+        draft.select_all(if local_deleted {
+            ComparisonSource::Shared
+        } else {
+            ComparisonSource::Local
+        })?;
+        assert!(matches!(
+            draft.build(&Default::default()).unwrap(),
+            RecordState::Live(_)
+        ));
+    }
+    Ok(())
+}
+
+#[test]
+fn retained_live_values_remain_selectable_when_both_current_versions_are_deleted()
+-> anyhow::Result<()> {
+    let mut basis = basis();
+    let Observation::Accepted(shared) = &basis.review.shared else {
+        panic!("accepted")
+    };
+    let retained = AcceptedRecord::new(
+        shared.key(),
+        shared.state().clone(),
+        VersionStamp::new(
+            HistoryPosition {
+                timeline: shared.stamp.accepted_at().timeline,
+                revision: 3,
+            },
+            shared.stamp.baseline(),
+            RecordVector::from_entries([(
+                ClockActor::Server(shared.stamp.accepted_at().timeline),
+                3,
+            )])?,
+        )?,
+    )?;
+    let source = ComparisonSource::Retained {
+        stamp: retained.stamp.clone(),
+    };
+    basis.review.local = RecordState::Deleted;
+    basis.review.shared = Observation::Accepted(AcceptedRecord::new(
+        shared.key(),
+        RecordState::Deleted,
+        shared.stamp.clone(),
+    )?);
+    basis.review.retained = vec![retained.clone()];
+    basis.review.reason =
+        ReviewReason::OrderingUnknown(clacks_sync::error::UnknownReason::CollectedContext);
+    let mut fields = basis.record.clone().into_fields();
+    fields.latest = basis.review.shared.clone();
+    fields.pending.as_mut().unwrap().working = RecordState::Deleted;
+    fields.retained = vec![retained.clone()];
+    basis.record = fields.try_into()?;
+    let mut draft = ResolutionDraft::new(basis)?;
+    assert!(draft.build(&Default::default()).is_err());
+    draft.select_all(source)?;
+    assert_eq!(&draft.build(&Default::default()).unwrap(), retained.state());
     Ok(())
 }

@@ -8,6 +8,7 @@ use crate::operating::FieldError;
 use eframe::egui;
 
 /// Caller-owned facts displayed by one field, independent of its save workflow.
+#[derive(Clone, Copy)]
 pub(super) struct FieldPresentation<'a> {
     /// Value differs from the corresponding unapplied/committed comparison basis.
     pub edited: bool,

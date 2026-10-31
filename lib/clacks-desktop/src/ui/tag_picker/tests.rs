@@ -57,3 +57,41 @@ fn picker_preserves_mixed_intent_through_search() {
     assert_eq!(ui.state().intent().add, [portable.id, activity.id].into());
     assert!(ui.state().intent().remove.is_empty());
 }
+
+#[test]
+fn inline_picker_respects_its_resolved_value_column() {
+    struct Host {
+        picker: MembershipPicker,
+        available_right: f32,
+        content_right: f32,
+    }
+    let tag = LogbookTag::new(Default::default(), "Portable".into());
+    let mut catalog = fixtures::snapshot().logbooks;
+    catalog
+        .tags
+        .push(fixtures::row(RecordValue::Tag(Box::new(tag))));
+    let ui = Harness::builder()
+        .with_size(egui::vec2(1200.0, 500.0))
+        .build_ui_state(
+            |ui, host: &mut Host| {
+                ui.allocate_ui_with_layout(
+                    egui::vec2(220.0, 350.0),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        host.available_right = ui.max_rect().right();
+                        show_contents(ui, &mut host.picker);
+                        host.content_right = ui.min_rect().right();
+                    },
+                );
+            },
+            Host {
+                picker: MembershipPicker::new(&catalog, &[Default::default()]),
+                available_right: 0.0,
+                content_right: 0.0,
+            },
+        );
+    assert!(
+        ui.state().content_right <= ui.state().available_right + 1.0,
+        "membership choices escaped their column"
+    );
+}

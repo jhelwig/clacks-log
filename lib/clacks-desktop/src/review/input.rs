@@ -4,7 +4,7 @@ use crate::operating::{position::PositionForm, station::ReferenceForm};
 use clacks_model::ids::TagId;
 use std::collections::BTreeSet;
 
-/// Concrete controls used by the existing contact editor.
+/// Concrete controls reused by operator-owned record editors.
 #[derive(Clone, Debug)]
 pub(crate) enum FieldInput {
     /// Optional or required text, interpreted by its owning native field.

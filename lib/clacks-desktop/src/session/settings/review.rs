@@ -21,6 +21,20 @@ pub(crate) enum ReviewAction {
         /// Complete validated native result.
         chosen: clacks_sync::record::RecordState,
     },
+    /// Retry a previously blocked deletion after shared reference repair.
+    RetryDeletion {
+        /// Exact saved target compared by the operator.
+        expected: Box<clacks_sync::client::ClientRecord>,
+        /// Exact persisted deletion rejection.
+        shown: Box<clacks_sync::client::ReviewInput>,
+    },
+    /// Read surviving accepted referrers, independent of local working repairs.
+    ReadReferences {
+        /// Target whose deletion is blocked.
+        key: RecordKey,
+        /// Exclusive previous referring identity.
+        after: Option<clacks_sync::record::RecordId>,
+    },
     /// Read a bounded account-wide section with full filtered counts.
     ReadPage {
         /// Exact section, type and continuation requested by its originating view.
@@ -42,6 +56,22 @@ pub(crate) enum ReviewResponse {
         key: RecordKey,
         /// Committed, unchanged or stale outcome, independent of view refresh.
         outcome: Box<clacks_client_store::save::SaveOutcome>,
+    },
+    /// Guarded retry result for the original deletion target.
+    Retried {
+        /// Account-qualified target.
+        key: RecordKey,
+        /// Actual guarded transition or remaining shared references.
+        outcome: Box<clacks_client_store::synchronization::RetryDeletionOutcome>,
+    },
+    /// Bounded accepted referrers for a specific target.
+    References {
+        /// Account-qualified deletion target.
+        key: RecordKey,
+        /// Continuation used by this request.
+        after: Option<clacks_sync::record::RecordId>,
+        /// Actual accepted references and full count.
+        page: clacks_client_store::read::review::references::ReferencePage,
     },
     /// Bounded section selected by the accompanying query.
     Page {
@@ -82,6 +112,22 @@ pub(super) async fn execute(
                 key,
                 outcome: Box::new(outcome),
             })
+        }
+        ReviewAction::RetryDeletion { expected, shown } => {
+            let key = expected.key();
+            let outcome =
+                clacks_client_store::synchronization::retry_deletion(store, &expected, &shown)
+                    .await?;
+            Ok(ReviewResponse::Retried {
+                key,
+                outcome: Box::new(outcome),
+            })
+        }
+        ReviewAction::ReadReferences { key, after } => {
+            let mut snapshot = read::snapshot(store).await?;
+            let page = snapshot.review_references(key, after, 100).await?;
+            snapshot.close().await?;
+            Ok(ReviewResponse::References { key, after, page })
         }
         ReviewAction::ReadPage { query } => {
             let mut snapshot = read::snapshot(store).await?;

@@ -1,5 +1,7 @@
 //! Account-wide pending and conflict review using native identity-qualified paging.
 
+pub mod references;
+
 use super::ReadSnapshot;
 use clacks_model::ids::ClientActorId;
 use clacks_sync::{

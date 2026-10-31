@@ -1,4 +1,4 @@
-//! Concrete saved-source fields, independent of active operating copies.
+//! Concrete editable native record fields, independent of active operating copies.
 
 use super::{EquipmentField, FieldId, ProfileField, StationField, TagField, station};
 use crate::{operating::optional, review::input::FieldInput};

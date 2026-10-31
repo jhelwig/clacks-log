@@ -242,20 +242,59 @@ pub async fn resolve(
 ) -> anyhow::Result<SaveOutcome> {
     check_account(store, expected.key())?;
     let mut transaction = store.write().await?;
-    let row = client::load(&mut transaction, expected.key()).await?;
-    let saved = review::load(&mut transaction, expected.key()).await?;
-    if row.as_ref() != Some(expected)
-        || saved.as_ref() != Some(shown)
-        || expected.working_state() != Some(&shown.local)
-        || expected.latest() != &shown.shared
-        || expected.retained() != shown.retained
-        || expected.pending().map(|pending| &pending.original) != Some(&shown.original)
-    {
-        return Ok(SaveOutcome::Stale { current: row });
+    if !matches_review(&mut transaction, expected, shown).await? {
+        return Ok(SaveOutcome::Stale {
+            current: client::load(&mut transaction, expected.key()).await?,
+        });
     }
-    let context = evidence(&mut transaction, store.account).await?;
+    if matches!(chosen, RecordState::Deleted)
+        && matches!(
+            expected.key().id,
+            clacks_sync::record::RecordId::Tag(_) | clacks_sync::record::RecordId::Equipment(_)
+        )
+    {
+        let references =
+            crate::read::review::references::read_in(&mut transaction, expected.key(), None, 1)
+                .await?;
+        anyhow::ensure!(
+            references.total == 0,
+            "Deletion is blocked by {} accepted referring records",
+            references.total
+        );
+    }
+    let record = resolve_in(&mut transaction, store.account, expected, shown, chosen).await?;
+    transaction.commit().await?;
+    tracing::info!(event="record.resolved",account_id=%store.account,record_id=%expected.key().id,review_reason=?shown.reason);
+    Ok(SaveOutcome::Saved(record))
+}
+
+/// Recheck the exact persisted editor roles inside the admitted write transaction.
+async fn matches_review(
+    connection: &mut sqlx::SqliteConnection,
+    expected: &ClientRecord,
+    shown: &ReviewInput,
+) -> anyhow::Result<bool> {
+    let row = client::load(connection, expected.key()).await?;
+    let saved = review::load(connection, expected.key()).await?;
+    Ok(row.as_ref() == Some(expected)
+        && saved.as_ref() == Some(shown)
+        && expected.working_state() == Some(&shown.local)
+        && expected.latest() == &shown.shared
+        && expected.retained() == shown.retained
+        && expected.pending().map(|pending| &pending.original) == Some(&shown.original))
+}
+
+/// Apply the existing core resolution while retaining the caller's transaction.
+async fn resolve_in(
+    connection: &mut sqlx::SqliteConnection,
+    account: clacks_model::ids::AccountId,
+    expected: &ClientRecord,
+    shown: &ReviewInput,
+    chosen: RecordState,
+) -> anyhow::Result<ClientRecord> {
+    let context = evidence(connection, account).await?;
     for reference in acceptance::required_references(expected.key(), &chosen) {
-        let target = client::load(&mut transaction, reference).await?;
+        let target = client::load(connection, reference).await?;
         anyhow::ensure!(
             target
                 .as_ref()
@@ -267,14 +306,12 @@ pub async fn resolve(
     }
     let record = clacks_sync::client::preparation::resolve_review(shown, chosen, &context.view())?;
 
-    client::store(&mut transaction, &record).await?;
-    review::store(&mut transaction, expected.key(), None).await?;
+    client::store(connection, &record).await?;
+    review::store(connection, expected.key(), None).await?;
     if let clacks_sync::client::ReviewReason::ExcludedActor(former) = shown.reason {
-        crate::enrollment::holds::clear_in(&mut transaction, expected.key(), former).await?;
+        crate::enrollment::holds::clear_in(connection, expected.key(), former).await?;
     }
-    transaction.commit().await?;
-    tracing::info!(event="record.resolved",account_id=%store.account,record_id=%expected.key().id,review_reason=?shown.reason);
-    Ok(SaveOutcome::Saved(record))
+    Ok(record)
 }
 
 #[cfg(test)]
@@ -371,4 +408,76 @@ pub async fn receive_review(
     metadata::binding::insert(&mut transaction, key).await?;
     transaction.commit().await?;
     Ok(update)
+}
+
+/// Result of explicitly retrying a deletion against current accepted references.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RetryDeletionOutcome {
+    /// Reference repair permits normal pending publication again.
+    Ready {
+        /// Rebased local deletion, with no counter reserved by the retry.
+        record: Box<ClientRecord>,
+    },
+    /// Shared references remain, even if local working repairs already exist.
+    StillReferenced {
+        /// Bounded current referrers and their full count.
+        page: crate::read::review::references::ReferencePage,
+    },
+    /// Compared target or review changed; no transition was applied.
+    Stale {
+        /// Current roles and review for an explicit refreshed comparison.
+        current: Option<Box<crate::read::review::ReviewRow>>,
+    },
+}
+
+/// Retry a blocked deletion only after its accepted referrers have been repaired.
+#[tracing::instrument(skip_all, name = "client_store.deletion.retry", fields(record_id = %expected.key().id))]
+pub async fn retry_deletion(
+    store: &ClientStore,
+    expected: &ClientRecord,
+    shown: &ReviewInput,
+) -> anyhow::Result<RetryDeletionOutcome> {
+    check_account(store, expected.key())?;
+    let mut transaction = store.write().await?;
+    if !matches_review(&mut transaction, expected, shown).await? {
+        let current = match client::load(&mut transaction, expected.key()).await? {
+            Some(record) => Some(Box::new(crate::read::review::ReviewRow {
+                record,
+                review: review::load(&mut transaction, expected.key()).await?,
+                authorization_hold: crate::enrollment::holds::actor_in(
+                    &mut transaction,
+                    expected.key(),
+                )
+                .await?,
+            })),
+            None => None,
+        };
+        return Ok(RetryDeletionOutcome::Stale { current });
+    }
+    anyhow::ensure!(
+        matches!(
+            shown.reason,
+            clacks_sync::client::ReviewReason::Referenced { .. }
+        ) && matches!(shown.local, RecordState::Deleted),
+        "Only a blocked local deletion can retry"
+    );
+    let page =
+        crate::read::review::references::read_in(&mut transaction, expected.key(), None, 100)
+            .await?;
+    if page.total > 0 {
+        return Ok(RetryDeletionOutcome::StillReferenced { page });
+    }
+    let record = resolve_in(
+        &mut transaction,
+        store.account,
+        expected,
+        shown,
+        RecordState::Deleted,
+    )
+    .await?;
+    transaction.commit().await?;
+    tracing::info!(event = "deletion.retry_ready", record_id = %expected.key().id);
+    Ok(RetryDeletionOutcome::Ready {
+        record: Box::new(record),
+    })
 }

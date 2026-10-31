@@ -506,3 +506,10 @@ marks a draft outdated; explicit refresh retains its inputs and requires
 reconsidering fields whose compared values changed. Saving checks the exact
 record, review and live references in one transaction, and creates pending local
 work for the normal synchronization path.
+
+Blocked deletions show accepted referring records, including locally repaired
+records awaiting acceptance. Open their ordinary editor or their own conflict
+review, then explicitly refresh references and retry the deletion. Missing tag
+or equipment references require explicit removal/replacement; review does not
+restore them. Previously authorized work stays held until usable shared
+comparison evidence exists and its matching review is explicitly resolved.

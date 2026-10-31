@@ -1,7 +1,9 @@
 //! Non-modal account-wide pending-work presentation on the normal session path.
 
 mod comparison;
+mod detail;
 mod editors;
+mod references;
 mod state;
 
 #[cfg(test)]
@@ -31,6 +33,13 @@ struct Section {
 pub(super) struct ReviewUi {
     /// Independent unsaved native drafts for visited conflicts.
     drafts: std::collections::BTreeMap<RecordKey, comparison::ReviewEditor>,
+    /// Accepted reference page for the current deletion target.
+    references: Option<references::References>,
+    /// Next bounded accepted-reference read.
+    read_references: Option<(RecordKey, Option<RecordId>)>,
+    /// Explicit request to open a referrer in its existing normal editor.
+    pub repair: Option<clacks_sync::client::ClientRecord>,
+
     /// Explicit comparison refresh requested for one record.
     refresh_for: Option<RecordKey>,
     /// Record whose admitted resolution awaits acknowledgment.
@@ -78,6 +87,7 @@ impl ReviewUi {
     pub fn invalidate(&mut self) {
         if self.open {
             self.detail_dirty = true;
+            self.references = None;
             self.refresh = vec![ReviewSection::PendingSync, ReviewSection::Conflicts];
         }
     }
@@ -88,12 +98,16 @@ impl ReviewUi {
         context: &egui::Context,
         requests: &mpsc::Sender<SettingsRequest>,
     ) {
-        self.poll();
+        let viewport = egui::ViewportId::from_hash_of("clacks.unsynchronized_changes");
+        if self.poll() && self.open {
+            context.request_repaint_of(viewport);
+        }
+
         if !self.open {
             return;
         }
         context.show_viewport_immediate(
-            egui::ViewportId::from_hash_of("clacks.unsynchronized_changes"),
+            viewport,
             egui::ViewportBuilder::default()
                 .with_title("Clacks Log · Unsynchronized changes")
                 .with_inner_size([1120.0, 720.0]),
@@ -122,6 +136,11 @@ impl ReviewUi {
             }
         }
         if self.reply.is_none()
+            && let Some((key, after)) = self.read_references.take()
+        {
+            self.request(ReviewAction::ReadReferences { key, after }, requests);
+        }
+        if self.reply.is_none()
             && let Some(section) = self.refresh.pop()
         {
             self.read_page(section, None, requests);
@@ -134,7 +153,7 @@ impl ReviewUi {
             self.request(ReviewAction::ReadRecord { key }, requests);
         }
         if self.reply.is_some() {
-            context.request_repaint_after(std::time::Duration::from_millis(50));
+            context.request_repaint_after_for(std::time::Duration::from_millis(50), viewport);
         }
     }
 
@@ -176,7 +195,7 @@ impl ReviewUi {
         if ui.available_width() < 720.0 {
             self.show_list(ui, requests);
             ui.separator();
-            self.show_detail(ui);
+            self.show_detail(ui, requests);
         } else {
             egui::Panel::left("review.records")
                 .default_size(290.0)
@@ -185,7 +204,7 @@ impl ReviewUi {
                 .show(ui, |ui| self.show_list(ui, requests));
             egui::CentralPanel::default()
                 .frame(theme::section_frame(ui))
-                .show(ui, |ui| self.show_detail(ui));
+                .show(ui, |ui| self.show_detail(ui, requests));
         }
     }
 
@@ -262,6 +281,8 @@ impl ReviewUi {
     /// Close only this review window, leaving committed work and logging untouched.
     fn close(&mut self) {
         self.drafts.clear();
+        self.references = None;
+        self.read_references = None;
         self.selected = None;
         self.open = false;
         self.detail = None;
@@ -283,11 +304,23 @@ fn caption(
             _ => None,
         });
     match value {
-        Some(RecordState::Live(RecordValue::Qso(qso))) => format!(
-            "{} · {}",
-            qso.contacted_station().callsign.as_str(),
-            crate::logging::time::format(qso.start())
-        ),
+        Some(RecordState::Live(RecordValue::Qso(qso))) => {
+            let (clacks_model::recognition::mode::ModeIdentity::Parent { label: mode }
+            | clacks_model::recognition::mode::ModeIdentity::Specialization {
+                label: mode, ..
+            }) = qso.mode().identity();
+            let radio = crate::logging::radio::RadioForm::from_pair(Some(qso.primary()));
+            let band = if radio.band.is_empty() {
+                format!("{} MHz", radio.frequency)
+            } else {
+                radio.band
+            };
+            format!(
+                "{} · {} · {band} · {mode}",
+                qso.contacted_station().callsign.as_str(),
+                crate::logging::time::format(qso.start())
+            )
+        }
         Some(RecordState::Live(RecordValue::Tag(tag))) => {
             format!("Logbook · {}", tags.get(&tag.id).unwrap_or(&tag.name))
         }
@@ -296,6 +329,15 @@ fn caption(
         }
         Some(RecordState::Live(RecordValue::Equipment(equipment))) => {
             format!("Equipment · {}", equipment.name())
+        }
+        Some(RecordState::Live(RecordValue::Group(group))) => {
+            format!("Reference group · {}", group.name())
+        }
+        Some(RecordState::Live(RecordValue::OutputProfile(profile))) => {
+            format!("Export context · {}", profile.name)
+        }
+        Some(RecordState::Live(RecordValue::Service(_))) => {
+            format!("Service record · {}", row.key().id)
         }
         _ => row.key().id.to_string(),
     }

@@ -227,7 +227,9 @@ pub(super) async fn execute(
     };
     let snapshot = match &response {
         SettingsResponse::Review(
-            review::ReviewResponse::Page { .. } | review::ReviewResponse::Record { .. },
+            review::ReviewResponse::Page { .. }
+            | review::ReviewResponse::Record { .. }
+            | review::ReviewResponse::References { .. },
         ) => None,
         SettingsResponse::Contacts(
             contacts::ContactResponse::Page(_)
@@ -264,17 +266,15 @@ impl SettingsAction {
     pub(crate) fn is_shared_write(&self) -> bool {
         matches!(
             self,
-            Self::Review(review::ReviewAction::Resolve { .. })
-                | Self::Contacts(
-                    contacts::ContactAction::Save { .. }
-                        | contacts::ContactAction::Delete { .. }
-                        | contacts::ContactAction::ChangeMembership(_)
-                )
-                | Self::Logbooks(
-                    logbooks::LogbookAction::SaveTag { .. }
-                        | logbooks::LogbookAction::DeleteTag { .. }
-                )
-                | Self::SaveProfile { .. }
+            Self::Review(
+                review::ReviewAction::Resolve { .. } | review::ReviewAction::RetryDeletion { .. }
+            ) | Self::Contacts(
+                contacts::ContactAction::Save { .. }
+                    | contacts::ContactAction::Delete { .. }
+                    | contacts::ContactAction::ChangeMembership(_)
+            ) | Self::Logbooks(
+                logbooks::LogbookAction::SaveTag { .. } | logbooks::LogbookAction::DeleteTag { .. }
+            ) | Self::SaveProfile { .. }
                 | Self::SaveEquipment { .. }
                 | Self::DeleteProfile { .. }
                 | Self::DeleteEquipment { .. }

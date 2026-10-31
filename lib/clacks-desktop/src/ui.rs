@@ -362,6 +362,16 @@ impl eframe::App for DesktopApp {
                     .dialog(ui.ctx(), &snapshot.logbooks, &self.settings_requests);
             }
             self.review.show_window(ui.ctx(), &self.settings_requests);
+            if let Some(record) = self.review.repair.take() {
+                match record.key().id {
+                    clacks_sync::record::RecordId::Qso(id) => {
+                        self.workbench.open_contact(id, &self.settings_requests)
+                    }
+                    clacks_sync::record::RecordId::Profile(_) => self.settings.open_profile(record),
+                    _ => {}
+                }
+            }
+
             self.appearance.show(ui.ctx());
             self.enrollment
                 .show(ui.ctx(), &self.commands, &mut self.enrollment_view);

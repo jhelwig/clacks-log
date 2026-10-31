@@ -180,11 +180,7 @@ impl MembershipPicker {
 
 /// Render bounded choices without choosing a Save/Apply or popup lifecycle.
 pub(super) fn show_contents(ui: &mut egui::Ui, picker: &mut MembershipPicker) -> bool {
-    ui.set_width(
-        360.0_f32
-            .min(ui.ctx().content_rect().width() - 32.0)
-            .max(160.0),
-    );
+    ui.set_width(ui.available_width().min(360.0));
     let label = ui.small("Search logbooks").id;
     let search = ui.add(
         egui::TextEdit::singleline(&mut picker.search)

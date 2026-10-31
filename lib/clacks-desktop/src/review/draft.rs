@@ -2,7 +2,7 @@
 
 use super::{
     comparison::{ComparisonBasis, ComparisonSource},
-    fields::{FieldId, QsoField, settings::NativeFields},
+    fields::{FieldId, QsoField, record::NativeFields},
     input::FieldInput,
 };
 use crate::operating::{FieldError, issue};
@@ -13,7 +13,7 @@ use clacks_sync::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
-/// An unfinished native contact resolution; no intermediate input is a saved record.
+/// An unfinished native record resolution; no intermediate input is a saved record.
 #[derive(Clone, Debug)]
 pub(crate) struct ResolutionDraft {
     /// Exact saved roles shown and required by the guarded save.
@@ -30,17 +30,36 @@ pub(crate) struct ResolutionDraft {
     reconsider: BTreeSet<FieldId>,
     /// Current shown basis differs from a subsequently observed saved basis.
     stale: bool,
+    /// Explicit record-state choice when a live version competes with deletion.
+    deleted: Option<bool>,
 }
 
 impl ResolutionDraft {
-    /// Start from local native facts, leaving differing scalar choices unselected.
+    /// Start from available native facts, leaving differing scalar choices unselected.
     pub fn new(basis: ComparisonBasis) -> anyhow::Result<Self> {
         anyhow::ensure!(
             basis.record.key() == basis.review.shared.key(),
             "Comparison belongs to another record"
         );
         let seed = NativeFields::from_state(&basis.review.local)
-            .or_else(|_| NativeFields::from_state(basis.source(&ComparisonSource::Shared)?))?;
+            .or_else(|_| NativeFields::from_state(basis.source(&ComparisonSource::Shared)?))
+            .or_else(|_| {
+                basis
+                    .review
+                    .retained
+                    .iter()
+                    .find_map(|value| NativeFields::from_state(value.state()).ok())
+                    .ok_or_else(|| anyhow::anyhow!("This comparison has no live editable values"))
+            })?;
+        let deleted = if matches!(basis.review.local, RecordState::Deleted)
+            || matches!(
+                basis.source(&ComparisonSource::Shared),
+                Ok(RecordState::Deleted)
+            ) {
+            None
+        } else {
+            Some(false)
+        };
         Ok(Self {
             basis,
             seed,
@@ -49,6 +68,7 @@ impl ResolutionDraft {
             sources: BTreeMap::new(),
             reconsider: BTreeSet::new(),
             stale: false,
+            deleted,
         })
     }
 
@@ -63,9 +83,13 @@ impl ResolutionDraft {
         }
     }
 
-    /// Return native fields in normal contact presentation order.
+    /// Return native fields in their owning editor’s presentation order.
     pub fn fields(&self) -> Vec<FieldId> {
-        self.seed.fields()
+        if self.deleted == Some(true) {
+            Vec::new()
+        } else {
+            self.seed.fields()
+        }
     }
 
     /// Identify an actual local/shared difference without parsing displayed text.
@@ -113,7 +137,15 @@ impl ResolutionDraft {
 
     /// Populate all choices from one existing native version without saving.
     pub fn select_all(&mut self, source: ComparisonSource) -> anyhow::Result<()> {
+        if matches!(self.basis.source(&source)?, RecordState::Deleted) {
+            self.deleted = Some(true);
+            self.custom.clear();
+            self.reconsider.clear();
+            return Ok(());
+        }
         self.seed = NativeFields::from_state(self.basis.source(&source)?)?;
+        self.deleted = Some(false);
+
         self.custom.clear();
         self.reconsider.clear();
         for field in self.fields() {
@@ -154,6 +186,13 @@ impl ResolutionDraft {
         self.sources.get(&field)
     }
 
+    /// Highlight explicit edits and native results that differ from local working facts.
+    pub fn edited(&self, field: FieldId) -> bool {
+        self.custom.contains_key(&field)
+            || NativeFields::from_state(&self.basis.review.local)
+                .is_ok_and(|local| !self.seed.same(&local, field))
+    }
+
     /// Whether this differing field still needs the operator's explicit choice.
     pub fn needs_choice(&self, field: FieldId) -> bool {
         self.differs(field) && !self.confirmed.contains(&field)
@@ -185,6 +224,11 @@ impl ResolutionDraft {
         self.stale
     }
 
+    /// Identify the explicit live/deleted choice, absent until the operator chooses.
+    pub fn deletion_choice(&self) -> Option<bool> {
+        self.deleted
+    }
+
     /// Install explicitly refreshed evidence while preserving edited results.
     pub fn refresh(&mut self, next: ComparisonBasis) -> anyhow::Result<()> {
         anyhow::ensure!(
@@ -209,12 +253,30 @@ impl ResolutionDraft {
                 }
             }
         }
+        let was_deleted = (
+            matches!(self.basis.review.local, RecordState::Deleted),
+            matches!(
+                self.basis.source(&ComparisonSource::Shared),
+                Ok(RecordState::Deleted)
+            ),
+        );
+        let now_deleted = (
+            matches!(next.review.local, RecordState::Deleted),
+            matches!(
+                next.source(&ComparisonSource::Shared),
+                Ok(RecordState::Deleted)
+            ),
+        );
+        if was_deleted != now_deleted {
+            self.deleted = None;
+        }
         self.basis = next;
+
         self.stale = false;
         Ok(())
     }
 
-    /// Validate one complete chosen contact without publishing or altering saved work.
+    /// Validate one complete chosen record without publishing or altering saved work.
     pub fn build(&self, definitions: &DefinitionSet) -> Result<RecordState, Vec<FieldError>> {
         if self.stale {
             return Err(vec![issue(
@@ -228,7 +290,18 @@ impl ResolutionDraft {
                 "Waiting for usable shared comparison data",
             )]);
         }
+        match self.deleted {
+            Some(true) => return Ok(RecordState::Deleted),
+            None => {
+                return Err(vec![issue(
+                    "Record",
+                    "Choose whether the resolved record is live or deleted",
+                )]);
+            }
+            Some(false) => {}
+        }
         let mut errors = Vec::new();
+
         for field in self.fields() {
             if self.needs_choice(field) || self.needs_confirmation(field) {
                 errors.push(issue(

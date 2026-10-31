@@ -1,7 +1,7 @@
-//! Native field identities for the concrete recorded-contact comparison.
+//! Native field identities for operator-owned synchronization comparisons.
 
 pub(super) mod qso;
-pub(super) mod settings;
+pub(super) mod record;
 pub(super) mod station;
 
 use clacks_model::reference::StationSide;
@@ -87,6 +87,23 @@ pub(crate) enum QsoField {
 }
 
 impl FieldId {
+    /// Use the configured radio-data font for identifiers, measurements and radio facts.
+    pub fn radio_data(self) -> bool {
+        !matches!(
+            self,
+            Self::Qso(
+                QsoField::OwnOperatorName
+                    | QsoField::ContactOperatorName
+                    | QsoField::Comment
+                    | QsoField::Equipment
+                    | QsoField::Antenna
+                    | QsoField::EquipmentNotes
+            ) | Self::Profile(ProfileField::Name | ProfileField::DefaultEquipment)
+                | Self::Equipment(_)
+                | Self::Tag(_)
+        )
+    }
+
     /// Return the existing recorded-contact fields in display order.
     pub fn qso_fields() -> Vec<Self> {
         let mut fields = vec![

@@ -285,3 +285,11 @@ and retained recovery work are blocked review items, even before comparison
 values are available. `review_record` reads an exact record and its persisted
 review consistently, including after the pending operation settles. These reads
 use short ordinary snapshots; callers keep copied inputs while deciding.
+
+`ReadSnapshot::review_references` returns accepted QSO/profile referrers and a
+full count independently of pending local repairs. Its continuation is qualified
+by the native referrer kind and ID. `synchronization::retry_deletion` checks the
+exact blocked-deletion comparison and accepted references in one immediate
+transaction. A successful retry rebases the existing pending deletion; normal
+preparation allocates its proposal counter later. Other resolution paths also
+reject a tag/equipment deletion while accepted referrers survive.

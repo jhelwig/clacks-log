@@ -63,8 +63,8 @@ impl ReviewUi {
         );
     }
 
-    /// Receive the originating result independently of current window visibility.
-    pub(super) fn poll(&mut self) {
+    /// Receive an originating result and report whether the window needs repainting.
+    pub(super) fn poll(&mut self) -> bool {
         let response = match self.reply.as_mut().map(oneshot::Receiver::try_recv) {
             Some(Ok(response)) => response,
             Some(Err(oneshot::error::TryRecvError::Closed)) => {
@@ -74,12 +74,13 @@ impl ReviewUi {
                     "The operation result is unavailable. Refresh current state before retrying."
                         .into(),
                 );
-                return;
+                return true;
             }
-            _ => return,
+            _ => return false,
         };
         self.reply = None;
         self.accept(response);
+        true
     }
 
     /// Keep an authoritative committed outcome even when its subsequent read fails.
@@ -138,6 +139,13 @@ impl ReviewUi {
                                     | RecordId::Equipment(_)
                                     | RecordId::Tag(_)
                             )
+                            && (matches!(basis.review.local, RecordState::Live(_))
+                                || matches!(&basis.review.shared, clacks_sync::record::Observation::Accepted(value) if matches!(value.state(), RecordState::Live(_)))
+                                || basis
+                                    .review
+                                    .retained
+                                    .iter()
+                                    .any(|value| matches!(value.state(), RecordState::Live(_))))
                         {
                             match super::comparison::ReviewEditor::new(basis) {
                                 Ok(editor) => {
@@ -158,6 +166,59 @@ impl ReviewUi {
                 if self.selected == Some(key) {
                     self.detail = row.map(|row| *row);
                     self.catalog(settings);
+                }
+            }
+            SettingsResponse::Review(ReviewResponse::References {
+                key,
+                after,
+                mut page,
+            }) => {
+                if self.selected == Some(key) {
+                    if after.is_some()
+                        && let Some(existing) = self.references.take()
+                        && existing.key == key
+                    {
+                        let mut rows = existing.page.rows;
+                        for row in page.rows {
+                            if let Some(old) = rows
+                                .iter_mut()
+                                .find(|old| old.record.key() == row.record.key())
+                            {
+                                *old = row;
+                            } else {
+                                rows.push(row);
+                            }
+                        }
+                        page.rows = rows;
+                    }
+                    self.references = Some(super::references::References { key, page });
+                }
+            }
+            SettingsResponse::Review(ReviewResponse::Retried { key, outcome }) => {
+                self.saving = None;
+                use clacks_client_store::synchronization::RetryDeletionOutcome;
+                match *outcome {
+                    RetryDeletionOutcome::Ready { record } => {
+                        self.accept(SettingsResponse::Review(ReviewResponse::Resolved {
+                            key,
+                            outcome: Box::new(SaveOutcome::Saved(*record)),
+                        }))
+                    }
+                    RetryDeletionOutcome::StillReferenced { page } => {
+                        if self.selected == Some(key) {
+                            self.references = Some(super::references::References { key, page });
+                        }
+                        self.notice =
+                            Some("Deletion remains blocked by accepted referring records.".into());
+                    }
+                    RetryDeletionOutcome::Stale { current } => {
+                        self.accept(SettingsResponse::Review(ReviewResponse::Resolved {
+                            key,
+                            outcome: Box::new(SaveOutcome::Stale {
+                                current: current.map(|row| row.record),
+                            }),
+                        }))
+                    }
                 }
             }
             SettingsResponse::Review(ReviewResponse::Resolved { key, outcome }) => {

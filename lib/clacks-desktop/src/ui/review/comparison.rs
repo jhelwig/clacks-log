@@ -1,6 +1,5 @@
 //! Field comparison and per-record editor state for the non-modal review window.
 
-use super::{ReviewUi, caption, reason_label};
 use crate::{
     review::{
         comparison::{ComparisonBasis, ComparisonSource},
@@ -14,9 +13,9 @@ use crate::{
         validation::ValidationState,
     },
 };
-use clacks_client_store::{read::review::ReviewRow, settings::SettingsSnapshot};
+use clacks_client_store::settings::SettingsSnapshot;
 use clacks_model::{group::DefinitionSet, ids::TagId};
-use clacks_sync::record::{Observation, RecordState};
+use clacks_sync::record::RecordState;
 use eframe::egui;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -103,10 +102,17 @@ impl ReviewEditor {
         };
         let now = ui.input(|input| input.time);
         if self.validation.due(now) {
-            self.errors = self.draft.build(&definitions).err().unwrap_or_default();
+            self.errors = self
+                .validate(&definitions, settings)
+                .err()
+                .unwrap_or_default();
             self.validation.validated();
         }
-        self.validation.request_repaint(ui.ctx(), now);
+        ui.label(match self.draft.deletion_choice() {
+            Some(true) => "Resolved record: Deleted",
+            Some(false) => "Resolved record: Live",
+            None => "Choose the resolved record state using the source shortcuts.",
+        });
         let mut action = ComparisonAction::None;
         if self.settled {
             feedback::problem(
@@ -148,6 +154,29 @@ impl ReviewEditor {
                 }
                 ui.checkbox(&mut self.show_unchanged, "Show unchanged fields");
             });
+            let retained = self
+                .draft
+                .basis
+                .review
+                .retained
+                .iter()
+                .map(|value| value.stamp.clone())
+                .collect::<Vec<_>>();
+            for stamp in retained {
+                let label = format!(
+                    "Use all retained values from {}:{}",
+                    stamp.accepted_at().timeline,
+                    stamp.accepted_at().revision
+                );
+                if ui.button(label).clicked() {
+                    match self.draft.select_all(ComparisonSource::Retained { stamp }) {
+                        Ok(()) => self.validation.edited(now),
+                        Err(error) => {
+                            self.errors = vec![crate::operating::issue("Comparison", error)]
+                        }
+                    }
+                }
+            }
             egui::ScrollArea::vertical()
                 .id_salt("review.comparison.scroll")
                 .show(ui, |ui| {
@@ -178,7 +207,14 @@ impl ReviewEditor {
                                         .take(2)
                                         .zip([ComparisonSource::Local, ComparisonSource::Shared])
                                     {
-                                        self.source(column, field, source, tags, &definitions, now);
+                                        self.source(
+                                            column,
+                                            field,
+                                            source,
+                                            tags,
+                                            &definitions,
+                                            settings,
+                                        );
                                     }
                                     if let Some(column) = columns.last_mut() {
                                         self.resolved(column, field, settings, &definitions, now);
@@ -194,7 +230,7 @@ impl ReviewEditor {
                                         ComparisonSource::Local,
                                         tags,
                                         &definitions,
-                                        now,
+                                        settings,
                                     );
                                     self.source(
                                         ui,
@@ -202,13 +238,13 @@ impl ReviewEditor {
                                         ComparisonSource::Shared,
                                         tags,
                                         &definitions,
-                                        now,
+                                        settings,
                                     );
                                 });
                                 self.resolved(ui, field, settings, &definitions, now);
                             }
                             for source in sources {
-                                self.source(ui, field, source, tags, &definitions, now);
+                                self.source(ui, field, source, tags, &definitions, settings);
                             }
                             ui.separator();
                         });
@@ -243,12 +279,63 @@ impl ReviewEditor {
         )
         .clicked()
         {
-            match self.draft.build(&definitions) {
+            match self.validate(&definitions, settings) {
                 Ok(chosen) => action = ComparisonAction::Save { chosen },
                 Err(errors) => self.errors = errors,
             }
         }
+        self.validation.request_repaint(ui.ctx(), now);
         action
+    }
+
+    /// Validate the chosen native record and its currently available local dependencies.
+    fn validate(
+        &self,
+        definitions: &DefinitionSet,
+        settings: &SettingsSnapshot,
+    ) -> Result<RecordState, Vec<crate::operating::FieldError>> {
+        let chosen = self.draft.build(definitions)?;
+        if matches!(chosen, RecordState::Deleted)
+            && matches!(
+                self.draft.basis.review.reason,
+                clacks_sync::client::ReviewReason::Referenced { .. }
+            )
+        {
+            return Err(vec![crate::operating::issue(
+                "Record",
+                "Use Retry deletion to recheck accepted references",
+            )]);
+        }
+        let mut errors = Vec::new();
+        for key in
+            clacks_sync::acceptance::required_references(self.draft.basis.record.key(), &chosen)
+        {
+            let (records, field) = match key.id {
+                clacks_sync::record::RecordId::Tag(_) => {
+                    (&settings.logbooks.tags, "Logbook membership")
+                }
+                clacks_sync::record::RecordId::Equipment(_) => {
+                    (&settings.equipment, "Default equipment")
+                }
+                _ => continue,
+            };
+            if !records.iter().any(|record| {
+                record.key() == key && matches!(record.working_state(), Some(RecordState::Live(_)))
+            }) {
+                errors.push(crate::operating::issue(
+                    field,
+                    format!(
+                        "Referenced record {} is unavailable or deleted; remove or replace it",
+                        key.id
+                    ),
+                ));
+            }
+        }
+        if errors.is_empty() {
+            Ok(chosen)
+        } else {
+            Err(errors)
+        }
     }
 
     /// Offer one native source without parsing its displayed text.
@@ -259,8 +346,9 @@ impl ReviewEditor {
         source: ComparisonSource,
         tags: &BTreeMap<TagId, String>,
         definitions: &DefinitionSet,
-        now: f64,
+        settings: &SettingsSnapshot,
     ) {
+        let now = ui.input(|input| input.time);
         let input = self.draft.source_input(field, &source);
         let label = match &source {
             ComparisonSource::Local => "Use local".into(),
@@ -276,7 +364,7 @@ impl ReviewEditor {
             .add_enabled(input.is_ok(), egui::Button::selectable(selected, label))
             .clicked()
         {
-            match self.draft.select(field, source) {
+            match self.draft.select(field, source.clone()) {
                 Ok(()) => self.validation.edited(now),
                 Err(error) => self.errors = vec![crate::operating::issue(&field.label(), error)],
             }
@@ -302,8 +390,11 @@ impl ReviewEditor {
                             format!(
                                 "{}{}",
                                 row.group
-                                    .and_then(|id| definitions.get(id).map(|g| g.name().to_owned()))
-                                    .unwrap_or_else(|| "Unrecognized group".into()),
+                                    .map(|id| definitions
+                                        .get(id)
+                                        .map(|group| group.name().to_owned())
+                                        .unwrap_or_else(|| format!("Unrecognized group · {id}")))
+                                    .unwrap_or_else(|| "No group selected".into()),
                                 if row.identifier.is_empty() {
                                     String::new()
                                 } else {
@@ -315,11 +406,39 @@ impl ReviewEditor {
                         .join(", "),
                 );
             }
+            Ok(FieldInput::Equipment { selected }) => {
+                let caption = selected
+                    .map(|id| {
+                        settings
+                            .equipment
+                            .iter()
+                            .find_map(|row| match row.working_state() {
+                                Some(RecordState::Live(
+                                    clacks_sync::record::RecordValue::Equipment(value),
+                                )) if value.id() == id => Some(format!("{} · {id}", value.name())),
+                                _ => None,
+                            })
+                            .unwrap_or_else(|| format!("Unavailable equipment · {id}"))
+                    })
+                    .unwrap_or_else(|| "No default equipment".into());
+                ui.label(caption);
+            }
             Ok(input) => {
-                ui.label(input.display());
+                let text = egui::RichText::new(input.display());
+                ui.label(if field.radio_data() {
+                    text.monospace()
+                } else {
+                    text
+                });
             }
             Err(_) => {
-                ui.weak("No live values available");
+                ui.weak(
+                    if matches!(self.draft.basis.source(&source), Ok(RecordState::Deleted)) {
+                        "Deleted"
+                    } else {
+                        "No live values available"
+                    },
+                );
             }
         }
     }
@@ -376,12 +495,17 @@ impl ReviewEditor {
                 &mut input,
                 definitions,
                 settings,
-                if self.draft.needs_choice(field) {
-                    &[]
-                } else {
-                    &self.errors
+                crate::ui::fields::FieldPresentation {
+                    edited: self.draft.edited(field),
+                    read_only: !ui.is_enabled(),
+                    errors: if self.draft.needs_choice(field) {
+                        &[]
+                    } else {
+                        &self.errors
+                    },
+                    validation_label: Some(&field.label()),
+                    radio_data: field.radio_data(),
                 },
-                self.draft.selected_source(field).is_some(),
             ) {
                 self.draft.set_custom(field, input);
                 self.validation.edited(now);
@@ -402,70 +526,5 @@ impl ReviewEditor {
         } else if self.draft.needs_choice(field) {
             ui.weak("Choose a source or enter a value.");
         }
-    }
-}
-
-impl ReviewUi {
-    /// Show the pinned comparison while newer saved roles remain separate.
-    pub(super) fn show_detail(&mut self, ui: &mut egui::Ui) {
-        let Some(row) = &self.detail else {
-            ui.label("Select a record to review.");
-            return;
-        };
-        let key = row.record.key();
-        let displayed = self
-            .drafts
-            .get(&key)
-            .map(|editor| &editor.draft.basis.record)
-            .unwrap_or(&row.record);
-        ui.heading(caption(displayed, &self.tag_labels));
-        ui.label(format!("ID: {}", key.id));
-        if let Some(review) = &row.review {
-            ui.label(reason_label(&review.reason));
-        }
-        let busy = self.reply.is_some() || self.detail_dirty;
-        let action =
-            if let (Some(editor), Some(settings)) = (self.drafts.get_mut(&key), &self.settings) {
-                editor.show(ui, settings, &self.tag_labels, busy)
-            } else {
-                show_pending(ui, row);
-                ComparisonAction::None
-            };
-        match action {
-            ComparisonAction::Refresh => {
-                self.refresh_for = Some(key);
-                self.detail_dirty = true;
-            }
-            ComparisonAction::Save { chosen } => {
-                if let Some(editor) = self.drafts.get(&key) {
-                    self.submit = Some(super::SaveRequest {
-                        expected: Box::new(editor.draft.basis.record.clone()),
-                        shown: Box::new(editor.draft.basis.review.clone()),
-                        chosen,
-                    });
-                }
-            }
-            ComparisonAction::None => {}
-        }
-        if self.saving == Some(key) {
-            ui.label("Saving…");
-        }
-    }
-}
-
-/// Describe actual unpublished and blocked work without offering a fake resolution.
-fn show_pending(ui: &mut egui::Ui, row: &ReviewRow) {
-    if row.authorization_hold.is_some() || !row.record.retained().is_empty() {
-        ui.label("Waiting for comparison data. Local work is preserved.");
-    } else if row.review.is_none() {
-        ui.label(
-            if matches!(row.record.working_state(), Some(RecordState::Deleted)) {
-                "Deletion saved locally; pending synchronization."
-            } else {
-                "Saved locally; pending synchronization."
-            },
-        );
-    } else if matches!(row.record.latest(), Observation::Unavailable { .. }) {
-        ui.label("Waiting for usable comparison data. Local work is preserved.");
     }
 }

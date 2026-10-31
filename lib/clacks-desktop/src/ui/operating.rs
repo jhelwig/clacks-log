@@ -217,6 +217,18 @@ enum OperatingTab {
     Operator,
 }
 impl SettingsUi {
+    /// Open a specific saved profile for reference repair without loading its values.
+    pub fn open_profile(&mut self, record: ClientRecord) {
+        if let Some(profile) = profile(&record) {
+            let station = crate::operating::station::StationForm::from_snapshot(profile.station());
+            self.stack
+                .push(Frame::new(Screen::Profile(Box::new(ProfileEditor::new(
+                    Some(record),
+                    station,
+                )))));
+        }
+    }
+
     /// Open reusable management from the application bar without changing operation.
     pub fn management(&mut self, ui: &mut egui::Ui, sender: &mpsc::Sender<SettingsRequest>) {
         if self.stack.is_empty() {

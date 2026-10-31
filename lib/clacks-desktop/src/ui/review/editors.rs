@@ -1,7 +1,6 @@
 //! Concrete resolved-value controls shared with normal contact editing.
 
 use crate::{
-    operating::FieldError,
     review::input::FieldInput,
     ui::{
         fields::{self, FieldPresentation},
@@ -18,22 +17,27 @@ pub(super) fn show(
     input: &mut FieldInput,
     definitions: &DefinitionSet,
     settings: &clacks_client_store::settings::SettingsSnapshot,
-    errors: &[FieldError],
-    edited: bool,
+    presentation: FieldPresentation<'_>,
 ) -> bool {
+    let compound = FieldPresentation {
+        errors: &[],
+        validation_label: None,
+        radio_data: true,
+        ..presentation
+    };
     match input {
-        FieldInput::Text { value } => text(ui, label, value, errors, edited),
+        FieldInput::Text { value } => text(ui, label, value, presentation),
         FieldInput::Position { form } => {
             let mut changed = false;
             let mut grid = form.grid.clone();
-            if text(ui, "Grid locator", &mut grid, errors, edited) {
+            if text(ui, "Grid locator", &mut grid, compound) {
                 form.edit_grid(grid);
                 changed = true;
             }
             let mut latitude = form.latitude.clone();
             let mut longitude = form.longitude.clone();
-            let coordinates_changed = text(ui, "Latitude", &mut latitude, errors, edited)
-                | text(ui, "Longitude", &mut longitude, errors, edited);
+            let coordinates_changed = text(ui, "Latitude", &mut latitude, compound)
+                | text(ui, "Longitude", &mut longitude, compound);
             if coordinates_changed {
                 form.edit_coordinates(latitude, longitude);
                 changed = true;
@@ -63,23 +67,26 @@ pub(super) fn show(
             changed
         }
         FieldInput::Radio { form } => {
-            let frequency = text(ui, "MHz", &mut form.frequency, errors, edited);
+            let frequency = text(ui, "MHz", &mut form.frequency, compound);
             if frequency {
                 form.frequency_changed();
             }
-            let band = text(ui, "Band", &mut form.band, errors, edited);
+            let band = text(ui, "Band", &mut form.band, compound);
             if band {
                 form.band_changed();
             }
             frequency || band
         }
         FieldInput::Mode { label, parent } => {
-            text(ui, "Mode", label, errors, edited)
-                | text(ui, "Parent mode", parent, errors, edited)
+            text(ui, "Mode", label, compound) | text(ui, "Parent mode", parent, compound)
         }
-        FieldInput::References { rows } => {
-            operating_fields::references(ui, "review.references", rows, definitions, errors)
-        }
+        FieldInput::References { rows } => operating_fields::references(
+            ui,
+            "review.references",
+            rows,
+            definitions,
+            presentation.errors,
+        ),
         FieldInput::Equipment { selected } => {
             let before = *selected;
             crate::ui::equipment::default_selector(
@@ -93,7 +100,7 @@ pub(super) fn show(
         }
         FieldInput::Policy { value } => {
             let before = *value;
-            crate::ui::logbooks::editor::policy(ui, label, value, edited);
+            crate::ui::logbooks::editor::policy(ui, label, value, presentation.edited);
             before != *value
         }
         FieldInput::Membership { .. } => false,
@@ -105,23 +112,7 @@ fn text(
     ui: &mut egui::Ui,
     label: &str,
     value: &mut String,
-    errors: &[FieldError],
-    edited: bool,
+    presentation: FieldPresentation<'_>,
 ) -> bool {
-    fields::text(
-        ui,
-        ui.scope_id().with(label),
-        label,
-        value,
-        FieldPresentation {
-            edited,
-            read_only: !ui.is_enabled(),
-            errors,
-            validation_label: None,
-            radio_data: !["Comment", "name", "Equipment", "Antenna", "notes"]
-                .iter()
-                .any(|word| label.contains(word)),
-        },
-    )
-    .changed()
+    fields::text(ui, ui.scope_id().with(label), label, value, presentation).changed()
 }
