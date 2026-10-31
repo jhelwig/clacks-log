@@ -1,4 +1,7 @@
-use super::projection::{self, ProjectionNeeds};
+mod routing;
+mod submissions;
+
+use crate::read::projection::{self, ProjectionNeeds};
 use crate::test_support::service::imported;
 use crate::{
     read, save,
@@ -17,11 +20,6 @@ use clacks_sync::{
     record::{RecordState, RecordValue},
     service::ServiceRecord,
 };
-
-#[path = "tests/routing.rs"]
-mod routing;
-#[path = "tests/submissions.rs"]
-mod submissions;
 
 #[tokio::test]
 async fn retained_evidence_projects_current_service_status() -> anyhow::Result<()> {
@@ -104,7 +102,7 @@ async fn install(
     use clacks_sync::{
         account::{AccountMetadata, InstalledCheckpoint},
         lineage::Coverage,
-        transfer::{RecordRequirement, WindowManifest, WindowMode},
+        transfer::{RecordRequirement, WindowMode},
     };
     let (_, baseline) = AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
     let source = InstalledCheckpoint {
@@ -112,24 +110,31 @@ async fn install(
         baseline: baseline.id,
         coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at()),
     };
-    let manifest = WindowManifest::new(
-        source.account,
-        source.clone(),
-        WindowMode::Full,
-        rows.iter()
-            .map(|r| RecordRequirement {
-                key: r.key(),
-                stamp: r.stamp.clone(),
-                deleted: false,
-            })
-            .collect(),
-        vec![],
-        vec![baseline],
-        vec![],
-    )?;
-    crate::transfer::remember(store, &manifest).await?;
-    crate::transfer::install(store, &source, &WindowMode::Full, rows).await?;
-    crate::transfer::finish(store, &source, &WindowMode::Full).await?;
+    let manifest = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: source.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: rows
+                .iter()
+                .map(|r| RecordRequirement {
+                    key: r.key(),
+                    stamp: r.stamp.clone(),
+                    deleted: false,
+                })
+                .collect(),
+            boundaries: vec![],
+            baselines: vec![baseline],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let mut incoming = crate::incoming::Incoming::begin(store, &manifest).await?;
+    incoming.page(store, rows).await?;
+    incoming.finish(store).await?;
     Ok(())
 }
 

@@ -74,5 +74,6 @@ pub(crate) async fn validate_namespaces(
             description: row.description,
         });
     }
-    validate_destination_snapshots(&destinations)
+    validate_destination_snapshots(&destinations)?;
+    Ok(())
 }

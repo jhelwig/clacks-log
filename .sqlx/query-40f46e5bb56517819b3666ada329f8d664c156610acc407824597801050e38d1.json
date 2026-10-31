@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO coupled_unit(account, operation_id) VALUES (?, ?) ON CONFLICT DO NOTHING\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "40f46e5bb56517819b3666ada329f8d664c156610acc407824597801050e38d1"
+}

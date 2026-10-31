@@ -7,14 +7,14 @@ use clacks_client_store::{
         tags,
     },
     save::{self, SaveOutcome},
-    settings, synchronization, transfer,
+    settings, synchronization,
 };
 use clacks_model::tag::LogbookTag;
 use clacks_sync::{
     account::{AccountMetadata, Baseline, InstalledCheckpoint},
     lineage::Coverage,
     record::{AcceptedRecord, RecordState, RecordValue},
-    transfer::{RecordRequirement, WindowManifest, WindowMode},
+    transfer::{RecordRequirement, WindowMode},
 };
 use logbook_support::Workspace;
 use support::id;
@@ -23,27 +23,32 @@ async fn remember(
     store: &clacks_client_store::store::ClientStore,
     accepted: &AcceptedRecord,
     baseline: Baseline,
-) -> anyhow::Result<InstalledCheckpoint> {
+) -> anyhow::Result<crate::incoming::Incoming> {
     let source = InstalledCheckpoint {
         account: id(1),
         baseline: baseline.id,
         coverage: Coverage::from(accepted.stamp.accepted_at()),
     };
-    let manifest = WindowManifest::new(
-        id(1),
-        source.clone(),
-        WindowMode::Full,
-        vec![RecordRequirement {
-            key: accepted.key(),
-            stamp: accepted.stamp.clone(),
-            deleted: matches!(accepted.state(), RecordState::Deleted),
-        }],
-        vec![],
-        vec![baseline],
-        vec![],
-    )?;
-    transfer::remember(store, &manifest).await?;
-    Ok(source)
+    let manifest = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: source.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![RecordRequirement {
+                key: accepted.key(),
+                stamp: accepted.stamp.clone(),
+                deleted: matches!(accepted.state(), RecordState::Deleted),
+            }],
+            boundaries: vec![],
+            baselines: vec![baseline],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    crate::incoming::Incoming::begin(store, &manifest).await
 }
 
 #[tokio::test]
@@ -58,15 +63,11 @@ async fn installed_and_received_deletion_preserve_live_alternatives_until_resolu
                 1,
                 RecordState::Live(RecordValue::Tag(Box::new(tag.clone()))),
             );
-            let source = remember(&workspace.store, &live, baseline.clone()).await?;
-            transfer::install(
-                &workspace.store,
-                &source,
-                &WindowMode::Full,
-                std::slice::from_ref(&live),
-            )
-            .await?;
-            transfer::finish(&workspace.store, &source, &WindowMode::Full).await?;
+            let mut incoming = remember(&workspace.store, &live, baseline.clone()).await?;
+            incoming
+                .page(&workspace.store, std::slice::from_ref(&live))
+                .await?;
+            incoming.finish(&workspace.store).await?;
             selection::select(&workspace.store, SelectedView::Logbook(tag.id)).await?;
             if pending {
                 let row = save::load(&workspace.store, live.key()).await?.unwrap();
@@ -95,7 +96,7 @@ async fn installed_and_received_deletion_preserve_live_alternatives_until_resolu
                 RecordState::Deleted,
                 deleted.stamp.clone(),
             )?;
-            let source = remember(&workspace.store, &deleted, baseline).await?;
+            let mut incoming = remember(&workspace.store, &deleted, baseline).await?;
             // Merely staging an advertised deletion has no selected-view effect.
             assert_eq!(
                 settings::snapshot(&workspace.store)
@@ -107,20 +108,12 @@ async fn installed_and_received_deletion_preserve_live_alternatives_until_resolu
             if receipt {
                 synchronization::receive(&workspace.store, &deleted).await?;
             } else {
-                transfer::install(
-                    &workspace.store,
-                    &source,
-                    &WindowMode::Full,
-                    std::slice::from_ref(&deleted),
-                )
-                .await?;
-                transfer::install(
-                    &workspace.store,
-                    &source,
-                    &WindowMode::Full,
-                    std::slice::from_ref(&deleted),
-                )
-                .await?;
+                incoming
+                    .page(&workspace.store, std::slice::from_ref(&deleted))
+                    .await?;
+                incoming
+                    .page(&workspace.store, std::slice::from_ref(&deleted))
+                    .await?;
             }
             assert_eq!(
                 settings::snapshot(&workspace.store)

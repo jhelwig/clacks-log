@@ -335,7 +335,6 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
     );
     let mut snapshot = clacks_client_store::read::snapshot(&opened).await?;
     assert!(snapshot.checkpoint().await?.is_none());
-    assert!(snapshot.account_view().await?.is_none());
     snapshot.close().await?;
     opened.close().await?;
     assert_eq!(

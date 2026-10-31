@@ -2,11 +2,10 @@ use crate::support;
 use clacks_client_store::{
     save,
     store::{ClientStore, StoreSettings},
-    transfer,
 };
 use clacks_sync::{
     account::{AccountMetadata, InstalledCheckpoint},
-    transfer::{WindowManifest, WindowMode},
+    transfer::WindowMode,
 };
 
 #[tokio::test]
@@ -53,36 +52,33 @@ async fn accepted_namespaces_must_be_distinct_even_without_an_external_binding()
             baseline: baseline.id,
             coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at()),
         };
-        let manifest = WindowManifest::new(
-            source.account,
-            source.clone(),
-            WindowMode::Full,
-            rows.iter()
-                .map(|value| RecordRequirement {
-                    key: value.key(),
-                    stamp: value.stamp.clone(),
-                    deleted: false,
-                })
-                .collect(),
-            vec![],
-            vec![baseline],
-            vec![],
-        )?;
-        transfer::remember(&store, &manifest).await?;
-        assert!(
-            transfer::install(&store, &source, &WindowMode::Full, &rows)
-                .await
-                .is_err()
-        );
+        let manifest = crate::incoming::Source {
+            start: clacks_sync::transfer::discovery::DiscoveryStart {
+                source: source.clone(),
+                mode: WindowMode::Full,
+            },
+            page: clacks_sync::transfer::discovery::DiscoveryPage {
+                sequence: 0,
+                requirements: rows
+                    .iter()
+                    .map(|value| RecordRequirement {
+                        key: value.key(),
+                        stamp: value.stamp.clone(),
+                        deleted: false,
+                    })
+                    .collect(),
+                boundaries: vec![],
+                baselines: vec![baseline],
+                units: vec![],
+                accepted: vec![],
+                support: vec![],
+            },
+        };
+        let mut incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
+        assert!(incoming.page(&store, &rows).await.is_err());
         for row in rows {
             assert!(save::load(&store, row.key()).await?.is_none());
         }
-        assert_eq!(
-            transfer::progress(&store, &source, &WindowMode::Full)
-                .await?
-                .generation,
-            0
-        );
         store.close().await?;
     }
     Ok(())
@@ -151,23 +147,30 @@ async fn known_snapshot_refines_a_historical_unknown_book_without_rewriting_it()
         baseline: baseline.id,
         coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at()),
     };
-    let manifest = WindowManifest::new(
-        source.account,
-        source.clone(),
-        WindowMode::Full,
-        rows.iter()
-            .map(|value| RecordRequirement {
-                key: value.key(),
-                stamp: value.stamp.clone(),
-                deleted: false,
-            })
-            .collect(),
-        vec![],
-        vec![baseline],
-        vec![],
-    )?;
-    transfer::remember(&store, &manifest).await?;
-    transfer::install(&store, &source, &WindowMode::Full, &rows).await?;
+    let manifest = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: source.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: rows
+                .iter()
+                .map(|value| RecordRequirement {
+                    key: value.key(),
+                    stamp: value.stamp.clone(),
+                    deleted: false,
+                })
+                .collect(),
+            boundaries: vec![],
+            baselines: vec![baseline],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let mut incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
+    incoming.page(&store, &rows).await?;
     for row in rows {
         assert_eq!(
             save::load(&store, row.key()).await?.unwrap().latest(),

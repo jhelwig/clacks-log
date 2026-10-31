@@ -4,7 +4,6 @@ pub mod association;
 pub mod combination;
 pub mod dependency;
 pub mod operation;
-pub mod retention;
 
 use crate::{
     account::EvidenceView,

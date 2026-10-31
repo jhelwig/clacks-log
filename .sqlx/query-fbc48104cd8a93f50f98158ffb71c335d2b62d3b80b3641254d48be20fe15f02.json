@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO local_review (account,kind,record_id,original_id,local_payload,shared_observation,reason) VALUES (?,?,?,?,?,?,?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "fbc48104cd8a93f50f98158ffb71c335d2b62d3b80b3641254d48be20fe15f02"
+}

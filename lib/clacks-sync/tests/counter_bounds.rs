@@ -1,11 +1,10 @@
 use crate::support;
 
-use clacks_sync::account::{AccountMetadata, EvidenceView, InstalledCheckpoint};
+use clacks_sync::account::{AccountMetadata, EvidenceView};
 use clacks_sync::clock::{ClockActor, RecordVector};
 use clacks_sync::lineage::{BoundaryKind, Coverage, Lineage, TimelineBoundary};
 use clacks_sync::membership::MembershipSnapshot;
 use clacks_sync::record::Position;
-use clacks_sync::transfer::{WindowManifest, WindowMode, WindowProgress, plan_batch};
 use support::id;
 
 const MAX: u64 = 9_223_372_036_854_775_807;
@@ -64,42 +63,6 @@ fn public_membership_and_baseline_counters_are_validated() -> anyhow::Result<()>
         baselines: &baselines,
     };
     assert!(evidence.baseline(id(1), id(3)).is_err());
-    Ok(())
-}
-
-#[test]
-fn window_progress_cannot_advance_beyond_signed_maximum() -> anyhow::Result<()> {
-    let (account, baseline) = AccountMetadata::initialize(id(1), id(2), id(3));
-    let checkpoint = InstalledCheckpoint {
-        account: id(1),
-        baseline: id(3),
-        coverage: account.installed,
-    };
-    let manifest = WindowManifest::new(
-        id(1),
-        checkpoint.clone(),
-        WindowMode::Full,
-        vec![],
-        vec![],
-        vec![],
-        vec![],
-    )?;
-    let baselines = [baseline];
-    let evidence = EvidenceView {
-        lineage: &baselines.first().unwrap().lineage,
-        baselines: &baselines,
-    };
-    for generation in [MAX, MAX + 1] {
-        let progress = WindowProgress {
-            source: checkpoint.clone(),
-            mode: WindowMode::Full,
-            generation,
-            installed: Default::default(),
-            staged: vec![],
-            completed_units: Default::default(),
-        };
-        assert!(plan_batch(&manifest, &progress, &[], &[], &evidence).is_err());
-    }
     Ok(())
 }
 
@@ -228,12 +191,6 @@ fn accepted_context_rejects_out_of_range_positions() {
 
 #[test]
 fn window_boundary_coordinates_are_validated_without_installed_ancestry() -> anyhow::Result<()> {
-    let (account, _) = AccountMetadata::initialize(id(1), id(2), id(3));
-    let checkpoint = InstalledCheckpoint {
-        account: id(1),
-        baseline: id(3),
-        coverage: account.installed,
-    };
     let invalid = TimelineBoundary {
         at: Position {
             timeline: id(4),
@@ -242,18 +199,33 @@ fn window_boundary_coordinates_are_validated_without_installed_ancestry() -> any
         includes: Coverage::default(),
         kind: BoundaryKind::RecoveredCoverage,
     };
+    let (account, _) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let receipt = clacks_sync::transfer::receipt::ReceiptState::begin(
+        &clacks_sync::transfer::discovery::DiscoveryStart {
+            source: clacks_sync::account::InstalledCheckpoint {
+                account: account.account,
+                baseline: account.baseline,
+                coverage: account.installed,
+            },
+            mode: clacks_sync::transfer::WindowMode::Full,
+        },
+    )?;
     assert!(
-        WindowManifest::new(
-            id(1),
-            checkpoint,
-            WindowMode::Full,
-            vec![],
-            vec![invalid],
-            vec![],
-            vec![]
+        clacks_sync::transfer::receipt::register_page(
+            &receipt,
+            &clacks_sync::transfer::discovery::DiscoveryPage {
+                sequence: 0,
+                requirements: vec![],
+                accepted: vec![],
+                support: vec![],
+                baselines: vec![],
+                boundaries: vec![invalid],
+                units: vec![],
+            }
         )
         .is_err()
     );
+
     Ok(())
 }
 

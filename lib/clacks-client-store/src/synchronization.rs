@@ -8,10 +8,8 @@ use crate::{
 };
 use clacks_sync::{
     acceptance::{self, RejectionReason},
-    account::AccountMetadata,
     client::{ClientRecord, ClientUpdate, Preparation, ReviewInput},
     error::{MetadataError, UnknownReason},
-    membership::MembershipSnapshot,
     record::{AcceptedRecord, Observation, RecordKey, RecordState},
 };
 use sqlx::SqliteConnection;
@@ -267,33 +265,96 @@ pub async fn resolve(
     Ok(SaveOutcome::Saved(record))
 }
 
-/// Persist an authenticated coordinator's observed account view under its exact prior basis.
-///
-/// Authentication and rollback decisions belong to the caller. This saves supplied
-/// metadata for reconnection and diagnostics; it does not certify local receipt.
-#[tracing::instrument(skip_all,name="client_store.account.observe",level="debug",fields(account_id=%store.account))]
-pub async fn observe_account(
-    store: &ClientStore,
-    expected: Option<&(AccountMetadata, MembershipSnapshot)>,
-    next: &AccountMetadata,
-    membership: &MembershipSnapshot,
-) -> anyhow::Result<bool> {
-    anyhow::ensure!(
-        next.account == store.account,
-        "account view belongs to another account"
-    );
-    let mut transaction = store.write().await?;
-    if metadata::account::load(&mut transaction, store.account)
-        .await?
-        .as_ref()
-        != expected
-    {
-        return Ok(false);
-    }
-    metadata::account::store(&mut transaction, next, membership).await?;
-    transaction.commit().await?;
-    Ok(true)
-}
-
 #[cfg(test)]
 mod tests;
+
+/// Durable synchronization knowledge used for negotiation and pending publication.
+pub struct SyncState {
+    /// Actually completed receipt, absent before full initial synchronization.
+    pub checkpoint: Option<clacks_sync::account::InstalledCheckpoint>,
+    /// Retained immutable interpretations, never synthesized from record maxima.
+    pub baselines: Vec<clacks_sync::account::Baseline>,
+    /// Genuine account ancestry, absent before any source interpretation arrives.
+    pub lineage: Option<clacks_sync::lineage::Lineage>,
+    /// Actual records with pending local values, independent of current history filters.
+    pub pending: Vec<crate::read::review::ReviewRow>,
+}
+
+/// Read complete coverage, retained meanings and pending identities from one local snapshot.
+pub async fn state(store: &ClientStore) -> anyhow::Result<SyncState> {
+    let mut transaction = store.pool.begin().await?;
+    let checkpoint = lineage::current_checkpoint(&mut transaction, store.account).await?;
+    let interpretation = lineage::interpretation(&mut transaction, store.account).await?;
+    let mut pending = Vec::new();
+    for row in sqlx::query_file!("sql/retention/pending.sql")
+        .fetch_all(&mut *transaction)
+        .await?
+    {
+        let key = RecordKey {
+            account: row.account.parse()?,
+            id: crate::payload::record_id(&row.kind, &row.record_id)?,
+        };
+        check_account(store, key)?;
+        if let Some(record) = client::load(&mut transaction, key).await? {
+            pending.push(crate::read::review::ReviewRow {
+                record,
+                review: review::load(&mut transaction, key).await?,
+            });
+        }
+    }
+    let (baselines, ancestry) = match interpretation {
+        Some(value) => (value.baselines, Some(value.lineage)),
+        None => (vec![], None),
+    };
+    transaction.commit().await?;
+    Ok(SyncState {
+        checkpoint,
+        baselines,
+        lineage: ancestry,
+        pending,
+    })
+}
+
+/// Apply an explicit server stale response atomically with release of its matching frozen proposal.
+pub async fn stale(
+    store: &ClientStore,
+    change: &clacks_sync::client::PreparedChange,
+    observed: &Observation,
+) -> anyhow::Result<ClientUpdate> {
+    check_account(store, change.key())?;
+    check_account(store, observed.key())?;
+    let mut transaction = store.write().await?;
+    let evidence = evidence(&mut transaction, store.account).await?;
+    if observed.key() != change.key()
+        && let Observation::Accepted(value) = observed
+    {
+        let previous = current(&mut transaction, value.key()).await?;
+        let mut update = clacks_sync::client::receive_accepted(&previous, value, &evidence.view())?;
+        store_update(&mut transaction, &previous, &mut update).await?;
+        metadata::binding::remove(&mut transaction, value.key()).await?;
+        metadata::binding::insert(&mut transaction, value.key()).await?;
+    }
+    let previous = current(&mut transaction, change.key()).await?;
+    let mut update =
+        clacks_sync::client::receive_stale(&previous, change, observed, &evidence.view())?;
+    store_update(&mut transaction, &previous, &mut update).await?;
+    transaction.commit().await?;
+    Ok(update)
+}
+
+/// Persist a hub's returned recovery comparison while retaining current local edits.
+pub async fn receive_review(
+    store: &ClientStore,
+    input: &ReviewInput,
+) -> anyhow::Result<ClientUpdate> {
+    let key = input.shared.key();
+    check_account(store, key)?;
+    let mut transaction = store.write().await?;
+    let previous = current(&mut transaction, key).await?;
+    let mut update = clacks_sync::client::returned::receive_review(&previous, input)?;
+    store_update(&mut transaction, &previous, &mut update).await?;
+    metadata::binding::remove(&mut transaction, key).await?;
+    metadata::binding::insert(&mut transaction, key).await?;
+    transaction.commit().await?;
+    Ok(update)
+}

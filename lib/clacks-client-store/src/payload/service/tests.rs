@@ -5,7 +5,6 @@ use crate::test_support as support;
 use crate::{
     save,
     store::{ClientStore, StoreSettings},
-    transfer,
 };
 use clacks_model::{
     scalar::{Hertz, UtcSecond, UtcTimestamp},
@@ -22,7 +21,7 @@ use clacks_sync::{
         ServiceView,
         combination::{ObservationSelectionInput, select_observations},
     },
-    transfer::{RecordRequirement, WindowManifest, WindowMode},
+    transfer::{RecordRequirement, WindowMode},
 };
 use support::id;
 
@@ -107,23 +106,30 @@ async fn restored_observations_select_provider_fields_using_retained_coverage_an
         baseline: baseline.id,
         coverage: Coverage::from(rows.last().unwrap().stamp.accepted_at()),
     };
-    let manifest = WindowManifest::new(
-        id(1),
-        source.clone(),
-        WindowMode::Full,
-        rows.iter()
-            .map(|row| RecordRequirement {
-                key: row.key(),
-                stamp: row.stamp.clone(),
-                deleted: false,
-            })
-            .collect(),
-        vec![],
-        vec![baseline.clone()],
-        vec![],
-    )?;
-    transfer::remember(&store, &manifest).await?;
-    transfer::install(&store, &source, &WindowMode::Full, &rows).await?;
+    let manifest = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: source.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: rows
+                .iter()
+                .map(|row| RecordRequirement {
+                    key: row.key(),
+                    stamp: row.stamp.clone(),
+                    deleted: false,
+                })
+                .collect(),
+            boundaries: vec![],
+            baselines: vec![baseline.clone()],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let mut incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
+    incoming.page(&store, &rows).await?;
     store.close().await?;
 
     let store = ClientStore::open(&file, id(1), StoreSettings::default()).await?;

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "WITH facts AS (\n    SELECT c.account,c.kind,c.record_id,o.envelope_id FROM client_record c\n    JOIN record_observation o ON o.observation_id=c.latest_observation\n    WHERE c.account=?1 AND o.envelope_id IS NOT NULL\n    UNION SELECT account,kind,record_id,envelope_id FROM retained_accepted WHERE account=?1\n), identities AS (\n    SELECT f.kind,f.record_id FROM facts f\n    JOIN accepted_record a ON a.envelope_id=f.envelope_id AND a.account=f.account\n    JOIN version_stamp s ON s.stamp_id=a.stamp_id\n    WHERE NOT EXISTS (SELECT 1 FROM json_each(?6) known\n        WHERE json_extract(known.value,'$[0]')=s.timeline_id\n          AND json_extract(known.value,'$[1]')>=s.revision)\n    UNION SELECT kind,record_id FROM staged_accepted WHERE account=?1 AND ?2\n)\nSELECT kind AS \"kind!: String\",record_id AS \"record_id!: String\" FROM identities\nWHERE (kind,record_id)>(?3,?4)\nORDER BY kind,record_id LIMIT ?5\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "kind!: String",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "staged_accepted",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "record_id!: String",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "staged_accepted",
+            "name": "record_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "34d22645a760113e6cab9d9f80d3706d632efc8496d9b428fc7d46888c3be30e"
+}

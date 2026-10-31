@@ -1,5 +1,6 @@
 //! Durable relational storage for one local account workspace.
 
+pub mod discovery;
 pub mod enrollment;
 pub mod error;
 pub mod identity;
@@ -20,7 +21,8 @@ mod payload;
 mod rows;
 
 #[cfg(test)]
-mod transfer_tests;
+#[path = "../tests/incoming.rs"]
+mod incoming;
 
 #[cfg(test)]
 #[path = "../tests/support/mod.rs"]

@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT envelope_id FROM staged_accepted WHERE account = ? AND kind = ? AND record_id = ? ORDER BY envelope_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "envelope_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "staged_accepted",
+            "name": "envelope_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5488bcf84d44efa1c43886036276a38a5b492463fdf8af2c3fe151dcf1b971a7"
+}

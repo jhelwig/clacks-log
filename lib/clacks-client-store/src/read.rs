@@ -14,12 +14,7 @@ use crate::{
     store::ClientStore,
 };
 use clacks_model::ids::AccountId;
-use clacks_sync::{
-    account::{AccountMetadata, InstalledCheckpoint},
-    client::ClientRecord,
-    membership::MembershipSnapshot,
-    record::RecordKey,
-};
+use clacks_sync::{account::InstalledCheckpoint, client::ClientRecord, record::RecordKey};
 use sqlx::{Sqlite, Transaction};
 
 /// An established database snapshot shared by all reads until explicitly closed or dropped.
@@ -74,20 +69,9 @@ impl ReadSnapshot {
         metadata::lineage::current_checkpoint(&mut self.transaction, self.account).await
     }
 
-    /// Read authenticated server account and membership observations retained for reconnection.
-    pub async fn account_view(
-        &mut self,
-    ) -> anyhow::Result<Option<(AccountMetadata, MembershipSnapshot)>> {
-        metadata::account::load(&mut self.transaction, self.account).await
-    }
-
     /// Release this reader and its retained WAL snapshot after the bounded operation completes.
     pub async fn close(self) -> anyhow::Result<()> {
         self.transaction.commit().await?;
         Ok(())
     }
 }
-
-#[cfg(test)]
-#[path = "read/projection/tests.rs"]
-mod history_projection;

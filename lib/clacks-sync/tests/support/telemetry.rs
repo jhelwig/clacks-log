@@ -115,16 +115,6 @@ impl<T> Capture<T> {
             .expect("Clacks diagnostic event missing")
     }
 
-    /// Check a numeric work count reported by an operation event.
-    pub fn event_count(&self, event_name: &str, kind: &str, expected: f64) {
-        let event = self.event(event_name);
-        let field = format!("{kind}_count");
-        let value = event
-            .fields
-            .get(&field)
-            .expect("Clacks event count missing");
-        assert_eq!(value.parse::<f64>().unwrap(), expected);
-    }
     /// Check an operation-owned counter and its complete label set.
     pub fn counter(&self, name: &str, labels: &[(&str, &str)], expected: u64) {
         let labels: BTreeMap<_, _> = labels

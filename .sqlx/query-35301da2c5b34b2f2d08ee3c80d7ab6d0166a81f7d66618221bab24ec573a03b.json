@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT original_id,local_payload,shared_observation,reason FROM local_review WHERE account = ? AND kind = ? AND record_id = ?\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "original_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "local_review",
+            "name": "original_id"
+          }
+        }
+      },
+      {
+        "name": "local_payload",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "local_review",
+            "name": "local_payload"
+          }
+        }
+      },
+      {
+        "name": "shared_observation",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "local_review",
+            "name": "shared_observation"
+          }
+        }
+      },
+      {
+        "name": "reason",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "local_review",
+            "name": "reason"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "35301da2c5b34b2f2d08ee3c80d7ab6d0166a81f7d66618221bab24ec573a03b"
+}

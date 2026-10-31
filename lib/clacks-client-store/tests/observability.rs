@@ -3,12 +3,11 @@ use crate::telemetry;
 use clacks_client_store::{
     save::{self, SaveOutcome},
     store::{ClientStore, StoreSettings},
-    transfer,
 };
 use clacks_sync::{
     account::{AccountMetadata, InstalledCheckpoint},
     lineage::Coverage,
-    transfer::{RecordRequirement, WindowManifest, WindowMode},
+    transfer::{RecordRequirement, WindowMode},
 };
 
 #[test]
@@ -72,30 +71,30 @@ fn telemetry_counts_only_committed_domain_changes_and_excludes_payloads() -> any
                         baseline: baseline.id,
                         coverage: Coverage::from(qso.stamp.accepted_at()),
                     };
-                    let manifest = WindowManifest::new(
-                        source.account,
-                        source.clone(),
-                        WindowMode::Full,
-                        vec![RecordRequirement {
-                            key: qso.key(),
-                            stamp: qso.stamp.clone(),
-                            deleted: false,
-                        }],
-                        vec![],
-                        vec![baseline],
-                        vec![],
-                    )?;
-                    transfer::remember(&store, &manifest).await?;
+                    let manifest = crate::incoming::Source {
+                        start: clacks_sync::transfer::discovery::DiscoveryStart {
+                            source: source.clone(),
+                            mode: WindowMode::Full,
+                        },
+                        page: clacks_sync::transfer::discovery::DiscoveryPage {
+                            sequence: 0,
+                            requirements: vec![RecordRequirement {
+                                key: qso.key(),
+                                stamp: qso.stamp.clone(),
+                                deleted: false,
+                            }],
+                            boundaries: vec![],
+                            baselines: vec![baseline],
+                            units: vec![],
+                            accepted: vec![],
+                            support: vec![],
+                        },
+                    };
+                    let mut incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
                     for _ in 0..2 {
-                        transfer::install(
-                            &store,
-                            &source,
-                            &WindowMode::Full,
-                            std::slice::from_ref(&qso),
-                        )
-                        .await?;
+                        incoming.page(&store, std::slice::from_ref(&qso)).await?;
                     }
-                    transfer::finish(&store, &source, &WindowMode::Full).await?;
+                    incoming.finish(&store).await?;
                     store.close().await?;
                     Ok(())
                 })
@@ -147,7 +146,7 @@ fn telemetry_counts_only_committed_domain_changes_and_excludes_payloads() -> any
         event
             .fields
             .get("event")
-            .is_some_and(|value| value == "sync.window.completed")
+            .is_some_and(|value| value == "sync.receipt.completed")
             && event.fields.contains_key("account_id")
     }));
     for metric in captured
@@ -198,17 +197,23 @@ fn committed_resolution_keeps_context_with_debug_spans_filtered() -> anyhow::Res
                         baseline: baseline.id,
                         coverage: account.installed,
                     };
-                    let manifest = WindowManifest::new(
-                        source.account,
-                        source.clone(),
-                        WindowMode::Full,
-                        vec![],
-                        vec![],
-                        vec![baseline],
-                        vec![],
-                    )?;
-                    transfer::remember(&store, &manifest).await?;
-                    transfer::finish(&store, &source, &WindowMode::Full).await?;
+                    let manifest = crate::incoming::Source {
+                        start: clacks_sync::transfer::discovery::DiscoveryStart {
+                            source: source.clone(),
+                            mode: WindowMode::Full,
+                        },
+                        page: clacks_sync::transfer::discovery::DiscoveryPage {
+                            sequence: 0,
+                            requirements: vec![],
+                            boundaries: vec![],
+                            baselines: vec![baseline],
+                            units: vec![],
+                            accepted: vec![],
+                            support: vec![],
+                        },
+                    };
+                    let incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
+                    incoming.finish(&store).await?;
                     let key = support::qso_key(support::id(10));
                     save::save(
                         &store,

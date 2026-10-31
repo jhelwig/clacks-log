@@ -1,228 +1,259 @@
 use crate::support;
 use clacks_sync::{
     account::{AccountMetadata, EvidenceView, InstalledCheckpoint},
-    client::{OriginalBasis, PendingRecord},
     lineage::Coverage,
-    record::{Observation, RecordId, RecordKey, RecordState, RecordValue},
+    record::{Observation, RecordState},
     transfer::{
-        RecordRequirement, WindowManifest, WindowMode, WindowProgress, finish_window, plan_batch,
+        RecordRequirement, WindowMode,
+        discovery::{DiscoveryEnd, DiscoveryPage, DiscoveryStart},
+        receipt::{ReceiptState, finish_receipt, register_page},
     },
 };
-use std::collections::BTreeSet;
 use support::{accepted, id};
 
 #[test]
-fn interrupted_window_preserves_coverage_and_pending_conflict() {
-    let (_, b) = AccountMetadata::initialize(id(1), id(2), id(3));
-    let defs = [b.clone()];
-    let ev = EvidenceView {
-        lineage: &b.lineage,
-        baselines: &defs,
+fn receipt_requires_complete_obligations_and_matching_end() {
+    let (_, baseline) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let baselines = [baseline.clone()];
+    let evidence = EvidenceView {
+        lineage: &baseline.lineage,
+        baselines: &baselines,
     };
-    let q = accepted(60, "shared");
-    let mut h = q.clone();
-
-    support::edit_accepted(&mut h, |h| {
-        h.key = RecordKey {
-            account: id(1),
-            id: RecordId::Tag(id(11)),
-        };
-        h.state = RecordState::Live(RecordValue::Tag(Box::new(
-            clacks_model::tag::LogbookTag::new(id(11), "H".into()),
-        )));
-    });
-    let mut p = q.clone();
-
-    support::edit_accepted(&mut p, |p| {
-        p.key = RecordKey {
-            account: id(1),
-            id: RecordId::Profile(id(12)),
-        };
-        p.state = RecordState::Live(RecordValue::Profile(Box::new(
-            (clacks_model::profile::SavedLocationProfileFields {
-                id: id(12),
-                name: "P".into(),
-                station: (support::qso(id(10)).own_station().clone()),
-                default_equipment: None,
-            })
-            .try_into()
-            .expect("valid native fixture"),
-        )));
-    });
     let source = InstalledCheckpoint {
         account: id(1),
-        baseline: id(3),
-        coverage: Coverage::from_entries([(id(2), 60)]).unwrap(),
+        baseline: baseline.id,
+        coverage: Coverage::from_entries([(id(2), 100)]).unwrap(),
     };
-    let manifest = WindowManifest::new(
-        id(1),
-        source.clone(),
-        WindowMode::Full,
-        [&q, &h, &p]
-            .into_iter()
-            .map(|v| RecordRequirement {
-                key: v.key(),
-                stamp: v.stamp.clone(),
-                deleted: false,
-            })
-            .collect(),
-        vec![],
-        defs.to_vec(),
-        vec![],
-    )
-    .unwrap();
-    let mut progress = WindowProgress {
-        source,
+    let first = accepted(92, "first");
+    let later = accepted(102, "later");
+    let receipt = ReceiptState::begin(&DiscoveryStart {
+        source: source.clone(),
         mode: WindowMode::Full,
-        generation: 0,
-        installed: BTreeSet::new(),
-        staged: Vec::new(),
-        completed_units: BTreeSet::new(),
+    })
+    .unwrap();
+    let page = DiscoveryPage {
+        sequence: 0,
+        requirements: vec![RecordRequirement {
+            key: first.key(),
+            stamp: first.stamp.clone(),
+            deleted: false,
+        }],
+        accepted: vec![later.clone()],
+        support: vec![],
+        baselines: baselines.to_vec(),
+        boundaries: vec![],
+        units: vec![],
     };
-    let previous = InstalledCheckpoint {
-        coverage: Coverage::from_entries([(id(2), 40)]).unwrap(),
-        ..progress.source.clone()
+    let receipt = register_page(&receipt, &page).unwrap();
+    let end = DiscoveryEnd {
+        source: source.clone(),
+        pages: 1,
     };
-    let original = accepted(20, "old");
-    let local = [clacks_sync::client::ClientRecordFields {
-        retained: Vec::new(),
-        key: q.key(),
-        latest: Observation::Accepted(original.clone()),
-        pending: Some(PendingRecord {
-            witness: None,
-            key: q.key(),
-            original: OriginalBasis::Accepted(original),
-            working: accepted(20, "local").state().clone(),
-            prepared: None,
-        }),
-    }
-    .try_into()
-    .expect("coherent client fixture")];
-    let batch = plan_batch(&manifest, &progress, std::slice::from_ref(&q), &local, &ev).unwrap();
-    assert!(batch.client_updates.first().unwrap().review.is_some());
-    progress.installed.extend(batch.installed_keys);
-    progress.generation = batch.next_generation;
-    let progress: WindowProgress =
-        serde_json::from_str(&serde_json::to_string(&progress).unwrap()).unwrap();
+    assert!(finish_receipt(&receipt, &end, &[], None, &evidence).is_err());
+    assert_eq!(
+        finish_receipt(
+            &receipt,
+            &end,
+            std::slice::from_ref(&later),
+            None,
+            &evidence
+        )
+        .unwrap(),
+        source
+    );
+    assert!(register_page(&receipt, &page).is_err());
+    let mut wrong_end = end.clone();
+    wrong_end.pages = 0;
     assert!(
-        finish_window(
-            &manifest,
-            &progress,
-            std::slice::from_ref(&q),
-            &previous,
-            &ev
+        finish_receipt(
+            &receipt,
+            &wrong_end,
+            std::slice::from_ref(&later),
+            None,
+            &evidence
         )
         .is_err()
     );
-    assert!(previous.coverage.covers(clacks_sync::record::Position {
-        timeline: id(2),
-        revision: 40
-    }));
-    let batch = plan_batch(&manifest, &progress, &[p.clone(), h.clone()], &[], &ev).unwrap();
-    let mut progress = progress;
-    progress.installed.extend(batch.installed_keys);
-    progress.generation = batch.next_generation;
-    let done = finish_window(&manifest, &progress, &[q.clone(), h, p], &previous, &ev).unwrap();
-    assert_eq!(done.next.coverage, manifest.source.coverage);
-    let repeat = plan_batch(
-        &manifest,
-        &progress,
-        &[q],
-        &batch
-            .client_updates
-            .into_iter()
-            .map(|u| u.record)
-            .collect::<Vec<_>>(),
-        &ev,
-    )
-    .unwrap();
-    assert_eq!(repeat.expected_generation, 2);
+    wrong_end = end;
+    wrong_end.source.coverage = Coverage::from_entries([(id(2), 102)]).unwrap();
+    assert!(
+        finish_receipt(
+            &receipt,
+            &wrong_end,
+            std::slice::from_ref(&later),
+            None,
+            &evidence
+        )
+        .is_err()
+    );
+    let mut unrelated = later;
+    support::edit_stamp(&mut unrelated.stamp, |stamp| {
+        stamp.accepted_at.timeline = id(77);
+        stamp.vector = clacks_sync::clock::RecordVector::from_entries([(
+            clacks_sync::clock::ClockActor::Server(id(77)),
+            102,
+        )])
+        .unwrap();
+        Ok(())
+    });
+    assert!(
+        finish_receipt(
+            &receipt,
+            &DiscoveryEnd {
+                source: source.clone(),
+                pages: 1
+            },
+            &[unrelated],
+            None,
+            &evidence
+        )
+        .is_err()
+    );
+    let previous = InstalledCheckpoint {
+        coverage: Coverage::from_entries([(id(2), 80)]).unwrap(),
+        ..source.clone()
+    };
+    let retained = Coverage::from_entries([(id(2), 90)]).unwrap();
+    assert_eq!(
+        clacks_sync::transfer::discovery::select_mode(
+            &source,
+            Some(&previous),
+            Some(&retained),
+            &evidence
+        )
+        .unwrap(),
+        WindowMode::Full
+    );
 }
 
 #[test]
-fn tombstones_scope_baselines_and_replaced_windows_are_checked() {
-    let (_, b) = AccountMetadata::initialize(id(1), id(2), id(3));
-    let defs = [b.clone()];
-    let ev = EvidenceView {
-        lineage: &b.lineage,
-        baselines: &defs,
+fn completion_requires_deletion_and_interpretation_in_the_same_account() {
+    let (_, baseline) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let baselines = [baseline.clone()];
+    let evidence = EvidenceView {
+        lineage: &baseline.lineage,
+        baselines: &baselines,
     };
-    let mut deleted = accepted(60, "gone");
-
-    support::edit_accepted(&mut deleted, |deleted| {
-        deleted.state = RecordState::Deleted;
-    });
+    let mut deletion = accepted(60, "deleted");
+    support::edit_accepted(&mut deletion, |fields| fields.state = RecordState::Deleted);
     let source = InstalledCheckpoint {
         account: id(1),
-        baseline: id(3),
-        coverage: Coverage::from_entries([(id(2), 60)]).unwrap(),
+        baseline: baseline.id,
+        coverage: deletion.stamp.accepted_at().into(),
     };
-    let r = RecordRequirement {
-        key: deleted.key(),
-        stamp: deleted.stamp.clone(),
-        deleted: true,
-    };
-    let manifest = WindowManifest::new(
-        id(1),
-        source.clone(),
-        WindowMode::Full,
-        vec![r.clone(), r.clone()],
-        vec![],
-        defs.to_vec(),
-        vec![],
-    )
-    .unwrap();
-    assert_eq!(manifest.records.len(), 1);
-    let progress = WindowProgress {
+    let start = DiscoveryStart {
         source: source.clone(),
         mode: WindowMode::Full,
-        generation: 0,
-        installed: BTreeSet::new(),
-        staged: Vec::new(),
-        completed_units: BTreeSet::new(),
     };
-    assert!(finish_window(&manifest, &progress, &[], &source, &ev).is_err());
-    assert!(finish_window(&manifest, &progress, &[accepted(60, "live")], &source, &ev).is_err());
+    let receipt = ReceiptState::begin(&start).unwrap();
+    let mut page = DiscoveryPage {
+        sequence: 0,
+        requirements: vec![],
+        accepted: vec![deletion.clone()],
+        support: vec![],
+        baselines: baselines.to_vec(),
+        boundaries: vec![],
+        units: vec![],
+    };
+    let receipt = register_page(&receipt, &page).unwrap();
+    let end = DiscoveryEnd { source, pages: 1 };
+    assert!(finish_receipt(&receipt, &end, &[accepted(60, "live")], None, &evidence).is_err());
     assert!(
-        plan_batch(
-            &manifest,
-            &progress,
-            &[deleted.clone()],
-            &[],
+        finish_receipt(
+            &receipt,
+            &end,
+            std::slice::from_ref(&deletion),
+            None,
             &EvidenceView {
-                lineage: &b.lineage,
+                lineage: &baseline.lineage,
                 baselines: &[]
             }
         )
         .is_err()
     );
-    let mut bad = r.clone();
-    bad.key.account = id(9);
-    assert!(
-        WindowManifest::new(
-            id(1),
-            source.clone(),
-            WindowMode::Full,
-            vec![bad],
-            vec![],
-            defs.to_vec(),
-            vec![],
-        )
-        .is_err()
-    );
-    let newer = InstalledCheckpoint {
-        coverage: Coverage::from_entries([(id(2), 61)]).unwrap(),
-        ..source.clone()
+    assert!(finish_receipt(&receipt, &end, &[deletion], None, &evidence).is_ok());
+    page.requirements.push(RecordRequirement {
+        key: clacks_sync::record::RecordKey {
+            account: id(99),
+            id: page.accepted.first().unwrap().key().id,
+        },
+        stamp: accepted(60, "x").stamp,
+        deleted: false,
+    });
+    assert!(register_page(&ReceiptState::begin(&start).unwrap(), &page).is_err());
+}
+
+#[test]
+fn supporting_version_cannot_replace_the_sources_current_head() {
+    use clacks_sync::{
+        clock::{ClockActor, RecordVector},
+        lineage::{BoundaryKind, TimelineBoundary},
+        record::Position,
+        transfer::{
+            discovery::{DiscoveryPage, DiscoveryStart},
+            receipt::{ReceiptState, register_page},
+        },
     };
-    let replacement = WindowManifest::new(
-        id(1),
-        newer,
-        WindowMode::Full,
-        vec![r],
-        vec![],
-        defs.to_vec(),
-        vec![],
+    let (_, baseline) = AccountMetadata::initialize(id(1), id(2), id(3));
+    let definitions = [baseline.clone()];
+    let mut lineage = baseline.lineage.clone();
+    lineage
+        .add_boundary(TimelineBoundary {
+            at: Position {
+                timeline: id(5),
+                revision: 0,
+            },
+            includes: Coverage::from_entries([(id(2), 0)]).unwrap(),
+            kind: BoundaryKind::ForkOrigin,
+        })
+        .unwrap();
+    let evidence = EvidenceView {
+        lineage: &lineage,
+        baselines: &definitions,
+    };
+    let head = accepted(102, "current head");
+    let mut supporting = accepted(92, "historical supporting value");
+    crate::support::edit_stamp(&mut supporting.stamp, |fields| {
+        fields.accepted_at = Position {
+            timeline: id(5),
+            revision: 1,
+        };
+        fields.vector = RecordVector::from_entries([(ClockActor::Server(id(5)), 1)]).unwrap();
+        Ok(())
+    });
+    let receipt = ReceiptState::begin(&DiscoveryStart {
+        source: InstalledCheckpoint {
+            account: id(1),
+            baseline: id(3),
+            coverage: Coverage::from_entries([(id(2), 100)]).unwrap(),
+        },
+        mode: WindowMode::Full,
+    })
+    .unwrap();
+    let page = DiscoveryPage {
+        sequence: 0,
+        requirements: vec![],
+        accepted: vec![head.clone()],
+        support: vec![supporting.clone()],
+        baselines: definitions.to_vec(),
+        boundaries: lineage.boundaries().to_vec(),
+        units: vec![],
+    };
+    let registered = register_page(&receipt, &page).unwrap();
+    let planned = clacks_sync::transfer::batch::plan_batch(
+        &registered,
+        &[],
+        &page.support,
+        &page.accepted,
+        &[],
+        &evidence,
     )
     .unwrap();
-    assert!(plan_batch(&replacement, &progress, &[deleted], &[], &ev).is_err());
+    let updates = planned.client_updates;
+    assert_eq!(updates.len(), 1);
+    let update = updates.first().unwrap();
+    assert_eq!(update.record.latest(), &Observation::Accepted(head));
+    assert!(update.record.pending().is_none());
+    assert!(update.record.retained().is_empty());
+    assert!(update.review.is_none());
 }

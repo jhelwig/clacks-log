@@ -2,7 +2,6 @@ use crate::support;
 
 use clacks_client_store::{
     operating::{self, OperatingSaveOutcome, OperatingState},
-    retention,
     save::{self, SaveOutcome},
     store::{ClientStore, StoreSettings},
 };
@@ -142,12 +141,10 @@ async fn selection_roots_survive_collection() -> anyhow::Result<()> {
         save::save(&store, key, None, RecordState::Live(value)).await?,
         SaveOutcome::Saved(_)
     ));
-    retention::collect_unreferenced(&store).await?;
     assert_eq!(operating::load(&store).await?, state);
     let mut detached = state.clone();
     detached.forget_source(clacks_sync::record::RecordId::Equipment(id(32)));
     operating::save(&store, &state, &detached).await?;
-    retention::collect_unreferenced(&store).await?;
     let row = save::load(&store, key).await?.unwrap();
     assert_eq!(
         row.working_state(),

@@ -1,11 +1,8 @@
 //! Received interpretation, retained pending comparison evidence and local relational cleanup.
 
-use crate::{
-    metadata::{client, lineage},
-    store::ClientStore,
-};
+use crate::metadata::{client, lineage};
 use clacks_sync::{
-    account::{Baseline, InstalledCheckpoint},
+    account::InstalledCheckpoint,
     lineage::Lineage,
     record::{Observation, RecordKey},
 };
@@ -16,7 +13,9 @@ pub(crate) async fn merge_lineage(
     connection: &mut SqliteConnection,
     received: &Lineage,
 ) -> anyhow::Result<()> {
-    let mut merged = match lineage::interpretation(connection, received.account()).await? {
+    let current = lineage::interpretation(connection, received.account()).await?;
+    let existed = current.is_some();
+    let mut merged = match current {
         Some(current) => {
             anyhow::ensure!(
                 current.lineage.initial_timeline() == received.initial_timeline(),
@@ -26,10 +25,13 @@ pub(crate) async fn merge_lineage(
         }
         None => received.clone(),
     };
+    let previous = merged.clone();
     for boundary in received.boundaries() {
         merged.add_boundary(boundary.clone())?;
     }
-    lineage::set_lineage(connection, &merged).await?;
+    if !existed || merged != previous {
+        lineage::set_lineage(connection, &merged).await?;
+    }
     Ok(())
 }
 
@@ -81,108 +83,4 @@ pub(crate) async fn seal_pending(
         client::store(connection, &row).await?;
     }
     Ok(())
-}
-
-/// Install supplied baseline meanings and ancestry under the exact completed-receipt basis.
-///
-/// Pending bases are sealed while old evidence is readable. This does not advance
-/// receipt, select a server compaction boundary or rewrite accepted stamps.
-#[tracing::instrument(skip_all,name="client_store.interpretation.install",fields(account_id=%store.account))]
-pub async fn install_interpretation(
-    store: &ClientStore,
-    expected: &InstalledCheckpoint,
-    baselines: &[Baseline],
-    received: &Lineage,
-) -> anyhow::Result<()> {
-    anyhow::ensure!(
-        expected.account == store.account && received.account() == store.account,
-        "interpretation belongs to another account"
-    );
-    let mut transaction = store.write().await?;
-    anyhow::ensure!(
-        lineage::current_checkpoint(&mut transaction, store.account)
-            .await?
-            .as_ref()
-            == Some(expected),
-        "installed checkpoint changed before interpretation installation"
-    );
-    seal_pending(&mut transaction, expected).await?;
-    for baseline in baselines {
-        anyhow::ensure!(
-            baseline.account == store.account,
-            "baseline belongs to another account"
-        );
-        lineage::insert_baseline(&mut transaction, baseline).await?;
-    }
-    merge_lineage(&mut transaction, received).await?;
-    transaction.commit().await?;
-    Ok(())
-}
-
-/// Reclaim unreferenced local role and payload rows without deleting synchronized identities.
-///
-/// Immutable service facts and required support are retained for MVP recovery. Current,
-/// original, frozen, review, staged and loaded-default roots remain reachable.
-/// The returned count covers removed payload roots, not synchronization history or actors.
-#[tracing::instrument(skip_all,name="client_store.collect",level="debug",fields(account_id=%store.account))]
-pub async fn collect_unreferenced(store: &ClientStore) -> anyhow::Result<u64> {
-    let mut transaction = store.write().await?;
-    sqlx::query_file!("sql/retention/pending_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/retention/prepared_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/retention/witness_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/retention/original_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/retention/condition_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/retention/observation_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/retention/envelope_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    let removed = sqlx::query_file!("sql/retention/payload_garbage.sql")
-        .execute(&mut *transaction)
-        .await?
-        .rows_affected();
-    sqlx::query_file!("sql/retention/operating_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/retention/station_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/retention/equipment_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/retention/stamp_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/retention/vector_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/retention/checkpoint_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/retention/baseline_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-
-    sqlx::query_file!("sql/retention/lineage_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/retention/coverage_garbage.sql")
-        .execute(&mut *transaction)
-        .await?;
-    transaction.commit().await?;
-    if removed > 0 {
-        tracing::debug!(event="storage.garbage_collected",payload_count=removed,account_id=%store.account);
-    }
-    Ok(removed)
 }

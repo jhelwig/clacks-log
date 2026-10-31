@@ -263,8 +263,10 @@ pub fn validate_destinations(destinations: &[Destination]) -> anyhow::Result<()>
 /// Repeated snapshots may carry different descriptions, and a known QRZ book
 /// interprets an earlier unknown book for the same destination. Contradictory
 /// established collections or namespaces that cannot be distinguished fail.
-/// No supplied snapshot is rewritten.
-pub fn validate_destination_snapshots(snapshots: &[Destination]) -> anyhow::Result<()> {
+/// Returns one coherent description per destination without rewriting supplied snapshots.
+pub fn validate_destination_snapshots(
+    snapshots: &[Destination],
+) -> anyhow::Result<Vec<Destination>> {
     let mut known: BTreeMap<DestinationId, &Destination> = BTreeMap::new();
     for snapshot in snapshots {
         if let Some(previous) = known.get(&snapshot.id) {
@@ -292,5 +294,7 @@ pub fn validate_destination_snapshots(snapshots: &[Destination]) -> anyhow::Resu
         }
         known.insert(snapshot.id, snapshot);
     }
-    validate_destinations(&known.into_values().cloned().collect::<Vec<_>>())
+    let destinations = known.into_values().cloned().collect::<Vec<_>>();
+    validate_destinations(&destinations)?;
+    Ok(destinations)
 }

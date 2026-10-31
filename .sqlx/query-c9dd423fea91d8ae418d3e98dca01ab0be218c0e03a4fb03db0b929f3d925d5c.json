@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM staged_accepted WHERE account = ? AND envelope_id = ?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "c9dd423fea91d8ae418d3e98dca01ab0be218c0e03a4fb03db0b929f3d925d5c"
+}

@@ -6,7 +6,6 @@ use clacks_client_store::{
     save,
     settings::{self, EquipmentDeleteOutcome, ProfileEquipmentReplacement, SettingsSnapshot},
     store::{ClientStore, StoreSettings},
-    transfer,
 };
 use clacks_model::{
     ids::{EquipmentConfigurationId, ProfileId},
@@ -131,7 +130,6 @@ async fn historical_qso_copies_survive_source_changes_apply_collection_and_reope
     current.transmit_power = Some(Milliwatts::new(25_000)?);
     next.adjust(current);
     operating::save(&f.store, &after_deletions, &next).await?;
-    clacks_client_store::retention::collect_unreferenced(&f.store).await?;
     f.store.close().await?;
 
     let reopened = ClientStore::open(
@@ -276,29 +274,35 @@ async fn install(
     use clacks_sync::{
         account::InstalledCheckpoint,
         lineage::Coverage,
-        transfer::{RecordRequirement, WindowManifest, WindowMode},
+        transfer::{RecordRequirement, WindowMode},
     };
     let source = InstalledCheckpoint {
         account: id(1),
         baseline: baseline.id,
         coverage: Coverage::from(accepted.stamp.accepted_at()),
     };
-    let manifest = WindowManifest::new(
-        id(1),
-        source.clone(),
-        WindowMode::Full,
-        vec![RecordRequirement {
-            key: accepted.key(),
-            stamp: accepted.stamp.clone(),
-            deleted: matches!(accepted.state(), RecordState::Deleted),
-        }],
-        vec![],
-        vec![baseline],
-        vec![],
-    )?;
-    transfer::remember(store, &manifest).await?;
-    transfer::install(store, &source, &WindowMode::Full, &[accepted]).await?;
-    transfer::finish(store, &source, &WindowMode::Full).await?;
+    let manifest = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: source.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![RecordRequirement {
+                key: accepted.key(),
+                stamp: accepted.stamp.clone(),
+                deleted: matches!(accepted.state(), RecordState::Deleted),
+            }],
+            boundaries: vec![],
+            baselines: vec![baseline],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let mut incoming = crate::incoming::Incoming::begin(store, &manifest).await?;
+    incoming.page(store, &[accepted]).await?;
+    incoming.finish(store).await?;
     Ok(())
 }
 

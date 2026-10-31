@@ -4,13 +4,11 @@ use clacks_sync::{
     lineage::Coverage,
     record::{RecordId, RecordState, RecordValue},
     service::{VersionReference, operation::CoupledRequirement},
-    transfer::{
-        RecordRequirement, WindowManifest, WindowMode, WindowProgress, finish_window, plan_batch,
-    },
+    transfer::{RecordRequirement, WindowMode, batch::plan_batch},
 };
 
 #[test]
-fn split_atomic_unit_stages_without_partial_install_and_survives_reload() -> anyhow::Result<()> {
+fn split_atomic_unit_stages_without_partial_install() -> anyhow::Result<()> {
     let captured = support::telemetry::capture(|| {
         let (_, b) = AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
         let bases = [b.clone()];
@@ -36,11 +34,11 @@ fn split_atomic_unit_stages_without_partial_install_and_survives_reload() -> any
             id: support::id(100),
             members: vec![VersionReference::from(&q), VersionReference::from(&tag)],
         };
-        let manifest = WindowManifest::new(
-            source.account,
-            source.clone(),
-            WindowMode::Full,
-            [&q, &tag]
+        let manifest = clacks_sync::transfer::receipt::ReceiptState {
+            source: source.clone(),
+            mode: WindowMode::Full,
+            next_page: 0,
+            records: [&q, &tag]
                 .into_iter()
                 .map(|r| RecordRequirement {
                     key: r.key(),
@@ -48,27 +46,19 @@ fn split_atomic_unit_stages_without_partial_install_and_survives_reload() -> any
                     deleted: false,
                 })
                 .collect(),
-            vec![],
-            bases.to_vec(),
-            vec![unit],
-        )?;
-        let mut progress = WindowProgress {
-            source: source.clone(),
-            mode: WindowMode::Full,
-            generation: 0,
-            installed: Default::default(),
+            boundaries: vec![],
+            baselines: bases.to_vec(),
+            units: vec![unit],
             staged: vec![],
             completed_units: Default::default(),
         };
-        let first = plan_batch(&manifest, &progress, std::slice::from_ref(&q), &[], &ev)?;
+        let mut staged = vec![];
+        let first = plan_batch(&manifest, &staged, &[], std::slice::from_ref(&q), &[], &ev)?;
         assert!(first.accepted.is_empty());
         assert_eq!(first.staged.len(), 1);
         assert!(first.completed_units.is_empty());
-        progress.staged = first.staged;
-        progress.generation = first.next_generation;
-        progress = serde_json::from_str(&serde_json::to_string(&progress)?)?;
-        assert!(finish_window(&manifest, &progress, &[], &source, &ev).is_err());
-        let second = plan_batch(&manifest, &progress, &[tag], &[], &ev)?;
+        staged = first.staged;
+        let second = plan_batch(&manifest, &staged, &[], &[tag], &[], &ev)?;
         assert_eq!(second.accepted.len(), 2);
         assert!(second.staged.is_empty());
         assert_eq!(second.completed_units.len(), 1);
@@ -123,11 +113,11 @@ fn independent_successor_does_not_wait_for_an_older_units_missing_effect() -> an
         id: support::id(100),
         members: vec![VersionReference::from(&old), VersionReference::from(&tag)],
     };
-    let manifest = WindowManifest::new(
-        source.account,
-        source.clone(),
-        WindowMode::Full,
-        [&next, &tag]
+    let manifest = clacks_sync::transfer::receipt::ReceiptState {
+        source: source.clone(),
+        mode: WindowMode::Full,
+        next_page: 0,
+        records: [&next, &tag]
             .into_iter()
             .map(|r| RecordRequirement {
                 key: r.key(),
@@ -135,19 +125,14 @@ fn independent_successor_does_not_wait_for_an_older_units_missing_effect() -> an
                 deleted: false,
             })
             .collect(),
-        vec![],
-        bases.to_vec(),
-        vec![unit],
-    )?;
-    let progress = WindowProgress {
-        source,
-        mode: WindowMode::Full,
-        generation: 0,
-        installed: Default::default(),
+        boundaries: vec![],
+        baselines: bases.to_vec(),
+        units: vec![unit],
         staged: vec![],
         completed_units: Default::default(),
     };
-    let first = plan_batch(&manifest, &progress, &[next], &[], &ev)?;
+    let staged = vec![];
+    let first = plan_batch(&manifest, &staged, &[], &[next], &[], &ev)?;
     assert_eq!(first.accepted.len(), 1);
     assert!(first.completed_units.is_empty());
     Ok(())
@@ -257,11 +242,11 @@ fn completed_disposition_waits_for_observation_binding_and_contact_effects() -> 
             .map(VersionReference::from)
             .collect(),
     };
-    let manifest = WindowManifest::new(
-        source.account,
-        source.clone(),
-        WindowMode::Full,
-        [&q, &a, &d, &o]
+    let manifest = clacks_sync::transfer::receipt::ReceiptState {
+        source: source.clone(),
+        mode: WindowMode::Full,
+        next_page: 0,
+        records: [&q, &a, &d, &o]
             .into_iter()
             .map(|r| RecordRequirement {
                 key: r.key(),
@@ -269,32 +254,23 @@ fn completed_disposition_waits_for_observation_binding_and_contact_effects() -> 
                 deleted: false,
             })
             .collect(),
-        vec![],
-        bases.to_vec(),
-        vec![unit],
-    )?;
-    let mut progress = WindowProgress {
-        source,
-        mode: WindowMode::Full,
-        generation: 0,
-        installed: Default::default(),
+        boundaries: vec![],
+        baselines: bases.to_vec(),
+        units: vec![unit],
         staged: vec![],
         completed_units: Default::default(),
     };
+    let mut staged = vec![];
     for batch in [vec![d], vec![q, a]] {
-        let next = plan_batch(&manifest, &progress, &batch, &[], &ev)?;
+        let next = plan_batch(&manifest, &staged, &[], &batch, &[], &ev)?;
         assert!(next.accepted.is_empty());
         assert!(next.completed_units.is_empty());
-        progress.staged = next.staged;
-        progress.generation = next.next_generation;
+        staged = next.staged;
     }
-    let done = plan_batch(&manifest, &progress, &[o], &[], &ev)?;
+    let done = plan_batch(&manifest, &staged, &[], &[o], &[], &ev)?;
     assert_eq!(done.accepted.len(), 4);
     assert!(done.staged.is_empty());
     assert_eq!(done.completed_units.len(), 1);
-    let mut changed = manifest.clone();
-    changed.units.clear();
-    assert!(manifest.validate_replacement(&changed).is_err());
     Ok(())
 }
 
@@ -375,11 +351,11 @@ fn old_binding_unit_is_covered_by_accepted_deletion_without_reactivation() -> an
             .map(VersionReference::from)
             .collect(),
     };
-    let manifest = WindowManifest::new(
-        source.account,
-        source.clone(),
-        WindowMode::Full,
-        [&old_q, &old_a]
+    let manifest = clacks_sync::transfer::receipt::ReceiptState {
+        source: source.clone(),
+        mode: WindowMode::Full,
+        next_page: 0,
+        records: [&old_q, &old_a]
             .into_iter()
             .map(|r| RecordRequirement {
                 key: r.key(),
@@ -387,18 +363,13 @@ fn old_binding_unit_is_covered_by_accepted_deletion_without_reactivation() -> an
                 deleted: false,
             })
             .collect(),
-        vec![],
-        bases.to_vec(),
-        vec![unit],
-    )?;
-    let progress = WindowProgress {
-        source,
-        mode: WindowMode::Full,
-        generation: 0,
-        installed: Default::default(),
+        boundaries: vec![],
+        baselines: bases.to_vec(),
+        units: vec![unit],
         staged: vec![],
         completed_units: Default::default(),
     };
+    let staged = vec![];
     let local: Vec<_> = [deleted_q, deleted_a.clone()]
         .into_iter()
         .map(|r| {
@@ -412,9 +383,13 @@ fn old_binding_unit_is_covered_by_accepted_deletion_without_reactivation() -> an
             .expect("coherent client fixture")
         })
         .collect();
-    let batch = plan_batch(&manifest, &progress, &[old_a], &local, &ev)?;
+    let batch = plan_batch(&manifest, &staged, &[], &[old_a.clone()], &local, &ev)?;
     assert!(batch.staged.is_empty());
     assert_eq!(batch.completed_units.len(), 1);
-    assert_eq!(batch.accepted, vec![deleted_a]);
+    assert_eq!(batch.accepted, vec![old_a]);
+    assert_eq!(
+        batch.client_updates.first().unwrap().record.latest(),
+        &Observation::Accepted(deleted_a)
+    );
     Ok(())
 }

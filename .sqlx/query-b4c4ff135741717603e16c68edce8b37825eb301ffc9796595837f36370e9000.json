@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO coupled_member(account, operation_id, ordinal, kind, record_id, stamp_id, deleted) VALUES (?, ?, ?, ?, ?, ?, ?)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "b4c4ff135741717603e16c68edce8b37825eb301ffc9796595837f36370e9000"
+}

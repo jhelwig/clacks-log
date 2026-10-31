@@ -2,11 +2,10 @@ use crate::support;
 use clacks_client_store::{
     save,
     store::{ClientStore, StoreSettings},
-    transfer,
 };
 use clacks_sync::{
     account::{AccountMetadata, InstalledCheckpoint},
-    transfer::{WindowManifest, WindowMode},
+    transfer::WindowMode,
 };
 
 #[tokio::test]
@@ -112,54 +111,50 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
         baseline: baseline.id,
         coverage: Coverage::from(disposition.stamp.accepted_at()),
     };
-    let manifest = WindowManifest::new(
-        source.account,
-        source.clone(),
-        WindowMode::Full,
-        [&qso, &observation, &association, &disposition]
-            .into_iter()
-            .map(|value| RecordRequirement {
-                key: value.key(),
-                stamp: value.stamp.clone(),
-                deleted: false,
-            })
-            .collect(),
-        vec![],
-        vec![baseline.clone()],
-        vec![CoupledRequirement {
-            id: support::id(505),
-            members: [&qso, &association, &disposition]
+    let manifest = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: source.clone(),
+            mode: WindowMode::Full,
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: [&qso, &observation, &association, &disposition]
                 .into_iter()
-                .map(VersionReference::from)
+                .map(|value| RecordRequirement {
+                    key: value.key(),
+                    stamp: value.stamp.clone(),
+                    deleted: false,
+                })
                 .collect(),
-        }],
-    )?;
-    transfer::remember(&store, &manifest).await?;
-    assert!(
-        transfer::install(
+            boundaries: vec![],
+            baselines: vec![baseline.clone()],
+            units: vec![CoupledRequirement {
+                id: support::id(505),
+                members: [&qso, &association, &disposition]
+                    .into_iter()
+                    .map(VersionReference::from)
+                    .collect(),
+            }],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let mut incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
+    incoming
+        .page(
             &store,
-            &source,
-            &WindowMode::Full,
-            &[disposition.clone(), qso.clone(), association.clone()]
+            &[disposition.clone(), qso.clone(), association.clone()],
         )
-        .await?
-        .accepted
-        .is_empty()
-    );
+        .await?;
     assert!(save::load(&store, association.key()).await?.is_none());
     store.close().await?;
     let store = ClientStore::open(&file, support::id(1), StoreSettings::default()).await?;
-    assert_eq!(
-        transfer::install(&store, &source, &WindowMode::Full, &[observation])
-            .await?
-            .accepted
-            .len(),
-        4
-    );
-    assert_eq!(
-        transfer::finish(&store, &source, &WindowMode::Full).await?,
-        source
-    );
+    let mut incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
+    incoming.page(&store, &[observation]).await?;
+    for key in [qso.key(), association.key(), disposition.key()] {
+        assert!(save::load(&store, key).await?.is_some());
+    }
+    assert_eq!(incoming.finish(&store).await?, source);
     // A different accepted binding claiming the exact same namespace identity
     // must roll back its row and progress together, rather than replacing ownership.
     let competing = carrier(
@@ -178,37 +173,33 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
     let incremental = WindowMode::Incremental {
         after: source.coverage.clone(),
     };
-    let next = WindowManifest::new(
-        source.account,
-        next_source.clone(),
-        incremental.clone(),
-        vec![RecordRequirement {
-            key: competing.key(),
-            stamp: competing.stamp.clone(),
-            deleted: false,
-        }],
-        vec![],
-        vec![baseline],
-        vec![],
-    )?;
-    transfer::remember(&store, &next).await?;
+    let next = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: next_source.clone(),
+            mode: incremental.clone(),
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![RecordRequirement {
+                key: competing.key(),
+                stamp: competing.stamp.clone(),
+                deleted: false,
+            }],
+            boundaries: vec![],
+            baselines: vec![baseline],
+            units: vec![],
+            accepted: vec![],
+            support: vec![],
+        },
+    };
+    let mut incoming = crate::incoming::Incoming::begin(&store, &next).await?;
     assert!(
-        transfer::install(
-            &store,
-            &next_source,
-            &incremental,
-            std::slice::from_ref(&competing)
-        )
-        .await
-        .is_err()
+        incoming
+            .page(&store, std::slice::from_ref(&competing))
+            .await
+            .is_err()
     );
     assert!(save::load(&store, competing.key()).await?.is_none());
-    assert_eq!(
-        transfer::progress(&store, &next_source, &incremental)
-            .await?
-            .generation,
-        0
-    );
     assert_eq!(
         save::load(&store, association.key())
             .await?
