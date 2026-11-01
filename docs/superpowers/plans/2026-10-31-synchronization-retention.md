@@ -178,7 +178,7 @@ in `clacks_sync::service::dependency`:
 ```rust
 pub fn represents(
     required: &SupportRequirement,
-    actual: &AcceptedRecord,
+    actual: &RecordRequirement,
     evidence: &EvidenceView<'_>,
 ) -> anyhow::Result<bool>;
 ```

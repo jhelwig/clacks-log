@@ -1,15 +1,15 @@
-//! Exact support and coupled effects accompanying accepted discovery input.
+//! Sufficient service support and coupled effects accompanying accepted discovery input.
 
 use crate::store::{metadata, synchronization::context};
 use clacks_sync::{
     account::AccountMetadata,
     record::{AcceptedRecord, Observation, RecordState, RecordValue},
-    service::{VersionReference, operation::CoupledRequirement},
+    service::{SupportRequirement, VersionReference, operation::CoupledRequirement},
 };
 use sqlx::PgConnection;
 use std::collections::BTreeSet;
 
-/// Include every exact service prerequisite and coupled member reachable from this page.
+/// Include every required service prerequisite and coupled member reachable from this page.
 ///
 /// Complete discovery rejects missing exact support; returned facts may retain an incomplete closure for staging.
 pub(crate) async fn load(
@@ -19,29 +19,30 @@ pub(crate) async fn load(
     support: &mut Vec<AcceptedRecord>,
     require_complete: bool,
 ) -> anyhow::Result<Vec<CoupledRequirement>> {
+    let interpretation = metadata::account::interpretation(connection, account.account).await?;
+
     let mut values = heads.clone();
     values.extend(support.iter().cloned());
     let mut units = Vec::new();
     let mut known_units = BTreeSet::new();
+
     let mut index = 0;
+
     while let Some(value) = values.get(index).cloned() {
         index += 1;
+
         let key = value.key();
-        let mut exact = Vec::new();
+        let mut requirements = Vec::new();
         let mut keys = clacks_sync::acceptance::required_references(key, value.state());
+
         if let RecordState::Live(RecordValue::Service(service)) = value.state() {
             keys.extend(clacks_sync::service::dependency::required_keys(
                 account.account,
                 service,
             ));
-            exact.extend(
-                service
-                    .support
-                    .required
-                    .iter()
-                    .map(|item| item.reference().clone()),
-            );
+            requirements.extend(service.support.required.iter().cloned());
         }
+
         for row in sqlx::query_file!(
             "sql/discovery/units.sql",
             account.account.to_string(),
@@ -72,13 +73,19 @@ pub(crate) async fn load(
                         deleted: member.deleted,
                     });
                 }
-                exact.extend(members.clone());
+                requirements.extend(
+                    members
+                        .iter()
+                        .cloned()
+                        .map(SupportRequirement::CoveredEffect),
+                );
                 units.push(CoupledRequirement {
                     id: row.operation_id.parse()?,
                     members,
                 });
             }
         }
+
         for key in keys {
             if !heads.iter().any(|value| value.key() == key)
                 && let Observation::Accepted(value) =
@@ -90,12 +97,31 @@ pub(crate) async fn load(
                 }
             }
         }
-        for reference in exact {
-            if !values
-                .iter()
-                .any(|value| value.key() == reference.key && value.stamp == reference.stamp)
+        for requirement in requirements {
+            let reference = requirement.reference();
+            if matches!(requirement, SupportRequirement::CoveredEffect(_))
+                && let Observation::Accepted(current) =
+                    context::observation(connection, account, reference.key).await?
+                && !values.contains(&current)
             {
-                match context::exact(connection, &reference).await? {
+                support.push(current.clone());
+                values.push(current);
+            }
+
+            let mut represented = false;
+            for actual in &values {
+                if clacks_sync::service::dependency::represents(
+                    &requirement,
+                    &clacks_sync::transfer::RecordRequirement::from(actual),
+                    &interpretation.view(),
+                )? {
+                    represented = true;
+                    break;
+                }
+            }
+
+            if !represented {
+                match context::exact(connection, reference).await? {
                     Some(value) => {
                         support.push(value.clone());
                         values.push(value);
@@ -108,6 +134,8 @@ pub(crate) async fn load(
             }
         }
     }
+
     support.retain(|value| !heads.contains(value));
+
     Ok(units)
 }

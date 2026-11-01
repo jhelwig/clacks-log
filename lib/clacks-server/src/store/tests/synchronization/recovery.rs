@@ -324,9 +324,10 @@ async fn exact_historical_support_does_not_replace_deleted_current_heads() -> an
             payload,
             support: ServiceSupport {
                 destination: Some(destination),
-                required: vec![SupportRequirement::ExactFact(VersionReference::from(
-                    &old_association,
-                ))],
+                required: vec![
+                    SupportRequirement::ExactFact(VersionReference::from(&old_association)),
+                    SupportRequirement::CoveredEffect(VersionReference::from(&old_qso)),
+                ],
                 ..Default::default()
             },
         }))),
@@ -373,5 +374,19 @@ async fn exact_historical_support_does_not_replace_deleted_current_heads() -> an
             .any(|row| row.key() == qso_key && matches!(row.state(), RecordState::Deleted))
     );
     read.commit().await?;
+    let mut source =
+        crate::store::discovery::Source::start(&native.store, &native.first, None).await?;
+    let mut transferred_support = Vec::new();
+    while let Some(page) = source.page(&native.store, &native.first, 100).await? {
+        transferred_support.extend(page.support);
+    }
+    assert!(
+        transferred_support.contains(&old_association),
+        "a genuine exact fact stays available"
+    );
+    assert!(
+        !transferred_support.contains(&old_qso),
+        "the accepted deletion already covers the old QSO effect"
+    );
     Ok(())
 }
