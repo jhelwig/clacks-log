@@ -56,15 +56,21 @@ async fn complete(
         .providers
         .get(&key)
         .ok_or(AuthError::InvalidCallback)?;
-    let flow = pending::take(&session, &query.state, &key, state.config.pending_seconds)
-        .map_err(|_| {
-            tracing::info!(provider = %key, "Authorization context missing or expired; restart required");
+    let flow = pending::take(&session, &query.state, &key, state.config.pending_seconds).map_err(
+        |_| {
+            tracing::info!(
+                provider = %key,
+                "Authorization context missing or expired; restart required"
+            );
             AuthError::InvalidCallback
-        })?;
+        },
+    )?;
+
     if query.error.is_some() {
         tracing::info!(provider = %key, "Identity provider declined authorization");
         return Err(AuthError::Provider);
     }
+
     let callback = state
         .config
         .callback(&key)
@@ -72,9 +78,14 @@ async fn complete(
     let client = oidc::discover(provider, &callback, &state.provider_http)
         .await
         .map_err(|error| {
-            tracing::warn!(provider = %key, reason = %error, "Identity provider client setup failed");
+            tracing::warn!(
+                provider = %key,
+                reason = %error,
+                "Identity provider client setup failed"
+            );
             AuthError::Provider
         })?;
+
     let response = client
         .exchange_code(AuthorizationCode::new(
             query.code.ok_or(AuthError::InvalidCallback)?,
@@ -87,35 +98,24 @@ async fn complete(
             tracing::warn!(provider = %key, "Identity provider code exchange failed");
             AuthError::Provider
         })?;
+
     let token = response.id_token().ok_or(AuthError::InvalidCallback)?;
-    let recent = flow.purpose.requires_recent_authentication();
-    let verifier = client
-        .id_token_verifier()
-        .set_auth_time_verifier_fn(move |auth_time| {
-            if !recent {
-                return Ok(());
-            }
-            let now = time::OffsetDateTime::now_utc().unix_timestamp();
-            match auth_time {
-                Some(value)
-                    if value.timestamp() <= now && now.saturating_sub(value.timestamp()) <= 300 =>
-                {
-                    Ok(())
-                }
-                _ => Err("provider did not establish recent authentication".into()),
-            }
-        });
     let claims = token
-        .claims(&verifier, &flow.nonce)
+        .claims(&client.id_token_verifier(), &flow.nonce)
         .map_err(|_| {
-            tracing::info!(provider = %key, "Identity token did not satisfy authorization requirements");
+            tracing::info!(
+                provider = %key,
+                "Identity token did not satisfy authorization requirements"
+            );
             AuthError::InvalidCallback
         })?;
+
     let identity = oidc::VerifiedIdentity {
         issuer: claims.issuer().as_str().to_owned(),
         subject: claims.subject().as_str().to_owned(),
         display_name: None,
     };
+
     match flow.purpose {
         Purpose::SignIn { enrollment } => {
             let reference = state

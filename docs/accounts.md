@@ -123,9 +123,10 @@ reauthentication using its own authentication methods, and returns through the
 normal callback. If already satisfied, the round trip can complete without
 additional user interaction.
 
-Use the OIDC library for standard response validation, including the returned
-`auth_time` claim for the requested maximum age, then check that the returned
-issuer/subject belongs to the intended account. Linking uses an already-linked
+Use the OIDC library for normal identity-token validation, then check that the
+returned issuer/subject belongs to the intended account. The provider owns the
+authentication-age decision requested by `max_age`; Clacks does not require an
+`auth_time` claim or independently check its age. Linking uses an already-linked
 identity for this step, separately from authenticating the new identity;
 unlinking uses an identity that will remain linked. Do not use local freshness
 timers, cached authentication proofs to bypass this round trip, or
@@ -182,13 +183,12 @@ management action. Only after successful protocol validation may it perform the
 account operation and establish authoritative login validity under D367. Use
 the middleware's `renew` facility for session-ID renewal after sign-in.
 
-D355's `max_age=300` request uses the library's authentication-time verification
-hook to require and check the returned `auth_time`. In `openidconnect` 4.0.1,
-the default hook accepts that claim without checking its age; sending `max_age`
-alone does not configure response enforcement. Supplying this policy through
-the existing hook is ordinary integration, not local authentication-freshness
-bookkeeping. See the
-[verifier API](https://docs.rs/openidconnect/4.0.1/openidconnect/struct.IdTokenVerifier.html#method.set_auth_time_verifier_fn).
+D355's `max_age=300` remains a provider request. Use the library's ordinary
+identity-token verifier with the retained request nonce, preserving signature,
+issuer, audience and token-expiration validation. Do not install an additional
+authentication-time verification hook or reject an otherwise valid response
+because `auth_time` is missing or older than the requested age. See the
+[verifier API](https://docs.rs/openidconnect/4.0.1/openidconnect/struct.IdTokenVerifier.html).
 
 `axum_session` 0.22.0 removes values from its process-local session data through
 `get_remove` and persists changes during response handling. This is not a

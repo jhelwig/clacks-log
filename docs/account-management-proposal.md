@@ -154,9 +154,11 @@ Concurrent flows may lose cached middleware changes; fail closed and offer a
 restart rather than promising loss-free multi-instance session editing. This
 availability limitation is distinct from authorizing the wrong account.
 
-For recent authentication, request `max_age=300` and configure the library's
-`auth_time` verification hook; its default does not enforce that age. Do not
-cache a reusable freshness assertion. Action-local continuation identifies which
+For recent authentication, request `max_age=300` and let the provider handle
+reauthentication. Keep the library's normal identity-token validation and
+request-nonce verification. Do not require or independently age-check
+`auth_time`, install an additional freshness-verification hook, or cache a
+reusable freshness assertion. Action-local continuation identifies which
 verified existing identity authorized a link; it is not a general freshness
 cache or an alternative to the provider round trip.
 
@@ -402,7 +404,8 @@ is separate acceptance evidence. No injected database triggers, test-only
 production APIs, mock account stores or coverage targets.
 
 Live-provider acceptance distinguishes discovery, registration/reuse and normal
-PKCE sign-in from recent-authentication verification with `max_age`/`auth_time`.
+PKCE sign-in from identity-change flows that request `max_age=300` and return
+through the ordinary validated callback.
 Successful normal sign-in does not establish the identity-change requirement or
 compatibility with other provider versions/configurations. Record the exercised
 paths in the implementation plan/PR rather than inferring them from source/docs
@@ -413,7 +416,7 @@ verification; source inspection alone does not establish either.
 ## Sources for integration responsibilities
 
 - [`openidconnect` standard asynchronous flow](https://docs.rs/openidconnect/4.0.1/openidconnect/#asynchronous-api)
-  and [authentication-time verifier](https://docs.rs/openidconnect/4.0.1/openidconnect/struct.IdTokenVerifier.html#method.set_auth_time_verifier_fn).
+  and [identity-token verifier](https://docs.rs/openidconnect/4.0.1/openidconnect/struct.IdTokenVerifier.html).
 - [`axum_session` session facilities](https://docs.rs/axum_session/latest/axum_session/struct.Session.html).
   The engineering baseline is 0.22.0 source; cached latest documentation may show
   0.21.0. Do not infer cross-instance atomic consumption from `get_remove`.

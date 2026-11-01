@@ -47,15 +47,6 @@ impl Drop for Provider {
 
 impl Provider {
     pub fn authorize(&self, url: &url::Url, subject: &str) -> anyhow::Result<IssuedCallback> {
-        self.authorize_at(url, subject, chrono::Utc::now())
-    }
-
-    pub fn authorize_at(
-        &self,
-        url: &url::Url,
-        subject: &str,
-        authenticated_at: chrono::DateTime<chrono::Utc>,
-    ) -> anyhow::Result<IssuedCallback> {
         let query: BTreeMap<_, _> = url.query_pairs().into_owned().collect();
         let nonce = query
             .get("nonce")
@@ -66,6 +57,7 @@ impl Provider {
         let challenge = query
             .get("code_challenge")
             .ok_or_else(|| anyhow::anyhow!("Clacks omitted PKCE challenge"))?;
+
         let now = chrono::Utc::now();
         let claims = CoreIdTokenClaims::new(
             self.issuer.clone(),
@@ -75,8 +67,7 @@ impl Provider {
             StandardClaims::new(SubjectIdentifier::new(subject.to_owned())),
             EmptyAdditionalClaims {},
         )
-        .set_nonce(Some(Nonce::new(nonce.to_owned())))
-        .set_auth_time(Some(authenticated_at));
+        .set_nonce(Some(Nonce::new(nonce.to_owned())));
         let token = CoreIdToken::new(
             claims,
             self.signing.as_ref(),
@@ -85,6 +76,7 @@ impl Provider {
             None,
         )?
         .to_string();
+
         let code = ulid::Ulid::generate().to_string();
         self.grants.lock().unwrap().insert(
             code.clone(),
@@ -93,6 +85,7 @@ impl Provider {
                 challenge: challenge.clone(),
             },
         );
+
         Ok(IssuedCallback {
             code,
             state: state.clone(),
