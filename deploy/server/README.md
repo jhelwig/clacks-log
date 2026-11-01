@@ -24,6 +24,20 @@ The builder and runtime base images are pinned by digest. Rustup reads
 `rust-toolchain.toml`; the Dockerfile does not duplicate the compiler version.
 Cargo-leptos 0.3.11 builds server rendering and Rust WebAssembly separately.
 The runtime uses numeric nonroot user/group IDs 65532 and serves read-only assets.
+The image includes the release's database role and grant SQL under
+`/usr/share/clacks/database/`; migrations remain embedded in `clacks-admin`.
+
+For Dokku source deployment, select both repository-relative metadata paths:
+
+```sh
+dokku builder-dockerfile:set clacks-log dockerfile-path deploy/server/Dockerfile
+dokku app-json:set clacks-log appjson-path deploy/server/app.json
+```
+
+The repository root remains the build context. The native startup check requests
+`/health/ready` on port 3000; it does not run migrations or require a probe
+executable inside the application image. Keep deployment checks enabled and run
+migrations with separate release credentials before candidate activation.
 
 The Compose file illustrates self-hosted deployment. A production platform may
 supply managed PostgreSQL, secrets and ingress instead. Copy the configuration
