@@ -74,11 +74,15 @@ pub(crate) async fn sweep(pool: &PgPool, now: SystemTime) -> anyhow::Result<u64>
 }
 
 /// Reclaim expired state periodically while the production server owns this task.
-pub(crate) async fn run(pool: PgPool) {
+pub(crate) async fn run(pool: PgPool, stop: tokio_util::sync::CancellationToken) {
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
-        interval.tick().await;
+        tokio::select! {
+            biased;
+            _ = stop.cancelled() => break,
+            _ = interval.tick() => {}
+        }
         match sweep(&pool, SystemTime::now()).await {
             Ok(removed) if removed > 0 => {
                 metrics::counter!("clacks_oauth_expired_rows_total").increment(removed);

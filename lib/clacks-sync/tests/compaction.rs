@@ -1,3 +1,5 @@
+mod installation;
+
 use crate::support;
 use clacks_sync::{
     account::{AccountMetadata, EvidenceView, InstalledCheckpoint},

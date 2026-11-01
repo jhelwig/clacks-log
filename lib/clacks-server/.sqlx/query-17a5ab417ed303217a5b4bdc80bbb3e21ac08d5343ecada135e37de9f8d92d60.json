@@ -1,0 +1,136 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT h.kind, h.record_id, a.envelope_id, a.payload_id, a.stamp_id, p.deleted,\n       s.timeline_id, s.revision, s.baseline_id, v.body\nFROM clacks.accepted_head h\nJOIN clacks.accepted_record a USING (envelope_id, account, kind, record_id)\nJOIN clacks.payload p USING (payload_id, account, kind, record_id)\nJOIN clacks.version_stamp s USING (stamp_id, account, kind, record_id)\nJOIN clacks.record_vector v USING (vector_id, account, kind, record_id)\nWHERE h.account = $1 ORDER BY h.kind, h.record_id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.accepted_head",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "record_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.accepted_head",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "envelope_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.accepted_record",
+            "name": "envelope_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "payload_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.accepted_record",
+            "name": "payload_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "stamp_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.accepted_record",
+            "name": "stamp_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "deleted",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "clacks.payload",
+            "name": "deleted"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "timeline_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.version_stamp",
+            "name": "timeline_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "revision",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.version_stamp",
+            "name": "revision"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "baseline_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.version_stamp",
+            "name": "baseline_id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "body",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.record_vector",
+            "name": "body"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "17a5ab417ed303217a5b4bdc80bbb3e21ac08d5343ecada135e37de9f8d92d60"
+}

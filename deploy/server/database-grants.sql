@@ -79,3 +79,5 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA clacks TO clacks_runtime;
 GRANT SELECT, INSERT, DELETE ON clacks.current_external_binding TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.coupled_unit, clacks.coupled_member TO clacks_runtime;
 GRANT SELECT, INSERT, DELETE ON clacks.staged_accepted, clacks.retained_accepted TO clacks_runtime;
+-- Baseline installation only repoints the equivalent accepted representation.
+GRANT UPDATE (envelope_id) ON clacks.current_external_binding TO clacks_runtime;

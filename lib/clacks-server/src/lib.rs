@@ -6,7 +6,9 @@ pub mod maintenance;
 pub mod store;
 
 pub mod http;
+pub(crate) mod retention;
 pub mod runtime;
+
 pub(crate) mod synchronization;
 
 pub mod telemetry;

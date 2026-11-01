@@ -99,9 +99,13 @@ pub(crate) async fn receive(
     page: &DiscoveryPage,
 ) -> anyhow::Result<Received> {
     let mut transaction = store.pool.begin().await?;
+    let waiting = std::time::Instant::now();
     sqlx::query_file!("sql/account_lock.sql", client.account.to_string())
         .fetch_one(&mut *transaction)
         .await?;
+    metrics::histogram!("clacks_sync_return_lock_wait_seconds")
+        .record(waiting.elapsed().as_secs_f64());
+
     crate::oauth::resource::check_current(&mut transaction, client).await?;
     let before = account::load(&mut transaction, client.account).await?;
     for baseline in &page.baselines {
@@ -340,9 +344,13 @@ pub(crate) async fn complete_return(
         return Ok(false);
     }
     let mut transaction = store.pool.begin().await?;
+    let waiting = std::time::Instant::now();
     sqlx::query_file!("sql/account_lock.sql", client.account.to_string())
         .fetch_one(&mut *transaction)
         .await?;
+    metrics::histogram!("clacks_sync_return_complete_lock_wait_seconds")
+        .record(waiting.elapsed().as_secs_f64());
+
     crate::oauth::resource::check_current(&mut transaction, client).await?;
     let current = account::load(&mut transaction, client.account).await?;
     let interpretation = account::interpretation(&mut transaction, client.account).await?;

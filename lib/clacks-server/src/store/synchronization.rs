@@ -34,9 +34,13 @@ pub(crate) async fn accept_pending(
     );
 
     let mut transaction = store.pool.begin().await?;
+    let waiting = std::time::Instant::now();
     sqlx::query_file!("sql/account_lock.sql", client.account.to_string())
         .fetch_one(&mut *transaction)
         .await?;
+    metrics::histogram!("clacks_sync_accept_lock_wait_seconds")
+        .record(waiting.elapsed().as_secs_f64());
+
     crate::oauth::resource::check_current(&mut transaction, client).await?;
     let loaded =
         context::load(&mut transaction, key, change.state(), change.dependencies()).await?;
@@ -249,9 +253,13 @@ pub(crate) async fn acknowledge(
         "acknowledgment crosses account"
     );
     let mut transaction = store.pool.begin().await?;
+    let waiting = std::time::Instant::now();
     sqlx::query_file!("sql/account_lock.sql", client.account.to_string())
         .fetch_one(&mut *transaction)
         .await?;
+    metrics::histogram!("clacks_sync_acknowledgment_lock_wait_seconds")
+        .record(waiting.elapsed().as_secs_f64());
+
     crate::oauth::resource::check_current(&mut transaction, client).await?;
     let current = account::load(&mut transaction, client.account).await?;
     let interpretation = account::interpretation(&mut transaction, client.account).await?;
