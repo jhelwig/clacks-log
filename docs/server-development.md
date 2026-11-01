@@ -189,7 +189,9 @@ without requiring a telemetry collector.
 
 Choose one of these alternatives. Clacks uses the standard authorization-code
 flow with Proof Key for Code Exchange (PKCE). Identity linking/removal additionally
-requests `max_age=300` and requires the provider's corresponding `auth_time` claim.
+requests `max_age=300`; the provider handles any necessary reauthentication.
+Clacks keeps normal identity-token validation without an additional local
+authentication-age check.
 
 **Dynamic client registration:** keep `mode = "dynamic"`. The provider must expose
 a registration endpoint and permit this deployment to register. If it requires

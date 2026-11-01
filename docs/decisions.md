@@ -1931,12 +1931,13 @@ For login-identity linking and unlinking, perform a standard OIDC round trip wit
 `max_age=300` whenever recent authentication to the existing account is required.
 The provider determines whether existing authentication satisfies the request
 and handles any necessary reauthentication. Use the OIDC library for standard
-response validation, including `auth_time`, and verify the returned identity's
-account binding. Linking authenticates an already-linked identity separately
-from the new identity; unlinking authenticates an identity that will remain
-linked. Do not implement custom freshness bookkeeping, reuse cached proofs to
-bypass the round trip, or add provider-specific workarounds. Provider
-interoperability remains an integration obligation. See
+identity-token validation and verify the returned identity's account binding.
+Clacks does not independently require or age-check `auth_time`; honoring
+`max_age` is the provider's responsibility. Linking authenticates an
+already-linked identity separately from the new identity; unlinking uses an identity
+that will remain linked. Do not implement custom freshness bookkeeping, reuse
+cached proofs to bypass the round trip, or add provider-specific workarounds.
+Provider interoperability remains an integration obligation. See
 [login-identity management](accounts.md#self-service-login-identity-management-d232).
 
 ### Decision D356

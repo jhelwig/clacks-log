@@ -140,24 +140,20 @@ async fn logout_rejects_stale_cookie_on_another_instance() -> anyhow::Result<()>
             .query_pairs()
             .any(|(key, value)| key == "max_age" && value == "300")
     );
-    let old = provider.authorize_at(
-        &authorization,
-        "first-operator",
-        chrono::Utc::now() - chrono::Duration::minutes(6),
-    )?;
-    let stale = client
-        .get(format!("{base}/auth/callback/test"))
-        .query(&[("code", old.code), ("state", old.state)])
-        .send()
-        .await?;
+
+    let next = return_from_provider(&client, &provider, link, "first-operator").await?;
     assert!(
-        stale
-            .headers()
+        next.headers()
             .get("location")
             .unwrap()
             .to_str()?
-            .starts_with("/sign-in?error=")
+            .starts_with(provider.issuer.as_str()),
+        "a valid callback without auth_time must continue to the additional identity"
     );
+
+    let linked = return_from_provider(&client, &provider, next, "second-operator").await?;
+    assert_eq!(linked.status(), reqwest::StatusCode::SEE_OTHER);
+
     let wrong = client
         .post(format!("{base}{}", clacks_web::actions::StartLink::PATH))
         .header("Origin", &base)
@@ -174,17 +170,7 @@ async fn logout_rejects_stale_cookie_on_another_instance() -> anyhow::Result<()>
             .to_str()?
             .starts_with("/sign-in?error=")
     );
-    let link = client
-        .post(format!("{base}{}", clacks_web::actions::StartLink::PATH))
-        .header("Origin", &base)
-        .header("Accept", "text/html")
-        .form(&[("provider", "test"), ("authorizing_identity", &authorizer)])
-        .send()
-        .await?;
-    let next = return_from_provider(&client, &provider, link, "first-operator").await?;
-    assert_eq!(next.status(), reqwest::StatusCode::SEE_OTHER);
-    let linked = return_from_provider(&client, &provider, next, "second-operator").await?;
-    assert_eq!(linked.status(), reqwest::StatusCode::SEE_OTHER);
+
     let after: clacks_web::actions::Account = client
         .post(format!("{base}{}", clacks_web::actions::LoadAccount::PATH))
         .header("Origin", &base)
@@ -196,6 +182,7 @@ async fn logout_rejects_stale_cookie_on_another_instance() -> anyhow::Result<()>
     assert_eq!(after.id, before.id);
     assert_eq!(after.current_identity, before.current_identity);
     assert_eq!(state.store.identities(&principal).await?.len(), 2);
+
     let pending = client
         .post(format!("{base}{}", clacks_web::actions::StartLink::PATH))
         .header("Origin", &base)
