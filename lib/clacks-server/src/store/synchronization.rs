@@ -218,7 +218,7 @@ async fn install_accepted(
             .execute(&mut *connection)
             .await?;
     }
-    let stamp = metadata::clock::insert_stamp(connection, key, &journal.stamp).await?;
+    let stamp = metadata::clock::insert_stamp(connection, key, &journal.requirement.stamp).await?;
     let timeline = journal.installed_at.timeline.to_string();
     let revision = i64::try_from(journal.installed_at.revision)?;
     sqlx::query_file!(
@@ -228,7 +228,8 @@ async fn install_accepted(
         revision,
         kind,
         id,
-        stamp
+        stamp,
+        journal.requirement.deleted
     )
     .execute(&mut *connection)
     .await?;

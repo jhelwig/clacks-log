@@ -2,6 +2,7 @@
 
 mod recovery;
 mod references;
+mod retention;
 
 use super::AccountStore;
 use crate::auth::oidc::VerifiedIdentity;

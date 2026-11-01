@@ -461,8 +461,11 @@ pub fn plan_recovered_install(
     let next_account = account.advance()?;
     let journal = JournalChange {
         installed_at: next_account.head,
-        key: incoming.key,
-        stamp: incoming.stamp.clone(),
+        requirement: crate::transfer::RecordRequirement {
+            key: incoming.key,
+            stamp: incoming.stamp.clone(),
+            deleted: matches!(incoming.state(), crate::record::RecordState::Deleted),
+        },
     };
     Ok(RecoveredDecision::Install {
         external_guards,

@@ -35,10 +35,8 @@ pub struct AcceptanceInput<'a> {
 pub struct JournalChange {
     /// Installation/change position in the current timeline.
     pub installed_at: Position,
-    /// Changed native identity.
-    pub key: RecordKey,
-    /// Envelope version installed at that position.
-    pub stamp: VersionStamp,
+    /// Complete historical obligation, independent of its native payload body.
+    pub requirement: crate::transfer::RecordRequirement,
 }
 
 /// New rows and conditions that an adapter must commit atomically.
@@ -474,8 +472,11 @@ fn plan_commit(
     };
     let journal = JournalChange {
         installed_at: next_account.head,
-        key,
-        stamp: accepted.stamp.clone(),
+        requirement: crate::transfer::RecordRequirement {
+            key,
+            stamp: accepted.stamp.clone(),
+            deleted: matches!(accepted.state(), RecordState::Deleted),
+        },
     };
     Ok(AcceptanceDecision::Commit(Box::new(AcceptanceCommit {
         external_guards,

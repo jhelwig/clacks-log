@@ -166,7 +166,8 @@ fn retained_server_distributed_envelope_preserves_acceptance_and_deletion() {
     };
     assert_eq!(envelope, retained);
     assert_eq!(journal.installed_at.timeline, id(5));
-    assert_eq!(journal.stamp.accepted_at().timeline, id(2));
+    assert_eq!(journal.requirement.stamp.accepted_at().timeline, id(2));
+    assert!(journal.requirement.deleted);
     let defs = [];
     let missing = EvidenceView {
         lineage: &lineage,

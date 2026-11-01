@@ -76,6 +76,8 @@ fn accepts_once_with_atomic_conditions_and_rejects_closed_actor() {
             1
         );
         assert!(commit.native_changed);
+        assert!(!commit.journal.requirement.deleted);
+        assert_eq!(commit.journal.requirement.stamp, commit.accepted.stamp);
         assert_eq!(commit.expected_head, account.head);
         assert_eq!(commit.expected_membership_generation, 0);
         let next = Observation::Accepted(commit.accepted.clone());
