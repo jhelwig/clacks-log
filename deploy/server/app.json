@@ -1,0 +1,15 @@
+{
+  "healthchecks": {
+    "web": [
+      {
+        "type": "startup",
+        "name": "Clacks database readiness",
+        "path": "/health/ready",
+        "port": 3000,
+        "attempts": 12,
+        "wait": 5,
+        "timeout": 5
+      }
+    ]
+  }
+}

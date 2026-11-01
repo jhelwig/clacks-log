@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /release/clacks-server /release/clacks-admin /usr/local/bin/
 COPY --from=build /release/site /app/site
+COPY deploy/server/database-roles.sql deploy/server/database-grants.sql /usr/share/clacks/database/
 COPY LICENSE /usr/share/licenses/clacks-log/LICENSE
 WORKDIR /app
 ENV LEPTOS_SITE_ROOT=/app/site LEPTOS_OUTPUT_NAME=clacks-web LEPTOS_ENV=PROD
