@@ -1,6 +1,6 @@
 # Decision register
 
-This register records explicit decisions from the planning conversation through 28 October 2026 (D01–D352). Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. The [desktop specification](desktop.md) consolidates D270–D279, distinguishing agreed choices from engineering defaults. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
+This register records explicit decisions from the planning conversation. Unselected implementation details and historical alternatives remain separate from commitments. Current behavior is described directly in the product and architecture documents. The [desktop specification](desktop.md) consolidates D270–D279, distinguishing agreed choices from engineering defaults. D243–D251 replace child-logbook ownership, per-logbook synchronization scopes, boolean publication settings and multiple external-record associations; earlier entries are historical where superseded.
 
 ## Accepted decisions
 
@@ -748,7 +748,13 @@ Hide locally pending contact deletions from normal history and Worked Before imm
 
 #### D182
 
-Pending/conflict review is account-wide, with filters for logbook and record type. It covers this client’s pending/conflicted contact work across books, including hidden pending deletions and changes targeting deleted books, plus shared-record work such as profiles and equipment. Account-wide scope does not publish unresolved local proposals or make them visible as a shared server conflict queue. Normal contact history and Worked Before remain current-logbook scoped. Exact review layout and filter presentation remain open.
+Review is account-wide and covers this client's pending/conflicted contact work,
+including hidden pending deletions and deleted-tag references, plus shared-record
+work such as profiles and equipment. Account-wide scope does not publish
+unresolved local proposals or make them visible as a shared server conflict
+queue. Normal contact history and Worked Before remain current-logbook scoped.
+D383 defines the window and sections, retains record-type filtering, and removes
+the previously selected logbook filter.
 
 #### D183
 
@@ -2320,3 +2326,90 @@ operations; no internal automatic rotation schedule is required. Retain the key
 versions needed by supported backups and restores. Concrete commands,
 transaction boundaries and interruption recovery belong to issue #13's design.
 See [encryption-key lifecycle](accounts.md#encryption-key-lifecycle-d236d381).
+
+### Decision D382
+
+#### D382
+
+In synchronization conflict review, differing local/shared scalar fields start
+without a selected side. Require an explicit choice for each differing field before
+saving the resolution. Provide **Use all local** and **Use all shared** shortcuts
+to populate those choices; selecting a shortcut does not itself save. Fields
+whose local and shared values agree require no choice. Preserve the existing
+whole-record review trigger and three-way change attribution; this does not
+introduce automatic field or tag merging.
+
+D383 defines editable set selection for logbook membership rather than an
+exclusive local/shared choice for that field. D384 also permits entering a new
+scalar value directly instead of choosing either compared value.
+
+### Decision D383
+
+#### D383
+
+Present account-wide **Unsynchronized changes** in a separate non-modal window,
+leaving the workbench, its selected view, arrangement and unfinished QSO usable.
+Separate **Conflicts** from **Pending sync** in independently collapsible
+sections. Retain record-type filtering and omit a logbook selector: logbooks are
+QSO memberships subject to conflict resolution, not synchronization buckets.
+Ordinary pending changes need no resolution.
+
+For a membership conflict, show local and shared sets plus an editable resolved
+membership using ordinary checked/unchecked boxes. Field-level **Use local**
+and **Use shared** shortcuts replace the checked set without saving. Individual
+changes can combine either side's memberships or leave the QSO untagged. The
+checked set always defines the resolved value; omit indeterminate checkbox
+states and a separate **Use selection** action. **Save resolution** saves the
+chosen membership with the rest of the resolved record. Whole-record detection,
+three-way attribution and conditional shared acceptance remain unchanged; this
+does not authorize automatic tag merging.
+
+### Decision D384
+
+#### D384
+
+Allow entering new values directly during conflict resolution, rather than
+limiting scalar fields to the local or shared value. Keep compared values and
+their change attribution available, with local/shared selection shortcuts.
+Entering a new resolved value satisfies that field's explicit-choice requirement.
+Apply the existing field and whole-record validation rules; invalid values do
+not become saved records. **Save resolution** saves the chosen record locally,
+subject to the existing stale-save protection and conditional shared acceptance.
+Editing a resolved value does not itself save or publish it.
+
+### Decision D385
+
+#### D385
+
+If a resolution's comparison becomes outdated while the user is editing,
+preserve the draft and displayed comparison, indicate that newer values are
+available, and require a refreshed comparison before saving. Refresh retains
+entered values for reconsideration; it neither discards them nor silently
+approves choices against unseen changes. Existing transactional stale-save
+checks remain authoritative, including when a change notification has not yet
+reached the UI. A locally saved resolution still undergoes conditional shared
+acceptance during synchronization.
+
+### Decision D386
+
+#### D386
+
+Preserve each conflict's unfinished resolution draft when switching between
+records in the Unsynchronized changes window. Returning to a record restores
+its draft, with D385's refresh requirement if its comparison has changed.
+Switching records does not save a resolution. Closing the window discards its
+unsaved resolution drafts under the existing Cancel behavior; completed saves
+remain saved. This does not require persisting unfinished resolution forms
+across application restarts.
+
+### Decision D387
+
+#### D387
+
+Initialize resolved QSO logbook membership from the local working set. The
+checked memberships directly define the resolved value from the outset, without
+requiring an extra confirmation for that field. **Use local** restores that
+set, **Use shared** replaces it with the compared shared set, and individual
+checkbox changes modify the result. Do not initialize from the intersection or
+union of the compared sets. **Save resolution** remains the explicit save for
+the whole chosen record; other differing scalar fields still require choices.

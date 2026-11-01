@@ -501,6 +501,53 @@ outer editor does not undo a separate reusable-record save already completed.
 This rule concerns editor dismissal; application shutdown retains its own
 lifecycle and unfinished-work rules.
 
+## Unsynchronized changes (D383)
+
+The [#15 integration contract](conflict-review-proposal.md) maps this interaction
+contract to existing editors and storage, with engineering defaults identified.
+
+Open account-wide review in a separate non-modal **Unsynchronized changes**
+window, preserving the workbench's selected view, pane arrangement and unfinished
+QSO. Separate **Conflicts** and **Pending sync** into independently collapsible
+sections. Retain record-type filtering and omit a logbook selector. Ordinary
+pending edits and deletions need no resolution controls.
+
+Keep local/shared comparison and three-way attribution visible for conflicts.
+Scalar differences start without a selected side; **Use all local** and **Use
+all shared** populate choices without saving. For QSO logbook membership, show
+both compared sets and an editable resolved set of ordinary checked/unchecked
+boxes. Field-level **Use local** and **Use shared** replace that checked set;
+individual changes can combine memberships. The checked set always defines the
+resolved membership, including no memberships. Do not use indeterminate boxes or
+an extra **Use selection** step. **Save resolution** saves the chosen record
+locally, subject to existing validation and synchronization acceptance rules.
+
+Initialize resolved logbook membership from the QSO's local working set (D387).
+The checked set is the resolved value immediately, with no extra confirmation.
+**Use local** restores that set; **Use shared** selects the compared shared set.
+Do not start with an intersection or union. Other differing scalar fields
+remain unselected until the user chooses or enters their values.
+
+D384 also permits direct entry of new resolved values alongside local/shared
+selection. Keep the compared values and change attribution visible. A valid
+entered value satisfies the field's explicit-choice requirement. Reuse the
+existing validation, unapplied-change highlighting and Save-disable behavior;
+typing a new value does not save or publish the resolution.
+
+If the comparison becomes outdated while editing (D385), preserve the draft
+and displayed comparison. Show that newer values are available and require a
+refreshed comparison before saving. Refresh retains entered values for
+reconsideration; it does not silently approve choices against changed inputs.
+Keep the store's transactional stale-save protection for changes not yet
+reflected in the UI.
+
+Preserve unfinished resolution drafts per record when switching between
+conflicts (D386). Restore the draft on return, retaining D385's refresh
+requirement if its comparison changed. Switching records does not save.
+Closing the window discards unsaved drafts like Cancel, without undoing
+completed resolution saves. Restart persistence of unfinished resolution forms
+is not required.
+
 ## Shared-component contract
 
 ### Intent and scope

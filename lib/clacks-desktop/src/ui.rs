@@ -16,6 +16,7 @@ mod logging;
 mod operating;
 mod preferences;
 mod profiles;
+mod review;
 mod startup;
 mod tag_picker;
 #[cfg(test)]
@@ -87,6 +88,8 @@ pub(crate) struct DesktopApp {
     settings: operating::SettingsUi,
     /// Local logbook selector and independently owned management workflow.
     logbooks: logbooks::LogbooksUi,
+    /// Account-wide review in its independent native viewport.
+    review: review::ReviewUi,
     /// Local paths displayed to the operator, never diagnostic payloads.
     paths: WorkspacePaths,
     /// Safe startup degradation details.
@@ -140,6 +143,7 @@ impl DesktopApp {
             file_failure,
             settings: Default::default(),
             logbooks: Default::default(),
+            review: Default::default(),
             shutdown_pending: false,
             close_requested: false,
             close_started: None,
@@ -250,6 +254,7 @@ impl eframe::App for DesktopApp {
         };
         if let Some(snapshot) = &snapshot {
             if settings_changed {
+                self.review.invalidate();
                 self.workbench
                     .invalidate_contacts(snapshot.logbooks.selected_view);
             }
@@ -269,6 +274,7 @@ impl eframe::App for DesktopApp {
                         .show(ui, &snapshot.logbooks, &self.settings_requests);
                     self.settings.management(ui, &self.settings_requests);
                     self.workbench.menu(ui);
+                    self.review.action(ui);
                 }
                 startup::details(self, ui, &state);
                 if snapshot.is_some() {
@@ -355,6 +361,17 @@ impl eframe::App for DesktopApp {
                 self.logbooks
                     .dialog(ui.ctx(), &snapshot.logbooks, &self.settings_requests);
             }
+            self.review.show_window(ui.ctx(), &self.settings_requests);
+            if let Some(record) = self.review.repair.take() {
+                match record.key().id {
+                    clacks_sync::record::RecordId::Qso(id) => {
+                        self.workbench.open_contact(id, &self.settings_requests)
+                    }
+                    clacks_sync::record::RecordId::Profile(_) => self.settings.open_profile(record),
+                    _ => {}
+                }
+            }
+
             self.appearance.show(ui.ctx());
             self.enrollment
                 .show(ui.ctx(), &self.commands, &mut self.enrollment_view);

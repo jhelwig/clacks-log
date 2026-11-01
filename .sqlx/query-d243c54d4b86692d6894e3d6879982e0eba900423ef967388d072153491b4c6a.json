@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "WITH referrers AS (\n    SELECT c.kind,c.record_id\n    FROM client_record c\n    JOIN record_observation o ON o.observation_id=c.latest_observation\n    JOIN accepted_record a ON a.envelope_id=o.envelope_id\n    JOIN payload p ON p.payload_id=a.payload_id\n    JOIN qso_tag t ON t.payload_id=p.payload_id\n    WHERE c.account=?1 AND ?2='tag' AND t.tag_id=?3 AND p.deleted=0\n    UNION\n    SELECT c.kind,c.record_id\n    FROM client_record c\n    JOIN record_observation o ON o.observation_id=c.latest_observation\n    JOIN accepted_record a ON a.envelope_id=o.envelope_id\n    JOIN payload p ON p.payload_id=a.payload_id\n    JOIN profile_payload t ON t.payload_id=p.payload_id\n    WHERE c.account=?1 AND ?2='equipment' AND t.equipment_id=?3 AND p.deleted=0\n)\nSELECT kind,record_id FROM referrers\nWHERE (?4 IS NULL OR kind>?4 OR (kind=?4 AND record_id>?5))\nORDER BY kind,record_id LIMIT ?6\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "kind",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "client_record",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "record_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "client_record",
+            "name": "record_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d243c54d4b86692d6894e3d6879982e0eba900423ef967388d072153491b4c6a"
+}

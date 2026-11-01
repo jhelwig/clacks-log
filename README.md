@@ -61,6 +61,9 @@ with `cargo run --bin clacks-log -- --workspace /absolute/path/to/workspace`.
 The [desktop guide](lib/clacks-desktop/README.md) covers configuration, logs,
 activation, shutdown and native Windows acceptance. Manual logging works offline;
 enrolled workspaces reconnect automatically for account-wide synchronization.
+The non-modal Unsynchronized changes window separates conflicts from ordinary
+pending work and supports explicit per-field resolution without changing an
+unfinished contact or active operating settings.
 
 ## Synchronization library
 

@@ -52,7 +52,7 @@ async fn working_history_is_unique_snapshot_consistent_and_deletions_are_reviewa
             .rows
             .is_empty()
     );
-    let review = new.review(&ReviewQuery::default()).await?;
+    let review = new.review_page(&ReviewQuery::default()).await?.rows;
     assert_eq!(review.len(), 1);
     assert_eq!(
         review.first().unwrap().record.working_state(),
@@ -167,12 +167,13 @@ async fn expression_pages_preserve_native_labels_and_review_identity() -> anyhow
     let mut keys = std::collections::BTreeSet::new();
     loop {
         let page = snapshot
-            .review(&ReviewQuery {
+            .review_page(&ReviewQuery {
                 after: cursor,
                 limit: 1,
                 ..Default::default()
             })
-            .await?;
+            .await?
+            .rows;
         let Some(row) = page.first() else { break };
         keys.insert(row.record.key().id);
         cursor = Some(row.record.key().id);
@@ -184,13 +185,136 @@ async fn expression_pages_preserve_native_labels_and_review_identity() -> anyhow
     );
     assert_eq!(
         snapshot
-            .review(&ReviewQuery {
+            .review_page(&ReviewQuery {
                 kind: Some(RecordKind::Tag),
                 ..Default::default()
             })
             .await?
+            .rows
             .len(),
         1
+    );
+    snapshot.close().await?;
+    store.close().await?;
+    Ok(())
+}
+
+// A held row is not ready-to-send work, and deleting a contact must not hide
+// its pending operation from account-wide review.
+#[tokio::test]
+async fn review_sections_include_hidden_and_held_work() -> anyhow::Result<()> {
+    use clacks_client_store::{
+        enrollment::{self, RecoveryDisposition},
+        identity::{self, EnrollmentBinding},
+        read::review::{RecordKind, ReviewSection},
+    };
+    use clacks_model::tag::LogbookTag;
+    use clacks_sync::record::{RecordId, RecordValue};
+
+    let directory = tempfile::tempdir()?;
+    let store = ClientStore::create(
+        &directory.path().join("review.sqlite"),
+        support::id(1),
+        StoreSettings::default(),
+    )
+    .await?;
+    let old = EnrollmentBinding {
+        account: support::id(1),
+        actor: support::id(9),
+        server: "https://clacks.example".into(),
+        credential_reference: "old".into(),
+    };
+    identity::bind(&store, None, old.clone()).await?;
+    let held = support::qso_key(support::id(10));
+    save::save(
+        &store,
+        held,
+        None,
+        support::contact(support::qso(support::id(10))),
+    )
+    .await?;
+    enrollment::install(
+        &store,
+        Some(&old),
+        EnrollmentBinding {
+            actor: support::id(12),
+            credential_reference: "new".into(),
+            ..old.clone()
+        },
+        RecoveryDisposition::FreshActor {
+            former_actor: old.actor,
+        },
+    )
+    .await?;
+    for value in [10, 12] {
+        let tag = RecordValue::Tag(Box::new(LogbookTag::new(support::id(value), "Main".into())));
+        save::save(&store, support::key(&tag), None, RecordState::Live(tag)).await?;
+    }
+    let deleted = support::qso_key(support::id(11));
+    let SaveOutcome::Saved(row) = save::save(
+        &store,
+        deleted,
+        None,
+        support::contact(support::qso(support::id(11))),
+    )
+    .await?
+    else {
+        panic!("saved")
+    };
+    save::save(&store, deleted, Some(&row), RecordState::Deleted).await?;
+
+    let mut snapshot = read::snapshot(&store).await?;
+    let page = snapshot
+        .review_page(&ReviewQuery {
+            section: Some(ReviewSection::Conflicts),
+            limit: 1,
+            ..Default::default()
+        })
+        .await?;
+    assert_eq!(page.counts.conflicts, 1);
+    assert_eq!(page.counts.pending_sync, 3);
+    assert_eq!(page.rows.first().unwrap().record.key(), held);
+    assert_eq!(
+        page.rows.first().unwrap().authorization_hold,
+        Some(old.actor)
+    );
+    assert!(page.rows.first().unwrap().review.is_none());
+    assert!(page.next.is_none());
+    let first = snapshot
+        .review_page(&ReviewQuery {
+            section: Some(ReviewSection::PendingSync),
+            limit: 1,
+            ..Default::default()
+        })
+        .await?;
+    assert_eq!(first.rows.first().unwrap().record.key(), deleted);
+    assert_eq!(
+        first.rows.first().unwrap().record.working_state(),
+        Some(&RecordState::Deleted)
+    );
+    let second = snapshot
+        .review_page(&ReviewQuery {
+            section: Some(ReviewSection::PendingSync),
+            after: first.next,
+            limit: 1,
+            ..Default::default()
+        })
+        .await?;
+    assert_eq!(
+        second.rows.first().unwrap().record.key().id,
+        RecordId::Tag(support::id(10))
+    );
+    let tags = snapshot
+        .review_page(&ReviewQuery {
+            kind: Some(RecordKind::Tag),
+            ..Default::default()
+        })
+        .await?;
+    assert_eq!(tags.counts.pending_sync, 2);
+    assert_eq!(tags.rows.len(), 2);
+    assert_eq!(
+        snapshot.review_record(held).await?.unwrap().record.key(),
+        held
     );
     snapshot.close().await?;
     store.close().await?;

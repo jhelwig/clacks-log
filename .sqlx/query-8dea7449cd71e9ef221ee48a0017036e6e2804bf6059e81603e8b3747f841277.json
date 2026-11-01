@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT c.kind,c.record_id\nFROM client_record c\nLEFT JOIN local_review r ON r.account=c.account AND r.kind=c.kind AND r.record_id=c.record_id\nWHERE c.account=?1\nAND (c.pending_id IS NOT NULL OR r.record_id IS NOT NULL OR c.authorization_hold IS NOT NULL OR EXISTS (SELECT 1 FROM retained_accepted a WHERE a.account=c.account AND a.kind=c.kind AND a.record_id=c.record_id))\nAND (?2 IS NULL OR c.kind=?2)\nAND (?3 IS NULL OR ?3=(r.record_id IS NOT NULL OR c.authorization_hold IS NOT NULL OR EXISTS (SELECT 1 FROM retained_accepted a WHERE a.account=c.account AND a.kind=c.kind AND a.record_id=c.record_id)))\nAND (?4 IS NULL OR c.kind>?4 OR (c.kind=?4 AND c.record_id>?5))\nORDER BY c.kind,c.record_id LIMIT ?6\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "kind",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "client_record",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "record_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "client_record",
+            "name": "record_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "8dea7449cd71e9ef221ee48a0017036e6e2804bf6059e81603e8b3747f841277"
+}

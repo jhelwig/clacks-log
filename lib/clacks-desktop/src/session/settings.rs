@@ -5,6 +5,7 @@ mod tests;
 
 pub(crate) mod contacts;
 pub(crate) mod logbooks;
+pub(crate) mod review;
 
 use clacks_client_store::{
     operating::{self, OperatingSaveOutcome, OperatingState},
@@ -24,6 +25,8 @@ use tokio::sync::oneshot;
 
 /// An owned application operation, independent of the lifecycle command channel.
 pub(crate) enum SettingsAction {
+    /// Read account-wide pending work and actual comparisons.
+    Review(review::ReviewAction),
     /// Read or edit account-owned contact working state.
     Contacts(contacts::ContactAction),
     /// Manage logbooks or the local view without altering operating settings.
@@ -81,6 +84,8 @@ pub(crate) struct SettingsRequest {
 /// Authoritative operation outcome delivered independently from view refresh.
 #[derive(Debug)]
 pub(crate) enum SettingsResponse {
+    /// Snapshot result for the originating review view.
+    Review(review::ReviewResponse),
     /// Authoritative contact result.
     Contacts(contacts::ContactResponse),
     /// Authoritative outcome from the originating logbook workflow.
@@ -130,6 +135,9 @@ pub(super) async fn execute(
 ) -> Option<Completion> {
     let account = store.account_id();
     let result = match request.action {
+        SettingsAction::Review(action) => review::execute(&store, action)
+            .await
+            .map(SettingsResponse::Review),
         SettingsAction::Contacts(action) => {
             let kind = match &action {
                 contacts::ContactAction::Page { .. } => Some("history"),
@@ -218,6 +226,11 @@ pub(super) async fn execute(
         }
     };
     let snapshot = match &response {
+        SettingsResponse::Review(
+            review::ReviewResponse::Page { .. }
+            | review::ReviewResponse::Record { .. }
+            | review::ReviewResponse::References { .. },
+        ) => None,
         SettingsResponse::Contacts(
             contacts::ContactResponse::Page(_)
             | contacts::ContactResponse::WorkedBefore(_)
@@ -253,7 +266,9 @@ impl SettingsAction {
     pub(crate) fn is_shared_write(&self) -> bool {
         matches!(
             self,
-            Self::Contacts(
+            Self::Review(
+                review::ReviewAction::Resolve { .. } | review::ReviewAction::RetryDeletion { .. }
+            ) | Self::Contacts(
                 contacts::ContactAction::Save { .. }
                     | contacts::ContactAction::Delete { .. }
                     | contacts::ContactAction::ChangeMembership(_)

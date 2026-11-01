@@ -476,7 +476,7 @@ After committed receipt, normal settings/history/Worked Before views reload.
 Copied active operating values retain their existing selection and adjustment
 rules. The status bar shows connection state and the current error; there is no
 aggregate successful-sync timestamp. Ordinary unresolved records remain local
-without blocking unrelated publication. Full conflict-review interaction is #15.
+without blocking unrelated publication. The Unsynchronized changes window owns\nexplicit local conflict resolution.
 
 Server-reported failures retain their operational category for structured logs
 and show the safe server explanation as the current connection error. Every
@@ -485,3 +485,31 @@ handling for failures, account change notices and returned review inputs.
 Reconnect uses the existing protected authorization and durable checkpoints.
 Dependency support is included with ordinary pages rather than requested by a
 separate exact-version exchange.
+
+## Unsynchronized changes
+
+The application-bar action opens a separate non-modal, account-wide window.
+Conflicts and Pending sync are independently collapsible, with type filtering
+and bounded continuation. Ordinary pending deletions remain visible here while
+hidden from contact history. Logbook membership does not scope synchronization.
+The window reads committed workspace snapshots through the normal session; it
+leaves the selected history view and unfinished logging entry in place.
+
+Conflicting contacts, saved station profiles, equipment configurations and
+logbook tags use explicit per-field choices and direct validated edits. Source
+choices copy native values, including unfamiliar labels and imported location
+precision. Membership starts with the local set and is edited directly.
+Resolving a saved source does not load it into active operating settings.
+
+Drafts remain in the review window while navigating. New comparison evidence
+marks a draft outdated; explicit refresh retains its inputs and requires
+reconsidering fields whose compared values changed. Saving checks the exact
+record, review and live references in one transaction, and creates pending local
+work for the normal synchronization path.
+
+Blocked deletions show accepted referring records, including locally repaired
+records awaiting acceptance. Open their ordinary editor or their own conflict
+review, then explicitly refresh references and retry the deletion. Missing tag
+or equipment references require explicit removal/replacement; review does not
+restore them. Previously authorized work stays held until usable shared
+comparison evidence exists and its matching review is explicitly resolved.

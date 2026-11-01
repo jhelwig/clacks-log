@@ -16,7 +16,7 @@ use clacks_sync::{
 };
 
 #[tokio::test]
-async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()> {
+async fn reauthorized_work_requires_usable_explicit_review() -> anyhow::Result<()> {
     let directory = tempfile::tempdir()?;
     let path = directory.path().join("account.sqlite");
     let store = ClientStore::create(&path, support::id(1), StoreSettings::default()).await?;
@@ -106,7 +106,13 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
     assert!(
         matches!(synchronization::prepare(&store,key).await?,PrepareOutcome::AuthorizationReview { former_actor } if former_actor == old.actor)
     );
+    let mut snapshot = clacks_client_store::read::snapshot(&store).await?;
+    let held = snapshot.review_record(key).await?.unwrap();
+    assert_eq!(held.authorization_hold, Some(old.actor));
+    assert!(held.review.is_none());
+    snapshot.close().await?;
     let mut edited = support::qso(support::id(10));
+
     support::edit(&mut edited, |edited| {
         edited.comment = Some("Keep this correction".into());
         Ok(())
@@ -152,7 +158,7 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
         .await?;
     incoming.finish(&store).await?;
     let mut snapshot = clacks_client_store::read::snapshot(&store).await?;
-    let reviews = snapshot.review(&Default::default()).await?;
+    let reviews = snapshot.review_page(&Default::default()).await?.rows;
     let shown = reviews
         .iter()
         .find(|row| row.record.key() == key)
@@ -185,7 +191,26 @@ async fn fresh_actor_holds_old_work_until_explicit_review() -> anyhow::Result<()
         SaveOutcome::Saved(_)
     ));
 
+    let mut snapshot = clacks_client_store::read::snapshot(&store).await?;
+    assert!(
+        snapshot
+            .review_record(key)
+            .await?
+            .unwrap()
+            .authorization_hold
+            .is_none()
+    );
+    assert_eq!(
+        snapshot
+            .review_record(unsubmitted)
+            .await?
+            .unwrap()
+            .authorization_hold,
+        Some(old.actor)
+    );
+    snapshot.close().await?;
     let chosen_unsent = unsent.working_state().unwrap().clone();
+
     assert!(matches!(
         synchronization::resolve(&store, &unsent, &absent_review, chosen_unsent).await?,
         SaveOutcome::Saved(_)

@@ -1,7 +1,7 @@
 //! Local view selection and independent saved-logbook management.
 
 mod deletion;
-mod editor;
+pub(super) mod editor;
 pub(super) mod labels;
 mod responses;
 

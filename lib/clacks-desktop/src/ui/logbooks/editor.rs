@@ -168,7 +168,12 @@ fn show_form(
 }
 
 /// Present one independent service policy with its edited-state distinction.
-fn policy(ui: &mut egui::Ui, label: &str, value: &mut AutomaticUploadPolicy, edited: bool) {
+pub(in crate::ui) fn policy(
+    ui: &mut egui::Ui,
+    label: &str,
+    value: &mut AutomaticUploadPolicy,
+    edited: bool,
+) {
     ui.horizontal_wrapped(|ui| {
         ui.label(label);
         if edited {

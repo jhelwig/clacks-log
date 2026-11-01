@@ -1,0 +1,28 @@
+{
+  "db_name": "SQLite",
+  "query": "WITH records AS (\nSELECT (r.record_id IS NOT NULL OR c.authorization_hold IS NOT NULL OR EXISTS (SELECT 1 FROM retained_accepted a WHERE a.account=c.account AND a.kind=c.kind AND a.record_id=c.record_id)) AS blocked\nFROM client_record c\nLEFT JOIN local_review r ON r.account=c.account AND r.kind=c.kind AND r.record_id=c.record_id\nWHERE c.account=?1 AND (?2 IS NULL OR c.kind=?2)\nAND (c.pending_id IS NOT NULL OR r.record_id IS NOT NULL OR c.authorization_hold IS NOT NULL OR EXISTS (SELECT 1 FROM retained_accepted a WHERE a.account=c.account AND a.kind=c.kind AND a.record_id=c.record_id))\n)\nSELECT count(CASE WHEN blocked THEN 1 END) AS conflicts,\ncount(CASE WHEN NOT blocked THEN 1 END) AS pending_sync FROM records\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "conflicts",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      },
+      {
+        "name": "pending_sync",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "6c046240eb018af5bef8513e109c9d4b5c05e0af771d80840468ac11603c10b6"
+}

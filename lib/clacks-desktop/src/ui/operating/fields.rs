@@ -279,11 +279,24 @@ fn station_fields(
             edited,
         );
     });
+    changed |= references(ui, id, &mut form.references, definitions, errors);
+    changed
+}
+
+/// Edit data-driven participation rows without owning their save action.
+pub(in crate::ui) fn references(
+    ui: &mut egui::Ui,
+    id: &str,
+    rows: &mut Vec<ReferenceForm>,
+    definitions: &DefinitionSet,
+    errors: &[FieldError],
+) -> bool {
+    let mut changed = false;
     ui.group(|ui| {
         ui.set_min_width(ui.available_width());
         ui.strong("Participation / references");
         let mut remove = None;
-        for (index, row) in form.references.iter_mut().enumerate() {
+        for (index, row) in rows.iter_mut().enumerate() {
             ui.push_id((id, "reference", index), |ui| {
                 let previous = row.group;
                 let label = row
@@ -326,11 +339,11 @@ fn station_fields(
             });
         }
         if let Some(index) = remove {
-            form.references.remove(index);
+            rows.remove(index);
             changed = true;
         }
         if ui.button("Add reference").clicked() {
-            form.references.push(ReferenceForm::new());
+            rows.push(ReferenceForm::new());
             changed = true;
         }
     });

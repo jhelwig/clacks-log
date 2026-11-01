@@ -101,6 +101,30 @@ impl MembershipPicker {
         }
     }
 
+    /// Refresh catalog choices and one contact's resolved set, retaining search text.
+    ///
+    /// Use when the available logbooks or the resolved membership changes.
+    pub fn replace_single(&mut self, catalog: &LogbookSnapshot, membership: &BTreeSet<TagId>) {
+        let search = std::mem::take(&mut self.search);
+        *self = Self::new(catalog, std::slice::from_ref(membership));
+        self.search = search;
+    }
+
+    /// Keep unavailable source memberships visible without selecting or assigning them.
+    pub fn include_context(&mut self, tags: impl IntoIterator<Item = TagId>) {
+        for id in tags {
+            if !self.choices.iter().any(|choice| choice.id == id) {
+                self.choices.push(TagChoice {
+                    id,
+                    label: format!("Unavailable logbook · {id}"),
+                    initial: MembershipMark::None,
+                    current: MembershipMark::None,
+                    available: false,
+                });
+            }
+        }
+    }
+
     /// Return only explicit changes from the opening membership basis.
     pub fn intent(&self) -> MembershipIntent {
         let mut intent = MembershipIntent {
@@ -156,11 +180,7 @@ impl MembershipPicker {
 
 /// Render bounded choices without choosing a Save/Apply or popup lifecycle.
 pub(super) fn show_contents(ui: &mut egui::Ui, picker: &mut MembershipPicker) -> bool {
-    ui.set_width(
-        360.0_f32
-            .min(ui.ctx().content_rect().width() - 32.0)
-            .max(160.0),
-    );
+    ui.set_width(ui.available_width().min(360.0));
     let label = ui.small("Search logbooks").id;
     let search = ui.add(
         egui::TextEdit::singleline(&mut picker.search)

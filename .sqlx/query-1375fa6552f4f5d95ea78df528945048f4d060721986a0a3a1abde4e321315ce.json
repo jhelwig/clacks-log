@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "WITH referrers AS (\n    SELECT c.kind,c.record_id\n    FROM client_record c\n    JOIN record_observation o ON o.observation_id=c.latest_observation\n    JOIN accepted_record a ON a.envelope_id=o.envelope_id\n    JOIN payload p ON p.payload_id=a.payload_id\n    JOIN qso_tag t ON t.payload_id=p.payload_id\n    WHERE c.account=?1 AND ?2='tag' AND t.tag_id=?3 AND p.deleted=0\n    UNION\n    SELECT c.kind,c.record_id\n    FROM client_record c\n    JOIN record_observation o ON o.observation_id=c.latest_observation\n    JOIN accepted_record a ON a.envelope_id=o.envelope_id\n    JOIN payload p ON p.payload_id=a.payload_id\n    JOIN profile_payload t ON t.payload_id=p.payload_id\n    WHERE c.account=?1 AND ?2='equipment' AND t.equipment_id=?3 AND p.deleted=0\n)\nSELECT COUNT(*) AS total FROM referrers\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "total",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1375fa6552f4f5d95ea78df528945048f4d060721986a0a3a1abde4e321315ce"
+}

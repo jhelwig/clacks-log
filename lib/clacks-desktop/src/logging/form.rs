@@ -254,28 +254,33 @@ impl ContactForm {
         {
             return Ok(original.clone());
         }
-        let catalog = RecognitionCatalog::adif_318()?;
-        let identity = if let Some(row) = catalog
-            .submodes
-            .iter()
-            .find(|v| v.code.eq_ignore_ascii_case(self.mode.trim()))
-        {
-            ModeIdentity::Specialization {
-                label: row.code.clone(),
-                parent: Some(row.parent.clone()),
-            }
-        } else if !self.mode_parent.trim().is_empty() {
-            ModeIdentity::Specialization {
-                label: self.mode.trim().to_owned(),
-                parent: Some(self.mode_parent.trim().to_owned()),
-            }
-        } else {
-            ModeIdentity::Parent {
-                label: self.mode.trim().to_owned(),
-            }
-        };
-        Ok(Mode::from_recorded_identity(identity)?)
+        parse_mode(&self.mode, &self.mode_parent)
     }
+}
+
+/// Parse an explicitly edited mode label using the logging catalog and fallback rules.
+pub(crate) fn parse_mode(label: &str, parent: &str) -> anyhow::Result<Mode> {
+    let catalog = RecognitionCatalog::adif_318()?;
+    let identity = if let Some(row) = catalog
+        .submodes
+        .iter()
+        .find(|v| v.code.eq_ignore_ascii_case(label.trim()))
+    {
+        ModeIdentity::Specialization {
+            label: row.code.clone(),
+            parent: Some(row.parent.clone()),
+        }
+    } else if !parent.trim().is_empty() {
+        ModeIdentity::Specialization {
+            label: label.trim().to_owned(),
+            parent: Some(parent.trim().to_owned()),
+        }
+    } else {
+        ModeIdentity::Parent {
+            label: label.trim().to_owned(),
+        }
+    };
+    Ok(Mode::from_recorded_identity(identity)?)
 }
 
 /// Extract display inputs without throwing away an unfamiliar specialization's parent.

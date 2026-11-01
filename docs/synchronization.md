@@ -140,6 +140,31 @@ Conflict detection and resolution run on the clients (D141). D137 applies the re
 
 Resolution is at the field level. The user must be able to reconcile individual values rather than choose one entire record. D40 also uses this field-level conflict-resolution interface for updates of matched QSOs during Amateur Data Interchange Format (ADIF) import, with the user choosing which differing fields to apply. D136 requires sufficient originally observed values for an effective three-way field comparison. Distinguish a field that differs because shared state changed while local state did not, a field that differs because local state changed while shared state did not, and a field where both changed. Original values need not be shown directly. This selects comparison capability, not a particular base-revision representation, permanent full history, or user interface (UI) layout. D137 selects whole-record cases that trigger user resolution; the field classification helps explain differences within that flow. A broader model of interdependent-field conflicts is after the minimum viable product (MVP) release; existing data validation and specified calculated-field behavior remain requirements. Exact field equality, validation interactions, and resubmission mechanics remain open. For an import without an originally observed shared state, do not fabricate a third comparison input.
 
+For synchronization review, D382 leaves differing local/shared scalar fields
+unselected until the user explicitly chooses their values. Require a choice for every
+differing field before saving. **Use all local** and **Use all shared** populate
+those choices without saving; equal fields need no choice. Three-way attribution
+explains each difference without silently selecting a result.
+
+D384 permits entering a new resolved value directly instead of selecting one
+of the compared scalar values. This is an explicit user choice, subject to
+existing field and whole-record validation. Keep the local/shared values and
+their attribution available. Editing is not saving or publication; ordinary
+stale-save checks and conditional shared acceptance still apply.
+
+D383 gives logbook membership an editable resolved set rather than an exclusive
+choice of whole sets. Show local and shared memberships, provide field-level
+**Use local** / **Use shared** shortcuts, and allow individual membership
+changes. Ordinary checked/unchecked boxes directly define the saved membership;
+no indeterminate state or separate selection-confirmation action applies.
+Explicitly combining memberships is user resolution, not automatic merging.
+
+D387 initializes the resolved membership from the local working set. It is
+the field's resolved value immediately, without another confirmation action.
+Do not compute an initial intersection or union; the user may subsequently
+replace the set from either side or adjust its individual memberships. This
+does not preselect other differing scalar values or save the resolved record.
+
 Deletion is an edit for conflict purposes. D138 treats deleted as a possible comparison state: deletion versus an unchanged record proceeds without a conflict flow; two deletions agree without a flow; deletion versus a changed record requires resolution. This does not select tombstone encoding or retention. Tag deletion applies the selected preserve/delete-all/delete-unique effects; a QSO referencing a deleted tag remains pending locally until the user explicitly removes or replaces that membership. Removing its last tag can leave the QSO active and untagged. Do not recreate the tag or silently rewrite memberships. Unrelated synchronization continues. A pending edit to a QSO itself marked deleted still follows ordinary QSO deletion/edit comparison. Enforce reference validity at shared acceptance, so a concurrent deletion cannot be bypassed by a previously checked reference. D54 requires remembering deleted QSOs and their external associations to suppress later add prompts for those contacts; external copies remain untouched in MVP.
 
 There is no agreed server-side collection of unresolved competing versions and no last-writer-wins merge policy. Accepted state, locally pending changes, and any historical/audit storage have different roles.
@@ -151,6 +176,20 @@ Reference validation also applies to deletions in the reverse direction (D250). 
 A client comparison can become stale before its result reaches shared storage. D146 requires atomic conditional acceptance: the relevant shared state must still match what the client compared when its submission is accepted. Otherwise the client receives newer state and repeats its whole-record comparison, entering user resolution only under D137/D138. The server's storage precondition check does not interpret business differences, resolve them, or retain unresolved competing business records.
 
 The condition's encoding, representation of compared state, aggregate transaction scope, durable retry handling, and response protocol remain open. No revision/clock representation is selected.
+
+D385 defines the resolution editor's response to an outdated comparison:
+preserve its draft and displayed comparison, indicate that newer values are
+available, and require refreshing the comparison before saving. Retain entered
+values for reconsideration rather than silently approving them against unseen
+changes. The existing transactional stale-save check still rejects an outdated
+submission even if the UI has not received the change notification. Saving a
+resolution locally does not bypass conditional acceptance by the server.
+
+D386 retains each unfinished resolution draft while the user switches records
+in the review window. Returning restores the draft and requires comparison
+refresh under D385 when applicable. Navigation does not save or publish work;
+closing the window discards unsaved drafts under the existing Cancel rule.
+Previously saved local resolutions remain durable pending work.
 
 ## Offline conflict resolution (D139)
 
@@ -256,7 +295,25 @@ History and Worked Before show this client’s saved working version with pendin
 
 ## Account-wide local review (D182)
 
-Pending/conflict review spans this client’s work throughout the account, filterable by logbook and record type. It includes hidden pending deletions, contact changes with deleted-tag references, and account-shared profile/equipment conflicts. The review remains a view of local pending state, not a server-owned set of unresolved proposals or a publication dependency. Normal history and Worked Before remain scoped to the current book.
+An ordinary saved edit during review updates the persisted comparison's local
+values in the same transaction as its working record, preserving the conflict
+and original/shared evidence. Already opened comparisons remain pinned and
+require explicit refresh before resolution against the changed values.
+
+See the [#15 integration contract](conflict-review-proposal.md) for presentation,
+editor reuse and storage wiring. Its engineering choices are distinguished from
+agreed behavior.
+
+The **Unsynchronized changes** window spans this client's work throughout the
+account (D383). Separate **Conflicts** and **Pending sync** into independently
+collapsible sections, with record-type filtering and no logbook selector.
+Include hidden pending deletions, contact changes with deleted-tag references,
+and account-shared profile/equipment conflicts. Logbook membership is a QSO field
+subject to resolution, not a synchronization scope. The window is non-modal;
+opening it preserves workbench arrangement, selected view and unfinished entry.
+It remains a view of local pending state, not a server-owned set of unresolved
+proposals or a publication dependency. Normal history and Worked Before remain
+scoped to the current book.
 
 ## Missing equipment references (D183)
 

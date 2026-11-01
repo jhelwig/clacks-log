@@ -19,7 +19,7 @@ use clacks_sync::{
 use logbook_support::Workspace;
 use support::id;
 
-async fn remember(
+pub(crate) async fn remember(
     store: &clacks_client_store::store::ClientStore,
     accepted: &AcceptedRecord,
     baseline: Baseline,
@@ -134,8 +134,9 @@ async fn installed_and_received_deletion_preserve_live_alternatives_until_resolu
                 let row = save::load(&workspace.store, deleted.key()).await?.unwrap();
                 let mut snapshot = clacks_client_store::read::snapshot(&workspace.store).await?;
                 let reviews = snapshot
-                    .review(&clacks_client_store::read::review::ReviewQuery::default())
-                    .await?;
+                    .review_page(&clacks_client_store::read::review::ReviewQuery::default())
+                    .await?
+                    .rows;
                 snapshot.close().await?;
                 let review = reviews
                     .iter()
