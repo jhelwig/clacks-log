@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT kind, record_id, stamp_id, deleted FROM clacks.coupled_member WHERE account = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.coupled_member",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "record_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.coupled_member",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "stamp_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.coupled_member",
+            "name": "stamp_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "deleted",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "clacks.coupled_member",
+            "name": "deleted"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "39898ea18dd279e940975014630601092fb2fbee057195e79406a03ac6f7dd23"
+}

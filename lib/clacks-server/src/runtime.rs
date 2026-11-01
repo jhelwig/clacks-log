@@ -128,6 +128,7 @@ pub async fn serve(state: ServerState, pages: axum::Router<ServerState>) -> anyh
         sync_stop.cancel();
         let _ = requested.send(());
     };
+
     let mut maintenance = tokio::task::JoinSet::new();
     maintenance.spawn(crate::oauth::cleanup::run(
         state.store.pool.clone(),
@@ -135,8 +136,10 @@ pub async fn serve(state: ServerState, pages: axum::Router<ServerState>) -> anyh
     ));
     maintenance.spawn(crate::retention::run(
         state.store.clone(),
+        state.config.journal_entries,
         state.sync_stop.clone(),
     ));
+
     use std::future::IntoFuture;
     let serving = axum::serve(listener, crate::http::router(state.clone(), pages))
         .with_graceful_shutdown(shutdown)
@@ -157,6 +160,7 @@ pub async fn serve(state: ServerState, pages: axum::Router<ServerState>) -> anyh
         }
         Ok(())
     }.await;
+
     state.sync_stop.cancel();
     tokio::time::timeout(
         std::time::Duration::from_secs(state.config.shutdown_seconds),
@@ -169,6 +173,7 @@ pub async fn serve(state: ServerState, pages: axum::Router<ServerState>) -> anyh
     )
     .await
     .context("maintenance drain deadline reached")??;
+
     state.sync_tasks.close();
     tokio::time::timeout(
         std::time::Duration::from_secs(state.config.shutdown_seconds),

@@ -309,12 +309,12 @@ async fn prune(
     store: &AccountStore,
     account: AccountId,
     journal_entries: i64,
-) -> anyhow::Result<()>;
+) -> anyhow::Result<bool>;
 
 async fn reclaim(store: &AccountStore, account: AccountId) -> anyhow::Result<bool>;
 ```
 
-`reclaim` returns whether another bounded batch may remain. The actual worker
+`prune` and `reclaim` report whether another bounded pass may make progress. The actual worker
 calls these after installation, checking shutdown between batches. Each operation
 owns its account-locked transaction and domain metrics. Root-query helpers stay
 private to this module tree; no generic repository or persisted mark set.
@@ -357,9 +357,10 @@ private to this module tree; no generic repository or persisted mark set.
 - [ ] Add separate pruning/reclamation duration and committed-removal metrics,
   with family-owned counters rather than a generic arbitrary-row metric.
   Extend the owning scenarios with committed-count and no-op assertions.
-- [ ] Reopen between committed installation/cleanup phases and between cleanup
-  batches in the real-store case. Assert maintenance resumes from current roots
-  and a repeat is a no-op. No crash failpoint or tests of SQL rollback itself.
+- [ ] Exercise durable root selection after interrupted transfer and actual
+  database restoration in Tasks 5–6; assert a repeated collection is a no-op.
+  Do not add a committed-close durability test whose only possible failure is
+  in PostgreSQL, or expose a production phase API solely for interruption tests.
 - [ ] Verify restricted-runtime grants through these actual operations, regenerate
   offline metadata and rerun the retention/support suites. Commit journal/root
   reclamation as the substantive production deliverable.

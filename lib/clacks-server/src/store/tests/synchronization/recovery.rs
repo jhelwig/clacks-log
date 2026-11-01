@@ -138,6 +138,7 @@ async fn unresolved_return_does_not_certify_the_old_prefix() -> anyhow::Result<(
         crate::store::discovery::Source::start(&native.store, &native.first, None).await?;
     let mut historical = Vec::new();
     let mut heads = Vec::new();
+
     while let Some(page) = discovery.page(&native.store, &native.first, 64).await? {
         heads.extend(page.accepted);
         historical.extend(page.support);
@@ -145,6 +146,7 @@ async fn unresolved_return_does_not_certify_the_old_prefix() -> anyhow::Result<(
     assert!(historical.contains(&lost.accepted));
     assert!(!heads.contains(&lost.accepted));
     assert!(heads.iter().any(|value| value.key() == key));
+
     Ok(())
 }
 
@@ -168,6 +170,7 @@ async fn accepted_tail_witness_forks_without_certifying_its_prefix() -> anyhow::
     let membership = crate::enrollment::membership::snapshot(&mut tx, &before).await?;
     let interpretation = account::interpretation(&mut tx, key.account).await?;
     tx.commit().await?;
+
     let current = Observation::Absent {
         key,
         checkpoint: synchronization::checkpoint(&before),
@@ -203,11 +206,60 @@ async fn accepted_tail_witness_forks_without_certifying_its_prefix() -> anyhow::
     assert_ne!(restored.head.timeline, before.head.timeline);
     assert!(!restored.installed.covers(lost.accepted.stamp.accepted_at()));
     assert!(
-        super::accepted_heads(&mut tx, key.account)
-            .await?
-            .contains(&lost.accepted)
+        matches!(synchronization::context::observation(&mut tx, &restored, key).await?, Observation::Accepted(value) if value == lost.accepted)
     );
     tx.commit().await?;
+    for _ in 0..4 {
+        let contact = qso(QsoId::new(), Default::default());
+        let next_key = RecordKey {
+            account: key.account,
+            id: RecordId::Qso(contact.id()),
+        };
+        let proposal = native
+            .prepare(
+                &native.first,
+                next_key,
+                RecordState::Live(RecordValue::Qso(Box::new(contact))),
+            )
+            .await?;
+        assert!(matches!(
+            synchronization::accept_pending(&native.store, &native.first, &proposal).await?,
+            AcceptanceDecision::Commit(_)
+        ));
+    }
+
+    crate::store::retention::collect(
+        &native.store,
+        key.account,
+        3,
+        &tokio_util::sync::CancellationToken::new(),
+    )
+    .await?;
+
+    let mut older = crate::store::discovery::Source::start(
+        &native.store,
+        &native.first,
+        Some(&synchronization::checkpoint(&restored)),
+    )
+    .await?;
+    assert!(
+        matches!(older.start.mode, WindowMode::Full),
+        "the pruned installation requires full reconciliation"
+    );
+
+    let mut recovered = None;
+
+    while let Some(page) = older.page(&native.store, &native.first, 2).await? {
+        recovered =
+            recovered.or_else(|| page.accepted.into_iter().find(|value| value.key() == key));
+    }
+    older.end()?;
+    assert_eq!(
+        recovered.as_ref(),
+        Some(&lost.accepted),
+        "full reconciliation preserves original acceptance context"
+    );
+
     Ok(())
 }
 
@@ -333,10 +385,12 @@ async fn exact_historical_support_does_not_replace_deleted_current_heads() -> an
         }))),
     )
     .await?;
+
     let mut read = native.store.pool.begin().await?;
     let interpretation =
         crate::store::metadata::account::interpretation(&mut read, native.first.account).await?;
     read.commit().await?;
+
     let operation = OperationId::new();
     let result = receipt::receive(
         &native.store,
@@ -344,7 +398,7 @@ async fn exact_historical_support_does_not_replace_deleted_current_heads() -> an
         &DiscoveryPage {
             sequence: 0,
             requirements: vec![],
-            accepted: vec![old_association.clone(), control],
+            accepted: vec![old_association.clone(), control.clone()],
             support: vec![],
             baselines: interpretation.baselines,
             boundaries: vec![],
@@ -365,18 +419,77 @@ async fn exact_historical_support_does_not_replace_deleted_current_heads() -> an
     assert!(result.completed_units.contains(&operation));
     assert_eq!(result.represented_count, 2);
     assert!(result.reviews.is_empty());
+
     let mut read = native.store.pool.begin().await?;
-    let heads = super::accepted_heads(&mut read, native.first.account).await?;
-    assert!(heads.contains(&deleted_association));
+
+    let current = account::load(&mut read, native.first.account).await?;
     assert!(
-        heads
-            .iter()
-            .any(|row| row.key() == qso_key && matches!(row.state(), RecordState::Deleted))
+        matches!(synchronization::context::observation(&mut read, &current, deleted_association.key()).await?, Observation::Accepted(value) if value == deleted_association)
+    );
+    assert!(
+        matches!(synchronization::context::observation(&mut read, &current, qso_key).await?, Observation::Accepted(value) if matches!(value.state(), RecordState::Deleted))
     );
     read.commit().await?;
+
+    let RecordState::Live(RecordValue::Service(mut changed)) = control.state().clone() else {
+        panic!("download coordination");
+    };
+    let ServicePayload::Download(download) = &mut changed.payload else {
+        panic!("download coordination");
+    };
+    download
+        .progress
+        .push(clacks_model::service::evidence::download::StreamProgress {
+            query: clacks_model::service::evidence::observation::QueryIdentity {
+                destination: download.destination,
+                stream: clacks_model::service::evidence::observation::QueryStream::Qrz,
+                selected_fields: ["CALL".into()].into(),
+                own_call: None,
+                since: None,
+            },
+            watermark: Some(clacks_model::scalar::UtcSecond::from_unix_seconds(1)),
+        });
+    accept(
+        &native,
+        control_key,
+        RecordState::Live(RecordValue::Service(changed)),
+    )
+    .await?;
+
+    crate::store::retention::collect(
+        &native.store,
+        native.first.account,
+        10_000,
+        &tokio_util::sync::CancellationToken::new(),
+    )
+    .await?;
+
+    let mut read = native.store.pool.acquire().await?;
+    assert!(
+        crate::store::synchronization::context::exact(&mut read, &VersionReference::from(&control))
+            .await?
+            .is_none(),
+        "obsolete coordination snapshots are not distinct immutable evidence"
+    );
+    assert!(
+        crate::store::synchronization::context::exact(&mut read, &VersionReference::from(&old_qso))
+            .await?
+            .is_none()
+    );
+    assert!(
+        crate::store::synchronization::context::exact(
+            &mut read,
+            &VersionReference::from(&old_association)
+        )
+        .await?
+        .is_some()
+    );
+    drop(read);
+
     let mut source =
         crate::store::discovery::Source::start(&native.store, &native.first, None).await?;
     let mut transferred_support = Vec::new();
+
     while let Some(page) = source.page(&native.store, &native.first, 100).await? {
         transferred_support.extend(page.support);
     }
@@ -388,5 +501,6 @@ async fn exact_historical_support_does_not_replace_deleted_current_heads() -> an
         !transferred_support.contains(&old_qso),
         "the accepted deletion already covers the old QSO effect"
     );
+
     Ok(())
 }

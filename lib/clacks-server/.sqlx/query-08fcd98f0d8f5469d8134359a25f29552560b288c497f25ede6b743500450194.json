@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.installation_journal WHERE account = $1 AND installation_order = ANY($2)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "08fcd98f0d8f5469d8134359a25f29552560b288c497f25ede6b743500450194"
+}

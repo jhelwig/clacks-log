@@ -87,6 +87,14 @@ pub struct ServerConfig {
     /// Maximum seconds to drain requests after shutdown is requested.
     #[serde(default = "default_shutdown_seconds")]
     pub shutdown_seconds: u64,
+    /// Per-account target for retained incremental journal entries; excess is collected automatically.
+    #[serde(default = "default_journal_entries")]
+    pub journal_entries: i64,
+}
+
+/// Initial journal budget; complete state remains available after incremental history expires.
+fn default_journal_entries() -> i64 {
+    10_000
 }
 
 /// Default deployment request-drain bound.
@@ -153,6 +161,7 @@ impl ServerConfig {
             "session_days must be a positive representable duration"
         );
         anyhow::ensure!(self.pending_seconds > 0, "pending_seconds must be positive");
+        anyhow::ensure!(self.journal_entries > 0, "journal_entries must be positive");
         for (key, provider) in &self.providers {
             anyhow::ensure!(
                 !key.is_empty()
