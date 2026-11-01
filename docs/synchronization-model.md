@@ -144,6 +144,11 @@ with the current timeline's positions. Thus a journal entry at `T2:7` may instal
 an envelope originally accepted at `T1:180`. Transfer position and original
 version position are not interchangeable.
 
+The journal retains the native record obligation's key, stamp and deletion
+state, constructed from the actual installed version. Discovery does not need a
+historical QSO body merely to recover that deletion state; required ordering
+interpretation remains retained independently.
+
 Equal recorded values do not imply equal causal metadata. Combining known
 versions may update metadata without changing native values. Such bookkeeping
 must not create a recorded-fact conflict or an external upload by itself.
@@ -508,6 +513,11 @@ assume that ordering stability alone makes those facts disposable.
 
 Rollback and restoration examples are in
 [section 8](#8-rollback-and-restoration).
+
+The [#16 integration proposal](synchronization-retention-proposal.md) maps these
+conditions to PostgreSQL/SQLite storage, automatic collection and recovery
+verification. Its physical schema and operational defaults remain proposals,
+not additional product decisions.
 
 ## 7. Worked transitions
 

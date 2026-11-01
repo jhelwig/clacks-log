@@ -214,9 +214,13 @@ per-client acknowledgments through the existing native types. Enrollment and
 revocation must continue updating this same state.
 
 Add an account/timeline-qualified installation journal with installation
-position, record key and the installed native stamp. Its position is distinct
-from the stamp's original acceptance position. It need not retain historical
-payloads. Retain referenced stamp interpretation while journal entries need it.
+position and the native record obligation: key, installed stamp and deletion
+state. Derive that obligation from the actual installed accepted record; its
+position is distinct from the stamp's original acceptance position. Discovery
+reads the stored obligation without requiring a historical payload just to
+infer deletion status. Retain referenced stamp interpretation while journal
+entries need it. The [#16 proposal](synchronization-retention-proposal.md)
+defines this collection integration.
 Record the retained-journal boundary explicitly: an empty query result alone
 cannot certify that an older requester has no missing changes.
 

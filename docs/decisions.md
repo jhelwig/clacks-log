@@ -2413,3 +2413,44 @@ set, **Use shared** replaces it with the compared shared set, and individual
 checkbox changes modify the result. Do not initialize from the intersection or
 union of the compared sets. **Save resolution** remains the explicit save for
 the whole chosen record; other differing scalar fields still require choices.
+
+### Decision D388
+
+#### D388
+
+Run routine synchronization-metadata collection automatically in the server,
+rather than requiring an operator to invoke routine cleanup. Existing retention
+and recovery rules remain authoritative: automatic execution does not expire
+offline clients, advance acknowledgments, or make protected comparison, deletion
+or service evidence disposable. Scheduling, batch sizes and resource limits
+remain engineering choices; this decision does not require a new operator
+command or background-job framework.
+
+### Decision D389
+
+#### D389
+
+Bound the incremental synchronization journal by an entry-count limit per
+account, rather than a time-based retention window. A client whose checkpoint
+predates the retained journal uses the existing fuller-state reconciliation
+path, without expiration or re-enrollment. This journal limit does not replace
+D155's ordering-evidence retention boundary or permit collection of required
+comparison, deletion or service evidence. The initial limit and maintenance
+batch sizes remain engineering choices.
+
+### Decision D390
+
+#### D390
+
+Start with atomic baseline installation, including the required metadata
+conversion and guarded account update in one transaction. Keep subsequent
+physical cleanup separate. Do not introduce incremental installation based on
+an assumed performance problem.
+
+Provide production observability that distinguishes installation duration,
+account-lock acquisition wait, application-observed lock-holding duration and
+the amount of metadata work performed. Report committed conversion and cleanup
+effects truthfully, with bounded metric dimensions and account-specific context
+in traces/structured logs. Use measurements to determine whether later
+optimization is warranted; no lock-duration estimate or performance threshold
+has been established by this decision.

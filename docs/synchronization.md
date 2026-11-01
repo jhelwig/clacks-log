@@ -62,6 +62,16 @@ An unrevoked enrolled client retains normal eligibility indefinitely. Do not cla
 
 ### Compact transfer history without expiring clients
 
+Routine synchronization-metadata collection runs automatically in the server
+(D388). Execution must obey the retention and interpretation rules below;
+automatic scheduling is not permission to discard protected evidence. Scheduling,
+batch sizes and resource limits remain engineering choices.
+
+Bound the incremental journal by an entry-count limit per account (D389).
+The initial limit remains an engineering choice. This is independent of D155's
+ordering-evidence boundary; exceeding the journal's retained interval selects
+the existing fuller-state reconciliation path.
+
 Incremental transfer journals can be bounded independently of client eligibility. Keep current accepted records and the required deletion/service evidence; when a returning client's cursor predates retained transfers, use fuller-state reconciliation under D144 rather than forcing re-enrollment or discarding pending work. Retained lineage can establish the relation to the older timeline even when incremental payloads are gone. Compare ordinary pending work with its original values under D136–D138.
 
 Keep the small lineage structure separately from per-edit transfers. Its growth follows exceptional recovery boundaries, not every contact or actor edit. D155 selects the ordering-evidence retention boundary below; the core supplies baseline and sparse-lineage representations. An expired incremental journal does not by itself authorize discarding ordering evidence still required by that boundary.
@@ -110,6 +120,16 @@ and [crate integration contract](../lib/clacks-sync/README.md#real-transaction-o
 
 ### Baseline installation
 
+The [#16 retention and recovery proposal](synchronization-retention-proposal.md)
+specifies proposed database changes, reference roots and transaction boundaries
+for this maintenance workflow, separating agreed decisions from engineering
+defaults.
+
+Start with one atomic installation transaction (D390). Include the required
+metadata conversion and guarded account update in that transaction; subsequent
+physical cleanup remains separate. Incremental installation is not selected
+without evidence that the simpler atomic approach needs optimization.
+
 Plan a baseline from a consistent view of common installed coverage, current
 membership and surviving references. Commit the baseline, projected envelopes and
 updated account head under their emitted conditions before physically removing
@@ -122,6 +142,12 @@ by surviving references. Projection is metadata bookkeeping: it changes neither
 native values nor external upload eligibility and does not delete tombstones or
 service facts. The [compaction model](synchronization-model.md#6-retirement-and-compaction)
 specifies proof conditions; actual database integration must enforce atomicity.
+
+The installation workflow must expose total duration, account-lock acquisition
+wait and application-observed lock-holding duration separately, together with
+workload and committed-effect measurements. Use the
+[retention observability requirements](observability.md#synchronization-retention-and-baseline-installation)
+to evaluate actual contention and scaling before adding optimization machinery.
 
 ## Replication basis
 
