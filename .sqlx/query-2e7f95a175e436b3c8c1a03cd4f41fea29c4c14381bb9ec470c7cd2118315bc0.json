@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM checkpoint WHERE account = ?1 AND checkpoint_id IN (\n    SELECT c.checkpoint_id FROM checkpoint c WHERE c.account = ?1\n      AND NOT EXISTS (SELECT 1 FROM installed_checkpoint i WHERE i.account = c.account AND i.checkpoint_id = c.checkpoint_id)\n      AND NOT EXISTS (SELECT 1 FROM record_observation o WHERE o.account = c.account AND o.checkpoint_id = c.checkpoint_id)\n      AND NOT EXISTS (SELECT 1 FROM original_basis o WHERE o.account = c.account AND o.checkpoint_id = c.checkpoint_id)\n      AND NOT EXISTS (SELECT 1 FROM version_condition v WHERE v.account = c.account AND v.checkpoint_id = c.checkpoint_id)\n      AND NOT EXISTS (SELECT 1 FROM basis_witness w WHERE w.account = c.account AND w.checkpoint_id = c.checkpoint_id)\n    ORDER BY c.checkpoint_id LIMIT ?2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "2e7f95a175e436b3c8c1a03cd4f41fea29c4c14381bb9ec470c7cd2118315bc0"
+}

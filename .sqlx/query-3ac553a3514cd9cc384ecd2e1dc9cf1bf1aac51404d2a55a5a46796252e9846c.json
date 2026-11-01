@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM local_counter WHERE account = ?1 AND rowid IN (\n    SELECT c.rowid FROM local_counter c WHERE c.account = ?1\n      AND c.actor_id <> (SELECT actor FROM store_account WHERE account = ?1)\n      AND NOT EXISTS (SELECT 1 FROM client_record r WHERE r.account = c.account AND r.kind = c.kind AND r.record_id = c.record_id AND (r.pending_id IS NOT NULL OR r.authorization_hold IS NOT NULL))\n      AND NOT EXISTS (SELECT 1 FROM prepared_change p WHERE p.account = c.account AND p.kind = c.kind AND p.record_id = c.record_id)\n    ORDER BY c.rowid LIMIT ?2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "3ac553a3514cd9cc384ecd2e1dc9cf1bf1aac51404d2a55a5a46796252e9846c"
+}

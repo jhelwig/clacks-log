@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM record_observation WHERE account = ?1 AND observation_id IN (\n    SELECT o.observation_id FROM record_observation o WHERE o.account = ?1\n      AND NOT EXISTS (SELECT 1 FROM client_record c WHERE c.account = o.account AND c.latest_observation = o.observation_id)\n      AND NOT EXISTS (SELECT 1 FROM local_review r WHERE r.account = o.account AND r.shared_observation = o.observation_id)\n    ORDER BY o.observation_id LIMIT ?2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "0467583b091262ab87aec9d7be31d9fc015218002b52adff43cdc8594771854f"
+}

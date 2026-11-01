@@ -27,9 +27,11 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
         },
         transfer::RecordRequirement,
     };
+
     let dir = tempfile::tempdir()?;
     let file = dir.path().join("workspace.sqlite");
     let store = ClientStore::create(&file, support::id(1), StoreSettings::default()).await?;
+
     let (_, baseline) = AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
     let qso = support::accepted(1, support::contact(support::qso(support::id(10))));
     let external = ExternalRecordKey {
@@ -41,6 +43,7 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
         collection: RemoteCollection::Qrz { book_id: None },
         description: "Historical unknown book".into(),
     };
+
     let carrier = |revision, payload| {
         support::accepted(
             revision,
@@ -53,6 +56,7 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
             }))),
         )
     };
+
     let observation = carrier(
         2,
         ServicePayload::Observation(Box::new(RemoteObservation {
@@ -74,6 +78,7 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
             },
         })),
     );
+
     let association = carrier(
         3,
         ServicePayload::Association(ExternalAssociation {
@@ -83,6 +88,7 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
             state: AssociationState::Active,
         }),
     );
+
     let mut disposition = carrier(
         4,
         ServicePayload::Disposition(ProcessingDisposition {
@@ -106,6 +112,7 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
         state,
         disposition.stamp.clone(),
     )?;
+
     let source = InstalledCheckpoint {
         account: support::id(1),
         baseline: baseline.id,
@@ -139,6 +146,7 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
             support: vec![],
         },
     };
+
     let mut incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
     incoming
         .page(
@@ -146,22 +154,30 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
             &[disposition.clone(), qso.clone(), association.clone()],
         )
         .await?;
+
     assert!(save::load(&store, association.key()).await?.is_none());
+
     store.close().await?;
+
     let store = ClientStore::open(&file, support::id(1), StoreSettings::default()).await?;
+
     let mut incoming = crate::incoming::Incoming::begin(&store, &manifest).await?;
     incoming.page(&store, &[observation]).await?;
+
     for key in [qso.key(), association.key(), disposition.key()] {
         assert!(save::load(&store, key).await?.is_some());
     }
+
     assert_eq!(incoming.finish(&store).await?, source);
+    clacks_client_store::retention::reclaim_completed_cycle(&store).await?;
+
     // A different accepted binding claiming the exact same namespace identity
     // must roll back its row and progress together, rather than replacing ownership.
     let competing = carrier(
         5,
         ServicePayload::Association(ExternalAssociation {
             id: support::id(603),
-            external,
+            external: external.clone(),
             qso: support::id(10),
             state: AssociationState::Active,
         }),
@@ -186,12 +202,13 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
                 deleted: false,
             }],
             boundaries: vec![],
-            baselines: vec![baseline],
+            baselines: vec![baseline.clone()],
             units: vec![],
             accepted: vec![],
             support: vec![],
         },
     };
+
     let mut incoming = crate::incoming::Incoming::begin(&store, &next).await?;
     assert!(
         incoming
@@ -199,14 +216,91 @@ async fn service_effects_wait_for_the_complete_unit_and_current_ownership_is_uni
             .await
             .is_err()
     );
+
     assert!(save::load(&store, competing.key()).await?.is_none());
+
     assert_eq!(
         save::load(&store, association.key())
             .await?
             .unwrap()
             .latest(),
-        &clacks_sync::record::Observation::Accepted(association)
+        &clacks_sync::record::Observation::Accepted(association.clone())
     );
+
+    // A saved service draft owns its exact historical support even before acceptance.
+    let mut draft = carrier(
+        7,
+        ServicePayload::Disposition(ProcessingDisposition {
+            id: support::id(704),
+            observation: support::id(501),
+            decision: ProcessingDecision::Associated,
+            association: Some(support::id(503)),
+        }),
+    );
+    let mut state = draft.state().clone();
+    let RecordState::Live(RecordValue::Service(service)) = &mut state else {
+        panic!("service draft");
+    };
+    service.support.required = vec![
+        SupportRequirement::ExactFact(VersionReference::from(&association)),
+        SupportRequirement::CoveredEffect(VersionReference::from(&qso)),
+    ];
+    draft =
+        clacks_sync::record::AcceptedRecord::new(draft.key(), state.clone(), draft.stamp.clone())?;
+    assert!(matches!(
+        save::save(&store, draft.key(), None, state).await?,
+        save::SaveOutcome::Saved(_)
+    ));
+
+    let superseded = carrier(
+        6,
+        ServicePayload::Association(ExternalAssociation {
+            id: support::id(503),
+            external,
+            qso: support::id(10),
+            state: AssociationState::Superseded,
+        }),
+    );
+
+    let mut next = crate::incoming::Source {
+        start: clacks_sync::transfer::discovery::DiscoveryStart {
+            source: InstalledCheckpoint {
+                coverage: Coverage::from(superseded.stamp.accepted_at()),
+                ..source.clone()
+            },
+            mode: WindowMode::Incremental {
+                after: source.coverage.clone(),
+            },
+        },
+        page: clacks_sync::transfer::discovery::DiscoveryPage {
+            sequence: 0,
+            requirements: vec![],
+            accepted: vec![superseded],
+            support: vec![],
+            baselines: vec![baseline],
+            boundaries: vec![],
+            units: vec![],
+        },
+    };
+    let incoming = crate::incoming::Incoming::begin(&store, &next).await?;
+    let checkpoint = incoming.finish(&store).await?;
+    clacks_client_store::retention::reclaim_completed_cycle(&store).await?;
+
+    next.start.mode = WindowMode::Incremental {
+        after: checkpoint.coverage,
+    };
+    next.start.source.coverage = Coverage::from(draft.stamp.accepted_at());
+    next.page.accepted = vec![draft.clone()];
+    let incoming = crate::incoming::Incoming::begin(&store, &next).await?;
+
+    assert_eq!(
+        save::load(&store, draft.key()).await?.unwrap().latest(),
+        &clacks_sync::record::Observation::Accepted(draft),
+        "cleanup must preserve the exact body owned by the saved draft so receipt can complete without downloading it again"
+    );
+    incoming.finish(&store).await?;
+
     store.close().await?;
+
     Ok(())
 }

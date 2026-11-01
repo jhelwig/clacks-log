@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT s.payload_id, s.kind, s.record_id FROM service_support s\nWHERE s.account = ?1 AND (\n    EXISTS (SELECT 1 FROM original_basis o WHERE o.account = s.account AND o.payload_id = s.payload_id)\n    OR EXISTS (SELECT 1 FROM pending_record p WHERE p.account = s.account AND p.working_payload = s.payload_id)\n    OR EXISTS (SELECT 1 FROM prepared_change p WHERE p.account = s.account AND p.payload_id = s.payload_id)\n    OR EXISTS (SELECT 1 FROM local_review r WHERE r.account = s.account AND r.local_payload = s.payload_id)\n)\nORDER BY s.payload_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "payload_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "service_support",
+            "name": "payload_id"
+          }
+        }
+      },
+      {
+        "name": "kind",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_support",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "record_id",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "service_support",
+            "name": "record_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b99c652d29a5edb8309ec2ae1374b66173c31345b69de879dd17e08b8819a797"
+}

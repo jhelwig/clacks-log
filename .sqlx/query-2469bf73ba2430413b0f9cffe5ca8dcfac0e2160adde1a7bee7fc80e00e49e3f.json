@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM version_condition WHERE account = ?1 AND condition_id IN (\n    SELECT c.condition_id FROM version_condition c WHERE c.account = ?1\n      AND NOT EXISTS (SELECT 1 FROM prepared_change p WHERE p.account = c.account AND p.condition_id = c.condition_id)\n      AND NOT EXISTS (SELECT 1 FROM prepared_dependency d WHERE d.condition_id = c.condition_id)\n    ORDER BY c.condition_id LIMIT ?2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "2469bf73ba2430413b0f9cffe5ca8dcfac0e2160adde1a7bee7fc80e00e49e3f"
+}

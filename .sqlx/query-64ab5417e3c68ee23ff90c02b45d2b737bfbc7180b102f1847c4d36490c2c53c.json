@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM original_basis WHERE account = ?1 AND original_id IN (\n    SELECT o.original_id FROM original_basis o WHERE o.account = ?1\n      AND NOT EXISTS (SELECT 1 FROM pending_record p WHERE p.account = o.account AND p.original_id = o.original_id)\n      AND NOT EXISTS (SELECT 1 FROM basis_witness w WHERE w.account = o.account AND w.original_id = o.original_id)\n      AND NOT EXISTS (SELECT 1 FROM local_review r WHERE r.account = o.account AND r.original_id = o.original_id)\n    ORDER BY o.original_id LIMIT ?2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "64ab5417e3c68ee23ff90c02b45d2b737bfbc7180b102f1847c4d36490c2c53c"
+}

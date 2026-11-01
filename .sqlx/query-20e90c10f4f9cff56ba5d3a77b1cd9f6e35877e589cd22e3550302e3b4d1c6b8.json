@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM lineage WHERE account = ?1 AND lineage_id IN (\n    SELECT l.lineage_id FROM lineage l WHERE l.account = ?1\n      AND NOT EXISTS (SELECT 1 FROM current_lineage c WHERE c.account = l.account AND c.lineage_id = l.lineage_id)\n      AND NOT EXISTS (SELECT 1 FROM baseline b WHERE b.account = l.account AND b.lineage_id = l.lineage_id)\n      AND NOT EXISTS (SELECT 1 FROM basis_witness w WHERE w.account = l.account AND w.lineage_id = l.lineage_id)\n    ORDER BY l.lineage_id LIMIT ?2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "20e90c10f4f9cff56ba5d3a77b1cd9f6e35877e589cd22e3550302e3b4d1c6b8"
+}

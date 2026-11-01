@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM baseline WHERE account = ?1 AND baseline_row IN (\n    SELECT b.baseline_row FROM baseline b WHERE b.account = ?1\n      AND NOT EXISTS (SELECT 1 FROM version_stamp s WHERE s.account = b.account AND s.baseline_id = b.baseline_id)\n      AND NOT EXISTS (SELECT 1 FROM checkpoint c WHERE c.account = b.account AND c.baseline_id = b.baseline_id)\n      AND NOT EXISTS (SELECT 1 FROM witness_baseline w WHERE w.baseline_row = b.baseline_row)\n    ORDER BY b.baseline_row LIMIT ?2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "78383fee13b59183f5fe6b73353e9f5f943657d2c27a1d58c8da29c13829842e"
+}

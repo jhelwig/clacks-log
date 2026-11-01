@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM record_vector WHERE account = ?1 AND vector_id IN (\n    SELECT v.vector_id FROM record_vector v WHERE v.account = ?1\n      AND NOT EXISTS (SELECT 1 FROM version_stamp s WHERE s.account = v.account AND s.vector_id = v.vector_id)\n      AND NOT EXISTS (SELECT 1 FROM original_basis o WHERE o.account = v.account AND o.vector_id = v.vector_id)\n      AND NOT EXISTS (SELECT 1 FROM prepared_change p WHERE p.account = v.account AND p.vector_id = v.vector_id)\n    ORDER BY v.vector_id LIMIT ?2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "eb143c93a642f9abe73b382474da8b3f06fbd94bc29b15e41f88d575ef7e2c91"
+}

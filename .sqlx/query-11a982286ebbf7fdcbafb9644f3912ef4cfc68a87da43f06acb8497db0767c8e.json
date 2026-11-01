@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM accepted_record WHERE account = ?1 AND envelope_id IN (\n    SELECT envelope_id FROM accepted_record WHERE account = ?1\n      AND envelope_id NOT IN (SELECT CAST(value AS INTEGER) FROM json_each(?2)) ORDER BY envelope_id LIMIT ?3\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "11a982286ebbf7fdcbafb9644f3912ef4cfc68a87da43f06acb8497db0767c8e"
+}

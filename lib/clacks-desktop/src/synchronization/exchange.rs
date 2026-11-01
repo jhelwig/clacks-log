@@ -133,6 +133,7 @@ pub(super) async fn run(
         )));
         // No local proposal or frozen retry is sent until inbound completion above commits.
         pending::publish(socket, store, &mut dirty, stop).await?;
+        clacks_client_store::retention::reclaim_completed_cycle(store).await?;
         updates.send_replace(Some(Arc::new(
             clacks_client_store::settings::snapshot(store).await?,
         )));

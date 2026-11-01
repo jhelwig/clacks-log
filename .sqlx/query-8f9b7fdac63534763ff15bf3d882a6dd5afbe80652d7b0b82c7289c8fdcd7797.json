@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM prepared_change WHERE account = ?1 AND prepared_id IN (\n    SELECT p.prepared_id FROM prepared_change p WHERE p.account = ?1\n      AND NOT EXISTS (SELECT 1 FROM pending_record r WHERE r.account = p.account AND r.prepared_id = p.prepared_id)\n    ORDER BY p.prepared_id LIMIT ?2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "8f9b7fdac63534763ff15bf3d882a6dd5afbe80652d7b0b82c7289c8fdcd7797"
+}
