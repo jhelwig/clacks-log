@@ -387,6 +387,3 @@ reported rather than treated as passing.
 The engineering defaults include composite comparison boundaries,
 reconfirmation after refresh, offline use of usable comparisons, and bounded
 read/retry integration. They do not change the agreed product behavior.
-
-The [#15 implementation plan](superpowers/plans/2026-10-31-unsynchronized-changes.md)
-records the implementation increments and verification boundaries.
