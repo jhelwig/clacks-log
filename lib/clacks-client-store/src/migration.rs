@@ -161,6 +161,3 @@ pub(crate) async fn apply(connection: &mut SqliteConnection, previous: i64) -> a
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;

@@ -355,6 +355,9 @@ fn reason_label(reason: &clacks_sync::client::ReviewReason) -> &'static str {
         ReviewReason::OrderingUnknown(_) => {
             "Available ordering evidence cannot establish which version follows the other."
         }
+        ReviewReason::ContradictoryCoverage => {
+            "The restored server reports this record absent, but a surviving copy contains an accepted version. Review it before publishing a new resolution."
+        }
         ReviewReason::MissingReference(_) => {
             "A referenced logbook or equipment configuration is unavailable."
         }

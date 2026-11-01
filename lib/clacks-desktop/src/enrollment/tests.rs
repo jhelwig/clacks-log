@@ -340,7 +340,12 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
     assert!(snapshot.checkpoint().await?.is_none());
     snapshot.close().await?;
     opened.close().await?;
-    synchronization::verify(&origin, &completed.binding, &browser, &provider, &subject).await?;
+    crate::synchronization::tests::verify(&completed.binding)
+        .await
+        .context("verify endpoint scope and retry")?;
+    synchronization::verify(&origin, &completed.binding, &browser, &provider, &subject)
+        .await
+        .context("verify two desktop sessions")?;
     assert_eq!(
         clacks_client_store::enrollment::attempt(&initiating)
             .await?

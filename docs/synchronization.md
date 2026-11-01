@@ -120,10 +120,9 @@ and [crate integration contract](../lib/clacks-sync/README.md#real-transaction-o
 
 ### Baseline installation
 
-The [#16 retention and recovery proposal](synchronization-retention-proposal.md)
-specifies proposed database changes, reference roots and transaction boundaries
-for this maintenance workflow, separating agreed decisions from engineering
-defaults.
+The [retention and recovery contract](synchronization-retention.md) specifies
+database ownership, reference roots and transaction boundaries for automatic
+collection, separating agreed decisions from engineering defaults.
 
 Start with one atomic installation transaction (D390). Include the required
 metadata conversion and guarded account update in that transaction; subsequent
@@ -231,39 +230,39 @@ Changes to provider evidence synchronize under their evidence model; they are no
 
 Repeated delivery of the same remote observation has no second effect: it must not create a recorded-contact edit, replay a processing decision, or undo later work. Distinguish new provider updates from duplicate transfer. D237 supersedes the former D33–D36 overwrite/enrichment-revision model; current source separation does not require preserving that model's mutation steps.
 
-D140 includes recovery-relevant service evidence in MVP synchronization: publication outcomes with the D32 actual sent values/destination context, remote observations, and processing decisions including matching, rejection, and enrichment. Surviving clients can supply missing evidence to an older restored server through normal synchronization. A recovered success covers its recorded publication, not later changed service-relevant values; recovered processing decisions must not replay completed enrichment. Exact representation, retention, and coordination with accepted QSO state remain open.
+D140 includes recovery-relevant service evidence in MVP synchronization: publication outcomes with the D32 actual sent values/destination context, remote observations, and processing decisions including matching, rejection, and enrichment. Surviving clients can supply missing evidence to an older restored server through normal synchronization. A recovered success covers its recorded publication, not later changed service-relevant values; recovered processing decisions must not replay completed enrichment. Representation and dependency rules are defined in the service-evidence contract; collection follows the retention contract.
 
 ## Restoration scope (D55)
 
-Explicit restoration of deleted QSOs is post-MVP. The earlier MVP restore-action proposal was declined. D54 still requires retaining deletion information and external associations for downloaded-add suppression. D05 deletion-versus-edit conflict handling remains required; excluding a dedicated restoration feature does not silently resolve those conflicts. Exact retention and any future restoration design remain open.
+Explicit restoration of deleted QSOs is post-MVP. The earlier MVP restore-action proposal was declined. D54 still requires retaining deletion information and external associations for downloaded-add suppression. D05 deletion-versus-edit conflict handling remains required; excluding a dedicated restoration feature does not silently resolve those conflicts. The retention contract preserves current tombstones and required evidence. A future explicit restoration workflow remains post-MVP.
 
 ## Durability and convergence
 
 The system must preserve changes across disconnection, restart, retry, and repeated transfers. New contacts, edits, deletion intent, relevant metadata, and service outcomes need to reach connected clients without silent loss or unintended duplication.
 
-Detailed stable identifiers, revision representation, change journals, initial synchronization mechanics, duplicate detection and retention remain specification work under the later decisions. D235 selects encrypted WebSocket transport; account authentication follows D190–D193/D231–D233. D56 selects empty-log enrollment with ADIF migration for preexisting independent contacts. Device clocks must not be assumed to establish conflict order.
+The synchronization model, integration contract and retention contract define stable identifiers, version context, journal discovery, initial receipt, duplicate handling and collection. D235 selects encrypted WebSocket transport; account authentication follows D190–D193/D231–D233. D56 selects empty-log enrollment with ADIF migration for preexisting independent contacts. Device clocks must not be assumed to establish conflict order.
 
 ## Indefinite offline operation (D60)
 
 An enrolled client can reconnect through normal synchronization after an indefinite offline period. Elapsed offline time alone must not require ADIF export/re-import or re-enrollment. Pending contacts/edits remain durable, and the representation/retention of synchronized state must permit negotiation with an older client. This does not require retaining each intermediate edit as a history event.
 
-D56 governs initial enrollment of an independently populated log, not the normal return of an enrolled client. Exact retention, compaction, and device authorization policies remain to be designed without introducing an automatic offline-expiry rule.
+D56 governs initial enrollment of an independently populated log, not the normal return of an enrolled client. The retention contract bounds collection by durable receipt; the client-enrollment contract defines authorization without automatic offline expiry.
 
 ## Initial connection and migration (D56)
 
 MVP enrollment into an existing synchronized log uses an empty local log, which receives the shared server log. For preexisting independent contacts, export to ADIF before joining and re-import afterward using D38-D43's import workflow. Direct merging of independently populated logs during enrollment is outside MVP. This does not authorize silently clearing preexisting local data.
 
-Once enrolled, the client remains independently writable offline, and contacts/edits accumulated offline synchronize normally. Shared application identifiers/revisions participate in the sync protocol; repeated transfer of an existing record is not another ADIF import. Initial download mechanics and recovery still need design.
+Once enrolled, the client remains independently writable offline, and contacts/edits accumulated offline synchronize normally. Shared application identifiers/revisions participate in the sync protocol; repeated transfer of an existing record is not another ADIF import. The existing discovery and receipt operations govern initial download and recovery.
 
 ## Rollback resilience (D58)
 
 Normal synchronization must recover from an older restored server by negotiating shared/missing state with existing clients. Recover client-held synchronized data and preserve pending work; do not require manual reconciliation or ADIF migration merely because the server is behind. The server coordinates accepted shared state and external jobs; clients detect and resolve conflicts. Divergent record edits still require the established field-level resolution; rollback recovery does not select silent merging or last-writer-wins.
 
-Revision identities/history evidence must distinguish a restored older history from a newer or divergent one. Server counters and transfer cursors may optimize transport but cannot alone establish that two revisions are identical. Exact history representation, recovery of service metadata, and retention remain open.
+Revision identities/history evidence must distinguish a restored older history from a newer or divergent one. Server counters and transfer cursors may optimize transport but cannot alone establish that two revisions are identical. Timeline ancestry and retained baseline interpretation supply ordering evidence; the service-evidence and retention contracts define recovery dependencies and collection.
 
 D141 makes restore publication an operator-controlled workflow: pause all uploads during rollback/restore, synchronize with available sources to become as current as possible, then explicitly resume uploads. A client may never resolve or submit a detected conflict; notifying the server must not create a publication dependency on that action. This does not suspend normal synchronization, expire offline clients, or require every enrolled client to return. Exact pause scope/control, safe restore startup, and protocol-level race protection remain open.
 
-D147 permits explicit two-way field resolution when recovery establishes genuine divergence but no available copy retains the common original values. Explain that change attribution is unavailable rather than inventing three-way classifications. D136's original-value retention for ordinary pending work remains required. Missing historical payload and unavailable causal ordering are separate problems. D148 permits conservative explicit reconciliation for differing states when ordering cannot be established, clearly explaining that missing ordering evidence is the reason. This may prompt where complete metadata would have proved a one-sided change; do not call uncertainty proven divergence or silently select a winner. Exact retention/GC remains open.
+D147 permits explicit two-way field resolution when recovery establishes genuine divergence but no available copy retains the common original values. Explain that change attribution is unavailable rather than inventing three-way classifications. D136's original-value retention for ordinary pending work remains required. Missing historical payload and unavailable causal ordering are separate problems. D148 permits conservative explicit reconciliation for differing states when ordering cannot be established, clearly explaining that missing ordering evidence is the reason. This may prompt where complete metadata would have proved a one-sided change; do not call uncertainty proven divergence or silently select a winner. The retention contract preserves comparison evidence under these rules.
 
 D153 explicitly permits detecting rollback and requiring manual client reconciliation. A storage quorum or uninterrupted atomic-register recovery is not a requirement. The proposed comparison between advertised overall server revision and retained client knowledge can detect a regression, but is not a selected complete detector. Preserve data and ordinary pending originals; exact handling of invalid comparison metadata and repair scope remain open. An older server that is merely behind may still catch up automatically when relationships are established.
 
@@ -275,7 +274,7 @@ Client catch-up is receive-first: durably incorporate all server updates covered
 
 The protocol needs a gap-free handoff between catch-up and live updates. Changes made during catch-up must be included or queued for subsequent delivery. Retry/overlap must have no second effect, and acknowledgments must not discard work that the peer has not durably accepted. D235 selects encrypted WebSocket transport. Exact snapshot boundaries, subscription/acknowledgment design and backpressure remain specification work. Streaming notifications do not imply retaining a permanent history event for every intermediate edit.
 
-D144 permits automatic fuller state reconciliation when incremental transfer history is unavailable. It remains normal, bidirectional synchronization, preserving enrollment, surviving synchronized evidence, and pending work. A larger comparison or transfer is acceptable. Exact snapshot/manifest mechanics remain open, and this fallback alone does not justify collecting causal identities, deletion knowledge, or service evidence.
+D144 permits automatic fuller state reconciliation when incremental transfer history is unavailable. It remains normal, bidirectional synchronization, preserving enrollment, surviving synchronized evidence, and pending work. A larger comparison or transfer is acceptable. Discovery exhaustion and durable receipt establish the transferred coverage; this fallback alone does not justify collecting causal identities, deletion knowledge, or service evidence.
 
 External-service upload cooldown has no role in this client synchronization behavior. No manual sync-trigger requirement was accepted in this discussion.
 

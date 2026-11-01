@@ -225,21 +225,29 @@ async fn operator_process() -> anyhow::Result<()> {
         let later = store
             .authenticate(&login, time::Duration::days(14))
             .await?
-            .context("missing second login")?
-            .account_id;
+            .context("missing second login")?;
         let wrong_file = directory.path().join("wrong-key");
         std::fs::write(&wrong_file, [64u8; 32])?;
         let wrong = WrappingKeys::load(&crate::config::WrappingKeyConfig {
             active: from.clone(),
             files: [(from.clone(), wrong_file)].into(),
         })?;
-        let mut tx = pool.begin().await?;
-        sqlx::query_file!("sql/account_lock.sql", later.to_string())
-            .fetch_one(&mut *tx)
-            .await?;
-        crate::secrets::keys::create_in(&mut tx, &wrong, later, 1).await?;
-        tx.commit().await?;
-        if later < account {
+        let alternate = crate::oauth::store::OAuthStore::new(
+            crate::store::AccountStore::new(pool.clone()),
+            Arc::new(wrong),
+        );
+        let issuer =
+            crate::oauth::config::issuer(alternate.clone(), &"https://clacks.example".parse()?);
+        crate::store::tests::enrollment::approve(
+            &issuer,
+            &alternate,
+            &later,
+            &dpop,
+            "Second desktop",
+            crate::enrollment::ApprovalPurpose::New,
+        )
+        .await?;
+        if later.account_id < account {
             std::fs::write(&source, [64u8; 32])?;
         }
     }

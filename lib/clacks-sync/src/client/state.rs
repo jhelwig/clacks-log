@@ -1,6 +1,38 @@
-//! Checked local record and frozen-proposal construction.
+//! Native client-state access and checked record/proposal construction.
 
 use super::*;
+
+impl OriginalBasis {
+    /// Identify the original's record without inferring a version from current coverage.
+    pub fn key(&self) -> RecordKey {
+        match self {
+            Self::Accepted(v) => v.key,
+            Self::NeverCreated { key, .. }
+            | Self::SubsumedOwn { key, .. }
+            | Self::Unavailable { key, .. } => *key,
+        }
+    }
+
+    /// Read retained original values; absence and missing originals have no saved state.
+    pub fn state(&self) -> Option<&RecordState> {
+        match self {
+            Self::Accepted(v) => Some(&v.state),
+            Self::SubsumedOwn { state, .. } => Some(state),
+            _ => None,
+        }
+    }
+
+    /// Read retained record context for outgoing preparation and compaction witnesses.
+    pub fn vector(&self) -> RecordVector {
+        match self {
+            Self::Accepted(v) => v.stamp.vector().clone(),
+            Self::SubsumedOwn {
+                vector, witness, ..
+            } => vector.join(witness.vector()),
+            _ => RecordVector::default(),
+        }
+    }
+}
 
 impl TryFrom<ClientRecordFields> for ClientRecord {
     type Error = anyhow::Error;

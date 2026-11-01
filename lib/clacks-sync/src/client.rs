@@ -49,38 +49,6 @@ pub enum OriginalBasis {
     },
 }
 
-impl OriginalBasis {
-    /// Identify the original's record without inferring a version from current coverage.
-    pub fn key(&self) -> RecordKey {
-        match self {
-            Self::Accepted(v) => v.key,
-            Self::NeverCreated { key, .. }
-            | Self::SubsumedOwn { key, .. }
-            | Self::Unavailable { key, .. } => *key,
-        }
-    }
-
-    /// Read retained original values; absence and missing originals have no saved state.
-    pub fn state(&self) -> Option<&RecordState> {
-        match self {
-            Self::Accepted(v) => Some(&v.state),
-            Self::SubsumedOwn { state, .. } => Some(state),
-            _ => None,
-        }
-    }
-
-    /// Read retained record context for outgoing preparation and compaction witnesses.
-    pub fn vector(&self) -> RecordVector {
-        match self {
-            Self::Accepted(v) => v.stamp.vector().clone(),
-            Self::SubsumedOwn {
-                vector, witness, ..
-            } => vector.join(witness.vector()),
-            _ => RecordVector::default(),
-        }
-    }
-}
-
 /// Unpublished local work and at most one unsettled frozen version.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PendingRecord {
@@ -255,6 +223,8 @@ pub enum ReviewReason {
     MissingOriginal,
     /// Differing versions lack interpretable ordering.
     OrderingUnknown(UnknownReason),
+    /// A restored history claims absence inside a prefix containing a surviving accepted record.
+    ContradictoryCoverage,
     /// A selected native reference is gone.
     MissingReference(RecordKey),
     /// Automatic admission under the old actor is no longer allowed.

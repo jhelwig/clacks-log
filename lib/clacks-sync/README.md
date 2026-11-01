@@ -106,6 +106,12 @@ provide evidence interpretation and dependency rules without treating provider
 contradictions as competing recorded-QSO edits. Consuming workflows own service
 execution and maintenance transactions.
 
+`compaction::installation` computes the expanded common durable coverage of
+authorized clients and plans equivalent current-context conversions. The server
+consumes this result in its account-locked atomic installation; the core does
+not perform database cleanup. An unacknowledged authorized client prevents
+advancement beyond the existing baseline. No-work plans create no new revision.
+
 ## Verification and limits
 
 Tests call production operations with native QSO, tag, profile and group values.

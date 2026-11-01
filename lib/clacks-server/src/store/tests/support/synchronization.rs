@@ -1,5 +1,7 @@
 //! Real native admissions and proposal inputs shared by synchronization scenarios.
 
+pub(crate) mod transfer;
+
 use crate::{
     auth::oidc::VerifiedIdentity,
     enrollment::{ApprovalPurpose, AuthorizedClient},
@@ -29,6 +31,41 @@ pub(crate) struct NativeAccount {
 }
 
 impl NativeAccount {
+    /// Admit another real client, including explicit replacement after a restore.
+    pub(crate) async fn authorize(
+        &self,
+        label: &str,
+        purpose: ApprovalPurpose,
+    ) -> anyhow::Result<AuthorizedClient> {
+        let directory = tempfile::tempdir()?;
+        let file = directory.path().join("wrapping-key");
+        std::fs::write(&file, [31_u8; 32])?;
+        let keys = Arc::new(WrappingKeys::load(&crate::config::WrappingKeyConfig {
+            active: "test".into(),
+            files: [("test".into(), file)].into(),
+        })?);
+
+        let oauth = OAuthStore::new(self.store.clone(), keys);
+        let issuer = config::issuer(oauth.clone(), &"https://clacks.example".parse()?);
+        let dpop = DPoP::builder()
+            .signer(PrivateKey::generate(GenerateAlgorithm::Es256, None)?)
+            .build();
+
+        let issued = crate::store::tests::enrollment::approve(
+            &issuer,
+            &oauth,
+            &self.principal,
+            &dpop,
+            label,
+            purpose,
+        )
+        .await?;
+        oauth
+            .authorized(&issued.response.access_token)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("newly admitted client is not authorized"))
+    }
+
     /// Create actual authority once for the scenario, using production migrations and grants.
     pub(crate) async fn create() -> anyhow::Result<Self> {
         let migrate = PgPoolOptions::new()
@@ -63,6 +100,7 @@ impl NativeAccount {
             active: "test".into(),
             files: [("test".into(), file)].into(),
         })?);
+
         let oauth = OAuthStore::new(store.clone(), keys);
         let issuer = config::issuer(oauth.clone(), &"https://clacks.example".parse()?);
         let dpop = DPoP::builder()
@@ -94,6 +132,7 @@ impl NativeAccount {
             .authorized(&second.response.access_token)
             .await?
             .unwrap();
+
         Ok(Self {
             store,
             first,
@@ -111,21 +150,10 @@ impl NativeAccount {
     ) -> anyhow::Result<PreparedChange> {
         let mut transaction = self.store.pool.begin().await?;
         let account = metadata::account::load(&mut transaction, client.account).await?;
-        let owner = key.account.to_string();
-        let kind = crate::store::payload::kind(key.id);
-        let id = key.id.to_string();
-        let latest = match sqlx::query_file!("sql/synchronization/head_select.sql", owner, kind, id)
-            .fetch_optional(&mut *transaction)
-            .await?
-        {
-            Some(row) => Observation::Accepted(
-                metadata::accepted::load_envelope(&mut transaction, key, row.envelope_id).await?,
-            ),
-            None => Observation::Absent {
-                key,
-                checkpoint: crate::store::synchronization::checkpoint(&account),
-            },
-        };
+
+        let latest =
+            crate::store::synchronization::context::observation(&mut transaction, &account, key)
+                .await?;
         let original = match &latest {
             Observation::Accepted(value) => OriginalBasis::Accepted(value.clone()),
             Observation::Absent { checkpoint, .. } => OriginalBasis::NeverCreated {
@@ -149,15 +177,13 @@ impl NativeAccount {
         .try_into()?;
         let mut dependencies = Vec::new();
         for reference in clacks_sync::acceptance::required_references(key, &state) {
-            let kind = crate::store::payload::kind(reference.id);
-            let id = reference.id.to_string();
-            let row = sqlx::query_file!("sql/synchronization/head_select.sql", owner, kind, id)
-                .fetch_one(&mut *transaction)
-                .await?;
-            dependencies.push(VersionCondition::from_observation(&Observation::Accepted(
-                metadata::accepted::load_envelope(&mut transaction, reference, row.envelope_id)
-                    .await?,
-            ))?);
+            let observed = crate::store::synchronization::context::observation(
+                &mut transaction,
+                &account,
+                reference,
+            )
+            .await?;
+            dependencies.push(VersionCondition::from_observation(&observed)?);
         }
         let interpretation =
             metadata::account::interpretation(&mut transaction, client.account).await?;
@@ -175,6 +201,7 @@ impl NativeAccount {
             anyhow::bail!("fixture proposal was not ready");
         };
         transaction.commit().await?;
+
         Ok(change)
     }
 }

@@ -72,7 +72,8 @@ To regenerate it, install the pinned standard tool:
 cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features sqlite
 ```
 
-Choose a fresh temporary SQLite file, set `DATABASE_URL` to its SQLite URL, and
+Choose a fresh temporary SQLite file, set both `DATABASE_URL` and
+`CLACKS_SQLITE_DATABASE_URL` to its SQLite URL, and
 run from the workspace root with `SQLX_OFFLINE=false`:
 
 ```sh
@@ -84,6 +85,10 @@ cargo sqlx prepare --check --workspace -- --package clacks-client-store --all-ta
 
 `--workspace` keeps metadata in the root `.sqlx/` directory; the Cargo package
 selection limits compilation to the client store, including its test queries.
+The crate's standard `sqlx.toml` selects `CLACKS_SQLITE_DATABASE_URL` for its
+macros. Leave that variable unset when preparing PostgreSQL metadata; dependent
+client queries then use their committed offline metadata rather than the
+server's PostgreSQL connection.
 The Linux verification workflow uses the same scoped check and caches
 Cargo dependencies, compiled dependency artifacts and the installed SQLx CLI.
 Cache hits do not skip metadata verification or any workspace checks.
@@ -164,6 +169,11 @@ unused mirror of server account/membership metadata.
   support already stored outside the window. Without an embedded destination
   description, it supplies the stored destination to the native dependency checks.
 - `retention` installs received interpretation while sealing covered pending bases.
+  After a completed desktop sync cycle, `reclaim_completed_cycle` removes one
+  bounded batch of unreferenced relational copies. It preserves originals,
+  witnesses, current/pending/prepared/review roles, current actor counters and
+  active operating values; it neither advances coverage nor expires enrollment.
+  Equivalent baseline representations share equal native payloads.
   Insufficient coverage keeps original evidence. Physical collection is a later
   consuming maintenance workflow; this store does not run an unintegrated collector.
 - `read::snapshot` establishes one read transaction for history, review, operating

@@ -91,3 +91,6 @@ fn associated(context: &ReceiptContext, version: i64) -> anyhow::Result<Vec<u8>>
         storage_header: envelope::receipt_header(version),
     })?)
 }
+
+#[cfg(test)]
+mod tests;

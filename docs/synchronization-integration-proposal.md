@@ -219,7 +219,7 @@ state. Derive that obligation from the actual installed accepted record; its
 position is distinct from the stamp's original acceptance position. Discovery
 reads the stored obligation without requiring a historical payload just to
 infer deletion status. Retain referenced stamp interpretation while journal
-entries need it. The [#16 proposal](synchronization-retention-proposal.md)
+entries need it. The [retention contract](synchronization-retention.md)
 defines this collection integration.
 Record the retained-journal boundary explicitly: an empty query result alone
 cannot certify that an older requester has no missing changes.

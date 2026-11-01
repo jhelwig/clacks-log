@@ -1,10 +1,9 @@
-# Synchronization retention and recovery: integration proposal for #16
+# Synchronization retention and recovery
 
-This proposal completes automatic collection and real-store recovery integration
-for the existing account synchronization model. Decisions D152–D156, D248 and
-D388–D390 are requirements. Choices explicitly marked **Engineering default**
-are proposed implementation choices, not additional user approvals. This is a
-proposal for review, not a claim that collection is already implemented.
+Automatic collection and real-store recovery extend the account synchronization
+model. Decisions D152–D156, D248 and D388–D390 are requirements. Choices marked
+**Engineering default** are implementation settings, not additional product
+decisions.
 
 ## 1. Scope and existing behavior
 
@@ -17,7 +16,7 @@ older server through another currently authorized client's server connection.
 There is no peer-to-peer topology, storage quorum, per-edit history graph or
 new identity on ordinary restart.
 
-The production code already provides:
+The production components provide:
 
 - `clacks-sync`: coverage/lineage, baseline-aware comparison, durable-receipt
   rules, pending-basis witnesses, membership transitions and rollback recovery.
@@ -29,11 +28,10 @@ The production code already provides:
 - `clacks-desktop`: authenticated synchronization and Unsynchronized changes
   review, including conservative comparisons and deleted-reference repair.
 
-The gaps are common-boundary selection and metadata conversion in their real
-consuming transaction, journal pruning with a truthful retained boundary,
-reference-aware physical cleanup, and recovery verification after that cleanup.
-Do not restore an unused standalone collector, generic repository or second
-synchronization engine.
+Common-boundary selection and metadata conversion run in one PostgreSQL
+transaction. Separate transactions prune journal entries and reclaim unreferenced
+storage. SQLite cleanup runs after a completed desktop synchronization cycle.
+These operations use the existing native comparison and receipt rules.
 
 ## 2. Binding decisions and engineering defaults
 
@@ -49,7 +47,7 @@ synchronization engine.
 | Baseline installation and required metadata conversion are one atomic transaction; physical cleanup is separate | D390 |
 | Distinct semantic service evidence remains retained for MVP; deletion and replay memory have independent obligations | service-evidence.md §12, D140 |
 
-**Engineering defaults for this proposal:**
+**Engineering defaults:**
 
 - Run collection inside the existing server process using Tokio and SQLx.
   Start one maintenance loop per application instance; account-row locking
@@ -59,7 +57,7 @@ synchronization engine.
   at most 1,000 owning rows. These are starting settings, not measured optimal
   values or a performance service-level promise.
 - Make the journal target a deployment configuration value. Cadence, account
-  page size and cleanup batch size can start as named internal defaults; do not
+  page size and cleanup batch size are named internal defaults; do not
   introduce a configuration framework or public control for every constant.
 - Process accounts serially within a worker. Page through the entire account
   set, checking shutdown between accounts/batches, rather than loading all
@@ -83,23 +81,23 @@ Reuse `sync_accounts`, `sync_baselines`, `coverage`, `lineage`,
 `installation_journal`, `staged_accepted`, `retained_accepted`,
 `current_external_binding`, `coupled_unit` and `coupled_member`.
 
-Add `installation_journal.installation_order BIGINT GENERATED ALWAYS AS
-IDENTITY` and an index on `(account, installation_order)`. This is a database-local
+`installation_journal.installation_order BIGINT GENERATED ALWAYS AS
+IDENTITY` has an index on `(account, installation_order)`. This is a database-local
 retention ordering, not a synchronization revision or ordering proof. The current
 `(account, timeline_id, revision, kind, record_id)` key remains the semantic
 installation identity. Each account's writers already serialize on its account
 row, so this sequence provides append order across timeline changes without
 comparing unrelated timeline revision numbers. Gaps have no meaning. This column
 is not transmitted, recovered from clients or used for causal comparison.
-Use it as the server's private journal page cursor as well. The current cursor
-uses only timeline/revision; a metadata installation can have several record
-entries at one revision and must not skip entries at a page boundary. Continue
+The server also uses it as its private journal page cursor. A metadata
+installation can have several record entries at one revision and must not skip
+entries at a page boundary. Continue
 filtering the traversal by native per-timeline lower/target coverage; append order
 is not a substitute for those checks.
 
 Store the complete native journal obligation using the existing
 `RecordRequirement` fields: record key, installed stamp and deletion state.
-Keep the existing key/stamp references and add `deleted BOOLEAN NOT NULL`,
+The journal retains key/stamp references and `deleted BOOLEAN NOT NULL`,
 derived from the actual installed `AcceptedRecord` when constructing the native
 journal change. This describes the historical obligation, not the current head.
 Read it directly during discovery; do not reconstruct one deletion bit by loading
@@ -283,9 +281,8 @@ an established successor, or a covering deletion. Include that actual accepted
 material and the unchanged dependency descriptor in the transfer. Matching user
 values alone do not prove coverage, and unknown ordering is not succession.
 
-The current discovery loader flattens these distinctions into exact lookups.
-Correct that adapter to use the existing domain rules; do not preserve an
-unnecessary body solely to accommodate the shortcut. If no covering material
+Discovery and collection use the same native support predicate, preserving
+exact-fact versus covered-effect semantics. If no covering material
 exists, retain/load the required historical effect where available; otherwise
 keep the existing incomplete/staged outcome without inventing a replacement.
 Do not reinstall an old effect over its accepted successor or alter genuine
@@ -336,15 +333,17 @@ local cleanup advance account coverage.
 
 **Engineering default:** perform local reclamation after a completed sync cycle,
 when its connection-owned source/receipt objects have finished, using existing
-session/store ownership and immediate write transactions. No second desktop
-scheduler or public maintenance API with only test callers is introduced.
-Offline-only save-history reclamation can reuse the same internal cleanup when
-there is an actual local idle-maintenance caller; it is not a new #16 UI feature.
+session/store ownership and immediate write transactions. Perform one bounded
+batch per completed cycle; any backlog waits for a later cycle. No second
+desktop scheduler or offline-only save-history maintenance runs.
 
 Local roots include `client_record` observations/pending roles, retained/staged
 accepted values, `local_review` and `review_retained`, original/prepared/witness
 rows and their conditions/references, the installed checkpoint/current lineage,
 service support/coupled/binding state and active operating/saved-source state.
+Support traversal starts from surviving accepted envelopes and from service
+payloads owned by original, working, prepared and review roles. Keeping a draft
+payload alone is insufficient when it still requires an exact historical body.
 Keep the current actor's local counter high-water marks. Old counters are not
 collectible while pending/prepared work or authorization-review holds need them;
 never infer revocation merely from elapsed time. Credentials and enrollment
@@ -379,6 +378,16 @@ reused counters already beyond every surviving witness remain outside universal
 detection guarantees. Reapply known revocations after an older backup as required
 by D143. Protected server-only credentials still require the documented backup
 material; synchronizing QSO state does not recover a lost private key.
+
+After a recovery fork, a surviving accepted record can contradict the restored
+server's claimed absence inside an old prefix, including revisions reused by
+reauthorization before the rollback witness arrives. Preserve the copy and
+request explicit `ContradictoryCoverage` review for editable records. Other
+records continue to recover; the unresolved record cannot certify recovered
+coverage. An explicit resolution creates a new conditional acceptance through
+the existing client workflow. Service evidence remains staged rather than
+becoming a manual QSO edit. Same-history contradictory claims remain integrity
+errors.
 
 D141's external-upload pause and explicit resume remain unchanged. Actual
 provider effects/history and their restored-startup controls belong to the
@@ -426,9 +435,9 @@ future consumers or tests.
 
 Follow [the observability contract](observability.md#synchronization-retention-and-baseline-installation).
 Installation, journal pruning and physical cleanup are distinct workloads with
-separate metric families. **Proposed metric names are engineering defaults:**
+separate metric families. Metric names describe the measured operations:
 
-| Quantity | Proposed metric |
+| Quantity | Metric |
 | --- | --- |
 | Installation attempt duration including commit | `clacks_sync_baseline_install_duration_seconds{outcome}` histogram |
 | Installation account-lock acquisition wait | `clacks_sync_baseline_lock_wait_seconds{outcome}` histogram |
@@ -443,7 +452,9 @@ separate metric families. **Proposed metric names are engineering defaults:**
 Use bounded outcomes appropriate to each operation: installed/pruned/reclaimed,
 unchanged, contended, blocked and failed as applicable. Do not add the entire
 cross-product of unrelated operation labels to every metric. A skipped account
-has no fictitious lock-holding duration. Ordinary synchronization/enrollment
+has no fictitious lock-holding duration. Journal pruning and physical cleanup
+distinguish committed removals, no work and lock contention independently of
+whether another bounded batch may be needed. Ordinary synchronization/enrollment
 write boundaries report their own account-lock waits where the same lock is
 acquired, rather than putting unrelated callers under the installation metric.
 
@@ -473,6 +484,11 @@ Use project Rust tooling and production migrations with disposable SQLite and
 PostgreSQL stores. Do not modify persistent development accounts or enable
 currently disabled Windows CI. No Python fixtures, database-trigger fault
 injection, library-behavior tests or coverage-number gate is introduced.
+Tests use existing preparation, discovery, receipt, review and maintenance
+operations rather than test SQL or direct query-file execution. The isolated
+archive restore uses ordinary PostgreSQL tools. Physical sharing and reference
+selection remain implementation obligations; behavioral assertions do not claim
+to measure duplicate rows or disk usage.
 
 - Exercise three actual durable acknowledgments at different positions; verify
   common-boundary selection and that revocation removes only the closed actor's
@@ -487,7 +503,8 @@ injection, library-behavior tests or coverage-number gate is introduced.
   contexts replace current representations without changing native values or
   moving a pending original to a new basis.
 - Prune beyond a small configured entry limit across a real recovery timeline
-  change; verify the floor and entry count, then return an older authorized
+  change; verify incremental versus full discovery at the exact retained
+  installation boundary, then return an older authorized
   client through actual full reconciliation with pending edits preserved.
 - Retain a journal entry while reclaiming its unneeded historical QSO body;
   discovery must still emit its correct stored key/stamp/deletion obligation.
@@ -525,7 +542,6 @@ acceptance remain explicit verification limits, not passing claims.
 D388–D390 select when collection runs, the journal-budget kind and the initial
 atomic installation direction. They do not select numeric defaults, a new
 protocol, a background framework, a new restore mode or guaranteed lock latency.
-The engineering defaults above can be revised during specification/planning if
-concrete schema/consumer analysis warrants it, while preserving the binding
-behavior. Record any material resulting question for the user rather than
-quietly replacing that behavior.
+Operational defaults can change with measured workload evidence while preserving
+the binding behavior. Changing the protocol, authorization lifetime or conflict
+policy requires a separate product decision.

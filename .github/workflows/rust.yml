@@ -55,6 +55,10 @@ jobs:
           --health-cmd "pg_isready -U postgres -d clacks"
           --health-interval 5s --health-timeout 3s --health-retries 10
     env:
+      # Retain file/line backtraces without full debugger data in every test
+      # executable. Keep ordinary local development profiles unchanged.
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
       SQLX_OFFLINE: 'true'
       LEPTOS_OUTPUT_NAME: clacks-web
       CLACKS_TEST_DATABASE_URL: postgres://clacks_migrator@127.0.0.1:5432/clacks
@@ -68,10 +72,8 @@ jobs:
         with:
           # Include the installed tool's version/features alongside the action's
           # automatic OS, architecture, compiler, manifest and lockfile keys.
-          key: sqlx-cli-0.9.0-sqlite-postgres-rustls-leptos-0.3.11
-          workspaces: |
-            . -> target
-            . -> target/front
+          key: sqlx-cli-0.9.0-sqlite-postgres-rustls
+          workspaces: . -> target
       - name: Fetch locked Rust dependencies
         run: cargo fetch --locked
       - name: Install pinned SQLx metadata tooling
@@ -90,6 +92,7 @@ jobs:
         env:
           SQLX_OFFLINE: 'false'
           DATABASE_URL: sqlite://clacks-query-check.sqlite
+          CLACKS_SQLITE_DATABASE_URL: sqlite://clacks-query-check.sqlite
         run: |
           cargo sqlx database create
           cargo sqlx migrate run --source lib/clacks-client-store/migrations
@@ -104,7 +107,9 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all --check
       - name: Compile workspace applications and tests
-        run: cargo build --workspace --all-targets --timings --locked --offline
+        run: |
+          df -h .
+          cargo build --workspace --all-targets --timings --locked --offline
       - name: Verify desktop command-line startup without a display
         shell: bash
         run: |
@@ -123,12 +128,6 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --workspace --no-deps --document-private-items --locked --offline
-      - name: Install pinned Rust web build tooling
-        run: |
-          rustup target add wasm32-unknown-unknown
-          cargo install cargo-leptos --version 0.3.11 --locked
-      - name: Build release server and hydrated browser assets
-        run: cargo leptos build --release
       - name: Preserve Cargo build timing reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -137,3 +136,39 @@ jobs:
           path: target/cargo-timings/*.html
           if-no-files-found: ignore
           retention-days: 7
+      - name: Report build disk usage
+        if: always()
+        run: |
+          df -h .
+          du -sh target ~/.cargo
+
+  verify-web:
+    # Release/web builds do not consume workspace test artifacts. Keep their
+    # tooling and outputs on a separate runner rather than accumulating both.
+    runs-on: ubuntu-latest
+    env:
+      SQLX_OFFLINE: 'true'
+      LEPTOS_OUTPUT_NAME: clacks-web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Resolve repository Rust toolchain
+        run: rustup show active-toolchain
+      - name: Cache Rust web dependency artifacts and installed tools
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: cargo-leptos-0.3.11
+          workspaces: . -> target
+      - name: Fetch locked Rust dependencies
+        run: cargo fetch --locked
+      - name: Install pinned Rust web build tooling
+        run: |
+          df -h .
+          rustup target add wasm32-unknown-unknown
+          cargo install cargo-leptos --version 0.3.11 --locked
+      - name: Build release server and hydrated browser assets
+        run: cargo leptos build --release
+      - name: Report build disk usage
+        if: always()
+        run: |
+          df -h .
+          du -sh target ~/.cargo

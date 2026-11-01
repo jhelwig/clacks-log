@@ -17,7 +17,7 @@ receive-first exchange, fuller-state fallback and client-side review.
 offline metadata, PostgreSQL, SQLite, tracing and metrics. Standard PostgreSQL
 snapshot tools are used only by the isolated automated restore scenario.
 
-**Specification:** [Revised integration proposal](../../synchronization-retention-proposal.md).
+**Specification:** [Synchronization retention and recovery](../../synchronization-retention.md).
 Also read [synchronization](../../synchronization.md),
 [the native model](../../synchronization-model.md),
 [service-evidence retention](../../service-evidence.md#12-retention-and-collection),
@@ -47,6 +47,9 @@ and [backup/recovery](../../backup-recovery.md).
 - Tests must expose a concrete Clacks mistake. Do not test SQLx migration or
   database durability machinery, inject triggers/failpoints, add interactive
   tests, compile TrustedQSL, generate Python fixtures or chase coverage counts.
+- Use existing Clacks operations for setup and assertions. Do not add test SQL,
+  invoke production query files directly, or introduce production inspection
+  APIs solely for tests. Keep the isolated actual PostgreSQL archive restore.
 - Preserve unrelated changes. Before execution, use the user-owned worktree
   placement skill; read the user-owned development inventory before running a
   server. Use disposable databases and preserve persistent development accounts.
@@ -136,11 +139,17 @@ All acceptance/recovery writers construct its deletion flag from the installed
 `installation_order` stays private to the server discovery source.
 
 - [ ] Add `retention_journal_pages_shared_installation_revision` to the existing
-  real-store suite. Store more journal obligations at one installation revision
-  than one page, then traverse the production discovery source. Assert every
-  distinct key/deletion flag is emitted exactly once and completed coverage is
-  unavailable until all pages/dependencies are received. Use existing store
+  real-store suite, completing its integrated setup once Task 3's production
+  installer is available. Use production baseline installation to convert more
+  current contexts than one page, then traverse the production discovery source into an
+  actual SQLite receipt. Do not rewrite journal revisions in fixture SQL.
+  Assert every distinct key/deletion flag is emitted exactly once and completed
+  coverage is unavailable until all pages/dependencies are received. Use existing store
   fixtures and source interfaces, not a second receipt simulator.
+  Preserve a local edit's original and working values through receipt;
+  equivalent projection must not create a conflict. Exercise existing prepared
+  settlement when the exact accepted precondition changes, then prepare the
+  preserved correction with a fresh counter.
 - [ ] Add native construction assertions to the existing acceptance/recovery
   cases: `assert_eq!(change.requirement.deleted, true);` for a deletion and
   `assert_eq!(change.requirement.deleted, false);` for a live value. Assert the
@@ -245,7 +254,7 @@ The native planner owns its checked account transition; do not expose
 `AccountMetadata::advance` just to bypass that boundary. The store operation
 loads/plans/applies under the existing account lock, never applies a plan from
 outside its transaction. Server-only installation is
-`async fn install(store: &AccountStore, account: AccountId) -> anyhow::Result<()>`
+`async fn install(store: &AccountStore, account: AccountId) -> anyhow::Result<installation::Outcome>`
 in `store/retention/installation.rs`, visible only to its parent. It emits its
 own result telemetry after confirmed commit. The runtime worker consumes
 `pub(crate) async fn run(store: AccountStore, journal_entries: i64,
@@ -260,11 +269,13 @@ stop: CancellationToken)` from server `retention.rs`.
 - [ ] Add `retention_installation_preserves_versions_and_is_idle_stable` using
   `NativeAccount` and actual acknowledgments/revocation. Assert unchanged QSO
   values, acceptance positions and service applicability, equivalent comparison,
-  reused payload identity, one metadata revision and one journal descriptor per
+  one metadata revision and one journal descriptor per
   converted head. A repeat without new eligible work leaves baseline/head and
   committed-conversion count unchanged.
 - [ ] Run the focused compaction and server retention cases. Expected: no
   installed collection behavior yet; record the failing assertions.
+- [ ] Review metadata-only insertion to ensure it reuses existing payload IDs.
+  Do not introduce test SQL or a production inspection API for that check.
 - [ ] Implement common coverage through real checkpoint/baseline/ancestry
   expansion. Require K to preserve the existing baseline. Remove only closed
   components whose closure is covered and whose projection is provably
@@ -309,19 +320,21 @@ async fn prune(
     store: &AccountStore,
     account: AccountId,
     journal_entries: i64,
-) -> anyhow::Result<bool>;
+) -> anyhow::Result<journal::Outcome>;
 
-async fn reclaim(store: &AccountStore, account: AccountId) -> anyhow::Result<bool>;
+async fn reclaim(store: &AccountStore, account: AccountId) -> anyhow::Result<reclaim::Outcome>;
 ```
 
-`prune` and `reclaim` report whether another bounded pass may make progress. The actual worker
-calls these after installation, checking shutdown between batches. Each operation
+`prune` reports committed pruning and whether the batch limit allows more work,
+no work, or contention. `reclaim` reports committed removals, no work, or
+contention; a successful removal requests another pass. The actual worker calls
+these after installation, checking shutdown between batches. Each operation
 owns its account-locked transaction and domain metrics. Root-query helpers stay
 private to this module tree; no generic repository or persisted mark set.
 
 - [ ] Add `retention_prunes_installations_and_returns_below_floor`: use a target
-  of 3 and more than one real timeline. Assert the retained count reaches 3,
-  the monotonic floor contains the highest removed installation revisions and
+  of 3 and more than one real timeline. Assert discovery is incremental at the
+  last removed installation checkpoint and full immediately before it, and
   an older authorized client gets fuller-state discovery. Include partial
   pruning of a shared revision and an incremental source overtaken by pruning:
   assert source unavailable, never successful empty completion.
@@ -333,8 +346,9 @@ private to this module tree; no generic repository or persisted mark set.
 - [ ] Extend Task 2's real-store scenario with actual collection. Assert the
   covered-effect old body is removed, its sufficient successor is transferred,
   a genuine exact-fact body stays, and distinct service facts stay. Do not
-  manufacture a production API to inspect or delete rows; use private test SQL
-  only for observing committed Clacks results against the production schema.
+  manufacture a production API to inspect or delete rows. Use the existing
+  observation, discovery and receipt operations; omit physical-row assertions
+  that have no established application interface.
 - [ ] Run `cargo test -p clacks-server retention_ --locked`; expect missing
   pruning/reclamation behavior. Preserve failures that identify actual lost
   meaning rather than implementation-specific row ordering.
@@ -356,7 +370,9 @@ private to this module tree; no generic repository or persisted mark set.
   nonredundant ancestry. Add only missing indexes for actual query predicates.
 - [ ] Add separate pruning/reclamation duration and committed-removal metrics,
   with family-owned counters rather than a generic arbitrary-row metric.
-  Extend the owning scenarios with committed-count and no-op assertions.
+  Distinguish pruned/reclaimed, unchanged, contended and failed outcomes rather
+  than reporting every successful return as completed. Extend the owning
+  scenarios with committed-count, actual-outcome and no-op assertions.
 - [ ] Exercise durable root selection after interrupted transfer and actual
   database restoration in Tasks 5–6; assert a repeated collection is a no-op.
   Do not add a committed-close durability test whose only possible failure is
@@ -392,7 +408,8 @@ ownership ends; an interrupted exchange does not call it as if complete.
   input are unchanged, equivalent accepted projection creates no conflict, and
   unrelated unreachable copies disappear. Insufficient sealing keeps old
   interpretation; it does not fabricate a witness or relabel an original.
-- [ ] Assert current actor counter high-water marks and authorization-review
+- [ ] Prepare another version after cleanup/reopen and settlement, asserting its
+  counter advances beyond the earlier reserved version. Assert authorization-review
   holds survive. Include original/prepared/witness conditions, service support
   and current operating/saved-source references in the real rooted scenario.
   Do not add a second round-trip test for every table.
@@ -421,7 +438,7 @@ ownership ends; an interrupted exchange does not call it as if complete.
 **Files:** New server `store/tests/synchronization/restore.rs` and parent test
 module declaration; only needed private fixture additions under existing test
 support. Reconcile `docs/synchronization.md`, `synchronization-model.md`,
-`synchronization-retention-proposal.md`, `observability.md`, `backup-recovery.md`
+`synchronization-retention.md`, `observability.md`, `backup-recovery.md`
 and affected crate READMEs with delivered behavior. Keep planning/defaults
 separate from binding product decisions; do not add a checked-in audit report.
 

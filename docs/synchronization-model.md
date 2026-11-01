@@ -514,10 +514,10 @@ assume that ordering stability alone makes those facts disposable.
 Rollback and restoration examples are in
 [section 8](#8-rollback-and-restoration).
 
-The [#16 integration proposal](synchronization-retention-proposal.md) maps these
+The [retention contract](synchronization-retention.md) maps these
 conditions to PostgreSQL/SQLite storage, automatic collection and recovery
-verification. Its physical schema and operational defaults remain proposals,
-not additional product decisions.
+verification. Numeric operational defaults are implementation choices rather
+than additional product decisions.
 
 ## 7. Worked transitions
 
@@ -691,6 +691,12 @@ safe work merely because a client has a business conflict. Actual transaction
 integration must ensure that once a recovery boundary is installed no accepted
 mutation races ahead using the invalidated server component.
 
+Following a recovery fork, an old accepted record inside a claimed absence
+prefix uses explicit contradictory-coverage review. The client retains its
+accepted copy, chooses a resolution and submits it conditionally on the current
+shared observation. This is distinct from automatically trusting either claim;
+unrelated recovery proceeds and incomplete coverage is not acknowledged.
+
 These checks are not a universal rollback detector. If a writable restored server
 reuses counters and advances past available witnesses before a contradiction is
 observed, a revision-only handshake can miss the rollback. Vector/payload
@@ -715,7 +721,10 @@ The production core supplies metadata types and transition logic for:
 - preparation, incorporated-version recognition and conditional-acceptance plans;
 - connection-owned discovery completion and durable acknowledgment preconditions;
 - timeline coverage comparison, recovery-boundary validation and fuller-state plans;
-- membership admission/revocation and preserved basis interpretation. Baseline compaction and physical collection require the consuming maintenance workflow.
+- membership admission/revocation and preserved basis interpretation;
+- common durable coverage and equivalent current-context projection consumed by
+  automatic server maintenance. Concrete storage adapters own journal pruning
+  and reference-aware physical collection.
 
 Use actual native QSO/tag/profile/equipment values in verification. Tests drive
 these production operations; there is no separate simulated synchronization

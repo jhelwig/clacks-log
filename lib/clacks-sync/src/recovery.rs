@@ -313,6 +313,21 @@ pub fn plan_recovered_install(
             } else if crate::compaction::expanded(checkpoint, evidence)?
                 .covers(incoming.stamp.accepted_at())
             {
+                if account.head.timeline != incoming.stamp.accepted_at().timeline {
+                    if matches!(incoming.key.id, crate::record::RecordId::Service(_)) {
+                        return Ok(RecoveredDecision::DeferredService {
+                            detail:
+                                "restored coverage contradicts surviving accepted service evidence"
+                                    .into(),
+                        });
+                    }
+                    return Ok(review(
+                        incoming,
+                        current,
+                        original,
+                        ReviewReason::ContradictoryCoverage,
+                    ));
+                }
                 return Err(MetadataError::Conflict {
                     detail: format!(
                         "certified absence contradicts retained accepted {:?}",

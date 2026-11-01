@@ -2,11 +2,10 @@
 
 mod recovery;
 mod references;
+mod restore;
 mod retention;
 
-use super::AccountStore;
 use crate::auth::oidc::VerifiedIdentity;
-use sqlx::postgres::PgPoolOptions;
 use time::Duration;
 
 #[tokio::test]
@@ -230,84 +229,61 @@ async fn tag_deletion_checks_current_reverse_references() -> anyhow::Result<()> 
     Ok(())
 }
 
-async fn accepted_heads(
-    connection: &mut sqlx::PgConnection,
-    account: clacks_model::ids::AccountId,
-) -> anyhow::Result<Vec<clacks_sync::record::AcceptedRecord>> {
-    let owner = account.to_string();
-    let mut records = Vec::new();
-    for row in sqlx::query_file!("sql/synchronization/heads.sql", owner)
-        .fetch_all(&mut *connection)
-        .await?
-    {
-        let key = clacks_sync::record::RecordKey {
-            account,
-            id: super::super::payload::record_id(&row.kind, &row.record_id)?,
-        };
-        records.push(
-            super::super::metadata::accepted::load_envelope(connection, key, row.envelope_id)
-                .await?,
-        );
-    }
-    Ok(records)
-}
-
 #[tokio::test]
 async fn account_defaults_are_accepted_once() -> anyhow::Result<()> {
-    let pool = PgPoolOptions::new()
-        .max_connections(4)
-        .connect(&std::env::var("CLACKS_TEST_DATABASE_URL")?)
-        .await?;
-    crate::maintenance::migrate::run(&pool).await?;
-    pool.close().await;
-    let pool = PgPoolOptions::new()
-        .max_connections(4)
-        .connect(&std::env::var("CLACKS_TEST_RUNTIME_DATABASE_URL")?)
-        .await?;
-    let store = AccountStore::new(pool);
-    let subject = ulid::Ulid::generate().to_string();
-    let identity = || VerifiedIdentity {
-        issuer: "https://test-provider.example".into(),
-        subject: subject.clone(),
-        display_name: None,
-    };
-    let login = store
-        .provision_login(identity(), Duration::days(14))
-        .await?;
-    let principal = store
-        .authenticate(&login, Duration::days(14))
-        .await?
-        .unwrap();
-    let mut transaction = store.pool.begin().await?;
-    let before =
-        super::super::metadata::account::load(&mut transaction, principal.account_id).await?;
-    let records = accepted_heads(&mut transaction, principal.account_id).await?;
+    use super::support::synchronization::NativeAccount;
+    use crate::store::discovery::Source;
+    let native = NativeAccount::create().await?;
+
+    let mut source = Source::start(&native.store, &native.first, None).await?;
+    let before = source.start.source.clone();
+    let mut records = Vec::new();
+    while let Some(page) = source.page(&native.store, &native.first, 64).await? {
+        records.extend(page.accepted);
+    }
+    source.end()?;
     let definitions = clacks_model::defaults::account_definitions()?;
     assert_eq!(
         records.len(),
         definitions.groups.len() + definitions.output_profiles.len()
     );
     for record in &records {
-        assert_eq!(record.key().account, principal.account_id);
-        assert!(before.installed.covers(record.stamp.accepted_at()));
+        assert_eq!(record.key().account, native.first.account);
+        assert!(before.coverage.covers(record.stamp.accepted_at()));
     }
     for group in definitions.groups {
         assert!(records.iter().any(|record| matches!(record.state(), clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Group(value)) if **value == group)));
     }
-    transaction.commit().await?;
-    store
-        .provision_login(identity(), Duration::days(14))
+
+    let identity = native
+        .store
+        .identities(&native.principal)
+        .await?
+        .into_iter()
+        .next()
+        .unwrap();
+    native
+        .store
+        .provision_login(
+            VerifiedIdentity {
+                issuer: identity.issuer,
+                subject: identity.subject,
+                display_name: identity.display_name,
+            },
+            Duration::days(14),
+        )
         .await?;
-    let mut transaction = store.pool.begin().await?;
-    assert_eq!(
-        super::super::metadata::account::load(&mut transaction, principal.account_id).await?,
-        before
-    );
-    assert_eq!(
-        accepted_heads(&mut transaction, principal.account_id).await?,
-        records
-    );
-    transaction.commit().await?;
+
+    let mut source = Source::start(&native.store, &native.first, None).await?;
+    assert_eq!(source.start.source, before);
+
+    let mut repeated = Vec::new();
+    while let Some(page) = source.page(&native.store, &native.first, 64).await? {
+        repeated.extend(page.accepted);
+    }
+    source.end()?;
+
+    assert_eq!(repeated, records);
     Ok(())
 }
 
