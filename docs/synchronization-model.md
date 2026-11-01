@@ -144,6 +144,11 @@ with the current timeline's positions. Thus a journal entry at `T2:7` may instal
 an envelope originally accepted at `T1:180`. Transfer position and original
 version position are not interchangeable.
 
+The journal retains the native record obligation's key, stamp and deletion
+state, constructed from the actual installed version. Discovery does not need a
+historical QSO body merely to recover that deletion state; required ordering
+interpretation remains retained independently.
+
 Equal recorded values do not imply equal causal metadata. Combining known
 versions may update metadata without changing native values. Such bookkeeping
 must not create a recorded-fact conflict or an external upload by itself.
@@ -509,6 +514,11 @@ assume that ordering stability alone makes those facts disposable.
 Rollback and restoration examples are in
 [section 8](#8-rollback-and-restoration).
 
+The [retention contract](synchronization-retention.md) maps these
+conditions to PostgreSQL/SQLite storage, automatic collection and recovery
+verification. Numeric operational defaults are implementation choices rather
+than additional product decisions.
+
 ## 7. Worked transitions
 
 The examples use short actor/timeline labels for readability. All operations are
@@ -681,6 +691,12 @@ safe work merely because a client has a business conflict. Actual transaction
 integration must ensure that once a recovery boundary is installed no accepted
 mutation races ahead using the invalidated server component.
 
+Following a recovery fork, an old accepted record inside a claimed absence
+prefix uses explicit contradictory-coverage review. The client retains its
+accepted copy, chooses a resolution and submits it conditionally on the current
+shared observation. This is distinct from automatically trusting either claim;
+unrelated recovery proceeds and incomplete coverage is not acknowledged.
+
 These checks are not a universal rollback detector. If a writable restored server
 reuses counters and advances past available witnesses before a contradiction is
 observed, a revision-only handshake can miss the rollback. Vector/payload
@@ -705,7 +721,10 @@ The production core supplies metadata types and transition logic for:
 - preparation, incorporated-version recognition and conditional-acceptance plans;
 - connection-owned discovery completion and durable acknowledgment preconditions;
 - timeline coverage comparison, recovery-boundary validation and fuller-state plans;
-- membership admission/revocation and preserved basis interpretation. Baseline compaction and physical collection require the consuming maintenance workflow.
+- membership admission/revocation and preserved basis interpretation;
+- common durable coverage and equivalent current-context projection consumed by
+  automatic server maintenance. Concrete storage adapters own journal pruning
+  and reference-aware physical collection.
 
 Use actual native QSO/tag/profile/equipment values in verification. Tests drive
 these production operations; there is no separate simulated synchronization

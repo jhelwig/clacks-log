@@ -43,10 +43,8 @@ pub(crate) struct Source {
     kind: String,
     /// Last native identifier visited within that kind.
     id: String,
-    /// Last installation timeline visited by a journal traversal.
-    timeline: String,
-    /// Last installation revision visited within that timeline.
-    revision: i64,
+    /// Private append cursor; never used as causal evidence or sent to a client.
+    installation_order: i64,
     /// Number of pages supplied in this attempt.
     sequence: u64,
     /// Exhaustion was checked under a valid source read.
@@ -90,8 +88,7 @@ impl Source {
             start: DiscoveryStart { source, mode },
             kind: String::new(),
             id: String::new(),
-            timeline: String::new(),
-            revision: -1,
+            installation_order: 0,
             sequence: 0,
             ended: false,
         })
@@ -219,8 +216,7 @@ impl Source {
                     &timelines,
                     &lower,
                     &upper,
-                    self.timeline,
-                    self.revision,
+                    self.installation_order,
                     i64::from(limit)
                 )
                 .fetch_all(&mut *transaction)
@@ -239,24 +235,13 @@ impl Source {
                         row.envelope_id,
                     )
                     .await?;
-                    // Deletion status belongs to the exact obligation, not necessarily its successor.
-                    let exact = synchronization::context::exact(
-                        &mut transaction,
-                        &clacks_sync::service::VersionReference {
-                            key,
-                            stamp: stamp.clone(),
-                            deleted: true,
-                        },
-                    )
-                    .await?;
                     requirements.push(RecordRequirement {
                         key,
                         stamp,
-                        deleted: exact.is_some(),
+                        deleted: row.deleted,
                     });
                     accepted.push(value);
-                    self.timeline = row.timeline_id;
-                    self.revision = row.revision;
+                    self.installation_order = row.installation_order;
                 }
             }
         }

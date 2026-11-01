@@ -313,6 +313,21 @@ pub fn plan_recovered_install(
             } else if crate::compaction::expanded(checkpoint, evidence)?
                 .covers(incoming.stamp.accepted_at())
             {
+                if account.head.timeline != incoming.stamp.accepted_at().timeline {
+                    if matches!(incoming.key.id, crate::record::RecordId::Service(_)) {
+                        return Ok(RecoveredDecision::DeferredService {
+                            detail:
+                                "restored coverage contradicts surviving accepted service evidence"
+                                    .into(),
+                        });
+                    }
+                    return Ok(review(
+                        incoming,
+                        current,
+                        original,
+                        ReviewReason::ContradictoryCoverage,
+                    ));
+                }
                 return Err(MetadataError::Conflict {
                     detail: format!(
                         "certified absence contradicts retained accepted {:?}",
@@ -461,8 +476,11 @@ pub fn plan_recovered_install(
     let next_account = account.advance()?;
     let journal = JournalChange {
         installed_at: next_account.head,
-        key: incoming.key,
-        stamp: incoming.stamp.clone(),
+        requirement: crate::transfer::RecordRequirement {
+            key: incoming.key,
+            stamp: incoming.stamp.clone(),
+            deleted: matches!(incoming.state(), crate::record::RecordState::Deleted),
+        },
     };
     Ok(RecoveredDecision::Install {
         external_guards,

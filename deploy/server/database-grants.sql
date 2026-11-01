@@ -79,3 +79,12 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA clacks TO clacks_runtime;
 GRANT SELECT, INSERT, DELETE ON clacks.current_external_binding TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.coupled_unit, clacks.coupled_member TO clacks_runtime;
 GRANT SELECT, INSERT, DELETE ON clacks.staged_accepted, clacks.retained_accepted TO clacks_runtime;
+-- Baseline installation only repoints the equivalent accepted representation.
+GRANT UPDATE (envelope_id) ON clacks.current_external_binding TO clacks_runtime;
+-- Account retention deletes only unreachable native representations and their
+-- exclusively owned child rows; identities and authorization remain intact.
+GRANT DELETE ON clacks.accepted_record, clacks.payload,
+    clacks.station_snapshot, clacks.equipment_snapshot,
+    clacks.version_stamp, clacks.record_vector, clacks.checkpoint,
+    clacks.sync_baselines, clacks.lineage, clacks.coverage,
+    clacks.installation_journal TO clacks_runtime;

@@ -1,0 +1,93 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT j.installation_order, j.deleted, j.kind, j.record_id, j.stamp_id,\n       h.envelope_id\nFROM clacks.installation_journal j\nJOIN unnest($2::text[], $3::bigint[], $4::bigint[]) AS bounds(timeline, after_revision, through_revision)\n  ON j.timeline_id = bounds.timeline AND j.revision > bounds.after_revision AND j.revision <= bounds.through_revision\nJOIN clacks.accepted_head h USING (account, kind, record_id)\nWHERE j.account = $1 AND j.installation_order > $5\nORDER BY j.installation_order LIMIT $6\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "installation_order",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.installation_journal",
+            "name": "installation_order"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "deleted",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "clacks.installation_journal",
+            "name": "deleted"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.installation_journal",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "record_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.installation_journal",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "stamp_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.installation_journal",
+            "name": "stamp_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "envelope_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.accepted_head",
+            "name": "envelope_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Int8Array",
+        "Int8Array",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "94aeadca903a06b0968bb01d7575cc0ec087d6b19b1b951756589d25d874a8e9"
+}

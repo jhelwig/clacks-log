@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT installation_order, timeline_id, revision FROM clacks.installation_journal\nWHERE account = $1 ORDER BY installation_order\nLIMIT least(greatest((SELECT count(*) FROM clacks.installation_journal WHERE account = $1) - $2, 0), $3)\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "installation_order",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.installation_journal",
+            "name": "installation_order"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "timeline_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.installation_journal",
+            "name": "timeline_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "revision",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.installation_journal",
+            "name": "revision"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c5a9e7fa02eb117c3be94de9d26a14d5a97b83a680c7eb44b5906adf5aea4858"
+}

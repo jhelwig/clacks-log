@@ -6,6 +6,7 @@ use crate::{
     account::EvidenceView,
     compare::{RecordRelation, compare_contexts},
     record::{Observation, RecordId, RecordKey, RecordState, RecordValue},
+    transfer::RecordRequirement,
 };
 use clacks_model::{
     ids::AccountId,
@@ -57,6 +58,35 @@ pub enum DependencyStatus {
     Complete,
     /// Material may be retained/staged, but cannot justify completed effects or positive claims.
     Incomplete(Vec<MissingDependency>),
+}
+
+/// Check whether accepted material supplies an exact fact or covers an effect.
+///
+/// Unknown ordering is insufficient. Contradictory interpretation is an error;
+/// callers must not turn it into a successful dependency or an inferred successor.
+pub fn represents(
+    required: &SupportRequirement,
+    actual: &RecordRequirement,
+    evidence: &EvidenceView<'_>,
+) -> anyhow::Result<bool> {
+    let reference = required.reference();
+    if actual.key != reference.key {
+        return Ok(false);
+    }
+
+    let relation = compare_contexts(reference.key, &actual.stamp, &reference.stamp, evidence)?;
+
+    Ok(match required {
+        SupportRequirement::ExactFact(_) => {
+            relation == RecordRelation::SameVersion && actual.deleted == reference.deleted
+        }
+        SupportRequirement::CoveredEffect(_) => {
+            matches!(
+                relation,
+                RecordRelation::After | RecordRelation::SameVersion
+            )
+        }
+    })
 }
 
 /// Identify mandatory semantic records needed to interpret a service value.
@@ -170,26 +200,16 @@ pub fn check(record: &ServiceRecord, view: &ServiceView<'_>) -> anyhow::Result<D
             }
         }
     }
+
     for requirement in &record.support.required {
         let required = requirement.reference();
-        let represented = view
-            .records
-            .iter()
-            .filter(|v| v.key == required.key)
-            .any(|actual| {
-                let relation =
-                    compare_contexts(required.key, &actual.stamp, &required.stamp, view.evidence);
-                match requirement {
-                    SupportRequirement::ExactFact(_) => {
-                        matches!(relation, Ok(RecordRelation::SameVersion))
-                            && matches!(actual.state, RecordState::Deleted) == required.deleted
-                    }
-                    SupportRequirement::CoveredEffect(_) => matches!(
-                        relation,
-                        Ok(RecordRelation::After | RecordRelation::SameVersion)
-                    ),
-                }
-            });
+        let mut represented = false;
+        for actual in view.records {
+            if represents(requirement, &RecordRequirement::from(actual), view.evidence)? {
+                represented = true;
+                break;
+            }
+        }
         if !represented {
             missing.push(MissingDependency {
                 key: required.key,
@@ -197,6 +217,7 @@ pub fn check(record: &ServiceRecord, view: &ServiceView<'_>) -> anyhow::Result<D
             });
         }
     }
+
     if let Some(id) = record.payload.destination()
         && !matches!(&record.payload, ServicePayload::Destination(_))
     {

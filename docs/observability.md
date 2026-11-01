@@ -121,6 +121,48 @@ recorder or unavailable telemetry backend must not change application correctnes
 or prevent normal operation. Trace sampling and log filtering must not silently
 turn business counters into samples or suppress required security-event recording.
 
+## Synchronization retention and baseline installation
+
+D390 requires measurements that establish the cost of atomic baseline
+installation before selecting more complex optimization. The owning server
+workflow reports these distinct quantities:
+
+| Diagnostic question | Measurement |
+| --- | --- |
+| How expensive is an installation attempt, including database commit? | `clacks_sync_baseline_install_duration_seconds{outcome}`, distinguishing installed, unchanged, contended, blocked and failed. |
+| Is installation waiting behind other account work? | Account-lock acquisition-wait histogram for baseline installation. |
+| How long can installation delay another write to the same account? | Installation account-lock-holding histogram, measured from acquisition through transaction completion. This is the application-observed interval, not a claim of exact PostgreSQL internal lock timing. |
+| Does cost grow with the amount of metadata examined or converted? | `clacks_sync_baseline_contexts_examined` histogram and the `sync.baseline.projection` event report examined contexts and eligible actors. `clacks_sync_baseline_contexts_converted_total` increments only after commit; `sync.baseline.installed` reports committed conversions at info level. Counts are values, not metric labels. |
+| Is physical cleanup expensive or making progress? | Separate cleanup-duration histograms and committed journal-entry/metadata-removal counts. Cleanup is not included in the installation lock-holding measurement. |
+
+Normal account-write workflows need their own account-lock wait measurements
+where they acquire the same lock, so operators can observe contention experienced
+by synchronization and enrollment rather than infer it from installation duration
+alone. Measure at the actual lock acquisition and transaction boundaries; do not
+add polling of PostgreSQL lock tables or a telemetry framework for this purpose.
+
+Installation lock waits distinguish acquired, contended and failed attempts.
+Lock-holding duration is recorded only after acquisition, through confirmed
+commit or awaited rollback. Separate pruning/reclamation histograms distinguish
+pruned/reclaimed, unchanged, contended and failed attempts; family-owned removal
+counters record committed rows. The client reports
+`clacks_client_sync_metadata_reclaim_duration_seconds`
+and separate counters for reclaimed pending/prepared/witness copies, payloads,
+envelopes, counters and interpretation rows. Neither side labels metrics by
+account ID or native record kind.
+
+Metric families remain specific to their owning workload and quantity. Do not
+group unrelated operations under a generic execution metric. Account, client and
+record identities remain structured trace/log context, never metric dimensions.
+Record the selected coverage, retention constraints and actual outcome in safe
+structured diagnostics, without native payloads or credentials. A failed or
+rolled-back attempt may report attempted work but contributes no committed
+conversion/removal count.
+
+Use these measurements to compare installation cost, workload size and actual
+account-write contention. No acceptable duration, alert threshold or claim that
+atomic installation is too slow has yet been established.
+
 ## Verification and remaining integration choices
 
 Tests verify Clacks's reporting decisions through real instrumented operations.

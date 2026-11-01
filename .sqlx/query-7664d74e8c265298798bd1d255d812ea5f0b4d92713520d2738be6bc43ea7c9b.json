@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT a.envelope_id, a.payload_id FROM accepted_record a JOIN version_stamp s ON s.stamp_id = a.stamp_id\nWHERE a.account = ? AND a.kind = ? AND a.record_id = ? AND s.timeline_id = ? AND s.revision = ?\nORDER BY a.envelope_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "envelope_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "accepted_record",
+            "name": "envelope_id"
+          }
+        }
+      },
+      {
+        "name": "payload_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "accepted_record",
+            "name": "payload_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "7664d74e8c265298798bd1d255d812ea5f0b4d92713520d2738be6bc43ea7c9b"
+}

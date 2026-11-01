@@ -91,7 +91,7 @@ sha2 = "=0.11.1"
 percent-encoding = "2"
 clacks-client-store = { path = "lib/clacks-client-store" }
 clacks-sync = { path = "lib/clacks-sync" }
-sqlx = { version = "=0.9.0", default-features = false, features = ["runtime-tokio", "macros", "migrate"] }
+sqlx = { version = "=0.9.0", default-features = false, features = ["runtime-tokio", "macros", "migrate", "sqlx-toml"] }
 tokio = { version = "=1.54.1", default-features = false, features = ["rt", "sync", "time"] }
 clacks-geography = { path = "lib/clacks-geography" }
 clacks-geography-builder = { path = "lib/clacks-geography-builder" }

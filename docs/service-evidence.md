@@ -544,6 +544,13 @@ versions used to guard acceptance are not interchangeable with historical suppor
 
 A later accepted successor/deletion can cover an old effect reference through
 existing causal coverage. Do not reinstall an old effect over its successor.
+Support loaders preserve the distinction between `ExactFact` and `CoveredEffect`
+rather than flattening both into exact-version lookups. A genuine exact-fact
+dependency retains its required accepted fact. A covered effect or coupled
+member can use an established accepted successor/deletion under the existing
+comparison/readiness rules, with the original dependency descriptor and required
+ordering interpretation preserved. Include the actual qualifying material in
+the transfer; equal values or unknown ordering do not establish coverage.
 Retain incomplete recovery material and explain missing support without blocking
 unrelated records. It cannot authorize a positive derived claim, active binding,
 completed coupled operation or full prefix dependent on the missing material.
@@ -591,18 +598,19 @@ remain downstream integration work.
 
 ### 11.3. Transfer and installation
 
-Extend the existing consistent manifest/window to include evidence and its
-support. Keep exact requirements stable during the window. Dependencies may
-cross messages and bounded batches; incomplete material may be staged durably.
+Include evidence and its support in the existing discovery/receipt exchange.
+Keep original native requirements stable for its fixed source target; selecting
+a qualifying successor does not rewrite the dependency descriptor. Dependencies
+may cross messages and bounded batches; incomplete material may be staged durably.
 Do not expose completed dispositions/bindings with missing required effects.
 
 Install each complete coupled unit atomically; unrelated units may proceed.
 Preserve local working QSO values and genuine original comparison evidence while
 installing accepted effects through existing client transitions. Save accepted
 state, preserved comparison evidence and installation progress together.
-Advance/reload/acknowledge the account checkpoint only after full manifest
-completion. Provider download progress is distinct from this synchronization
-acknowledgment.
+Advance/reload/acknowledge the account checkpoint only after the existing receipt
+proof establishes complete target coverage. Provider download progress is
+distinct from this synchronization acknowledgment.
 
 An unrepresented required association conflict prevents certifying its old
 prefix complete; unrelated recovery/new-timeline traffic can continue. An
@@ -624,6 +632,11 @@ Unchanged polls do not create another semantic record. Identical copies,
 redundant encodings/journal detail and completed staging can be removed.
 Historical QSO bodies need not be kept solely for service comparisons when
 self-contained projections suffice and no surviving reference needs the body.
+Likewise, a covered-effect/coupled descriptor does not require an old body when
+an accepted successor/deletion already represents it and no other dependency
+requires that body. Retain the descriptor and its interpretation; do not turn a
+missing old body into missing support when accepted material already proves
+the required coverage.
 Do not replace distinct attempts with a count or latest-status flag.
 
 Synchronization compaction follows the oldest authorized durable acknowledgment,

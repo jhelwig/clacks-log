@@ -27,6 +27,16 @@ pub struct RecordRequirement {
     pub deleted: bool,
 }
 
+impl From<&AcceptedRecord> for RecordRequirement {
+    fn from(value: &AcceptedRecord) -> Self {
+        Self {
+            key: value.key(),
+            stamp: value.stamp.clone(),
+            deleted: matches!(value.state(), RecordState::Deleted),
+        }
+    }
+}
+
 /// Exact full enumeration or journal-supported incremental transfer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WindowMode {

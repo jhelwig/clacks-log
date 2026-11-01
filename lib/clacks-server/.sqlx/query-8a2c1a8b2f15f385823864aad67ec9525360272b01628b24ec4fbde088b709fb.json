@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE clacks.sync_accounts SET retained_journal_coverage_id = $2 WHERE account_id = $1\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8a2c1a8b2f15f385823864aad67ec9525360272b01628b24ec4fbde088b709fb"
+}

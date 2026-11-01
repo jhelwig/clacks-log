@@ -166,7 +166,8 @@ fn retained_server_distributed_envelope_preserves_acceptance_and_deletion() {
     };
     assert_eq!(envelope, retained);
     assert_eq!(journal.installed_at.timeline, id(5));
-    assert_eq!(journal.stamp.accepted_at().timeline, id(2));
+    assert_eq!(journal.requirement.stamp.accepted_at().timeline, id(2));
+    assert!(journal.requirement.deleted);
     let defs = [];
     let missing = EvidenceView {
         lineage: &lineage,
@@ -308,22 +309,67 @@ fn sparse_certified_absence_uses_ancestry_at_the_checkpoint_cut() {
             coverage: account.installed.clone(),
         },
     };
+    let decision = plan_recovered_install(
+        &incoming,
+        None,
+        id(4),
+        &clacks_sync::acceptance::AcceptanceInput {
+            destination_registry: None,
+            bindings: &[],
+            account: &account,
+            membership: &membership(),
+            current: &absent,
+            references: &[],
+        },
+        &ev,
+    )
+    .unwrap();
+
+    let RecoveredDecision::Review(review) = decision else {
+        panic!("restored absence requires conservative review");
+    };
+    assert_eq!(
+        review.reason,
+        clacks_sync::client::ReviewReason::ContradictoryCoverage
+    );
+    assert_eq!(review.retained, vec![incoming.clone()]);
+
+    let mut same_history = account.clone();
+    same_history.head = Position {
+        timeline: id(2),
+        revision: 200,
+    };
+    same_history.installed = Coverage::from(same_history.head);
+    let absent = Observation::Absent {
+        key: incoming.key(),
+        checkpoint: InstalledCheckpoint {
+            account: same_history.account,
+            baseline: same_history.baseline,
+            coverage: same_history.installed.clone(),
+        },
+    };
+
+    let error = plan_recovered_install(
+        &incoming,
+        None,
+        id(4),
+        &clacks_sync::acceptance::AcceptanceInput {
+            destination_registry: None,
+            bindings: &[],
+            account: &same_history,
+            membership: &membership(),
+            current: &absent,
+            references: &[],
+        },
+        &ev,
+    )
+    .unwrap_err();
     assert!(
-        plan_recovered_install(
-            &incoming,
-            None,
-            id(4),
-            &clacks_sync::acceptance::AcceptanceInput {
-                destination_registry: None,
-                bindings: &[],
-                account: &account,
-                membership: &membership(),
-                current: &absent,
-                references: &[]
-            },
-            &ev
-        )
-        .is_err()
+        matches!(
+            error.downcast_ref::<clacks_sync::error::MetadataError>(),
+            Some(clacks_sync::error::MetadataError::Conflict { .. })
+        ),
+        "same-history contradictions remain integrity errors"
     );
 }
 

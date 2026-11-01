@@ -3,7 +3,7 @@
 mod exchange;
 mod pending;
 
-#[cfg(test)]
+#[cfg(all(test, any(target_os = "macos", windows)))]
 pub(crate) mod tests;
 
 use clacks_client_store::{

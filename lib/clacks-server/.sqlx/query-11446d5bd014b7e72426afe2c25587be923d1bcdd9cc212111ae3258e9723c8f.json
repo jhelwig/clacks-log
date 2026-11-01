@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.station_snapshot s WHERE s.account = $1 AND s.station_id IN (\n    SELECT s.station_id FROM clacks.station_snapshot s WHERE s.account = $1\n      AND NOT EXISTS (SELECT 1 FROM clacks.qso_payload q WHERE q.account = s.account AND (q.own_station = s.station_id OR q.contacted_station = s.station_id))\n      AND NOT EXISTS (SELECT 1 FROM clacks.profile_payload p WHERE p.account = s.account AND p.station_id = s.station_id)\n    ORDER BY s.station_id LIMIT $2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "11446d5bd014b7e72426afe2c25587be923d1bcdd9cc212111ae3258e9723c8f"
+}

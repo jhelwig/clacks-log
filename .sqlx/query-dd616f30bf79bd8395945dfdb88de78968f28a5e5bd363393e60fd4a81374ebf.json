@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM operating_value WHERE account = ?1 AND operating_id IN (\n    SELECT v.operating_id FROM operating_value v WHERE v.account = ?1\n      AND NOT EXISTS (SELECT 1 FROM operating_state s WHERE s.account = v.account AND s.current_values = v.operating_id)\n    ORDER BY v.operating_id LIMIT ?2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "dd616f30bf79bd8395945dfdb88de78968f28a5e5bd363393e60fd4a81374ebf"
+}

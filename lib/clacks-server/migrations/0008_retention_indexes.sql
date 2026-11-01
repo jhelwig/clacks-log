@@ -1,0 +1,26 @@
+-- Foreign-key ownership and logical baseline references used by account cleanup.
+CREATE INDEX accepted_record_payload ON clacks.accepted_record(account, payload_id, envelope_id);
+CREATE INDEX accepted_record_stamp ON clacks.accepted_record(account, stamp_id);
+CREATE INDEX version_stamp_vector ON clacks.version_stamp(account, vector_id);
+CREATE INDEX version_stamp_baseline ON clacks.version_stamp(account, baseline_id);
+CREATE INDEX checkpoint_baseline ON clacks.checkpoint(account, baseline_id);
+CREATE INDEX journal_stamp ON clacks.installation_journal(account, stamp_id);
+CREATE INDEX support_requirement_stamp ON clacks.support_requirement(account, stamp_id);
+CREATE INDEX service_support_acquisition ON clacks.service_support(account, acquisition_stamp);
+CREATE INDEX coupled_member_stamp ON clacks.coupled_member(account, stamp_id);
+CREATE INDEX checkpoint_coverage ON clacks.checkpoint(account, coverage_id);
+CREATE INDEX timeline_boundary_coverage ON clacks.timeline_boundary(account, coverage_id);
+CREATE INDEX baseline_coverage ON clacks.sync_baselines(account_id, coverage_id);
+CREATE INDEX baseline_lineage ON clacks.sync_baselines(account_id, lineage_id);
+CREATE INDEX qso_own_station ON clacks.qso_payload(account, own_station);
+CREATE INDEX qso_contacted_station ON clacks.qso_payload(account, contacted_station);
+CREATE INDEX qso_equipment ON clacks.qso_payload(account, equipment_id);
+CREATE INDEX profile_station ON clacks.profile_payload(account, station_id);
+CREATE INDEX equipment_snapshot_reference ON clacks.equipment_payload(account, snapshot_id);
+CREATE INDEX client_checkpoint ON clacks.desktop_clients(account_id, acknowledged_checkpoint_id);
+CREATE INDEX payload_account ON clacks.payload(account, payload_id);
+CREATE INDEX vector_account ON clacks.record_vector(account, vector_id);
+CREATE INDEX lineage_account ON clacks.lineage(account, lineage_id);
+CREATE INDEX coverage_account ON clacks.coverage(account, coverage_id);
+CREATE INDEX station_account ON clacks.station_snapshot(account, station_id);
+CREATE INDEX equipment_account ON clacks.equipment_snapshot(account, equipment_id);

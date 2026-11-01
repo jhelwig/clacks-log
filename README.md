@@ -1,6 +1,6 @@
 # Clacks Log
 
-Clacks Log is an amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
+Clacks Log is a pre-alpha amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
 Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The client-storage library persists those values, pending work, evidence and complete-window receipts in SQLite. The desktop foundation creates or reopens a local account, presents startup diagnostics and coordinates activation and graceful shutdown. The desktop supports local manual contact entry, editing and individual deletion. The server provides PostgreSQL-backed accounts and OIDC login/identity management; enrolled desktops synchronize through authenticated WebSockets, while external-service adapters remain downstream capabilities.
 
@@ -11,6 +11,7 @@ Product and architectural planning for the agreed minimum viable product (MVP) i
 - [GitHub issues](https://github.com/jhelwig/clacks-log/issues) and [milestones](https://github.com/jhelwig/clacks-log/milestones)
 - [Decision register](docs/decisions.md)
 - [Native-model contract](docs/native-model.md)
+- [Synchronization retention and recovery](docs/synchronization-retention.md)
 - [Durable offline client storage](docs/client-store.md)
 - [Desktop application specification](docs/desktop.md)
 - [Desktop workbench and interaction design](docs/desktop-ui.md)

@@ -1,6 +1,5 @@
 //! Key maintenance preserves real issuer receipts and authorization outcomes.
 
-mod cleanup;
 mod rewrap;
 
 use crate::{

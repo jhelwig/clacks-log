@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.checkpoint c WHERE c.account = $1 AND c.checkpoint_id IN (\n    SELECT c.checkpoint_id FROM clacks.checkpoint c WHERE c.account = $1\n      AND NOT EXISTS (SELECT 1 FROM clacks.desktop_clients d WHERE d.account_id = c.account AND d.acknowledged_checkpoint_id = c.checkpoint_id)\n    ORDER BY c.checkpoint_id LIMIT $2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "76b8db9fb852c9437d01cc86c0040c080e324b86f46f286c5befd2350fce9904"
+}

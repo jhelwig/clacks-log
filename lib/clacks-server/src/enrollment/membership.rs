@@ -267,9 +267,13 @@ pub(super) async fn revoke(
 ) -> anyhow::Result<()> {
     let mut transaction = pool.begin().await?;
     let account_text = principal.account_id.to_string();
+    let waiting = std::time::Instant::now();
     sqlx::query_file!("sql/account_lock.sql", account_text)
         .fetch_one(&mut *transaction)
         .await?;
+    metrics::histogram!("clacks_enrollment_revocation_lock_wait_seconds")
+        .record(waiting.elapsed().as_secs_f64());
+
     let valid = sqlx::query_file!(
         "sql/enrollment/principal.sql",
         account_text,

@@ -7,6 +7,8 @@ cookie_key_file = "/run/secrets/browser-cookie-key"
 session_days = 14
 pending_seconds = 600
 shutdown_seconds = 30
+# Incremental entries per account, independent of indefinite offline eligibility.
+journal_entries = 10000
 # Standard OTEL_EXPORTER_OTLP_* environment variables configure the collector.
 otlp = false
 

@@ -2,6 +2,8 @@
 
 mod witness;
 
+pub mod installation;
+
 use crate::{
     account::{Baseline, EvidenceView, InstalledCheckpoint},
     client::{OriginalBasis, PendingRecord},

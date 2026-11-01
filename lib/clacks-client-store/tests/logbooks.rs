@@ -11,7 +11,7 @@ use clacks_client_store::{
 use clacks_model::tag::LogbookTag;
 use clacks_sync::record::{RecordState, RecordValue};
 use logbook_support::{Workspace, insert};
-use sqlx::{ConnectOptions, Connection, sqlite::SqliteConnectOptions};
+
 use support::id;
 
 #[tokio::test]
@@ -97,49 +97,6 @@ async fn selection_rejects_deleted_or_unavailable_targets_without_replacing_curr
             SelectedView::Logbook(id(20))
         );
     }
-    workspace.store.close().await?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn restore_preserves_unknown_target_and_repairs_only_known_deletion() -> anyhow::Result<()> {
-    let workspace = Workspace::new().await?;
-    let mut connection = SqliteConnectOptions::new()
-        .filename(&workspace.path)
-        .connect()
-        .await?;
-    sqlx::raw_sql(include_str!("sql/missing_selected_view.sql"))
-        .execute(&mut connection)
-        .await?;
-    assert_eq!(selection::restore(&workspace.store).await?, None);
-    assert_eq!(
-        settings::snapshot(&workspace.store)
-            .await?
-            .logbooks
-            .selected_view,
-        SelectedView::Logbook(id(99))
-    );
-
-    let tag = insert(&workspace.store, 99, "Deleted").await?;
-    save::save(
-        &workspace.store,
-        tag.key(),
-        Some(&tag),
-        RecordState::Deleted,
-    )
-    .await?;
-    sqlx::raw_sql(include_str!("sql/missing_selected_view.sql"))
-        .execute(&mut connection)
-        .await?;
-    assert_eq!(selection::restore(&workspace.store).await?, Some(id(99)));
-    assert_eq!(
-        settings::snapshot(&workspace.store)
-            .await?
-            .logbooks
-            .selected_view,
-        SelectedView::AllContacts
-    );
-    connection.close().await?;
     workspace.store.close().await?;
     Ok(())
 }

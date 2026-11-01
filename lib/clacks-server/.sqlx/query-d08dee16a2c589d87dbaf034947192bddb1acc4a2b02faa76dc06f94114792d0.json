@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE clacks.current_external_binding SET envelope_id = $3\nWHERE account = $1 AND envelope_id = $2\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d08dee16a2c589d87dbaf034947192bddb1acc4a2b02faa76dc06f94114792d0"
+}

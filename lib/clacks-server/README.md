@@ -39,7 +39,9 @@ SQLX_OFFLINE=false cargo sqlx prepare -- --all-targets --locked
 SQLX_OFFLINE=false cargo sqlx prepare --check -- --all-targets --locked
 ```
 
-Set `DATABASE_URL` to the same disposable PostgreSQL database used for tests,
+Leave `CLACKS_SQLITE_DATABASE_URL` unset so client-store queries in the recovery
+test dependency use their committed metadata. Set `DATABASE_URL` to the same
+disposable PostgreSQL database used for tests,
 with the migration role. Commit this crate's `.sqlx/` files with query/schema
 changes. Client SQLite metadata remains
 at the workspace root; do not regenerate that directory against PostgreSQL.
@@ -312,6 +314,18 @@ regenerate material. See [backup/recovery](../../docs/backup-recovery.md) before
 restoring a database or removing keys from a deployment.
 
 ## Account synchronization
+
+Automatic retention runs in the server process every five minutes. Each sweep
+visits accounts in pages of 100 and skips busy account locks for a later sweep.
+`journal_entries` sets the per-account incremental-history target (default
+10,000). It does not expire clients or bound accepted QSO/service data.
+
+Baseline installation projects eligible closed-actor contexts in one transaction,
+sharing existing native payloads. Journal pruning and physical reclamation run
+separately in batches of at most 1,000 owning rows. Pending client work, current
+tombstones and genuine service dependencies keep their required evidence.
+See the [retention contract](../../docs/synchronization-retention.md) for roots,
+recovery boundaries and operational measurements.
 
 The concrete PostgreSQL adapter stores native queryable payloads relationally,
 accepted heads, original acceptance contexts and installation journal positions.

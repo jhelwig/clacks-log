@@ -1,0 +1,119 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT a.envelope_id, a.kind, a.record_id, p.deleted, s.timeline_id, s.revision, s.baseline_id, v.body,\n       (EXISTS (SELECT 1 FROM clacks.accepted_head h WHERE h.account = a.account AND h.envelope_id = a.envelope_id)\n        OR EXISTS (SELECT 1 FROM clacks.retained_accepted r WHERE r.account = a.account AND r.envelope_id = a.envelope_id)\n        OR EXISTS (SELECT 1 FROM clacks.staged_accepted r WHERE r.account = a.account AND r.envelope_id = a.envelope_id)\n        OR EXISTS (SELECT 1 FROM clacks.current_external_binding b WHERE b.account = a.account AND b.envelope_id = a.envelope_id)) AS \"rooted!: bool\"\nFROM clacks.accepted_record a\nJOIN clacks.payload p USING (payload_id, account, kind, record_id)\nJOIN clacks.version_stamp s USING (stamp_id, account, kind, record_id)\nJOIN clacks.record_vector v USING (vector_id, account, kind, record_id)\nWHERE a.account = $1 ORDER BY a.envelope_id DESC\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "envelope_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.accepted_record",
+            "name": "envelope_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.accepted_record",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "record_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.accepted_record",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "deleted",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "clacks.payload",
+            "name": "deleted"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "timeline_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.version_stamp",
+            "name": "timeline_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "revision",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.version_stamp",
+            "name": "revision"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "baseline_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.version_stamp",
+            "name": "baseline_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "body",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.record_vector",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "rooted!: bool",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "f87f10b082ca479d997130e9542c940b126b380763bef4cbacf31f2b5b6036f2"
+}

@@ -74,6 +74,22 @@ These operations do not implement service-upload recovery.
 
 ## Desktop authorization recovery
 
+Automatic synchronization collection retains the evidence needed by enrolled
+offline clients and preserves genuine baseline meanings returned after an older
+server restore. Clients below the retained journal boundary use normal fuller-
+state reconciliation, preserving pending values and their comparison evidence.
+An interrupted return can install individual facts without certifying a complete
+recovered prefix. See [synchronization retention](synchronization-retention.md).
+
+The isolated automated `retention_recovers_from_older_database` scenario uses
+actual `pg_dump`/`pg_restore` archives and newer SQLite workspaces. It requires an
+exclusively owned disposable test container with a `clacks-retention-test` name
+prefix, selected by `CLACKS_RESTORE_CONTAINER`,
+the ordinary `CLACKS_TEST_DATABASE_URL` and `CLACKS_TEST_RUNTIME_DATABASE_URL`
+connections, and runs alone with `--ignored --test-threads=1`. This verification
+does not add an application backup command, recover server-only secrets through
+sync, or claim universal detection of unobserved revision reuse.
+
 Back up account encryption-key rows and desktop authorization tables in the
 same consistent PostgreSQL backup. Retain every referenced deployment wrapping
 key in the protected secret backup; ciphertext alone cannot recover the consumed

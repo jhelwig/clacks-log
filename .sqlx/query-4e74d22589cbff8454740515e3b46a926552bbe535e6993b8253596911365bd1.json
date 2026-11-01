@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM basis_witness WHERE account = ?1 AND witness_id IN (\n    SELECT w.witness_id FROM basis_witness w WHERE w.account = ?1\n      AND NOT EXISTS (SELECT 1 FROM pending_record p WHERE p.account = w.account AND p.witness_id = w.witness_id)\n    ORDER BY w.witness_id LIMIT ?2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "4e74d22589cbff8454740515e3b46a926552bbe535e6993b8253596911365bd1"
+}

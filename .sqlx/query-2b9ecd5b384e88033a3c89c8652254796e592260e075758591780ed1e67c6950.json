@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT kind, record_id, stamp_id, deleted FROM coupled_member WHERE account = ?1\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "kind",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "coupled_member",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "record_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "coupled_member",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "name": "stamp_id",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "coupled_member",
+            "name": "stamp_id"
+          }
+        }
+      },
+      {
+        "name": "deleted",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "coupled_member",
+            "name": "deleted"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2b9ecd5b384e88033a3c89c8652254796e592260e075758591780ed1e67c6950"
+}

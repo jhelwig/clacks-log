@@ -9,7 +9,9 @@ pub mod identities;
 pub(crate) mod logins;
 pub(crate) mod metadata;
 pub(crate) mod payload;
+pub(crate) mod retention;
 pub(crate) mod rows;
+
 pub(crate) mod synchronization;
 
 #[cfg(test)]

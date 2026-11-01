@@ -1,9 +1,9 @@
-//! Exact immutable support and atomic-unit membership for accepted-state return.
+//! Sufficient accepted support and atomic-unit membership for accepted-state return.
 
-use crate::metadata::{client, clock};
+use crate::metadata::{client, clock, lineage};
 use clacks_sync::{
     record::{AcceptedRecord, Observation, RecordKey, RecordState, RecordValue},
-    service::{VersionReference, operation::CoupledRequirement},
+    service::{SupportRequirement, VersionReference, operation::CoupledRequirement},
 };
 use sqlx::SqliteConnection;
 use std::collections::BTreeSet;
@@ -16,28 +16,29 @@ pub(super) async fn complete(
     support: &mut Vec<AcceptedRecord>,
     require_complete: bool,
 ) -> anyhow::Result<Vec<CoupledRequirement>> {
+    let interpretation = lineage::interpretation(connection, owner).await?;
+
     let mut values = heads.clone();
     values.extend(support.iter().cloned());
+
     let mut index = 0;
     let mut units = Vec::new();
     let mut seen = BTreeSet::new();
+
     while let Some(value) = values.get(index).cloned() {
         index += 1;
+
         let key = value.key();
         let mut keys = clacks_sync::acceptance::required_references(key, value.state());
         let mut references = Vec::new();
+
         if let RecordState::Live(RecordValue::Service(service)) = value.state() {
             keys.extend(clacks_sync::service::dependency::required_keys(
                 owner, service,
             ));
-            references.extend(
-                service
-                    .support
-                    .required
-                    .iter()
-                    .map(|item| item.reference().clone()),
-            );
+            references.extend(service.support.required.iter().cloned());
         }
+
         for row in sqlx::query_file!(
             "sql/discovery/units.sql",
             owner.to_string(),
@@ -67,13 +68,19 @@ pub(super) async fn complete(
                         deleted: member.deleted != 0,
                     });
                 }
-                references.extend(members.clone());
+                references.extend(
+                    members
+                        .iter()
+                        .cloned()
+                        .map(SupportRequirement::CoveredEffect),
+                );
                 units.push(CoupledRequirement {
                     id: row.operation_id.parse()?,
                     members,
                 });
             }
         }
+
         for key in keys {
             if !heads.iter().any(|value| value.key() == key)
                 && let Some(row) = client::load(connection, key).await?
@@ -85,12 +92,34 @@ pub(super) async fn complete(
                 }
             }
         }
-        for reference in references {
-            if !values
-                .iter()
-                .any(|value| value.key() == reference.key && value.stamp == reference.stamp)
+
+        for requirement in references {
+            let reference = requirement.reference();
+            if matches!(requirement, SupportRequirement::CoveredEffect(_))
+                && let Some(row) = client::load(connection, reference.key).await?
+                && let Observation::Accepted(current) = row.latest()
+                && !values.contains(current)
             {
-                match client::observation::exact(connection, &reference).await? {
+                support.push(current.clone());
+                values.push(current.clone());
+            }
+
+            let mut represented = false;
+            if let Some(interpretation) = &interpretation {
+                for actual in &values {
+                    if clacks_sync::service::dependency::represents(
+                        &requirement,
+                        &clacks_sync::transfer::RecordRequirement::from(actual),
+                        &interpretation.view(),
+                    )? {
+                        represented = true;
+                        break;
+                    }
+                }
+            }
+
+            if !represented {
+                match client::observation::exact(connection, reference).await? {
                     Some(value) => {
                         support.push(value.clone());
                         values.push(value);
@@ -103,6 +132,8 @@ pub(super) async fn complete(
             }
         }
     }
+
     support.retain(|value| !heads.contains(value));
+
     Ok(units)
 }

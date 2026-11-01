@@ -393,3 +393,47 @@ fn old_binding_unit_is_covered_by_accepted_deletion_without_reactivation() -> an
     );
     Ok(())
 }
+
+#[test]
+fn covered_support_uses_accepted_successor_without_weakening_exact_facts() -> anyhow::Result<()> {
+    use clacks_sync::service::{SupportRequirement, dependency::represents};
+    let (_, baseline) = AccountMetadata::initialize(support::id(1), support::id(2), support::id(3));
+    let baselines = [baseline.clone()];
+    let evidence = EvidenceView {
+        lineage: &baseline.lineage,
+        baselines: &baselines,
+    };
+
+    let original = support::accepted(60, "original");
+    let mut successor = support::accepted(70, "correction");
+    support::edit_accepted(&mut successor, |fields| fields.state = RecordState::Deleted);
+
+    let covered = SupportRequirement::CoveredEffect(VersionReference::from(&original));
+    let exact = SupportRequirement::ExactFact(VersionReference::from(&original));
+    assert!(represents(
+        &covered,
+        &RecordRequirement::from(&successor),
+        &evidence
+    )?);
+    assert!(!represents(
+        &exact,
+        &RecordRequirement::from(&successor),
+        &evidence
+    )?);
+    assert!(represents(
+        &exact,
+        &RecordRequirement::from(&original),
+        &evidence
+    )?);
+
+    let missing = EvidenceView {
+        lineage: &baseline.lineage,
+        baselines: &[],
+    };
+    assert!(
+        !represents(&covered, &RecordRequirement::from(&successor), &missing)?,
+        "unknown ordering cannot cover an effect"
+    );
+    assert_eq!(covered.reference(), &VersionReference::from(&original));
+    Ok(())
+}

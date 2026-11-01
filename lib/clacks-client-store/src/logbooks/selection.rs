@@ -115,3 +115,6 @@ pub(crate) async fn fallback_deleted_in(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

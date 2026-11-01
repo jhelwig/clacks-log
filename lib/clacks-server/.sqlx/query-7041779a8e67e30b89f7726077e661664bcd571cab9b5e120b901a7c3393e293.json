@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.sync_baselines b WHERE b.account_id = $1 AND b.baseline_row IN (\n    SELECT b.baseline_row FROM clacks.sync_baselines b WHERE b.account_id = $1\n      AND NOT EXISTS (SELECT 1 FROM clacks.sync_accounts a WHERE a.account_id = b.account_id AND a.baseline_id = b.baseline_id)\n      AND NOT EXISTS (SELECT 1 FROM clacks.version_stamp s WHERE s.account = b.account_id AND s.baseline_id = b.baseline_id)\n      AND NOT EXISTS (SELECT 1 FROM clacks.checkpoint c WHERE c.account = b.account_id AND c.baseline_id = b.baseline_id)\n    ORDER BY b.baseline_row LIMIT $2\n)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7041779a8e67e30b89f7726077e661664bcd571cab9b5e120b901a7c3393e293"
+}
