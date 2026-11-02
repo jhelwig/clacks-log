@@ -53,6 +53,11 @@ impl Fixture {
         let (settings, requests) = mpsc::channel(8);
         let (settings_updates, settings_view) = watch::channel(None);
         let resources = SessionResources {
+            directory: crate::directory::provisioning::Outputs {
+                installed: tokio::sync::watch::channel(None).0,
+                status: tokio::sync::watch::channel(Default::default()).0,
+                retry: Default::default(),
+            },
             enrollment_updates: watch::channel(Default::default()).0,
             settings_requests: requests,
             settings_updates,

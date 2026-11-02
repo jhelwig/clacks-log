@@ -239,6 +239,22 @@ async fn exchange(
         span.in_scope(|| tracing::info!(event="sync.work.admitted", phase, account_id=%client.account, actor_id=%client.actor));
         let result = async {
             match message {
+                ClientMessage::DirectoryConfiguration => {
+                    anyhow::ensure!(
+                        negotiated,
+                        InvalidMessage {
+                            reason: "directory configuration before negotiation"
+                        }
+                    );
+                    let configuration = crate::directory::for_client(state, client).await?;
+                    send(
+                        socket,
+                        &state.sync_stop,
+                        client.expires_at,
+                        ServerMessage::DirectoryConfiguration { configuration },
+                    )
+                    .await?;
+                }
                 ClientMessage::Hello {
                     version,
                     checkpoint,

@@ -61,7 +61,14 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
     let (settings_updates, settings_view) = watch::channel(None);
     let (enrollment_updates, enrollment_view) =
         watch::channel(crate::enrollment::EnrollmentStatus::default());
+    let directory = crate::directory::provisioning::Outputs {
+        installed: watch::channel(None).0,
+        status: watch::channel(Default::default()).0,
+        retry: Default::default(),
+    };
+    let directory_status = directory.status.subscribe();
     let resources = SessionResources {
+        directory,
         enrollment_updates,
         settings_requests: requests,
         settings_updates,
@@ -89,6 +96,7 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
         Box::new(move |creation| {
             let _ = context.set(creation.egui_ctx.clone());
             let mut app = DesktopApp::new(UiResources {
+                directory_status,
                 enrollment_view,
                 status,
                 activation,

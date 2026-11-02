@@ -190,4 +190,5 @@ mod support;
 mod directory;
 mod key_rotation;
 
+mod migration;
 mod synchronization;

@@ -22,6 +22,16 @@ impl Drop for NativeEntry {
 
 #[tokio::test]
 async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<()> {
+    tokio::time::timeout(
+        std::time::Duration::from_secs(90),
+        verify_native_enrollment(),
+    )
+    .await
+    .context("Native enrollment scenario exceeded its unattended time limit")?
+}
+
+/// Exercise the actual issuer, persistence and synchronization under one bounded owner.
+async fn verify_native_enrollment() -> anyhow::Result<()> {
     let telemetry = std::env::var_os("CLACKS_TELEMETRY_ACCEPTANCE")
         .map(|_| clacks_server::telemetry::init(true))
         .transpose()?;

@@ -59,6 +59,8 @@ pub enum ProposalOutcome {
 /// Messages sent by the native application over its authorized account connection.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ClientMessage {
+    /// Read current purpose-specific selected directory configuration over this authorization.
+    DirectoryConfiguration,
     /// Negotiate before any state-changing exchange.
     Hello {
         /// Required protocol contract.
@@ -91,13 +93,14 @@ impl ClientMessage {
     pub fn exchange_id(&self) -> Option<u64> {
         match self {
             Self::Transfer { exchange, .. } => Some(*exchange),
-            Self::Hello { .. } | Self::Propose { .. } => None,
+            Self::Hello { .. } | Self::Propose { .. } | Self::DirectoryConfiguration => None,
         }
     }
 
     /// Bounded synchronization phase represented by this message, without payloads.
     pub fn diagnostic_phase(&self) -> &'static str {
         match self {
+            Self::DirectoryConfiguration => "directory_configuration",
             Self::Hello { .. } => "negotiation",
             Self::Propose { .. } => "publication",
             Self::Transfer { .. } => "transfer",
@@ -108,6 +111,11 @@ impl ClientMessage {
 /// Messages sent by the hub after current native authorization.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ServerMessage {
+    /// Purpose-specific protected delivery, never accepted history or checkpoint evidence.
+    DirectoryConfiguration {
+        /// Current account selection and selected sensitive material.
+        configuration: super::directory::ProvisionedConfiguration,
+    },
     /// Describe authoritative membership and real accepted coverage.
     Hello {
         /// Selected compatible protocol contract.

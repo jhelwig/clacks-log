@@ -50,6 +50,16 @@ the native credential reference, origin, destination and expected binding.
 Clearing an old attempt cannot remove a newer one. No signing key or usable
 access/refresh credential is stored in SQLite.
 
+`directory::installation` stores the last installed public directory configuration
+and opaque native-entry reference under `directory.installation` in that same
+`local_state` table. It validates the versioned value and compares the complete
+expected installation inside the replacement transaction. Missing state permits
+first installation. Unusable metadata is reported and left untouched on read,
+but does not block a fresh authenticated installation; database read failures
+remain errors. Native credential writes happen before this commit, preserving
+the prior usable installation on failure. This local
+workflow metadata is separate from the synchronized directory snapshots.
+
 ## Checked SQL
 
 Crate-internal types in `src/rows/` group the relational schema by record family.

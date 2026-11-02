@@ -39,6 +39,8 @@ pub(crate) enum SessionCommand {
     Font(crate::ui::fonts::FontOperation),
     /// Retry only after the previous failed open has settled.
     RetryOpen,
+    /// Retry local directory access without restarting synchronization or authorization.
+    RetryDirectoryStorage,
     /// Stop admitting work and begin resource cleanup.
     BeginShutdown,
 }
@@ -75,6 +77,8 @@ pub(crate) enum SessionStatus {
 
 /// Resources transferred to the runtime while outer composition retains ownership.
 pub(crate) struct SessionResources {
+    /// Directory installation and diagnostic outputs owned by this workspace session.
+    pub directory: crate::directory::provisioning::Outputs,
     /// Nonsecret enrollment progress delivered to the native connection dialog.
     pub enrollment_updates: watch::Sender<crate::enrollment::EnrollmentStatus>,
     /// Selected physical workspace and output locations.
@@ -112,6 +116,7 @@ pub(crate) async fn run(
     status: watch::Sender<SessionStatus>,
 ) -> anyhow::Result<()> {
     let SessionResources {
+        directory,
         enrollment_updates,
         paths,
         listener,
@@ -135,6 +140,7 @@ pub(crate) async fn run(
     let (sync_updates, mut sync_progress) =
         watch::channel(crate::synchronization::Status::Disconnected);
     let (local_changes, _) = watch::channel(());
+    let mut directory_progress = directory.status.subscribe();
     let mut settings_progress = settings_updates.subscribe();
     let mut font_work = JoinSet::new();
     let mut enrollment_work = JoinSet::new();
@@ -203,6 +209,9 @@ pub(crate) async fn run(
                     tracing::info!(event = "desktop.workspace_retry");
                 }
                 Some(SessionCommand::RetryOpen) => {},
+                Some(SessionCommand::RetryDirectoryStorage) => {
+                    if closing.is_none() { directory.retry.notify_one(); }
+                },
                 Some(SessionCommand::BeginShutdown) | None => {
                     if closing.is_none() {
                         let started = Instant::now();
@@ -252,7 +261,7 @@ pub(crate) async fn run(
                     sync_stop.cancel();
                     while let Some(result) = sync_work.join_next().await { if let Err(error) = result { tracing::error!(event="sync.worker.failed", error.type=if error.is_panic() { "task_panic" } else { "task_cancelled" }); } }
                     sync_stop = CancellationToken::new();
-                    start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_stop).await?;
+                    start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_stop, &directory).await?;
                 }
                 if let Some(context) = context.get() {context.request_repaint();}
             },
@@ -317,7 +326,7 @@ pub(crate) async fn run(
                                         restored_view_from: workspace.restored_view_from,
                                     },
                                 );
-                                start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_stop).await?;
+                                start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_stop, &directory).await?;
                             }
                             opened = Some(workspace);
                         }
@@ -380,6 +389,9 @@ pub(crate) async fn run(
                     Some(Err(_)) => tracing::error!(event = "desktop.settings_task_failed"),
                     None => {},
                 }
+            },
+            changed = directory_progress.changed() => {
+                if changed.is_ok() && let Some(context) = context.get() { context.request_repaint(); }
             },
             _ = loss_check.tick() => {
                 if file_failure.load(std::sync::atomic::Ordering::Relaxed) && !file_failure_reported {
@@ -448,6 +460,7 @@ async fn start_sync(
     status: &watch::Sender<crate::synchronization::Status>,
     updates: &watch::Sender<Option<Arc<SettingsSnapshot>>>,
     stop: &CancellationToken,
+    directory: &crate::directory::provisioning::Outputs,
 ) -> anyhow::Result<()> {
     if let Some(binding) = clacks_client_store::identity::binding(store).await? {
         tasks.spawn(
@@ -458,6 +471,7 @@ async fn start_sync(
                 status.clone(),
                 updates.clone(),
                 stop.clone(),
+                directory.clone(),
             )
             .in_current_span()
             .with_current_subscriber(),

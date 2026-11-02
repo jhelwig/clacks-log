@@ -457,9 +457,32 @@ synchronization task.
 
 The shared `credentials::entry` adapter constructs entries through the selected
 native backend without changing the global keyring store. Enrollment retains its
-`org.clacks-log.desktop.authorization` namespace, opaque references and serialized
-bundle format. The adapter selects macOS Keychain or Windows Local persistence;
+`com.w7hex.clacks-log.authorization` namespace, opaque references and serialized
+bundle format. The adapter selects macOS Data Protection Keychain or Windows Local persistence;
 unsupported Linux storage returns an error and never falls back to plaintext.
+
+On macOS, the selected library's `protected` backend uses the app's default
+access group, local storage and When Unlocked access policy. It does not request
+user presence or enable iCloud synchronization. Both enrollment and directory
+material use this backend; there is no migration or fallback to file-based
+Keychain storage. Ordinary access to the correctly provisioned app's own items is
+silent while the device is unlocked.
+
+Data Protection Keychain access requires a signed application bundle with an
+embedded provisioning profile authorizing its application identifier/access
+group. A bare `cargo run` executable can run local logging but is not a
+credential-enabled macOS distribution. A signing certificate alone, an ad hoc
+signature or an entitlement file without a matching profile is insufficient.
+See [Apple's implementation guidance](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains)
+and [provisioning profiles](https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles).
+
+The native enrollment and directory integration scenarios require their test
+executable in an equivalently signed/profile-authorized application bundle. Run
+that executable directly with the normal test filters and disposable database
+variables; do not rebuild or replace it until the test process exits. Keep
+`LEPTOS_OUTPUT_NAME=clacks-web` consistent across desktop builds. Missing profile
+authorization is a native integration prerequisite failure, not a reason to use
+another backend. The backend-selection unit test needs no stored secret or profile.
 
 Directory provisioning (#17) will use this same adapter with its own namespace
 and typed account/purpose/revision-bound bundle. Save replacement native material

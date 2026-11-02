@@ -37,7 +37,12 @@ fn workspace_details_are_disclosed_only_on_request() {
 
 #[test]
 fn collapsed_diagnostics_do_not_hide_startup_or_log_output_failures() {
-    let window = Window::new();
+    let mut window = Window::new();
+    window.app.directory_status =
+        tokio::sync::watch::channel(crate::directory::provisioning::ProvisioningStatus::Failed(
+            "Directory storage is unavailable".into(),
+        ))
+        .1;
     window.updates.send_replace(SessionStatus::Failed {
         message: "Database could not be opened".into(),
     });
@@ -45,11 +50,17 @@ fn collapsed_diagnostics_do_not_hide_startup_or_log_output_failures() {
         .app
         .file_failure
         .store(true, std::sync::atomic::Ordering::Relaxed);
-    let ui = mount(window);
+    let mut ui = mount(window);
     assert!(ui.query_by_label("Database could not be opened").is_some());
     assert!(ui.query_by_label("Retry").is_some());
     assert!(
         ui.query_by_label_contains("Local log file writes failed")
             .is_some()
     );
+    ui.get_by_label("Retry directory storage").click();
+    ui.run();
+    assert!(matches!(
+        ui.state_mut().commands.try_recv().unwrap(),
+        SessionCommand::RetryDirectoryStorage
+    ));
 }

@@ -281,56 +281,47 @@ Use one session-owned installation task and ordinary Tokio channels for ordered
 deliveries from the current authenticated connection. Coalesce queued updates
 to the latest complete response; do not queue unrelated work or invent durable
 connection epochs. Ended connections cannot deliver new installation work.
-After native access, recheck connection/cancellation and whether a newer response
-is already pending before starting the SQLite reference transaction. Retain the
-old usable configuration when that staged installation has become obsolete.
-Serialize installations so an older response cannot complete after a newer
-installation and overwrite it. A transaction already admitted may finish before
-the next queued update, as with existing admitted application writes.
+Check current connection/cancellation and the latest delivery immediately before
+starting the native update. Serialize installation so an older response cannot
+complete after a newer installation. A native operation already started may
+complete; the next current delivery follows it on the same worker.
 Native access/installation is not awaited in the socket's receive/acknowledgment
 loop. Directory installation failures are delivered as directory diagnostics;
 they do not tear down the working synchronization connection.
 
-On the desktop, reuse `credentials::entry`, `spawn_blocking` and the existing
-platform stores. Use a separate directory namespace, with bundles containing
-deployment origin, account, purpose, provider and material identity/revision.
-Validate that context whenever loading, not just when initially receiving it.
-SQLite stores public configuration and opaque entry references only.
-Persist the last installed public configuration and opaque reference as one
-versioned `directory.installation` value in the existing workspace-local
-`local_state` store. This is local provisioning metadata, not a synchronized
-domain record: all consumers read or replace the complete value, with no
-independent relational identity, joins or field-level SQL queries. Reuse the
-existing write transaction to compare the complete expected installation before
-replacement. The owning type validates decoded state. Malformed or unsupported
-metadata is reported and never used to acquire credentials; reads leave it
-untouched, and fresh authenticated provisioning can replace it. Database read
-failures still propagate, and valid installed state retains the expected-value
-guard. No dedicated installation table or schema migration is required.
+On the desktop, reuse `credentials::entry` and `spawn_blocking`. macOS uses the
+selected library's Data Protection Keychain backend, local storage in the signed
+app's default access group and its default When Unlocked access policy. Do not
+require user presence or enable iCloud synchronization. The macOS app and native
+integration-test host require signing entitlements authorized by an embedded
+provisioning profile, following [Apple's guidance](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains).
+Windows retains Credential Manager Local persistence. Do not migrate or fall back
+to the older file-based macOS Keychain. The fixed directory namespace and bundle
+owner checks bind the stored value to the enrolled deployment and account.
 
-For replacement, write a fresh native entry before atomically committing its
-public reference/configuration in SQLite. Until that commit, use the prior
-installed configuration. A failed native write or local commit preserves that
-configuration and exposes retryable provisioning diagnostics; QSO sync continues.
-After commit, clean the superseded entry. A cleanup failure does not roll back
-an already installed replacement, prevent later configuration updates or rewrite
-enrollment. Report the failed deletion and retry it using the known obsolete
-reference while that reference is available. This specification adds no durable
-cleanup queue, installation gate or guarantee of erasing inaccessible native
-entries. Loss of access to an obsolete secret does not make it eligible again.
+Store the complete public configuration and optional selected material as one
+protected native value. Allocate a workspace-local entry name once under
+`directory.entry` in the existing `local_state` store, before native access.
+This locator survives reauthorization and separates concurrently open workspaces;
+it is not changed during provisioning. There is no second installation record,
+configuration/reference transaction, per-update entry or obsolete-entry cleanup.
 
-For removal/disable, commit the new nonsecret unusable/disabled configuration
-and retain the superseded reference for cleanup. Stop obtaining credentials
-from that old entry after the commit. Native deletion failure is reported and
-retried when its reference remains available; it is not permission to continue
-new lookups with removed material. Disconnected clients retain their previously
-installed configuration until they receive the change, as already agreed.
-Revocation blocks further provisioning through existing authority checks; it
+Use the backend add/update operation to replace that complete value. Disabled
+and selected-but-unconfigured are complete values without material. A failed
+operation retains the last usable runtime configuration and reports a directory
+storage diagnostic. An explicit Retry directory storage action wakes the same
+worker to retry local reads and the retained current delivery; it does not
+reconnect or reauthorize, and creates no timed retry queue. Lookup response
+ownership compares captured provider and actual material, including restored
+content whose IDs/revisions may have been reused.
+
+Disconnected clients retain their previously installed configuration until they
+receive a change. Revocation blocks further provisioning through existing authority checks; it
 cannot erase credentials already received by a disconnected client.
 
 Native storage failure is not a synchronization failure. Directory installation
 must not prevent acknowledgments for unrelated durably installed QSO records.
-On restart, load the installed reference and report a missing/unreadable entry
+On restart, load the fixed entry and report an unreadable value
 without manufacturing credentials or damaging enrollment. Local-only logging
 continues without account provisioning; this issue does not add a second,
 desktop-only credential-configuration workflow.
@@ -518,7 +509,7 @@ raw provider responses, personal directory fields and secret-bearing frame dumps
 | `clacks_directory_lookup_requests_total` | Actual directory lookup HTTP dispatch, labeled by provider; login is not a lookup. |
 | `clacks_directory_lookups_total` | One completed logical lookup, labeled by provider and success/not_found/authentication/unavailable/cancelled; internal session retry is not a second logical lookup. |
 | `clacks_directory_lookup_duration_seconds` | Runtime logical lookup from admission to terminal outcome, same provider/outcome labels; excludes debounce. |
-| `clacks_directory_configuration_installs_total` | Committed local configuration transitions, not native writes before SQLite commit; selected/disabled/unconfigured outcomes. |
+| `clacks_directory_configuration_installs_total` | Changed complete configurations successfully stored natively; repeated equal values do not count; selected/disabled/unconfigured outcomes. |
 
 Use existing storage/sync metrics for their ordinary operations rather than
 inventing a directory metric for every helper. Extend existing maintenance
@@ -543,7 +534,7 @@ failpoints. Combine related assertions in existing scenarios.
 | D195: pause on session expiry or retry rejected credentials indefinitely | Adapter request sequence against a local HTTP fixture using real clients; expired session, login rejection, rate limit, not found and transport failure. |
 | D96/D197: require server access for lookup or query another provider | Actual desktop lookup with sync unavailable and only the selected adapter contacted. |
 | D97/D236: cross-account provisioning, secret in SQLite/journal, stale replacement or broken removal | Authorized server and desktop provisioning through actual native entry/store paths; account isolation, stale writes, restart/reconnect and replacement/removal. |
-| Native failure: overwrite last installed reference before native success, block QSO sync, or change enrollment | Actual platform/native environmental failure where available, retained usable config and unrelated sync progress; no manufactured failpoints. |
+| Native failure: discard the last usable installation on failed native access, block QSO sync, or change enrollment | Actual platform/native environmental failure where available, retained usable config and unrelated sync progress; no manufactured failpoints. |
 | D209: choose by server arrival, require manual resolution, lose a newer pending refresh or skip an older restored server | Two-client real-store exchanges, equal-time ties, duplicate receipt, stale conditions, concurrent QSO edits, frozen retry and rollback recovery. |
 | Parent dependency/deletion: acknowledge an unusable partial transfer or revive a deleted QSO | Interrupted bounded transfer, fuller catch-up and late-result/deletion scenarios using production operations. |
 | Key maintenance: omit directory references or change material/config revisions | Existing rotation/rewrap command scenarios with actual directory credentials, repeat/no-op, committed counts and post-rotation lookup provisioning. |

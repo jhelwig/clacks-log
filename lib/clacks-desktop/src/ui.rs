@@ -42,6 +42,8 @@ use tracing_appender::non_blocking::ErrorCounter;
 
 /// Runtime handles and diagnostic resources transferred to the native window.
 pub(crate) struct UiResources {
+    /// Separate protected-directory installation diagnostics.
+    pub directory_status: watch::Receiver<crate::directory::provisioning::ProvisioningStatus>,
     /// Nonsecret enrollment context and progress from the owning session.
     pub enrollment_view: watch::Receiver<crate::enrollment::EnrollmentStatus>,
     /// Workspace lifecycle notifications.
@@ -66,6 +68,8 @@ pub(crate) struct UiResources {
 
 /// Window-owned view state and standard communication handles.
 pub(crate) struct DesktopApp {
+    /// Current directory-only diagnosis; logging remains independently available.
+    directory_status: watch::Receiver<crate::directory::provisioning::ProvisioningStatus>,
     /// Connection dialog, independent of logging and saved-settings editors.
     enrollment: enrollment::EnrollmentUi,
     /// Latest authoritative enrollment progress from the runtime.
@@ -116,6 +120,7 @@ impl DesktopApp {
     /// Attach the actual session and diagnostic state to one native window.
     pub fn new(resources: UiResources) -> Self {
         let UiResources {
+            directory_status,
             enrollment_view,
             status,
             activation,
@@ -128,6 +133,7 @@ impl DesktopApp {
             file_failure,
         } = resources;
         Self {
+            directory_status,
             enrollment: Default::default(),
             enrollment_view,
             appearance: Default::default(),

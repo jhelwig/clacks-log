@@ -27,7 +27,11 @@ use the existing Universally Unique Lexicographically Sortable Identifier
 - Preserve lookup completion time and lookup identity through retries/recovery; never use server arrival time to arbitrate snapshots.
 - Account/deployment keys, native secret storage, existing authenticated connections and ordinary database transactions remain selected.
 - No new repository/provider traits, plugin registry, generic secret API, job/cleanup queues, persistent connection epochs or test-only production interfaces.
-- Keep current enrollment namespaces, bundles and references intact. Obsolete-secret cleanup cannot block later configuration installation.
+- Keep current enrollment namespaces, bundles and references intact. Directory replacement updates one protected value at its fixed workspace entry.
+- On macOS use the existing library's Data Protection Keychain backend, local
+  app-specific storage and default When Unlocked access. No migration, legacy
+  fallback, user-presence requirement or iCloud synchronization. Native acceptance
+  needs a signed application/test bundle with a profile authorizing its access.
 - Fixed queries stay in SQL files with checked metadata. Use production migrations/grants and disposable test databases.
 - Bulk lookup (#22), WS Suite (#21), publication (#31/#30) and Linux native-secret support are outside this delivery.
 - Instrument meaningful production work in its owning task; keep credentials, raw provider payloads and secret frames out of diagnostics.
@@ -194,27 +198,31 @@ not columns. Bind material identity/revision/provider as AAD as well as owner.
 - Add `ProvisionedConfiguration { account: AccountId, configuration: DirectoryConfiguration, material: Option<DirectoryMaterial> }` in `protocol::directory`. Validate selection/material consistency; None explicitly represents disabled or selected-but-unconfigured state.
 - Add `ClientMessage::DirectoryConfiguration` and `ServerMessage::DirectoryConfiguration { configuration: ProvisionedConfiguration }`. Reuse ordered socket request/response handling; no wire-version bump for hypothetical released clients.
 - `pub(crate) async fn for_client(state: &ServerState, client: &AuthorizedClient) -> anyhow::Result<ProvisionedConfiguration>` reads a consistent config/material snapshot and checks current native authority before decrypting.
-- Client-store `DirectoryInstallation { configuration: DirectoryConfiguration, credential_reference: Option<String> }`; `installation::load(store: &ClientStore) -> anyhow::Result<Option<DirectoryInstallation>>`; `installation::commit(store: &ClientStore, expected: Option<&DirectoryInstallation>, next: &DirectoryInstallation) -> anyhow::Result<bool>`. `false` is a changed local basis, not an instruction to overwrite it; only this owner writes the `directory.installation` local-state value.
-- Desktop `credentials::save(binding: &EnrollmentBinding, configuration: &DirectoryConfiguration, material: &DirectoryMaterial) -> anyhow::Result<String>`, `load(binding: &EnrollmentBinding, installation: &DirectoryInstallation) -> anyhow::Result<DirectoryMaterial>`, and `remove(reference: &str) -> anyhow::Result<()>` use a separate directory namespace and bundles with deployment origin/account/purpose/provider/material context. No bundle-supplied origin chooses a server. Save returns a fresh opaque reference; load returns typed material only after context validation.
-- Desktop `provisioning::Delivery { configuration: ProvisionedConfiguration, connection_stop: CancellationToken }` identifies the live connection using existing cancellation ownership. Async `provisioning::run(store: ClientStore, binding: EnrollmentBinding, incoming: watch::Receiver<Option<Delivery>>, installed: watch::Sender<Option<DirectoryInstallation>>, status: watch::Sender<ProvisioningStatus>, stop: CancellationToken) -> ()` serializes installations. Define `ProvisioningStatus::{Idle, Failed(String)}` as sanitized directory diagnostics; UI availability follows the installed configuration, not an invented aggregate sync status.
+- Client-store `installation::reference(store: &ClientStore) -> anyhow::Result<String>` allocates the fixed `directory.entry` locator once. Configuration and login are not stored or committed in SQLite.
+- Desktop `credentials::save(binding: &EnrollmentBinding, reference: &str, installation: &ProvisionedConfiguration) -> anyhow::Result<()>` replaces one complete protected value; `load(binding, reference)` reads and validates it. The fixed service namespace and expected deployment/account establish ownership.
+- Desktop `provisioning::Delivery { configuration: ProvisionedConfiguration, connection_stop: CancellationToken }` retains current-connection ownership. The existing sequential worker publishes complete configurations and receives a coalesced explicit local retry signal. `SessionCommand::RetryDirectoryStorage` wakes that worker without reconnecting or reauthorizing.
 
-Use one versioned `directory.installation` value in the existing `local_state`
-store: public configuration and optional opaque native credential reference.
-Validate decoding and compare the typed expected value inside the existing
-write transaction before replacement. Workspace ownership already supplies its
-single account; no relational identity, SQL filtering or joins require a new
-table. This is local workflow metadata like enrollment completion, not serialized
-synchronized domain state. Malformed/unsupported metadata is reported and left
-untouched on read, but permits replacement by fresh authenticated provisioning.
-Database read failures remain errors; valid installations retain the ordinary
-expected-value guard. No secret bytes or new server-authority clock are stored.
+Persist only the fixed workspace entry name under `directory.entry`. Allocate it
+before native access so failures retry the same location. Configuration and
+optional credentials live together in one protected value. There is no SQLite
+installation transition, changing reference, stale-installation CAS or cleanup
+protocol. Read failures remain errors without changing the last usable runtime
+value; explicit local retry reads the same entry and retained delivery.
 
-- [ ] **Step 1: Add failing scenarios** `directory_provisioning_replaces_removes_and_reconnects` in the real enrolled-desktop fixture and `directory_installation_does_not_use_revision_as_freshness` in provisioning tests. Include secret payload changes with identical public revision/identity and a restored lower revision. Assert actual loaded native material matches the server, SQLite retains only references, enrollment still authorizes sync and disabled/unconfigured responses stop new credential acquisition.
-- [ ] **Step 2: Add ownership assertions** using ordinary ordered channels and cancellation: an ended connection's queued delivery cannot install; a newer queued configuration wins after admitted older work drains; socket receipt/ack processing does not await native installation. Use the actual unsupported-platform/native environmental failure where reproducible to establish prior reference retention and unrelated QSO progress. Do not add a fake secret-store trait, test failpoint or a new persistent epoch to manufacture these failures.
+- [ ] **Step 1: Add failing scenarios** `directory_provisioning_replaces_removes_and_reconnects` in the real enrolled-desktop fixture and `directory_installation_does_not_use_revision_as_freshness` in provisioning tests. Include secret payload changes with identical public revision/identity and a restored lower revision. Assert actual loaded native material matches the server, SQLite retains only the fixed workspace entry name, enrollment still authorizes sync and disabled/unconfigured responses stop new credential acquisition.
+- [ ] **Step 2: Add ownership assertions** using ordinary ordered channels and cancellation: an ended connection's queued delivery cannot install; a newer queued configuration wins after admitted older work drains; socket receipt/ack processing does not await native installation. Use the actual unsupported-platform/native environmental failure where reproducible to establish prior usable runtime configuration retention and unrelated QSO progress. Do not add a fake secret-store trait, test failpoint or a new persistent epoch to manufacture these failures.
 - [ ] **Step 3: Run** `cargo +1.99.1 test -p clacks-client-store --test integration --locked --offline directory_installation` and `cargo +1.99.1 test -p clacks-desktop --lib --locked --offline directory`; expect the missing workflow/assertions to fail. Register client-store tests in its existing integration target.
 - [ ] **Step 4: Implement** current-authority reads and dedicated wire messages. Request on each authenticated reconnect and account notification regardless of record checkpoint. Handle the message in every actual socket response path, including responses interleaved with transfer; deliver into the installation channel, never into history/staging. Compare full typed current material after restore, not just public counters.
-- [ ] **Step 5: Implement** fresh native write → guarded SQLite reference commit → best-effort obsolete-entry cleanup. Before starting commit, discard known obsolete/cancelled deliveries; admitted transactions can drain normally. Removal commits unusable/disabled state before cleanup. Report cleanup failure without rollback or admission gates. Use `spawn_blocking`; retain previous usable config on failed new write/commit and isolate its diagnostics from QSO sync.
-- [ ] **Step 6: Verify** Step 3 commands, server directory tests, and the existing native enrolled workflow on an available noninteractive backend. Capture the `clacks_directory_configuration_installs_total` count at actual SQLite commit, safe failure events and an unchanged enrollment namespace/reference. State unsupported/native acceptance limits explicitly; do not use interactive ignored tests.
+- [ ] **Step 5: Implement** whole-value native add/update at the fixed workspace entry using spawn_blocking. Check current delivery before native work; already-started operations can complete serially. Preserve last usable runtime state on failure. Retry local reads and the retained delivery on explicit Retry directory storage, without another server request. Removal stores a complete configuration without material.
+- [ ] **Step 5a: Select the modern macOS backend.** Enable the existing
+  `apple-native-keyring-store/protected` feature and select its protected store
+  in `credentials::entry` for both secret owners. Verify the actual constructed
+  credential uses local storage, the app's default access group and When Unlocked
+  access, without creating a secret. Retain the real native workflows for a
+  signed/profile-authorized host. An unprovisioned executable's missing-entitlement
+  failure is a verification limit, not passing native acceptance. Remove obsolete
+  legacy test prompt suppression; do not add migration or fallback machinery.
+- [ ] **Step 6: Verify** Step 3 commands, server directory tests, and the existing native enrolled workflow on an available noninteractive backend. Capture the `clacks_directory_configuration_installs_total` count after actual changed native configuration is stored, safe failure events and an unchanged enrollment namespace/reference. State unsupported/native acceptance limits explicitly; do not use interactive ignored tests.
 - [ ] **Step 7: Commit** `Provision directory configuration without changing enrollment`, using the commit procedure.
 
 ### Task 4: Concrete QRZ/HamQTH adapters and provider sessions
@@ -300,7 +308,7 @@ independent request logs or a second accepted-state store.
 
 - Reuse `NewEntry.id: QsoId` as the unfinished entry's stable identity; do not add a second entry-ID system. A request captures that QSO ID, normalized key, `LookupId`, provider/material identity/revision and original response ownership.
 - Define concrete `LookupCommand::{CallChanged { qso, call }, Saved { qso }, Deleted { qso }, Retry}` and `LookupUpdate { qso: QsoId, key: LookupKey, state: LookupState }`. `LookupState` contains Pending, Found(snapshot), NotFound, PausedAuthentication and Failed(safe diagnostic) variants. Empty calls clear presentation through the corresponding command outcome rather than constructing an empty `LookupKey`.
-- Async `lookup::run(store: ClientStore, binding: Option<EnrollmentBinding>, installed: watch::Receiver<Option<DirectoryInstallation>>, commands: mpsc::Receiver<LookupCommand>, updates: mpsc::Sender<LookupUpdate>, changes: watch::Sender<()>, stop: CancellationToken) -> ()` owns direct provider sessions and pending responses under the existing runtime. It loads selected material through Task 3 and dispatches Task 4 adapters.
+- Async `lookup::run(store: ClientStore, binding: Option<EnrollmentBinding>, installed: watch::Receiver<Option<ProvisionedConfiguration>>, commands: mpsc::Receiver<LookupCommand>, updates: mpsc::Sender<LookupUpdate>, changes: watch::Sender<()>, stop: CancellationToken) -> ()` owns direct provider sessions and pending responses under the existing runtime. It receives complete selected material through Task 3 and dispatches Task 4 adapters.
 - Extend `ContactAction::Save` with `snapshot: Option<DirectorySnapshot>` and invoke Task 5's `save::contacts::save`. Publish `Saved` only for a committed/unchanged actual saved QSO, not a submitted form or a stale failure. An arriving late result calls `snapshots::apply`; Applied wakes existing local sync and contact read invalidation.
 
 - [ ] **Step 1: Add failing clock/ownership cases** `directory_lookup_debounces_actual_calls_and_preserves_saved_owner`, `directory_lookup_does_not_pause_new_material_for_old_rejection`, and `directory_pending_save_routes_result_by_committed_outcome`. Use Tokio's simulated time (`test-util` only as a dev feature where needed), egui_kittest semantic input helpers and actual request/callback assertions.

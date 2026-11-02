@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- Input from the account-only schema: an existing account and linked identity,\n-- before synchronization metadata and accepted definitions were introduced.\nWITH owner AS (\n    INSERT INTO clacks.accounts (account_id) VALUES ($1) RETURNING account_id\n)\nINSERT INTO clacks.login_identities (identity_id, account_id, issuer, subject, display_name)\nSELECT $2, account_id, 'https://migration-fixture.example', $3, 'Existing operator' FROM owner\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "93abf56177920103cbaec939d539167426007be475ce90f12b439f569435c881"
+}

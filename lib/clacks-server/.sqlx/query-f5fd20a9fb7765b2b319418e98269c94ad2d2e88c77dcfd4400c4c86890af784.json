@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT a.account_id\nFROM clacks.accounts a\nWHERE NOT EXISTS (SELECT 1 FROM clacks.sync_accounts s WHERE s.account_id = a.account_id)\nORDER BY a.account_id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "account_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.accounts",
+            "name": "account_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f5fd20a9fb7765b2b319418e98269c94ad2d2e88c77dcfd4400c4c86890af784"
+}

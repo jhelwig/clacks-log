@@ -86,13 +86,29 @@ pub(super) fn details(app: &DesktopApp, ui: &mut egui::Ui, state: &SessionStatus
 
 /// Present diagnostic degradation even when workspace details are collapsed.
 pub(super) fn diagnostics(app: &DesktopApp, ui: &mut egui::Ui) {
+    let directory_status = app.directory_status.borrow();
+    let directory_problem = match &*directory_status {
+        crate::directory::provisioning::ProvisioningStatus::Failed(message) => Some(message),
+        _ => None,
+    };
     let dropped = app.loss.dropped_lines();
     let file_failed = app.file_failure.load(std::sync::atomic::Ordering::Relaxed);
-    if app.diagnostics.is_empty() && dropped == 0 && !file_failed && app.command_error.is_none() {
+    if app.diagnostics.is_empty()
+        && dropped == 0
+        && !file_failed
+        && app.command_error.is_none()
+        && directory_problem.is_none()
+    {
         return;
     }
     theme::section_frame(ui).show(ui, |ui| {
         ui.heading("Diagnostics need attention");
+        if let Some(message) = directory_problem {
+            ui.label(message);
+            if ui.button("Retry directory storage").clicked() {
+                let _ = app.commands.try_send(SessionCommand::RetryDirectoryStorage);
+            }
+        }
         ui.separator();
         for diagnostic in &app.diagnostics {
             ui.colored_label(ui.visuals().warn_fg_color, diagnostic);

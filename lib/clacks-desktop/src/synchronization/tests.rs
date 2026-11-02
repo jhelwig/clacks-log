@@ -25,6 +25,11 @@ use tokio_util::sync::CancellationToken;
 pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     let authorizer = crate::enrollment::flow::protected(binding).await?;
     let stop = CancellationToken::new();
+    let connection = super::ConnectionContext {
+        stop: stop.clone(),
+        trace: opentelemetry::trace::SpanContext::empty_context(),
+        directory: tokio::sync::watch::channel(None).0,
+    };
     let mut socket = connect(binding, &authorizer, &tracing::Span::none()).await?;
     let cancelled = CancellationToken::new();
     cancelled.cancel();
@@ -55,7 +60,7 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     )
     .await?;
     assert!(matches!(
-        receive(&mut socket, &stop).await?,
+        receive(&mut socket, &connection).await?,
         ServerMessage::Failure {
             kind: FailureKind::Incompatible,
             ..
@@ -85,7 +90,7 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     let ServerMessage::Hello {
         checkpoint: initial,
         ..
-    } = receive(&mut socket, &stop).await?
+    } = receive(&mut socket, &connection).await?
     else {
         panic!("hello")
     };
@@ -104,13 +109,13 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     )
     .await?;
     assert!(matches!(
-        receive(&mut socket, &stop).await?,
+        receive(&mut socket, &connection).await?,
         ServerMessage::Failure {
             kind: FailureKind::Invalid,
             ..
         }
     ));
-    assert!(receive(&mut socket, &stop).await.is_err());
+    assert!(receive(&mut socket, &connection).await.is_err());
     // Invalid contents must not be echoed back as a diagnostic.
     let mut malformed = connect(binding, &authorizer, &tracing::Span::none()).await?;
     malformed
@@ -119,7 +124,7 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
         ))
         .await?;
     let mut dirty = false;
-    let failure = exchange::response(&mut malformed, &store, &mut dirty, &stop)
+    let failure = exchange::response(&mut malformed, &store, &mut dirty, &connection)
         .await
         .unwrap_err();
     let typed = failure.downcast_ref::<super::ServerFailure>().unwrap();
@@ -139,11 +144,11 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     )
     .await?;
     assert!(matches!(
-        receive(&mut socket, &stop).await?,
+        receive(&mut socket, &connection).await?,
         ServerMessage::Hello {checkpoint, ..} if checkpoint == initial
     ));
     let mut dirty = false;
-    exchange::inbound(&mut socket, &store, 1, &mut dirty, &stop).await?;
+    exchange::inbound(&mut socket, &store, 1, &mut dirty, &connection).await?;
     let key = RecordKey {
         account: binding.account,
         id: RecordId::Tag(TagId::new()),
@@ -181,7 +186,7 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     let ServerMessage::Proposal {
         outcome: ProposalOutcome::Accepted(accepted),
         ..
-    } = exchange::response(&mut socket, &store, &mut dirty, &stop).await?
+    } = exchange::response(&mut socket, &store, &mut dirty, &connection).await?
     else {
         panic!("accepted")
     };
@@ -210,10 +215,10 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     )
     .await?;
     assert!(matches!(
-        receive(&mut socket, &stop).await?,
+        receive(&mut socket, &connection).await?,
         ServerMessage::Hello { .. }
     ));
-    exchange::inbound(&mut socket, &store, 2, &mut dirty, &stop).await?;
+    exchange::inbound(&mut socket, &store, 2, &mut dirty, &connection).await?;
     send(
         &mut socket,
         &stop,
@@ -223,7 +228,7 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     let ServerMessage::Proposal {
         outcome: ProposalOutcome::Covered(retried),
         ..
-    } = exchange::response(&mut socket, &store, &mut dirty, &stop).await?
+    } = exchange::response(&mut socket, &store, &mut dirty, &connection).await?
     else {
         panic!("covered")
     };

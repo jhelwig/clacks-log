@@ -1,4 +1,4 @@
-//! Shared key/value storage for workspace-local application preferences.
+//! Shared key/value storage for preferences and nonsecret workspace-local workflow metadata.
 
 use sqlx::SqliteConnection;
 

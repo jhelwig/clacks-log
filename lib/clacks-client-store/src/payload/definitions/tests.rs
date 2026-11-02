@@ -182,7 +182,7 @@ async fn restored_definitions_plan_reference_output() -> anyhow::Result<()> {
         });
     }
     let output = clacks_model::export::evaluate::plan_reference_export(
-        &(&[qso])
+        &[qso]
             .iter()
             .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
             .collect::<Vec<_>>(),

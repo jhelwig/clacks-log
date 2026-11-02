@@ -116,3 +116,38 @@ pub async fn update(
 ) -> anyhow::Result<DirectoryUpdateOutcome> {
     crate::store::directory::update(&state.store, &state.wrapping_keys, principal, change).await
 }
+
+/// Read the selected directory material within one current-client authorized snapshot.
+#[tracing::instrument(skip_all, name="account.directory.provision", level="debug", fields(account_id=%client.account, actor_id=%client.actor))]
+pub(crate) async fn for_client(
+    state: &ServerState,
+    client: &crate::enrollment::AuthorizedClient,
+) -> anyhow::Result<clacks_sync::protocol::directory::ProvisionedConfiguration> {
+    let mut tx = state
+        .store
+        .pool
+        .begin_with("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        .await?;
+    crate::oauth::resource::check_current(&mut tx, client).await?;
+    let configuration = crate::store::directory::configuration_in(&mut tx, client.account).await?;
+    let material = match configuration.selected {
+        Some(provider) => {
+            crate::store::directory::material(
+                &mut tx,
+                &state.wrapping_keys,
+                client.account,
+                provider,
+            )
+            .await?
+        }
+        None => None,
+    };
+    let configuration = clacks_sync::protocol::directory::ProvisionedConfiguration {
+        account: client.account,
+        configuration,
+        material,
+    };
+    configuration.validate()?;
+    tx.commit().await?;
+    Ok(configuration)
+}
