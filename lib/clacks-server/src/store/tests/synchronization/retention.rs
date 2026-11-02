@@ -476,7 +476,7 @@ async fn accept(
 async fn retention_reclaims_bodies_without_losing_obligations() -> anyhow::Result<()> {
     use clacks_sync::{record::Observation, service::VersionReference};
 
-    let native = NativeAccount::create().await?;
+    let mut native = NativeAccount::create().await?;
 
     let mut read = native.store.pool.acquire().await?;
     let before = account::load(&mut read, native.first.account).await?;
@@ -529,6 +529,24 @@ async fn retention_reclaims_bodies_without_losing_obligations() -> anyhow::Resul
     )
     .await?;
 
+    // Hold connection recycling until collection finishes, so a queued
+    // rollback cannot release the pruning lock before reclamation starts.
+    let recycling = std::sync::Arc::new(tokio::sync::Semaphore::new(0));
+    let released = recycling.clone();
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .min_connections(2)
+        .max_connections(8)
+        .after_release(move |_, _| {
+            let released = released.clone();
+            Box::pin(async move {
+                let _ = released.acquire().await;
+                Ok(true)
+            })
+        })
+        .connect(&std::env::var("CLACKS_TEST_RUNTIME_DATABASE_URL")?)
+        .await?;
+    native.store = crate::store::AccountStore::new(pool);
+
     crate::store::retention::collect(
         &native.store,
         native.first.account,
@@ -536,6 +554,7 @@ async fn retention_reclaims_bodies_without_losing_obligations() -> anyhow::Resul
         &tokio_util::sync::CancellationToken::new(),
     )
     .await?;
+    recycling.close();
 
     let mut read = native.store.pool.acquire().await?;
     for obsolete in &old {
