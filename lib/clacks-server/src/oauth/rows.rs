@@ -2,20 +2,6 @@
 
 use time::OffsetDateTime;
 
-/// One child scope/resource value selected by a credential identity.
-pub(crate) struct TextValue {
-    /// Exact stored text.
-    pub value: String,
-}
-
-/// Stored public registration metadata.
-pub(crate) struct ClientRow {
-    /// Server-owned public application identifier.
-    pub client_id: String,
-    /// Human-readable application label.
-    pub display_name: String,
-}
-
 /// Code lifecycle and optional encrypted replay receipt.
 pub(crate) struct CodeRow {
     /// Account identity also used as the OAuth subject.

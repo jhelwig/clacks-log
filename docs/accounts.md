@@ -512,6 +512,14 @@ not stored in the database. This registration port does not constrain the
 desktop's operating-system-assigned callback port or change the exact redirect
 URI stored in an individual authorization grant.
 
+The complete public application profile is code-owned: `clacks-desktop`, its
+display name, authorization-code and refresh grant types, `sync` allowed/default
+scope and the redirect allowlist. The adapter rejects registration provisioning,
+updates and deletion; there is no registration configuration in PostgreSQL.
+Individual codes and credentials still persist their actual client identity,
+granted scopes and resource bindings. Account-level client revocation operates
+on those grants and synchronization actors, independently of the fixed profile.
+
 Clacks supplies the oauth-as storage integration using its relational PostgreSQL
 schema, checked SQLx queries and transaction boundaries. The unpublished upstream
 PostgreSQL reference adapter is not selected: its serialized payload schema and

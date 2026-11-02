@@ -37,7 +37,7 @@ Engineering defaults, rather than additional product requirements:
 
 | Item | Proposed default and rationale |
 | --- | --- |
-| OAuth registration | One server-owned public application registration, `clacks-desktop`, allowing only authorization-code and refresh grants and scope `sync`. Per-installation authority comes from the grant/enrollment association, not this public ID. |
+| OAuth registration | One immutable, code-owned public application profile, `clacks-desktop`, allowing only authorization-code and refresh grants and scope `sync`. Its name and loopback redirect allowlist are also defined in server code. Per-installation authority comes from the grant/enrollment association, not this public ID. |
 | Callback | Huskarl's OS-assigned loopback listener and fixed callback path `/oauth/callback`; use `127.0.0.1` or `[::1]` IP literals and upstream variable-port support. |
 | Access/code lifetime | Five-minute access tokens and oauth-as's 60-second authorization-code lifetime. Browser sign-in/approval has its own existing pending-flow lifetime. |
 | Token-endpoint proofs | Keep oauth-as's five-minute maximum proof age and one-minute future-clock allowance; do not promise configurable proof windows or server nonce support absent from this version. |
@@ -88,7 +88,6 @@ Account-owned references are account-qualified. Table names below identify the p
 
 | Table | Fields, references and constraints |
 | --- | --- |
-| `desktop_oauth_clients` | Public `client_id` primary key, display name; child tables for allowed grants and scopes. The fixed desktop redirect allowlist is supplied by server code. Server-wide public metadata; no desktop client secret or user account authority. |
 | `desktop_clients` | `(account_id, actor_id)` primary key, user-visible label, authorization time, nullable closure time, creation and closure synchronization positions. References accounts and actual membership positions. Never delete shared records through this table. |
 | `desktop_grants` | `(account_id, family_id)` primary key, application `client_id`, nullable `actor_id` until initial exchange completion, grant-established time, proof-key thumbprint, state `provisional`, `active` or `revoked`, and provisional cleanup deadline. Once associated, a family never changes account or actor. Multiple historical grants can name one actor. |
 | `desktop_authorization_codes` | Code digest primary key, account, application client, exact granted redirect and explicit-redirect flag, subject, S256 PKCE challenge, key thumbprint, issued/expiry times, state `issued`, `consumed` or `replayed`. Nullable complete versioned receipt envelope with a generated account-key reference. Ciphertext contains only the optional issued access/refresh strings required by oauth-as, not the entire record. Child tables hold scopes/resources. |
@@ -104,8 +103,10 @@ Scope/resource child rows are ordered only where library equality needs order;
 map the selected public record fields exactly. Do not add unsupported consent,
 device-flow, pushed-request or token-exchange tables. Required unused Storage
 methods fail explicitly instead of pretending to persist unsupported records.
-Public registration updates can use the existing trait's conditional-update
-semantics without opening a dynamic-registration endpoint.
+The public application profile is supplied directly by the storage adapter;
+there are no registration configuration tables. Unknown application IDs resolve
+as unregistered. Registration provisioning, updates and deletion return explicit
+unsupported-operation errors. No dynamic-registration endpoint is exposed.
 
 ### Synchronization admission persistence
 
@@ -288,9 +289,9 @@ required barriers together. An already-closed actor stays closed and is an
 idempotent result. Other actors and shared records are untouched.
 
 Ordinary oauth-as family/token revocation, including code-replay containment,
-invalidates authorization but does not close membership. A shared OAuth client
-registration's deletion is a deployment-wide operation, not the implementation
-of the account UI's individual-client Revoke action.
+invalidates authorization but does not close membership. The shared OAuth
+application profile is immutable; its deletion is unsupported. The account UI's
+individual-client Revoke action operates on the account-owned actor and grants.
 
 ### 5.5 Replay, conditional operations and cleanup
 

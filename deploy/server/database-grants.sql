@@ -9,9 +9,7 @@ GRANT SELECT ON clacks.server_administrators TO clacks_runtime;
 GRANT SELECT, INSERT, UPDATE ON clacks.account_encryption_keys,
     clacks.sync_accounts, clacks.sync_baselines,
     clacks.desktop_clients TO clacks_runtime;
-GRANT SELECT, INSERT, UPDATE, DELETE ON clacks.desktop_oauth_clients,
-    clacks.desktop_client_grants, clacks.desktop_client_scopes,
-    clacks.desktop_code_approvals,
+GRANT SELECT, INSERT, UPDATE, DELETE ON clacks.desktop_code_approvals,
     clacks.desktop_authorization_codes, clacks.desktop_code_scopes,
     clacks.desktop_code_resources, clacks.desktop_grants,
     clacks.desktop_access_tokens, clacks.desktop_access_scopes,
