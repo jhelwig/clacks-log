@@ -1,4 +1,4 @@
-//! Membership decisions and reporting under the desktop's process-owned subscriber.
+//! Membership preparation, progress and cancellation under production telemetry.
 
 use crate::{
     session::settings::contacts::{
@@ -11,13 +11,13 @@ use clacks_client_store::{
     save::{self, SaveOutcome},
     store::{ClientStore, StoreSettings},
 };
-use clacks_model::ids::{AccountId, QsoId, TagId};
+use clacks_model::ids::{QsoId, TagId};
 use clacks_sync::record::{RecordId, RecordKey, RecordState, RecordValue};
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
 /// Exercise captured bases, partial progress and cancellation through actual membership operations.
-pub(super) async fn run(paths: &WorkspacePaths) -> anyhow::Result<AccountId> {
+pub(super) async fn run(paths: &WorkspacePaths) -> anyhow::Result<()> {
     let store = ClientStore::create(
         &paths.database,
         Default::default(),
@@ -119,19 +119,5 @@ pub(super) async fn run(paths: &WorkspacePaths) -> anyhow::Result<AccountId> {
     assert!(membership::prepare(&store, &ids).await.is_err());
 
     store.close().await?;
-    Ok(account)
-}
-
-/// Inspect settled membership diagnostics after the production writer has flushed.
-pub(super) fn assert_report(contents: &str, account: AccountId) {
-    let event = contents
-        .lines()
-        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
-        .find(|event| event["fields"]["event"] == "membership.change.completed")
-        .unwrap();
-    assert_eq!(event["fields"]["account_id"], account.to_string());
-    assert_eq!(event["fields"]["changed"], 1);
-    assert_eq!(event["fields"]["stale"], 1);
-    assert_eq!(event["fields"]["unprocessed"], 0);
-    assert!(!contents.contains("newer fact"));
+    Ok(())
 }

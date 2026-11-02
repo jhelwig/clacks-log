@@ -141,7 +141,7 @@ pub async fn serve(state: ServerState, pages: axum::Router<ServerState>) -> anyh
     ));
 
     use std::future::IntoFuture;
-    let serving = axum::serve(listener, crate::http::router(state.clone(), pages))
+    let serving = axum::serve(listener, crate::http::router(state.clone(), pages)?)
         .with_graceful_shutdown(shutdown)
         .into_future();
     tokio::pin!(serving);

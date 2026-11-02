@@ -96,8 +96,8 @@ span for essential context, mutate caller spans, or duplicate framework lifecycl
 reporting to compensate for filtering. Metrics are independent of these levels.
 
 The current `sync.recovery.fork.plan`, `sync.client.resolve` and
-`sync.service.recovery.plan` spans use `info`. The `client.resolution_prepared`
-and `service.recovery.planned` events use `info`; neither asserts a durable commit.
+`sync.service.recovery.plan` spans use `info`. Explicit resolution and recovery-plan decisions use `info`; a proposed plan does
+not assert a durable commit.
 The self-contained `history.regression_detected` event uses `warn` even when its
 `debug` history-check span is disabled. Routine review and missing-support detail
 remains `debug`.
@@ -165,53 +165,30 @@ atomic installation is too slow has yet been established.
 
 ## Verification and remaining integration choices
 
-Tests verify Clacks's reporting decisions through real instrumented operations.
-A test collector is an observation tool, not the behavior under test. Check that:
+Production acceptance exercises real operations through the configured collector
+and Grafana stack at ordinary filtering and sampling settings. The reviewer must
+be able to identify the failing operation and safe cause, attribute latency to a
+route/workflow, distinguish required peer waits from healthy idle, identify
+security-event subjects, and separate committed effects from attempts. Record
+revision/configuration, reproducible actions, expected business outcomes, metric
+comparisons, time ranges and backend links in the change review. Signal delivery,
+attribute inventories and passing functional tests do not establish usefulness.
 
-- Proposed updates are reported as plans, not committed saves or successful uploads.
-  Count durable effects at their actual persistence or provider boundary when those
-  adapters exist. Repeated planning does not inflate a durable-effects counter.
-- Stale proposals, required review, missing support and provider readiness are
-  classified as their actual expected outcomes, not unexpected application failures.
-- Counts describe the actual result: supplied versus deduplicated contacts,
-  proposed versus staged records, and completed versus unprocessed work where
-  those workflows exist. Do not invent import or cancellation behavior in a library
-  that does not implement it.
-- Nested and concurrent Clacks operations retain the correct request, account or
-  job context without borrowing context from another operation.
-- Clacks's selected fields exclude arbitrary payloads and sensitive values.
-  Exercise credential-handling adapters with recognizable test secrets when those
-  adapters exist; do not manufacture authentication facilities just for this test.
-- Actual emitted metric dimensions remain bounded as account and record IDs vary.
-- Configured module filters select the intended Clacks diagnostics while domain work
-  still completes. Verify observed visibility rather than framework-generated target strings.
+Do not add tests asserting emitted log/trace names, field sets, trees, ordering,
+formatting or serialized output. Reassess affected existing representation
+assertions instead of preserving them as an accidental contract. Keep useful
+business-behavior, privacy and configuration checks. Test collectors are narrow
+observation tools, not the behavior being specified. Do not build another capture
+or completion framework. Functional regression checks cover real saved/reloaded
+data, unchanged retry, refusal/recovery, cancellation and offline operation using
+the existing suites and production schemas.
 
-Do not test the telemetry libraries' event formatting, histogram implementations,
-subscriber installation or general tolerance of an absent subscriber/recorder.
-Do not duplicate the functional suite under every telemetry configuration.
-Add a configuration-sensitive test only for a concrete Clacks failure risk, such
-as necessary work being placed behind an enabled-span guard or fields being
-recorded on a caller's span when the Clacks span is filtered out. Exporter failures
-belong to tests of the actual runtime/export integration once implemented.
-
-Desktop runtime reporting checks use the production telemetry initialization in
-the existing isolated-process composition tests, including its normal logging
-filter and provider lifetime. Use ordinary production export deadlines for
-successful cases; abbreviated deadlines belong to cases that explicitly test
-slow or unavailable collectors. Keep narrow library-producer captures separate
-from verification of application composition.
-
-Desktop reporting checks that run database workers or other background threads
-use the process-owned subscriber throughout the workflow. Do not install an
-alternative thread-local capture subscriber around that work. Isolate checks
-requiring a different subscriber in the existing composition-test process, and
-keep the workflow's domain and reporting assertions together rather than
-repeating its storage setup solely to capture telemetry.
-
-Use ordinary existing functional tests to verify return values, domain data,
-synchronization semantics and serialization after instrumentation changes. Keep
-test collectors and fixtures in tests; no public production API exists solely
-to support telemetry tests.
+Failure exercises use disposable infrastructure and synthetic accounts. Compare
+before/after and repeat/no-op cases, observe export deadlines/loss and overhead,
+and distinguish unverified boundaries from passes. Do not interrupt deployed
+services to qualify application instrumentation. Deployment smoke checks follow
+separate authorization. Sampling never substitutes for unsampled business metrics
+or required security logs.
 
 The current-library producer interfaces and instrumentation schema are defined
 below. The [desktop specification](desktop.md) defines desktop composition and
@@ -328,9 +305,9 @@ classify or log it again.
 Events describe decisions and produced plans, rather than generic function
 completion. Logbook of The World is abbreviated LoTW.
 
-| Event | Domain facts |
+| Diagnostic decision or event | Domain facts |
 | --- | --- |
-| `profile.equipment_selected` | Validated equipment selected while loading a profile; native equipment ID |
+| Equipment selection | Validated equipment selected while loading a profile; native equipment ID |
 | `publication.coverage_decided` | Why current values are covered or pending: coverage decision, service/destination and supporting assertion or attempt/result IDs |
 | `publication.support_missing` | Why coverage cannot be established: missing attempt, batch mismatch or unavailable current projection, with evidence IDs |
 | `client.resolution_prepared` | Validated explicit resolution produces pending values; account/record identity and typed reason |
@@ -346,31 +323,32 @@ completion. Logbook of The World is abbreviated LoTW.
 | `transfer.batch.planned` | Ready/staged result and supplied, proposed, staged and proposed-install-key counts |
 | `compaction.acknowledgement_limits_coverage` | Which authorized client lowered a timeline frontier, with previous and acknowledged revisions |
 | `compaction.acknowledgement_excludes_timeline` | Which client lacks coverage for a candidate timeline |
-| `compaction.collection_blocked` | Missing surviving baseline or retained actor context prevents collecting actor entries |
+| Collection blockers | Missing surviving baseline or retained actor context prevents collecting actor entries |
 | `compaction.projection_blocked` | Which record lacks the baseline or lineage proof needed for projection |
-| `compaction.baseline.planned` | Input/projected-record and removable-client counts for a valid baseline proposal |
-| `service.operation.incomplete` | Required operation input is unavailable; safe reason and relevant observation, attempt or record IDs |
-| `service.operation.review_required` | Explicit selection or admission remedy is required; safe reason, relevant IDs and candidate counts when matching requires selection |
+| Baseline planning | Input/projected-record and removable-client counts for a valid baseline proposal |
+| Incomplete service-operation planning | Required operation input is unavailable; safe reason and relevant observation, attempt or record IDs |
+| Service-operation review requirements | Explicit selection or admission remedy is required; safe reason, relevant IDs and candidate counts when matching requires selection |
 | `observation.field_uncertain` | Conflicting undominated provider facts leave a field unknown; native field path and conflicting-observation count, without provider values |
-| `service.operation.planned` | Operation kind and proposed-record/job-update counts for a ready coupled proposal |
-| `service.recovery.planned` | Proposed-record and original unit-member counts for retained evidence recovery |
-| `service.recovery.incomplete` | Dependency cycle, missing target read, deferred service validation, missing unit member or uncovered member; safe stage and record IDs |
-| `association.binding_conflict` | Requested binding conflicts with the existing association/QSO/state |
-| `association.target_incompatible` | Requested binding state cannot use the selected target |
-| `service.recovery.covered` | Retained service operation already represented, requiring no proposal |
-| `service.recovery.review_required` | Returning actor requires explicit authorization/reconciliation |
-| `service.retention.calculated` | Required semantic-record and removable-staging counts |
+| Service-operation planning | Operation kind and proposed-record/job-update counts for a ready coupled proposal |
+| Service recovery planning | Proposed-record and original unit-member counts for retained evidence recovery |
+| Incomplete service recovery | Dependency cycle, missing target read, deferred service validation, missing unit member or uncovered member; safe stage and record IDs |
+| Association binding conflicts | Requested binding conflicts with the existing association/QSO/state |
+| Incompatible association targets | Requested binding state cannot use the selected target |
+| Covered service recovery | Retained service operation already represented, requiring no proposal |
+| Service recovery review requirements | Returning actor requires explicit authorization/reconciliation |
+| Service-evidence retention | Required semantic-record and removable-staging counts |
 | `client.retry_prepared` | Existing frozen version selected for retry |
 | `client.review_required` | Client preparation/receipt/rejection requires review; typed reason |
 | `history.regression_detected` | Advertised timeline/revision contradicts the reported remembered revision |
 | `history.ordering_unknown` | Available lineage cannot interpret the reported advertised timeline/revision; typed reason |
 | `recovery.review_required` | Recovered record needs a choice; typed review reason including ordering detail |
 | `evidence.dependencies_missing` | Semantic support is incomplete; missing-dependency count and first missing native record ID, bounding detail volume |
-| `download.closure.planned` | Ready closure proposal has acquisition outcome `complete` or `failed` |
+| Download closure planning | Ready closure proposal has acquisition outcome `complete` or `failed` |
 
-`client.resolution_prepared` and `service.recovery.planned` use `info`;
-`history.regression_detected` uses `warn`. Other events in this inventory use
-`debug`. Diagnostics can explicitly identify relevant native
+Explicit resolution and recovery-plan decisions use `info`;
+`history.regression_detected` uses `warn`. Detailed domain decisions generally use `debug`. Named events are lookup aids;
+the decision descriptions express required evidence without claiming that every
+conceptual row is a currently emitted event name. Diagnostics can explicitly identify relevant native
 records/accounts but do not log raw provider keys, provider responses or returned
 error strings. A returned plan requiring review remains a normal domain outcome.
 Service-operation holds emit their reason at the decision branch, including
@@ -490,3 +468,63 @@ boundary. Cancelled reads have no completed sample. These answer whether
 history or prefix reads are slow/failing without per-query metric dimensions.
 Result counts belong to the structured event, not labels. There is no latency
 metric per widget or parser invocation and no second mutation counter.
+
+## HTTP and synchronization runtime boundaries
+
+HTTP server spans and HTTP metrics come from the maintained OpenTelemetry Tower
+instrumentation with Axum matched-route extraction. The span and duration end
+when response headers are produced; streaming bodies and upgraded socket lifetime
+are excluded. Tower's standard response/failure callbacks provide operational
+logs. They do not certify body delivery or provide a complete standalone access
+log. There is no application-owned HTTP span lifecycle or body adapter.
+
+HTTP trace paths, benign query parameters and user agents are preserved. Ordinary
+application URLs must not carry sensitive/personal data. OAuth query redaction
+is targeted: callback `code`, `state`, provider `error`/`error_description` and the
+free-form enrollment `client_label` values are redacted. Only these OAuth-owned
+parameter names are configured; public protocol metadata remains available.
+There is no provider-wide deletion or transformation of unrelated spans. Query
+values, paths and user agents are never used as metric dimensions; matched route
+templates supply `http.route`. Configured public server address/port are supplied
+by the middleware's attribute extractor; unknown routes omit `http.route`.
+
+The selected release matches raw parameter names, so percent-encoded spellings of
+sensitive names are not redacted. It also derives scheme from the request URI and
+does not normalize extension methods. See the
+[integration evaluation](superpowers/evaluations/2026-11-02-observability-integrations.md)
+for these qualification limits. Authorization, proof and cookie headers are not
+recorded. The request URI passed to application handlers is not rewritten.
+
+Expected HTTP server refusals in the 4xx range do not automatically
+set error span status. Server 5xx responses do.
+
+The desktop injects standard W3C context into the native upgrade. The server
+captures immutable span context before Axum spawns upgraded work. New-root bounded
+synchronization operations link to the handshake; they do not keep the request
+span open or accumulate an hours-long trace. Existing exchange identities remain
+trace/log context, never metric labels. This correlates the session and individual
+local operations without claiming per-message remote parentage absent a wire
+context carrier. Normal diagnostics distinguish required peer waits from idle;
+completed phase histograms do not pretend to measure a still-running wait.
+
+Dependency verbosity limits are independent subscriber filters on every output,
+not merely broad environment-filter directives. Specific debug directives cannot
+expose dependency request/collector payloads. Required security events remain
+logs independent of trace sampling. Replay events retain the available safe grant
+family, and issuance records connect that family to the owning account.
+
+Persistence failures retain safe typed categories at the owning handling boundary,
+including pool timeout/closure, transport, database response, decoding and metadata
+failure. SQLSTATE supplements the category where available. Peer response text is
+not the operator error diagnostic; neither path renders arbitrary cause chains.
+Compaction summaries at info identify limiting receipt context and blocked reason
+counts with representative records; debug enumerates additional record details.
+Recovery-review events describe confirmed persistence rather than proposed work.
+
+Application composition registers units/descriptions and histogram bounds before
+first observation. Contact reads and account locks include millisecond/subsecond
+resolution; maintenance histograms extend into minutes. OAuth cleanup counts each
+independent successful commit, retaining progress if a later sweep step fails.
+The geography executable owns opted-in standard providers/recorder and shuts them
+down on command completion, failure or supported cancellation; short commands do
+not rely on a periodic export happening before exit.

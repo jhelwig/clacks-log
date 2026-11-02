@@ -1,5 +1,9 @@
 //! Typed settings requests on the existing application runtime.
 
+/// Metric name for completed contact read including snapshot release.
+pub(crate) const CONTACT_QUERY_DURATION_METRIC: &str =
+    "client_store.contact_query.duration_seconds";
+
 #[cfg(test)]
 mod tests;
 
@@ -134,16 +138,14 @@ pub(super) async fn execute(
     mut request: SettingsRequest,
 ) -> Option<Completion> {
     let account = store.account_id();
+    let action_kind = request.action.diagnostic_name();
+
     let result = match request.action {
         SettingsAction::Review(action) => review::execute(&store, action)
             .await
             .map(SettingsResponse::Review),
         SettingsAction::Contacts(action) => {
-            let kind = match &action {
-                contacts::ContactAction::Page { .. } => Some("history"),
-                contacts::ContactAction::WorkedBefore { .. } => Some("worked_before"),
-                _ => None,
-            };
+            let kind = action.query_kind();
             let preparation = matches!(&action, contacts::ContactAction::PrepareMembership { .. });
             let result = if let Some(kind) = kind {
                 let started = std::time::Instant::now();
@@ -155,7 +157,7 @@ pub(super) async fn execute(
                     }
                     result = contacts::execute(&store, action) => result,
                 };
-                metrics::histogram!("client_store.contact_query.duration_seconds", "kind" => kind)
+                metrics::histogram!(CONTACT_QUERY_DURATION_METRIC, "kind" => kind)
                     .record(started.elapsed().as_secs_f64());
                 match &result {
                     Ok(
@@ -217,7 +219,7 @@ pub(super) async fn execute(
     let mut response = match result {
         Ok(value) => value,
         Err(error) => {
-            tracing::error!(event = "desktop.settings_failed", account_id = %account);
+            tracing::error!(event = "desktop.settings_failed", account_id = %account, action = %action_kind, error.type = crate::telemetry::failure::error_class(&error));
             return Some(Completion {
                 reply: request.reply,
                 response: SettingsResponse::Failed(format!("{error:#}")),
@@ -243,7 +245,7 @@ pub(super) async fn execute(
         _ => match settings::snapshot(&store).await {
             Ok(view) => Some(view),
             Err(error) => {
-                tracing::error!(event = "desktop.settings_refresh_failed", account_id = %account);
+                tracing::error!(event = "desktop.settings_refresh_failed", account_id = %account, action = %action_kind, error.type = crate::telemetry::failure::error_class(&error));
                 response = SettingsResponse::RefreshFailed {
                     outcome: Box::new(response),
                     message: format!(
@@ -262,6 +264,22 @@ pub(super) async fn execute(
 }
 
 impl SettingsAction {
+    /// Compose the containing action with its local operation name, without payloads.
+    pub(crate) fn diagnostic_name(&self) -> std::borrow::Cow<'static, str> {
+        match self {
+            Self::Review(action) => format!("review.{}", action.diagnostic_name()).into(),
+            Self::Contacts(action) => format!("contacts.{}", action.diagnostic_name()).into(),
+            Self::Logbooks(action) => format!("logbooks.{}", action.diagnostic_name()).into(),
+            Self::Refresh => "refresh".into(),
+            Self::Apply { .. } => "apply_operating".into(),
+            Self::SaveProfile { .. } => "save_profile".into(),
+            Self::SaveEquipment { .. } => "save_equipment".into(),
+            Self::DeleteProfile { .. } => "delete_profile".into(),
+            Self::PreviewEquipmentDeletion { .. } => "preview_equipment_deletion".into(),
+            Self::DeleteEquipment { .. } => "delete_equipment".into(),
+        }
+    }
+
     /// Identify account data writes whose settled outcomes should wake native synchronization.
     pub(crate) fn is_shared_write(&self) -> bool {
         matches!(

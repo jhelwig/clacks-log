@@ -76,6 +76,7 @@ http = "1"
 tracing-appender = "=0.2.5"
 opentelemetry = { version = "=0.33.1", default-features = false, features = ["trace", "metrics", "logs", "internal-logs"] }
 opentelemetry-http = "=0.33.1"
+opentelemetry-instrumentation-tower = { version = "=0.19.0", features = ["axum"] }
 opentelemetry_sdk = { version = "=0.33.1", default-features = false, features = ["trace", "metrics", "logs", "internal-logs"] }
 opentelemetry-otlp = { version = "=0.33.1", default-features = false, features = ["http-proto", "reqwest-blocking-client", "reqwest-rustls", "trace", "metrics", "logs", "internal-logs"] }
 tracing-opentelemetry = { version = "=0.34.0", default-features = false }

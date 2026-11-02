@@ -89,7 +89,7 @@ fn build_reporting_counts_real_outcomes_and_not_staged_success() {
     );
     for outcome in ["published", "unchanged", "cancelled", "failed"] {
         captured.counter(
-            "clacks_geography_build_runs_total",
+            crate::application::BUILD_RUNS_METRIC,
             &[("outcome", outcome)],
             1,
         );

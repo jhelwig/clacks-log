@@ -25,7 +25,7 @@ use tokio_util::sync::CancellationToken;
 pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     let authorizer = crate::enrollment::flow::protected(binding).await?;
     let stop = CancellationToken::new();
-    let mut socket = connect(binding, &authorizer).await?;
+    let mut socket = connect(binding, &authorizer, &tracing::Span::none()).await?;
     let cancelled = CancellationToken::new();
     cancelled.cancel();
     assert!(
@@ -70,7 +70,7 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     )
     .await?;
     identity::bind(&store, None, binding.clone()).await?;
-    let mut socket = connect(binding, &authorizer).await?;
+    let mut socket = connect(binding, &authorizer, &tracing::Span::none()).await?;
     send(
         &mut socket,
         &stop,
@@ -112,7 +112,7 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     ));
     assert!(receive(&mut socket, &stop).await.is_err());
     // Invalid contents must not be echoed back as a diagnostic.
-    let mut malformed = connect(binding, &authorizer).await?;
+    let mut malformed = connect(binding, &authorizer, &tracing::Span::none()).await?;
     malformed
         .send(super::tungstenite::Message::Text(
             r#"{"unrecognized":"PRIVATE-PAYLOAD-CANARY"}"#.into(),
@@ -126,7 +126,7 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     assert_eq!(typed.kind, FailureKind::Invalid);
     assert!(!typed.message.contains("PRIVATE-PAYLOAD-CANARY"));
 
-    let mut socket = connect(binding, &authorizer).await?;
+    let mut socket = connect(binding, &authorizer, &tracing::Span::none()).await?;
     send(
         &mut socket,
         &stop,
@@ -196,7 +196,7 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
             .prepared
             .is_some()
     );
-    let mut socket = connect(binding, &authorizer).await?;
+    let mut socket = connect(binding, &authorizer, &tracing::Span::none()).await?;
     let local = synchronization::state(&store).await?;
     send(
         &mut socket,

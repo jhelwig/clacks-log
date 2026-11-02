@@ -93,6 +93,7 @@ pub(crate) async fn execute(
                 );
             } else {
                 tracing::warn!(
+                    error.type = crate::telemetry::failure::error_class(&error),
                     "Desktop enrollment did not complete; retry information is available in the connection dialog"
                 );
             }

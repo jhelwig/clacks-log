@@ -12,8 +12,8 @@ use clacks_model::{
 };
 use clacks_sync::record::{RecordKey, RecordState, RecordValue};
 
-/// Persist a real local QSO and return its account identity for correlation assertions.
-pub(super) async fn save_contact(paths: &WorkspacePaths) -> anyhow::Result<AccountId> {
+/// Persist a real local QSO and verify its facts after reopening the store.
+pub(super) async fn save_contact(paths: &WorkspacePaths) -> anyhow::Result<()> {
     let account = AccountId::new();
 
     let store = clacks_client_store::store::ClientStore::create_with_definitions(
@@ -50,7 +50,7 @@ pub(super) async fn save_contact(paths: &WorkspacePaths) -> anyhow::Result<Accou
         Some(&RecordState::Live(RecordValue::Qso(Box::new(expected))))
     );
     reopened.close().await?;
-    Ok(account)
+    Ok(())
 }
 
 /// Native recorded facts shared by actual composition operations.
@@ -89,7 +89,7 @@ pub(super) fn contact() -> anyhow::Result<Qso> {
 }
 
 /// Create and acknowledge the same submitted contact through the desktop adapter.
-pub(super) async fn retry_contact(paths: &WorkspacePaths) -> anyhow::Result<RecordKey> {
+pub(super) async fn retry_contact(paths: &WorkspacePaths) -> anyhow::Result<()> {
     use crate::session::settings::contacts::{self, ContactAction, ContactResponse};
     use clacks_client_store::{save::SaveOutcome, store::ClientStore};
 
@@ -110,10 +110,6 @@ pub(super) async fn retry_contact(paths: &WorkspacePaths) -> anyhow::Result<Reco
         );
         Ok(())
     });
-    let key = RecordKey {
-        account: store.account_id(),
-        id: clacks_sync::record::RecordId::Qso(qso.id()),
-    };
     assert!(matches!(
         contacts::execute(
             &store,
@@ -137,5 +133,5 @@ pub(super) async fn retry_contact(paths: &WorkspacePaths) -> anyhow::Result<Reco
         ContactResponse::Saved(SaveOutcome::Unchanged(_))
     ));
     store.close().await?;
-    Ok(key)
+    Ok(())
 }

@@ -22,6 +22,9 @@ impl Drop for NativeEntry {
 
 #[tokio::test]
 async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<()> {
+    let telemetry = std::env::var_os("CLACKS_TELEMETRY_ACCEPTANCE")
+        .map(|_| clacks_server::telemetry::init(true))
+        .transpose()?;
     let provider = provider::start(None).await?;
     let directory = tempfile::tempdir()?;
     let database = directory.path().join("database-url");
@@ -71,7 +74,7 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
             }
         },
     );
-    let router = clacks_server::http::router(state.clone(), clacks_web::routes(state, options))
+    let router = clacks_server::http::router(state.clone(), clacks_web::routes(state, options))?
         .layer(observer);
 
     let server = tokio::spawn(async move { axum::serve(listener, router).await });
@@ -398,5 +401,8 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
     );
     credentials::remove(&reference)?;
     server.abort();
+    if let Some(telemetry) = telemetry {
+        tokio::task::spawn_blocking(move || telemetry.shutdown()).await??;
+    }
     Ok(())
 }

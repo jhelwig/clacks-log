@@ -55,6 +55,9 @@ pub fn common_coverage(
     };
 
     let mut common = expanded(&checkpoint, evidence)?;
+    let mut limiting = None;
+    let mut limits = 0_u64;
+    let mut exclusions = 0_u64;
 
     for client in membership
         .clients
@@ -69,10 +72,26 @@ pub fn common_coverage(
             coverage
                 .entries()
                 .find(|(id, _)| *id == timeline)
-                .map(|(_, received)| (timeline, revision.min(received)))
+                .map(|(_, received)| {
+                    if received < revision {
+                        limits += 1;
+                        limiting.get_or_insert((client.actor, timeline));
+                        tracing::debug!(event="compaction.acknowledgement_limits_coverage", account_id=%account.account, actor_id=%client.actor, timeline_id=%timeline, previous=revision, acknowledged=received);
+                    }
+                    (timeline, revision.min(received))
+                }).or_else(|| {
+                    exclusions += 1;
+                    limiting.get_or_insert((client.actor, timeline));
+                    tracing::debug!(event="compaction.acknowledgement_excludes_timeline", account_id=%account.account, actor_id=%client.actor, timeline_id=%timeline);
+                    None
+                })
+
         }))?;
     }
 
+    if let Some((actor, timeline)) = limiting {
+        tracing::info!(event="compaction.coverage_limited", account_id=%account.account, actor_id=%actor, timeline_id=%timeline, limits, exclusions);
+    }
     anyhow::ensure!(
         previous
             .coverage
@@ -112,6 +131,9 @@ pub fn plan_installation(
         .collect();
 
     let mut conversions = Vec::new();
+    let mut missing_baseline = 0_u64;
+    let mut unproved_order = 0_u64;
+    let mut representative = None;
 
     for original in current {
         anyhow::ensure!(
@@ -124,6 +146,9 @@ pub fn plan_installation(
             .baseline(account.account, stamp.baseline())?
             .is_none()
         {
+            missing_baseline += 1;
+            representative.get_or_insert(original.key.id);
+            tracing::debug!(event="compaction.projection_blocked", account_id=%account.account, record_id=%original.key.id, reason="missing_baseline");
             continue;
         }
 
@@ -137,11 +162,16 @@ pub fn plan_installation(
                     )
             });
 
-        if !ordered
-            || !stamp
-                .vector()
-                .entries()
-                .any(|(actor, _)| matches!(actor, ClockActor::Client(id) if closed.contains(&id)))
+        if !ordered {
+            unproved_order += 1;
+            representative.get_or_insert(original.key.id);
+            tracing::debug!(event="compaction.projection_blocked", account_id=%account.account, record_id=%original.key.id, reason="unproved_order");
+            continue;
+        }
+        if !stamp
+            .vector()
+            .entries()
+            .any(|(actor, _)| matches!(actor, ClockActor::Client(id) if closed.contains(&id)))
         {
             continue;
         }
@@ -160,8 +190,9 @@ pub fn plan_installation(
         });
     }
 
-    tracing::debug!(
+    tracing::info!(
         event = "sync.baseline.projection",
+        missing_baseline, unproved_order, representative_record = ?representative,
         account_id = %account.account,
         eligible_actors = closed.len(),
         contexts = current.len(),

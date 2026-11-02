@@ -50,7 +50,7 @@ pub(super) async fn install(store: &AccountStore, owner: AccountId) -> anyhow::R
         Ok(None) => "contended",
         Err(_) => "failed",
     };
-    metrics::histogram!("clacks_sync_baseline_lock_wait_seconds", "outcome" => outcome)
+    metrics::histogram!(crate::store::retention::SYNC_BASELINE_LOCK_WAIT_SECONDS_METRIC, "outcome" => outcome)
         .record(waiting.elapsed().as_secs_f64());
     if lock?.is_none() {
         transaction.rollback().await?;
@@ -83,7 +83,7 @@ pub(super) async fn install(store: &AccountStore, owner: AccountId) -> anyhow::R
         Ok(_) => "unchanged",
         Err(_) => "failed",
     };
-    metrics::histogram!("clacks_sync_baseline_lock_hold_seconds", "outcome" => outcome)
+    metrics::histogram!(crate::store::retention::SYNC_BASELINE_LOCK_HOLD_SECONDS_METRIC, "outcome" => outcome)
         .record(holding.elapsed().as_secs_f64());
 
     result
@@ -124,7 +124,8 @@ async fn install_locked(
         });
     }
 
-    metrics::histogram!("clacks_sync_baseline_contexts_examined").record(heads.len() as f64);
+    metrics::histogram!(crate::store::retention::SYNC_BASELINE_CONTEXTS_EXAMINED_METRIC)
+        .record(heads.len() as f64);
 
     let descriptors: Vec<_> = heads.iter().map(|head| head.requirement.clone()).collect();
     let Some(plan) = plan_installation(

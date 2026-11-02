@@ -1,5 +1,25 @@
 //! PostgreSQL transactions applying native acceptance and accepted-state recovery.
 
+/// Metric name for publication account lock acquisition wait.
+pub(crate) const SYNC_ACCEPT_LOCK_WAIT_SECONDS_METRIC: &str =
+    "clacks_sync_accept_lock_wait_seconds";
+
+/// Metric name for acknowledgement account lock acquisition wait.
+pub(crate) const SYNC_ACKNOWLEDGMENT_LOCK_WAIT_SECONDS_METRIC: &str =
+    "clacks_sync_acknowledgment_lock_wait_seconds";
+
+/// Metric name for returned window completion account lock wait.
+pub(crate) const SYNC_RETURN_COMPLETE_LOCK_WAIT_SECONDS_METRIC: &str =
+    "clacks_sync_return_complete_lock_wait_seconds";
+
+/// Metric name for returned page account lock wait.
+pub(crate) const SYNC_RETURN_LOCK_WAIT_SECONDS_METRIC: &str =
+    "clacks_sync_return_lock_wait_seconds";
+
+/// Metric name for negotiation account lock wait.
+pub(crate) const SYNC_NEGOTIATION_LOCK_WAIT_SECONDS_METRIC: &str =
+    "clacks_sync_negotiation_lock_wait_seconds";
+
 pub(crate) mod context;
 pub(crate) mod receipt;
 pub(crate) mod recovery;
@@ -38,7 +58,7 @@ pub(crate) async fn accept_pending(
     sqlx::query_file!("sql/account_lock.sql", client.account.to_string())
         .fetch_one(&mut *transaction)
         .await?;
-    metrics::histogram!("clacks_sync_accept_lock_wait_seconds")
+    metrics::histogram!(SYNC_ACCEPT_LOCK_WAIT_SECONDS_METRIC)
         .record(waiting.elapsed().as_secs_f64());
 
     crate::oauth::resource::check_current(&mut transaction, client).await?;
@@ -257,7 +277,7 @@ pub(crate) async fn acknowledge(
     sqlx::query_file!("sql/account_lock.sql", client.account.to_string())
         .fetch_one(&mut *transaction)
         .await?;
-    metrics::histogram!("clacks_sync_acknowledgment_lock_wait_seconds")
+    metrics::histogram!(SYNC_ACKNOWLEDGMENT_LOCK_WAIT_SECONDS_METRIC)
         .record(waiting.elapsed().as_secs_f64());
 
     crate::oauth::resource::check_current(&mut transaction, client).await?;

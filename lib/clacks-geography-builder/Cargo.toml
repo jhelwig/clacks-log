@@ -30,6 +30,13 @@ clap.workspace = true
 ctrlc.workspace = true
 tracing-subscriber = { workspace = true, features = ["fmt", "json", "env-filter"] }
 
+opentelemetry.workspace = true
+opentelemetry_sdk.workspace = true
+opentelemetry-otlp.workspace = true
+tracing-opentelemetry.workspace = true
+opentelemetry-appender-tracing.workspace = true
+metrics-opentelemetry.workspace = true
+
 [dev-dependencies]
 metrics-util.workspace = true
 

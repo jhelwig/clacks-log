@@ -62,7 +62,7 @@ async fn registration_reuses_saved_client_and_preserves_it_on_mismatch() -> anyh
         .output_name("clacks-web")
         .build();
     let pages = clacks_web::routes(state.clone(), options);
-    let router = clacks_server::http::router(state, pages);
+    let router = clacks_server::http::router(state, pages)?;
     let task = tokio::spawn(async move {
         axum::serve(listener, router).await.unwrap();
     });

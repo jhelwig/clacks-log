@@ -2,6 +2,7 @@
 
 mod diagnostics;
 mod export;
+pub(crate) mod failure;
 mod output;
 #[cfg(test)]
 mod tests;
@@ -94,27 +95,6 @@ impl TelemetryGuard {
     }
 }
 
-/// Select raw backend diagnostics that can safely appear in operational output.
-fn safe_backend(metadata: &tracing::Metadata<'_>) -> bool {
-    let target = metadata.target();
-    let backend = target.starts_with("opentelemetry")
-        || target.starts_with("reqwest")
-        || target.starts_with("hyper")
-        || target.starts_with("h2");
-    !backend
-        || (*metadata.level() <= tracing::Level::WARN
-            && metadata.fields().field("error_message").is_none())
-}
-
-/// Exclude exporter machinery from its own log bridge to avoid feedback loops.
-fn exported_event(metadata: &tracing::Metadata<'_>) -> bool {
-    let target = metadata.target();
-    !(target.starts_with("opentelemetry")
-        || target.starts_with("reqwest")
-        || target.starts_with("hyper")
-        || target.starts_with("h2"))
-}
-
 /// Configure ordinary framework layers and guarded resources for one process.
 pub(crate) fn initialize(config: &DesktopConfig, paths: &WorkspacePaths) -> TelemetryGuard {
     let mut diagnostics = Vec::new();
@@ -149,6 +129,11 @@ pub(crate) fn initialize(config: &DesktopConfig, paths: &WorkspacePaths) -> Tele
     let loss = writer.error_counter();
 
     let providers = export::initialize(&config.telemetry, &mut diagnostics);
+    if providers.traces.is_some() {
+        opentelemetry::global::set_text_map_propagator(
+            opentelemetry_sdk::propagation::TraceContextPropagator::new(),
+        );
+    }
 
     let json = tracing_subscriber::fmt::layer()
         .json()
@@ -166,12 +151,29 @@ pub(crate) fn initialize(config: &DesktopConfig, paths: &WorkspacePaths) -> Tele
     });
     let logs = providers.logs.as_ref().map(|provider| {
         opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new(provider)
-            .with_filter(tracing_subscriber::filter::filter_fn(exported_event))
+            .with_filter(
+                tracing_subscriber::filter::Targets::new()
+                    .with_default(tracing_subscriber::filter::LevelFilter::TRACE)
+                    .with_targets(
+                        ["opentelemetry", "reqwest", "hyper", "h2"]
+                            .map(|target| (target, tracing_subscriber::filter::LevelFilter::OFF)),
+                    ),
+            )
     });
 
     let subscriber = tracing_subscriber::registry()
         .with(config.logs.filter.clone())
-        .with(tracing_subscriber::filter::filter_fn(safe_backend))
+        .with(
+            tracing_subscriber::filter::Targets::new()
+                .with_default(tracing_subscriber::filter::LevelFilter::TRACE)
+                .with_targets(
+                    ["opentelemetry", "reqwest", "hyper", "h2"]
+                        .map(|target| (target, tracing::Level::WARN)),
+                ),
+        )
+        .with(tracing_subscriber::filter::filter_fn(|metadata| {
+            metadata.fields().field("error_message").is_none()
+        }))
         .with(json)
         .with(console)
         .with(spans)

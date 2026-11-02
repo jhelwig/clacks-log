@@ -1,5 +1,29 @@
 //! Automatic account retention through concrete, independently committed phases.
 
+/// Metric name for baseline account lock acquisition wait.
+pub(crate) const SYNC_BASELINE_LOCK_WAIT_SECONDS_METRIC: &str =
+    "clacks_sync_baseline_lock_wait_seconds";
+
+/// Metric name for baseline account lock holding through transaction completion.
+pub(crate) const SYNC_BASELINE_LOCK_HOLD_SECONDS_METRIC: &str =
+    "clacks_sync_baseline_lock_hold_seconds";
+
+/// Metric name for contexts examined during baseline installation.
+pub(crate) const SYNC_BASELINE_CONTEXTS_EXAMINED_METRIC: &str =
+    "clacks_sync_baseline_contexts_examined";
+
+/// Metric name for baseline installation including transaction completion.
+pub(crate) const SYNC_BASELINE_INSTALL_DURATION_SECONDS_METRIC: &str =
+    "clacks_sync_baseline_install_duration_seconds";
+
+/// Metric name for one journal pruning transaction.
+pub(crate) const SYNC_JOURNAL_PRUNE_DURATION_SECONDS_METRIC: &str =
+    "clacks_sync_journal_prune_duration_seconds";
+
+/// Metric name for one metadata reclamation transaction.
+pub(crate) const SYNC_METADATA_RECLAIM_DURATION_SECONDS_METRIC: &str =
+    "clacks_sync_metadata_reclaim_duration_seconds";
+
 mod installation;
 mod journal;
 mod reclaim;
@@ -43,7 +67,7 @@ pub(crate) async fn collect(
         }
         Err(_) => "failed",
     };
-    metrics::histogram!("clacks_sync_baseline_install_duration_seconds", "outcome" => outcome)
+    metrics::histogram!(SYNC_BASELINE_INSTALL_DURATION_SECONDS_METRIC, "outcome" => outcome)
         .record(started.elapsed().as_secs_f64());
 
     match result {
@@ -80,7 +104,7 @@ pub(crate) async fn collect(
             Ok(journal::Outcome::Contended) => "contended",
             Err(_) => "failed",
         };
-        metrics::histogram!("clacks_sync_journal_prune_duration_seconds", "outcome" => outcome)
+        metrics::histogram!(SYNC_JOURNAL_PRUNE_DURATION_SECONDS_METRIC, "outcome" => outcome)
             .record(started.elapsed().as_secs_f64());
 
         if !matches!(result?, journal::Outcome::Pruned { more: true }) {
@@ -97,7 +121,7 @@ pub(crate) async fn collect(
             Ok(reclaim::Outcome::Contended) => "contended",
             Err(_) => "failed",
         };
-        metrics::histogram!("clacks_sync_metadata_reclaim_duration_seconds", "outcome" => outcome)
+        metrics::histogram!(SYNC_METADATA_RECLAIM_DURATION_SECONDS_METRIC, "outcome" => outcome)
             .record(started.elapsed().as_secs_f64());
 
         if !matches!(result?, reclaim::Outcome::Reclaimed) {

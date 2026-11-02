@@ -39,3 +39,10 @@ CLACKS_GEOGRAPHY_CACHE=<cache> cargo +1.99.1 test -p clacks-geography-builder --
 ```
 
 That suite checks the compiled artifact through production queries and independently checks original source facts. Geometry fixtures can be reproduced through its `reviewed_recipe_inputs_match_original_sources` test with `CLACKS_REFRESH_GEOGRAPHY_FIXTURES=1`; it does not author or rewrite the recipe's policies/mappings. No Python, native geographic executable or TrustedQSL execution is used. Source-data notices are separate from Clacks's Elastic License 2.0. Application autofill and expanded national/world coverage remain the integration scope of issue #23.
+
+Use `--otlp` to opt into standard HTTP/protobuf trace, metric and log export.
+The usual `OTEL_EXPORTER_OTLP_*` environment settings select the collector; the
+service is `clacks-geography-build`. The executable owns the recorder and provider
+lifetimes, including bounded shutdown after failures and cancellation. Without
+export, command results and structured stderr remain available. A publication
+counter describes actual publication outcome, including unchanged retries.

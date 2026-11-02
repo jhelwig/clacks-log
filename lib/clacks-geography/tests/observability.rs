@@ -77,7 +77,7 @@ fn lookup_reports_only_complete_decisions_and_excludes_query_payloads() {
         let keys: std::collections::BTreeSet<_> =
             metric.labels.keys().map(String::as_str).collect();
         match metric.name.as_str() {
-            "clacks_geography_lookup_duration_seconds" => {
+            clacks_geography::lookup::LOOKUP_DURATION_METRIC => {
                 assert_eq!(keys, ["query_kind", "outcome"].into_iter().collect())
             }
             "clacks_geography_field_lookups_total" => assert_eq!(

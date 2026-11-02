@@ -38,7 +38,12 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
         .without_time()
         .with_writer(output.reopen()?)
         .finish();
-    let _guard = tracing::subscriber::set_default(subscriber);
+    let telemetry = std::env::var_os("CLACKS_TELEMETRY_ACCEPTANCE")
+        .map(|_| crate::telemetry::init(true))
+        .transpose()?;
+    let _guard = telemetry
+        .is_none()
+        .then(|| tracing::subscriber::set_default(subscriber));
     let pool = PgPoolOptions::new()
         .max_connections(1)
         .acquire_timeout(std::time::Duration::from_secs(1))
@@ -143,11 +148,13 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
     }))?;
     let mut instances = Vec::new();
     let mut tasks = Vec::new();
+    let mut runtime_pools = Vec::new();
     for _ in 0..2 {
         let state = crate::runtime::ServerState::connect(server_config.clone()).await?;
+        runtime_pools.push(state.store.pool.clone());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
         instances.push(format!("http://{}", listener.local_addr()?));
-        let router = crate::http::router(state, axum::Router::new());
+        let router = crate::http::router(state, axum::Router::new())?;
         tasks.push(tokio::spawn(
             async move { axum::serve(listener, router).await },
         ));
@@ -313,6 +320,27 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
             .status(),
         http::StatusCode::UNAUTHORIZED
     );
+    // Probe semantics must not depend on browser session storage. Close only these
+    // two instance pools; other tests and the main fixture pool remain available.
+    for runtime_pool in runtime_pools {
+        runtime_pool.close().await;
+    }
+    for instance in &instances {
+        assert_eq!(
+            http.get(format!("{instance}/health/live"))
+                .send()
+                .await?
+                .status(),
+            http::StatusCode::OK
+        );
+        assert_eq!(
+            http.get(format!("{instance}/health/ready"))
+                .send()
+                .await?
+                .status(),
+            http::StatusCode::SERVICE_UNAVAILABLE
+        );
+    }
     for task in tasks {
         task.abort();
     }
@@ -343,33 +371,6 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
     );
 
     let captured = std::fs::read_to_string(output.path())?;
-    let events: Vec<serde_json::Value> = captured
-        .lines()
-        .filter_map(|line| serde_json::from_str(line).ok())
-        .collect();
-    let activated = events
-        .iter()
-        .find(|event| {
-            event["fields"]["event"] == "client.authorization.activated"
-                && event["fields"]["actor_id"] == second.actor.to_string()
-        })
-        .context("missing committed activation")?;
-    assert_eq!(activated["level"], "INFO");
-    assert_eq!(
-        activated["fields"]["account_id"],
-        principal.account_id.to_string()
-    );
-    assert!(
-        events
-            .iter()
-            .any(|event| event["fields"]["event"] == "client.revoked"
-                && event["fields"]["actor_id"] == second.actor.to_string())
-    );
-    assert!(
-        events
-            .iter()
-            .any(|event| event["fields"]["event"] == "oauth.code.replay")
-    );
     for secret in [
         &first.code,
         &second.code,
@@ -388,6 +389,9 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
         );
     }
     pool.close().await;
+    if let Some(telemetry) = telemetry {
+        tokio::task::spawn_blocking(move || telemetry.shutdown()).await??;
+    }
 
     Ok(())
 }

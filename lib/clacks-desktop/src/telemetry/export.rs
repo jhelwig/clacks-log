@@ -116,6 +116,20 @@ pub(super) fn initialize(config: &TelemetryConfig, diagnostics: &mut Vec<String>
             [crate::application::STARTUP_DURATION_METRIC].into_iter(),
             crate::application::STARTUP_DURATION_BOUNDS,
         );
+        recorder.set_histogram_bounds_mut(
+            [
+                crate::synchronization::CLIENT_REQUEST_DURATION_METRIC,
+                crate::session::settings::CONTACT_QUERY_DURATION_METRIC,
+                clacks_client_store::retention::METADATA_RECLAIM_DURATION_METRIC,
+                clacks_geography::lookup::LOOKUP_DURATION_METRIC,
+                crate::synchronization::PHASE_DURATION_METRIC,
+            ]
+            .into_iter(),
+            &[
+                0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0,
+                10.0, 30.0, 60.0, 300.0,
+            ],
+        );
         if metrics::set_global_recorder(recorder).is_err() {
             diagnostics.push(
                 "Metric export could not install its recorder; an existing recorder is active"
@@ -124,8 +138,33 @@ pub(super) fn initialize(config: &TelemetryConfig, diagnostics: &mut Vec<String>
         }
     }
 
+    for (name, description) in [
+        (
+            crate::synchronization::CLIENT_REQUEST_DURATION_METRIC,
+            "Native upgrade request through response headers or failure",
+        ),
+        (
+            crate::session::settings::CONTACT_QUERY_DURATION_METRIC,
+            "Completed contact read including snapshot release",
+        ),
+        (
+            clacks_client_store::retention::METADATA_RECLAIM_DURATION_METRIC,
+            "Completed local synchronization metadata reclamation",
+        ),
+        (
+            clacks_geography::lookup::LOOKUP_DURATION_METRIC,
+            "Complete geographic lookup",
+        ),
+        (
+            crate::synchronization::PHASE_DURATION_METRIC,
+            "Completed or failed bounded synchronization phase",
+        ),
+    ] {
+        metrics::describe_histogram!(name, metrics::Unit::Seconds, description);
+    }
     Providers {
         traces,
+
         metrics,
         logs,
     }
