@@ -1,5 +1,9 @@
 //! Browser-approved desktop membership, separate from OAuth application registration.
 
+/// Metric name for revocation account lock wait.
+pub(crate) const ENROLLMENT_REVOCATION_LOCK_WAIT_SECONDS_METRIC: &str =
+    "clacks_enrollment_revocation_lock_wait_seconds";
+
 pub mod approval;
 pub(crate) mod membership;
 mod recovery;

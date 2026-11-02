@@ -47,6 +47,19 @@ pub(crate) enum ReviewAction {
     },
 }
 
+impl ReviewAction {
+    /// Local operation name without containing-action context or request payloads.
+    pub(crate) fn diagnostic_name(&self) -> &'static str {
+        match self {
+            Self::Resolve { .. } => "resolve",
+            Self::RetryDeletion { .. } => "retry_deletion",
+            Self::ReadReferences { .. } => "read_references",
+            Self::ReadPage { .. } => "read_page",
+            Self::ReadRecord { .. } => "read_record",
+        }
+    }
+}
+
 /// A committed snapshot read qualified by its original selection.
 #[derive(Debug)]
 pub(crate) enum ReviewResponse {

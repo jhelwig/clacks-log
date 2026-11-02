@@ -1,5 +1,11 @@
 //! Session-owned authenticated synchronization; offline local work remains independently available.
 
+/// Metric name for native upgrade request through response headers or failure.
+pub(crate) const CLIENT_REQUEST_DURATION_METRIC: &str = "http.client.request.duration";
+
+/// Metric name for completed or failed bounded synchronization phase.
+pub(crate) const PHASE_DURATION_METRIC: &str = "clacks_desktop_sync_phase_duration_seconds";
+
 mod exchange;
 mod pending;
 
@@ -12,6 +18,7 @@ use clacks_client_store::{
 use clacks_sync::protocol::messages::{ClientMessage, FailureKind, ServerMessage};
 use futures_util::{SinkExt, StreamExt};
 use huskarl::authorizer::HttpAuthorizer;
+use opentelemetry::trace::TraceContextExt;
 use std::sync::Arc;
 use tokio::sync::watch;
 use tokio_tungstenite::{
@@ -19,6 +26,8 @@ use tokio_tungstenite::{
     tungstenite::{self, client::IntoClientRequest},
 };
 use tokio_util::sync::CancellationToken;
+use tracing::Instrument;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 /// Nonsecret connection/error presentation; no aggregate completion timestamp is implied.
 #[derive(Clone, Debug, Default)]
@@ -70,13 +79,19 @@ pub(crate) async fn run(
             let authorizer = authorizer
                 .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("protected authorization unavailable"))?;
+            let span = tracing::info_span!(parent: None, "desktop.sync.connect", otel.kind="client", otel.name="GET", network.protocol.version="1.1", http.request.method="GET", account_id=%binding.account, actor_id=%binding.actor);
+            span.in_scope(|| tracing::info!(event="sync.connecting", account_id=%binding.account, actor_id=%binding.actor));
             let mut socket = tokio::select! {
+
                 _ = stop.cancelled() => anyhow::bail!("Synchronization stopped"),
-                result = connect(&binding, authorizer) => result?,
+                result = connect(&binding, authorizer, &span).instrument(span.clone()) => match result { Ok(socket) => socket, Err(error) => { span.set_status(opentelemetry::trace::Status::error("")); span.set_attribute("error.type", crate::telemetry::failure::error_class(&error)); return Err(error); } },
             };
+            let context = span.context().span().span_context().clone();
+            drop(span);
+            tracing::info!(event="sync.connected", account_id=%binding.account, actor_id=%binding.actor);
             status.send_replace(Status::Connected);
             delay = 1;
-            exchange::run(&mut socket, &store, &binding, &mut changes, &updates, &stop).await
+            exchange::run(&mut socket, &store, &binding, &mut changes, &updates, &stop, &context).await
         }
         .await;
         if stop.is_cancelled() {
@@ -88,7 +103,7 @@ pub(crate) async fn run(
                 .map(|failure| failure.kind);
             // Detailed errors are for the local operator; never serialize native grants or frames.
             status.send_replace(Status::Failed(error.to_string()));
-            tracing::warn!(event="sync.connection.interrupted", account_id=%binding.account, actor_id=%binding.actor, ?failure_kind, "Account synchronization will reconnect");
+            tracing::warn!(event="sync.connection.interrupted", account_id=%binding.account, actor_id=%binding.actor, ?failure_kind, error.type=crate::telemetry::failure::error_class(&error), "Account synchronization will reconnect");
             metrics::counter!("clacks_desktop_sync_reconnects_total").increment(1);
         }
         tokio::select! {_ = stop.cancelled() => break, _ = tokio::time::sleep(std::time::Duration::from_secs(delay)) => {}}
@@ -101,8 +116,15 @@ pub(crate) async fn run(
 async fn connect(
     binding: &EnrollmentBinding,
     authorizer: &HttpAuthorizer,
+    span: &tracing::Span,
 ) -> anyhow::Result<Socket> {
     let target = crate::enrollment::flow::origin(&binding.server)?.join("api/sync")?;
+    span.set_attribute("url.full", target.to_string());
+    span.set_attribute("url.scheme", target.scheme().to_owned());
+    span.set_attribute(
+        "server.address",
+        target.host_str().unwrap_or_default().to_owned(),
+    );
     let proof_target: http::Uri = target.as_str().parse()?;
     let headers = authorizer
         .get_headers(&http::Method::GET, &proof_target)
@@ -118,8 +140,50 @@ async fn connect(
         .map_err(|_| anyhow::anyhow!("invalid native transport scheme"))?;
     let mut request = endpoint.as_str().into_client_request()?;
     request.headers_mut().extend(headers);
-    match tokio_tungstenite::connect_async(request).await {
+    opentelemetry::global::get_text_map_propagator(|propagator| {
+        propagator.inject_context(
+            &span.context(),
+            &mut opentelemetry_http::HeaderInjector(request.headers_mut()),
+        )
+    });
+    let started = std::time::Instant::now();
+    let result = tokio_tungstenite::connect_async(request).await;
+    let mut labels = vec![
+        metrics::Label::new("http.request.method", "GET"),
+        metrics::Label::new(
+            "url.scheme",
+            if binding.server.starts_with("https:") {
+                "https"
+            } else {
+                "http"
+            },
+        ),
+    ];
+    let status = match &result {
+        Ok((_, response)) => Some(response.status()),
+        Err(tungstenite::Error::Http(response)) => Some(response.status()),
+        _ => None,
+    };
+    if let Some(status) = status {
+        labels.push(metrics::Label::new(
+            "http.response.status_code",
+            status.as_u16().to_string(),
+        ));
+    }
+    if let Err(error) = &result {
+        labels.push(metrics::Label::new(
+            "error.type",
+            crate::telemetry::failure::socket_error_class(error),
+        ));
+    }
+    metrics::histogram!(CLIENT_REQUEST_DURATION_METRIC, labels)
+        .record(started.elapsed().as_secs_f64());
+    match result {
         Ok((socket, response)) => {
+            span.set_attribute(
+                "http.response.status_code",
+                i64::from(response.status().as_u16()),
+            );
             authorizer.process_response(&proof_target, response.headers());
             Ok(socket)
         }
@@ -128,9 +192,13 @@ async fn connect(
             if response.status() == http::StatusCode::UNAUTHORIZED {
                 authorizer.invalidate();
             }
-            anyhow::bail!("Server refused synchronization: {}", response.status())
+            span.set_attribute(
+                "http.response.status_code",
+                i64::from(response.status().as_u16()),
+            );
+            Err(tungstenite::Error::Http(response).into())
         }
-        Err(_) => anyhow::bail!("Could not connect to the synchronization server"),
+        Err(error) => Err(error.into()),
     }
 }
 
@@ -154,11 +222,11 @@ async fn receive(socket: &mut Socket, stop: &CancellationToken) -> anyhow::Resul
         let frame = tokio::select! {_ = stop.cancelled() => anyhow::bail!("Synchronization stopped"), frame = socket.next() => frame};
         match frame {
             Some(Ok(tungstenite::Message::Text(text))) => {
-                return serde_json::from_str(&text)
-                    .map_err(|_| anyhow::anyhow!("Invalid server synchronization message"));
+                return serde_json::from_str(&text).map_err(Into::into);
             }
             Some(Ok(tungstenite::Message::Ping(_) | tungstenite::Message::Pong(_))) => {}
-            _ => anyhow::bail!("Synchronization connection closed"),
+            Some(Err(error)) => return Err(error.into()),
+            _ => return Err(tungstenite::Error::ConnectionClosed.into()),
         }
     }
 }

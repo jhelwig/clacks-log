@@ -250,7 +250,7 @@ pub(crate) async fn run(
                 let ready = matches!(*enrollment_progress.borrow_and_update(), EnrollmentStatus::Ready {..});
                 if ready && closing.is_none() && let Some(workspace) = &opened {
                     sync_stop.cancel();
-                    while sync_work.join_next().await.is_some() {}
+                    while let Some(result) = sync_work.join_next().await { if let Err(error) = result { tracing::error!(event="sync.worker.failed", error.type=if error.is_panic() { "task_panic" } else { "task_cancelled" }); } }
                     sync_stop = CancellationToken::new();
                     start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_stop).await?;
                 }
@@ -268,7 +268,13 @@ pub(crate) async fn run(
                 };
                 if let Some(next) = next {publish(&status, &context, next);}
             },
-            _ = sync_work.join_next(), if !sync_work.is_empty() => {},
+                        result = sync_work.join_next(), if !sync_work.is_empty() => {
+                if let Some(Err(error)) = result {
+                    tracing::error!(event="sync.worker.failed", error.type=if error.is_panic() { "task_panic" } else { "task_cancelled" });
+                    sync_updates.send_replace(crate::synchronization::Status::Failed("Synchronization task stopped unexpectedly".into()));
+                }
+            },
+
             result = opening.join_next(), if !opening.is_empty() => {
                 if let Some(result) = result {
                     let result = result.map_err(anyhow::Error::from).and_then(std::convert::identity);
@@ -316,7 +322,7 @@ pub(crate) async fn run(
                             opened = Some(workspace);
                         }
                         Err(error) => {
-                            tracing::error!(event = "desktop.workspace_open_failed");
+                            tracing::error!(event = "desktop.workspace_open_failed", error.type = crate::telemetry::failure::error_class(&error));
                             if closing.is_none() {
                                 publish(
                                     &status,

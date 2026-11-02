@@ -9,6 +9,8 @@ use clacks_sync::protocol::messages::{self, ClientMessage, ServerMessage, Transf
 use std::sync::Arc;
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
+use tracing::Instrument;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 /// Consume wakeups while waiting for an ordered reply; wakeups never establish coverage.
 pub(super) async fn response(
@@ -39,37 +41,68 @@ pub(super) async fn run(
     changes: &mut watch::Receiver<()>,
     updates: &watch::Sender<Option<Arc<SettingsSnapshot>>>,
     stop: &CancellationToken,
+    context: &opentelemetry::trace::SpanContext,
 ) -> anyhow::Result<()> {
-    let local = synchronization::state(store).await?;
-    send(
-        socket,
-        stop,
-        ClientMessage::Hello {
-            version: messages::VERSION,
-            checkpoint: local.checkpoint.clone(),
-            baselines: local.baselines,
-            lineage: local.lineage.clone(),
-        },
-    )
-    .await?;
+    let negotiation = tracing::info_span!(parent: None, "desktop.sync.negotiate", account_id=%binding.account, actor_id=%binding.actor);
+    negotiation.add_link(context.clone());
+    negotiation.in_scope(|| tracing::info!(event="sync.waiting_for_peer", phase="negotiation", account_id=%binding.account, actor_id=%binding.actor));
+    let negotiated_at = std::time::Instant::now();
     let mut dirty = false;
+    let result = async {
+        let local = synchronization::state(store).await?;
+        send(
+            socket,
+            stop,
+            ClientMessage::Hello {
+                version: messages::VERSION,
+                checkpoint: local.checkpoint.clone(),
+                baselines: local.baselines,
+                lineage: local.lineage.clone(),
+            },
+        )
+        .await?;
+        let message = response(socket, store, &mut dirty, stop).await?;
+        match &message {
+            ServerMessage::Hello {
+                version, identity, ..
+            } if *version == messages::VERSION
+                && identity.account == binding.account
+                && identity.actor == binding.actor =>
+            {
+                Ok(message)
+            }
+            _ => anyhow::bail!(
+                "Server synchronization identity or protocol does not match enrollment"
+            ),
+        }
+    }
+    .instrument(negotiation.clone())
+    .await;
+    let outcome = if stop.is_cancelled() {
+        "cancelled"
+    } else if result.is_ok() {
+        "completed"
+    } else {
+        "failed"
+    };
+    metrics::histogram!(crate::synchronization::PHASE_DURATION_METRIC, "phase" => "negotiation", "outcome" => outcome).record(negotiated_at.elapsed().as_secs_f64());
+    if !stop.is_cancelled()
+        && let Err(error) = &result
+    {
+        negotiation.set_status(opentelemetry::trace::Status::error(""));
+        negotiation.set_attribute("error.type", crate::telemetry::failure::error_class(error));
+        negotiation.in_scope(|| tracing::warn!(event="sync.negotiation.failed", account_id=%binding.account, actor_id=%binding.actor, error.type=crate::telemetry::failure::error_class(error)));
+    }
     let ServerMessage::Hello {
-        version,
-        identity,
         checkpoint,
         baselines,
         lineage,
         ..
-    } = response(socket, store, &mut dirty, stop).await?
+    } = result?
     else {
-        anyhow::bail!("Server did not negotiate native synchronization");
+        anyhow::bail!("Negotiation did not return a server checkpoint");
     };
-    anyhow::ensure!(
-        version == messages::VERSION
-            && identity.account == binding.account
-            && identity.actor == binding.actor,
-        "Server synchronization identity or protocol does not match enrollment"
-    );
+    drop(negotiation);
     let mut server_coverage = clacks_sync::transfer::discovery::target_coverage(
         &checkpoint,
         &clacks_sync::account::EvidenceView {
@@ -84,6 +117,8 @@ pub(super) async fn run(
         dirty = false;
         let local = synchronization::state(store).await?;
         if let Some(ancestry) = &local.lineage {
+            let returned = tracing::info_span!(parent: None, "desktop.sync.return", account_id=%binding.account, actor_id=%binding.actor);
+            returned.add_link(context.clone());
             let evidence = clacks_sync::account::EvidenceView {
                 lineage: ancestry,
                 baselines: &local.baselines,
@@ -99,6 +134,7 @@ pub(super) async fn run(
                     &mut dirty,
                     stop,
                 )
+                .instrument(returned.clone())
                 .await?
                 {
                     server_coverage = server_coverage.join(
@@ -113,9 +149,33 @@ pub(super) async fn run(
                 &mut dirty,
                 stop,
             )
+            .instrument(returned)
             .await?;
         }
-        let issued = inbound(socket, store, exchange, &mut dirty, stop).await?;
+        let span = tracing::info_span!(parent: None, "desktop.sync.inbound", account_id=%binding.account, actor_id=%binding.actor, exchange);
+        span.add_link(context.clone());
+        span.in_scope(|| tracing::info!(event="sync.waiting_for_peer", phase="inbound", account_id=%binding.account, actor_id=%binding.actor, exchange));
+        let started = std::time::Instant::now();
+        let result = inbound(socket, store, exchange, &mut dirty, stop)
+            .instrument(span.clone())
+            .await;
+        let outcome = if stop.is_cancelled() {
+            "cancelled"
+        } else if result.is_ok() {
+            "completed"
+        } else {
+            "failed"
+        };
+        metrics::histogram!(crate::synchronization::PHASE_DURATION_METRIC, "phase" => "inbound", "outcome" => outcome).record(started.elapsed().as_secs_f64());
+        if !stop.is_cancelled()
+            && let Err(error) = &result
+        {
+            span.set_status(opentelemetry::trace::Status::error(""));
+            span.set_attribute("error.type", crate::telemetry::failure::error_class(error));
+        }
+        let issued = result?;
+        drop(span);
+
         let received = synchronization::state(store).await?;
         let ancestry = received
             .lineage
@@ -132,7 +192,29 @@ pub(super) async fn run(
             clacks_client_store::settings::snapshot(store).await?,
         )));
         // No local proposal or frozen retry is sent until inbound completion above commits.
-        pending::publish(socket, store, &mut dirty, stop).await?;
+        let span = tracing::info_span!(parent: None, "desktop.sync.publish", account_id=%binding.account, actor_id=%binding.actor, exchange);
+        span.add_link(context.clone());
+        let started = std::time::Instant::now();
+        let result = pending::publish(socket, store, &mut dirty, stop)
+            .instrument(span.clone())
+            .await;
+        let outcome = if stop.is_cancelled() {
+            "cancelled"
+        } else if result.is_ok() {
+            "completed"
+        } else {
+            "failed"
+        };
+        metrics::histogram!(crate::synchronization::PHASE_DURATION_METRIC, "phase" => "publication", "outcome" => outcome).record(started.elapsed().as_secs_f64());
+        if !stop.is_cancelled()
+            && let Err(error) = &result
+        {
+            span.set_status(opentelemetry::trace::Status::error(""));
+            span.set_attribute("error.type", crate::telemetry::failure::error_class(error));
+        }
+        result?;
+        drop(span);
+
         clacks_client_store::retention::reclaim_completed_cycle(store).await?;
         updates.send_replace(Some(Arc::new(
             clacks_client_store::settings::snapshot(store).await?,
@@ -143,6 +225,7 @@ pub(super) async fn run(
         if dirty || changes.has_changed()? {
             continue;
         }
+        tracing::info!(event="sync.idle", account_id=%binding.account, actor_id=%binding.actor, exchange);
         tokio::select! {
             _ = stop.cancelled() => return Ok(()),
             result = changes.changed() => {result?;},
@@ -267,6 +350,7 @@ async fn return_accepted(
             },
         )
         .await?;
+        tracing::info!(event="sync.waiting_for_peer", phase="returned_page_ack", account_id=%store.account_id(), exchange, sequence);
         anyhow::ensure!(
             matches!(response(socket, store, dirty, stop).await?, ServerMessage::Transfer {exchange:0, message:TransferMessage::PageAck {sequence:actual}} if actual == sequence),
             "Returned page was not acknowledged"
@@ -282,6 +366,7 @@ async fn return_accepted(
             },
         )
         .await?;
+        tracing::info!(event="sync.waiting_for_peer", phase="returned_coverage_ack", account_id=%store.account_id(), exchange);
         match response(socket, store, dirty, stop).await? {
             ServerMessage::Transfer {
                 exchange: 0,
@@ -303,6 +388,7 @@ async fn return_accepted(
             },
         )
         .await?;
+        tracing::info!(event="sync.waiting_for_peer", phase="returned_facts_ack", account_id=%store.account_id(), exchange);
         anyhow::ensure!(
             matches!(
                 response(socket, store, dirty, stop).await?,

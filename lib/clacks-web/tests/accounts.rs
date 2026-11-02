@@ -43,7 +43,7 @@ async fn logout_rejects_stale_cookie_on_another_instance() -> anyhow::Result<()>
         .output_name("clacks-web")
         .build();
     let pages = clacks_web::routes(state.clone(), options.clone());
-    let router = clacks_server::http::router(state.clone(), pages);
+    let router = clacks_server::http::router(state.clone(), pages)?;
     let server = tokio::spawn(async move {
         axum::serve(listener, router).await.unwrap();
     });
@@ -195,7 +195,7 @@ async fn logout_rejects_stale_cookie_on_another_instance() -> anyhow::Result<()>
     let other = format!("http://{}", listener.local_addr()?);
     let second_state = ServerState::connect(config).await?;
     let pages = clacks_web::routes(second_state.clone(), options);
-    let second = clacks_server::http::router(second_state, pages);
+    let second = clacks_server::http::router(second_state, pages)?;
     let second_server = tokio::spawn(async move {
         axum::serve(listener, second).await.unwrap();
     });

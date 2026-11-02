@@ -103,7 +103,7 @@ pub(crate) async fn receive(
     sqlx::query_file!("sql/account_lock.sql", client.account.to_string())
         .fetch_one(&mut *transaction)
         .await?;
-    metrics::histogram!("clacks_sync_return_lock_wait_seconds")
+    metrics::histogram!(crate::store::synchronization::SYNC_RETURN_LOCK_WAIT_SECONDS_METRIC)
         .record(waiting.elapsed().as_secs_f64());
 
     crate::oauth::resource::check_current(&mut transaction, client).await?;
@@ -348,8 +348,10 @@ pub(crate) async fn complete_return(
     sqlx::query_file!("sql/account_lock.sql", client.account.to_string())
         .fetch_one(&mut *transaction)
         .await?;
-    metrics::histogram!("clacks_sync_return_complete_lock_wait_seconds")
-        .record(waiting.elapsed().as_secs_f64());
+    metrics::histogram!(
+        crate::store::synchronization::SYNC_RETURN_COMPLETE_LOCK_WAIT_SECONDS_METRIC
+    )
+    .record(waiting.elapsed().as_secs_f64());
 
     crate::oauth::resource::check_current(&mut transaction, client).await?;
     let current = account::load(&mut transaction, client.account).await?;

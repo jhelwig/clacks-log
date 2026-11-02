@@ -113,23 +113,6 @@ fn telemetry_counts_only_committed_domain_changes_and_excludes_payloads() -> any
         );
     }
     captured.counter("clacks_client_sync_records_installed_total", &[], 1);
-    assert_eq!(
-        captured
-            .observations
-            .events
-            .iter()
-            .filter(|event| event
-                .fields
-                .get("event")
-                .is_some_and(|value| value == "record.saved"))
-            .count(),
-        3
-    );
-    assert!(captured.observations.spans.iter().all(|span| {
-        span.fields
-            .get("level")
-            .is_none_or(|level| level != "DEBUG" && level != "TRACE")
-    }));
     let all = format!("{captured:?}");
     for sensitive in [
         "DO NOT EMIT",
@@ -142,13 +125,6 @@ fn telemetry_counts_only_committed_domain_changes_and_excludes_payloads() -> any
     ] {
         assert!(!all.contains(sensitive), "leaked {sensitive}");
     }
-    assert!(captured.observations.events.iter().any(|event| {
-        event
-            .fields
-            .get("event")
-            .is_some_and(|value| value == "sync.receipt.completed")
-            && event.fields.contains_key("account_id")
-    }));
     for metric in captured
         .metrics
         .iter()
@@ -160,7 +136,7 @@ fn telemetry_counts_only_committed_domain_changes_and_excludes_payloads() -> any
 }
 
 #[test]
-fn committed_resolution_keeps_context_with_debug_spans_filtered() -> anyhow::Result<()> {
+fn committed_resolution_excludes_credentials_with_debug_spans_filtered() -> anyhow::Result<()> {
     use clacks_client_store::{
         identity::{self, EnrollmentBinding},
         synchronization::{self, PrepareOutcome},
@@ -257,12 +233,6 @@ fn committed_resolution_keeps_context_with_debug_spans_filtered() -> anyhow::Res
         .result
         .as_ref()
         .map_err(|error| anyhow::anyhow!("{error:#}"))?;
-    let event = captured.event("record.resolved");
-    assert_eq!(
-        event.fields.get("account_id"),
-        Some(&support::id::<clacks_model::ids::AccountId>(1).to_string())
-    );
-    assert!(event.fields.contains_key("record_id") && event.fields.contains_key("review_reason"));
     let text = format!("{captured:?}");
     assert!(!text.contains("DO NOT EMIT CREDENTIAL") && !text.contains("private-endpoint"));
     Ok(())

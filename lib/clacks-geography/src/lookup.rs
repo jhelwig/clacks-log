@@ -1,5 +1,8 @@
 //! Independent per-field candidates and coverage for native point or whole-grid queries.
 
+/// Metric name for complete geographic lookup.
+pub const LOOKUP_DURATION_METRIC: &str = "clacks_geography_lookup_duration_seconds";
+
 use crate::{
     artifact::{
         Field, ParentScope, SourceIdentity,
@@ -98,7 +101,7 @@ impl Bundle {
             LookupGeometry::Area(_) => "area",
         };
         let result = self.lookup_fields(geometry);
-        metrics::histogram!("clacks_geography_lookup_duration_seconds","query_kind"=>query_kind,"outcome"=>if result.is_ok(){"ok"}else{"error"}).record(started.elapsed().as_secs_f64());
+        metrics::histogram!(LOOKUP_DURATION_METRIC,"query_kind"=>query_kind,"outcome"=>if result.is_ok(){"ok"}else{"error"}).record(started.elapsed().as_secs_f64());
         if let Ok(result) = &result {
             for (field, coverage, count) in [
                 ("dxcc", result.dxcc.coverage, result.dxcc.candidates.len()),

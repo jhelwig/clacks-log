@@ -1,5 +1,11 @@
 //! Command-line composition for geographic acquisition, compilation and verification.
 
+/// Metric name for build attempt duration.
+pub(crate) const BUILD_DURATION_METRIC: &str = "clacks_geography_build_duration_seconds";
+
+/// Metric name for build attempts by publication outcome.
+pub(crate) const BUILD_RUNS_METRIC: &str = "clacks_geography_build_runs_total";
+
 use crate::{
     recipe::read_recipe,
     source::{decode_sources, fetch_sources},
@@ -22,6 +28,9 @@ mod tests;
 #[derive(Parser)]
 #[command(about = "Build and verify offline Clacks geographic data", version)]
 struct Arguments {
+    /// Export diagnostics to the explicitly configured OpenTelemetry collector.
+    #[arg(long, global = true)]
+    otlp: bool,
     /// The explicitly requested source/data action.
     #[command(subcommand)]
     command: Command,
@@ -79,17 +88,14 @@ pub fn run() -> Result<()> {
         Err(std::env::VarError::NotPresent) => tracing_subscriber::EnvFilter::new("info"),
         Err(error) => return Err(error.into()),
     };
-    tracing_subscriber::fmt()
-        .json()
-        .with_env_filter(filter)
-        .with_writer(std::io::stderr)
-        .try_init()
-        .map_err(|error| anyhow::anyhow!("configure geographic diagnostics: {error}"))?;
+    let telemetry = crate::telemetry::initialize(arguments.otlp, filter)?;
     let cancelled = Arc::new(AtomicBool::new(false));
     let signal = Arc::clone(&cancelled);
     ctrlc::set_handler(move || signal.store(true, Ordering::Relaxed))
         .context("install geographic cancellation handler")?;
-    execute(arguments.command, &cancelled)
+    let result = execute(arguments.command, &cancelled);
+    telemetry.shutdown();
+    result
 }
 
 /// Compose one explicit maintenance workflow using the production library operations.
@@ -126,17 +132,13 @@ fn execute(command: Command, cancelled: &AtomicBool) -> Result<()> {
                     })
             });
             let outcome = match &result {
-                Ok(report) => match report.outcome {
-                    crate::publish::BuildOutcome::Published
-                    | crate::publish::BuildOutcome::PublishedWithCleanupWarning => "published",
-                    crate::publish::BuildOutcome::Unchanged => "unchanged",
-                },
+                Ok(report) => report.outcome.diagnostic_name(),
                 Err(error) if error.is::<crate::source::BuildCancelled>() => "cancelled",
                 Err(_) => "failed",
             };
-            metrics::histogram!("clacks_geography_build_duration_seconds","outcome"=>outcome)
+            metrics::histogram!(BUILD_DURATION_METRIC,"outcome"=>outcome)
                 .record(started.elapsed().as_secs_f64());
-            metrics::counter!("clacks_geography_build_runs_total","outcome"=>outcome).increment(1);
+            metrics::counter!(BUILD_RUNS_METRIC,"outcome"=>outcome).increment(1);
             let report = result?;
             println!(
                 "{:?}: {} ({} acceptance cases; {} reviewed omissions)",

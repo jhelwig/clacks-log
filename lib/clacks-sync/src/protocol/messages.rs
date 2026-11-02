@@ -86,6 +86,25 @@ pub enum ClientMessage {
     },
 }
 
+impl ClientMessage {
+    /// Connection-local transfer identity when this message belongs to an exchange.
+    pub fn exchange_id(&self) -> Option<u64> {
+        match self {
+            Self::Transfer { exchange, .. } => Some(*exchange),
+            Self::Hello { .. } | Self::Propose { .. } => None,
+        }
+    }
+
+    /// Bounded synchronization phase represented by this message, without payloads.
+    pub fn diagnostic_phase(&self) -> &'static str {
+        match self {
+            Self::Hello { .. } => "negotiation",
+            Self::Propose { .. } => "publication",
+            Self::Transfer { .. } => "transfer",
+        }
+    }
+}
+
 /// Messages sent by the hub after current native authorization.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ServerMessage {

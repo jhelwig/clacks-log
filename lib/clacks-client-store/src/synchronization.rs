@@ -394,6 +394,7 @@ pub async fn stale(
 }
 
 /// Persist a hub's returned recovery comparison while retaining current local edits.
+#[tracing::instrument(skip_all, name="client_store.recovery.review", fields(account_id=%store.account))]
 pub async fn receive_review(
     store: &ClientStore,
     input: &ReviewInput,
@@ -407,6 +408,7 @@ pub async fn receive_review(
     metadata::binding::remove(&mut transaction, key).await?;
     metadata::binding::insert(&mut transaction, key).await?;
     transaction.commit().await?;
+    tracing::info!(event="sync.recovery.review_committed", account_id=%store.account, record_id=%key.id, reason=?input.reason);
     Ok(update)
 }
 

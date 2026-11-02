@@ -11,13 +11,15 @@ impl EventSink for IssuerEvents {
             Event::TokenIssued {
                 grant_type,
                 subject,
+                family_id,
                 ..
             } => {
                 metrics::counter!("clacks_oauth_tokens_issued_total", "grant_type" => grant_type.as_str()).increment(1);
-                tracing::debug!(
+                tracing::info!(
                     event = "oauth.token.issued",
                     ?grant_type,
                     account_id = subject,
+                    grant_family = family_id,
                     "Bound token issued"
                 );
             }
@@ -48,11 +50,13 @@ impl EventSink for IssuerEvents {
             Event::AuthorizationCodeReplayDetected {
                 tokens_revoked,
                 containment_failed,
+                family_id,
                 ..
             } => {
                 if containment_failed {
                     tracing::error!(
                         event = "oauth.code.replay",
+                        grant_family = family_id,
                         tokens_revoked,
                         containment_failed,
                         "Code replay containment did not persist"
@@ -60,6 +64,7 @@ impl EventSink for IssuerEvents {
                 } else {
                     tracing::warn!(
                         event = "oauth.code.replay",
+                        grant_family = family_id,
                         tokens_revoked,
                         containment_failed,
                         "Authorization code replay refused"

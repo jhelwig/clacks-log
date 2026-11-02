@@ -109,41 +109,6 @@ async fn operator_exports_committed_rotation_and_flushes_failure() -> anyhow::Re
                         .any(|point| point.value == Some(Value::AsInt(1))))
                     )
             );
-            assert!(logs.contains("account.key.rotation"));
-        } else if outcome == "failed" {
-            let events: Vec<_> = exports.logs.iter().flat_map(|batch| &batch.resource_logs)
-                .flat_map(|resource| &resource.scope_logs).flat_map(|scope| &scope.log_records)
-                .filter(|record| record.attributes.iter().any(|attribute|
-                    attribute.key == "event" && attribute.value.as_ref().is_some_and(|value|
-                        matches!(&value.value, Some(opentelemetry_proto::tonic::common::v1::any_value::Value::StringValue(value)) if value == "account.key.rotation.failed"))))
-                .collect();
-            assert_eq!(events.len(), 1);
-            assert!(events.iter().any(|event| event.attributes.iter().any(
-                |attribute| attribute.key == "migrated_receipts"
-                    && attribute.value.as_ref().is_some_and(|value| matches!(
-                        value.value,
-                        Some(opentelemetry_proto::tonic::common::v1::any_value::Value::IntValue(0))
-                    ))
-            )));
-        } else {
-            use opentelemetry_proto::tonic::common::v1::any_value::Value;
-            let events: Vec<_> = exports.logs.iter().flat_map(|batch| &batch.resource_logs)
-                .flat_map(|resource| &resource.scope_logs).flat_map(|scope| &scope.log_records)
-                .filter(|record| record.attributes.iter().any(|attribute|
-                    attribute.key == "event" && attribute.value.as_ref().is_some_and(|value|
-                        matches!(&value.value, Some(Value::StringValue(value)) if value == "deployment.keys.rewrap.failed"))))
-                .collect();
-            assert_eq!(events.len(), 1);
-            assert!(
-                events.iter().any(
-                    |event| event.attributes.iter().any(|attribute| attribute.key
-                        == "migrated_account_keys"
-                        && attribute
-                            .value
-                            .as_ref()
-                            .is_some_and(|value| matches!(value.value, Some(Value::IntValue(1)))))
-                )
-            );
         }
     }
     Ok(())

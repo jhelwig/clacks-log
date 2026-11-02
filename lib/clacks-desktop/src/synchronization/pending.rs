@@ -31,6 +31,9 @@ pub(super) async fn publish(
         },
     );
     let mut request = 0_u64;
+    if !pending.is_empty() {
+        tracing::info!(event="sync.publication.ready", account_id=%store.account_id(), records=pending.len());
+    }
     while !pending.is_empty() {
         let ready = pending.iter().position(|row| {
             row.record.working_state().is_some_and(|state| {

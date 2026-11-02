@@ -7,6 +7,8 @@
 )]
 #![cfg_attr(not(test), deny(clippy::expect_used, clippy::unwrap_used))]
 
+mod telemetry;
+
 pub mod application;
 pub mod compile;
 pub mod recipe;

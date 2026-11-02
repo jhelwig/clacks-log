@@ -1,5 +1,9 @@
 //! Received interpretation, retained pending comparison evidence and local relational cleanup.
 
+/// Metric name for completed local synchronization metadata reclamation.
+pub const METADATA_RECLAIM_DURATION_METRIC: &str =
+    "clacks_client_sync_metadata_reclaim_duration_seconds";
+
 mod reclaim;
 mod roots;
 
@@ -113,7 +117,7 @@ pub async fn reclaim_completed_cycle(store: &crate::store::ClientStore) -> anyho
     };
 
     metrics::histogram!(
-        "clacks_client_sync_metadata_reclaim_duration_seconds",
+        METADATA_RECLAIM_DURATION_METRIC,
         "outcome" => outcome
     )
     .record(started.elapsed().as_secs_f64());

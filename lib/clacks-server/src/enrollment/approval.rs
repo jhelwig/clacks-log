@@ -1,5 +1,8 @@
 //! Browser-held authorization requests and explicit owner approval.
 
+/// The authorization extension carries a free-form, potentially personal device label.
+pub(crate) const SENSITIVE_QUERY_PARAMETERS: &[&str] = &["client_label"];
+
 use super::{ApprovalPurpose, RecoveryTarget, remember_approval};
 use crate::{
     auth::{error::AuthError, principal::Principal},

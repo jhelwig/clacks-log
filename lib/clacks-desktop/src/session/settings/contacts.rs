@@ -48,6 +48,32 @@ pub(crate) enum ContactAction {
     Delete { expected: Box<ClientRecord> },
 }
 
+impl ContactAction {
+    /// Local operation name without containing-action context or request payloads.
+    pub(crate) fn diagnostic_name(&self) -> &'static str {
+        match self {
+            Self::WorkedBefore { .. } => "worked_before",
+            Self::LoadQueryState => "query_state.load",
+            Self::SaveQueryState { .. } => "query_state.save",
+            Self::Page { .. } => "page",
+            Self::Load { .. } => "load",
+            Self::Save { .. } => "save",
+            Self::PrepareMembership { .. } => "membership.prepare",
+            Self::ChangeMembership(_) => "membership.change",
+            Self::Delete { .. } => "delete",
+        }
+    }
+
+    /// Classify cancellable contact queries for their shared duration metric.
+    pub(super) fn query_kind(&self) -> Option<&'static str> {
+        match self {
+            Self::Page { .. } => Some("history"),
+            Self::WorkedBefore { .. } => Some("worked_before"),
+            _ => None,
+        }
+    }
+}
+
 /// An authoritative contact result, independent of any following settings refresh.
 #[derive(Debug)]
 pub(crate) enum ContactResponse {

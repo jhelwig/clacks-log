@@ -706,6 +706,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31b698c5f9a010f6573133b09e0de5408834d0c82f8d7475a89fc1867a71cd90"
 dependencies = [
  "axum-core",
+ "axum-macros",
  "base64 0.22.1",
  "bytes",
  "form_urlencoded",
@@ -753,6 +754,17 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "axum-macros"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7aa268c23bfbbd2c4363b9cd302a4f504fb2a9dfe7e3451d66f35dd392e20aca"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -1221,6 +1233,7 @@ dependencies = [
  "axum",
  "chrono",
  "clacks-client-store",
+ "clacks-geography",
  "clacks-model",
  "clacks-server",
  "clacks-sync",
@@ -1249,6 +1262,7 @@ dependencies = [
  "openidconnect",
  "opentelemetry",
  "opentelemetry-appender-tracing",
+ "opentelemetry-http",
  "opentelemetry-otlp",
  "opentelemetry-proto",
  "opentelemetry_sdk",
@@ -1327,7 +1341,12 @@ dependencies = [
  "geojson",
  "hex",
  "metrics",
+ "metrics-opentelemetry",
  "metrics-util",
+ "opentelemetry",
+ "opentelemetry-appender-tracing",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
  "proj4rs",
  "serde",
  "serde_json",
@@ -1336,6 +1355,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "tracing",
+ "tracing-opentelemetry",
  "tracing-subscriber",
  "ureq",
  "zip",
@@ -1465,6 +1485,7 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-appender-tracing",
  "opentelemetry-http",
+ "opentelemetry-instrumentation-tower",
  "opentelemetry-otlp",
  "opentelemetry-proto",
  "opentelemetry_sdk",
@@ -5870,6 +5891,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "opentelemetry-instrumentation-tower"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e7006f3b1853d315462a7237c81eec3d7adfa5b70975a02b19e92d045bc22d7"
+dependencies = [
+ "axum",
+ "http",
+ "http-body",
+ "opentelemetry",
+ "opentelemetry-http",
+ "opentelemetry-semantic-conventions",
+ "pin-project-lite",
+ "tower-layer",
+ "tower-service",
+]
+
+[[package]]
 name = "opentelemetry-otlp"
 version = "0.33.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5896,6 +5934,12 @@ dependencies = [
  "opentelemetry_sdk",
  "prost",
 ]
+
+[[package]]
+name = "opentelemetry-semantic-conventions"
+version = "0.33.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a3cf639fefd3e852869114f9925b578da6dd8e99281a2089bb0e773ead46962"
 
 [[package]]
 name = "opentelemetry_sdk"

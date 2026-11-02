@@ -284,9 +284,18 @@ async fn retention_installation_preserves_versions_and_is_idle_stable() -> anyho
 
     let captured = snapshot.snapshot().into_vec();
     for (name, expected) in [
-        ("clacks_sync_journal_prune_duration_seconds", "unchanged"),
-        ("clacks_sync_metadata_reclaim_duration_seconds", "reclaimed"),
-        ("clacks_sync_metadata_reclaim_duration_seconds", "unchanged"),
+        (
+            crate::store::retention::SYNC_JOURNAL_PRUNE_DURATION_SECONDS_METRIC,
+            "unchanged",
+        ),
+        (
+            crate::store::retention::SYNC_METADATA_RECLAIM_DURATION_SECONDS_METRIC,
+            "reclaimed",
+        ),
+        (
+            crate::store::retention::SYNC_METADATA_RECLAIM_DURATION_SECONDS_METRIC,
+            "unchanged",
+        ),
     ] {
         assert!(
             captured
@@ -415,7 +424,7 @@ async fn retention_prunes_installations_and_returns_below_floor() -> anyhow::Res
 
     assert_eq!(retained_entries, 3);
     assert!(snapshot.snapshot().into_vec().iter().any(|(key, _, _, _)| {
-        key.key().name() == "clacks_sync_journal_prune_duration_seconds"
+        key.key().name() == crate::store::retention::SYNC_JOURNAL_PRUNE_DURATION_SECONDS_METRIC
             && key
                 .key()
                 .labels()
@@ -476,6 +485,9 @@ async fn accept(
 async fn retention_reclaims_bodies_without_losing_obligations() -> anyhow::Result<()> {
     use clacks_sync::{record::Observation, service::VersionReference};
 
+    let telemetry = std::env::var_os("CLACKS_TELEMETRY_ACCEPTANCE")
+        .map(|_| crate::telemetry::init(true))
+        .transpose()?;
     let mut native = NativeAccount::create().await?;
 
     let mut read = native.store.pool.acquire().await?;
@@ -603,5 +615,8 @@ async fn retention_reclaims_bodies_without_losing_obligations() -> anyhow::Resul
                 && required.deleted)
     );
 
+    if let Some(telemetry) = telemetry {
+        tokio::task::spawn_blocking(move || telemetry.shutdown()).await??;
+    }
     Ok(())
 }

@@ -40,6 +40,7 @@ pub struct Source {
 
 impl Source {
     /// Return accepted knowledge; lack of a completed checkpoint permits facts, never prefix claims.
+    #[tracing::instrument(skip_all, name="client_store.discovery.start", level="debug", fields(account_id=%store.account))]
     pub async fn start(store: &ClientStore) -> anyhow::Result<Self> {
         let mut transaction = store.pool.begin().await?;
         let source = lineage::current_checkpoint(&mut transaction, store.account).await?;
@@ -69,6 +70,7 @@ impl Source {
     /// A newer received record is useful recovery evidence even when this workspace's
     /// last complete checkpoint is older. This source never certifies those individual facts
     /// as a complete prefix and never reads unpublished working values.
+    #[tracing::instrument(skip_all, name="client_store.discovery.repair", level="debug", fields(account_id=%store.account))]
     pub async fn repair(
         store: &ClientStore,
         covered: &clacks_sync::lineage::Coverage,
@@ -83,6 +85,7 @@ impl Source {
     }
 
     /// Read accepted observations and retained alternatives without transmitting unsaved/pending values.
+    #[tracing::instrument(skip_all, name="client_store.discovery.page", level="debug", fields(account_id=%store.account))]
     pub async fn page(
         &mut self,
         store: &ClientStore,
@@ -193,6 +196,7 @@ impl Source {
             .sequence
             .checked_add(1)
             .ok_or_else(|| anyhow::anyhow!("source sequence exhausted"))?;
+        tracing::debug!(event="sync.discovery.page", account_id=%store.account, sequence=page.sequence, accepted=page.accepted.len(), support=page.support.len(), requirements=page.requirements.len(), units=page.units.len());
         Ok(Some(page))
     }
 

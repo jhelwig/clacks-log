@@ -44,6 +44,18 @@ pub(crate) enum LogbookAction {
     },
 }
 
+impl LogbookAction {
+    /// Local operation name without containing-action context or request payloads.
+    pub(crate) fn diagnostic_name(&self) -> &'static str {
+        match self {
+            Self::SelectView { .. } => "select_view",
+            Self::SaveTag { .. } => "save_tag",
+            Self::PreviewDeletion { .. } => "preview_deletion",
+            Self::DeleteTag { .. } => "delete_tag",
+        }
+    }
+}
+
 /// Store result retained even when the subsequent catalog refresh fails.
 #[derive(Debug)]
 pub(crate) enum LogbookResponse {

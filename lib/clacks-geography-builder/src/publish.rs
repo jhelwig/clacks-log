@@ -26,6 +26,16 @@ pub enum BuildOutcome {
     PublishedWithCleanupWarning,
 }
 
+impl BuildOutcome {
+    /// Completed publication category; post-commit cleanup cannot undo publication.
+    pub fn diagnostic_name(&self) -> &'static str {
+        match self {
+            Self::Published | Self::PublishedWithCleanupWarning => "published",
+            Self::Unchanged => "unchanged",
+        }
+    }
+}
+
 /// Outcome and diagnostics from one completed publication attempt.
 #[derive(Debug)]
 pub struct BuildReport {

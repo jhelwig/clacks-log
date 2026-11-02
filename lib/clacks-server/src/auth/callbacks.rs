@@ -25,6 +25,14 @@ pub(crate) struct Callback {
     error: Option<String>,
 }
 
+impl Callback {
+    /// OAuth response values excluded from HTTP query telemetry.
+    ///
+    /// Provider error fields are untrusted text, not Clacks's safe error categories.
+    pub(crate) const SENSITIVE_QUERY_PARAMETERS: &[&str] =
+        &["code", "state", "error", "error_description"];
+}
+
 /// Return provider callbacks to the account page or a safe sign-in error.
 pub(crate) async fn callback(
     State(state): State<ServerState>,

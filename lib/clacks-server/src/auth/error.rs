@@ -51,6 +51,7 @@ impl AuthError {
                     .and_then(sqlx::Error::as_database_error)
                     .and_then(|database| database.code());
                 tracing::error!(
+                    error.type = crate::store::diagnostics::error_class(&error),
                     sqlstate = code.as_deref(),
                     "Account storage operation failed"
                 );

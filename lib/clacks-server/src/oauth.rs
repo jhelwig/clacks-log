@@ -1,5 +1,8 @@
 //! Embedded OAuth issuer and direct account/client authorization.
 
+/// Metric name for expired issuer rows removed by confirmed commits.
+pub(crate) const OAUTH_EXPIRED_ROWS_TOTAL_METRIC: &str = "clacks_oauth_expired_rows_total";
+
 pub(crate) mod authorization;
 pub(crate) mod cleanup;
 pub(crate) mod clients;

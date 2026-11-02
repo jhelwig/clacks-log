@@ -58,15 +58,30 @@ pub fn init(otlp: bool) -> anyhow::Result<Telemetry> {
         let trace_exporter = opentelemetry_otlp::SpanExporter::builder()
             .with_http()
             .with_protocol(Protocol::HttpBinary)
-            .build()?;
+            .build()
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "invalid trace exporter configuration; check endpoint, headers and transport"
+                )
+            })?;
         let metric_exporter = opentelemetry_otlp::MetricExporter::builder()
             .with_http()
             .with_protocol(Protocol::HttpBinary)
-            .build()?;
+            .build()
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "invalid metric exporter configuration; check endpoint, headers and transport"
+                )
+            })?;
         let log_exporter = opentelemetry_otlp::LogExporter::builder()
             .with_http()
             .with_protocol(Protocol::HttpBinary)
-            .build()?;
+            .build()
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "invalid log exporter configuration; check endpoint, headers and transport"
+                )
+            })?;
         telemetry.traces = Some(
             SdkTracerProvider::builder()
                 .with_batch_exporter(trace_exporter)
@@ -80,15 +95,102 @@ pub fn init(otlp: bool) -> anyhow::Result<Telemetry> {
         let mut recorder = metrics_opentelemetry::OpenTelemetryRecorder::new(
             metrics_opentelemetry::OpenTelemetryMetrics::new(metrics.meter("clacks_server")),
         );
+        let fine = &[
+            0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+            30.0, 60.0, 300.0,
+        ];
         recorder.set_histogram_bounds_mut(
-            ["clacks_http_request_duration_seconds"].into_iter(),
-            &[
-                0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
-            ],
+            [
+                crate::store::retention::SYNC_BASELINE_LOCK_WAIT_SECONDS_METRIC,
+                crate::store::retention::SYNC_BASELINE_LOCK_HOLD_SECONDS_METRIC,
+                crate::store::synchronization::SYNC_ACCEPT_LOCK_WAIT_SECONDS_METRIC,
+                crate::store::synchronization::SYNC_ACKNOWLEDGMENT_LOCK_WAIT_SECONDS_METRIC,
+                crate::store::synchronization::SYNC_RETURN_COMPLETE_LOCK_WAIT_SECONDS_METRIC,
+                crate::store::synchronization::SYNC_RETURN_LOCK_WAIT_SECONDS_METRIC,
+                crate::store::synchronization::SYNC_NEGOTIATION_LOCK_WAIT_SECONDS_METRIC,
+                crate::enrollment::ENROLLMENT_REVOCATION_LOCK_WAIT_SECONDS_METRIC,
+                crate::store::retention::SYNC_BASELINE_INSTALL_DURATION_SECONDS_METRIC,
+                crate::store::retention::SYNC_JOURNAL_PRUNE_DURATION_SECONDS_METRIC,
+                crate::store::retention::SYNC_METADATA_RECLAIM_DURATION_SECONDS_METRIC,
+                crate::synchronization::SYNC_DISPATCH_DURATION_SECONDS_METRIC,
+            ]
+            .into_iter(),
+            fine,
+        );
+        recorder.set_histogram_bounds_mut(
+            [crate::store::retention::SYNC_BASELINE_CONTEXTS_EXAMINED_METRIC].into_iter(),
+            &[0.0, 1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0],
         );
         metrics::set_global_recorder(recorder)
             .map_err(|_| anyhow::anyhow!("a metrics recorder is already installed"))?;
+        for (name, description) in [
+            (
+                crate::store::retention::SYNC_BASELINE_LOCK_WAIT_SECONDS_METRIC,
+                "Baseline account lock acquisition wait",
+            ),
+            (
+                crate::store::retention::SYNC_BASELINE_LOCK_HOLD_SECONDS_METRIC,
+                "Baseline account lock holding through transaction completion",
+            ),
+            (
+                crate::store::synchronization::SYNC_ACCEPT_LOCK_WAIT_SECONDS_METRIC,
+                "Publication account lock acquisition wait",
+            ),
+            (
+                crate::store::synchronization::SYNC_ACKNOWLEDGMENT_LOCK_WAIT_SECONDS_METRIC,
+                "Acknowledgement account lock acquisition wait",
+            ),
+            (
+                crate::store::synchronization::SYNC_RETURN_COMPLETE_LOCK_WAIT_SECONDS_METRIC,
+                "Returned window completion account lock wait",
+            ),
+            (
+                crate::store::synchronization::SYNC_RETURN_LOCK_WAIT_SECONDS_METRIC,
+                "Returned page account lock wait",
+            ),
+            (
+                crate::store::synchronization::SYNC_NEGOTIATION_LOCK_WAIT_SECONDS_METRIC,
+                "Negotiation account lock wait",
+            ),
+            (
+                crate::enrollment::ENROLLMENT_REVOCATION_LOCK_WAIT_SECONDS_METRIC,
+                "Revocation account lock wait",
+            ),
+            (
+                crate::store::retention::SYNC_BASELINE_INSTALL_DURATION_SECONDS_METRIC,
+                "Baseline installation including transaction completion",
+            ),
+            (
+                crate::store::retention::SYNC_JOURNAL_PRUNE_DURATION_SECONDS_METRIC,
+                "One journal pruning transaction",
+            ),
+            (
+                crate::store::retention::SYNC_METADATA_RECLAIM_DURATION_SECONDS_METRIC,
+                "One metadata reclamation transaction",
+            ),
+            (
+                crate::synchronization::SYNC_DISPATCH_DURATION_SECONDS_METRIC,
+                "One completed server synchronization message dispatch",
+            ),
+        ] {
+            metrics::describe_histogram!(name, metrics::Unit::Seconds, description);
+        }
+        metrics::describe_histogram!(
+            crate::store::retention::SYNC_BASELINE_CONTEXTS_EXAMINED_METRIC,
+            metrics::Unit::Count,
+            "Current contexts examined for baseline installation"
+        );
+        metrics::describe_counter!(
+            crate::oauth::OAUTH_EXPIRED_ROWS_TOTAL_METRIC,
+            metrics::Unit::Count,
+            "Expired issuer rows removed by confirmed commits"
+        );
+        opentelemetry::global::set_meter_provider(metrics.clone());
         telemetry.metrics = Some(metrics);
+        if let Some(provider) = &telemetry.traces {
+            opentelemetry::global::set_tracer_provider(provider.clone());
+        }
+
         telemetry.logs = Some(
             SdkLoggerProvider::builder()
                 .with_batch_exporter(log_exporter)
@@ -118,19 +220,29 @@ pub fn init(otlp: bool) -> anyhow::Result<Telemetry> {
     });
     let logs = telemetry.logs.as_ref().map(|provider| {
         opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new(provider)
-            .with_filter(tracing_subscriber::filter::filter_fn(|metadata| {
-                let target = metadata.target();
-                !["opentelemetry", "reqwest", "hyper", "h2"]
-                    .iter()
-                    .any(|prefix| target.starts_with(prefix))
-            }))
+            .with_filter(
+                tracing_subscriber::filter::Targets::new()
+                    .with_default(tracing_subscriber::filter::LevelFilter::TRACE)
+                    .with_targets(
+                        ["opentelemetry", "reqwest", "hyper", "h2"]
+                            .map(|target| (target, tracing_subscriber::filter::LevelFilter::OFF)),
+                    ),
+            )
     });
     tracing_subscriber::registry()
         .with(filter)
+        .with(
+            tracing_subscriber::filter::Targets::new()
+                .with_default(tracing_subscriber::filter::LevelFilter::TRACE)
+                .with_target("axum_session", tracing_subscriber::filter::LevelFilter::OFF)
+                .with_targets(
+                    ["opentelemetry", "reqwest", "hyper", "h2", "sqlx"]
+                        .map(|target| (target, tracing::Level::WARN)),
+                ),
+        )
         .with(tracing_subscriber::filter::filter_fn(|metadata| {
-            // Partial-success replies carry arbitrary collector-provided text.
-            !metadata.target().starts_with("opentelemetry")
-                || metadata.fields().field("error_message").is_none()
+            // This field can contain arbitrary collector-provided text.
+            metadata.fields().field("error_message").is_none()
         }))
         .with(
             tracing_subscriber::fmt::layer()

@@ -156,3 +156,36 @@ application rollback targets must retain the writer boundary and live formats.
 Maintenance requires a direct or session-pooled connection, not transaction
 pooling. Keep every key required by retained backups even after current source
 references reach zero.
+
+### Investigating application requests
+
+Request spans follow OpenTelemetry HTTP semantic conventions. Request duration
+covers application handling through response headers, excluding later streaming
+body transmission and upgraded sockets. Exact response status and matched routes
+are available; a headers-produced log is not proof of body delivery. Standard
+Tower callbacks report observed failures. Paths, benign query values and user
+agents remain in traces. The designated OAuth query values are
+redacted by the released middleware. Percent-encoded parameter names are an
+explicit upstream limitation; no blanket span-attribute scrubber is installed.
+
+With the existing Alloy/Prometheus translation, use
+`http_server_request_duration_seconds_count` for rates and
+`http_server_request_duration_seconds_bucket` for distributions, grouped by
+`http_route`, `http_request_method` and `http_response_status_code`. The configured
+`service.instance.id` becomes `instance`, and service name becomes `job`.
+For example, a route-level percentile is:
+
+```promql
+histogram_quantile(0.95,
+  sum by (le, http_route) (
+    rate(http_server_request_duration_seconds_bucket{job="clacks-server"}[5m])
+  )
+)
+```
+
+Update managed dashboards/alerts in their owning Operations repository before the
+corresponding application rollout; do not deploy dashboard changes from the UI.
+The legacy `clacks_http_*` families are replaced by the standard duration family.
+Trace sampling does not affect these request measurements or required security
+logs. Grafana usefulness must be verified against actual requests, failures and
+synchronization, rather than inferred from signal delivery or output snapshots.
