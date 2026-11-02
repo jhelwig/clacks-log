@@ -92,9 +92,6 @@ pub(crate) async fn client(
     sqlx::query_file!("sql/oauth/client_scopes_delete.sql", id.as_str())
         .execute(&mut *transaction)
         .await?;
-    sqlx::query_file!("sql/oauth/client_redirects_delete.sql", id.as_str())
-        .execute(&mut *transaction)
-        .await?;
     let removed = sqlx::query_file!("sql/oauth/client_delete.sql", id.as_str())
         .execute(&mut *transaction)
         .await?

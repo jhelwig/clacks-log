@@ -88,7 +88,7 @@ Account-owned references are account-qualified. Table names below identify the p
 
 | Table | Fields, references and constraints |
 | --- | --- |
-| `desktop_oauth_clients` | Public `client_id` primary key, display name; child tables for allowed grants, scopes and exact registered redirects. Server-wide public metadata; no desktop client secret or user account authority. |
+| `desktop_oauth_clients` | Public `client_id` primary key, display name; child tables for allowed grants and scopes. The fixed desktop redirect allowlist is supplied by server code. Server-wide public metadata; no desktop client secret or user account authority. |
 | `desktop_clients` | `(account_id, actor_id)` primary key, user-visible label, authorization time, nullable closure time, creation and closure synchronization positions. References accounts and actual membership positions. Never delete shared records through this table. |
 | `desktop_grants` | `(account_id, family_id)` primary key, application `client_id`, nullable `actor_id` until initial exchange completion, grant-established time, proof-key thumbprint, state `provisional`, `active` or `revoked`, and provisional cleanup deadline. Once associated, a family never changes account or actor. Multiple historical grants can name one actor. |
 | `desktop_authorization_codes` | Code digest primary key, account, application client, exact granted redirect and explicit-redirect flag, subject, S256 PKCE challenge, key thumbprint, issued/expiry times, state `issued`, `consumed` or `replayed`. Nullable complete versioned receipt envelope with a generated account-key reference. Ciphertext contains only the optional issued access/refresh strings required by oauth-as, not the entire record. Child tables hold scopes/resources. |

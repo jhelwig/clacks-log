@@ -506,10 +506,11 @@ clients may vary the port of registered HTTP redirects using `127.0.0.1` or
 `[::1]`; the remaining URI bytes must match exactly. The actual requested URI is
 retained in the authorization grant and must match exactly at code redemption.
 Use the published release; the local vendored patch is no longer required.
-The release migration makes HTTP port 80 explicit in both server-owned loopback
-registrations, as required by upstream's matcher. This registration port does
-not constrain the desktop's operating-system-assigned callback port or change
-the exact redirect URI already stored in an authorization grant.
+The server supplies both allowed loopback redirects from release-owned constants,
+with HTTP port 80 explicit as required by upstream's matcher. The allowlist is
+not stored in the database. This registration port does not constrain the
+desktop's operating-system-assigned callback port or change the exact redirect
+URI stored in an individual authorization grant.
 
 Clacks supplies the oauth-as storage integration using its relational PostgreSQL
 schema, checked SQLx queries and transaction boundaries. The unpublished upstream

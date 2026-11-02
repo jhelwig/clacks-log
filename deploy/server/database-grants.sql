@@ -11,7 +11,7 @@ GRANT SELECT, INSERT, UPDATE ON clacks.account_encryption_keys,
     clacks.desktop_clients TO clacks_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON clacks.desktop_oauth_clients,
     clacks.desktop_client_grants, clacks.desktop_client_scopes,
-    clacks.desktop_client_redirects, clacks.desktop_code_approvals,
+    clacks.desktop_code_approvals,
     clacks.desktop_authorization_codes, clacks.desktop_code_scopes,
     clacks.desktop_code_resources, clacks.desktop_grants,
     clacks.desktop_access_tokens, clacks.desktop_access_scopes,

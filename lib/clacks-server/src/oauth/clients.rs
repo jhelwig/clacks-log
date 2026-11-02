@@ -10,6 +10,12 @@ use oauth_as::{
 use sqlx::PgPool;
 use std::sync::Arc;
 
+/// Release-owned native callback allowlist; oauth-as permits request-time port changes.
+const DESKTOP_REDIRECT_URIS: [&str; 2] = [
+    "http://127.0.0.1:80/oauth/callback",
+    "http://[::1]:80/oauth/callback",
+];
+
 /// Read a public registration without treating its identifier as an account credential.
 pub(crate) async fn get(pool: &PgPool, id: &ClientId) -> anyhow::Result<Option<Arc<Client>>> {
     let mut connection = pool.acquire().await?;
@@ -33,9 +39,6 @@ async fn get_in(
     let scopes = sqlx::query_file_as!(TextValue, "sql/oauth/client_scopes.sql", id.as_str())
         .fetch_all(&mut *connection)
         .await?;
-    let redirects = sqlx::query_file_as!(TextValue, "sql/oauth/client_redirects.sql", id.as_str())
-        .fetch_all(&mut *connection)
-        .await?;
     let grant_types = grants
         .into_iter()
         .map(|item| match item.value.as_str() {
@@ -55,7 +58,10 @@ async fn get_in(
         client_id: ClientId::new(row.client_id),
         auth: ClientAuth::Public,
         grant_types,
-        redirect_uris: redirects.into_iter().map(|item| item.value).collect(),
+        redirect_uris: DESKTOP_REDIRECT_URIS
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         allowed_scopes: scopes.clone(),
         default_scopes: scopes,
         name: Some(row.display_name),
