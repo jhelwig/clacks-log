@@ -49,6 +49,10 @@ macro_rules! entity_ids {
 }
 
 entity_ids!(
+    /// Identity of one admitted directory lookup, retained through retries.
+    LookupId,
+    /// Identity of replaceable account-owned directory credential material.
+    DirectoryMaterialId,
     /// Stable identity of an account-owned contact.
     QsoId,
     /// Stable identity of a logbook tag independent of its display name.

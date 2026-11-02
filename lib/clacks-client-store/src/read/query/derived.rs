@@ -99,13 +99,13 @@ pub(super) async fn populate(
                 .facts
                 .own_location
                 .as_ref()
-                .and_then(|s| s.value.as_ref())
+                .and_then(|s| s.value.location.as_ref())
                 .and_then(|l| l.position().as_ref());
             let contact = value
                 .facts
                 .contact_location
                 .as_ref()
-                .and_then(|s| s.value.as_ref())
+                .and_then(|s| s.value.location.as_ref())
                 .and_then(|l| l.position().as_ref());
             let own_grid = own.map(|p| p.display_locator().to_string());
             let contact_grid = contact.map(|p| p.display_locator().to_string());

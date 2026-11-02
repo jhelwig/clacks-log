@@ -320,6 +320,7 @@ pub fn eligible_station_facts(
     .map(RecordedLocation::try_from)
     .transpose()?;
     Ok(Some(StationFacts {
+        references: reported(&s.references).unwrap_or_default(),
         name: reported(&s.name),
         location,
     }))

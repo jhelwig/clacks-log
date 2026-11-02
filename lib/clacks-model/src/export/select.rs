@@ -1,5 +1,6 @@
 //! Per-contact mapping selection with explicit resolution of contextual ambiguity.
 
+use super::evaluate::ReferenceExportInput;
 use crate::contact::Qso;
 use crate::export::rules::{
     BindingCondition, CompiledGroupDefinition, ExpressionContext, ExpressionValue, FieldBinding,
@@ -123,12 +124,21 @@ pub struct MappingSelection {
 }
 
 /// Check group participation on a station side, including group-only associations.
-pub(crate) fn has_association(qso: &Qso, group: GroupId, side: StationSide) -> bool {
+pub(crate) fn has_association(
+    qso: &Qso,
+    group: GroupId,
+    side: StationSide,
+    contacted: Option<&BTreeSet<crate::reference::ReferenceAssociation>>,
+) -> bool {
     let station = match side {
         StationSide::Own => &qso.own_station(),
         StationSide::Contacted => &qso.contacted_station(),
     };
-    station.references.iter().any(|r| r.group_id == group)
+    contacted
+        .filter(|_| side == StationSide::Contacted)
+        .unwrap_or(&station.references)
+        .iter()
+        .any(|r| r.group_id == group)
 }
 
 /// Evaluate enabled scalar assignments and reject conflicting values for one output field.
@@ -147,7 +157,7 @@ pub(crate) fn evaluate_fields(
             BindingCondition::BoundPresent(name) => context.bindings.contains_key(name),
             BindingCondition::AssociationPresent(side) => context
                 .qso
-                .is_some_and(|q| has_association(q, group_id, *side)),
+                .is_some_and(|q| has_association(q, group_id, *side, context.contacted_references)),
         };
         if !enabled {
             continue;
@@ -187,14 +197,14 @@ pub(crate) fn evaluate_fields(
 /// Unknown profiles/targets, invalid choices and unusable definitions return errors;
 /// unknown associated groups are reported where applicable, never added or rewritten.
 pub fn select_mappings(
-    qso: &Qso,
+    input: &ReferenceExportInput<'_>,
     context: &ExportContext,
     definitions: &DefinitionSet,
     profiles: &ProfileSet,
     resolution: Option<&ContextResolution>,
 ) -> anyhow::Result<MappingSelection> {
     select_mappings_with_compiled(
-        qso,
+        input,
         context,
         definitions,
         profiles,
@@ -208,13 +218,14 @@ pub fn select_mappings(
 /// The cache must belong to this immutable definition set and operation; it is
 /// populated only for participating groups allowed by the selected context.
 pub(crate) fn select_mappings_with_compiled<'a>(
-    qso: &Qso,
+    input: &ReferenceExportInput<'_>,
     context: &ExportContext,
     definitions: &'a DefinitionSet,
     profiles: &ProfileSet,
     resolution: Option<&ContextResolution>,
     compiled_definitions: &mut BTreeMap<GroupId, CompiledGroupDefinition<'a>>,
 ) -> anyhow::Result<MappingSelection> {
+    let qso = input.qso;
     let profile = profiles
         .get(&context.output_profile_id)
         .ok_or(ExportError::UnknownProfile {
@@ -236,7 +247,7 @@ pub(crate) fn select_mappings_with_compiled<'a>(
         .own_station()
         .references
         .iter()
-        .chain(&qso.contacted_station().references)
+        .chain(input.contacted_references)
         .map(|r| r.group_id)
         .collect();
     let mut selection = MappingSelection::default();
@@ -244,6 +255,7 @@ pub(crate) fn select_mappings_with_compiled<'a>(
     let bindings = BTreeMap::new();
     let expression_context = ExpressionContext {
         qso: Some(qso),
+        contacted_references: Some(input.contacted_references),
         current_identifier: None,
         bindings: &bindings,
     };
@@ -291,7 +303,7 @@ pub(crate) fn select_mappings_with_compiled<'a>(
         }
         let sides = [StationSide::Own, StationSide::Contacted]
             .into_iter()
-            .filter(|side| has_association(qso, group_id, *side))
+            .filter(|side| has_association(qso, group_id, *side, Some(input.contacted_references)))
             .collect();
         selection.groups.push(SelectedGroupMapping {
             group_id,
@@ -319,7 +331,7 @@ pub(crate) fn select_mappings_with_compiled<'a>(
             .into());
         }
         return select_mappings_with_compiled(
-            qso,
+            input,
             &ExportContext {
                 target_group_id: Some(*id),
                 ..context.clone()

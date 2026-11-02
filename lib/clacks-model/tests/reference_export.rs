@@ -44,7 +44,10 @@ fn context(targeted: bool, group: GroupId) -> ExportContext {
 fn ordinary_export_does_not_expand() -> TestResult {
     let q = contact(support::id::<GroupId>(1));
     let plan = plan_reference_export(
-        &[q.clone(), q],
+        &[q.clone(), q]
+            .iter()
+            .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+            .collect::<Vec<_>>(),
         &context(false, support::id::<GroupId>(1)),
         &support::definitions(),
         &support::profiles(),
@@ -73,7 +76,10 @@ fn two_by_three_expands_only_target_group() -> TestResult {
     }
     let before = serde_json::to_value(&q)?;
     let plan = plan_reference_export(
-        std::slice::from_ref(&q),
+        &(std::slice::from_ref(&q))
+            .iter()
+            .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+            .collect::<Vec<_>>(),
         &context(true, support::id::<GroupId>(1)),
         &support::contest_definitions(),
         &support::profiles(),
@@ -103,7 +109,9 @@ fn hunter_contact_retains_one_entry() -> TestResult {
         Ok(())
     });
     let plan = plan_reference_export(
-        &[q],
+        &[q].iter()
+            .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+            .collect::<Vec<_>>(),
         &context(true, support::id::<GroupId>(1)),
         &support::definitions(),
         &support::profiles(),
@@ -131,7 +139,10 @@ fn omission_is_explicit_and_reported() -> TestResult {
         });
     }
     let plan = plan_reference_export(
-        std::slice::from_ref(&q),
+        &(std::slice::from_ref(&q))
+            .iter()
+            .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+            .collect::<Vec<_>>(),
         &context(false, support::id::<GroupId>(1)),
         &support::contest_definitions(),
         &support::profiles(),
@@ -145,7 +156,9 @@ fn omission_is_explicit_and_reported() -> TestResult {
             .contains_key("CONTEST_ID")
     );
     let unresolved = plan_reference_export(
-        &[q],
+        &[q].iter()
+            .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+            .collect::<Vec<_>>(),
         &context(false, support::id::<GroupId>(1)),
         &support::contest_definitions(),
         &support::profiles(),
@@ -172,7 +185,10 @@ fn no_program_name_switch() -> TestResult {
     generic.name = "User group with equivalent capabilities".into();
     let generic = clacks_model::group::GroupDefinition::try_from(generic)?;
     let plan = plan_reference_export(
-        &[contact(generic.id())],
+        &[contact(generic.id())]
+            .iter()
+            .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+            .collect::<Vec<_>>(),
         &context(true, generic.id()),
         &DefinitionSet::new(vec![generic])?,
         &support::profiles(),
@@ -192,7 +208,9 @@ fn missing_partition_is_not_silent_filtering() {
         Ok(())
     });
     let error = plan_reference_export(
-        &[q],
+        &[q].iter()
+            .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+            .collect::<Vec<_>>(),
         &context(true, support::id::<GroupId>(1)),
         &support::definitions(),
         &support::profiles(),
@@ -212,7 +230,10 @@ fn missing_partition_is_not_silent_filtering() {
     });
     assert!(
         plan_reference_export(
-            &[q, competing],
+            &[q, competing]
+                .iter()
+                .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+                .collect::<Vec<_>>(),
             &context(false, support::id::<GroupId>(1)),
             &support::definitions(),
             &support::profiles(),
@@ -264,7 +285,10 @@ fn shared_definitions_keep_each_contacts_reference_values() -> TestResult {
         (true, "MY_SIG_INFO", "SIG_INFO"),
     ] {
         let plan = plan_reference_export(
-            &[first.clone(), second.clone()],
+            &[first.clone(), second.clone()]
+                .iter()
+                .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+                .collect::<Vec<_>>(),
             &context(targeted, group),
             &support::definitions(),
             &support::profiles(),

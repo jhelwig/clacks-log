@@ -148,6 +148,8 @@ pub struct ExpressionContext<'a> {
     /// Contact facts available for QSO field paths and station-side reference collections.
     pub qso: Option<&'a Qso>,
     /// Single association value used for catalog/identifier-local expressions.
+    pub contacted_references: Option<&'a std::collections::BTreeSet<ReferenceAssociation>>,
+    /// Selected effective contacted references for output, absent for recorded-only use.
     pub current_identifier: Option<&'a str>,
     /// Values already selected by declared partition or expansion rules.
     pub bindings: &'a BTreeMap<String, String>,
@@ -434,7 +436,12 @@ impl CompiledGroupDefinition<'_> {
                 let q = context
                     .qso
                     .ok_or_else(|| self.error("expression", "QSO context missing"))?;
-                ExpressionValue::Collection(reference_identifiers(q, self.definition.id(), *side))
+                ExpressionValue::Collection(reference_identifiers(
+                    q,
+                    self.definition.id(),
+                    *side,
+                    context.contacted_references,
+                ))
             }
             ValueExpression::Capture {
                 value,
@@ -517,13 +524,19 @@ impl CompiledGroupDefinition<'_> {
 /// Collect recorded identifiers for one group and station side in deterministic set order.
 ///
 /// Group-only associations have no identifier to emit; other groups are excluded.
-pub(crate) fn reference_identifiers(qso: &Qso, group: GroupId, side: StationSide) -> Vec<String> {
+pub(crate) fn reference_identifiers(
+    qso: &Qso,
+    group: GroupId,
+    side: StationSide,
+    contacted: Option<&std::collections::BTreeSet<ReferenceAssociation>>,
+) -> Vec<String> {
     let station = match side {
         StationSide::Own => &qso.own_station(),
         StationSide::Contacted => &qso.contacted_station(),
     };
-    station
-        .references
+    contacted
+        .filter(|_| side == StationSide::Contacted)
+        .unwrap_or(&station.references)
         .iter()
         .filter(|r| r.group_id == group)
         .filter_map(|r| r.identifier().clone())

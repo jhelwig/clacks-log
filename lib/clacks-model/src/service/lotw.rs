@@ -363,6 +363,7 @@ pub(crate) fn own_iota(q: &Qso, definitions: &DefinitionSet) -> anyhow::Result<O
             let compiled = crate::export::rules::compile_definition(def)?;
             let bindings = BTreeMap::new();
             let context = crate::export::rules::ExpressionContext {
+                contacted_references: None,
                 qso: Some(q),
                 current_identifier: None,
                 bindings: &bindings,

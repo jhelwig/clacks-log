@@ -6,6 +6,7 @@ use clacks_model::effective::{
 use clacks_model::ids::{GroupId, QsoId};
 fn facts(state: &str) -> StationFacts {
     StationFacts {
+        references: Default::default(),
         name: Some("Directory name".into()),
         location: Some(
             (clacks_model::location::RecordedLocationFields {
@@ -39,7 +40,7 @@ fn whole_location_never_patches_lower_source() {
     };
     let value = select_location(&station, &eligible, &support::definitions()).unwrap();
     assert_eq!(value.source, InformationSource::Recorded);
-    assert_eq!(value.value.unwrap().secondary_subdivision(), &None);
+    assert_eq!(value.value.location.unwrap().secondary_subdivision(), &None);
     assert_eq!(
         select_name(Some("On-air name"), &eligible).unwrap().value,
         "On-air name"
@@ -70,7 +71,7 @@ fn location_reference_blocks_home_location() {
     };
     let selected = select_location(&station, &eligible, &support::definitions()).unwrap();
     assert_eq!(selected.source, InformationSource::Recorded);
-    assert_eq!(selected.value, None);
+    assert_eq!(selected.value.location, None);
     station.references.clear();
     station.references.insert(support::reference(
         support::id::<GroupId>(999),

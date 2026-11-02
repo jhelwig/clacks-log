@@ -12,7 +12,6 @@ use clacks_model::{
     export::{ExportContext, OutputPurpose, ProfileSet},
     group::DefinitionSet,
     ids::{AccountId, OutputProfileId, QsoId},
-    location::RecordedLocation,
     recognition::RecognitionCatalog,
     service::{adif::ProjectionContext, lotw::LotwConfiguration},
 };
@@ -46,9 +45,9 @@ pub struct ContactFacts {
     /// Effective contacted name and its actual source.
     pub name: Option<Sourced<String>>,
     /// Whole own-station location, including authoritative unknown geography.
-    pub own_location: Option<Sourced<Option<RecordedLocation>>>,
+    pub own_location: Option<Sourced<clacks_model::effective::LocationFacts>>,
     /// Whole contacted-station location, including authoritative unknown geography.
-    pub contact_location: Option<Sourced<Option<RecordedLocation>>>,
+    pub contact_location: Option<Sourced<clacks_model::effective::LocationFacts>>,
     /// Current LoTW coverage and confirmation.
     pub lotw: ServiceStatus,
     /// Current QRZ coverage and confirmation.

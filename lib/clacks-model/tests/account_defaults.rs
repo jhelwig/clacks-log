@@ -119,7 +119,10 @@ fn pota_mapping_uses_separate_export_contexts() -> anyhow::Result<()> {
             target_group_id: targeted.then_some(pota.id()),
         };
         let plan = plan_reference_export(
-            std::slice::from_ref(&qso),
+            &(std::slice::from_ref(&qso))
+                .iter()
+                .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+                .collect::<Vec<_>>(),
             &context,
             &definitions,
             &profiles,
@@ -181,7 +184,7 @@ fn competing_contests_need_an_explicit_context() -> anyhow::Result<()> {
         target_group_id: None,
     };
     let selection = clacks_model::export::select::select_mappings(
-        &qso,
+        &clacks_model::export::evaluate::ReferenceExportInput::recorded(&qso),
         &context,
         &definitions,
         &profiles,
@@ -194,7 +197,7 @@ fn competing_contests_need_an_explicit_context() -> anyhow::Result<()> {
         target_group_id: Some(first.id()),
     };
     let selection = clacks_model::export::select::select_mappings(
-        &qso,
+        &clacks_model::export::evaluate::ReferenceExportInput::recorded(&qso),
         &context,
         &definitions,
         &profiles,
@@ -256,7 +259,10 @@ fn unknown_activation_subdivision_has_its_own_partition() -> anyhow::Result<()> 
         target_group_id: Some(pota.id()),
     };
     let plan = plan_reference_export(
-        &[unknown, known],
+        &[unknown, known]
+            .iter()
+            .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+            .collect::<Vec<_>>(),
         &context,
         &definitions,
         &profiles,

@@ -58,6 +58,7 @@ fn empty_optional_aggregates_are_not_location_evidence() {
     let q = support::qso(support::id::<QsoId>(1));
 
     let fallback = StationFacts {
+        references: Default::default(),
         name: None,
         location: Some(
             (clacks_model::location::RecordedLocationFields {

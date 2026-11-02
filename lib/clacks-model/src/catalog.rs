@@ -128,6 +128,7 @@ pub fn lookup_reference(
     let compiled = compile_definition(definition)?;
     let bindings = BTreeMap::new();
     let context = ExpressionContext {
+        contacted_references: None,
         qso: None,
         current_identifier: association.identifier().as_deref(),
         bindings: &bindings,

@@ -237,7 +237,7 @@ fn cell(
             .facts
             .own_location
             .as_ref()
-            .and_then(|s| s.value.as_ref())
+            .and_then(|s| s.value.location.as_ref())
             .and_then(|l| l.position().as_ref())
             .map(|p| p.display_locator().to_string())
             .unwrap_or_default(),
@@ -266,7 +266,7 @@ fn cell(
             .facts
             .contact_location
             .as_ref()
-            .and_then(|s| s.value.as_ref())
+            .and_then(|s| s.value.location.as_ref())
             .and_then(|v| v.position().as_ref())
             .map(|v| v.display_locator().to_string())
             .unwrap_or_default(),
