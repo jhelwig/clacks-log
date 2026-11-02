@@ -1,7 +1,6 @@
-//! Grant revocation barriers and public registration removal.
+//! Grant revocation barriers and account-owned credential removal.
 
-use anyhow::Context;
-use oauth_as::{client::ClientId, store::RevocationWindow};
+use oauth_as::store::RevocationWindow;
 use sqlx::{PgConnection, PgPool};
 use time::OffsetDateTime;
 
@@ -60,48 +59,4 @@ pub(crate) async fn family(
     let removed = family_in(&mut transaction, family, window).await?;
     transaction.commit().await?;
     Ok(removed)
-}
-
-/// Remove a deployment-owned application registration and invalidate its grants.
-pub(crate) async fn client(
-    pool: &PgPool,
-    id: &ClientId,
-    window: RevocationWindow,
-) -> anyhow::Result<bool> {
-    anyhow::ensure!(!id.as_str().is_empty(), "client ID is empty");
-    let mut transaction = pool.begin().await?;
-    sqlx::query_file!("sql/oauth/client_accounts_lock.sql")
-        .fetch_all(&mut *transaction)
-        .await?;
-    barrier(&mut transaction, "client", id.as_str(), window).await?;
-    let families = sqlx::query_file!("sql/oauth/client_families.sql", id.as_str())
-        .fetch_all(&mut *transaction)
-        .await?;
-    for grant in families {
-        family_in(&mut transaction, &grant.family_id, window).await?;
-    }
-    sqlx::query_file!("sql/oauth/client_codes_delete.sql", id.as_str())
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/oauth/client_grant_rows_delete.sql", id.as_str())
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/oauth/client_grants_delete.sql", id.as_str())
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/oauth/client_scopes_delete.sql", id.as_str())
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::query_file!("sql/oauth/client_redirects_delete.sql", id.as_str())
-        .execute(&mut *transaction)
-        .await?;
-    let removed = sqlx::query_file!("sql/oauth/client_delete.sql", id.as_str())
-        .execute(&mut *transaction)
-        .await?
-        .rows_affected();
-    transaction
-        .commit()
-        .await
-        .context("commit public client removal")?;
-    Ok(removed != 0)
 }

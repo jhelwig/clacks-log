@@ -499,13 +499,26 @@ refresh, access-token cache and DPoP proof generation. Persist the signing key a
 refresh credential through D376's native credential stores. Keep application
 credential persistence separate from the library's in-memory access-token cache.
 
-oauth-as 1.0.0 requires a loopback redirect-port correction for D370: permit the
-port to vary for an otherwise matching registered loopback IP redirect, retain
-the actual requested URI in the authorization grant, and require that exact URI
-at code redemption. Preserve host, path and query matching; this is not a general
-redirect wildcard. Track [upstream issue #26](https://github.com/MattJackson/oauth-as/issues/26).
-Until a compatible upstream release is available, use a pinned, reviewed patch;
-selection accepts that bounded maintenance cost, not an unrestricted fork.
+oauth-as 1.0.1 supplies the loopback redirect-port correction for D370 through
+[upstream issue #26](https://github.com/MattJackson/oauth-as/issues/26) and
+[the upstream fix](https://github.com/MattJackson/oauth-as/pull/29). Public native
+clients may vary the port of registered HTTP redirects using `127.0.0.1` or
+`[::1]`; the remaining URI bytes must match exactly. The actual requested URI is
+retained in the authorization grant and must match exactly at code redemption.
+Use the published release; the local vendored patch is no longer required.
+The server supplies both allowed loopback redirects from release-owned constants,
+with HTTP port 80 explicit as required by upstream's matcher. The allowlist is
+not stored in the database. This registration port does not constrain the
+desktop's operating-system-assigned callback port or change the exact redirect
+URI stored in an individual authorization grant.
+
+The complete public application profile is code-owned: `clacks-desktop`, its
+display name, authorization-code and refresh grant types, `sync` allowed/default
+scope and the redirect allowlist. The adapter rejects registration provisioning,
+updates and deletion; there is no registration configuration in PostgreSQL.
+Individual codes and credentials still persist their actual client identity,
+granted scopes and resource bindings. Account-level client revocation operates
+on those grants and synchronization actors, independently of the fixed profile.
 
 Clacks supplies the oauth-as storage integration using its relational PostgreSQL
 schema, checked SQLx queries and transaction boundaries. The unpublished upstream

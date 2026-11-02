@@ -2257,7 +2257,7 @@ account isolation and local pending work/comparison evidence. Credential recover
 alone does not establish explicit actor revocation; D145/D152 still govern
 revoked-actor reauthorization. DPoP does not protect a client when both its key
 and credentials are compromised. D379 selects Huskarl with oauth-as and the
-bounded loopback-port patch required by the evaluated oauth-as release.
+loopback-port behavior now supplied by oauth-as 1.0.1.
 See [desktop credentials](accounts.md#desktop-access-and-refresh-credentials-d371).
 
 ### Decision D379
@@ -2275,6 +2275,8 @@ until a compatible upstream release is available. Permit the callback port to
 vary without relaxing the remaining redirect matching, and require the exact
 granted redirect URI at code redemption. Track upstream issue #26; acceptance
 does not assume upstream delivery or authorize an unrestricted fork.
+The published oauth-as 1.0.1 release now supplies this correction; use it in place
+of the local vendored patch.
 
 Use standard Huskarl client facilities. Clacks owns protected credential
 persistence, relational SQLx issuer storage, current account/client authorization,
@@ -2306,7 +2308,7 @@ Preserve oauth-as's existing code-replay rejection and grant-revocation behavior
 including its consequence for a repeated initial exchange after a lost response.
 Do not add a grant-reference patch, alternate token-handle convention or modified
 replay policy to obtain fully hash-only persistence. D379's bounded loopback-port
-patch remains the only selected dependency correction.
+correction is supplied by the published oauth-as 1.0.1 release.
 
 Apply normal secret-handling, infrastructure and incident-remediation practices.
 Encryption limits a database-only disclosure; it does not protect credentials

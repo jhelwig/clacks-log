@@ -50,31 +50,22 @@ fn error(error: anyhow::Error) -> StorageError {
 
 impl Storage for OAuthStore {
     async fn get_client(&self, id: &ClientId) -> Result<Option<Arc<Client>>, StorageError> {
-        clients::get(&self.pool, id).await.map_err(error)
+        clients::get(id).map_err(error)
     }
-    async fn put_client(&self, client: Client) -> Result<(), StorageError> {
-        clients::put(&self.pool, client, None)
-            .await
-            .map(|_| ())
-            .map_err(error)
+    async fn put_client(&self, _: Client) -> Result<(), StorageError> {
+        Err(StorageError::new(
+            "application registration is release-owned",
+        ))
     }
-    async fn compare_and_swap_client(
-        &self,
-        expected: &Client,
-        updated: Client,
-    ) -> Result<bool, StorageError> {
-        clients::put(&self.pool, updated, Some(expected))
-            .await
-            .map_err(error)
+    async fn compare_and_swap_client(&self, _: &Client, _: Client) -> Result<bool, StorageError> {
+        Err(StorageError::new(
+            "application registration is release-owned",
+        ))
     }
-    async fn delete_client(
-        &self,
-        id: &ClientId,
-        window: RevocationWindow,
-    ) -> Result<bool, StorageError> {
-        revocation::client(&self.pool, id, window)
-            .await
-            .map_err(error)
+    async fn delete_client(&self, _: &ClientId, _: RevocationWindow) -> Result<bool, StorageError> {
+        Err(StorageError::new(
+            "application registration is release-owned",
+        ))
     }
     async fn put_device_grant(&self, _: DeviceGrant) -> Result<(), StorageError> {
         Err(StorageError::new("device authorization is not enabled"))
