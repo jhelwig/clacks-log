@@ -1258,6 +1258,7 @@ dependencies = [
  "reqwest 0.12.28",
  "reqwest 0.13.5",
  "rsa 0.9.10",
+ "rustls",
  "serde",
  "serde_json",
  "sha2 0.11.1",
