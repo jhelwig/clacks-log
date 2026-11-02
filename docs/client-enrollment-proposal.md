@@ -20,8 +20,9 @@ D193, D236 and D370–D380:
 - Temporary loopback callback; browser approval through the existing Clacks web
   account; required PKCE and DPoP; opaque short-lived access tokens and persistent
   key-bound refresh credentials. No rotation, retry-grace protocol or idle expiry.
-- Huskarl client and embedded oauth-as issuer, with the bounded loopback-port
-  patch. Keep external-provider sign-in on the existing OIDC integration.
+- Huskarl client and embedded oauth-as issuer, with upstream loopback-port
+  support in oauth-as 1.0.1. Keep external-provider sign-in on the existing OIDC
+  integration.
 - Immediate individual-client revocation without deleting shared contacts or
   affecting other clients. An inactive authorized client remains eligible.
 - Preserve local work and comparison evidence. Explicitly revoked actors stay
@@ -37,7 +38,7 @@ Engineering defaults, rather than additional product requirements:
 | Item | Proposed default and rationale |
 | --- | --- |
 | OAuth registration | One server-owned public application registration, `clacks-desktop`, allowing only authorization-code and refresh grants and scope `sync`. Per-installation authority comes from the grant/enrollment association, not this public ID. |
-| Callback | Huskarl's OS-assigned loopback listener and fixed callback path `/oauth/callback`; use IP literals and the reviewed variable-port correction. |
+| Callback | Huskarl's OS-assigned loopback listener and fixed callback path `/oauth/callback`; use `127.0.0.1` or `[::1]` IP literals and upstream variable-port support. |
 | Access/code lifetime | Five-minute access tokens and oauth-as's 60-second authorization-code lifetime. Browser sign-in/approval has its own existing pending-flow lifetime. |
 | Token-endpoint proofs | Keep oauth-as's five-minute maximum proof age and one-minute future-clock allowance; do not promise configurable proof windows or server nonce support absent from this version. |
 | Protected-request proofs | Huskarl validator: 60-second maximum age and five-second clock leeway, replay retention covering that complete acceptance window. These values need not equal issuer constants. |
@@ -501,10 +502,10 @@ keys and database backups must be restored together.
 - [Accepted account contracts](accounts.md#desktop-access-and-refresh-credentials-d371),
   [client-store identity and durability](client-store.md), and
   [membership/recovery model](synchronization-model.md).
-- oauth-as 1.0.0 `Storage`, `AuthorizationCodeState`, token issuance, refresh and
+- oauth-as 1.0.1 `Storage`, `AuthorizationCodeState`, token issuance, refresh and
   revocation implementation; Huskarl 0.11.9 authorization-code and refresh flows.
-  The only selected dependency modification is the existing loopback-port patch
-  tracked by [upstream issue #26](https://github.com/MattJackson/oauth-as/issues/26).
+  The published release supplies the loopback-port correction tracked by
+  [upstream issue #26](https://github.com/MattJackson/oauth-as/issues/26).
 - [OAuth for native applications](https://www.rfc-editor.org/rfc/rfc8252.html),
   [DPoP](https://www.rfc-editor.org/rfc/rfc9449.html) and
   [RustCrypto authenticated encryption](https://docs.rs/aes-gcm/latest/aes_gcm/).

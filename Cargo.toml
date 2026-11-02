@@ -20,10 +20,6 @@ members = [
     "bin/clacks-lotw-fixtures",
 ]
 resolver = "3"
-exclude = ["vendor/oauth-as"]
-
-[patch.crates-io]
-oauth-as = { path = "vendor/oauth-as" }
 
 [workspace.package]
 version = "0.1.0"
@@ -37,7 +33,7 @@ rustls = { version = "=0.23.46", default-features = false, features = ["aws_lc_r
 tokio-tungstenite = { version = "=0.29.0", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
 futures-util = { version = "=0.3.34", features = ["sink"] }
 shlex = "2.0.1"
-oauth-as = { version = "=1.0.0", default-features = false, features = ["dpop", "jwt-p256", "http"] }
+oauth-as = { version = "=1.0.1", default-features = false, features = ["dpop", "jwt-p256", "http"] }
 huskarl = { version = "=0.11.9", features = ["authorization-flow-loopback", "tracing"] }
 huskarl-core = "=0.10.10"
 huskarl-crypto-native = "=0.11.3"
