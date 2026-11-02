@@ -127,7 +127,7 @@ async fn account_rotation_resumes_and_preserves_enrollment() -> anyhow::Result<(
     let progress = missing_source
         .downcast_ref::<crate::maintenance::keys::report::AccountRotationError>()
         .context("rotation failure lost committed progress")?;
-    assert_eq!(progress.migrated_receipts, 0);
+    assert_eq!(progress.migrated_values, 0);
     assert!(std::error::Error::source(progress).is_some());
     let diagnostic = format!("{missing_source:#}");
     assert!(diagnostic.contains(&owner.to_string()));
@@ -143,8 +143,8 @@ async fn account_rotation_resumes_and_preserves_enrollment() -> anyhow::Result<(
     )
     .await?;
     assert_eq!(interrupted.end, MaintenanceEnd::Interrupted);
-    assert_eq!(interrupted.migrated_receipts, 0);
-    assert_eq!(interrupted.remaining_receipts, 2);
+    assert_eq!(interrupted.migrated_values, 0);
+    assert_eq!(interrupted.remaining_values, 2);
     let report = rotation::rotate(
         PgConnection::connect(&url).await?,
         &wrapping,
@@ -153,8 +153,8 @@ async fn account_rotation_resumes_and_preserves_enrollment() -> anyhow::Result<(
     )
     .await?;
     assert_eq!(report.end, MaintenanceEnd::Complete);
-    assert_eq!(report.migrated_receipts, 2);
-    assert_eq!(report.remaining_receipts, 0);
+    assert_eq!(report.migrated_values, 2);
+    assert_eq!(report.remaining_values, 0);
     let again = rotation::rotate(
         PgConnection::connect(&url).await?,
         &wrapping,
@@ -162,7 +162,7 @@ async fn account_rotation_resumes_and_preserves_enrollment() -> anyhow::Result<(
         &CancellationToken::new(),
     )
     .await?;
-    assert_eq!(again.migrated_receipts, 0);
+    assert_eq!(again.migrated_values, 0);
     assert!(AccountRotationRequest::new(owner, 2, 4, 1).is_err());
 
     let current_store = OAuthStore::new(crate::store::AccountStore::new(pool.clone()), wrapping);
@@ -183,7 +183,7 @@ async fn account_rotation_resumes_and_preserves_enrollment() -> anyhow::Result<(
     assert!(events.contains("account.key.cutover"));
     assert!(events.contains(&owner.to_string()));
     assert!(events.contains("\"to_version\":2"));
-    assert!(events.contains("\"migrated_receipts\":2"));
+    assert!(events.contains("\"migrated_values\":2"));
     for client in &issued {
         assert!(!events.contains(&client.code));
         assert!(!events.contains(&client.response.access_token));
@@ -282,7 +282,7 @@ async fn taken_receipt_is_resealed_after_rotation_and_still_contains_replay() ->
         &CancellationToken::new(),
     )
     .await?;
-    assert_eq!(report.migrated_receipts, 1);
+    assert_eq!(report.migrated_values, 1);
     store.put_authorization_code(taken).await?;
     let mut connection = pool.acquire().await?;
     let counts =

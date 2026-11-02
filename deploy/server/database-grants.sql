@@ -86,3 +86,8 @@ GRANT DELETE ON clacks.accepted_record, clacks.payload,
     clacks.version_stamp, clacks.record_vector, clacks.checkpoint,
     clacks.sync_baselines, clacks.lineage, clacks.coverage,
     clacks.installation_journal TO clacks_runtime;
+-- Directory setup is runtime-owned; maintenance may only replace encrypted bytes.
+GRANT SELECT, INSERT, UPDATE ON clacks.directory_configuration TO clacks_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON clacks.directory_material TO clacks_runtime;
+GRANT SELECT ON clacks.directory_configuration, clacks.directory_material TO clacks_maintenance;
+GRANT UPDATE (encrypted_envelope) ON clacks.directory_material TO clacks_maintenance;

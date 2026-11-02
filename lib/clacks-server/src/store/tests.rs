@@ -187,6 +187,7 @@ pub(crate) mod enrollment;
 
 mod support;
 
+mod directory;
 mod key_rotation;
 
 mod synchronization;

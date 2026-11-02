@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.directory_configuration(account_id, revision, selected_provider) VALUES ($1, $2, $3)\nON CONFLICT(account_id) DO UPDATE SET revision = EXCLUDED.revision, selected_provider = EXCLUDED.selected_provider\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dc86e1b7942c975c9b888e15a9b7b65e288f7795a3533b079a6fc372d272c909"
+}

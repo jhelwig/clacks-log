@@ -3,7 +3,7 @@
 use clacks_model::ids::AccountId;
 use sqlx::PgConnection;
 
-/// Count receipt references within the caller's snapshot or account lock.
+/// Count receipt and directory references within the caller's snapshot or account lock.
 pub(crate) async fn count(
     connection: &mut PgConnection,
     account: AccountId,
@@ -16,7 +16,7 @@ pub(crate) async fn count(
     )
     .fetch_one(connection)
     .await?;
-    Ok(row.receipts.try_into()?)
+    Ok(row.total.try_into()?)
 }
 
 /// Nonsecret account-key metadata and current references for one version.
@@ -30,6 +30,8 @@ pub(crate) struct VersionStatus {
     pub wrapping_key_id: String,
     /// Current values still requiring this version.
     pub receipts: u64,
+    /// Current directory material requiring this account-key version.
+    pub directory_values: u64,
 }
 
 /// Aggregated current account-key usage of a deployment key.
@@ -95,6 +97,7 @@ pub(crate) async fn status(
                         &row.wrapping_key_reference,
                     )?,
                     receipts: row.receipts.try_into()?,
+                    directory_values: row.directory_values.try_into()?,
                 })
             })
             .collect::<anyhow::Result<_>>()?;

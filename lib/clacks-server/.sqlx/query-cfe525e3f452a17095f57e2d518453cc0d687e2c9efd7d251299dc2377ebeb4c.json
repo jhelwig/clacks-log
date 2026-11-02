@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT k.key_version AS version, k.active, k.wrapping_key_reference,\n       (SELECT count(*) FROM clacks.desktop_authorization_codes c WHERE c.account_id = k.account_id AND c.receipt_key_version = k.key_version) AS \"receipts!\"\nFROM clacks.account_encryption_keys k WHERE k.account_id = $1 ORDER BY k.key_version\n",
+  "query": "SELECT k.key_version AS version, k.active, k.wrapping_key_reference,\n       (SELECT count(*) FROM clacks.desktop_authorization_codes c WHERE c.account_id = k.account_id AND c.receipt_key_version = k.key_version) AS \"receipts!\",\n       (SELECT count(*) FROM clacks.directory_material d WHERE d.account_id = k.account_id AND d.account_key_version = k.key_version) AS \"directory_values!\"\nFROM clacks.account_encryption_keys k WHERE k.account_id = $1 ORDER BY k.key_version\n",
   "describe": {
     "columns": [
       {
@@ -41,6 +41,12 @@
         "name": "receipts!",
         "type_info": "Int8",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "directory_values!",
+        "type_info": "Int8",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -52,8 +58,9 @@
       false,
       false,
       false,
+      null,
       null
     ]
   },
-  "hash": "26adef2865b25a763974d6ecde56198cb7385de4c774eaff23e4bb4801ee9794"
+  "hash": "cfe525e3f452a17095f57e2d518453cc0d687e2c9efd7d251299dc2377ebeb4c"
 }

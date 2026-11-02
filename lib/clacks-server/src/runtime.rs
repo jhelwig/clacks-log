@@ -11,6 +11,8 @@ use time::Duration;
 /// Configured application state; construction never executes schema changes.
 #[derive(Clone)]
 pub struct ServerState {
+    /// Shared protected account-wrapping material for concrete secret consumers.
+    pub(crate) wrapping_keys: Arc<crate::secrets::keys::WrappingKeys>,
     /// Stop network waits while allowing admitted storage transactions to finish.
     pub(crate) sync_stop: tokio_util::sync::CancellationToken,
     /// Standard lifetime tracking for upgraded connections outside HTTP draining.
@@ -85,12 +87,13 @@ impl ServerState {
         )?);
         let store = AccountStore::new(pool);
         let issuer = Arc::new(crate::oauth::config::issuer(
-            crate::oauth::store::OAuthStore::new(store.clone(), keys),
+            crate::oauth::store::OAuthStore::new(store.clone(), keys.clone()),
             &config.public_url,
         ));
         let oauth_http = Arc::new(oauth_as::http::ServiceBuilder::new(issuer.clone()).build()?);
 
         Ok(Self {
+            wrapping_keys: keys,
             sync_stop: tokio_util::sync::CancellationToken::new(),
             sync_tasks: tokio_util::task::TaskTracker::new(),
             config: Arc::new(config),

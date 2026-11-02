@@ -4,6 +4,7 @@ use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
 pub mod clients;
+pub mod directory;
 
 /// A deployment-configured sign-in choice without client credentials.
 #[derive(Clone, Serialize, Deserialize)]

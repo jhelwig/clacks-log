@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.directory_material WHERE account_id = $1 AND provider = $2\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "339b9cb7224b170b849b80bf4fbacd3c924ee3e4e6a894235d8873118639b7a0"
+}

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE clacks.directory_material SET encrypted_envelope = $3 WHERE account_id = $1 AND provider = $2\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6f063939e3790905e7bd4d6c964a8abddebfc5fd94e62b2dffdb33115ce47799"
+}

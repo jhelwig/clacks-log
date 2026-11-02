@@ -13,10 +13,12 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 default = []
-ssr = ["leptos/ssr", "dep:leptos_axum", "dep:clacks-server", "dep:axum", "dep:axum_session_sqlx"]
+ssr = ["dep:clacks-sync", "leptos/ssr", "dep:leptos_axum", "dep:clacks-server", "dep:axum", "dep:axum_session_sqlx"]
 hydrate = ["leptos/hydrate", "dep:wasm-bindgen"]
 
 [dependencies]
+clacks-sync = { workspace = true, optional = true }
+clacks-model.workspace = true
 leptos.workspace = true
 leptos_router.workspace = true
 leptos_meta.workspace = true

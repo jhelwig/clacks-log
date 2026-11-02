@@ -5,6 +5,7 @@ use leptos::form::ActionForm;
 use leptos::prelude::*;
 
 pub mod clients;
+pub mod directory;
 
 /// Offer the deployment's configured providers without exposing credentials.
 #[component]

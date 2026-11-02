@@ -2,6 +2,7 @@
 
 pub mod auth;
 pub mod config;
+pub mod directory;
 pub mod maintenance;
 pub mod store;
 

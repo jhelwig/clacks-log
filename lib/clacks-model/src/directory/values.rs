@@ -19,6 +19,28 @@ pub enum DirectoryProvider {
     HamQth,
 }
 
+impl DirectoryProvider {
+    /// Return the provider's stable configuration/storage label.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Qrz => "qrz",
+            Self::HamQth => "hamqth",
+        }
+    }
+}
+
+impl std::str::FromStr for DirectoryProvider {
+    type Err = anyhow::Error;
+    /// Decode only the supported concrete provider labels.
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "qrz" => Ok(Self::Qrz),
+            "hamqth" => Ok(Self::HamQth),
+            _ => anyhow::bail!("unknown directory provider"),
+        }
+    }
+}
+
 /// Canonical request text, separate from a contact's recorded worked callsign.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]

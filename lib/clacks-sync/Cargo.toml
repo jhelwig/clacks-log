@@ -10,6 +10,7 @@ publish.workspace = true
 [dependencies]
 clacks-model.workspace = true
 serde.workspace = true
+zeroize.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 

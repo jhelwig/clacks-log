@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.directory_material(account_id, provider, material_id, material_revision, encrypted_envelope) VALUES ($1, $2, $3, $4, $5)\nON CONFLICT(account_id, provider) DO UPDATE SET material_id = EXCLUDED.material_id, material_revision = EXCLUDED.material_revision, encrypted_envelope = EXCLUDED.encrypted_envelope\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cdbf22a285d2242c3c25f532f6b9889447791c68a9a548466062bbcab4d4d2d2"
+}

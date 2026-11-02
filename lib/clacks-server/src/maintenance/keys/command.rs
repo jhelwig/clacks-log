@@ -203,11 +203,11 @@ pub(crate) async fn run(command: &KeysCommand) -> anyhow::Result<MaintenanceEnd>
             } => {
                 let progress = error.downcast_ref::<super::report::AccountRotationError>();
                 let migrated = progress
-                    .map(|failure| failure.migrated_receipts)
+                    .map(|failure| failure.migrated_values)
                     .unwrap_or_default();
                 tracing::error!(event = "account.key.rotation.failed", account_id = %account,
                     from_version, to_version,
-                    migrated_receipts = migrated, error = %format_args!("{error:#}"),
+                    migrated_values = migrated, error = %format_args!("{error:#}"),
                     "Account-key migration failed; retry the same source/target");
             }
             KeysCommand::Rewrap { from, to, .. } => {

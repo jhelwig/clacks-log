@@ -1540,6 +1540,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "ulid",
+ "zeroize",
 ]
 
 [[package]]
@@ -1550,7 +1551,9 @@ dependencies = [
  "axum",
  "axum_session_sqlx",
  "chrono",
+ "clacks-model",
  "clacks-server",
+ "clacks-sync",
  "huskarl-core",
  "huskarl-crypto-native",
  "leptos",
