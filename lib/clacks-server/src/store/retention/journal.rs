@@ -44,6 +44,9 @@ pub(super) async fn prune(
     .await?;
 
     if rows.is_empty() {
+        // Release the account lock before collection starts reclamation on
+        // another connection; dropping the transaction only queues rollback.
+        transaction.rollback().await?;
         return Ok(Outcome::Unchanged);
     }
 
