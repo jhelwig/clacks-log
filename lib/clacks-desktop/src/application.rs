@@ -20,6 +20,11 @@ pub(crate) const STARTUP_DURATION_BOUNDS: &[f64] =
 
 /// Compose ownership and runtime before entering the main-thread native event loop.
 pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
+    // Workspace feature unification can enable both Rustls providers. Select
+    // AWS-LC before telemetry or background tasks build TLS clients; an existing
+    // process provider is retained if one has already been installed.
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
     let paths = WorkspacePaths::resolve(&config)?;
     let owner = match instance::elect(&paths)? {
         Election::Owner(owner) => owner,

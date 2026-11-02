@@ -288,6 +288,10 @@ it, leaving delayed-shutdown controls accessible.
 The UI uses eframe/egui with wgpu and platform accessibility/input integration.
 The selected OpenTelemetry family uses standard threaded processors and the
 blocking Rustls HTTP client, independently of the application Tokio runtime.
+Desktop startup explicitly installs AWS-LC as the process-wide Rustls provider
+before telemetry or background tasks start, retaining an already installed
+provider. This keeps secure synchronization working when workspace builds
+enable both the AWS-LC and ring features.
 `metrics-opentelemetry` uses the Boost Software License 1.0; the selected egui,
 tracing and OpenTelemetry libraries use their upstream permissive licenses.
 Transitive platform/graphics and TLS assets retain their upstream notices;
