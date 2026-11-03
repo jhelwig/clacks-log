@@ -2,6 +2,7 @@
 
 pub(crate) mod completion;
 pub(crate) mod credentials;
+mod failure;
 pub(crate) mod flow;
 #[cfg(all(test, any(target_os = "macos", windows)))]
 mod tests;
@@ -32,10 +33,6 @@ pub(crate) enum EnrollmentStatus {
         server: Option<String>,
         /// Whether the initiating workspace already has an enrollment.
         enrolled: bool,
-        /// Whether a durable attempt can be resumed.
-        resume_available: bool,
-        /// Whether an unfinished pre-binding attempt may be explicitly abandoned.
-        discard_available: bool,
     },
     /// Standard authorization request ready for the operating-system browser.
     Authorizing {
@@ -45,18 +42,15 @@ pub(crate) enum EnrollmentStatus {
     /// Verified credentials or workspace completion are being persisted.
     Saving,
     /// Durable completion succeeded; no synchronization receipt is implied.
-    Ready {
-        /// Workspace opened or activated by the completed workflow.
-        destination: std::path::PathBuf,
-    },
+    Ready,
     /// Actionable workflow error, retained for explicit retry.
     Failed {
+        /// Whether a connection is already installed despite this failure.
+        enrolled: bool,
         /// Display-only diagnostic; never log the whole UI state.
         message: String,
-        /// A saved attempt remains available for explicit retry.
-        resume_available: bool,
-        /// Only a pre-binding attempt can be abandoned without removing an installed key.
-        discard_available: bool,
+        /// Sanitized diagnostic details, excluding remote payloads and secrets.
+        details: Option<String>,
     },
 }
 
@@ -65,8 +59,6 @@ impl Default for EnrollmentStatus {
         Self::Idle {
             server: None,
             enrolled: false,
-            resume_available: false,
-            discard_available: false,
         }
     }
 }
@@ -74,27 +66,15 @@ impl Default for EnrollmentStatus {
 /// Explicit non-secret requests admitted by the owning workspace session.
 #[derive(Debug)]
 pub(crate) enum EnrollmentCommand {
-    /// Start browser authorization after persisting a new native proof key.
-    Begin {
+    /// Connect or reauthorize using existing internal progress when available.
+    Connect {
         /// Selected deployment origin.
         server: String,
         /// User-visible installation label.
         label: String,
     },
-    /// Complete a saved attempt, or explicitly reopen authorization when only its key was saved.
-    Resume {
-        /// Label shown if a new browser approval is needed.
-        label: String,
-    },
-    /// Explicitly restart browser approval when a saved credential is absent or rejected.
-    AuthorizeAgain {
-        /// User-visible label for the replacement approval.
-        label: String,
-    },
     /// Stop the active listener/workflow without claiming remote rollback.
     Cancel,
-    /// Remove an explicitly abandoned pre-binding attempt and its uninstalled native key.
-    Discard,
 }
 
 /// Verified identity and native credential reference for durable local completion.

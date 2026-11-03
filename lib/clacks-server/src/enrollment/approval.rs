@@ -170,7 +170,7 @@ pub async fn summary(
     let purpose = super::recovery::purpose(state, principal, pending.recovery).await?;
     let consequence = match purpose {
         ApprovalPurpose::New => {
-            "Authorize a new client. The desktop will open an empty workspace for this account."
+            "Authorize a new client. The desktop will connect its current empty log to this account."
                 .into()
         }
         ApprovalPurpose::RecoverActive { actor } => format!(

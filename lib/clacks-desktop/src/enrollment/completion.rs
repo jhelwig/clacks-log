@@ -7,17 +7,12 @@ use clacks_client_store::{
     identity::{self, EnrollmentBinding},
     store::ClientStore,
 };
-use std::path::PathBuf;
 use tokio_util::sync::CancellationToken;
 
 /// Committed enrollment retained until obsolete-credential cleanup succeeds.
 pub(crate) struct CompletedWorkspace {
-    /// Existing workspace directory; enrollment does not launch another process.
-    pub destination: PathBuf,
     /// Exact saved attempt eligible for clearing after cleanup.
     pub attempt: EnrollmentAttempt,
-    /// Committed verified binding.
-    pub binding: EnrollmentBinding,
     /// Same database qualified by the newly installed account identity.
     pub store: ClientStore,
 }
@@ -83,10 +78,5 @@ pub(crate) async fn finish(
     attempt.destination_bound()?;
     enrollment::save_attempt(&store, &attempt).await?;
     tracing::info!(account_id=%next.account,actor_id=%next.actor,"Verified enrollment installed; awaiting synchronization");
-    Ok(CompletedWorkspace {
-        destination,
-        attempt,
-        binding: next,
-        store,
-    })
+    Ok(CompletedWorkspace { attempt, store })
 }

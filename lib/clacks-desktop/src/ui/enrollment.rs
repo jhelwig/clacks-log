@@ -21,14 +21,12 @@ pub(super) struct EnrollmentUi {
     open: bool,
     /// Deployment origin typed or loaded from an existing binding.
     server: String,
+    /// Preserve user server edits when late startup context arrives.
+    server_edited: bool,
     /// Installation label for browser approval.
     label: String,
     /// Whether this window's workspace is already enrolled.
     enrolled: bool,
-    /// A durable attempt is available to resume.
-    resume_available: bool,
-    /// A pre-binding attempt can be explicitly abandoned.
-    discard_available: bool,
     /// A request is queued before its first runtime status arrives.
     submitted: bool,
     /// Shared validation debounce, independent of operation progress.
@@ -47,11 +45,10 @@ impl Default for EnrollmentUi {
     fn default() -> Self {
         Self {
             open: false,
-            server: String::new(),
+            server: "https://clacks.w7hex.com".into(),
+            server_edited: false,
             label: "Desktop".into(),
             enrolled: false,
-            resume_available: false,
-            discard_available: false,
             submitted: false,
             validation: Default::default(),
             errors: Vec::new(),
@@ -93,34 +90,27 @@ impl EnrollmentUi {
             self.submitted = false;
             match &status {
                 EnrollmentStatus::Idle {
-                    server,
-                    enrolled,
-                    resume_available,
-                    discard_available,
-                    ..
+                    server, enrolled, ..
                 } => {
-                    if !self.open || self.server.is_empty() {
-                        self.server = server.clone().unwrap_or_default();
+                    if (*enrolled || !self.open || !self.server_edited)
+                        && let Some(server) = server
+                    {
+                        self.server = server.clone();
                     }
                     self.enrolled = *enrolled;
-                    self.resume_available = *resume_available;
-                    self.discard_available = *discard_available;
                     self.validation.invalidate();
                 }
-                EnrollmentStatus::Failed {
-                    resume_available,
-                    discard_available,
-                    ..
-                } => {
-                    self.resume_available = *resume_available;
-                    self.discard_available = *discard_available;
+                EnrollmentStatus::Failed { enrolled, .. } => {
+                    self.enrolled = *enrolled;
                 }
                 EnrollmentStatus::Authorizing { authorization_url } if self.open => {
                     context.open_url(egui::OpenUrl::new_tab(authorization_url))
                 }
-                EnrollmentStatus::Ready { .. } => {
-                    self.resume_available = false;
-                    self.discard_available = false;
+                EnrollmentStatus::Ready => {
+                    self.enrolled = true;
+                    self.open = false;
+                    self.restore_focus = self.opener;
+                    context.request_repaint();
                 }
                 _ => {}
             }
@@ -159,7 +149,7 @@ impl EnrollmentUi {
             },
             |ui| {
                 ui.style_mut().spacing.text_edit_width = ui.available_width();
-                ui.label(if self.enrolled {"Reauthorize this workspace with its existing account. A closed or unknown client receives a new writer identity; old pending work will require review."}else{"Connect this app to your account. Empty logs connect here. Existing local data is preserved; populated logs require export and import."});
+                ui.label(if self.enrolled {"Sign in again to this workspace's existing account. Previously unsent work may need review if this client's access was revoked."}else{"Connect this app to your account. You will sign in and approve access in your browser."});
                 let mut edited = fields::text(
                     ui,
                     egui::Id::unique("enrollment.server"),
@@ -167,13 +157,14 @@ impl EnrollmentUi {
                     &mut self.server,
                     FieldPresentation {
                         edited: false,
-                        read_only: busy || self.enrolled || self.resume_available,
+                        read_only: busy || self.enrolled,
                         errors: &self.errors,
                         validation_label: None,
                         radio_data: false,
                     },
                 )
                 .changed();
+                self.server_edited |= edited;
                 edited |= fields::text(
                     ui,
                     egui::Id::unique("enrollment.label"),
@@ -181,32 +172,37 @@ impl EnrollmentUi {
                     &mut self.label,
                     FieldPresentation {
                         edited: false,
-                        read_only: busy || (self.resume_available && !self.discard_available),
+                        read_only: busy,
                         errors: &self.errors,
                         validation_label: None,
                         radio_data: false,
                     },
                 )
                 .changed();
+                ui.small("Identifies this installation in your account's client list.");
                 if edited {
                     self.validation.edited(now);
                 }
                 match &status {
                     EnrollmentStatus::Authorizing { authorization_url } => {
-                        ui.label("Complete authorization in your browser.");
+                        ui.label("Complete sign-in in your browser.");
                         if ui.button("Open browser").clicked() {
                             context.open_url(egui::OpenUrl::new_tab(authorization_url));
                         }
                     }
                     EnrollmentStatus::Saving => {
-                        ui.label("Saving client authorization…");
+                        ui.label("Connecting…");
                     }
-                    EnrollmentStatus::Ready { destination } => {
-                        ui.label("Enrolled; awaiting synchronization.");
-                        ui.label(destination.display().to_string());
-                    }
-                    EnrollmentStatus::Failed { message, .. } => {
+                    EnrollmentStatus::Ready => {}
+                    EnrollmentStatus::Failed {
+                        message, details, ..
+                    } => {
                         super::feedback::problem(ui, message);
+                        if let Some(details) = details {
+                            ui.collapsing("Technical details", |ui| {
+                                ui.label(details);
+                            });
+                        }
                     }
                     EnrollmentStatus::Idle { .. } => {}
                 }
@@ -217,9 +213,7 @@ impl EnrollmentUi {
                 ui.horizontal_wrapped(|ui| {
                     if ui
                         .add_enabled(
-                            !busy
-                                && !self.resume_available
-                                && self.validation.can_submit(&self.errors),
+                            !busy && self.validation.can_submit(&self.errors),
                             egui::Button::new(if self.enrolled {
                                 "Reauthorize"
                             } else {
@@ -228,51 +222,15 @@ impl EnrollmentUi {
                         )
                         .clicked()
                     {
-                        action = Some(EnrollmentCommand::Begin {
+                        action = Some(EnrollmentCommand::Connect {
                             server: self.server.trim().into(),
                             label: self.label.trim().into(),
                         });
                     }
-                    if self.resume_available
-                        && ui
-                            .add_enabled(!busy, egui::Button::new("Resume saved attempt"))
-                            .clicked()
-                    {
-                        action = Some(EnrollmentCommand::Resume {
-                            label: self.label.trim().into(),
-                        });
-                    }
-                    if self.resume_available
-                        && !self.discard_available
-                        && ui
-                            .add_enabled(!busy, egui::Button::new("Authorize again in browser"))
-                            .clicked()
-                    {
-                        action = Some(EnrollmentCommand::AuthorizeAgain {
-                            label: self.label.trim().into(),
-                        });
-                    }
-                    if self.discard_available
-                        && ui
-                            .add_enabled(!busy, egui::Button::new("Discard saved attempt"))
-                            .clicked()
-                    {
-                        action = Some(EnrollmentCommand::Discard);
-                    }
-                    if ui
-                        .button(if matches!(status, EnrollmentStatus::Ready { .. }) {
-                            "Close"
-                        } else {
-                            "Cancel"
-                        })
-                        .clicked()
-                    {
+                    if ui.button("Cancel").clicked() {
                         dismiss = true;
                     }
                 });
-                if self.discard_available {
-                    ui.small("Discard removes the unfinished attempt's local key; it does not revoke a completed server authorization.");
-                }
             },
         );
         if let Some(action) = action {
