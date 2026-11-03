@@ -1,6 +1,6 @@
 # Callsign-directory research
 
-D88 includes directory lookup during manual radio contact (QSO) entry in minimum viable product (MVP). D89 selects QRZ and HamQTH with an account-level user-selected provider (D196); application of fields remains open. Primary documentation checked 2026-10-12; no authenticated application programming interface (API) requests or coverage comparison were performed.
+D88 includes directory lookup during manual radio contact (QSO) entry in minimum viable product (MVP). D89 selects QRZ and HamQTH with an account-level user-selected provider (D196). The [account contract](../docs/accounts.md#client-direct-directory-lookup) and [desktop guide](../lib/clacks-desktop/README.md#direct-directory-lookup) own the implemented field/lifecycle behavior. The research below records primary documentation checked 2026-10-12; it does not establish authenticated live-provider interoperability or comparative coverage.
 
 ## QRZ
 
@@ -10,11 +10,11 @@ D88 includes directory lookup during manual radio contact (QSO) entry in minimum
 
 [frequently asked questions (FAQ)](https://www.hamqth.com/faq) describes a free callbook. [Developer documentation](https://www.hamqth.com/developers) documents authenticated directory lookup, including name/station location (QTH), station DX Century Club (DXCC), zones, location/grid, and administrative-region fields. Current documentation recommends API v2 for new development; legacy XML remains supported. Portable callsigns without their own record may fall back to the home record, so directory location must not automatically be interpreted as the actual QSO location. Postal-address DXCC and station DXCC can differ; privacy-hidden fields may be unavailable.
 
-## Accepted lookup model and pending design
+## Accepted lookup model
 
 D204 keeps all supported directory information separate from recorded QSO facts, including names. Retain/synchronize the separate per-QSO directory snapshot with provider and lookup time under D203/D204. Use recorded QSO information when present, otherwise directory information, including for supported export/upload fields. For location, D201 uses the selected source as a whole rather than filling gaps from another location. This supersedes D90/D95/D99's former directory-to-QSO fill-empty behavior.
 
-D91 triggers lookup before WS Suite completion, with D94's 500 ms debounce. D92 defers outbound WS DX-call control; local Clacks edits drive lookup only in MVP. D95/D204 allow late results to update the original contact's separate directory snapshot, without changing recorded QSO information. Preserve original-contact/request correlation and D116 stale-result suppression. D197 selects one provider in MVP, defers automatic fallback, and excludes provider-result merging. D195 governs rejected credentials. Exact supported fields, D206 implementation mechanics, transient failures, and implementation mechanics remain open.
+D91 triggers lookup before WS Suite completion, with D94's 500 ms debounce. D92 defers outbound WS DX-call control; local Clacks edits drive lookup only in MVP. D95/D204 allow late results to update the original contact's separate directory snapshot, without changing recorded QSO information. Preserve original-contact/request correlation and D116 stale-result suppression. D197 selects one provider in MVP, defers automatic fallback, and excludes provider-result merging. D195 governs rejected credentials. Manual-entry implementation supports returned identity, name, location/precision metadata, entity/subdivisions/zones, IOTA and locality. QRZ station DXCC is distinct from postal DXCC; HamQTH uses its station DXCC. Account definitions normalize new reference values when available. Bulk lookup and WS Suite integration retain their separate delivery scope.
 
 Directory data is not confirmation of a specific QSO. Provider contact confirmation (QSL) preferences/participation indicators do not constitute a positive QSO confirmation under D52.
 
@@ -26,11 +26,11 @@ D99 selects user-triggered bulk lookup on selected/filtered QSOs with partial-fa
 
 ## Directory authentication failures (D195)
 
-Rejected credentials pause lookup for the affected provider with a clear diagnostic. Updated credentials or explicit retry resume lookup. Logging, WS Suite capture, and synchronization continue normally. Missed enrichment remains available through D99 selected/filtered user-triggered bulk lookup; authentication recovery does not trigger automatic bulk catch-up. Exact error classification and transient provider/network failure handling remain open.
+Rejected credentials pause lookup for the captured current material with a clear diagnostic. Updated credentials or explicit retry resume lookup. Session expiry renews once and does not itself pause credentials; late rejection of replaced material cannot pause its replacement. Network/provider failure preserves successful facts, and provider retry timing gates new requests without scheduling automatic retries. Logging and synchronization continue normally. D99 bulk lookup remains separately scoped; authentication recovery does not trigger automatic bulk catch-up.
 
 ## Provider-selection scope (D196)
 
-The provider choice is account-level and shared by enrolled clients. Lookup requests remain client-direct. A client without synchronization uses its last received selection until it receives the account change on reconnect. D197 defers automatic provider fallback to post-MVP and excludes provider-result merging. Exact in-flight request handling and configuration interface remain open.
+The provider choice is account-level and shared by enrolled clients. Lookup requests remain client-direct. A client without synchronization uses its last received selection until it receives the account change on reconnect. D197 defers automatic provider fallback to post-MVP and excludes provider-result merging. The web account page owns configuration; changes control newly admitted requests. Already-started responses keep their original contact/key eligibility, with no provider-switch-specific display rule.
 
 ## Provider fallback and merging (D197)
 

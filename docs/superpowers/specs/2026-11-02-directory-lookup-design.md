@@ -211,9 +211,16 @@ removed material assigns a new identity. No-op public changes/removals leave
 the configuration revision unchanged. These counters protect stale mutations;
 they are not replica clocks or proof of post-restore freshness.
 
-Read-only setup shows provider, configured/not-configured state and public
-revision, never a password or a recoverable secret placeholder. Selection,
-credential replacement and removal submit the displayed expected revision.
+Setup has one lookup-provider selector with Save selection and independent QRZ
+and HamQTH credential forms. Each shows the saved username and a fixed masked
+password placeholder when a password exists, never its value or length. Save
+credentials adds or updates automatically; a blank password input retains the
+saved password, allowing username-only and password-only edits. Remove
+credentials clears the login and its inputs. There are no add/replace modes or
+separate credential-status labels. Failed submissions retain entered values and
+show feedback beside the relevant form. Selection saves preserve both logins;
+credential saves preserve the selected provider. Each form submits the current
+configuration revision, without displaying that internal counter to the user.
 Under the existing account-row lock, check current authorization and revision,
 load/create the active account key, and commit the complete intended change.
 Stale writes return current nonsecret state without overwriting newer changes.

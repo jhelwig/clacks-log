@@ -122,10 +122,12 @@ With explicit source V and target N, require checked `N = V + 1`:
    initialize a keyless account just to rotate it.
 3. If N is already active and V inactive, resume that same rotation. Refuse other
    combinations; never guess a target or allocate another version on retry.
-4. In stable order, migrate at most the selected batch size of receipt rows
+4. In stable family/row order, migrate at most the selected batch size of receipt
+   and directory-material rows
    referencing V. Recheck N under the account lock, authenticate/decrypt with V,
    encrypt with a fresh nonce under N and commit before reporting progress.
-5. Preserve code state, expiry, approval context and issued references. Recheck
+5. Preserve code state, expiry, approval context, issued references and directory
+   provider/material identities and revisions. Recheck
    zero current V references under the account lock before reporting completion.
    Keep inactive V wrapped in the database.
 
@@ -189,11 +191,26 @@ Preserve enrollment entry namespace, reference, bundle encoding and completion
 recovery. Shared native-entry construction may remain where enrollment already
 uses it; do not add directory-specific entries, probes or bundles in #13.
 
-#17 owns typed directory material, native owner/purpose validation, separate
-entries, configuration revision and reconnect application. Native writes precede
-committing the corresponding nonsecret reference; superseded entries are cleaned
-afterward. Failure retains the last usable configuration. Include credential
-replacement/removal and current account-key selection in that actual workflow.
+#17 uses typed directory material, native owner/purpose validation, separate
+entries and reconnect application. Its versioned directory envelope binds account,
+provider, material identity and revision as authenticated data. Account-authorized
+configuration changes lock the account and select the active key in the same
+transaction; selection-only/removal/read operations do not create account keys.
+The complete directory configuration and optional material occupy one protected
+native value at a fixed workspace-local entry name. SQLite retains that locator
+only; updates use native add/update without a second installation commit or
+superseded entries. Explicit local retry uses the retained current delivery and
+does not require reconnecting. Failure retains the last usable configuration. Restored
+lower/reused configuration revisions are not replica clocks: current connection
+and complete delivery ownership determine application. Both protected families
+participate in reference reporting and bounded account rotation; report totals
+are `migrated_values`/`remaining_values`.
+
+macOS enrollment and directory secrets use Apple's Data Protection Keychain,
+with local app-specific storage and default When Unlocked access. No legacy
+migration/fallback, iCloud synchronization or user-presence restriction is added.
+The signed application/test bundle needs profile-authorized access; see the
+[native guide](../lib/clacks-desktop/README.md#native-credential-integration).
 
 #31/#30 keep publication/private signing material on the server and implement
 account-authorized lifecycle changes with their actual routing and dispatch

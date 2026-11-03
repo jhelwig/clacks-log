@@ -120,11 +120,13 @@ extending the production store creation path as needed. A failed transaction lea
 opening fails visibly under the incomplete-file policy above. Do not add a
 desktop initialization marker or automatic destructive retry.
 
-The standalone provisioning path is separate from creating an empty workspace
-for future enrollment. Issue #12 must use the empty-store path and obtain that
-account's definitions through synchronization, not copy another account's seeds
-or silently relabel its data. Keep the existing store's populated-workspace guard;
-#46 does not implement or loosen enrollment. Production seed provisioning is an
+Connect enrolls the current application instance in its existing workspace when
+the local log is empty. Unchanged unpublished bundled definitions do not make
+the log independently populated: replace that initialization with the enrolled
+account's definitions through synchronization. Preserve local operating facts
+and preferences. Reject automatic joining of independently populated local data
+under D56, preserving that data for the export/import workflow. Enrollment does
+not require another workspace or process. Production seed provisioning is an
 application/account-initialization responsibility that later server provisioning
 can reuse, not behavior of the pure native-value library.
 

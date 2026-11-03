@@ -359,11 +359,18 @@ client edit appear accepted.
 
 ### 5.2. Client-local operating state
 
-Application preferences use shared `local_state(key, value)` storage with a
+Application preferences and nonsecret workspace-local workflow metadata use
+shared `local_state(key, value)` storage with a
 serialized native value per key. The owning Rust type supplies decoding,
 validation and absent-key defaults. For example, `logbooks.selected_view` defaults
 to All contacts and is updated atomically with effective selected-tag deletion.
-This local preference storage does not replace relational domain records or the
+Enrollment completion and the fixed directory native-entry name also use this
+storage. `directory.entry` is a workspace-local locator allocated before native
+access and retained across configuration updates and reauthorization. The whole
+directory configuration and optional login live together in native protected
+storage; SQLite has no separate installation state to commit. No secret
+credential bytes are stored here.
+This local application state does not replace relational domain records or the
 operating snapshots and comparison evidence described below.
 
 `operating_state` is a singleton referencing optional initialized
@@ -452,11 +459,17 @@ source state does not by itself authorize deletion cleanup. See the
 [operating-settings specification](operating-settings.md) for transaction boundaries
 and referenced-equipment deletion.
 
-Directory snapshots have agreed product semantics but no complete saved carrier
-in the present native/synchronization types. This specification does not hide them in
-QSO fields or invent a generic service variant. Directory integration must add its
-production carrier and relational mapping together, retaining provider/key/time,
-separate names/location and deterministic latest-success selection. Geographic
+Directory snapshots use a separate `Directory(QsoId)` native record and relational
+payload, snapshot and reference rows. Retain one complete winner per normalized
+key, ordered by successful timestamp (including nanoseconds), then lookup ID;
+different providers compete under that same rule. Success replaces the whole
+snapshot; failure and not-found do not write replacement values. The write
+transaction requires a live current parent with the matching normalized key.
+An available preview can commit atomically with its QSO, including a same-value
+creation retry. Stale contact edits attach nothing. Accepted directory history
+can survive under a parent tombstone without reviving or enriching that contact;
+new publication against a known deleted parent is rejected, and transfer staging
+requires parent evidence before completion. Geographic
 bundles and recognition catalogs remain installed reference artifacts, not
 account-owned QSO facts. Their downstream installation/cache work is not required
 to complete issue #6.

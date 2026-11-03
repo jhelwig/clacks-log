@@ -22,6 +22,14 @@ SQLx owns migration history and locking. The runtime role receives explicit
 application data privileges, not schema ownership. Administrator membership is
 read-only to ordinary requests.
 
+After schema installation, the migration command initializes synchronization
+metadata and accepted account definitions for existing accounts that predate
+that state. It uses the same initializer as new-account creation, under the
+existing account lock, and leaves initialized accounts unchanged. Repeating the
+command completes any outstanding accounts without resetting their identities,
+timelines, memberships or records. Runtime sign-in does not repair schema or
+replace an existing account.
+
 ## SQL query metadata
 
 Fixed PostgreSQL queries use external SQL files and compile-time SQLx checking.
@@ -223,9 +231,15 @@ versioned encrypted value; generated key-reference columns support qualified
 foreign keys, maintenance and reporting without an independent writer.
 Maintenance changes envelopes, not authorization state or enrollment identities.
 The [credential contract](../../docs/credential-protection-proposal.md) defines
-receipt transactions and rotation. Directory configuration/provisioning/lookup
-(#17), QRZ publication (#31) and LoTW integration (#30) introduce their own actual
-credential storage and extend these same maintenance operations when needed.
+receipt transactions and rotation. Account directory configuration stores
+separate typed encrypted QRZ/HamQTH material. Its authenticated web mutation uses
+an expected configuration revision, explicit keep/replace/remove intents and no
+live provider login. Client provisioning reads configuration and selected material
+consistently; it does not gate the synchronization checkpoint. Rotation migrates
+both receipts and directory ciphertext; reports use `migrated_values` and
+`remaining_values`. Rewrapping changes wrapped account keys without changing
+either protected family's meaning. QRZ publication (#31) and LoTW integration
+(#30) introduce their actual server-owned material when needed.
 No generic unused service-credential store is supplied in advance.
 
 Use the existing `clacks-admin keys` commands; no web runtime or provider login
@@ -298,7 +312,7 @@ cargo run -p clacks-admin -- --otlp keys rewrap --config /etc/clacks/server.toml
 Export must be enabled in this process; an instrumented running server cannot
 collect the command's metrics. The command flushes exporters on completion,
 failure and safe interruption. Rotation failure events carry numeric committed
-receipt counts and source/target identifiers; requested
+protected-value counts and source/target identifiers; requested
 interruption is an informational outcome, with a nonzero exit after flushing.
 
 Status is a read-only snapshot: deployment aggregates by wrapping-key ID; account
