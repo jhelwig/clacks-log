@@ -264,7 +264,7 @@ D15 still allows certificate import initiated by any connected client; opening i
 
 ## Client-direct directory lookup
 
-D96 requires QRZ/HamQTH directory requests to execute directly on clients with securely available directory credentials, even when sync is unavailable. This extends the credential model beyond server-owned publication/confirmation jobs. D97 selects central web configuration once per account with secure provisioning to enrolled clients for protected local storage. Credentials last received remain usable during sync outages, with updates received on reconnect. Exact local/server protection mechanisms, removal/update, and revocation consequences remain open. Do not assume D96 distributes LoTW private keys or publication credentials.
+D96 requires QRZ/HamQTH directory requests to execute directly on clients with securely available directory credentials, even when sync is unavailable. D97 selects central web configuration once per account with secure provisioning to enrolled clients for protected local storage. Credentials last received remain usable during sync outages, with updates received on reconnect. `/account/directory` uses authorized same-origin actions, an expected configuration revision and explicit keep/replace/remove login intents; it does not validate credentials against a provider. Typed server material is encrypted under the current account key. An authenticated client receives only its account's selected material, independently from record checkpoints, and updates one complete owner-checked protected configuration/login value at its fixed workspace-local native entry. Removal prevents new provisioning but cannot make an offline client forget a received secret. macOS uses the Data Protection Keychain with no legacy migration/fallback; see the [native integration requirements](../lib/clacks-desktop/README.md#native-credential-integration). LoTW private keys and publication credentials stay server-side.
 
 ## Account-owned contacts and logbook tags
 
@@ -478,10 +478,11 @@ boundaries and current authorization enforcement. Prefer the libraries' standard
 protocol and HTTP facilities. Keep external-provider sign-in on the existing
 `openidconnect` integration and HTTPS termination at the deployment boundary.
 
-D376 selects `keyring-core` with `apple-native-keyring-store` using its `keychain`
-feature on macOS and `windows-native-keyring-store` on Windows. Both native
+D376 selects `keyring-core` with `apple-native-keyring-store` on macOS and
+`windows-native-keyring-store` on Windows. D391 selects the Apple Data Protection
+Keychain (`protected` backend), with no legacy migration/fallback. Both native
 integrations are required during MVP: macOS is the primary development platform.
-SQLite retains non-secret credential references, not plaintext enrollment secrets.
+SQLite retains non-secret enrollment references and the fixed directory entry name, not plaintext secrets.
 Linux desktop release support remains post-MVP.
 
 Refresh-token representation, access-token lifetime, proof-validation parameters,
@@ -584,15 +585,15 @@ Do not claim protection against complete endpoint or authorized-server compromis
 
 ## Local log and credential protection (D194)
 
-The local log itself does not require separate application-level encryption or an unlock/passphrase workflow for MVP. Directory credentials are sensitive and require protected local storage, separate from ordinary contact data. D96/D97 still require direct offline-capable client lookup and secure credential provisioning; D376 selects `keyring-core` with native macOS and Windows backends for desktop credential storage; service-specific provisioning and lifecycle integration remain capability work. Protect synchronization credentials and server-held service secrets according to their own requirements rather than treating them as ordinary log data.
+The local log itself does not require separate application-level encryption or an unlock/passphrase workflow for MVP. Directory credentials use protected local storage, separate from ordinary contact data. D96/D97 require direct offline-capable lookup and secure provisioning; D376/D391 select the native macOS/Windows integration. Directory provisioning uses separate account/purpose-checked entries and nonsecret SQLite references. Synchronization credentials retain their independent namespace; server-owned publication/signing secrets follow their own lifecycle requirements.
 
 ## Directory authentication failures (D195)
 
-When a directory provider rejects credentials, pause lookups for that provider and show a clear diagnostic. Updated credentials or explicit retry resume lookup. Logging, WS Suite capture, and synchronization continue normally. Contacts lacking enrichment can be populated through D99 user-triggered bulk lookup; do not introduce automatic bulk catch-up after authentication recovery. Exact error classification, transient-failure handling, and retry implementation remain open.
+When a directory provider rejects credentials, pause lookups using that material and show a clear diagnostic. Updated credentials or explicit retry resume lookup; a late rejection of replaced material cannot pause its replacement. Session expiry permits one renewal and repeat, and does not itself pause credentials. Network, rate-limit and unavailable-provider outcomes preserve successful facts; honor provider retry timing without an automatic old-contact retry queue. Logging, WS Suite capture, and synchronization continue normally. Contacts lacking enrichment can be populated through the separately scoped D99 bulk lookup; authentication recovery does not trigger bulk catch-up.
 
 ## Account-level directory provider selection (D196)
 
-The selected directory provider is account-level configuration shared by enrolled clients, not a client-local preference. D89 provides QRZ/HamQTH choice; requests remain client-direct under D96. Clients continue using their last received selection when synchronization is unavailable and receive changed selection on reconnect. D197 uses only the selected provider in MVP, defers automatic fallback to post-MVP, and excludes merging results from multiple directory providers. Exact configuration interface and handling of requests in flight during a selection change remain open.
+The selected directory provider is account-level configuration shared by enrolled clients, not a client-local preference. D89 provides QRZ/HamQTH choice; requests remain client-direct under D96. Clients use their last received selection while disconnected and apply changed selection on reconnect. Disabled/unconfigured selection admits no requests. D197 uses only the selected provider, defers automatic fallback to post-MVP and excludes merging provider results. A changed selection controls new requests; admitted responses keep their original QSO/key ownership and normal live-parent eligibility. A selection change adds no separate display-suppression rule.
 
 D198 keeps directory location separate from contact location; direct-client lookup and account-level provider selection do not authorize automatic population of QSO location fields. D203 retains/synchronizes separate directory-location snapshots with each QSO; D98 continues to exclude a reusable persistent lookup cache for future contacts.
 

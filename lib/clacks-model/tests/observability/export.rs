@@ -15,7 +15,10 @@ fn export_plan_reports_supplied_unique_and_expanded_counts() {
     let profiles = support::profiles();
     let capture = capture(|| {
         plan_reference_export(
-            &[a.clone(), a, b],
+            &[a.clone(), a, b]
+                .iter()
+                .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+                .collect::<Vec<_>>(),
             &ExportContext {
                 output_profile_id: support::id::<OutputProfileId>(1),
                 target_group_id: None,
@@ -71,7 +74,10 @@ fn ambiguous_export_is_review_not_an_error_event() {
     };
     let captured = capture(|| {
         plan_reference_export(
-            std::slice::from_ref(&q),
+            &(std::slice::from_ref(&q))
+                .iter()
+                .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+                .collect::<Vec<_>>(),
             &context,
             &defs,
             &profiles,
@@ -102,7 +108,16 @@ fn ambiguous_export_is_review_not_an_error_event() {
         Ok(())
     });
     let captured = capture(|| {
-        plan_reference_export(&[q, changed], &context, &defs, &profiles, &BTreeMap::new())
+        plan_reference_export(
+            &[q, changed]
+                .iter()
+                .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+                .collect::<Vec<_>>(),
+            &context,
+            &defs,
+            &profiles,
+            &BTreeMap::new(),
+        )
     });
 
     assert!(captured.result.is_err());
@@ -133,7 +148,15 @@ fn filtered_child_does_not_overwrite_caller_fields() {
         || {
             let caller = tracing::info_span!("caller", outcome = "caller_pending");
             caller.in_scope(|| {
-                plan_reference_export(&[q], &context, &defs, &profiles, &BTreeMap::new())
+                plan_reference_export(
+                    &[q].iter()
+                        .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+                        .collect::<Vec<_>>(),
+                    &context,
+                    &defs,
+                    &profiles,
+                    &BTreeMap::new(),
+                )
             })
         },
         |metadata| metadata.name() != "model.reference_export.plan",
@@ -177,7 +200,9 @@ fn filtered_export_summary_can_be_a_root_event() {
     let captured = support::telemetry::capture_filtered(
         || {
             plan_reference_export(
-                &[q],
+                &[q].iter()
+                    .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+                    .collect::<Vec<_>>(),
                 &ExportContext {
                     output_profile_id: support::id(1),
                     target_group_id: None,
@@ -220,7 +245,10 @@ fn configured_module_filters_select_export_diagnostics_without_gating_export() {
         let captured = support::telemetry::capture_with_filter(
             || {
                 plan_reference_export(
-                    std::slice::from_ref(&qso),
+                    &(std::slice::from_ref(&qso))
+                        .iter()
+                        .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+                        .collect::<Vec<_>>(),
                     &context,
                     &definitions,
                     &profiles,

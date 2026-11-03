@@ -8,6 +8,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+ulid.workspace = true
 clacks-model.workspace = true
 clacks-sync.workspace = true
 sqlx = { workspace = true, features = ["sqlite-bundled", "regexp"] }
@@ -22,7 +23,6 @@ serde_json.workspace = true
 [dev-dependencies]
 tempfile.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-ulid.workspace = true
 tracing-subscriber.workspace = true
 metrics-util.workspace = true
 

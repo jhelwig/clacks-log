@@ -16,6 +16,26 @@ use crate::reference::StationSide;
 use anyhow::Context;
 use std::collections::BTreeMap;
 
+/// Read-only contact and explicitly selected contacted-station references for output.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ReferenceExportInput<'a> {
+    /// Recorded contact fields, never modified by fallback.
+    pub qso: &'a Qso,
+    /// Selected location references plus recorded non-location participation.
+    pub contacted_references:
+        &'a std::collections::BTreeSet<crate::reference::ReferenceAssociation>,
+}
+
+impl<'a> ReferenceExportInput<'a> {
+    /// Supply recorded references when no eligible provider context is available.
+    pub fn recorded(qso: &'a Qso) -> Self {
+        Self {
+            qso,
+            contacted_references: &qso.contacted_station().references,
+        }
+    }
+}
+
 /// In-memory reference output plus decisions and diagnostics for a selected contact snapshot.
 ///
 /// This is not a serialized ADIF file or proof of submission eligibility. A
@@ -72,7 +92,7 @@ fn not_ready(qso: &Qso, reason: impl Into<String>) -> anyhow::Error {
 ///
 /// When no identifiers exist, retain a row only if the rule explicitly permits it.
 fn extend_references(
-    qso: &Qso,
+    input: &ReferenceExportInput<'_>,
     group: GroupId,
     rows: Vec<Row>,
     side: StationSide,
@@ -80,7 +100,8 @@ fn extend_references(
     partition: bool,
     keep_one: bool,
 ) -> anyhow::Result<Vec<Row>> {
-    let identifiers = reference_identifiers(qso, group, side);
+    let qso = input.qso;
+    let identifiers = reference_identifiers(qso, group, side, Some(input.contacted_references));
     if identifiers.is_empty() {
         if keep_one {
             return Ok(rows);
@@ -107,21 +128,24 @@ fn extend_references(
 
 /// Plan one selected group’s reference-specific partitions, expansions and fields for a contact.
 fn targeted_entries(
-    qso: &Qso,
+    input: &ReferenceExportInput<'_>,
     selected: &SelectedGroupMapping,
     definition: &CompiledGroupDefinition<'_>,
 ) -> anyhow::Result<Vec<(Vec<String>, ReferenceExportEntry)>> {
+    let qso = input.qso;
     let plan = &selected.plan;
     let mut rows = vec![Row::default()];
     for partition in &plan.file_partition {
         match partition {
             PartitionRule::EachReference { side, binding } => {
-                rows = extend_references(qso, selected.group_id, rows, *side, binding, true, false)?
+                rows =
+                    extend_references(input, selected.group_id, rows, *side, binding, true, false)?
             }
             PartitionRule::ByValue(expression) => {
                 for row in &mut rows {
                     let context = ExpressionContext {
                         qso: Some(qso),
+                        contacted_references: Some(input.contacted_references),
                         current_identifier: None,
                         bindings: &row.bindings,
                     };
@@ -137,7 +161,7 @@ fn targeted_entries(
 
     for expansion in &plan.entry_expansion {
         rows = extend_references(
-            qso,
+            input,
             selected.group_id,
             rows,
             expansion.side,
@@ -151,6 +175,7 @@ fn targeted_entries(
         .map(|row| {
             let context = ExpressionContext {
                 qso: Some(qso),
+                contacted_references: Some(input.contacted_references),
                 current_identifier: None,
                 bindings: &row.bindings,
             };
@@ -178,7 +203,7 @@ fn targeted_entries(
 /// complete program submission, or replace destinations on failure/cancellation.
 #[tracing::instrument(skip_all, name = "model.reference_export.plan", level = "debug")]
 pub fn plan_reference_export(
-    qsos: &[Qso],
+    inputs: &[ReferenceExportInput<'_>],
     context: &ExportContext,
     definitions: &DefinitionSet,
     profiles: &ProfileSet,
@@ -189,10 +214,11 @@ pub fn plan_reference_export(
         .ok_or(ExportError::UnknownProfile {
             id: context.output_profile_id,
         })?;
-    let mut unique: BTreeMap<QsoId, &Qso> = BTreeMap::new();
-    for qso in qsos {
-        if let Some(previous) = unique.insert(qso.id(), qso)
-            && previous != qso
+    let mut unique: BTreeMap<QsoId, &ReferenceExportInput<'_>> = BTreeMap::new();
+    for input in inputs {
+        let qso = input.qso;
+        if let Some(previous) = unique.insert(qso.id(), input)
+            && previous != input
         {
             return Err(not_ready(
                 qso,
@@ -206,9 +232,10 @@ pub fn plan_reference_export(
     };
     let mut files: BTreeMap<Vec<String>, Vec<ReferenceExportEntry>> = BTreeMap::new();
     let mut compiled_definitions = BTreeMap::new();
-    for qso in unique.values() {
+    for input in unique.values() {
+        let qso = input.qso;
         let selected = select_mappings_with_compiled(
-            qso,
+            input,
             context,
             definitions,
             profiles,
@@ -224,6 +251,7 @@ pub fn plan_reference_export(
                 let bindings = BTreeMap::new();
                 let expression_context = ExpressionContext {
                     qso: Some(qso),
+                    contacted_references: Some(input.contacted_references),
                     current_identifier: None,
                     bindings: &bindings,
                 };
@@ -267,7 +295,7 @@ pub fn plan_reference_export(
                         compiled_definitions.get(&group.group_id).with_context(|| {
                             format!("group {} has no prepared export definition", group.group_id)
                         })?;
-                    for (partition, entry) in targeted_entries(qso, &group, compiled)? {
+                    for (partition, entry) in targeted_entries(input, &group, compiled)? {
                         let mut key = base_key.clone();
                         key.extend(partition);
                         files.entry(key).or_default().push(entry);
@@ -296,7 +324,7 @@ pub fn plan_reference_export(
     tracing::debug!(
         event = "reference_export.planned",
         readiness,
-        input_count = qsos.len(),
+        input_count = inputs.len(),
         source_contact_count = plan.source_contact_count,
         output_entry_count,
         partition_count = plan.files.len(),

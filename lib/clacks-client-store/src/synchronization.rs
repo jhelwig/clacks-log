@@ -130,6 +130,23 @@ pub async fn prepare(store: &ClientStore, key: RecordKey) -> anyhow::Result<Prep
         for key in acceptance::required_references(key, &pending.working) {
             let dependency = current(&mut transaction, key).await?;
             match &dependency.latest() {
+                Observation::Accepted(value)
+                    if matches!(value.state(), RecordState::Deleted)
+                        && matches!(row.key().id, clacks_sync::record::RecordId::Directory(_)) =>
+                {
+                    let clacks_sync::record::RecordId::Qso(qso) = key.id else {
+                        anyhow::bail!("Directory parent has the wrong record kind")
+                    };
+                    let mut update = clacks_sync::client::receive_rejection(
+                        &row,
+                        &RejectionReason::DeletedDirectoryParent { qso },
+                    )?;
+                    store_update(&mut transaction, &row, &mut update).await?;
+                    transaction.commit().await?;
+                    return Ok(PrepareOutcome::Core(Box::new(Preparation::Unchanged {
+                        record: update.record,
+                    })));
+                }
                 Observation::Accepted(value) if !matches!(value.state(), RecordState::Deleted) => {
                     dependencies.push(clacks_sync::client::VersionCondition::from_observation(
                         dependency.latest(),

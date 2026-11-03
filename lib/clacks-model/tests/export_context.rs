@@ -47,7 +47,14 @@ fn per_contact_context_is_unambiguous_or_explicit() {
             });
         }
         let before = q.clone();
-        let s = select_mappings(&q, &context(None), &defs, &profiles, None).unwrap();
+        let s = select_mappings(
+            &clacks_model::export::evaluate::ReferenceExportInput::recorded(&q),
+            &context(None),
+            &defs,
+            &profiles,
+            None,
+        )
+        .unwrap();
         if let Some(value) = expected {
             assert!(s.decisions.is_empty());
             assert_eq!(contest_literals(&s), vec![value]);
@@ -55,7 +62,7 @@ fn per_contact_context_is_unambiguous_or_explicit() {
             assert_eq!(s.decisions.len(), 1);
             assert!(contest_literals(&s).is_empty());
             let omitted = select_mappings(
-                &q,
+                &clacks_model::export::evaluate::ReferenceExportInput::recorded(&q),
                 &context(None),
                 &defs,
                 &profiles,
@@ -65,7 +72,7 @@ fn per_contact_context_is_unambiguous_or_explicit() {
             assert!(omitted.decisions.is_empty());
             assert_eq!(omitted.warnings.len(), 1);
             let chosen = select_mappings(
-                &q,
+                &clacks_model::export::evaluate::ReferenceExportInput::recorded(&q),
                 &context(None),
                 &defs,
                 &profiles,
@@ -99,10 +106,16 @@ fn per_contact_context_is_unambiguous_or_explicit() {
         });
     }
     assert!(
-        select_mappings(&q, &context(None), &same, &profiles, None)
-            .unwrap()
-            .decisions
-            .is_empty()
+        select_mappings(
+            &clacks_model::export::evaluate::ReferenceExportInput::recorded(&q),
+            &context(None),
+            &same,
+            &profiles,
+            None
+        )
+        .unwrap()
+        .decisions
+        .is_empty()
     );
 }
 
@@ -118,7 +131,7 @@ fn target_does_not_invent_participation() {
     });
     let before = q.clone();
     let selected = select_mappings(
-        &q,
+        &clacks_model::export::evaluate::ReferenceExportInput::recorded(&q),
         &context(Some(support::id::<GroupId>(2))),
         &support::contest_definitions(),
         &support::profiles(),
@@ -150,7 +163,7 @@ fn targeted_mapping_excludes_competing_context() {
         Ok(())
     });
     let selected = select_mappings(
-        &q,
+        &clacks_model::export::evaluate::ReferenceExportInput::recorded(&q),
         &context(Some(support::id::<GroupId>(2))),
         &support::contest_definitions(),
         &support::profiles(),

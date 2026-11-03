@@ -341,6 +341,38 @@ pub fn plan_recovered_install(
         }
         Observation::Unavailable { reason, .. } => RecordRelation::Unknown(*reason),
     };
+    if let Observation::Accepted(old) = current
+        && let Some(combined) = crate::directory::combine_states(old.state(), incoming.state())?
+        && (combined != *incoming.state()
+            || matches!(
+                relation,
+                RecordRelation::Divergent | RecordRelation::Unknown(_)
+            ))
+    {
+        if combined == *old.state()
+            && matches!(
+                relation,
+                RecordRelation::Before | RecordRelation::SameVersion
+            )
+        {
+            return Ok(RecoveredDecision::Covered);
+        }
+        return match plan_reconciled(incoming, &combined, input, evidence)? {
+            AcceptanceDecision::Commit(commit) => Ok(RecoveredDecision::Reconciled(commit)),
+            AcceptanceDecision::Rejected(
+                crate::acceptance::RejectionReason::MissingReference { key },
+            ) => Ok(review(
+                incoming,
+                current,
+                original,
+                ReviewReason::MissingReference(key),
+            )),
+            _ => Err(MetadataError::Conflict {
+                detail: "Directory recovery target changed".into(),
+            }
+            .into()),
+        };
+    }
     match relation {
         RecordRelation::SameVersion | RecordRelation::Before => {
             return Ok(RecoveredDecision::Covered);
@@ -458,10 +490,7 @@ pub fn plan_recovered_install(
             r.key() == key
                 && matches!(
                     r,
-                    Observation::Accepted(AcceptedRecord {
-                        state: crate::record::RecordState::Live(_),
-                        ..
-                    })
+                    Observation::Accepted(value) if matches!(value.state(),crate::record::RecordState::Live(_)) || matches!(incoming.key.id,crate::record::RecordId::Directory(_))
                 )
         }) else {
             return Ok(review(

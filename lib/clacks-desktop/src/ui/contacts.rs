@@ -58,6 +58,8 @@ pub(super) struct ContactsUi {
     membership: Option<membership::BulkMembership>,
     /// Independent saved-contact form, absent when dismissed.
     editor: Option<editor::ContactEditor>,
+    /// Dismissed owner retained only until its ordinary notification is admitted.
+    closed_editor: Option<QsoId>,
     /// Exact record awaiting individual deletion confirmation.
     deletion: Option<deletion::DeletionConfirmation>,
     /// Locally remembered table columns and sorting.
@@ -83,6 +85,37 @@ pub(super) struct ContactsUi {
 }
 
 impl ContactsUi {
+    /// Drain dismissal without keeping the editor visible or replacing an in-flight save reply.
+    fn flush_closed_editor(&mut self, requests: &mpsc::Sender<SettingsRequest>) -> bool {
+        let Some(qso) = self.closed_editor else {
+            return true;
+        };
+        if requests
+            .try_send(SettingsRequest {
+                action: SettingsAction::Directory(
+                    crate::directory::lookup::LookupCommand::Deleted { qso },
+                ),
+                reply: oneshot::channel().0,
+            })
+            .is_ok()
+        {
+            self.closed_editor = None;
+            true
+        } else {
+            false
+        }
+    }
+    /// Route provider feedback only to the matching saved editor.
+    pub(super) fn lookup_update(&mut self, update: &crate::directory::lookup::LookupUpdate) {
+        if let Some(editor) = &mut self.editor
+            && let Ok(id) = editor.id()
+        {
+            editor
+                .directory
+                .update(id, &editor.form.dx.callsign, update);
+        }
+    }
+
     /// Open the existing saved-contact editor from either contact table.
     pub fn open(&mut self, id: QsoId, requests: &mpsc::Sender<SettingsRequest>) {
         self.request(ContactAction::Load { id }, requests);
@@ -131,7 +164,12 @@ impl ContactsUi {
         }
         self.filter.advance(ui.ctx(), requests, false);
         self.update_query();
-        self.poll();
+        if self.flush_closed_editor(requests) {
+            self.poll();
+        } else {
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(50));
+        }
         self.poll_membership();
         if self.membership.is_none() {
             egui::Popup::close_id(ui.ctx(), egui::Id::unique("contacts.membership"));

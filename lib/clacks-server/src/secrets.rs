@@ -1,5 +1,6 @@
 //! Account-owned secret envelopes, independent of browser and provider keys.
 
+pub(crate) mod directory;
 pub(crate) mod envelope;
 pub(crate) mod keys;
 pub(crate) mod receipt;

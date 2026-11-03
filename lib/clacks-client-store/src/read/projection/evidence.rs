@@ -35,6 +35,8 @@ struct KeySelection {
 /// Effective counterpart facts plus independently derived current status.
 #[derive(Default)]
 pub(super) struct Evaluated {
+    /// Eligible directory facts for this contact's current normalized key.
+    pub(super) directory: Option<StationFacts>,
     /// Selected read values returned to the caller.
     pub(super) facts: ContactFacts,
     /// Eligible LoTW counterpart facts before whole-source selection.
@@ -94,8 +96,20 @@ pub(super) fn evaluate(
     input: &Evidence,
     context: &ReadContext,
     needs: ProjectionNeeds,
+    directory: Option<clacks_model::directory::values::DirectorySnapshot>,
 ) -> anyhow::Result<Evaluated> {
-    let mut result = Evaluated::default();
+    let mut result = Evaluated {
+        directory: directory.as_ref().map(|snapshot| StationFacts {
+            name: snapshot.facts().name.clone(),
+            location: snapshot.facts().location.clone(),
+            references: snapshot.facts().references.clone(),
+        }),
+        facts: ContactFacts {
+            directory,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
     let related = input.working.iter().any(|r| match &r.payload {
         ServicePayload::Imported(v) => v.qso == qso.id(),
         ServicePayload::Attempt(v) => v.qso == qso.id(),

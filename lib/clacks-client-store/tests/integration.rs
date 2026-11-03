@@ -39,6 +39,8 @@ mod worked_before;
 
 mod membership;
 
+mod directory_installation;
 mod enrollment;
 
+mod directory_snapshots;
 mod resolution;

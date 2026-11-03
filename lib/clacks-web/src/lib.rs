@@ -20,10 +20,11 @@ pub fn App() -> impl IntoView {
         <Stylesheet id="clacks-style" href="/pkg/clacks-web.css"/>
         <Title text="Clacks Log"/>
         <Router>
-            <header class="app-bar"><a href="/account/identities">"Clacks Log"</a><span>"Account"</span><a href="/account/clients">"Desktop clients"</a></header>
+            <header class="app-bar"><a href="/account/identities">"Clacks Log"</a><span>"Account"</span><a href="/account/clients">"Desktop clients"</a><a href="/account/directory">"Directory"</a></header>
             <main><Routes fallback=|| view! { <p>"Page not found. "<a href="/sign-in">"Sign in"</a></p> }>
                 <Route path=path!("/sign-in") view=pages::SignIn/>
                 <Route path=path!("/account/identities") view=pages::Identities/>
+                <Route path=path!("/account/directory") view=pages::directory::DirectorySettings/>
                 <Route path=path!("/account/clients") view=pages::clients::Clients/>
                 <Route path=path!("/account/clients/approve") view=pages::clients::Approval/>
             </Routes></main>

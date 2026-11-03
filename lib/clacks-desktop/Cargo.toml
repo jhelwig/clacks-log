@@ -18,6 +18,9 @@ huskarl-core.workspace = true
 huskarl-crypto-native.workspace = true
 huskarl-reqwest.workspace = true
 reqwest-oauth.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+roxmltree.workspace = true
+httpdate.workspace = true
 keyring-core.workspace = true
 serde_json.workspace = true
 zeroize.workspace = true
@@ -58,6 +61,8 @@ clacks-model.workspace = true
 clacks-sync.workspace = true
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+axum.workspace = true
 metrics-util.workspace = true
 egui_kittest.workspace = true
 serde_json.workspace = true
@@ -79,7 +84,6 @@ windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Securit
 widestring.workspace = true
 
 [target.'cfg(any(target_os = "macos", windows))'.dev-dependencies]
-axum.workspace = true
 clacks-server.workspace = true
 clacks-web = { workspace = true, features = ["ssr"] }
 leptos.workspace = true

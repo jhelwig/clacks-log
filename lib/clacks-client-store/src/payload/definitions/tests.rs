@@ -153,6 +153,7 @@ async fn restored_definitions_plan_reference_output() -> anyhow::Result<()> {
         compiled.evaluate(
             &binding.lookup_key,
             &clacks_model::export::rules::ExpressionContext {
+                contacted_references: None,
                 qso: None,
                 current_identifier: Some("A"),
                 bindings: &Default::default(),
@@ -181,7 +182,10 @@ async fn restored_definitions_plan_reference_output() -> anyhow::Result<()> {
         });
     }
     let output = clacks_model::export::evaluate::plan_reference_export(
-        &[qso],
+        &[qso]
+            .iter()
+            .map(clacks_model::export::evaluate::ReferenceExportInput::recorded)
+            .collect::<Vec<_>>(),
         &clacks_model::export::ExportContext {
             output_profile_id: id(82),
             target_group_id: Some(id(80)),

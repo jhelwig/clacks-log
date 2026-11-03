@@ -56,6 +56,16 @@ struct ServerFailure {
 /// Concrete Rustls client socket; authentication remains in its protected upgrade headers.
 type Socket = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
 
+/// Current physical connection ownership and its nonblocking directory delivery sink.
+pub(super) struct ConnectionContext {
+    /// Cancellation also invalidates native deliveries from this connection.
+    pub stop: CancellationToken,
+    /// Existing connection trace linked by each synchronization operation.
+    pub trace: opentelemetry::trace::SpanContext,
+    /// Purpose-specific responses leave the socket loop through this channel.
+    pub directory: watch::Sender<Option<crate::directory::provisioning::Delivery>>,
+}
+
 /// Run until session cancellation, reconnecting through the library-owned refresh credential.
 pub(crate) async fn run(
     store: ClientStore,
@@ -64,14 +74,26 @@ pub(crate) async fn run(
     status: watch::Sender<Status>,
     updates: watch::Sender<Option<Arc<SettingsSnapshot>>>,
     stop: CancellationToken,
+    directory_outputs: crate::directory::provisioning::Outputs,
 ) {
+    let (directory_deliveries, incoming) = watch::channel(None);
+    let provisioning_stop = stop.child_token();
+    let provisioning = tokio::spawn(crate::directory::provisioning::run(
+        store.clone(),
+        binding.clone(),
+        incoming,
+        directory_outputs,
+        provisioning_stop.clone(),
+    ));
     let mut delay = 1_u64;
+
     let mut authorizer = None;
     loop {
         if stop.is_cancelled() {
             break;
         }
         status.send_replace(Status::Connecting);
+        let connection_stop = stop.child_token();
         let result = async {
             if authorizer.is_none() {
                 authorizer = Some(crate::enrollment::flow::protected(&binding).await?);
@@ -91,9 +113,10 @@ pub(crate) async fn run(
             tracing::info!(event="sync.connected", account_id=%binding.account, actor_id=%binding.actor);
             status.send_replace(Status::Connected);
             delay = 1;
-            exchange::run(&mut socket, &store, &binding, &mut changes, &updates, &stop, &context).await
+            exchange::run(&mut socket, &store, &binding, &mut changes, &updates, &ConnectionContext { stop: connection_stop.clone(), trace: context, directory: directory_deliveries.clone() }).await
         }
         .await;
+        connection_stop.cancel();
         if stop.is_cancelled() {
             break;
         }
@@ -108,6 +131,11 @@ pub(crate) async fn run(
         }
         tokio::select! {_ = stop.cancelled() => break, _ = tokio::time::sleep(std::time::Duration::from_secs(delay)) => {}}
         delay = delay.saturating_mul(2).min(30);
+    }
+    provisioning_stop.cancel();
+    drop(directory_deliveries);
+    if let Err(error) = provisioning.await {
+        tracing::warn!(event="directory.provisioning.worker_failed", error.type=if error.is_panic() { "task_panic" } else { "task_cancelled" });
     }
     status.send_replace(Status::Disconnected);
 }
@@ -217,12 +245,26 @@ async fn send(
 }
 
 /// Receive one native response while cancellation interrupts only the network wait.
-async fn receive(socket: &mut Socket, stop: &CancellationToken) -> anyhow::Result<ServerMessage> {
+async fn receive(
+    socket: &mut Socket,
+    connection: &ConnectionContext,
+) -> anyhow::Result<ServerMessage> {
+    let stop = &connection.stop;
     loop {
         let frame = tokio::select! {_ = stop.cancelled() => anyhow::bail!("Synchronization stopped"), frame = socket.next() => frame};
         match frame {
             Some(Ok(tungstenite::Message::Text(text))) => {
-                return serde_json::from_str(&text).map_err(Into::into);
+                let message: ServerMessage = serde_json::from_str(&text)?;
+                if let ServerMessage::DirectoryConfiguration { configuration } = message {
+                    connection.directory.send_replace(Some(
+                        crate::directory::provisioning::Delivery {
+                            configuration,
+                            connection_stop: stop.clone(),
+                        },
+                    ));
+                    continue;
+                }
+                return Ok(message);
             }
             Some(Ok(tungstenite::Message::Ping(_) | tungstenite::Message::Pong(_))) => {}
             Some(Err(error)) => return Err(error.into()),

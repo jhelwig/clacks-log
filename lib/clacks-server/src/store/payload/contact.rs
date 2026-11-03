@@ -6,7 +6,6 @@ use clacks_model::{
     equipment::EquipmentValues,
     ids::{AccountId, QsoId},
     location::{CqZone, ItuZone},
-    position::{Coordinates, GridLength, Locator, Position},
     recognition::{
         band::Band,
         mode::{Mode, ModeIdentity},
@@ -156,42 +155,14 @@ pub(crate) async fn load_station(
             .fetch_optional(&mut *connection)
             .await?
     {
-        let position = match (PositionFields {
+        let position = (PositionFields {
             kind: row.position_kind,
             locator: row.locator,
             latitude: row.latitude,
             longitude: row.longitude,
             length: row.grid_length,
-        }) {
-            PositionFields {
-                kind: None,
-                locator: None,
-                latitude: None,
-                longitude: None,
-                length: None,
-            } => None,
-            PositionFields {
-                kind: Some(kind),
-                locator: Some(grid),
-                latitude: None,
-                longitude: None,
-                length: None,
-            } if kind == "grid" => Some(Position::GridArea(Locator::parse(&grid)?)),
-            PositionFields {
-                kind: Some(kind),
-                locator: None,
-                latitude: Some(latitude),
-                longitude: Some(longitude),
-                length: Some(length),
-            } if kind == "point" => Some(Position::ExplicitPoint {
-                coordinates: Coordinates::from_microdegrees(
-                    latitude.try_into()?,
-                    longitude.try_into()?,
-                )?,
-                grid_length: GridLength::new(length.try_into()?)?,
-            }),
-            _ => anyhow::bail!("invalid recorded position shape"),
-        };
+        })
+        .decode()?;
         Some(clacks_model::location::RecordedLocationFields {
             position,
             dxcc: row.dxcc,

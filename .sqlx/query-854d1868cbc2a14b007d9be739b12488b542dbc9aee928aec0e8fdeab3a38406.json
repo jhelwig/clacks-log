@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE recorded_location SET account = ?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "854d1868cbc2a14b007d9be739b12488b542dbc9aee928aec0e8fdeab3a38406"
+}

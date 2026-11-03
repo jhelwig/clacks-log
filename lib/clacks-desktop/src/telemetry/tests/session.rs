@@ -29,6 +29,15 @@ pub(super) fn complete(
     let (_settings_requests, requests) = mpsc::channel(8);
     let (settings_updates, _settings_view) = watch::channel(None);
     let resources = SessionResources {
+        lookup: crate::directory::lookup::Outputs {
+            updates: tokio::sync::mpsc::channel(32).0,
+            context: Default::default(),
+        },
+        directory: crate::directory::provisioning::Outputs {
+            installed: tokio::sync::watch::channel(None).0,
+            status: tokio::sync::watch::channel(Default::default()).0,
+            retry: Default::default(),
+        },
         enrollment_updates: tokio::sync::watch::channel(Default::default()).0,
         settings_requests: requests,
         settings_updates,

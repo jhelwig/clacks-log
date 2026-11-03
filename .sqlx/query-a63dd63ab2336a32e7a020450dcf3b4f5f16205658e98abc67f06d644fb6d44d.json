@@ -1,0 +1,28 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT (SELECT count(*) FROM record_identity) AS records,\n       (SELECT count(*) FROM installed_checkpoint) AS checkpoints\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "records",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      },
+      {
+        "name": "checkpoints",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "a63dd63ab2336a32e7a020450dcf3b4f5f16205658e98abc67f06d644fb6d44d"
+}

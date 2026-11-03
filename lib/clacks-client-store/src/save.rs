@@ -1,5 +1,6 @@
 //! Guarded local saved-state operations for one account workspace.
 
+pub mod contacts;
 pub mod tags;
 
 use crate::{metadata::client, store::ClientStore};
@@ -54,6 +55,10 @@ pub(crate) async fn save_in(
     if current.as_ref() != expected {
         return Ok(SaveOutcome::Stale { current });
     }
+    let next = match current.as_ref().and_then(ClientRecord::working_state) {
+        Some(prior) => clacks_sync::directory::combine_states(prior, &next)?.unwrap_or(next),
+        None => next,
+    };
     if let Some(current) = &current
         && current
             .working_state()
@@ -160,7 +165,14 @@ pub async fn save(
     }
     let outcome = save_in(&mut transaction, key, expected, next).await?;
     transaction.commit().await?;
-    if let SaveOutcome::Saved(record) = &outcome {
+    report_saved(key, expected, &outcome);
+    Ok(outcome)
+}
+
+/// Report actual committed mutations consistently across ordinary and atomic contact saves.
+pub(crate) fn report_saved(key: RecordKey, expected: Option<&ClientRecord>, outcome: &SaveOutcome) {
+    use clacks_sync::record::{RecordId, RecordState};
+    if let SaveOutcome::Saved(record) = outcome {
         if matches!(
             key.id,
             RecordId::Qso(_) | RecordId::Profile(_) | RecordId::Equipment(_) | RecordId::Tag(_)
@@ -199,5 +211,4 @@ pub async fn save(
             tracing::info!(event = "record.saved", account_id = %key.account, record_id = %key.id);
         }
     }
-    Ok(outcome)
 }

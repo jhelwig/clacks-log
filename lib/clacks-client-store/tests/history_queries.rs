@@ -22,6 +22,60 @@ use clacks_model::{
 };
 use clacks_sync::record::{RecordState, RecordValue};
 
+#[tokio::test]
+async fn directory_only_contacts_participate_in_effective_queries() -> anyhow::Result<()> {
+    use clacks_model::directory::values::{
+        DirectoryFacts, DirectoryProvider, DirectorySnapshot, DirectorySnapshotFields, LookupKey,
+    };
+    let f = fixture().await?;
+    let qso = support::qso(support::id(100));
+    save::save(
+        &f.store,
+        support::qso_key(qso.id()),
+        None,
+        support::contact(qso.clone()),
+    )
+    .await?;
+    let result = DirectorySnapshot::new(DirectorySnapshotFields {
+        provider: DirectoryProvider::Qrz,
+        key: LookupKey::from_recorded(&qso.contacted_station().callsign),
+        lookup_time: clacks_model::scalar::UtcTimestamp::new(10, 0)?,
+        lookup_id: support::id(100),
+        facts: DirectoryFacts {
+            name: Some("DirectoryOnly".into()),
+            location: Some(
+                clacks_model::location::RecordedLocationFields {
+                    position: Some(Position::GridArea(Locator::parse("IO91AA")?)),
+                    ..Default::default()
+                }
+                .try_into()?,
+            ),
+            ..Default::default()
+        },
+    })?;
+    clacks_client_store::directory::snapshots::apply(&f.store, qso.id(), result).await?;
+    assert_eq!(
+        matching(&f.store, "name:=DirectoryOnly").await?,
+        vec![qso.id()]
+    );
+    assert_eq!(
+        matching(&f.store, "contact.grid:IO91").await?,
+        vec![qso.id()]
+    );
+    assert!(
+        matching(&f.store, "recorded.name:DirectoryOnly")
+            .await?
+            .is_empty()
+    );
+    assert!(
+        matching(&f.store, "recorded.contact.grid:IO91")
+            .await?
+            .is_empty()
+    );
+    f.store.close().await?;
+    Ok(())
+}
+
 /// One coherent saved account scenario reused across query assertions.
 struct Fixture {
     /// Keep the workspace directory alive for the real store.

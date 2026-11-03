@@ -5,6 +5,7 @@ use sqlx::PgPool;
 pub(crate) mod accounts;
 mod administrators;
 pub(crate) mod diagnostics;
+pub(crate) mod directory;
 pub(crate) mod discovery;
 pub mod identities;
 pub(crate) mod logins;

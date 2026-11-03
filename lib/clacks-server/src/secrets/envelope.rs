@@ -15,6 +15,53 @@ pub(crate) struct ReceiptEnvelope {
     sealed: Ciphertext,
 }
 
+/// Complete directory credential envelope, separate from enrollment receipts.
+pub(crate) struct DirectoryEnvelope {
+    /// Account encryption key protecting these bytes.
+    key_version: i64,
+    /// Fresh nonce and authenticated ciphertext.
+    sealed: Ciphertext,
+}
+
+/// Canonical directory header authenticated with the independently expected owner.
+pub(crate) fn directory_header(version: i64) -> String {
+    format!("$clacks$1$directory${version}")
+}
+
+impl DirectoryEnvelope {
+    /// Package encrypted material under a positive account-key version.
+    pub(crate) fn new(version: i64, sealed: Ciphertext) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            version > 0 && sealed.bytes.len() >= 16,
+            "invalid encrypted directory envelope"
+        );
+        Ok(Self {
+            key_version: version,
+            sealed,
+        })
+    }
+    /// Decode exact directory framing using the existing canonical component checks.
+    pub(crate) fn parse(value: &str) -> anyhow::Result<Self> {
+        let parts: Vec<_> = value.split('$').collect();
+        let ["", "clacks", "1", "directory", version, nonce, bytes] = parts.as_slice() else {
+            anyhow::bail!("unsupported or malformed directory envelope");
+        };
+        Self::new(key_version(version)?, ciphertext(nonce, bytes)?)
+    }
+    /// Encode one complete atomic storage value.
+    pub(crate) fn encode(&self) -> String {
+        encode(&directory_header(self.key_version), &self.sealed)
+    }
+    /// Return the exact account key referenced by this envelope.
+    pub(crate) fn key_version(&self) -> i64 {
+        self.key_version
+    }
+    /// Borrow encrypted bytes without exposing any plaintext.
+    pub(crate) fn sealed(&self) -> &Ciphertext {
+        &self.sealed
+    }
+}
+
 /// Complete wrapped account key with its deployment-key reference.
 pub(crate) struct WrappedKeyEnvelope {
     /// Exact deployment key ID, without delimiter interpretation.

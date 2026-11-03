@@ -31,6 +31,7 @@ pub(super) async fn run(paths: &WorkspacePaths) -> anyhow::Result<()> {
         execute(
             &store,
             ContactAction::Save {
+                snapshot: None,
                 expected: None,
                 next: Box::new(qso.clone()),
             },

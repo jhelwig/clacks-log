@@ -137,7 +137,7 @@ pub(crate) async fn rotate(
     let Either::Left(mut guard) = lock.try_acquire(connection).await? else {
         anyhow::bail!("key maintenance is busy; retry the same command");
     };
-    let mut migrated_receipts = 0;
+    let mut migrated_values = 0;
 
     let result: anyhow::Result<AccountRotationReport> = async {
         if !stop.is_cancelled() {
@@ -148,11 +148,11 @@ pub(crate) async fn rotate(
                     .await
                     .with_context(|| {
                         format!(
-                            "receipt batch for account {}, source key version {}, target key version {} failed",
+                            "encrypted-value batch for account {}, source key version {}, target key version {} failed",
                             request.account, request.from_version, request.to_version
                         )
                     })?;
-                migrated_receipts += changed;
+                migrated_values += changed;
                 if changed == 0 {
                     break;
                 }
@@ -172,12 +172,12 @@ pub(crate) async fn rotate(
         };
         tx.commit().await?;
 
-        tracing::info!(event = "account.key.rotation", account_id = %request.account, from_version = request.from_version, to_version = request.to_version, migrated_receipts, remaining_receipts = remaining, outcome = ?end, "Account-key migration stopped");
+        tracing::info!(event = "account.key.rotation", account_id = %request.account, from_version = request.from_version, to_version = request.to_version, migrated_values, remaining_values = remaining, outcome = ?end, "Account-key migration stopped");
         Ok(AccountRotationReport {
             account: request.account, from_version: request.from_version,
             to_version: request.to_version, end,
-            migrated_receipts,
-            remaining_receipts: remaining,
+            migrated_values,
+            remaining_values: remaining,
         })
     }.await;
 
@@ -193,7 +193,7 @@ pub(crate) async fn rotate(
                 account: request.account,
                 from_version: request.from_version,
                 to_version: request.to_version,
-                migrated_receipts,
+                migrated_values,
                 source,
             }
             .into()

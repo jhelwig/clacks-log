@@ -68,7 +68,8 @@ pub(super) async fn populate(
                 selection.push(" UNION SELECT a.qso_id FROM local_working sw JOIN service_attempt a ON a.payload_id = sw.payload_id WHERE sw.kind = 'attempt' AND sw.account = ").push_bind(account.to_string());
                 selection.push(" UNION ");
             }
-            selection.push("SELECT a.qso_id FROM local_working sw JOIN service_association a ON a.payload_id = sw.payload_id WHERE sw.kind = 'association' AND sw.account = ").push_bind(account.to_string()).push(")");
+            selection.push("SELECT a.qso_id FROM local_working sw JOIN service_association a ON a.payload_id = sw.payload_id WHERE sw.kind = 'association' AND sw.account = ").push_bind(account.to_string());
+            selection.push(" UNION SELECT d.record_id FROM local_working dw JOIN directory_payload d ON d.payload_id = dw.payload_id WHERE dw.kind = 'directory' AND dw.account = ").push_bind(account.to_string()).push(")");
         }
         selection.push(" ORDER BY q.record_id LIMIT 256");
         let rows = selection.build().fetch_all(&mut *connection).await?;
@@ -99,13 +100,13 @@ pub(super) async fn populate(
                 .facts
                 .own_location
                 .as_ref()
-                .and_then(|s| s.value.as_ref())
+                .and_then(|s| s.value.location.as_ref())
                 .and_then(|l| l.position().as_ref());
             let contact = value
                 .facts
                 .contact_location
                 .as_ref()
-                .and_then(|s| s.value.as_ref())
+                .and_then(|s| s.value.location.as_ref())
                 .and_then(|l| l.position().as_ref());
             let own_grid = own.map(|p| p.display_locator().to_string());
             let contact_grid = contact.map(|p| p.display_locator().to_string());

@@ -51,6 +51,7 @@ fn pending_submission_preserves_its_facts_and_resets_from_current_defaults() {
         panic!("wrong operation")
     };
     let contacts::ContactAction::Save {
+        snapshot: None,
         expected: basis,
         next,
     } = action
@@ -121,7 +122,16 @@ fn single_line_enter_saves_but_multiline_enter_edits_the_comment() {
         .with_size(egui::vec2(1100.0, 500.0))
         .build_ui_state(
             move |ui, state: &mut Entry| {
-                state.save |= entry::show(ui, &mut state.form, &baseline, &[], false, true).save;
+                state.save |= entry::show(
+                    ui,
+                    &mut state.form,
+                    &baseline,
+                    &[],
+                    false,
+                    true,
+                    &Default::default(),
+                )
+                .save;
             },
             Entry {
                 form: entry.entry.form,
@@ -165,8 +175,11 @@ fn station_inputs_in_entry_and_saved_editor_have_independent_widget_identity() {
                             &baseline,
                             &DefinitionSet::default(),
                             &[],
-                            true,
-                            owner,
+                            crate::ui::logging::details::DetailPresentation {
+                                own: true,
+                                owner,
+                                fallback: &Default::default(),
+                            },
                         );
                     }
                 });
@@ -252,4 +265,281 @@ fn applied_defaults_are_the_edit_baseline_and_contact_corrections_survive_refres
     assert_eq!(ui.state().entry.form.equipment.description, "KX3");
     assert_eq!(ui.state().entry.form.own.callsign, "W7CORRECTION");
     assert_eq!(ui.query_all_by_label("Not applied").count(), 1);
+}
+
+#[test]
+fn directory_pending_save_routes_result_by_committed_outcome() {
+    use crate::directory::lookup::{LookupState, LookupUpdate};
+    use clacks_model::directory::values::{
+        DirectoryFacts, DirectoryProvider, DirectorySnapshot, DirectorySnapshotFields, LookupKey,
+    };
+    let mut view = ready_entry();
+    let owner = view.entry.id;
+    let key =
+        LookupKey::from_recorded(&clacks_model::scalar::RecordedCallsign::new("OK2CQR").unwrap());
+    let snapshot = DirectorySnapshot::new(DirectorySnapshotFields {
+        provider: DirectoryProvider::HamQth,
+        key: key.clone(),
+        lookup_time: clacks_model::scalar::UtcTimestamp::new(1, 0).unwrap(),
+        lookup_id: clacks_model::ids::LookupId::new(),
+        facts: DirectoryFacts {
+            name: Some("Directory only".into()),
+            ..Default::default()
+        },
+    })
+    .unwrap();
+    let (sender, mut requests) = mpsc::channel(4);
+    view.save(&sender);
+    let request = requests.try_recv().unwrap();
+    view.lookup_update(&LookupUpdate {
+        changed: false,
+        qso: owner,
+        key: Some(key.clone()),
+        state: LookupState::Found(Box::new(snapshot.clone())),
+    });
+    assert_eq!(view.entry.form.dx_name, "Recorded name");
+    let mut older = DirectorySnapshotFields::from(snapshot.clone());
+    older.lookup_time = clacks_model::scalar::UtcTimestamp::new(0, 0).unwrap();
+    older.lookup_id = clacks_model::ids::LookupId::new();
+    older.facts.name = Some("Earlier completion".into());
+    view.lookup_update(&LookupUpdate {
+        changed: false,
+        qso: owner,
+        key: Some(key.clone()),
+        state: LookupState::Found(Box::new(DirectorySnapshot::new(older).unwrap())),
+    });
+    assert_eq!(
+        view.directory.snapshot(&view.entry.form.dx.callsign),
+        Some(Box::new(snapshot.clone()))
+    );
+    request
+        .reply
+        .send(SettingsResponse::Failed("Actual save failed".into()))
+        .unwrap();
+    view.poll();
+    assert_eq!(view.entry.id, owner);
+    view.save(&sender);
+    let request = requests.try_recv().unwrap();
+    let SettingsAction::Contacts(ContactAction::Save {
+        next,
+        snapshot: attached,
+        ..
+    }) = request.action
+    else {
+        panic!("save");
+    };
+    assert_eq!(attached, Some(Box::new(snapshot.clone())));
+    assert_eq!(next.id(), owner);
+    request
+        .reply
+        .send(SettingsResponse::Contacts(
+            contacts::ContactResponse::Saved(clacks_client_store::save::SaveOutcome::Unchanged(
+                crate::ui::tests::fixtures::row(RecordValue::Qso(next)),
+            )),
+        ))
+        .unwrap();
+    view.poll();
+    assert_ne!(view.entry.id, owner);
+    view.lookup_update(&LookupUpdate {
+        changed: false,
+        qso: owner,
+        key: Some(key),
+        state: LookupState::Found(Box::new(snapshot)),
+    });
+    assert!(
+        view.directory
+            .snapshot(&view.entry.form.dx.callsign)
+            .is_none()
+    );
+}
+
+#[test]
+fn directory_fallback_is_attributed_and_keyboard_save_keeps_recorded_name_empty() {
+    use crate::directory::lookup::{LookupState, LookupUpdate};
+    use clacks_model::directory::values::{
+        DirectoryFacts, DirectoryProvider, DirectorySnapshot, DirectorySnapshotFields, LookupKey,
+    };
+    use egui_kittest::kittest::NodeT;
+    let mut view = ready_entry();
+    view.entry.form.dx_name.clear();
+    let (sender, mut requests) = mpsc::channel(8);
+    view.directory
+        .observe(view.entry.id, &view.entry.form.dx.callsign, &sender);
+    requests.try_recv().unwrap();
+    let key =
+        LookupKey::from_recorded(&clacks_model::scalar::RecordedCallsign::new("OK2CQR").unwrap());
+    view.lookup_update(&LookupUpdate {
+        qso: view.entry.id,
+        key: Some(key.clone()),
+        changed: false,
+        state: LookupState::Found(Box::new(
+            DirectorySnapshot::new(DirectorySnapshotFields {
+                provider: DirectoryProvider::HamQth,
+                key,
+                lookup_time: clacks_model::scalar::UtcTimestamp::new(1, 0).unwrap(),
+                lookup_id: clacks_model::ids::LookupId::new(),
+                facts: DirectoryFacts {
+                    name: Some("Separate directory name".into()),
+                    locality: Some("Directory locality".into()),
+                    location: Some(
+                        clacks_model::location::RecordedLocationFields {
+                            position: Some(clacks_model::position::Position::GridArea(
+                                clacks_model::position::Locator::parse("FN31").unwrap(),
+                            )),
+                            dxcc: Some("291".into()),
+                            ..Default::default()
+                        }
+                        .try_into()
+                        .unwrap(),
+                    ),
+                    ..Default::default()
+                },
+            })
+            .unwrap(),
+        )),
+    });
+    let mut ui = Harness::builder()
+        .allow_missing_glyphs()
+        .with_size(egui::vec2(1400.0, 1600.0))
+        .build_ui_state(
+            move |ui, view: &mut LoggingUi| {
+                ui.columns(2, |columns| {
+                    let mut columns = columns.iter_mut();
+                    view.show(columns.next().unwrap(), &sender);
+                    view.details(columns.next().unwrap(), &sender, false);
+                });
+            },
+            view,
+        );
+    assert!(
+        ui.query_by_label("HamQTH name: Separate directory name")
+            .is_none()
+    );
+    assert_eq!(
+        ui.get_by_role_and_label(egui::Role::TextInput, "Name")
+            .accesskit_node()
+            .data()
+            .placeholder(),
+        Some("Separate directory name")
+    );
+    ui.get_by_role_and_label(egui::Role::TextInput, "Name")
+        .focus();
+    ui.run();
+    ui.get_by_role_and_label(egui::Role::TextInput, "Name")
+        .type_text("   ");
+    ui.key_press(egui::Key::Tab);
+    ui.run();
+    assert!(ui.state().entry.form.dx_name.is_empty());
+    assert_eq!(
+        ui.get_by_role_and_label(egui::Role::TextInput, "Name")
+            .accesskit_node()
+            .data()
+            .placeholder(),
+        Some("Separate directory name")
+    );
+    assert!(ui.query_all_by_label("HamQTH").count() > 0);
+    for (label, expected) in [
+        ("DX grid", "FN31"),
+        ("DXCC entity", "291"),
+        ("Latitude", "41.500000"),
+    ] {
+        assert_eq!(
+            ui.get_by_role_and_label(egui::Role::TextInput, label)
+                .accesskit_node()
+                .data()
+                .placeholder(),
+            Some(expected)
+        );
+    }
+    assert!(
+        ui.query_by_label("HamQTH locality: Directory locality")
+            .is_some()
+    );
+    assert!(
+        ui.query_by_label("Callbook data provided by HamQTH.com")
+            .is_some()
+    );
+    ui.get_by_label("Add reference").click();
+    ui.run();
+    assert_eq!(
+        ui.get_by_role_and_label(egui::Role::TextInput, "DX grid")
+            .accesskit_node()
+            .data()
+            .placeholder(),
+        Some("FN31")
+    );
+    ui.get_by_label("Remove reference").click();
+    ui.run();
+    // A partial recorded location suppresses the entire directory location.
+    ui.get_by_role_and_label(egui::Role::TextInput, "State / province")
+        .focus();
+    ui.run();
+    ui.get_by_role_and_label(egui::Role::TextInput, "State / province")
+        .type_text("CT");
+    ui.run();
+    assert_eq!(
+        ui.get_by_role_and_label(egui::Role::TextInput, "DX grid")
+            .accesskit_node()
+            .data()
+            .placeholder(),
+        Some("")
+    );
+    assert_eq!(
+        ui.get_by_role_and_label(egui::Role::TextInput, "DXCC entity")
+            .accesskit_node()
+            .data()
+            .placeholder(),
+        Some("")
+    );
+    ui.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    ui.key_press(egui::Key::Backspace);
+    ui.run();
+    ui.get_by_role_and_label(egui::Role::TextInput, "Name")
+        .focus();
+    ui.run();
+    ui.get_by_role_and_label(egui::Role::TextInput, "Name")
+        .type_text("My recorded name");
+    ui.run();
+    assert_eq!(ui.state().entry.form.dx_name, "My recorded name");
+    assert_eq!(
+        ui.get_by_role_and_label(egui::Role::TextInput, "Name")
+            .accesskit_node()
+            .data()
+            .placeholder(),
+        Some("")
+    );
+    ui.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    ui.key_press(egui::Key::Backspace);
+    ui.run();
+    assert_eq!(
+        ui.get_by_role_and_label(egui::Role::TextInput, "Name")
+            .accesskit_node()
+            .data()
+            .placeholder(),
+        Some("Separate directory name")
+    );
+    ui.get_by_role_and_label(egui::Role::TextInput, "Name")
+        .focus();
+    ui.key_press(egui::Key::Tab);
+    ui.run();
+    assert!(ui.state().entry.form.dx_name.is_empty());
+    ui.get_by_role_and_label(egui::Role::TextInput, "Name")
+        .focus();
+    ui.key_press(egui::Key::Enter);
+    ui.run();
+    let request = requests.try_recv().unwrap();
+    let SettingsAction::Contacts(ContactAction::Save {
+        next,
+        snapshot: Some(snapshot),
+        ..
+    }) = request.action
+    else {
+        panic!("save with separate snapshot");
+    };
+    assert!(next.contacted_operator().is_none());
+    assert!(next.contacted_station().location.is_none());
+    assert_eq!(
+        snapshot.facts().name.as_deref(),
+        Some("Separate directory name")
+    );
 }

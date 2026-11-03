@@ -35,6 +35,14 @@ immediate transaction. Initial enrollment requires an empty local workspace;
 reauthorization of the same account preserves prior data and author identities.
 Authentication and protected credential access belong to runtime composition.
 
+`enrollment::first::install` adopts the verified account in the existing empty
+standalone database and returns a newly account-qualified handle. It replaces
+only unchanged unpublished bundled definitions, preserving local operating
+facts and preferences. Independently populated shared data rejects enrollment
+without changing the local account or records (D56). The owning session drains
+old operations and reopens its resources before admitting account work again;
+stale account-qualified handles cannot write after adoption.
+
 `enrollment::install` distinguishes same-actor credential replacement from a
 fresh actor. A fresh actor atomically places existing pending records on a local
 admission hold. Original values, frozen proposals and old counters remain intact;
@@ -49,6 +57,13 @@ boundaries in the shared local-state key/value table. These values contain only
 the native credential reference, origin, destination and expected binding.
 Clearing an old attempt cannot remove a newer one. No signing key or usable
 access/refresh credential is stored in SQLite.
+
+`directory::installation::reference` allocates a fixed workspace-local native
+entry name under `directory.entry` in the existing `local_state` table. Updates
+and reauthorization retain that name; simultaneously open workspaces remain
+independent. The complete configuration and optional login live together in the
+native entry. No directory configuration or installation transition is committed
+to SQLite; synchronized contact-associated snapshots remain separate.
 
 ## Checked SQL
 
@@ -184,8 +199,14 @@ unused mirror of server account/membership metadata.
 Desktop entry/import/export and WebSocket integration extend these production
 operations. They supply verified enrollment, authenticated source metadata and
 actual accepted envelopes. They do not replace this store with a separate repository
-or run server acceptance locally. Directory snapshot persistence will be added
-with its native carrier rather than a generic serialized placeholder.
+or run server acceptance locally. Directory snapshots use the native
+`RecordId::Directory(QsoId)` carrier and relational payload/snapshot/reference
+rows; they never modify the recorded QSO or form a reusable callsign cache.
+`directory::snapshots::apply` checks the live parent's current normalized call
+inside its write transaction. `save::contacts::save` can attach an available
+success atomically, including an unchanged creation retry; a stale edit attaches
+nothing. Transfer staging waits for live/deleted parent evidence, and already
+accepted history remains inert under a deleted parent.
 
 The pool's `before_acquire` hook discards a connection whose SQLx transaction
 tracking remains active after queued rollback work drains. This is a compatibility
@@ -279,8 +300,10 @@ view and order. Empty input returns no contacts, and the desktop admits no
 empty-prefix read. `read::query_state` stores edited/applied text together in
 the shared local key/value relation under `history.query`. An absent key has
 empty defaults; unsupported versions are errors. These preferences do not
-create pending synchronized changes. Directory fallback remains a producer
-integration boundary until its native snapshot carrier is implemented.
+create pending synchronized changes. Effective station reads include the eligible
+directory winner for the current key, independently from recorded-field queries.
+Whole-location precedence and account-defined reference mappings remain shared
+model behavior.
 
 A completed transfer window creates ordinary actor-exclusion reviews for held
 pending work, including records absent from a full account view. Certified

@@ -23,9 +23,9 @@ pub(crate) struct AccountRotationReport {
     /// Completed migration or safe interruption.
     pub end: MaintenanceEnd,
     /// Rows committed by this invocation.
-    pub migrated_receipts: u64,
+    pub migrated_values: u64,
     /// Current rows still referencing the source.
-    pub remaining_receipts: u64,
+    pub remaining_values: u64,
 }
 
 /// Observed effects of one deployment wrapping-key migration invocation.
@@ -46,7 +46,7 @@ pub(crate) struct RewrapReport {
 /// Failed account rotation with the work already committed by this invocation.
 #[derive(Debug, thiserror::Error)]
 #[error(
-    "account {account} rotation {from_version}→{to_version} stopped after {migrated_receipts} receipts; retry the same source/target"
+    "account {account} rotation {from_version}→{to_version} stopped after {migrated_values} encrypted values; retry the same source/target"
 )]
 pub(crate) struct AccountRotationError {
     /// Account being maintained.
@@ -56,7 +56,7 @@ pub(crate) struct AccountRotationError {
     /// Requested target account-key version.
     pub to_version: i64,
     /// Rows committed before failure, excluding the rolled-back batch.
-    pub migrated_receipts: u64,
+    pub migrated_values: u64,
     /// Failing operation, including row context when available.
     #[source]
     pub source: anyhow::Error,

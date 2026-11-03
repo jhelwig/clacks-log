@@ -9,12 +9,10 @@ use std::path::PathBuf;
 /// First-enrollment progress with a required path after binding.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) enum NewProgress {
-    /// Native signing key is durable; destination selection remains open.
+    /// Native signing key is durable; the current workspace is retained.
     KeySaved(Option<PathBuf>),
     /// Native credentials are durable; destination installation can resume.
     CredentialSaved(Option<PathBuf>),
-    /// A rejected, uninstalled destination may be corrected.
-    NeedsDestination(Option<PathBuf>),
     /// Exact destination binding is committed.
     DestinationBound(PathBuf),
 }
@@ -33,7 +31,7 @@ pub(super) enum RecoveryPhase {
 /// Completion alternatives with their required recovery context.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) enum EnrollmentMode {
-    /// First enrollment, with destination selection until binding succeeds.
+    /// First enrollment in the initiating workspace.
     New(NewProgress),
     /// Recovery always retains its existing destination and prior binding.
     Recovery {
@@ -87,7 +85,7 @@ impl EnrollmentAttempt {
     /// Begin a durable attempt after saving its native signing key.
     ///
     /// Recovery requires the existing workspace directory and prior binding.
-    /// First enrollment may leave destination selection to account discovery.
+    /// First enrollment retains the initiating workspace directory.
     pub fn new(
         credential_reference: String,
         server: String,
@@ -121,13 +119,11 @@ impl EnrollmentAttempt {
         &self.server
     }
 
-    /// Borrow the retained destination, if first enrollment has selected one.
+    /// Borrow the retained current workspace directory.
     pub fn destination(&self) -> Option<&PathBuf> {
         match &self.mode {
             EnrollmentMode::New(
-                NewProgress::KeySaved(path)
-                | NewProgress::CredentialSaved(path)
-                | NewProgress::NeedsDestination(path),
+                NewProgress::KeySaved(path) | NewProgress::CredentialSaved(path),
             ) => path.as_ref(),
             EnrollmentMode::New(NewProgress::DestinationBound(path)) => Some(path),
             EnrollmentMode::Recovery { destination, .. } => Some(destination),
@@ -155,9 +151,6 @@ impl EnrollmentAttempt {
                 phase: RecoveryPhase::CredentialSaved,
                 ..
             } => EnrollmentPhase::CredentialSaved,
-            EnrollmentMode::New(NewProgress::NeedsDestination(_)) => {
-                EnrollmentPhase::NeedsDestination
-            }
             EnrollmentMode::New(NewProgress::DestinationBound(_))
             | EnrollmentMode::Recovery {
                 phase: RecoveryPhase::DestinationBound,
@@ -171,9 +164,7 @@ impl EnrollmentAttempt {
         let destination = self.destination().cloned();
         match &mut self.mode {
             EnrollmentMode::New(
-                progress @ (NewProgress::KeySaved(_)
-                | NewProgress::CredentialSaved(_)
-                | NewProgress::NeedsDestination(_)),
+                progress @ (NewProgress::KeySaved(_) | NewProgress::CredentialSaved(_)),
             ) => {
                 *progress = NewProgress::CredentialSaved(destination);
             }
@@ -211,34 +202,6 @@ impl EnrollmentAttempt {
         match &mut self.mode {
             EnrollmentMode::New(progress) => *progress = NewProgress::DestinationBound(destination),
             EnrollmentMode::Recovery { phase, .. } => *phase = RecoveryPhase::DestinationBound,
-        }
-        Ok(())
-    }
-
-    /// Retain an editable first-enrollment destination after a proven pre-binding rejection.
-    pub fn destination_rejected(&mut self) -> bool {
-        if matches!(&self.mode, EnrollmentMode::New(progress) if !matches!(progress, NewProgress::DestinationBound(_)))
-        {
-            self.mode =
-                EnrollmentMode::New(NewProgress::NeedsDestination(self.destination().cloned()));
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Correct a destination only while no installed or uncertain binding can be moved.
-    pub fn change_destination(&mut self, destination: Option<PathBuf>) -> anyhow::Result<()> {
-        match &mut self.mode {
-            EnrollmentMode::New(progress @ NewProgress::KeySaved(_)) => {
-                *progress = NewProgress::KeySaved(destination)
-            }
-            EnrollmentMode::New(progress @ NewProgress::NeedsDestination(_)) => {
-                *progress = NewProgress::CredentialSaved(destination)
-            }
-            _ => anyhow::bail!(
-                "An installed or uncertain destination cannot be relocated. Resume completion at its saved workspace."
-            ),
         }
         Ok(())
     }

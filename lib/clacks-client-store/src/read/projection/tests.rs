@@ -334,6 +334,7 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
             .as_ref()
             .unwrap()
             .value
+            .location
             .as_ref()
             .unwrap()
             .position(),
@@ -387,6 +388,7 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
             .as_ref()
             .unwrap()
             .value
+            .location
             .as_ref()
             .unwrap()
             .position()
@@ -425,7 +427,14 @@ async fn effective_facts_preserve_source_and_station_side() -> anyhow::Result<()
     )
     .await?;
     let fact = &facts.first().unwrap().facts;
-    assert!(fact.contact_location.as_ref().unwrap().value.is_none());
+    assert!(
+        fact.contact_location
+            .as_ref()
+            .unwrap()
+            .value
+            .location
+            .is_none()
+    );
     assert_eq!(fact.name.as_ref().unwrap().value, "LoTW name");
     snapshot.close().await?;
     store.close().await?;

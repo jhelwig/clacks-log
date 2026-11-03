@@ -7,6 +7,7 @@ mod client_state;
 mod compaction;
 mod comparison;
 mod counter_bounds;
+mod directory;
 mod durable_validation;
 mod lineage;
 mod metadata;

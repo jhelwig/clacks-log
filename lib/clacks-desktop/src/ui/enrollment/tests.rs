@@ -54,17 +54,13 @@ fn connection_form_validates_submits_once_and_cancels_pending_work() {
     );
     harness.get_by_label("Connect").click();
     harness.run();
-    let SessionCommand::Enrollment(EnrollmentCommand::Begin {
-        server,
-        label,
-        destination,
-    }) = harness.state_mut().requests.try_recv().unwrap()
+    let SessionCommand::Enrollment(EnrollmentCommand::Begin { server, label }) =
+        harness.state_mut().requests.try_recv().unwrap()
     else {
         panic!("connection request");
     };
     assert_eq!(server, "https://clacks.example");
     assert_eq!(label, "Desktop");
-    assert!(destination.is_none());
     assert!(
         harness
             .get_by_label("Connect")
@@ -100,34 +96,10 @@ fn connection_form_validates_submits_once_and_cancels_pending_work() {
             message: "Refresh authorization was rejected".into(),
             resume_available: true,
             discard_available: false,
-            destination: None,
-            destination_change_available: false,
         });
     harness.run();
     harness.get_by_label("Authorize again in browser").click();
     harness.run();
     assert!(matches!(harness.state_mut().requests.try_recv().unwrap(),
         SessionCommand::Enrollment(EnrollmentCommand::AuthorizeAgain { label }) if label == "Desktop"));
-
-    assert!(harness.state_mut().requests.try_recv().is_err());
-    harness
-        .state()
-        .updates
-        .send_replace(EnrollmentStatus::Failed {
-            message: "Choose another destination".into(),
-            resume_available: true,
-            discard_available: false,
-            destination: Some("/occupied-account".into()),
-            destination_change_available: true,
-        });
-    harness.run();
-    harness.get_by_label("Workspace directory").focus();
-    harness.key_combination_modifiers(egui::Modifiers::COMMAND, &[egui::Key::A]);
-    harness
-        .get_by_label("Workspace directory")
-        .type_text("/new-account");
-    harness.get_by_label("Use this destination").click();
-    harness.run();
-    assert!(matches!(harness.state_mut().requests.try_recv().unwrap(),
-        SessionCommand::Enrollment(EnrollmentCommand::SetDestination { destination: Some(path) }) if path == std::path::Path::new("/new-account")));
 }

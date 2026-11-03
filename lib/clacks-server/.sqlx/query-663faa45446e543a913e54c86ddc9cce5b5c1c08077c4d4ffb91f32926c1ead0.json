@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT revision, selected_provider FROM clacks.directory_configuration WHERE account_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "revision",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "clacks.directory_configuration",
+            "name": "revision"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "selected_provider",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.directory_configuration",
+            "name": "selected_provider"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "663faa45446e543a913e54c86ddc9cce5b5c1c08077c4d4ffb91f32926c1ead0"
+}

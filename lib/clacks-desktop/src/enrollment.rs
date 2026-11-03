@@ -34,10 +34,6 @@ pub(crate) enum EnrollmentStatus {
         enrolled: bool,
         /// Whether a durable attempt can be resumed.
         resume_available: bool,
-        /// Saved destination proposed by the current attempt.
-        destination: Option<std::path::PathBuf>,
-        /// The attempt is known not to have installed a destination binding.
-        destination_change_available: bool,
         /// Whether an unfinished pre-binding attempt may be explicitly abandoned.
         discard_available: bool,
     },
@@ -59,10 +55,6 @@ pub(crate) enum EnrollmentStatus {
         message: String,
         /// A saved attempt remains available for explicit retry.
         resume_available: bool,
-        /// Saved destination proposed by the current attempt.
-        destination: Option<std::path::PathBuf>,
-        /// The rejected destination may be corrected without another authorization.
-        destination_change_available: bool,
         /// Only a pre-binding attempt can be abandoned without removing an installed key.
         discard_available: bool,
     },
@@ -75,8 +67,6 @@ impl Default for EnrollmentStatus {
             enrolled: false,
             resume_available: false,
             discard_available: false,
-            destination: None,
-            destination_change_available: false,
         }
     }
 }
@@ -90,8 +80,6 @@ pub(crate) enum EnrollmentCommand {
         server: String,
         /// User-visible installation label.
         label: String,
-        /// Explicit destination override for first enrollment.
-        destination: Option<std::path::PathBuf>,
     },
     /// Complete a saved attempt, or explicitly reopen authorization when only its key was saved.
     Resume {
@@ -102,11 +90,6 @@ pub(crate) enum EnrollmentCommand {
     AuthorizeAgain {
         /// User-visible label for the replacement approval.
         label: String,
-    },
-    /// Correct an uninstalled attempt's destination without replacing its saved credentials.
-    SetDestination {
-        /// Explicit directory, or the managed account directory when absent.
-        destination: Option<std::path::PathBuf>,
     },
     /// Stop the active listener/workflow without claiming remote rollback.
     Cancel,
@@ -124,3 +107,6 @@ pub(crate) struct AuthorizedEnrollment {
     /// Native entry holding key and complete persistent refresh metadata.
     pub credential_reference: String,
 }
+
+#[cfg(test)]
+mod completion_tests;

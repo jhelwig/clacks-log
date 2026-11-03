@@ -23,6 +23,7 @@
 #![cfg_attr(not(test), deny(clippy::expect_used, clippy::unwrap_used))]
 
 pub mod defaults;
+pub mod directory;
 pub mod error;
 
 pub mod ids;

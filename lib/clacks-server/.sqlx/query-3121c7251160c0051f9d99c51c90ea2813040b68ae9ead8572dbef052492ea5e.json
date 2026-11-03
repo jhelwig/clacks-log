@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT group_id, identifier FROM clacks.directory_reference WHERE payload_id = $1 AND account = $2 AND lookup_key = $3 ORDER BY group_id, identifier\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "group_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.directory_reference",
+            "name": "group_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "identifier",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "clacks.directory_reference",
+            "name": "identifier"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "3121c7251160c0051f9d99c51c90ea2813040b68ae9ead8572dbef052492ea5e"
+}

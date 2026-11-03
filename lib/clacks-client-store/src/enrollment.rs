@@ -1,6 +1,7 @@
 //! Durable completion of verified enrollment without silently readmitting old work.
 
 mod attempt;
+pub mod first;
 pub(crate) mod holds;
 
 use crate::{
@@ -21,8 +22,6 @@ pub enum EnrollmentPhase {
     KeySaved,
     /// Complete native credential is durable before binding SQLite.
     CredentialSaved,
-    /// The destination was rejected before this credential was installed; its path may be corrected.
-    NeedsDestination,
     /// Exact verified binding committed in the destination workspace.
     DestinationBound,
 }

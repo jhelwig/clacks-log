@@ -2,6 +2,7 @@
 
 pub(crate) mod contact;
 mod definitions;
+mod directory;
 mod service;
 mod shared;
 
@@ -12,6 +13,7 @@ use sqlx::PgConnection;
 /// Select the relational discriminator for a native identity.
 pub(crate) fn kind(id: RecordId) -> &'static str {
     match id {
+        RecordId::Directory(_) => "directory",
         RecordId::Qso(_) => "qso",
         RecordId::Tag(_) => "tag",
         RecordId::Profile(_) => "profile",
@@ -36,6 +38,7 @@ pub(crate) fn kind(id: RecordId) -> &'static str {
 /// Decode a stored native identity while retaining its kind and service subtype.
 pub(crate) fn record_id(kind: &str, value: &str) -> anyhow::Result<RecordId> {
     Ok(match kind {
+        "directory" => RecordId::Directory(value.parse()?),
         "qso" => RecordId::Qso(value.parse()?),
         "tag" => RecordId::Tag(value.parse()?),
         "profile" => RecordId::Profile(value.parse()?),
@@ -95,6 +98,9 @@ pub(crate) async fn insert(
     .await?;
     match state {
         RecordState::Deleted => {}
+        RecordState::Live(RecordValue::Directory(value)) => {
+            directory::insert(connection, key.account, row.payload_id, value).await?
+        }
         RecordState::Live(RecordValue::Qso(qso)) => {
             contact::insert(connection, key.account, row.payload_id, qso).await?
         }
@@ -134,6 +140,9 @@ pub(crate) async fn load(
     } else {
         anyhow::ensure!(roots == 1, "live payload must have exactly one native root");
         match key.id {
+            RecordId::Directory(id) => RecordState::Live(RecordValue::Directory(Box::new(
+                directory::load(connection, key.account, payload, id).await?,
+            ))),
             RecordId::Qso(id) => RecordState::Live(RecordValue::Qso(Box::new(
                 contact::load(connection, key.account, payload, id).await?,
             ))),

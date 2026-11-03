@@ -114,6 +114,7 @@ pub(super) async fn retry_contact(paths: &WorkspacePaths) -> anyhow::Result<()> 
         contacts::execute(
             &store,
             ContactAction::Save {
+                snapshot: None,
                 expected: None,
                 next: Box::new(qso.clone())
             }
@@ -125,6 +126,7 @@ pub(super) async fn retry_contact(paths: &WorkspacePaths) -> anyhow::Result<()> 
         contacts::execute(
             &store,
             ContactAction::Save {
+                snapshot: None,
                 expected: None,
                 next: Box::new(qso)
             }

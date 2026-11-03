@@ -31,6 +31,14 @@ not production account seeds. `plan_reference_export` returns fields, partitions
 decisions and warnings without changing inputs or writing interchange files.
 Outstanding decisions block publication in the eventual export workflow.
 
+`directory::values` checks normalized lookup keys and successful snapshots;
+`directory::record::DirectoryRecord` retains a whole winner per contact/key.
+`DirectorySnapshot::compare_lookup` shares timestamp/lookup-ID ordering with
+transient previews. Reusing a retained lookup identity for different contents is
+an integrity error. Directory facts remain separate from recorded QSO values;
+effective name/location selection and reference export use the ordinary shared
+source precedence and current account definitions.
+
 ## Responsibilities
 
 - Scalar validation, typed identities, exact grid-area/point calculations and preserved mode/band identities.

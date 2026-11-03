@@ -26,6 +26,18 @@ is needed for ordinary Cargo test/run commands that bypass cargo-leptos.
 The stylesheet follows the defined-sections palette and system appearance.
 Standard Leptos actions own pending/error states and browser redirects.
 
+**Account → Directory** (`/account/directory`) selects QRZ, HamQTH or disabled
+and edits each provider's login independently. Saved usernames are prefilled;
+a fixed password placeholder indicates an existing password without returning
+its value or length. Save credentials adds or updates the login, retaining the
+saved password when that input is blank. Remove credentials clears the login.
+Saving credentials preserves lookup selection, and saving selection preserves
+both providers' logins. Failed submissions retain entered values.
+The forms use ordinary same-origin authorized
+actions and an expected configuration revision; saving configuration does not
+test the provider login. Authorized enrolled desktops receive selected material
+through their existing connection for protected local use.
+
 The account HTTP scenario uses the production rendered and server-function
 boundaries with a synthetic identity provider and the restricted runtime role:
 

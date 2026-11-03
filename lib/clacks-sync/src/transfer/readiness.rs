@@ -88,6 +88,15 @@ pub fn plan_readiness(
             blocked.insert(row.key);
         }
         let represented = available.iter().find(|r| r.key == row.key).unwrap_or(row);
+        if let crate::record::RecordState::Live(crate::record::RecordValue::Directory(value)) =
+            represented.state()
+            && !available.iter().any(|parent| {
+                parent.key().account == input.account
+                    && parent.key().id == crate::record::RecordId::Qso(value.qso())
+            })
+        {
+            blocked.insert(row.key);
+        }
         if let Some(s) = crate::service::payload(represented)
             && matches!(
                 crate::service::dependency::check(s, &view)?,
@@ -146,6 +155,15 @@ pub fn plan_readiness(
             }
         }
         for row in input.candidates {
+            if let crate::record::RecordState::Live(crate::record::RecordValue::Directory(value)) =
+                row.state()
+                && blocked.contains(&crate::record::RecordKey {
+                    account: input.account,
+                    id: crate::record::RecordId::Qso(value.qso()),
+                })
+            {
+                blocked.insert(row.key);
+            }
             if let Some(s) = crate::service::payload(row) {
                 let deps = crate::service::dependency::required_keys(input.account, s)
                     .into_iter()

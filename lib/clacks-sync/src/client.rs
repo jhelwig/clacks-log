@@ -328,8 +328,14 @@ pub fn receive_accepted(
         None
     };
     if matches!(relation, Some(RecordRelation::Before)) {
+        let mut record = current.clone();
+        if matches!(current.key.id, crate::record::RecordId::Directory(_)) {
+            let mut incoming_values = current.clone();
+            incoming_values.latest = Observation::Accepted(incoming.clone());
+            crate::directory::retain_winners(&mut record, &incoming_values)?;
+        }
         return Ok(ClientUpdate {
-            record: current.clone(),
+            record,
             review: None,
         });
     }
@@ -372,6 +378,7 @@ pub fn receive_accepted(
             prepared: None,
         });
     }
+    crate::directory::retain_winners(&mut next, current)?;
     if let Some(p) = &mut next.pending {
         if let Some(prepared) = &p.prepared {
             let dot = prepared
@@ -451,6 +458,18 @@ pub fn receive_rejection(
         .into());
     };
     let reason = match reason {
+        crate::acceptance::RejectionReason::DeletedDirectoryParent { qso } => {
+            anyhow::ensure!(
+                current.key.id == crate::record::RecordId::Directory(*qso),
+                "Obsolete lookup rejection differs from its parent"
+            );
+            let mut record = current.clone();
+            record.pending = None;
+            return Ok(ClientUpdate {
+                record,
+                review: None,
+            });
+        }
         crate::acceptance::RejectionReason::Referenced {
             key,
             referrers,

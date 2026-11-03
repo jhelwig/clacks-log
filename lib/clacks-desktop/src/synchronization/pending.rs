@@ -1,6 +1,6 @@
 //! Publish eligible actual saved work in reference order after complete inbound receipt.
 
-use super::{Socket, exchange::response, send};
+use super::{ConnectionContext, Socket, exchange::response, send};
 use clacks_client_store::{
     store::ClientStore,
     synchronization::{self, PrepareOutcome},
@@ -10,15 +10,15 @@ use clacks_sync::{
     protocol::messages::{ClientMessage, ProposalOutcome, ServerMessage},
     record::{RecordId, RecordState},
 };
-use tokio_util::sync::CancellationToken;
 
 /// Publish each eligible coalesced record once; unresolved work waits for a real state change.
 pub(super) async fn publish(
     socket: &mut Socket,
     store: &ClientStore,
     dirty: &mut bool,
-    stop: &CancellationToken,
+    connection: &ConnectionContext,
 ) -> anyhow::Result<()> {
+    let stop = &connection.stop;
     let mut pending = synchronization::state(store).await?.pending;
     pending.retain(|row| row.review.is_none());
     pending.sort_by_key(
@@ -68,7 +68,7 @@ pub(super) async fn publish(
         let ServerMessage::Proposal {
             request: actual,
             outcome,
-        } = response(socket, store, dirty, stop).await?
+        } = response(socket, store, dirty, connection).await?
         else {
             anyhow::bail!("Server did not return proposal outcome");
         };

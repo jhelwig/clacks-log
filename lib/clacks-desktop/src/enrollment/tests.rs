@@ -22,6 +22,16 @@ impl Drop for NativeEntry {
 
 #[tokio::test]
 async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<()> {
+    tokio::time::timeout(
+        std::time::Duration::from_secs(90),
+        verify_native_enrollment(),
+    )
+    .await
+    .context("Native enrollment scenario exceeded its unattended time limit")?
+}
+
+/// Exercise the actual issuer, persistence and synchronization under one bounded owner.
+async fn verify_native_enrollment() -> anyhow::Result<()> {
     let telemetry = std::env::var_os("CLACKS_TELEMETRY_ACCEPTANCE")
         .map(|_| clacks_server::telemetry::init(true))
         .transpose()?;
@@ -190,39 +200,15 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
     drop(lost_response);
     drop(before);
     let expected = first.identity.clone();
-    let source = directory.path().join("standalone.sqlite");
-    let standalone_account = clacks_model::ids::AccountId::new();
-    let initiating = clacks_client_store::store::ClientStore::create_with_definitions(
-        &source,
-        standalone_account,
-        &clacks_model::defaults::account_definitions()?,
-        Default::default(),
-    )
-    .await?;
-    let occupied = directory.path().join("occupied-account");
-    let occupied_paths = crate::workspace::WorkspacePaths::at(&occupied)?;
-    let other_account = clacks_model::ids::AccountId::new();
-    let other = clacks_client_store::store::ClientStore::create(
-        &occupied_paths.database,
-        other_account,
-        Default::default(),
-    )
-    .await?;
-    let other_binding = clacks_client_store::identity::EnrollmentBinding {
-        account: other_account,
-        actor: clacks_model::ids::ClientActorId::new(),
-        server: "https://other.example".into(),
-        credential_reference: "existing-native-entry".into(),
-    };
-    clacks_client_store::identity::bind(&other, None, other_binding.clone()).await?;
-    other.close().await?;
-    let destination = directory.path().join("enrolled-account");
-
+    let mut desktop = crate::session::tests::Fixture::new()?;
+    let paths = desktop.resources.paths.clone();
+    let source = paths.database.clone();
+    let initiating = crate::workspace::open(&paths).await?.store;
     // Native credential persistence can precede the SQLite phase update.
     let attempt = clacks_client_store::enrollment::EnrollmentAttempt::new(
         reference.clone(),
         origin.clone(),
-        Some(occupied.clone()),
+        Some(paths.directory.clone()),
         None,
     )?;
     clacks_client_store::enrollment::save_attempt(&initiating, &attempt).await?;
@@ -240,7 +226,7 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
     );
     let refused = super::worker::execute(
         initiating.clone(),
-        crate::workspace::WorkspacePaths::at(directory.path())?,
+        paths.clone(),
         super::EnrollmentCommand::Discard,
         updates,
         CancellationToken::new(),
@@ -268,100 +254,62 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
     assert_eq!(resumed.server.trim_end_matches('/'), origin);
     assert_eq!(resumed.credential_reference, reference);
     assert_eq!(credentials::load(&reference)?.refresh, Some(refresh));
-    let initiating = clacks_client_store::store::ClientStore::open(
-        &source,
-        standalone_account,
-        Default::default(),
-    )
+    let session = tokio::spawn(crate::session::run(
+        desktop.resources,
+        desktop.input,
+        desktop.updates,
+    ));
+    crate::session::tests::next_matching(&mut desktop.status, |status| {
+        matches!(status, crate::session::SessionStatus::Ready { .. })
+    })
     .await?;
-    let crate::instance::Election::Owner(owner) = crate::instance::elect(&occupied_paths)? else {
-        anyhow::bail!("expected ownership of the destination")
-    };
-    let (notices, mut activation) = watch::channel(());
-    let listener = owner.listen(&tokio::runtime::Handle::current(), notices)?;
-    let error = super::completion::finish(&initiating, &resumed, CancellationToken::new())
-        .await
-        .err()
-        .context("an open destination must not be installed")?;
-    assert!(error.to_string().contains("Another Clacks process owns"));
-    tokio::time::timeout(std::time::Duration::from_secs(3), activation.changed()).await??;
-    let error = super::worker::restart_attempt(
-        &initiating,
-        &crate::workspace::WorkspacePaths::at(directory.path())?,
-    )
-    .await
-    .err()
-    .context("an open destination must not be reauthorized here")?;
-    assert!(error.to_string().contains("destination workspace is open"));
-    tokio::time::timeout(std::time::Duration::from_secs(3), activation.changed()).await??;
-    listener.shutdown().await?;
-    drop(owner);
-    assert!(
-        super::completion::finish(&initiating, &resumed, CancellationToken::new())
-            .await
-            .is_err()
-    );
-    let retained = clacks_client_store::enrollment::attempt(&initiating)
-        .await?
-        .unwrap();
-    assert_eq!(
-        retained.phase(),
-        clacks_client_store::enrollment::EnrollmentPhase::NeedsDestination
-    );
-    let preserved = clacks_client_store::store::ClientStore::open(
-        &occupied_paths.database,
-        other_account,
-        Default::default(),
-    )
-    .await?;
-    assert_eq!(
-        clacks_client_store::identity::binding(&preserved).await?,
-        Some(other_binding)
-    );
-    preserved.close().await?;
-    super::worker::change_destination(&initiating, Some(destination.clone())).await?;
-    let completed =
-        super::completion::finish(&initiating, &resumed, CancellationToken::new()).await?;
-    assert_eq!(completed.destination, destination.canonicalize()?);
-    assert!(
-        clacks_client_store::identity::binding(&initiating)
-            .await?
-            .is_none()
-    );
-    assert_eq!(initiating.account_id(), standalone_account);
+    desktop
+        .commands
+        .send(crate::session::SessionCommand::Enrollment(
+            super::EnrollmentCommand::Resume {
+                label: "Native enrollment desktop".into(),
+            },
+        ))
+        .await?;
+    crate::session::tests::next_matching(&mut desktop.status, |status| matches!(status, crate::session::SessionStatus::Ready { identity, .. } if identity.account == expected.account && identity.enrolled)).await?;
+    desktop
+        .commands
+        .send(crate::session::SessionCommand::BeginShutdown)
+        .await?;
+    session.await??;
     let opened = clacks_client_store::store::ClientStore::open(
-        &completed.destination.join("workspace.sqlite"),
+        &source,
         expected.account,
         Default::default(),
     )
     .await?;
-    assert_eq!(
-        clacks_client_store::identity::binding(&opened).await?,
-        Some(completed.binding.clone())
+    let binding = clacks_client_store::identity::binding(&opened)
+        .await?
+        .context("Connect did not install enrollment in the initiating workspace")?;
+    assert_eq!(binding.actor, expected.actor);
+    assert_eq!(binding.credential_reference, reference);
+    assert!(
+        clacks_client_store::enrollment::attempt(&opened)
+            .await?
+            .is_none(),
+        "Connect must finish durable bookkeeping before reopening its session"
     );
-    let mut snapshot = clacks_client_store::read::snapshot(&opened).await?;
-    assert!(snapshot.checkpoint().await?.is_none());
-    snapshot.close().await?;
-    opened.close().await?;
-    crate::synchronization::tests::verify(&completed.binding)
+    crate::synchronization::tests::verify(&binding)
         .await
         .context("verify endpoint scope and retry")?;
-    synchronization::verify(&origin, &completed.binding, &browser, &provider, &subject)
+    synchronization::verify(&origin, &binding, &browser, &provider, &subject)
         .await
         .context("verify two desktop sessions")?;
-    assert_eq!(
-        clacks_client_store::enrollment::attempt(&initiating)
-            .await?
-            .unwrap()
-            .phase(),
-        clacks_client_store::enrollment::EnrollmentPhase::DestinationBound
-    );
+    let mut retry = clacks_client_store::enrollment::EnrollmentAttempt::new(
+        reference.clone(),
+        origin.clone(),
+        Some(paths.directory.clone()),
+        Some(binding.clone()),
+    )?;
+    retry.credential_saved();
+    clacks_client_store::enrollment::save_attempt(&opened, &retry).await?;
     credentials::remove(&reference)?;
-    let replacement = super::worker::restart_attempt(
-        &initiating,
-        &crate::workspace::WorkspacePaths::at(directory.path())?,
-    )
-    .await?;
+    let replacement = super::worker::restart_attempt(&opened, &paths).await?;
     let _replacement_entry = NativeEntry(replacement.credential_reference().to_owned());
     assert_ne!(replacement.credential_reference(), reference);
     let prior = replacement
@@ -375,15 +323,14 @@ async fn saved_native_credential_resumes_the_actual_client() -> anyhow::Result<(
         clacks_client_store::enrollment::EnrollmentPhase::KeySaved
     );
     assert_eq!(
-        clacks_client_store::enrollment::attempt(&initiating).await?,
+        clacks_client_store::enrollment::attempt(&opened).await?,
         Some(replacement)
     );
-    assert!(
-        clacks_client_store::identity::binding(&initiating)
-            .await?
-            .is_none()
+    assert_eq!(
+        clacks_client_store::identity::binding(&opened).await?,
+        Some(binding)
     );
-    initiating.close().await?;
+    opened.close().await?;
     let clients: serde_json::Value = browser
         .post(format!(
             "{origin}{}",

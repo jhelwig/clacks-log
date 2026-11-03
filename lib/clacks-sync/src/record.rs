@@ -21,6 +21,8 @@ use std::fmt;
 /// Stable kind-qualified identity; deletion does not release it for reuse.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum RecordId {
+    /// Retained directory winners belonging to one contact.
+    Directory(QsoId),
     /// Synchronized service evidence or maintained service state.
     Service(clacks_model::service::evidence::ServiceRecordId),
     /// Contact identity.
@@ -41,6 +43,7 @@ pub enum RecordId {
 impl fmt::Display for RecordId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Directory(id) => fmt::Display::fmt(id, f),
             Self::Service(id) => fmt::Display::fmt(id, f),
             Self::Qso(id) => fmt::Display::fmt(id, f),
             Self::Tag(id) => fmt::Display::fmt(id, f),
@@ -64,6 +67,8 @@ pub struct RecordKey {
 /// Native synchronized payload without a duplicate synchronization schema.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RecordValue {
+    /// Contact-associated directory facts, independent of recorded QSO edits.
+    Directory(Box<clacks_model::directory::record::DirectoryRecord>),
     /// Service domain payload and its accepted support.
     Service(Box<crate::service::ServiceRecord>),
     /// Recorded contact.
@@ -84,6 +89,7 @@ impl RecordValue {
     /// Identify the native entity without using display names or serialized text.
     pub fn id(&self) -> RecordId {
         match self {
+            Self::Directory(value) => RecordId::Directory(value.qso()),
             Self::Service(v) => RecordId::Service(v.payload.id()),
             Self::Qso(v) => RecordId::Qso(v.id()),
             Self::Tag(v) => RecordId::Tag(v.id),
@@ -130,7 +136,8 @@ impl RecordState {
             match v {
                 RecordValue::Service(v) => v.validate(key.account)?,
 
-                RecordValue::Group(_)
+                RecordValue::Directory(_)
+                | RecordValue::Group(_)
                 | RecordValue::Qso(_)
                 | RecordValue::Profile(_)
                 | RecordValue::Equipment(_)

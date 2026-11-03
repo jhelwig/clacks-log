@@ -263,8 +263,8 @@ fn prepare_fields(
     if let Some(l) = &q.own_station().location {
         location(&mut fields, l, true);
     }
-    if let Some(l) =
-        select_location(q.contacted_station(), eligible, c.definitions).and_then(|l| l.value)
+    if let Some(l) = select_location(q.contacted_station(), eligible, c.definitions)
+        .and_then(|l| l.value.location)
     {
         location(&mut fields, &l, false);
     }
@@ -279,8 +279,17 @@ fn prepare_fields(
             fields.insert("MY_ANTENNA".into(), antenna.clone());
         }
     }
+    let selected = select_location(q.contacted_station(), eligible, c.definitions);
+    let contacted_references = crate::effective::effective_contacted_references(
+        q.contacted_station(),
+        selected.as_ref(),
+        c.definitions,
+    );
     let refs = plan_reference_export(
-        std::slice::from_ref(q),
+        &[crate::export::evaluate::ReferenceExportInput {
+            qso: q,
+            contacted_references: &contacted_references,
+        }],
         c.export,
         c.definitions,
         c.profiles,

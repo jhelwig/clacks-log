@@ -62,6 +62,11 @@ with `cargo run --bin clacks-log -- --workspace /absolute/path/to/workspace`.
 The [desktop guide](lib/clacks-desktop/README.md) covers configuration, logs,
 activation, shutdown and native Windows acceptance. Manual logging works offline;
 enrolled workspaces reconnect automatically for account-wide synchronization.
+The account web page configures client-direct QRZ/HamQTH lookup. Separate
+contact-owned directory snapshots supply attributed fallback without changing
+recorded contact values, including during sync outages. macOS credential access
+requires the signed/profile-authorized bundle described in the desktop guide;
+the Data Protection Keychain has no legacy migration or fallback.
 The non-modal Unsynchronized changes window separates conflicts from ordinary
 pending work and supports explicit per-field resolution without changing an
 unfinished contact or active operating settings.

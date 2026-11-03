@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
 /// Native-store namespace, separate from ordinary application preferences.
-const SERVICE: &str = "org.clacks-log.desktop.authorization";
+const SERVICE: &str = "com.w7hex.clacks-log.authorization";
 
 /// Secret-bearing native entry; never format it for logs or UI state.
 #[derive(Serialize, Deserialize)]

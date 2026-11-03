@@ -3,7 +3,9 @@
 use crate::contact::StationSnapshot;
 use crate::group::DefinitionSet;
 use crate::location::RecordedLocation;
+use crate::reference::ReferenceAssociation;
 use crate::scalar::optional_text;
+use std::collections::BTreeSet;
 /// Origin selected for an effective display/export value; not permission to edit recorded facts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InformationSource {
@@ -33,6 +35,33 @@ pub struct StationFacts {
     pub name: Option<String>,
     /// Whole provider location; absent details are not patched from other providers.
     pub location: Option<RecordedLocation>,
+    /// Provider reference evidence, never copied to recorded QSO associations.
+    pub references: BTreeSet<ReferenceAssociation>,
+}
+
+/// Geography and location-bearing references selected from one whole source.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct LocationFacts {
+    /// Optional geographic details; a reference can establish presence without them.
+    pub location: Option<RecordedLocation>,
+    /// Location-bearing references from the same selected source.
+    pub references: BTreeSet<ReferenceAssociation>,
+}
+
+/// Select only references whose current definition establishes location context.
+fn location_references(
+    references: &BTreeSet<ReferenceAssociation>,
+    definitions: &DefinitionSet,
+) -> BTreeSet<ReferenceAssociation> {
+    references
+        .iter()
+        .filter(|r| {
+            definitions
+                .get(r.group_id)
+                .is_some_and(|d| d.bears_location_context())
+        })
+        .cloned()
+        .collect()
 }
 
 /// Provider observations that the caller has already established are eligible.
@@ -64,33 +93,59 @@ impl<'a> EligibleStationFacts<'a> {
 /// Choose the first eligible whole location: recorded, LoTW, QRZ, then directory.
 ///
 /// Recorded location-bearing participation suppresses provider fallback even
-/// when its geography is unknown: `Some` with `value: None` represents that
+/// when its geography is unknown: `Some` with `value.location: None` represents that
 /// authoritative unknown location. Outer `None` means no source supplies one.
 /// Fields from different sources are never mixed and inputs are never changed.
 pub fn select_location(
     recorded: &StationSnapshot,
     eligible: &EligibleStationFacts<'_>,
     definitions: &DefinitionSet,
-) -> Option<Sourced<Option<RecordedLocation>>> {
+) -> Option<Sourced<LocationFacts>> {
     let location = recorded.location.as_ref().cloned();
-    if location.is_some()
-        || recorded.references.iter().any(|r| {
-            definitions
-                .get(r.group_id)
-                .is_some_and(|d| d.bears_location_context())
-        })
-    {
+    let references = location_references(&recorded.references, definitions);
+    if location.is_some() || !references.is_empty() {
         return Some(Sourced {
-            value: location,
+            value: LocationFacts {
+                location,
+                references,
+            },
             source: InformationSource::Recorded,
         });
     }
     eligible.sources().into_iter().find_map(|(source, facts)| {
-        facts.and_then(|f| f.location.as_ref()).map(|l| Sourced {
-            value: Some(l.clone()),
-            source,
+        facts.and_then(|facts| {
+            let references = location_references(&facts.references, definitions);
+            (facts.location.is_some() || !references.is_empty()).then(|| Sourced {
+                value: LocationFacts {
+                    location: facts.location.clone(),
+                    references,
+                },
+                source,
+            })
         })
     })
+}
+
+/// Project contacted references without changing recorded participation or mixing locations.
+pub fn effective_contacted_references(
+    recorded: &StationSnapshot,
+    selected: Option<&Sourced<LocationFacts>>,
+    definitions: &DefinitionSet,
+) -> BTreeSet<ReferenceAssociation> {
+    let mut references: BTreeSet<_> = recorded
+        .references
+        .iter()
+        .filter(|r| {
+            !definitions
+                .get(r.group_id)
+                .is_some_and(|d| d.bears_location_context())
+        })
+        .cloned()
+        .collect();
+    if let Some(selected) = selected {
+        references.extend(selected.value.references.iter().cloned());
+    }
+    references
 }
 
 /// Select nonblank recorded name text, then eligible LoTW, QRZ or directory text.

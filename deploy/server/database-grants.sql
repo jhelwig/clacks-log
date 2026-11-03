@@ -33,6 +33,8 @@ GRANT SELECT, INSERT ON clacks.recorded_location TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.station_reference TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.equipment_snapshot TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.qso_payload TO clacks_runtime;
+GRANT SELECT, INSERT ON clacks.directory_payload,
+    clacks.directory_snapshot, clacks.directory_reference TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.qso_tag TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.tag_payload TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.profile_payload TO clacks_runtime;
@@ -86,3 +88,8 @@ GRANT DELETE ON clacks.accepted_record, clacks.payload,
     clacks.version_stamp, clacks.record_vector, clacks.checkpoint,
     clacks.sync_baselines, clacks.lineage, clacks.coverage,
     clacks.installation_journal TO clacks_runtime;
+-- Directory setup is runtime-owned; maintenance may only replace encrypted bytes.
+GRANT SELECT, INSERT, UPDATE ON clacks.directory_configuration TO clacks_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON clacks.directory_material TO clacks_runtime;
+GRANT SELECT ON clacks.directory_configuration, clacks.directory_material TO clacks_maintenance;
+GRANT UPDATE (encrypted_envelope) ON clacks.directory_material TO clacks_maintenance;

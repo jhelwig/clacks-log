@@ -24,6 +24,36 @@ use leptos::server_fn::ServerFn;
 use tokio::sync::{oneshot, watch};
 use tokio_util::sync::CancellationToken;
 
+/// Clean only the unique directory entry installed by this scenario.
+struct DirectoryEntry(String);
+
+impl Drop for DirectoryEntry {
+    fn drop(&mut self) {
+        let _ = crate::directory::credentials::remove(&self.0);
+    }
+}
+
+/// Await actual native installation independently of unrelated record checkpoints.
+async fn installed_directory(
+    updates: &mut watch::Receiver<
+        Option<clacks_sync::protocol::directory::ProvisionedConfiguration>,
+    >,
+    revision: i64,
+) -> anyhow::Result<clacks_sync::protocol::directory::ProvisionedConfiguration> {
+    tokio::time::timeout(std::time::Duration::from_secs(20), async {
+        loop {
+            let current = updates.borrow_and_update().clone();
+            if let Some(current) = current
+                && current.configuration.revision == revision
+            {
+                return Ok(current);
+            }
+            updates.changed().await?;
+        }
+    })
+    .await?
+}
+
 /// Approve the second actual proof key through the same browser account and real issuer.
 async fn second(
     origin: &str,
@@ -148,7 +178,7 @@ async fn contact(
     tokio::time::timeout(std::time::Duration::from_secs(20), async {
         loop {
             updates.borrow_and_update();
-            if let SettingsResponse::Contacts(ContactResponse::Loaded(Some(row))) =
+            if let SettingsResponse::Contacts(ContactResponse::Loaded(Some(row), _)) =
                 action(sender, SettingsAction::Contacts(ContactAction::Load { id })).await?
                 && predicate(&row)
             {
@@ -186,6 +216,23 @@ pub(super) async fn verify(
         store.close().await?;
     }
     let second_database = second.resources.paths.database.clone();
+    let mut directory_entries = Vec::new();
+    let mut directory_reference = String::new();
+    for (fixture, binding) in [(&first, first_binding), (&second, &second_binding)] {
+        let store = ClientStore::open(
+            &fixture.resources.paths.database,
+            binding.account,
+            Default::default(),
+        )
+        .await?;
+        let reference = clacks_client_store::directory::installation::reference(&store).await?;
+        if directory_reference.is_empty() {
+            directory_reference = reference.clone();
+        }
+        directory_entries.push(DirectoryEntry(reference));
+        store.close().await?;
+    }
+    let mut first_directory = first.resources.directory.installed.subscribe();
     let first_task = tokio::spawn(session::run(first.resources, first.input, first.updates));
     let second_task = tokio::spawn(session::run(second.resources, second.input, second.updates));
     session::tests::next_matching(&mut first.status, |state| {
@@ -196,6 +243,51 @@ pub(super) async fn verify(
         matches!(state, session::SessionStatus::Ready { .. })
     })
     .await?;
+
+    // Actual web updates reach the separate native entry even without QSO changes.
+    for (expected, operation, password, revision) in [
+        (0, "keep", "", 1),
+        (1, "save", "directory-first", 2),
+        (2, "save", "directory-replacement", 3),
+        (3, "remove", "", 4),
+    ] {
+        browser
+            .post(format!(
+                "{origin}{}",
+                clacks_web::actions::directory::SaveDirectory::PATH
+            ))
+            .header("origin", origin)
+            .form(&[
+                ("expected_revision", expected.to_string()),
+                ("selected", "qrz".into()),
+                ("operation", operation.into()),
+                ("provider", "qrz".into()),
+                ("username", "directory-user".into()),
+                ("password", password.into()),
+            ])
+            .send()
+            .await?
+            .error_for_status()?;
+        let configuration = installed_directory(&mut first_directory, revision).await?;
+        if operation != "save" {
+            assert!(configuration.material.is_none());
+        } else {
+            assert_eq!(
+                crate::directory::credentials::load(first_binding, &directory_reference)?
+                    .context("missing protected directory configuration")?
+                    .material
+                    .context("missing selected directory material")?
+                    .login
+                    .password,
+                password
+            );
+        }
+        assert!(
+            credentials::load(&first_binding.credential_reference)?
+                .refresh
+                .is_some()
+        );
+    }
 
     let mut form = crate::logging::form::ContactForm::empty();
     form.own.callsign = "W7HEX".into();
@@ -216,6 +308,7 @@ pub(super) async fn verify(
         action(
             &first.settings,
             SettingsAction::Contacts(ContactAction::Save {
+                snapshot: None,
                 expected: None,
                 next: Box::new(qso.clone())
             })
@@ -240,6 +333,7 @@ pub(super) async fn verify(
         action(
             &second.settings,
             SettingsAction::Contacts(ContactAction::Save {
+                snapshot: None,
                 expected: Some(Box::new(received)),
                 next: Box::new(corrected.clone())
             })
@@ -305,6 +399,7 @@ pub(super) async fn verify(
         action(
             &first.settings,
             SettingsAction::Contacts(ContactAction::Save {
+                snapshot: None,
                 expected: Some(Box::new(expected)),
                 next: Box::new(fields.try_into()?)
             })
@@ -393,6 +488,7 @@ pub(super) async fn verify(
         action(
             &first.settings,
             SettingsAction::Contacts(ContactAction::Save {
+                snapshot: None,
                 expected: Some(Box::new(expected)),
                 next: Box::new(fields.try_into()?)
             })

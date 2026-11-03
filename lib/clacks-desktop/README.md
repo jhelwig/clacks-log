@@ -437,19 +437,21 @@ hold the signing key and persistent refresh credential. SQLite retains only
 their opaque reference and nonsecret completion context. Linux desktop native
 credential storage is not implemented yet; no plaintext fallback is used.
 
-First enrollment opens a separate, empty account workspace. Existing standalone
-contacts remain in their original workspace. **Connection…** on an enrolled
+First enrollment connects the current application instance and existing empty
+workspace. Unchanged bundled definitions are replaced by the account's
+synchronized definitions; local operating facts and preferences remain.
+A populated standalone log is preserved and is not automatically merged (D56):
+export its contacts, connect an empty local log, then import through the accepted
+import workflow. Connect does not create another workspace or launch a process.
+**Connection…** on an enrolled
 workspace can replace its authorization without relocating its local data.
 Saved attempts can be resumed after restart. **Authorize again in browser**
-replaces an unusable credential while preserving any installed destination and
+replaces an unusable credential while preserving the current workspace and
 its existing actor hint. An uninstalled key-only attempt can
 be discarded to correct the server address; this does not revoke any approval
-already committed on the server. Saved credentials and installed destinations
+already committed on the server. Saved credentials and installed bindings
 use completion recovery instead. Discard checks the native entry even when
 SQLite still records only key creation; unreadable credentials are preserved.
-A rejected, uninstalled destination can be corrected with **Use this destination**,
-then resumed without another browser
-approval. Completed or uncertain bindings retain their saved destination.
 An enrolled workspace receives its initial account state through the session-owned
 synchronization task.
 
@@ -457,16 +459,130 @@ synchronization task.
 
 The shared `credentials::entry` adapter constructs entries through the selected
 native backend without changing the global keyring store. Enrollment retains its
-`org.clacks-log.desktop.authorization` namespace, opaque references and serialized
-bundle format. The adapter selects macOS Keychain or Windows Local persistence;
+`com.w7hex.clacks-log.authorization` namespace, opaque references and serialized
+bundle format. The adapter selects macOS Data Protection Keychain or Windows Local persistence;
 unsupported Linux storage returns an error and never falls back to plaintext.
 
-Directory provisioning (#17) will use this same adapter with its own namespace
-and typed account/purpose/revision-bound bundle. Save replacement native material
-before committing its nonsecret SQLite reference, then clean up superseded entries.
-Directory replacement/removal must preserve enrollment entries. No directory
-bundle format, provisioning endpoint or extra cache table is supplied by this
-adapter extraction.
+On macOS, the selected library's `protected` backend uses the app's default
+access group, local storage and When Unlocked access policy. It does not request
+user presence or enable iCloud synchronization. Both enrollment and directory
+material use this backend; there is no migration or fallback to file-based
+Keychain storage. Ordinary access to the correctly provisioned app's own items is
+silent while the device is unlocked.
+
+Data Protection Keychain access requires a signed application bundle with an
+embedded provisioning profile authorizing its application identifier/access
+group. A bare `cargo run` executable can run local logging but is not a
+credential-enabled macOS distribution. A signing certificate alone, an ad hoc
+signature or an entitlement file without a matching profile is insufficient.
+See [Apple's implementation guidance](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains)
+and [provisioning profiles](https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles).
+
+The native enrollment and directory integration scenarios require their test
+executable in an equivalently signed/profile-authorized application bundle. Run
+that executable directly with the normal test filters and disposable database
+variables; do not rebuild or replace it until the test process exits. Keep
+`LEPTOS_OUTPUT_NAME=clacks-web` consistent across desktop builds. Missing profile
+authorization is a native integration prerequisite failure, not a reason to use
+another backend. The backend-selection unit test needs no stored secret or profile.
+
+#### macOS development/test host
+
+The repository supplies the ordinary [app metadata](../../bin/clacks-log/macos/Info.plist).
+Use Apple's native bundle/signing tools with a certificate and Mac provisioning
+profile authorizing `com.w7hex.clacks-log` and its default Keychain access
+group. Keep the private signing key and profile outside the repository. This is
+a local development/test host, not a distribution or notarization workflow.
+
+Build with `LEPTOS_OUTPUT_NAME=clacks-web cargo +1.99.1 build --bin clacks-log
+--locked --offline`. For native tests, instead use `cargo +1.99.1 test -p
+clacks-desktop --lib --no-run --locked --offline` with that same environment,
+then set `EXECUTABLE` below to the actual executable path printed by Cargo.
+
+Keep the application identifier, display name and bundle path stable. Stop the
+development/test host before updating its executable; never replace a running
+executable. From the workspace root, set the existing signing inputs and use
+this same bundle path on subsequent builds:
+
+```sh
+SIGNING_IDENTITY='your existing signing identity'
+PROFILE='/absolute/path/to/your.provisionprofile'
+EXECUTABLE="$PWD/target/debug/clacks-log"
+mkdir -p target/macos
+BUNDLE_ROOT="$PWD/target/macos"
+APP_BUNDLE="$BUNDLE_ROOT/Clacks Log.app"
+mkdir -p "$APP_BUNDLE/Contents/MacOS"
+cp bin/clacks-log/macos/Info.plist "$APP_BUNDLE/Contents/Info.plist"
+cp "$EXECUTABLE" "$APP_BUNDLE/Contents/MacOS/clacks-log"
+PACKAGE_ID="$(cargo +1.99.1 pkgid -p clacks-log --locked --offline)"
+VERSION="${PACKAGE_ID##*#}"
+VERSION="${VERSION##*@}"
+/usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $VERSION" "$APP_BUNDLE/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $VERSION" "$APP_BUNDLE/Contents/Info.plist"
+cp "$PROFILE" "$APP_BUNDLE/Contents/embedded.provisionprofile"
+security cms -D -i "$PROFILE" > "$BUNDLE_ROOT/profile.plist"
+PREFIX="$(plutil -extract ApplicationIdentifierPrefix.0 raw -o - "$BUNDLE_ROOT/profile.plist")"
+TEAM="$(plutil -extract TeamIdentifier.0 raw -o - "$BUNDLE_ROOT/profile.plist")"
+APP_ID="${PREFIX}.com.w7hex.clacks-log"
+ENTITLEMENTS="$BUNDLE_ROOT/entitlements.plist"
+/usr/libexec/PlistBuddy -c 'Clear dict' "$ENTITLEMENTS"
+/usr/libexec/PlistBuddy -c "Add :com.apple.application-identifier string $APP_ID" "$ENTITLEMENTS"
+/usr/libexec/PlistBuddy -c "Add :com.apple.developer.team-identifier string $TEAM" "$ENTITLEMENTS"
+/usr/libexec/PlistBuddy -c 'Add :keychain-access-groups array' "$ENTITLEMENTS"
+/usr/libexec/PlistBuddy -c "Add :keychain-access-groups:0 string $APP_ID" "$ENTITLEMENTS"
+codesign --force --sign "$SIGNING_IDENTITY" --entitlements "$ENTITLEMENTS" --timestamp=none "$APP_BUNDLE"
+codesign --verify --strict "$APP_BUNDLE"
+"$APP_BUNDLE/Contents/MacOS/clacks-log" --help
+```
+
+The identifier prefix comes from the actual profile, rather than assuming it is
+the team ID. The profile must authorize these requested entitlements; adding an
+entitlement file alone does not grant access. For native acceptance, run the
+copied test executable directly with the usual test filter and disposable
+database variables. Keep its bundle intact until the process exits. Profile
+availability and successful native secret operations remain separate from a
+successful unsigned build or metadata validation.
+
+The fixed executable name also avoids renaming the app when Cargo's test hash
+changes. Native UI automation must attach to the already running host with its
+explicit temporary workspace arguments. Do not read UI state after quitting if
+the automation API can relaunch the app without those arguments; verify process
+exit through its owning runner instead.
+
+Directory provisioning uses this same adapter with its own namespace and one
+complete configuration/login bundle checked against deployment and account.
+The workspace allocates a fixed native entry name once in `local_state`;
+replacement and removal update that protected value directly, without a SQLite
+installation commit or obsolete entries. **Retry directory storage** retries
+local reads and the retained current delivery without reconnecting or changing
+enrollment. Native access failure retains the last usable runtime configuration.
+Directory replacement/removal preserves enrollment entries. Configuration is
+received on the authenticated connection independently from record checkpoints;
+the last installed material remains usable during sync outages. The lookup actor
+watches actual enrollment/configuration changes without restarting unfinished
+entry ownership when synchronization reconnects.
+
+### Direct directory lookup
+
+Configure the account's selected provider and credentials at **Account →
+Directory** in the web interface. A manual callsign edit admits lookup after
+500 ms of unchanged normalized input; empty input makes no request. Opening an
+unchanged saved contact shows retained facts without refreshing it. QRZ and
+HamQTH use separate concrete client-direct sessions with shared transient
+authentication and independent station requests. Session expiry renews once;
+credential rejection pauses that material until replacement or explicit retry.
+Provider failure/not-found preserves successful facts, with no bulk catch-up.
+
+Directory name, location, references and locality are attributed separately from
+recorded controls, including HamQTH attribution. Tabbing or saving never copies
+them into recorded facts. Save is immediate; an available success commits
+atomically with the QSO. A late response retains its original QSO/key and checks
+the actual live parent inside the snapshot transaction. Saved original contacts
+can receive late results after the form moves on; changed-key/deleted contacts
+cannot. Committed snapshots invalidate local history even while sync is offline.
+One whole winner per contact/key synchronizes separately from recorded edits.
+Bulk lookup, WS Suite capture and external-service publication remain separate
+capabilities.
 
 ## Account synchronization
 

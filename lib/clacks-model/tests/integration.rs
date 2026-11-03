@@ -6,6 +6,7 @@ mod account_defaults;
 mod compatibility;
 mod contacts;
 mod defaults_and_tags;
+mod directory;
 mod effective_values;
 mod errors;
 mod export_context;

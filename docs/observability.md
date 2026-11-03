@@ -525,6 +525,21 @@ Application composition registers units/descriptions and histogram bounds before
 first observation. Contact reads and account locks include millisecond/subsecond
 resolution; maintenance histograms extend into minutes. OAuth cleanup counts each
 independent successful commit, retaining progress if a later sweep step fails.
+
+Directory lookup measures actual lookup HTTP dispatches (excluding login) with
+`clacks_directory_lookup_requests_total`, labeled by provider. One logical
+lookup, including any session renewal, emits `clacks_directory_lookups_total`
+and `clacks_directory_lookup_duration_seconds` from admission to terminal outcome,
+excluding debounce. Outcomes are success, not_found, authentication, unavailable
+or cancelled; the duration uses the existing subsecond/network histogram bounds.
+`clacks_directory_configuration_installs_total` counts only committed public
+configuration transitions, with selected/disabled/unconfigured outcomes. Failed
+or superseded native writes do not count as installs. Captured lookup/QSO IDs
+correlate delayed results in structured diagnostics, never in metric labels.
+Credential rejection and handled service failures are bounded diagnostics;
+passwords, tokens, keys, native bundles, raw responses and personal directory
+fields stay out of all sinks.
+
 The geography executable owns opted-in standard providers/recorder and shuts them
 down on command completion, failure or supported cancellation; short commands do
 not rely on a periodic export happening before exit.

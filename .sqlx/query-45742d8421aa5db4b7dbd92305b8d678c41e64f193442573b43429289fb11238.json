@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE station_snapshot SET account = ?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "45742d8421aa5db4b7dbd92305b8d678c41e64f193442573b43429289fb11238"
+}

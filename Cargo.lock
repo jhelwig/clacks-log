@@ -1248,6 +1248,7 @@ dependencies = [
  "futures-util",
  "hex",
  "http",
+ "httpdate",
  "huskarl",
  "huskarl-core",
  "huskarl-crypto-native",
@@ -1271,6 +1272,7 @@ dependencies = [
  "rand 0.8.8",
  "reqwest 0.12.28",
  "reqwest 0.13.5",
+ "roxmltree",
  "rsa 0.9.10",
  "rustls",
  "serde",
@@ -1540,6 +1542,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "ulid",
+ "zeroize",
 ]
 
 [[package]]
@@ -1550,7 +1553,10 @@ dependencies = [
  "axum",
  "axum_session_sqlx",
  "chrono",
+ "clacks-model",
  "clacks-server",
+ "clacks-sync",
+ "getrandom 0.4.3",
  "huskarl-core",
  "huskarl-crypto-native",
  "leptos",

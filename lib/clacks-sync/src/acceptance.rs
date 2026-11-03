@@ -78,6 +78,11 @@ pub struct ServerChange {
 /// Normal admission/reference failure requiring caller action.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RejectionReason {
+    /// New lookup work is obsolete because its accepted owning contact is deleted.
+    DeletedDirectoryParent {
+        /// Contact whose tombstone was observed at admission.
+        qso: clacks_model::ids::QsoId,
+    },
     /// Deletion would leave active accepted referrers; no user action is inferred.
     Referenced {
         /// Deletion target still referenced by active records.
@@ -182,6 +187,9 @@ pub fn plan_acceptance(
         return Ok(AcceptanceDecision::Rejected(reason));
     }
     validate_input(change.key, &change.state, &change.expected, input, evidence)?;
+    if let Some(reason) = crate::directory::reject_deleted_parent(&change.state, input) {
+        return Ok(AcceptanceDecision::Rejected(reason));
+    }
     let own = ClockActor::Client(change.actor);
     let count = change.vector.component(own);
     if count == 0 {
@@ -258,6 +266,9 @@ pub fn plan_server_acceptance(
         dependency.validate()?;
     }
     validate_input(change.key, &change.state, &change.expected, input, evidence)?;
+    if let Some(reason) = crate::directory::reject_deleted_parent(&change.state, input) {
+        return Ok(AcceptanceDecision::Rejected(reason));
+    }
     let context = match input.current {
         Observation::Accepted(v) => v.stamp.vector().clone(),
         _ => RecordVector::default(),
@@ -363,6 +374,10 @@ fn validate_input(
 /// same transaction as preparation. Unknown group associations are not prerequisites.
 pub fn required_references(key: RecordKey, state: &RecordState) -> Vec<RecordKey> {
     match state {
+        RecordState::Live(RecordValue::Directory(value)) => vec![RecordKey {
+            account: key.account,
+            id: RecordId::Qso(value.qso()),
+        }],
         RecordState::Live(RecordValue::Qso(q)) => q
             .tags()
             .iter()
@@ -428,10 +443,7 @@ fn plan_commit(
             row.key() == required
                 && matches!(
                     row,
-                    Observation::Accepted(AcceptedRecord {
-                        state: RecordState::Live(_),
-                        ..
-                    })
+                    Observation::Accepted(value) if matches!(value.state(), RecordState::Live(_)) || matches!(key.id, RecordId::Directory(_))
                 )
         });
         if !supplied
@@ -449,6 +461,11 @@ fn plan_commit(
             ));
         }
     }
+    let combined = match input.current {
+        Observation::Accepted(current) => crate::directory::combine_states(current.state(), state)?,
+        _ => None,
+    };
+    let state = combined.as_ref().unwrap_or(state);
     let next_account = input.account.advance()?;
     let server = ClockActor::Server(next_account.head.timeline);
     if context.component(server) >= next_account.head.revision {
@@ -519,10 +536,7 @@ pub(crate) fn plan_reconciled(
             row.key() == key
                 && matches!(
                     row,
-                    Observation::Accepted(AcceptedRecord {
-                        state: RecordState::Live(_),
-                        ..
-                    })
+                Observation::Accepted(value) if matches!(value.state(), RecordState::Live(_)) || matches!(incoming.key.id, RecordId::Directory(_))
                 )
         }) else {
             return Ok(AcceptanceDecision::Rejected(

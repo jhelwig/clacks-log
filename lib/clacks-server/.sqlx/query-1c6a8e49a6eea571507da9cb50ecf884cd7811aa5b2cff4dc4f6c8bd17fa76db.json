@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clacks.directory_reference(payload_id, account, lookup_key, group_id, identifier) VALUES ($1, $2, $3, $4, $5)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1c6a8e49a6eea571507da9cb50ecf884cd7811aa5b2cff4dc4f6c8bd17fa76db"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE operating_value SET account = ?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "54d005df522d636501116daf55e729538c5bb445e4a10d9a33fc780e3e5a9aa2"
+}

@@ -37,6 +37,7 @@ pub(crate) enum ContactAction {
     Save {
         expected: Option<Box<ClientRecord>>,
         next: Box<Qso>,
+        snapshot: Option<Box<clacks_model::directory::values::DirectorySnapshot>>,
     },
     /// Read selected contacts and catalog from one snapshot.
     PrepareMembership {
@@ -86,7 +87,10 @@ pub(crate) enum ContactResponse {
     /// Real local working rows.
     Page(ContactPage),
     /// Current stored record, absent when unavailable locally.
-    Loaded(Option<ClientRecord>),
+    Loaded(
+        Option<ClientRecord>,
+        Option<Box<clacks_model::directory::values::DirectorySnapshot>>,
+    ),
     /// Committed, unchanged or stale contact facts.
     Saved(SaveOutcome),
     /// Captured contact bases and catalog.
@@ -126,26 +130,45 @@ pub(crate) async fn execute(
             snapshot.close().await?;
             Ok(ContactResponse::Page(page))
         }
-        ContactAction::Load { id } => Ok(ContactResponse::Loaded(
-            save::load(store, key(store, id)).await?,
-        )),
-        ContactAction::Save { expected, next } => {
-            let creating = expected.is_none();
+        ContactAction::Load { id } => {
+            let mut read = read::snapshot(store).await?;
+            let record = read.record(key(store, id)).await?;
+            let directory = read
+                .record(RecordKey {
+                    account: store.account_id(),
+                    id: RecordId::Directory(id),
+                })
+                .await?;
+            let snapshot = match (
+                record.as_ref().and_then(|row| row.working_state()),
+                directory.as_ref().and_then(|row| row.working_state()),
+            ) {
+                (
+                    Some(RecordState::Live(RecordValue::Qso(qso))),
+                    Some(RecordState::Live(RecordValue::Directory(directory))),
+                ) => directory
+                    .snapshot(&clacks_model::directory::values::LookupKey::from_recorded(
+                        &qso.contacted_station().callsign,
+                    ))
+                    .cloned(),
+                _ => None,
+            };
+            read.close().await?;
+            Ok(ContactResponse::Loaded(record, snapshot.map(Box::new)))
+        }
+        ContactAction::Save {
+            expected,
+            next,
+            snapshot,
+        } => {
             let record_key = key(store, next.id());
-            let next = RecordState::Live(RecordValue::Qso(next));
-            let mut outcome =
-                save::save(store, record_key, expected.as_deref(), next.clone()).await?;
-            if creating
-                && let SaveOutcome::Stale {
-                    current: Some(current),
-                } = &outcome
-                && current
-                    .working_state()
-                    .is_some_and(|value| value.same_values(&next))
-            {
-                tracing::info!(event = "contact.create_retry_acknowledged", account_id = %store.account_id(), record_id = %record_key.id);
-                outcome = SaveOutcome::Unchanged(current.clone());
-            }
+            let outcome = save::contacts::save(
+                store,
+                expected.as_deref(),
+                *next,
+                snapshot.map(|value| *value),
+            )
+            .await?;
             if matches!(outcome, SaveOutcome::Stale { .. }) {
                 tracing::info!(event = "contact.save.stale", account_id = %store.account_id(), record_id = %record_key.id);
             }

@@ -2218,8 +2218,9 @@ and integration belong to the concrete specification and plan. See
 #### D376
 
 Use `keyring-core` with native macOS and Windows backends for desktop credential
-storage: `apple-native-keyring-store` with its `keychain` feature on macOS, and
-`windows-native-keyring-store` on Windows. Deliver both integrations during MVP;
+storage: `apple-native-keyring-store` on macOS and
+`windows-native-keyring-store` on Windows. D391 supersedes the original macOS
+`keychain` feature selection with Data Protection Keychain. Deliver both integrations during MVP;
 macOS is the primary development platform and cannot defer its credential path
 until the post-MVP macOS release. Keep enrollment secrets in protected OS storage
 and only non-secret references in SQLite. Linux desktop release support remains
@@ -2457,3 +2458,17 @@ effects truthfully, with bounded metric dimensions and account-specific context
 in traces/structured logs. Use measurements to determine whether later
 optimization is warranted; no lock-duration estimate or performance threshold
 has been established by this decision.
+
+### Decision D391
+
+#### D391
+
+Follow Apple's modern application-secret storage guidance on macOS: use the
+Data Protection Keychain through `apple-native-keyring-store`'s `protected`
+backend for enrollment and directory secrets. Do not add migration machinery
+or a legacy file-based Keychain fallback. Use local app-specific storage with
+default When Unlocked access, without adding user-presence requirements or
+iCloud synchronization. This supersedes D376's macOS backend feature selection;
+its Windows backend and other storage boundaries remain in force. Native macOS
+credential acceptance requires the correctly signed/profile-authorized host
+described in the [desktop guide](../lib/clacks-desktop/README.md#native-credential-integration).

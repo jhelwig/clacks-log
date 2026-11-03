@@ -20,6 +20,8 @@ use tokio::sync::mpsc;
 
 /// Saved facts being edited, never the unfinished new-contact entry.
 pub(super) struct ContactEditor {
+    /// Separate directory preview for this saved contact.
+    pub directory: crate::ui::logging::directory::DirectoryView,
     /// Complete record used by the store's stale-save protection.
     pub expected: ClientRecord,
     /// Editable copied historical facts.
@@ -42,6 +44,10 @@ impl ContactEditor {
         };
         let form = ContactForm::from_qso(qso);
         Ok(Self {
+            directory: crate::ui::logging::directory::DirectoryView::saved(
+                qso.id(),
+                &form.dx.callsign,
+            ),
             expected,
             baseline: form.clone(),
             form,
@@ -102,6 +108,7 @@ impl ContactsUi {
                 }
                 editor.validation.request_repaint(ui.ctx(), now);
                 let mut enter = false;
+                let fallback = editor.directory.fallback(&editor.form, definitions);
                 ui.add_enabled_ui(!busy, |ui| {
                     let quick = crate::ui::logging::entry::show(
                         ui,
@@ -110,6 +117,7 @@ impl ContactsUi {
                         &editor.errors,
                         false,
                         false,
+                        &fallback,
                     );
                     enter = quick.save;
                     let mut changed = quick.edited;
@@ -121,8 +129,11 @@ impl ContactsUi {
                         &editor.baseline,
                         definitions,
                         &editor.errors,
-                        false,
-                        "saved.contact",
+                        crate::ui::logging::details::DetailPresentation {
+                            own: false,
+                            owner: "saved.contact",
+                            fallback: &fallback,
+                        },
                     );
                     changed |= detail.edited;
                     enter |= detail.save;
@@ -133,8 +144,11 @@ impl ContactsUi {
                         &editor.baseline,
                         definitions,
                         &editor.errors,
-                        true,
-                        "saved.contact",
+                        crate::ui::logging::details::DetailPresentation {
+                            own: true,
+                            owner: "saved.contact",
+                            fallback: &fallback,
+                        },
                     );
                     changed |= detail.edited;
                     enter |= detail.save;
@@ -155,6 +169,12 @@ impl ContactsUi {
                         ui.small(notice);
                     }
                 }
+                if let Ok(id) = editor.id() {
+                    editor
+                        .directory
+                        .observe(id, &editor.form.dx.callsign, requests);
+                    editor.directory.show(ui, id, requests);
+                }
                 ui.horizontal_wrapped(|ui| {
                     cancel = ui.button("Cancel").clicked();
                     let clicked = ui
@@ -171,6 +191,7 @@ impl ContactsUi {
                         {
                             Ok(next) => {
                                 save = Some(ContactAction::Save {
+                                    snapshot: editor.directory.snapshot(&editor.form.dx.callsign),
                                     expected: Some(Box::new(editor.expected.clone())),
                                     next: Box::new(next),
                                 })
@@ -192,6 +213,7 @@ impl ContactsUi {
                 });
             },
         );
+        let owner = editor.id().ok();
         if delete {
             self.deletion = Some(deletion::DeletionConfirmation {
                 expected: editor.expected.clone(),
@@ -199,12 +221,14 @@ impl ContactsUi {
             });
         }
         if reload && let Some(record) = self.current_record.take() {
+            self.closed_editor = owner;
             match ContactEditor::from_record(record) {
                 Ok(value) => self.editor = Some(value),
                 Err(error) => self.notice = Some(error.to_string()),
             }
         }
         if cancel || result.cancel_requested {
+            self.closed_editor = owner;
             self.editor = None;
             self.deletion = None;
         } else if let Some(action) = save {

@@ -59,6 +59,7 @@ fn full_match_and_named_capture() -> TestResult {
     let compiled = compile_definition(&d)?;
     let bindings = BTreeMap::new();
     let context = ExpressionContext {
+        contacted_references: None,
         qso: None,
         current_identifier: Some("US-1234@US-WY"),
         bindings: &bindings,
@@ -101,6 +102,7 @@ fn bindings_are_group_scoped() -> TestResult {
     });
     let bindings = BTreeMap::new();
     let context = ExpressionContext {
+        contacted_references: None,
         qso: Some(&q),
         current_identifier: None,
         bindings: &bindings,

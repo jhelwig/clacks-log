@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE record_identity SET account = ?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "741099b3f60ad1df63936c4bf87421a0b3e651e1705b3f883aa3ef2f0602a269"
+}

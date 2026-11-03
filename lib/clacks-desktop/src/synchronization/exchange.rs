@@ -1,6 +1,6 @@
 //! Receive-first synchronization cycles over the actual SQLite receipt adapter.
 
-use super::{ServerFailure, Socket, pending, receive, send};
+use super::{ConnectionContext, ServerFailure, Socket, pending, receive, send};
 use clacks_client_store::{
     identity::EnrollmentBinding, settings::SettingsSnapshot, store::ClientStore, synchronization,
     transfer,
@@ -8,7 +8,6 @@ use clacks_client_store::{
 use clacks_sync::protocol::messages::{self, ClientMessage, ServerMessage, TransferMessage};
 use std::sync::Arc;
 use tokio::sync::watch;
-use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
@@ -17,10 +16,10 @@ pub(super) async fn response(
     socket: &mut Socket,
     store: &ClientStore,
     dirty: &mut bool,
-    stop: &CancellationToken,
+    connection: &ConnectionContext,
 ) -> anyhow::Result<ServerMessage> {
     loop {
-        match receive(socket, stop).await? {
+        match receive(socket, connection).await? {
             ServerMessage::Changed => *dirty = true,
             ServerMessage::Failure { kind, message } => {
                 return Err(ServerFailure { kind, message }.into());
@@ -40,11 +39,11 @@ pub(super) async fn run(
     binding: &EnrollmentBinding,
     changes: &mut watch::Receiver<()>,
     updates: &watch::Sender<Option<Arc<SettingsSnapshot>>>,
-    stop: &CancellationToken,
-    context: &opentelemetry::trace::SpanContext,
+    connection: &ConnectionContext,
 ) -> anyhow::Result<()> {
+    let stop = &connection.stop;
     let negotiation = tracing::info_span!(parent: None, "desktop.sync.negotiate", account_id=%binding.account, actor_id=%binding.actor);
-    negotiation.add_link(context.clone());
+    negotiation.add_link(connection.trace.clone());
     negotiation.in_scope(|| tracing::info!(event="sync.waiting_for_peer", phase="negotiation", account_id=%binding.account, actor_id=%binding.actor));
     let negotiated_at = std::time::Instant::now();
     let mut dirty = false;
@@ -61,7 +60,7 @@ pub(super) async fn run(
             },
         )
         .await?;
-        let message = response(socket, store, &mut dirty, stop).await?;
+        let message = response(socket, store, &mut dirty, connection).await?;
         match &message {
             ServerMessage::Hello {
                 version, identity, ..
@@ -112,13 +111,14 @@ pub(super) async fn run(
     )?;
     let mut exchange = 1_u64;
     loop {
+        send(socket, stop, ClientMessage::DirectoryConfiguration).await?;
         // Mark local notifications consumed before discovery; writes during it remain visible afterward.
         changes.borrow_and_update();
         dirty = false;
         let local = synchronization::state(store).await?;
         if let Some(ancestry) = &local.lineage {
             let returned = tracing::info_span!(parent: None, "desktop.sync.return", account_id=%binding.account, actor_id=%binding.actor);
-            returned.add_link(context.clone());
+            returned.add_link(connection.trace.clone());
             let evidence = clacks_sync::account::EvidenceView {
                 lineage: ancestry,
                 baselines: &local.baselines,
@@ -132,7 +132,7 @@ pub(super) async fn run(
                     store,
                     clacks_client_store::discovery::Source::start(store).await?,
                     &mut dirty,
-                    stop,
+                    connection,
                 )
                 .instrument(returned.clone())
                 .await?
@@ -147,16 +147,16 @@ pub(super) async fn run(
                 store,
                 clacks_client_store::discovery::Source::repair(store, &server_coverage).await?,
                 &mut dirty,
-                stop,
+                connection,
             )
             .instrument(returned)
             .await?;
         }
         let span = tracing::info_span!(parent: None, "desktop.sync.inbound", account_id=%binding.account, actor_id=%binding.actor, exchange);
-        span.add_link(context.clone());
+        span.add_link(connection.trace.clone());
         span.in_scope(|| tracing::info!(event="sync.waiting_for_peer", phase="inbound", account_id=%binding.account, actor_id=%binding.actor, exchange));
         let started = std::time::Instant::now();
-        let result = inbound(socket, store, exchange, &mut dirty, stop)
+        let result = inbound(socket, store, exchange, &mut dirty, connection)
             .instrument(span.clone())
             .await;
         let outcome = if stop.is_cancelled() {
@@ -193,9 +193,9 @@ pub(super) async fn run(
         )));
         // No local proposal or frozen retry is sent until inbound completion above commits.
         let span = tracing::info_span!(parent: None, "desktop.sync.publish", account_id=%binding.account, actor_id=%binding.actor, exchange);
-        span.add_link(context.clone());
+        span.add_link(connection.trace.clone());
         let started = std::time::Instant::now();
-        let result = pending::publish(socket, store, &mut dirty, stop)
+        let result = pending::publish(socket, store, &mut dirty, connection)
             .instrument(span.clone())
             .await;
         let outcome = if stop.is_cancelled() {
@@ -229,7 +229,7 @@ pub(super) async fn run(
         tokio::select! {
             _ = stop.cancelled() => return Ok(()),
             result = changes.changed() => {result?;},
-            result = receive(socket, stop) => match result? {ServerMessage::Changed => {}, ServerMessage::Failure {kind,message} => return Err(ServerFailure {kind,message}.into()), _ => anyhow::bail!("Unexpected idle synchronization message")},
+            result = receive(socket, connection) => match result? {ServerMessage::Changed => {}, ServerMessage::Failure {kind,message} => return Err(ServerFailure {kind,message}.into()), _ => anyhow::bail!("Unexpected idle synchronization message")},
         }
     }
 }
@@ -240,8 +240,9 @@ pub(super) async fn inbound(
     store: &ClientStore,
     exchange: u64,
     dirty: &mut bool,
-    stop: &CancellationToken,
+    connection: &ConnectionContext,
 ) -> anyhow::Result<clacks_sync::account::InstalledCheckpoint> {
+    let stop = &connection.stop;
     let local = synchronization::state(store).await?;
     send(
         socket,
@@ -257,7 +258,7 @@ pub(super) async fn inbound(
     let ServerMessage::Transfer {
         exchange: id,
         message: TransferMessage::Start(start),
-    } = response(socket, store, dirty, stop).await?
+    } = response(socket, store, dirty, connection).await?
     else {
         anyhow::bail!("Server did not start requested discovery");
     };
@@ -267,7 +268,7 @@ pub(super) async fn inbound(
         let ServerMessage::Transfer {
             exchange: id,
             message,
-        } = response(socket, store, dirty, stop).await?
+        } = response(socket, store, dirty, connection).await?
         else {
             anyhow::bail!("Unexpected discovery response");
         };
@@ -320,8 +321,9 @@ async fn return_accepted(
     store: &ClientStore,
     mut source: clacks_client_store::discovery::Source,
     dirty: &mut bool,
-    stop: &CancellationToken,
+    connection: &ConnectionContext,
 ) -> anyhow::Result<Option<clacks_sync::account::InstalledCheckpoint>> {
+    let stop = &connection.stop;
     let certified = source.start.is_some();
     let exchange = 0;
     if let Some(start) = source.start.clone() {
@@ -352,7 +354,7 @@ async fn return_accepted(
         .await?;
         tracing::info!(event="sync.waiting_for_peer", phase="returned_page_ack", account_id=%store.account_id(), exchange, sequence);
         anyhow::ensure!(
-            matches!(response(socket, store, dirty, stop).await?, ServerMessage::Transfer {exchange:0, message:TransferMessage::PageAck {sequence:actual}} if actual == sequence),
+            matches!(response(socket, store, dirty, connection).await?, ServerMessage::Transfer {exchange:0, message:TransferMessage::PageAck {sequence:actual}} if actual == sequence),
             "Returned page was not acknowledged"
         );
     }
@@ -367,7 +369,7 @@ async fn return_accepted(
         )
         .await?;
         tracing::info!(event="sync.waiting_for_peer", phase="returned_coverage_ack", account_id=%store.account_id(), exchange);
-        match response(socket, store, dirty, stop).await? {
+        match response(socket, store, dirty, connection).await? {
             ServerMessage::Transfer {
                 exchange: 0,
                 message: TransferMessage::CoverageAck(checkpoint),
@@ -391,7 +393,7 @@ async fn return_accepted(
         tracing::info!(event="sync.waiting_for_peer", phase="returned_facts_ack", account_id=%store.account_id(), exchange);
         anyhow::ensure!(
             matches!(
-                response(socket, store, dirty, stop).await?,
+                response(socket, store, dirty, connection).await?,
                 ServerMessage::Transfer {
                     exchange: 0,
                     message: TransferMessage::FactsEnd

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE store_account SET account = ?, server = ?, actor = ?, credential_reference = ?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "292f8c338e7d88b2df3ea02b75766199f6c1a28287dd2db39679f86bca0fdbb7"
+}

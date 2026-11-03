@@ -1,6 +1,7 @@
 //! Composition checks use isolated processes to keep global framework state separate.
 
 mod collector;
+mod directory_login;
 mod membership;
 mod operations;
 mod output;
@@ -115,6 +116,8 @@ fn child_entry() -> anyhow::Result<()> {
             | "partial"
             | "headers-file"
             | "headers-env"
+            | "directory"
+            | "directory-login"
     );
     let mut arguments = vec![
         "clacks-log".to_owned(),
@@ -138,6 +141,13 @@ fn child_entry() -> anyhow::Result<()> {
             "--log-filter".into(),
             "warn,clacks_client_store::migration=info,clacks_client_store::store::creation=info"
                 .into(),
+        ]);
+    }
+
+    if matches!(case.as_str(), "directory" | "directory-login") {
+        arguments.extend([
+            "--log-filter".into(),
+            "warn,clacks_desktop::directory=debug".into(),
         ]);
     }
 
@@ -177,15 +187,25 @@ fn child_entry() -> anyhow::Result<()> {
 
     assert_eq!(!telemetry.diagnostics().is_empty(), case == "unwritable");
 
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()?;
+    let mut builder = if case == "directory" {
+        tokio::runtime::Builder::new_current_thread()
+    } else {
+        tokio::runtime::Builder::new_multi_thread()
+    };
+    let runtime = builder.enable_all().build()?;
+    let mut directory_owner = None;
     if case == "session" {
         session::complete(&runtime, &paths, telemetry)?;
     } else {
         match case.as_str() {
+            "directory-login" => runtime.block_on(directory_login::run())?,
             "retry" => runtime.block_on(operations::retry_contact(&paths))?,
             "membership" => runtime.block_on(membership::run(&paths))?,
+            "directory" => {
+                directory_owner = Some(runtime.block_on(
+                    crate::directory::lookup::tests::ownership_scenario(&paths.database),
+                )?);
+            }
             _ => runtime.block_on(operations::save_contact(&paths))?,
         }
         let shutdown = telemetry.shutdown();
@@ -194,7 +214,9 @@ fn child_entry() -> anyhow::Result<()> {
         }
     }
 
-    assert!(paths.database.exists());
+    if case != "directory-login" {
+        assert!(paths.database.exists());
+    }
     if matches!(case.as_str(), "slow" | "partial") {
         let receiver = collector.as_ref().unwrap();
         let deadline = std::time::Instant::now() + Duration::from_secs(5);
@@ -232,6 +254,9 @@ fn child_entry() -> anyhow::Result<()> {
             .join("");
 
         assert!(!contents.contains("SECRET_SENTINEL"));
+        if case == "directory-login" {
+            directory_login::exclude_secrets(contents.as_bytes());
+        }
         if case == "retry" {
             for callsign in ["W7HEX", "K1ABC"] {
                 assert!(
@@ -247,6 +272,9 @@ fn child_entry() -> anyhow::Result<()> {
 
     if let Some(collector) = &collector {
         let requests = collector.requests.lock().unwrap();
+        if case == "directory-login" {
+            directory_login::verify(&requests)?;
+        }
         if !exporting {
             assert!(requests.is_empty());
         }
@@ -258,6 +286,98 @@ fn child_entry() -> anyhow::Result<()> {
                     .windows(b"SECRET_SENTINEL".len())
                     .any(|bytes| bytes == b"SECRET_SENTINEL")
             );
+        }
+
+        if let Some((lookup, qso)) = directory_owner {
+            use opentelemetry_proto::tonic::{
+                collector::metrics::v1::ExportMetricsServiceRequest,
+                metrics::v1::{metric::Data, number_data_point::Value},
+            };
+            use prost::Message;
+            let mut dispatches = 0;
+            let mut outcomes = std::collections::BTreeMap::new();
+            let mut duration_count = 0;
+            let bodies: Vec<_> = requests
+                .iter()
+                .flat_map(|request| request.body.iter().copied())
+                .collect();
+            for value in [lookup.to_string(), qso.to_string()] {
+                assert!(
+                    bodies
+                        .windows(value.len())
+                        .any(|window| window == value.as_bytes())
+                );
+            }
+            for secret in [
+                "secret&+ sentinel",
+                "fixture-key",
+                "second-key",
+                "The Boss",
+                "Fixture locality",
+                "na-065",
+                "NA-065",
+                "OK2CQR",
+                "W7NEXT",
+                "<QRZDatabase>",
+            ] {
+                assert!(
+                    !bodies
+                        .windows(secret.len())
+                        .any(|window| window == secret.as_bytes())
+                );
+            }
+            for request in requests
+                .iter()
+                .filter(|request| request.path == "/v1/metrics")
+            {
+                let export = ExportMetricsServiceRequest::decode(request.body.as_slice())?;
+                for metric in export
+                    .resource_metrics
+                    .into_iter()
+                    .flat_map(|resource| resource.scope_metrics)
+                    .flat_map(|scope| scope.metrics)
+                {
+                    match (metric.name.as_str(), metric.data) {
+                        ("clacks_directory_lookup_requests_total", Some(Data::Sum(sum))) => {
+                            for point in sum.data_points {
+                                assert_eq!(point.attributes.len(), 1);
+                                if let Some(Value::AsInt(value)) = point.value {
+                                    dispatches += value;
+                                }
+                            }
+                        }
+                        ("clacks_directory_lookups_total", Some(Data::Sum(sum))) => {
+                            for point in sum.data_points {
+                                assert_eq!(point.attributes.len(), 2);
+                                let outcome = point
+                                    .attributes
+                                    .iter()
+                                    .find(|attribute| attribute.key == "outcome")
+                                    .and_then(|attribute| attribute.value.as_ref())
+                                    .and_then(|value| value.value.as_ref())
+                                    .unwrap();
+                                if let (opentelemetry_proto::tonic::common::v1::any_value::Value::StringValue(outcome), Some(Value::AsInt(value))) = (outcome, point.value) { outcomes.insert(outcome.clone(), value); }
+                            }
+                        }
+                        (
+                            "clacks_directory_lookup_duration_seconds",
+                            Some(Data::Histogram(histogram)),
+                        ) => {
+                            for point in histogram.data_points {
+                                assert_eq!(point.attributes.len(), 2);
+                                duration_count += point.count;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            assert_eq!(dispatches, 2);
+            assert_eq!(
+                outcomes,
+                [("not_found".into(), 1), ("success".into(), 1)].into()
+            );
+            assert_eq!(duration_count, 2);
         }
 
         if matches!(case.as_str(), "headers-file" | "headers-env") {
@@ -275,6 +395,18 @@ fn child_entry() -> anyhow::Result<()> {
 #[test]
 fn enabled_export_preserves_committed_store_work() -> anyhow::Result<()> {
     child_case("enabled")
+}
+
+#[test]
+fn directory_telemetry_counts_lookup_dispatch_and_preserves_delayed_owner_without_secrets()
+-> anyhow::Result<()> {
+    child_case("directory")
+}
+
+#[test]
+fn directory_login_traces_distinguish_cached_sessions_and_renewal_without_secrets()
+-> anyhow::Result<()> {
+    child_case("directory-login")
 }
 
 #[test]

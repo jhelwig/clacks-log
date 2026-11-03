@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM original_basis\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "5e30fe47ba5841b944a4f4125a9067140a952e1f327f48b82e6f90016d0d04de"
+}

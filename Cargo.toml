@@ -40,7 +40,7 @@ huskarl-crypto-native = "=0.11.3"
 huskarl-reqwest = { version = "=0.9.3", features = ["rustls-tls"] }
 huskarl-resource-server = "=0.11.12"
 keyring-core = "=1.0.1"
-apple-native-keyring-store = { version = "=1.0.2", features = ["keychain"] }
+apple-native-keyring-store = { version = "=1.0.2", features = ["protected"] }
 windows-native-keyring-store = { version = "=1.1.0", default-features = false }
 reqwest-oauth = { package = "reqwest", version = "=0.13.5", default-features = false, features = ["rustls", "json", "query"] }
 fluent-uri = "=0.4.1"
@@ -53,6 +53,7 @@ leptos_router = "0.8"
 wasm-bindgen = "0.2"
 clacks-web = { path = "lib/clacks-web" }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+httpdate = "1"
 axum_session = "=0.22.0"
 axum_session_sqlx = { version = "=0.12.0", default-features = false, features = ["postgres", "tls-rustls"] }
 tower-http = { version = "0.7", features = ["trace", "fs"] }
@@ -116,6 +117,7 @@ winnow = "=1.0.3"
 num-bigint = "=0.4.8"
 num-integer = "=0.1.47"
 ulid = { version = "3", features = ["serde"] }
+getrandom = "0.4"
 thiserror = "2"
 anyhow = "1"
 
