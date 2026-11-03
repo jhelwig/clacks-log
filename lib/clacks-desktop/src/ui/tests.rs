@@ -148,6 +148,7 @@ impl Window {
         let (_settings_updates, settings_view) = watch::channel(None);
         Self {
             app: DesktopApp::new(UiResources {
+                lookup_view: mpsc::channel(32).1,
                 directory_status: watch::channel(Default::default()).1,
                 enrollment_view: watch::channel(Default::default()).1,
                 status,

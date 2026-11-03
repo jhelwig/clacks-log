@@ -77,6 +77,8 @@ pub(crate) enum SessionStatus {
 
 /// Resources transferred to the runtime while outer composition retains ownership.
 pub(crate) struct SessionResources {
+    /// Lookup outcomes belong to the native window.
+    pub lookup: crate::directory::lookup::Outputs,
     /// Directory installation and diagnostic outputs owned by this workspace session.
     pub directory: crate::directory::provisioning::Outputs,
     /// Nonsecret enrollment progress delivered to the native connection dialog.
@@ -109,6 +111,53 @@ fn publish(
     }
 }
 
+/// Deliver settled settings work before enrollment or normal session admission continues.
+fn settle_settings(
+    result: Result<Option<settings::Completion>, tokio::task::JoinError>,
+    settings_updates: &watch::Sender<Option<Arc<SettingsSnapshot>>>,
+    context: &OnceLock<egui::Context>,
+) {
+    match result {
+        Ok(Some(completion)) => {
+            if let Some(snapshot) = completion.snapshot {
+                if let Some(previous) = settings_updates.borrow().as_ref() {
+                    if let Some(profile) = &previous.operating.selected_profile()
+                        && snapshot.operating.selected_profile().is_none()
+                        && let Some(deleted) = snapshot.profiles.iter().find(|row| {
+                            row.key().id == clacks_sync::record::RecordId::Profile(profile.id())
+                                && matches!(
+                                    row.working_state(),
+                                    Some(clacks_sync::record::RecordState::Deleted)
+                                )
+                        })
+                    {
+                        tracing::info!(event = "operating.deleted_profile_forgotten", account_id = %deleted.key().account, profile_id = %profile.id());
+                    }
+                    if let Some(equipment) = &previous.operating.selected_equipment()
+                        && snapshot.operating.selected_equipment().is_none()
+                        && let Some(deleted) = snapshot.equipment.iter().find(|row| {
+                            row.key().id == clacks_sync::record::RecordId::Equipment(equipment.id())
+                                && matches!(
+                                    row.working_state(),
+                                    Some(clacks_sync::record::RecordState::Deleted)
+                                )
+                        })
+                    {
+                        tracing::info!(event = "operating.deleted_equipment_forgotten", account_id = %deleted.key().account, equipment_id = %equipment.id());
+                    }
+                }
+                settings_updates.send_replace(Some(Arc::new(snapshot)));
+            }
+            let _ = completion.reply.send(completion.response);
+            if let Some(context) = context.get() {
+                context.request_repaint();
+            }
+        }
+        Ok(None) => {}
+        Err(_) => tracing::error!(event = "desktop.settings_task_failed"),
+    }
+}
+
 /// Own workspace work until it settles, then close every resource before acknowledging exit.
 pub(crate) async fn run(
     resources: SessionResources,
@@ -116,6 +165,7 @@ pub(crate) async fn run(
     status: watch::Sender<SessionStatus>,
 ) -> anyhow::Result<()> {
     let SessionResources {
+        lookup,
         directory,
         enrollment_updates,
         paths,
@@ -136,6 +186,10 @@ pub(crate) async fn run(
 
     let mut work = JoinSet::new();
     let mut sync_work = JoinSet::new();
+    let mut lookup_work = JoinSet::new();
+    let mut lookup_stop = CancellationToken::new();
+    let (lookup_binding, lookup_binding_view) = watch::channel(None);
+    let mut lookup_commands: Option<mpsc::Sender<crate::directory::lookup::LookupCommand>> = None;
     let mut sync_stop = CancellationToken::new();
     let (sync_updates, mut sync_progress) =
         watch::channel(crate::synchronization::Status::Disconnected);
@@ -167,6 +221,7 @@ pub(crate) async fn run(
             && font_work.is_empty()
             && enrollment_work.is_empty()
             && sync_work.is_empty()
+            && lookup_work.is_empty()
         {
             break;
         }
@@ -178,6 +233,9 @@ pub(crate) async fn run(
                     enrollment_stop.cancel();
                 },
                 Some(SessionCommand::Enrollment(command)) if closing.is_none() && enrollment_work.is_empty() => {
+                    while let Some(result) = work.join_next().await {
+                        settle_settings(result, &settings_updates, &context);
+                    }
                     if let Some(workspace) = &opened {
                         enrollment_stop = CancellationToken::new();
                         enrollment_work.spawn(
@@ -218,6 +276,7 @@ pub(crate) async fn run(
                         closing = Some(started);
                         enrollment_stop.cancel();
                         sync_stop.cancel();
+                        lookup_stop.cancel();
                         settings_requests.close();
                         while let Ok(request) = settings_requests.try_recv() { let _ = request.reply.send(settings::SettingsResponse::Closing); }
                         tracing::info!(event = "desktop.shutdown_requested");
@@ -236,6 +295,7 @@ pub(crate) async fn run(
                     }
                 }
             },
+            _ = lookup_work.join_next(), if !lookup_work.is_empty() => {},
             result = font_work.join_next(), if !font_work.is_empty() => {
                 if matches!(result, Some(Err(_))) { tracing::error!(event = "desktop.font_task_failed"); }
                 if let Some(context) = context.get() { context.request_repaint(); }
@@ -248,8 +308,6 @@ pub(crate) async fn run(
                             message: "The enrollment worker stopped unexpectedly; retry the saved attempt.".into(),
                             resume_available: true,
                             discard_available: false,
-                            destination: None,
-                            destination_change_available: false,
                         },
                     };
                     enrollment_updates.send_replace(outcome);
@@ -257,11 +315,22 @@ pub(crate) async fn run(
             },
             _ = enrollment_progress.changed() => {
                 let ready = matches!(*enrollment_progress.borrow_and_update(), EnrollmentStatus::Ready {..});
-                if ready && closing.is_none() && let Some(workspace) = &opened {
+                let account_changed = if let Some(workspace) = &opened {
+                    clacks_client_store::identity::binding(&workspace.store).await?
+                        .is_some_and(|binding| binding.account != workspace.store.account_id())
+                } else { false };
+                if enrollment_work.is_empty() && (ready || account_changed) && closing.is_none() && let Some(workspace) = opened.take() {
                     sync_stop.cancel();
                     while let Some(result) = sync_work.join_next().await { if let Err(error) = result { tracing::error!(event="sync.worker.failed", error.type=if error.is_panic() { "task_panic" } else { "task_cancelled" }); } }
+                    lookup_stop.cancel();
+                    while lookup_work.join_next().await.is_some() {}
+                    lookup_commands = None;
+                    workspace.store.close().await?;
                     sync_stop = CancellationToken::new();
-                    start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_stop, &directory).await?;
+                    lookup_stop = CancellationToken::new();
+                    attempt_started = Instant::now();
+                    publish(&status, &context, SessionStatus::Opening);
+                    opening::begin(&mut opening, paths.clone());
                 }
                 if let Some(context) = context.get() {context.request_repaint();}
             },
@@ -306,8 +375,6 @@ pub(crate) async fn run(
                                         message: error.to_string(),
                                         resume_available: false,
                                         discard_available: false,
-                                        destination: None,
-                                        destination_change_available: false,
                                     },
                                 };
                                 enrollment_updates.send_replace(enrollment);
@@ -327,6 +394,10 @@ pub(crate) async fn run(
                                     },
                                 );
                                 start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_stop, &directory).await?;
+                                lookup_binding.send_replace(clacks_client_store::identity::binding(&workspace.store).await?);
+                                let (sender, receiver) = mpsc::channel(16);
+                                lookup_commands = Some(sender);
+                                lookup_work.spawn(crate::directory::lookup::run(workspace.store.clone(), lookup_binding_view.clone(), directory.installed.subscribe(), receiver, lookup.clone(), local_changes.clone(), lookup_stop.clone()));
                             }
                             opened = Some(workspace);
                         }
@@ -345,16 +416,27 @@ pub(crate) async fn run(
                     }
                 }
             },
-            request = settings_requests.recv(), if settings_open && closing.is_none() && work.is_empty() => {
+            request = settings_requests.recv(), if settings_open && closing.is_none() && work.is_empty() && enrollment_work.is_empty() => {
                 match request {
                     Some(request) => {
                         if let Some(workspace) = &opened {
+                            if let settings::SettingsAction::Directory(command) = request.action {
+                                if let Some(sender) = &lookup_commands { let _ = sender.send(command).await; }
+                                let _ = request.reply.send(settings::SettingsResponse::Directory);
+                                continue;
+                            }
+                            let lookup = lookup_commands.clone();
+                            let saved = match &request.action { settings::SettingsAction::Contacts(settings::contacts::ContactAction::Save { next, .. }) => Some(next.id()), _ => None };
                             let store = workspace.store.clone();
                             let changes = local_changes.clone();
                             work.spawn(async move {
                                 let shared = request.action.is_shared_write();
                                 let result = settings::execute(store, request).await;
                                 if shared && result.is_some() {changes.send_replace(());}
+                                if let (Some(qso), Some(sender), Some(completion)) = (saved, lookup, result.as_ref()) {
+                                    let response = match &completion.response { settings::SettingsResponse::RefreshFailed { outcome, .. } => outcome.as_ref(), other => other };
+                                    if matches!(response, settings::SettingsResponse::Contacts(settings::contacts::ContactResponse::Saved(clacks_client_store::save::SaveOutcome::Saved(_) | clacks_client_store::save::SaveOutcome::Unchanged(_)))) { let _ = sender.send(crate::directory::lookup::LookupCommand::Saved { qso }).await; }
+                                }
                                 result
                             }.in_current_span().with_current_subscriber());
                         } else {
@@ -365,30 +447,7 @@ pub(crate) async fn run(
                 }
             },
             completion = work.join_next(), if !work.is_empty() => {
-                match completion {
-                    Some(Ok(Some(completion))) => {
-                        if let Some(snapshot) = completion.snapshot {
-                            if let Some(previous) = settings_updates.borrow().as_ref() {
-                                if let Some(profile) = &previous.operating.selected_profile()
-                                    && snapshot.operating.selected_profile().is_none()
-                                    && let Some(deleted) = snapshot.profiles.iter().find(|row| row.key().id == clacks_sync::record::RecordId::Profile(profile.id()) && matches!(row.working_state(), Some(clacks_sync::record::RecordState::Deleted))) {
-                                    tracing::info!(event = "operating.deleted_profile_forgotten", account_id = %deleted.key().account, profile_id = %profile.id());
-                                }
-                                if let Some(equipment) = &previous.operating.selected_equipment()
-                                    && snapshot.operating.selected_equipment().is_none()
-                                    && let Some(deleted) = snapshot.equipment.iter().find(|row| row.key().id == clacks_sync::record::RecordId::Equipment(equipment.id()) && matches!(row.working_state(), Some(clacks_sync::record::RecordState::Deleted))) {
-                                    tracing::info!(event = "operating.deleted_equipment_forgotten", account_id = %deleted.key().account, equipment_id = %equipment.id());
-                                }
-                            }
-                            settings_updates.send_replace(Some(Arc::new(snapshot)));
-                        }
-                        let _ = completion.reply.send(completion.response);
-                        if let Some(context) = context.get() { context.request_repaint(); }
-                    }
-                    Some(Ok(None)) => {},
-                    Some(Err(_)) => tracing::error!(event = "desktop.settings_task_failed"),
-                    None => {},
-                }
+                if let Some(completion) = completion { settle_settings(completion, &settings_updates, &context); }
             },
             changed = directory_progress.changed() => {
                 if changed.is_ok() && let Some(context) = context.get() { context.request_repaint(); }

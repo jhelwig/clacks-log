@@ -23,16 +23,12 @@ pub(super) struct EnrollmentUi {
     server: String,
     /// Installation label for browser approval.
     label: String,
-    /// Optional first-enrollment workspace directory override.
-    destination: String,
     /// Whether this window's workspace is already enrolled.
     enrolled: bool,
     /// A durable attempt is available to resume.
     resume_available: bool,
     /// A pre-binding attempt can be explicitly abandoned.
     discard_available: bool,
-    /// The saved attempt's uninstalled destination can be corrected.
-    destination_change_available: bool,
     /// A request is queued before its first runtime status arrives.
     submitted: bool,
     /// Shared validation debounce, independent of operation progress.
@@ -53,11 +49,9 @@ impl Default for EnrollmentUi {
             open: false,
             server: String::new(),
             label: "Desktop".into(),
-            destination: String::new(),
             enrolled: false,
             resume_available: false,
             discard_available: false,
-            destination_change_available: false,
             submitted: false,
             validation: Default::default(),
             errors: Vec::new(),
@@ -106,18 +100,12 @@ impl EnrollmentUi {
                     enrolled,
                     resume_available,
                     discard_available,
-                    destination,
-                    destination_change_available,
+                    ..
                 } => {
                     if !self.open || self.server.is_empty() {
                         self.server = server.clone().unwrap_or_default();
                     }
                     self.enrolled = *enrolled;
-                    self.destination_change_available = *destination_change_available;
-                    self.destination = destination
-                        .as_ref()
-                        .map(|path| path.display().to_string())
-                        .unwrap_or_default();
                     self.resume_available = *resume_available;
                     self.discard_available = *discard_available;
                     self.validation.invalidate();
@@ -125,15 +113,8 @@ impl EnrollmentUi {
                 EnrollmentStatus::Failed {
                     resume_available,
                     discard_available,
-                    destination,
-                    destination_change_available,
                     ..
                 } => {
-                    self.destination_change_available = *destination_change_available;
-                    self.destination = destination
-                        .as_ref()
-                        .map(|path| path.display().to_string())
-                        .unwrap_or_default();
                     self.resume_available = *resume_available;
                     self.discard_available = *discard_available;
                 }
@@ -142,7 +123,6 @@ impl EnrollmentUi {
                 }
                 EnrollmentStatus::Ready { .. } => {
                     self.resume_available = false;
-                    self.destination_change_available = false;
                     self.discard_available = false;
                 }
                 _ => {}
@@ -156,14 +136,6 @@ impl EnrollmentUi {
                 status,
                 EnrollmentStatus::Authorizing { .. } | EnrollmentStatus::Saving
             );
-        let destination_baseline = match &status {
-            EnrollmentStatus::Idle { destination, .. }
-            | EnrollmentStatus::Failed { destination, .. } => destination
-                .as_ref()
-                .map(|path| path.display().to_string())
-                .unwrap_or_default(),
-            _ => String::new(),
-        };
         let now = context.input(|input| input.time);
 
         if self.validation.due(now) {
@@ -190,7 +162,7 @@ impl EnrollmentUi {
             },
             |ui| {
                 ui.style_mut().spacing.text_edit_width = ui.available_width();
-                ui.label(if self.enrolled {"Reauthorize this workspace with its existing account. A closed or unknown client receives a new writer identity; old pending work will require review."}else{"Connect opens a separate account workspace. This standalone workspace's contacts and operating settings stay here."});
+                ui.label(if self.enrolled {"Reauthorize this workspace with its existing account. A closed or unknown client receives a new writer identity; old pending work will require review."}else{"Connect this app to your account. Empty logs connect here. Existing local data is preserved; populated logs require export and import."});
                 let mut edited = fields::text(
                     ui,
                     egui::Id::unique("enrollment.server"),
@@ -219,25 +191,6 @@ impl EnrollmentUi {
                     },
                 )
                 .changed();
-                if !self.enrolled && (!self.resume_available || self.destination_change_available) {
-                    let destination_edited =
-                        self.resume_available && self.destination != destination_baseline;
-                    edited |= fields::text(
-                        ui,
-                        egui::Id::unique("enrollment.destination"),
-                        "Workspace directory",
-                        &mut self.destination,
-                        FieldPresentation {
-                            edited: destination_edited,
-                            read_only: busy,
-                            errors: &[],
-                            validation_label: None,
-                            radio_data: false,
-                        },
-                    )
-                    .changed();
-                    ui.small("Leave blank for the managed account directory.");
-                }
                 if edited {
                     self.validation.edited(now);
                 }
@@ -281,8 +234,6 @@ impl EnrollmentUi {
                         action = Some(EnrollmentCommand::Begin {
                             server: self.server.trim().into(),
                             label: self.label.trim().into(),
-                            destination: (!self.destination.trim().is_empty())
-                                .then(|| self.destination.trim().into()),
                         });
                     }
                     if self.resume_available
@@ -296,24 +247,12 @@ impl EnrollmentUi {
                     }
                     if self.resume_available
                         && !self.discard_available
-                        && !self.destination_change_available
                         && ui
                             .add_enabled(!busy, egui::Button::new("Authorize again in browser"))
                             .clicked()
                     {
                         action = Some(EnrollmentCommand::AuthorizeAgain {
                             label: self.label.trim().into(),
-                        });
-                    }
-                    if self.destination_change_available
-                        && self.resume_available
-                        && ui
-                            .add_enabled(!busy, egui::Button::new("Use this destination"))
-                            .clicked()
-                    {
-                        action = Some(EnrollmentCommand::SetDestination {
-                            destination: (!self.destination.trim().is_empty())
-                                .then(|| self.destination.trim().into()),
                         });
                     }
                     if self.discard_available

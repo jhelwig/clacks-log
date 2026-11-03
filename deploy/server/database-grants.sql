@@ -33,6 +33,8 @@ GRANT SELECT, INSERT ON clacks.recorded_location TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.station_reference TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.equipment_snapshot TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.qso_payload TO clacks_runtime;
+GRANT SELECT, INSERT ON clacks.directory_payload,
+    clacks.directory_snapshot, clacks.directory_reference TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.qso_tag TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.tag_payload TO clacks_runtime;
 GRANT SELECT, INSERT ON clacks.profile_payload TO clacks_runtime;

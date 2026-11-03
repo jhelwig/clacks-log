@@ -40,17 +40,21 @@ impl DirectoryRecord {
     ///
     /// Returns whether native values changed. Failure/not-found are not input values.
     pub fn record(&mut self, snapshot: DirectorySnapshot) -> anyhow::Result<bool> {
-        if let Some(current) = self.snapshots.get(snapshot.key()) {
-            if current.lookup_id() == snapshot.lookup_id() {
-                anyhow::ensure!(
-                    current == &snapshot,
-                    "directory lookup identity has different contents"
-                );
-                return Ok(false);
-            }
-            if current.order(&snapshot).is_ge() {
-                return Ok(false);
-            }
+        if let Some(current) = self
+            .snapshots
+            .values()
+            .find(|current| current.lookup_id() == snapshot.lookup_id())
+        {
+            anyhow::ensure!(
+                current == &snapshot,
+                "directory lookup identity has different contents"
+            );
+            return Ok(false);
+        }
+        if let Some(current) = self.snapshots.get(snapshot.key())
+            && current.compare_lookup(&snapshot).is_ge()
+        {
+            return Ok(false);
         }
         self.snapshots.insert(snapshot.key().clone(), snapshot);
         Ok(true)
@@ -87,6 +91,15 @@ impl TryFrom<RecordFields> for DirectoryRecord {
     type Error = anyhow::Error;
     /// Reject a payload whose lookup association differs from its storage key.
     fn try_from(value: RecordFields) -> Result<Self, Self::Error> {
+        let identities: std::collections::BTreeSet<_> = value
+            .snapshots
+            .values()
+            .map(|snapshot| snapshot.lookup_id())
+            .collect();
+        anyhow::ensure!(
+            identities.len() == value.snapshots.len(),
+            "directory lookup identity has different contents"
+        );
         anyhow::ensure!(
             value
                 .snapshots

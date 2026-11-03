@@ -240,7 +240,10 @@ fn editor_membership_uses_the_existing_save_boundary() {
     ui.get_by_label("Cancel").click();
     ui.run();
     assert!(ui.state().view.editor.is_none());
-    assert!(receiver.try_recv().is_err());
+    assert!(matches!(
+        receiver.try_recv().unwrap().action,
+        SettingsAction::Directory(crate::directory::lookup::LookupCommand::Deleted { .. })
+    ));
     let mut editor = editor::ContactEditor::from_record(record.clone()).unwrap();
     editor.form.comment = "Corrected fact".into();
     ui.state_mut().view.editor = Some(editor);
@@ -273,7 +276,8 @@ fn editor_membership_uses_the_existing_save_boundary() {
     ui.get_by_label("Save changes").click();
     ui.run();
     let request = receiver.try_recv().unwrap();
-    let SettingsAction::Contacts(ContactAction::Save { expected, next }) = request.action else {
+    let SettingsAction::Contacts(ContactAction::Save { expected, next, .. }) = request.action
+    else {
         panic!("save")
     };
     assert_eq!(expected.as_deref(), Some(&record));
@@ -447,4 +451,123 @@ fn history_membership_request_uses_all_selected_ids() {
             .is_err()
     );
     assert!(ui.state().view.membership.is_none());
+}
+
+#[test]
+fn directory_opening_saved_contact_does_not_refresh_its_unchanged_call() {
+    let record = crate::ui::tests::fixtures::row(clacks_sync::record::RecordValue::Qso(Box::new(
+        fixtures::contact(),
+    )));
+    let mut editor = editor::ContactEditor::from_record(record).unwrap();
+    let (sender, mut requests) = tokio::sync::mpsc::channel(4);
+    editor
+        .directory
+        .observe(editor.id().unwrap(), &editor.form.dx.callsign, &sender);
+    assert!(requests.try_recv().is_err());
+    editor.form.dx.callsign = "W7OTHER".into();
+    editor
+        .directory
+        .observe(editor.id().unwrap(), &editor.form.dx.callsign, &sender);
+    assert!(matches!(
+        requests.try_recv().unwrap().action,
+        SettingsAction::Directory(crate::directory::lookup::LookupCommand::CallChanged { .. })
+    ));
+}
+
+#[test]
+fn directory_editor_close_keeps_its_notification_until_the_session_admits_it() {
+    let mut view = ContactsUi::default();
+    let qso = clacks_model::ids::QsoId::new();
+    view.closed_editor = Some(qso);
+    let (sender, mut requests) = tokio::sync::mpsc::channel(1);
+    sender
+        .try_send(SettingsRequest {
+            action: SettingsAction::Refresh,
+            reply: tokio::sync::oneshot::channel().0,
+        })
+        .unwrap();
+    assert!(!view.flush_closed_editor(&sender));
+    assert_eq!(view.closed_editor, Some(qso));
+    requests.try_recv().unwrap();
+    assert!(view.flush_closed_editor(&sender));
+    assert!(view.closed_editor.is_none());
+    assert!(
+        matches!(requests.try_recv().unwrap().action, SettingsAction::Directory(crate::directory::lookup::LookupCommand::Deleted { qso: owner }) if owner == qso)
+    );
+}
+
+#[test]
+fn saved_editor_displays_directory_name_without_recording_it_on_save() {
+    use clacks_model::directory::values::{
+        DirectoryFacts, DirectoryProvider, DirectorySnapshot, DirectorySnapshotFields, LookupKey,
+    };
+    use egui_kittest::kittest::{NodeT, Queryable};
+    let mut contact = fixtures::contact();
+    crate::test_support::edit(&mut contact, |fields| {
+        fields.contacted_operator = None;
+        fields.contacted_station.location = None;
+        Ok(())
+    });
+    let mut editor = editor::ContactEditor::from_record(fixtures::row(RecordValue::Qso(Box::new(
+        contact.clone(),
+    ))))
+    .unwrap();
+    editor.directory.retain(Some(Box::new(
+        DirectorySnapshot::new(DirectorySnapshotFields {
+            provider: DirectoryProvider::Qrz,
+            key: LookupKey::from_recorded(&contact.contacted_station().callsign),
+            lookup_time: clacks_model::scalar::UtcTimestamp::new(1, 0).unwrap(),
+            lookup_id: clacks_model::ids::LookupId::new(),
+            facts: DirectoryFacts {
+                name: Some("Retained directory name".into()),
+                ..Default::default()
+            },
+        })
+        .unwrap(),
+    )));
+    let view = ContactsUi {
+        editor: Some(editor),
+        ..Default::default()
+    };
+    let (sender, mut requests) = mpsc::channel(8);
+    let catalog = fixtures::snapshot().logbooks;
+    let mut ui = Harness::builder()
+        .allow_missing_glyphs()
+        .with_size(egui::vec2(1400.0, 1600.0))
+        .build_ui_state(
+            move |ui, view: &mut ContactsUi| {
+                view.show_editor(ui.ctx(), &DefinitionSet::default(), &sender, &catalog)
+            },
+            view,
+        );
+    assert_eq!(
+        ui.get_by_role_and_label(egui::Role::TextInput, "Name")
+            .accesskit_node()
+            .data()
+            .placeholder(),
+        Some("Retained directory name")
+    );
+    assert!(
+        ui.query_by_label("QRZ name: Retained directory name")
+            .is_none()
+    );
+    ui.get_by_label("Save changes").scroll_to_me();
+    ui.run();
+    ui.get_by_label("Save changes").click();
+    ui.run();
+    let request = requests.try_recv().unwrap();
+    let SettingsAction::Contacts(ContactAction::Save {
+        next,
+        snapshot: Some(snapshot),
+        ..
+    }) = request.action
+    else {
+        panic!("save with retained directory snapshot")
+    };
+    assert!(next.contacted_operator().is_none());
+    assert!(next.contacted_station().location.is_none());
+    assert_eq!(
+        snapshot.facts().name.as_deref(),
+        Some("Retained directory name")
+    );
 }

@@ -1,30 +1,28 @@
-//! Durable workspace binding after native credentials have been saved.
+//! Durable enrollment of the workspace owned by the current application instance.
 
 use super::{AuthorizedEnrollment, flow};
-use crate::{
-    instance::{self, Election},
-    workspace::{AppDirectories, WorkspacePaths},
-};
 use anyhow::Context;
 use clacks_client_store::{
     enrollment::{self, EnrollmentAttempt, RecoveryDisposition},
     identity::{self, EnrollmentBinding},
-    store::{ClientStore, StoreSettings},
+    store::ClientStore,
 };
 use std::path::PathBuf;
 use tokio_util::sync::CancellationToken;
 
-/// Durable completion result retained until launch and obsolete-credential cleanup succeed.
+/// Committed enrollment retained until obsolete-credential cleanup succeeds.
 pub(crate) struct CompletedWorkspace {
-    /// Account-qualified workspace to open through ordinary application startup.
+    /// Existing workspace directory; enrollment does not launch another process.
     pub destination: PathBuf,
-    /// Exact saved attempt eligible for clearing after subsequent composition succeeds.
+    /// Exact saved attempt eligible for clearing after cleanup.
     pub attempt: EnrollmentAttempt,
     /// Committed verified binding.
     pub binding: EnrollmentBinding,
+    /// Same database qualified by the newly installed account identity.
+    pub store: ClientStore,
 }
 
-/// Bind a verified result without repurposing the initiating standalone account.
+/// Enroll this workspace, rejecting populated standalone data according to D56.
 #[tracing::instrument(skip_all, name = "desktop.enrollment.complete")]
 pub(crate) async fn finish(
     initiating: &ClientStore,
@@ -56,112 +54,39 @@ pub(crate) async fn finish(
             .unwrap_or_else(|| authorized.server.clone()),
         credential_reference: authorized.credential_reference.clone(),
     };
-    let destination = match attempt.destination().cloned() {
-        Some(directory) => directory,
-        None if expected.is_none() => AppDirectories::discover()?
-            .data
-            .join("accounts")
-            .join(next.account.to_string())
-            .join(next.actor.to_string()),
-        None => anyhow::bail!("The saved recovery attempt has no workspace directory"),
-    };
+    let destination = attempt
+        .destination()
+        .cloned()
+        .context("The saved attempt has no current workspace directory")?;
     anyhow::ensure!(
         !cancellation.is_cancelled(),
         "Enrollment completion cancelled; saved credentials remain available for retry"
     );
-    let paths = WorkspacePaths::at(&destination)?;
-    attempt.prepare_completion(paths.directory.clone())?;
+    attempt.prepare_completion(destination.clone())?;
     enrollment::save_attempt(initiating, &attempt).await?;
-
-    let outcome = match &expected {
-        None => RecoveryDisposition::New,
-        Some(previous) if previous.actor == next.actor => RecoveryDisposition::SameActor,
-        Some(previous) => RecoveryDisposition::FreshActor {
-            former_actor: previous.actor,
-        },
-    };
     let current = identity::binding(initiating).await?;
-    if expected.is_some() && (current == expected || current.as_ref() == Some(&next)) {
-        install(initiating, expected.as_ref(), &next, outcome).await?;
+    let store = if current.as_ref() == Some(&next) {
+        initiating.clone()
+    } else if let Some(previous) = &expected {
+        let outcome = if previous.actor == next.actor {
+            RecoveryDisposition::SameActor
+        } else {
+            RecoveryDisposition::FreshActor {
+                former_actor: previous.actor,
+            }
+        };
+        enrollment::install(initiating, Some(previous), next.clone(), outcome).await?;
+        initiating.clone()
     } else {
-        let _owner = match instance::elect(&paths)? {
-            Election::Owner(owner) => owner,
-            Election::Contended(address) => {
-                instance::activation::request_async(&address).await?;
-                anyhow::bail!(
-                    "Another Clacks process owns the destination workspace. Its window was activated; retry completion after it closes."
-                );
-            }
-        };
-        let existed = paths.database.try_exists()?;
-        let opened = async {
-            if existed {
-                ClientStore::open(&paths.database, next.account, StoreSettings::default()).await
-            } else {
-                ClientStore::create(&paths.database, next.account, StoreSettings::default()).await
-            }
-        }
-        .await;
-        let destination_store = match opened {
-            Ok(store) => store,
-            Err(error) => {
-                if !existed
-                    || matches!(
-                        error.downcast_ref::<clacks_client_store::error::StoreError>(),
-                        Some(clacks_client_store::error::StoreError::WrongAccount { .. })
-                    )
-                {
-                    retain_rejected_destination(initiating, &mut attempt).await?;
-                }
-                return Err(error.context("The destination could not be opened. Correct an uninstalled destination, or restore access and resume an existing one"));
-            }
-        };
-        let installed = install(&destination_store, expected.as_ref(), &next, outcome).await;
-        let retained: anyhow::Result<()> = async {
-            if installed.is_err()
-                && identity::binding(&destination_store).await?.as_ref() != Some(&next)
-            {
-                retain_rejected_destination(initiating, &mut attempt).await?;
-            }
-            Ok(())
-        }
-        .await;
-        let closed = destination_store.close().await;
-        retained?;
-        installed?;
-        closed?;
-    }
-
+        enrollment::first::install(initiating, &next).await?
+    };
     attempt.destination_bound()?;
-    enrollment::save_attempt(initiating, &attempt).await?;
+    enrollment::save_attempt(&store, &attempt).await?;
     tracing::info!(account_id=%next.account,actor_id=%next.actor,"Verified enrollment installed; awaiting synchronization");
     Ok(CompletedWorkspace {
-        destination: paths.directory,
+        destination,
         attempt,
         binding: next,
+        store,
     })
-}
-
-/// Accept an already completed exact binding or perform the guarded installation once.
-async fn install(
-    store: &ClientStore,
-    expected: Option<&EnrollmentBinding>,
-    next: &EnrollmentBinding,
-    outcome: RecoveryDisposition,
-) -> anyhow::Result<()> {
-    if identity::binding(store).await?.as_ref() == Some(next) {
-        return Ok(());
-    }
-    enrollment::install(store, expected, next.clone(), outcome).await
-}
-
-/// Keep a first-enrollment path editable after a known pre-binding rejection.
-async fn retain_rejected_destination(
-    initiating: &ClientStore,
-    attempt: &mut EnrollmentAttempt,
-) -> anyhow::Result<()> {
-    if attempt.destination_rejected() {
-        enrollment::save_attempt(initiating, attempt).await?;
-    }
-    Ok(())
 }

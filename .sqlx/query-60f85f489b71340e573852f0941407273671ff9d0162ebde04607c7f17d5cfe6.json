@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT group_id, identifier FROM directory_reference WHERE payload_id = ?1 AND account = ?2 AND lookup_key = ?3 ORDER BY group_id, identifier\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "group_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_reference",
+            "name": "group_id"
+          }
+        }
+      },
+      {
+        "name": "identifier",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_reference",
+            "name": "identifier"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "60f85f489b71340e573852f0941407273671ff9d0162ebde04607c7f17d5cfe6"
+}

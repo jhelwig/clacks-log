@@ -72,6 +72,17 @@ pub(super) fn review_reason(
     if shared_state.is_some_and(|s| s.same_values(&pending.working)) {
         return Ok(None);
     }
+    if shared_state.is_some_and(|shared| {
+        matches!(
+            (shared, &pending.working),
+            (
+                crate::record::RecordState::Live(crate::record::RecordValue::Directory(_)),
+                crate::record::RecordState::Live(crate::record::RecordValue::Directory(_))
+            )
+        )
+    }) {
+        return Ok(None);
+    }
     if let OriginalBasis::Unavailable { .. } = &pending.original {
         return Ok(Some(ReviewReason::MissingOriginal));
     }

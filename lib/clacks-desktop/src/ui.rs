@@ -42,6 +42,8 @@ use tracing_appender::non_blocking::ErrorCounter;
 
 /// Runtime handles and diagnostic resources transferred to the native window.
 pub(crate) struct UiResources {
+    /// Original-owner directory results.
+    pub lookup_view: mpsc::Receiver<crate::directory::lookup::LookupUpdate>,
     /// Separate protected-directory installation diagnostics.
     pub directory_status: watch::Receiver<crate::directory::provisioning::ProvisioningStatus>,
     /// Nonsecret enrollment context and progress from the owning session.
@@ -68,6 +70,8 @@ pub(crate) struct UiResources {
 
 /// Window-owned view state and standard communication handles.
 pub(crate) struct DesktopApp {
+    /// Pending results drained independently from form navigation.
+    lookup_view: mpsc::Receiver<crate::directory::lookup::LookupUpdate>,
     /// Current directory-only diagnosis; logging remains independently available.
     directory_status: watch::Receiver<crate::directory::provisioning::ProvisioningStatus>,
     /// Connection dialog, independent of logging and saved-settings editors.
@@ -120,6 +124,7 @@ impl DesktopApp {
     /// Attach the actual session and diagnostic state to one native window.
     pub fn new(resources: UiResources) -> Self {
         let UiResources {
+            lookup_view,
             directory_status,
             enrollment_view,
             status,
@@ -133,6 +138,7 @@ impl DesktopApp {
             file_failure,
         } = resources;
         Self {
+            lookup_view,
             directory_status,
             enrollment: Default::default(),
             enrollment_view,
@@ -181,6 +187,9 @@ impl DesktopApp {
 
     /// Apply background notifications and native close handling, including while hidden.
     fn update_lifecycle(&mut self, context: &egui::Context) {
+        while let Ok(update) = self.lookup_view.try_recv() {
+            self.workbench.lookup_update(update);
+        }
         if self.activation.has_changed().unwrap_or(false) {
             self.activation.borrow_and_update();
             context.send_viewport_cmd(egui::ViewportCommand::Visible(true));

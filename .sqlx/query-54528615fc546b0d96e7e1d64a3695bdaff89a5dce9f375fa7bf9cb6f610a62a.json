@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM pending_record\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "54528615fc546b0d96e7e1d64a3695bdaff89a5dce9f375fa7bf9cb6f610a62a"
+}

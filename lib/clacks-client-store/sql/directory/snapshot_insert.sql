@@ -1,0 +1,2 @@
+INSERT INTO directory_snapshot(payload_id, account, lookup_key, provider, lookup_seconds, lookup_nanoseconds, lookup_id, name, position_kind, locator, latitude, longitude, grid_length, dxcc, primary_subdivision, secondary_subdivision, cq_zone, itu_zone, locality, returned_callsign, supplied_locator, supplied_latitude, supplied_longitude, coordinate_source)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)

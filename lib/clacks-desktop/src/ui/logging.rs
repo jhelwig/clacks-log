@@ -1,6 +1,7 @@
 //! One unfinished QSO shared by quick entry and adjacent details.
 
 pub(super) mod details;
+pub(in crate::ui) mod directory;
 pub(in crate::ui) mod entry;
 mod responses;
 #[cfg(test)]
@@ -25,6 +26,8 @@ use tokio::sync::{mpsc, oneshot};
 
 /// Window-owned entry, exact submitted facts and its typed response.
 pub(super) struct LoggingUi {
+    /// Separate lookup preview and diagnosis.
+    directory: directory::DirectoryView,
     /// One unfinished contact and its stable submission identity.
     entry: NewEntry,
     /// Copied input basis for changed-field presentation.
@@ -61,6 +64,7 @@ impl Default for LoggingUi {
         let view = SelectedView::AllContacts;
         let entry = NewEntry::new(&active, view, time::now());
         Self {
+            directory: Default::default(),
             baseline: entry.form.clone(),
             entry,
             definitions: DefinitionSet::default(),
@@ -80,6 +84,12 @@ impl Default for LoggingUi {
 }
 
 impl LoggingUi {
+    /// Receive only results owned by the current unfinished entry.
+    pub(super) fn lookup_update(&mut self, update: &crate::directory::lookup::LookupUpdate) {
+        self.directory
+            .update(self.entry.id, &self.entry.form.dx.callsign, update);
+    }
+
     /// Borrow the unfinished contacted call for Worked Before without exposing the draft.
     pub fn contact_call(&self) -> &str {
         &self.entry.form.dx.callsign
@@ -163,6 +173,7 @@ impl LoggingUi {
         ui.strong("QSO entry");
         ui.separator();
         let before = self.entry.form.clone();
+        let fallback = self.directory.fallback(&self.entry.form, &self.definitions);
         let action = ui
             .add_enabled_ui(self.pending.is_none(), |ui| {
                 entry::show(
@@ -172,10 +183,14 @@ impl LoggingUi {
                     &self.errors,
                     self.focus_call,
                     true,
+                    &fallback,
                 )
             })
             .inner;
         self.focus_call = false;
+        self.directory
+            .observe(self.entry.id, &self.entry.form.dx.callsign, requests);
+        self.directory.show(ui, self.entry.id, requests);
         if action.edited {
             self.entry.capture_corrections(&before);
             self.submitted = None;
@@ -212,6 +227,7 @@ impl LoggingUi {
         own: bool,
     ) {
         let before = self.entry.form.clone();
+        let fallback = self.directory.fallback(&self.entry.form, &self.definitions);
         let changed = ui
             .add_enabled_ui(self.pending.is_none(), |ui| {
                 egui::ScrollArea::vertical()
@@ -223,8 +239,11 @@ impl LoggingUi {
                             &self.baseline,
                             &self.definitions,
                             &self.errors,
-                            own,
-                            "entry.details",
+                            crate::ui::logging::details::DetailPresentation {
+                                own,
+                                owner: "entry.details",
+                                fallback: &fallback,
+                            },
                         )
                     })
                     .inner
@@ -235,6 +254,8 @@ impl LoggingUi {
             self.submitted = None;
             self.validation.edited(ui.input(|i| i.time));
         }
+        self.directory
+            .observe(self.entry.id, &self.entry.form.dx.callsign, requests);
         if changed.save && self.pending.is_none() {
             self.save(requests);
         }
@@ -252,6 +273,7 @@ impl LoggingUi {
         let (reply, receiver) = oneshot::channel();
         let request = SettingsRequest {
             action: SettingsAction::Contacts(ContactAction::Save {
+                snapshot: self.directory.snapshot(&self.entry.form.dx.callsign),
                 expected: None,
                 next: Box::new(next.clone()),
             }),

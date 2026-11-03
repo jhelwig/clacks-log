@@ -1,4 +1,5 @@
-SELECT (SELECT count(*) FROM qso_payload WHERE payload_id = ?1)
+SELECT (SELECT count(*) FROM directory_payload WHERE payload_id = ?1)
+     + (SELECT count(*) FROM qso_payload WHERE payload_id = ?1)
      + (SELECT count(*) FROM tag_payload WHERE payload_id = ?1)
      + (SELECT count(*) FROM profile_payload WHERE payload_id = ?1)
      + (SELECT count(*) FROM equipment_payload WHERE payload_id = ?1)

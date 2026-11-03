@@ -23,8 +23,36 @@ pub(in crate::ui) fn text(
     errors: &[FieldError],
     radio: bool,
 ) -> egui::Response {
+    text_with_fallback(
+        ui,
+        QuickField {
+            id: key,
+            label,
+            value,
+            baseline,
+        },
+        errors,
+        radio,
+        None,
+    )
+}
+
+/// Display optional directory text without inserting it into the recorded input.
+fn text_with_fallback(
+    ui: &mut egui::Ui,
+    field: QuickField<'_>,
+    errors: &[FieldError],
+    radio: bool,
+    fallback: Option<fields::FieldFallback<'_>>,
+) -> egui::Response {
+    let QuickField {
+        id: key,
+        label,
+        value,
+        baseline,
+    } = field;
     let edited = value != baseline;
-    fields::text(
+    fields::text_with_fallback(
         ui,
         ui.make_persistent_id(key),
         label,
@@ -42,15 +70,16 @@ pub(in crate::ui) fn text(
             }),
             radio_data: radio,
         },
+        fallback,
     )
 }
 
 /// Named input metadata for compact rows.
 struct QuickField<'a> {
     /// Stable scoped input identity.
-    id: &'static str,
+    id: &'a str,
     /// Visible input caption.
-    label: &'static str,
+    label: &'a str,
     /// Current editable text.
     value: &'a mut String,
     /// Original text used for the unapplied-change highlight.
@@ -65,6 +94,7 @@ pub(in crate::ui) fn show(
     errors: &[FieldError],
     focus: bool,
     live_controls: bool,
+    fallback: &super::directory::DirectoryFallback,
 ) -> EntryAction {
     let mut action = EntryAction::default();
     ui.columns(2, |columns| {
@@ -83,14 +113,21 @@ pub(in crate::ui) fn show(
             },
         ]) {
             let had_focus = column.memory(|m| m.has_focus(column.make_persistent_id(field.id)));
-            let response = text(
+            let response = text_with_fallback(
                 column,
-                field.id,
-                field.label,
-                field.value,
-                field.baseline,
+                QuickField {
+                    id: field.id,
+                    label: field.label,
+                    value: field.value,
+                    baseline: field.baseline,
+                },
                 errors,
                 field.id == "entry.call",
+                if field.id == "entry.name" {
+                    fallback.name()
+                } else {
+                    None
+                },
             );
             if focus && field.id == "entry.call" {
                 response.request_focus();
@@ -129,14 +166,24 @@ pub(in crate::ui) fn show(
             },
         ]) {
             let had_focus = column.memory(|m| m.has_focus(column.make_persistent_id(field.id)));
-            let response = text(
+            let response = text_with_fallback(
                 column,
-                field.id,
-                field.label,
-                field.value,
-                field.baseline,
+                QuickField {
+                    id: field.id,
+                    label: field.label,
+                    value: field.value,
+                    baseline: field.baseline,
+                },
                 errors,
                 true,
+                if field.id == "entry.grid" {
+                    fallback.station().map(|station| fields::FieldFallback {
+                        value: &station.station.position.grid,
+                        source: station.source,
+                    })
+                } else {
+                    None
+                },
             );
             if response.changed() {
                 match field.id {

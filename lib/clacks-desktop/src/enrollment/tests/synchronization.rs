@@ -178,7 +178,7 @@ async fn contact(
     tokio::time::timeout(std::time::Duration::from_secs(20), async {
         loop {
             updates.borrow_and_update();
-            if let SettingsResponse::Contacts(ContactResponse::Loaded(Some(row))) =
+            if let SettingsResponse::Contacts(ContactResponse::Loaded(Some(row), _)) =
                 action(sender, SettingsAction::Contacts(ContactAction::Load { id })).await?
                 && predicate(&row)
             {
@@ -246,9 +246,10 @@ pub(super) async fn verify(
 
     // Actual web updates reach the separate native entry even without QSO changes.
     for (expected, operation, password, revision) in [
-        (0, "replace", "directory-first", 1),
-        (1, "replace", "directory-replacement", 2),
-        (2, "remove", "", 3),
+        (0, "keep", "", 1),
+        (1, "save", "directory-first", 2),
+        (2, "save", "directory-replacement", 3),
+        (3, "remove", "", 4),
     ] {
         browser
             .post(format!(
@@ -268,7 +269,7 @@ pub(super) async fn verify(
             .await?
             .error_for_status()?;
         let configuration = installed_directory(&mut first_directory, revision).await?;
-        if operation == "remove" {
+        if operation != "save" {
             assert!(configuration.material.is_none());
         } else {
             assert_eq!(
@@ -307,6 +308,7 @@ pub(super) async fn verify(
         action(
             &first.settings,
             SettingsAction::Contacts(ContactAction::Save {
+                snapshot: None,
                 expected: None,
                 next: Box::new(qso.clone())
             })
@@ -331,6 +333,7 @@ pub(super) async fn verify(
         action(
             &second.settings,
             SettingsAction::Contacts(ContactAction::Save {
+                snapshot: None,
                 expected: Some(Box::new(received)),
                 next: Box::new(corrected.clone())
             })
@@ -396,6 +399,7 @@ pub(super) async fn verify(
         action(
             &first.settings,
             SettingsAction::Contacts(ContactAction::Save {
+                snapshot: None,
                 expected: Some(Box::new(expected)),
                 next: Box::new(fields.try_into()?)
             })
@@ -484,6 +488,7 @@ pub(super) async fn verify(
         action(
             &first.settings,
             SettingsAction::Contacts(ContactAction::Save {
+                snapshot: None,
                 expected: Some(Box::new(expected)),
                 next: Box::new(fields.try_into()?)
             })

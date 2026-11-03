@@ -80,9 +80,12 @@ impl ContactsUi {
                 self.notice = Some("Unexpected Worked Before response".into());
             }
             ContactResponse::Page(page) => self.page = Some(page),
-            ContactResponse::Loaded(Some(record)) => {
+            ContactResponse::Loaded(Some(record), snapshot) => {
                 match editor::ContactEditor::from_record(record) {
-                    Ok(value) => {
+                    Ok(mut value) => {
+                        self.closed_editor =
+                            self.editor.as_ref().and_then(|editor| editor.id().ok());
+                        value.directory.retain(snapshot);
                         self.editor = Some(value);
                         self.current_record = None;
                         self.notice = None;
@@ -90,12 +93,13 @@ impl ContactsUi {
                     Err(error) => self.notice = Some(error.to_string()),
                 }
             }
-            ContactResponse::Loaded(None) => {
+            ContactResponse::Loaded(None, _) => {
                 self.notice =
                     Some("This contact is no longer available locally. Refresh contacts.".into())
             }
             ContactResponse::Saved(SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_)) => {
                 self.changed = true;
+                self.closed_editor = self.editor.as_ref().and_then(|editor| editor.id().ok());
                 self.editor = None;
                 self.current_record = None;
                 self.refresh(self.query.view);
@@ -103,6 +107,7 @@ impl ContactsUi {
             }
             ContactResponse::Deleted(SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_)) => {
                 self.changed = true;
+                self.closed_editor = self.editor.as_ref().and_then(|editor| editor.id().ok());
                 if let Some(deletion) = &self.deletion
                     && let clacks_sync::record::RecordId::Qso(id) = deletion.expected.key().id
                 {

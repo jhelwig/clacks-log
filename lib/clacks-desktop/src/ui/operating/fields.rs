@@ -9,6 +9,23 @@ use crate::operating::{
 use clacks_client_store::operating::OperatingState;
 use clacks_model::position::GridLength;
 
+/// One selected whole directory location formatted for the existing station fields.
+#[derive(Clone, Copy)]
+pub(in crate::ui) struct StationFallback<'a> {
+    /// Display values; never passed to a recorded station build/save.
+    pub station: &'a StationForm,
+    /// Provider supplying every selected location value.
+    pub source: &'a str,
+}
+
+/// Shared station composition, including whether quick fields belong here.
+struct StationPresentation<'a> {
+    /// Include identity/grid here rather than in the separate quick-entry row.
+    quick_fields: bool,
+    /// Whole selected fallback for contacted-station fields.
+    fallback: Option<StationFallback<'a>>,
+}
+
 /// Present a stable-ID text control and its matching validation messages.
 pub(in crate::ui) fn text(
     ui: &mut egui::Ui,
@@ -34,16 +51,17 @@ pub(in crate::ui) fn text(
     .changed()
 }
 
-/// Present a radio-data field using the selected radio typeface and native field feedback.
-pub(in crate::ui) fn radio_text(
+/// Present radio data with a source-attributed, nonrecording fallback hint.
+fn radio_text_with_fallback(
     ui: &mut egui::Ui,
     id: &str,
     label: &str,
     value: &mut String,
     errors: &[FieldError],
     edited: bool,
+    fallback: Option<crate::ui::fields::FieldFallback<'_>>,
 ) -> bool {
-    crate::ui::fields::text(
+    crate::ui::fields::text_with_fallback(
         ui,
         egui::Id::unique(id),
         label,
@@ -55,8 +73,21 @@ pub(in crate::ui) fn radio_text(
             validation_label: None,
             radio_data: true,
         },
+        fallback,
     )
     .changed()
+}
+
+/// Present a radio-data field using the selected radio typeface and native field feedback.
+pub(in crate::ui) fn radio_text(
+    ui: &mut egui::Ui,
+    id: &str,
+    label: &str,
+    value: &mut String,
+    errors: &[FieldError],
+    edited: bool,
+) -> bool {
+    radio_text_with_fallback(ui, id, label, value, errors, edited, None)
 }
 
 /// Attach a native Position validation error to its locator and coordinate controls.
@@ -67,8 +98,9 @@ fn position_text(
     value: &mut String,
     errors: &[FieldError],
     edited: bool,
+    fallback: Option<crate::ui::fields::FieldFallback<'_>>,
 ) -> bool {
-    crate::ui::fields::text(
+    crate::ui::fields::text_with_fallback(
         ui,
         egui::Id::unique(id),
         label,
@@ -80,6 +112,7 @@ fn position_text(
             validation_label: Some("Position"),
             radio_data: true,
         },
+        fallback,
     )
     .changed()
 }
@@ -108,10 +141,21 @@ pub(in crate::ui) fn station(
     errors: &[FieldError],
     baseline: Option<&StationForm>,
 ) -> bool {
-    station_fields(ui, id, form, definitions, errors, baseline, true)
+    station_fields(
+        ui,
+        id,
+        form,
+        definitions,
+        errors,
+        baseline,
+        StationPresentation {
+            quick_fields: true,
+            fallback: None,
+        },
+    )
 }
 
-/// Render additional remote facts without duplicating the quick callsign/grid fields.
+/// Compose remote details with the already selected whole-location fallback.
 pub(in crate::ui) fn station_details(
     ui: &mut egui::Ui,
     id: &str,
@@ -119,8 +163,20 @@ pub(in crate::ui) fn station_details(
     definitions: &DefinitionSet,
     errors: &[FieldError],
     baseline: Option<&StationForm>,
+    fallback: Option<StationFallback<'_>>,
 ) -> bool {
-    station_fields(ui, id, form, definitions, errors, baseline, false)
+    station_fields(
+        ui,
+        id,
+        form,
+        definitions,
+        errors,
+        baseline,
+        StationPresentation {
+            quick_fields: false,
+            fallback,
+        },
+    )
 }
 
 /// Compose the shared station editor with the quick-field ownership chosen by its caller.
@@ -131,8 +187,12 @@ fn station_fields(
     definitions: &DefinitionSet,
     errors: &[FieldError],
     baseline: Option<&StationForm>,
-    quick_fields: bool,
+    presentation: StationPresentation<'_>,
 ) -> bool {
+    let StationPresentation {
+        quick_fields,
+        fallback,
+    } = presentation;
     let call_changed = callsign_changed(
         &form.callsign,
         baseline.map(|value| value.callsign.as_str()),
@@ -173,6 +233,10 @@ fn station_fields(
                 &mut grid,
                 errors,
                 position_changed,
+                fallback.map(|f| crate::ui::fields::FieldFallback {
+                    value: &f.station.position.grid,
+                    source: f.source,
+                }),
             )
         {
             form.edit_grid(grid);
@@ -187,6 +251,10 @@ fn station_fields(
             &mut latitude,
             errors,
             position_changed,
+            fallback.map(|f| crate::ui::fields::FieldFallback {
+                value: &f.station.position.latitude,
+                source: f.source,
+            }),
         );
         let longitude_changed = position_text(
             ui,
@@ -195,15 +263,24 @@ fn station_fields(
             &mut longitude,
             errors,
             position_changed,
+            fallback.map(|f| crate::ui::fields::FieldFallback {
+                value: &f.station.position.longitude,
+                source: f.source,
+            }),
         );
         if latitude_changed || longitude_changed {
             form.edit_coordinates(latitude, longitude);
             changed = true;
         }
-        ui.label(match form.position.kind {
-            PositionKind::Grid => "Position: grid area; coordinates show its center",
-            PositionKind::Coordinates => "Position: explicit coordinates; locator is derived",
-        });
+        ui.label(
+            match fallback
+                .map(|f| f.station.position.kind)
+                .unwrap_or(form.position.kind)
+            {
+                PositionKind::Grid => "Position: grid area; coordinates show its center",
+                PositionKind::Coordinates => "Position: explicit coordinates; locator is derived",
+            },
+        );
         let mut length = form.position.length;
         if form.position.kind == PositionKind::Coordinates {
             egui::ComboBox::from_id_salt((id, "precision"))
@@ -225,61 +302,82 @@ fn station_fields(
         ui.set_min_width(ui.available_width());
         ui.strong("Geographic details");
         let edited = text_changed(&form.dxcc, baseline.map(|value| value.dxcc.as_str()));
-        changed |= radio_text(
+        changed |= radio_text_with_fallback(
             ui,
             &format!("{id}.dxcc"),
             "DXCC entity",
             &mut form.dxcc,
             errors,
             edited,
+            fallback.map(|f| crate::ui::fields::FieldFallback {
+                value: &f.station.dxcc,
+                source: f.source,
+            }),
         );
         let edited = text_changed(
             &form.primary_subdivision,
             baseline.map(|value| value.primary_subdivision.as_str()),
         );
-        changed |= radio_text(
+        changed |= radio_text_with_fallback(
             ui,
             &format!("{id}.state"),
             "State / province",
             &mut form.primary_subdivision,
             errors,
             edited,
+            fallback.map(|f| crate::ui::fields::FieldFallback {
+                value: &f.station.primary_subdivision,
+                source: f.source,
+            }),
         );
         let edited = text_changed(
             &form.secondary_subdivision,
             baseline.map(|value| value.secondary_subdivision.as_str()),
         );
-        changed |= radio_text(
+        changed |= radio_text_with_fallback(
             ui,
             &format!("{id}.county"),
             "County / subdivision",
             &mut form.secondary_subdivision,
             errors,
             edited,
+            fallback.map(|f| crate::ui::fields::FieldFallback {
+                value: &f.station.secondary_subdivision,
+                source: f.source,
+            }),
         );
         let edited = zone_changed(&form.cq_zone, baseline.map(|value| value.cq_zone.as_str()));
-        changed |= radio_text(
+        changed |= radio_text_with_fallback(
             ui,
             &format!("{id}.cq"),
             "CQ zone",
             &mut form.cq_zone,
             errors,
             edited,
+            fallback.map(|f| crate::ui::fields::FieldFallback {
+                value: &f.station.cq_zone,
+                source: f.source,
+            }),
         );
         let edited = zone_changed(
             &form.itu_zone,
             baseline.map(|value| value.itu_zone.as_str()),
         );
-        changed |= radio_text(
+        changed |= radio_text_with_fallback(
             ui,
             &format!("{id}.itu"),
             "ITU zone",
             &mut form.itu_zone,
             errors,
             edited,
+            fallback.map(|f| crate::ui::fields::FieldFallback {
+                value: &f.station.itu_zone,
+                source: f.source,
+            }),
         );
     });
-    changed |= references(ui, id, &mut form.references, definitions, errors);
+    changed |=
+        references_with_fallback(ui, id, &mut form.references, definitions, errors, fallback);
     changed
 }
 
@@ -291,10 +389,34 @@ pub(in crate::ui) fn references(
     definitions: &DefinitionSet,
     errors: &[FieldError],
 ) -> bool {
+    references_with_fallback(ui, id, rows, definitions, errors, None)
+}
+
+/// Keep selected directory references visible without creating editable recorded rows.
+fn references_with_fallback(
+    ui: &mut egui::Ui,
+    id: &str,
+    rows: &mut Vec<ReferenceForm>,
+    definitions: &DefinitionSet,
+    errors: &[FieldError],
+    fallback: Option<StationFallback<'_>>,
+) -> bool {
     let mut changed = false;
     ui.group(|ui| {
         ui.set_min_width(ui.available_width());
         ui.strong("Participation / references");
+        if let Some(fallback) = fallback {
+            for reference in &fallback.station.references {
+                if let Some(group) = reference.group.and_then(|id| definitions.get(id)) {
+                    ui.label(format!(
+                        "{}: {} · {}",
+                        group.name(),
+                        reference.identifier,
+                        fallback.source
+                    ));
+                }
+            }
+        }
         let mut remove = None;
         for (index, row) in rows.iter_mut().enumerate() {
             ui.push_id((id, "reference", index), |ui| {
@@ -308,6 +430,7 @@ pub(in crate::ui) fn references(
                             .unwrap_or_else(|| format!("Unknown group {id}"))
                     })
                     .unwrap_or_else(|| "Select group".into());
+                let group_label = ui.small("Reference group");
                 egui::ComboBox::from_id_salt("group")
                     .selected_text(label)
                     .show_ui(ui, |ui| {
@@ -318,7 +441,9 @@ pub(in crate::ui) fn references(
                                 format!("{} · {}", group.name(), group.id()),
                             );
                         }
-                    });
+                    })
+                    .response
+                    .labelled_by(group_label.id);
                 let group_changed = previous != row.group;
                 row.edited |= group_changed;
                 changed |= group_changed;

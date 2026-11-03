@@ -157,7 +157,7 @@ impl DirectorySnapshot {
         &self.0.facts
     }
     /// Compare the agreed successful-time and identity tuple, not arrival order.
-    pub(crate) fn order(&self, other: &Self) -> std::cmp::Ordering {
+    pub fn compare_lookup(&self, other: &Self) -> std::cmp::Ordering {
         self.0
             .lookup_time
             .unix_seconds()

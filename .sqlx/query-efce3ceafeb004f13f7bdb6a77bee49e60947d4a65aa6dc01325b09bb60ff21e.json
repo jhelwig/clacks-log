@@ -1,0 +1,278 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT lookup_key, provider, lookup_seconds, lookup_nanoseconds, lookup_id, name, position_kind, locator, latitude, longitude, grid_length, dxcc, primary_subdivision, secondary_subdivision, cq_zone, itu_zone, locality, returned_callsign, supplied_locator, supplied_latitude, supplied_longitude, coordinate_source FROM directory_snapshot\nWHERE payload_id = ?1 AND account = ?2 ORDER BY lookup_key\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "lookup_key",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "lookup_key"
+          }
+        }
+      },
+      {
+        "name": "provider",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "provider"
+          }
+        }
+      },
+      {
+        "name": "lookup_seconds",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "lookup_seconds"
+          }
+        }
+      },
+      {
+        "name": "lookup_nanoseconds",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "lookup_nanoseconds"
+          }
+        }
+      },
+      {
+        "name": "lookup_id",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "lookup_id"
+          }
+        }
+      },
+      {
+        "name": "name",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "position_kind",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "position_kind"
+          }
+        }
+      },
+      {
+        "name": "locator",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "locator"
+          }
+        }
+      },
+      {
+        "name": "latitude",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "latitude"
+          }
+        }
+      },
+      {
+        "name": "longitude",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "longitude"
+          }
+        }
+      },
+      {
+        "name": "grid_length",
+        "ordinal": 10,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "grid_length"
+          }
+        }
+      },
+      {
+        "name": "dxcc",
+        "ordinal": 11,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "dxcc"
+          }
+        }
+      },
+      {
+        "name": "primary_subdivision",
+        "ordinal": 12,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "primary_subdivision"
+          }
+        }
+      },
+      {
+        "name": "secondary_subdivision",
+        "ordinal": 13,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "secondary_subdivision"
+          }
+        }
+      },
+      {
+        "name": "cq_zone",
+        "ordinal": 14,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "cq_zone"
+          }
+        }
+      },
+      {
+        "name": "itu_zone",
+        "ordinal": 15,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "itu_zone"
+          }
+        }
+      },
+      {
+        "name": "locality",
+        "ordinal": 16,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "locality"
+          }
+        }
+      },
+      {
+        "name": "returned_callsign",
+        "ordinal": 17,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "returned_callsign"
+          }
+        }
+      },
+      {
+        "name": "supplied_locator",
+        "ordinal": 18,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "supplied_locator"
+          }
+        }
+      },
+      {
+        "name": "supplied_latitude",
+        "ordinal": 19,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "supplied_latitude"
+          }
+        }
+      },
+      {
+        "name": "supplied_longitude",
+        "ordinal": 20,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "supplied_longitude"
+          }
+        }
+      },
+      {
+        "name": "coordinate_source",
+        "ordinal": 21,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "directory_snapshot",
+            "name": "coordinate_source"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "efce3ceafeb004f13f7bdb6a77bee49e60947d4a65aa6dc01325b09bb60ff21e"
+}

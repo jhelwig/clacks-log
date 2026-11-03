@@ -90,6 +90,17 @@ impl ClientStore {
 
     /// Begin a tracked write transaction that acquires SQLite's reserved writer lock immediately.
     pub(crate) async fn write(&self) -> anyhow::Result<Transaction<'_, Sqlite>> {
-        Ok(self.pool.begin_with("BEGIN IMMEDIATE").await?)
+        let mut transaction = self.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let identity = crate::identity::load(&mut transaction)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("workspace identity is missing"))?;
+        anyhow::ensure!(
+            identity.account == self.account,
+            crate::error::StoreError::WrongAccount {
+                expected: self.account,
+                actual: identity.account,
+            }
+        );
+        Ok(transaction)
     }
 }

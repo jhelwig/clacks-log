@@ -22,6 +22,15 @@ pub(super) struct FieldPresentation<'a> {
     pub radio_data: bool,
 }
 
+/// A source-attributed display hint that never becomes the field's recorded text.
+#[derive(Clone, Copy)]
+pub(in crate::ui) struct FieldFallback<'a> {
+    /// Effective value displayed while the recorded input is empty.
+    pub value: &'a str,
+    /// Provider supplying this value.
+    pub source: &'a str,
+}
+
 /// Present a stable native text edit and return its ordinary egui interaction response.
 pub(super) fn text(
     ui: &mut egui::Ui,
@@ -30,10 +39,27 @@ pub(super) fn text(
     value: &mut String,
     presentation: FieldPresentation<'_>,
 ) -> egui::Response {
+    text_with_fallback(ui, id, label, value, presentation, None)
+}
+
+/// Render a recorded input with an optional nonrecording, source-labeled hint.
+pub(in crate::ui) fn text_with_fallback(
+    ui: &mut egui::Ui,
+    id: egui::Id,
+    label: &str,
+    value: &mut String,
+    presentation: FieldPresentation<'_>,
+    fallback: Option<FieldFallback<'_>>,
+) -> egui::Response {
+    let has_fallback = fallback.is_some();
+    let fallback = fallback.filter(|hint| value.is_empty() && !hint.value.is_empty());
     let colors = theme::palette(ui.ctx().theme());
     let label_id = ui
         .horizontal(|ui| {
             let label_id = ui.small(egui::RichText::new(label).color(colors.muted)).id;
+            if let Some(hint) = fallback {
+                ui.small(egui::RichText::new(hint.source).color(colors.muted));
+            }
             if presentation.edited {
                 ui.small(egui::RichText::new("Not applied").color(colors.edited_edge));
             }
@@ -48,6 +74,9 @@ pub(super) fn text(
             egui::TextStyle::Body
         })
         .interactive(!presentation.read_only);
+    if let Some(hint) = fallback {
+        edit = edit.hint_text(hint.value);
+    }
     if presentation.edited {
         edit = edit.background_color(colors.edited_fill);
     }
@@ -55,6 +84,10 @@ pub(super) fn text(
         edit = edit.text_color(ui.visuals().text_color());
     }
     let response = ui.add(edit).labelled_by(label_id);
+    // Blank input is absent in the native model; restore its hint after editing.
+    if has_fallback && response.lost_focus() && value.trim().is_empty() {
+        value.clear();
+    }
     if presentation.edited {
         ui.painter().vline(
             response.rect.left() + 2.0,

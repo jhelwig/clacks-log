@@ -5,3 +5,5 @@ pub(crate) mod contact;
 pub(crate) mod operating;
 pub(crate) mod service;
 pub(crate) mod workspace;
+
+pub(crate) mod directory;

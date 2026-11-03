@@ -61,6 +61,15 @@ pub(super) struct Workbench {
 }
 
 impl Workbench {
+    /// Route only matching contact/key results to their original form.
+    pub(super) fn lookup_update(&mut self, update: crate::directory::lookup::LookupUpdate) {
+        if update.changed {
+            self.entry.changed = true;
+        }
+        self.entry.lookup_update(&update);
+        self.contacts.lookup_update(&update);
+    }
+
     /// Open an existing referring contact without changing entry inputs or history scope.
     pub fn open_contact(
         &mut self,

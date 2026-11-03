@@ -27,6 +27,7 @@ async fn repeated_create_acknowledges_only_the_same_submitted_contact() -> anyho
     let created = execute(
         &store,
         ContactAction::Save {
+            snapshot: None,
             expected: None,
             next: Box::new(qso.clone()),
         },
@@ -69,6 +70,7 @@ async fn repeated_create_acknowledges_only_the_same_submitted_contact() -> anyho
     let repeated = execute(
         &store,
         ContactAction::Save {
+            snapshot: None,
             expected: None,
             next: Box::new(qso.clone()),
         },
@@ -91,6 +93,7 @@ async fn repeated_create_acknowledges_only_the_same_submitted_contact() -> anyho
     let retry = execute(
         &store,
         ContactAction::Save {
+            snapshot: None,
             expected: None,
             next: Box::new(qso),
         },

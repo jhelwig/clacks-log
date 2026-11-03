@@ -71,6 +71,16 @@ fn directory_winner_is_whole_and_order_independent() -> anyhow::Result<()> {
     );
     assert!(
         forward
+            .record(snapshot(
+                "K3ABC",
+                11,
+                4,
+                Some("Different key, same identity")
+            )?)
+            .is_err()
+    );
+    assert!(
+        forward
             .snapshot(&LookupKey::from_recorded(&RecordedCallsign::new("K2ABC")?))
             .is_some()
     );

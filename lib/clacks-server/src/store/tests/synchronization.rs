@@ -1,5 +1,6 @@
 //! Real account provisioning, accepted-state persistence and synchronization transactions.
 
+mod directory;
 mod recovery;
 mod references;
 mod restore;

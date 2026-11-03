@@ -1,0 +1,2 @@
+SELECT lookup_key, provider, lookup_seconds, lookup_nanoseconds, lookup_id, name, position_kind, locator, latitude, longitude, grid_length, dxcc, primary_subdivision, secondary_subdivision, cq_zone, itu_zone, locality, returned_callsign, supplied_locator, supplied_latitude, supplied_longitude, coordinate_source FROM clacks.directory_snapshot
+WHERE payload_id = $1 AND account = $2 ORDER BY lookup_key

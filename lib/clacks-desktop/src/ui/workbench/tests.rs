@@ -207,6 +207,11 @@ fn worked_before_shares_entry_and_activates_the_existing_editor() -> anyhow::Res
     ui.get_by_role_and_label(egui::Role::TextInput, "Callsign")
         .type_text("OK2CQR");
     ui.step();
+    let lookup = ui.state_mut().requests.try_recv().context("directory")?;
+    assert!(matches!(
+        lookup.action,
+        SettingsAction::Directory(crate::directory::lookup::LookupCommand::CallChanged { .. })
+    ));
     let prior = ui.state_mut().requests.try_recv().context("prefix")?;
     let SettingsAction::Contacts(ContactAction::WorkedBefore { query }) = prior.action else {
         anyhow::bail!("not the actual prefix request")

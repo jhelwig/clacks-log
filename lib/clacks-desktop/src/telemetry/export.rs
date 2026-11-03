@@ -123,6 +123,7 @@ pub(super) fn initialize(config: &TelemetryConfig, diagnostics: &mut Vec<String>
                 clacks_client_store::retention::METADATA_RECLAIM_DURATION_METRIC,
                 clacks_geography::lookup::LOOKUP_DURATION_METRIC,
                 crate::synchronization::PHASE_DURATION_METRIC,
+                crate::directory::lookup::LOOKUP_DURATION_METRIC,
             ]
             .into_iter(),
             &[
@@ -159,8 +160,28 @@ pub(super) fn initialize(config: &TelemetryConfig, diagnostics: &mut Vec<String>
             crate::synchronization::PHASE_DURATION_METRIC,
             "Completed or failed bounded synchronization phase",
         ),
+        (
+            crate::directory::lookup::LOOKUP_DURATION_METRIC,
+            "Logical directory lookup from admission to terminal outcome, excluding debounce",
+        ),
     ] {
         metrics::describe_histogram!(name, metrics::Unit::Seconds, description);
+    }
+    for (name, description) in [
+        (
+            crate::directory::lookup::LOOKUPS_METRIC,
+            "Terminal logical directory lookups",
+        ),
+        (
+            crate::directory::providers::LOOKUP_REQUESTS_METRIC,
+            "Directory lookup HTTP dispatches, excluding login",
+        ),
+        (
+            crate::directory::provisioning::CONFIGURATION_INSTALLS_METRIC,
+            "Committed local directory configuration transitions",
+        ),
+    ] {
+        metrics::describe_counter!(name, metrics::Unit::Count, description);
     }
     Providers {
         traces,

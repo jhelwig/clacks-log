@@ -31,4 +31,5 @@ pub mod recovery;
 
 pub mod service;
 
+pub mod directory;
 pub mod protocol;

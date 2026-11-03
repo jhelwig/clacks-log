@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE equipment_snapshot SET account = ?\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "f4d172e67675f00178cfe9dc70fb050a3ce4a07257e9e8cc2f3d71a56377c9e4"
+}

@@ -40,6 +40,8 @@ pub struct ServiceStatus {
 /// Read-only facts selected without changing the recorded QSO.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ContactFacts {
+    /// Eligible retained directory result and provenance for this exact contact key.
+    pub directory: Option<clacks_model::directory::values::DirectorySnapshot>,
     /// Current definition names for this QSO's recorded reference groups.
     pub group_names: BTreeMap<clacks_model::ids::GroupId, String>,
     /// Effective contacted name and its actual source.
@@ -176,7 +178,24 @@ pub(crate) async fn load(
     };
     let mut result = Vec::new();
     for row in rows {
-        let mut facts = evidence::evaluate(&row.qso, &evidence, &context, needs)?;
+        let directory = if needs.station || needs.services {
+            let key = RecordKey {
+                account: account_id,
+                id: clacks_sync::record::RecordId::Directory(row.qso.id()),
+            };
+            let record = crate::metadata::client::load(connection, key).await?;
+            match record.as_ref().and_then(|record| record.working_state()) {
+                Some(RecordState::Live(RecordValue::Directory(value))) => value
+                    .snapshot(&clacks_model::directory::values::LookupKey::from_recorded(
+                        &row.qso.contacted_station().callsign,
+                    ))
+                    .cloned(),
+                _ => None,
+            }
+        } else {
+            None
+        };
+        let mut facts = evidence::evaluate(&row.qso, &evidence, &context, needs, directory)?;
         if needs.station {
             station::select(&row.qso, &context.definitions, &mut facts);
         }

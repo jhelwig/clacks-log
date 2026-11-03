@@ -6,6 +6,16 @@ use crate::{logging::form::ContactForm, operating::FieldError};
 use clacks_model::group::DefinitionSet;
 use eframe::egui;
 
+/// Contact side, stable widget scope and its selected display-only directory facts.
+pub(in crate::ui) struct DetailPresentation<'a> {
+    /// Whether these fields describe our operating station.
+    pub own: bool,
+    /// Scope distinguishing independently edited contacts.
+    pub owner: &'a str,
+    /// Already selected hints for contacted-station details.
+    pub fallback: &'a super::directory::DirectoryFallback,
+}
+
 /// Show one station side's additional facts, retaining the same parent contact form.
 ///
 /// Use a stable `owner` that distinguishes independently edited contact forms.
@@ -15,9 +25,13 @@ pub(in crate::ui) fn show(
     baseline: &ContactForm,
     definitions: &DefinitionSet,
     errors: &[FieldError],
-    own: bool,
-    owner: &str,
+    presentation: DetailPresentation<'_>,
 ) -> super::entry::EntryAction {
+    let DetailPresentation {
+        own,
+        owner,
+        fallback,
+    } = presentation;
     let prefix = if own { "Our " } else { "Contact " };
     let relative_errors: Vec<_> = errors
         .iter()
@@ -90,7 +104,9 @@ pub(in crate::ui) fn show(
                 definitions,
                 &relative_errors,
                 Some(&baseline.dx),
+                fallback.station(),
             );
+            fallback.details(ui);
             changed |= text(
                 ui,
                 "contact.dx-operator",

@@ -29,6 +29,9 @@ axum = { workspace = true, optional = true }
 axum_session_sqlx = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { workspace = true, features = ["wasm_js"] }
+
 [dev-dependencies]
 huskarl-core.workspace = true
 huskarl-crypto-native.workspace = true

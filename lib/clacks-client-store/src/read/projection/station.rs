@@ -12,7 +12,7 @@ pub(super) fn select(qso: &Qso, definitions: &DefinitionSet, result: &mut Evalua
     let eligible = EligibleStationFacts {
         lotw: result.lotw.as_ref(),
         qrz: result.qrz.as_ref(),
-        directory: None,
+        directory: result.directory.as_ref(),
     };
     result.facts.name = select_name(
         qso.contacted_operator()

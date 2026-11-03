@@ -47,3 +47,40 @@ impl From<Option<&Position>> for PositionFields {
         }
     }
 }
+
+impl PositionFields {
+    /// Restore an exact native evidence shape, rejecting inconsistent nullable columns.
+    pub(crate) fn decode(self) -> anyhow::Result<Option<Position>> {
+        use clacks_model::position::{Coordinates, GridLength, Locator};
+        Ok(match self {
+            Self {
+                kind: None,
+                locator: None,
+                latitude: None,
+                longitude: None,
+                length: None,
+            } => None,
+            Self {
+                kind: Some(kind),
+                locator: Some(grid),
+                latitude: None,
+                longitude: None,
+                length: None,
+            } if kind == "grid" => Some(Position::GridArea(Locator::parse(&grid)?)),
+            Self {
+                kind: Some(kind),
+                locator: None,
+                latitude: Some(latitude),
+                longitude: Some(longitude),
+                length: Some(length),
+            } if kind == "point" => Some(Position::ExplicitPoint {
+                coordinates: Coordinates::from_microdegrees(
+                    latitude.try_into()?,
+                    longitude.try_into()?,
+                )?,
+                grid_length: GridLength::new(length.try_into()?)?,
+            }),
+            _ => anyhow::bail!("invalid recorded position shape"),
+        })
+    }
+}

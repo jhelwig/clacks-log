@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO directory_reference(payload_id, account, lookup_key, group_id, identifier) VALUES (?1, ?2, ?3, ?4, ?5)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "96bd2cc6c2446f2bcb209422962239c67d930c93f6989759544fb57f8d3892a0"
+}

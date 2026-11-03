@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO directory_payload(payload_id, account, record_id) VALUES (?1, ?2, ?3)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "c7e4ed19c9e99f76d5c101218a5492e94ddc3fb90068d9b4e411fecf814781ad"
+}

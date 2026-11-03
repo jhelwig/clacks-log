@@ -61,6 +61,7 @@ impl SettingsUi {
             response
         };
         match response {
+            SettingsResponse::Directory => {},
             SettingsResponse::Logbooks(_) | SettingsResponse::Contacts(_) => {},
             SettingsResponse::Refresh(_) => frame.notice = None,
             SettingsResponse::Apply(OperatingSaveOutcome::Saved(state) | OperatingSaveOutcome::Unchanged(state)) => {

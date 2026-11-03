@@ -39,16 +39,6 @@ pub(crate) async fn inspect(store: &ClientStore) -> anyhow::Result<EnrollmentSta
             .map(|attempt| attempt.server().to_owned())
             .or_else(|| binding.as_ref().map(|binding| binding.server.clone())),
         enrolled: binding.is_some(),
-        destination: attempt
-            .as_ref()
-            .and_then(|attempt| attempt.destination().cloned()),
-        destination_change_available: attempt.as_ref().is_some_and(|attempt| {
-            attempt.expected().is_none()
-                && matches!(
-                    attempt.phase(),
-                    EnrollmentPhase::KeySaved | EnrollmentPhase::NeedsDestination
-                )
-        }),
 
         resume_available: attempt.is_some(),
         discard_available,
@@ -77,8 +67,6 @@ pub(crate) async fn execute(
                 message: error.to_string(),
                 resume_available: false,
                 discard_available: false,
-                destination: None,
-                destination_change_available: false,
             },
         },
         Err(error) => {
@@ -100,16 +88,6 @@ pub(crate) async fn execute(
             EnrollmentStatus::Failed {
                 message: format!("{error:#}"),
                 resume_available: attempt.is_some(),
-                destination: attempt
-                    .as_ref()
-                    .and_then(|attempt| attempt.destination().cloned()),
-                destination_change_available: attempt.as_ref().is_some_and(|attempt| {
-                    attempt.expected().is_none()
-                        && matches!(
-                            attempt.phase(),
-                            EnrollmentPhase::KeySaved | EnrollmentPhase::NeedsDestination
-                        )
-                }),
 
                 discard_available,
             }
@@ -142,7 +120,7 @@ async fn discardable(attempt: &EnrollmentAttempt) -> anyhow::Result<bool> {
     .await?
 }
 
-/// Carry out one normal attempt, preserving completion state until launch and cleanup succeed.
+/// Carry out one normal attempt, preserving completion state until binding and credential cleanup succeed.
 async fn run(
     store: &ClientStore,
     paths: &WorkspacePaths,
@@ -150,10 +128,6 @@ async fn run(
     status: &watch::Sender<EnrollmentStatus>,
     cancellation: CancellationToken,
 ) -> anyhow::Result<Option<completion::CompletedWorkspace>> {
-    if let EnrollmentCommand::SetDestination { destination } = command {
-        change_destination(store, destination).await?;
-        return Ok(None);
-    }
     if matches!(command, EnrollmentCommand::Discard) {
         let attempt = enrollment::attempt(store)
             .await?
@@ -174,11 +148,7 @@ async fn run(
         return Ok(None);
     }
     let RequestedAttempt { mut attempt, label } = match command {
-        EnrollmentCommand::Begin {
-            server,
-            label,
-            destination,
-        } => {
+        EnrollmentCommand::Begin { server, label } => {
             anyhow::ensure!(
                 enrollment::attempt(store).await?.is_none(),
                 "A saved enrollment attempt already exists. Resume it or discard its uninstalled key first."
@@ -195,22 +165,11 @@ async fn run(
                     "Reauthorization must use this workspace's existing server"
                 );
             }
-            let destination = destination
-                .map(|directory| WorkspacePaths::at(&directory).map(|paths| paths.directory))
-                .transpose()?;
             let native_server = server.clone();
             let reference =
                 tokio::task::spawn_blocking(move || credentials::create(&native_server)).await??;
-            let attempt = EnrollmentAttempt::new(
-                reference,
-                server,
-                if expected.is_some() {
-                    Some(paths.directory.clone())
-                } else {
-                    destination
-                },
-                expected,
-            )?;
+            let attempt =
+                EnrollmentAttempt::new(reference, server, Some(paths.directory.clone()), expected)?;
             if let Err(error) = enrollment::save_attempt(store, &attempt).await {
                 let reference = attempt.credential_reference().to_owned();
                 let removed =
@@ -234,9 +193,7 @@ async fn run(
                 .context("No saved enrollment attempt exists; choose Connect")?,
             label,
         },
-        EnrollmentCommand::Cancel
-        | EnrollmentCommand::Discard
-        | EnrollmentCommand::SetDestination { .. } => {
+        EnrollmentCommand::Cancel | EnrollmentCommand::Discard => {
             anyhow::bail!("No authorization workflow was selected")
         }
     };
@@ -261,19 +218,6 @@ async fn run(
     attempt.credential_saved();
     enrollment::save_attempt(store, &attempt).await?;
     let completed = completion::finish(store, &authorized, cancellation).await?;
-    if completed.destination != paths.directory {
-        let mut child = tokio::process::Command::new(std::env::current_exe()?)
-            .arg("--workspace")
-            .arg(&completed.destination)
-            .spawn()
-            .context("Enrollment is installed, but its workspace could not be launched. Retry completion to open the same workspace")?;
-        // Reap independently; the new workspace process may outlive this window.
-        tokio::spawn(async move {
-            if let Err(error) = child.wait().await {
-                tracing::warn!(reason=%error,"Could not reap the separately launched workspace process");
-            }
-        });
-    }
     if let Some(previous) = &completed.attempt.expected()
         && previous.credential_reference != completed.binding.credential_reference
     {
@@ -281,7 +225,7 @@ async fn run(
         tokio::task::spawn_blocking(move || credentials::remove(&reference)).await?
             .context("Enrollment is installed, but superseded credential removal failed. Resume completion to retry cleanup")?;
     }
-    enrollment::clear_attempt(store, &completed.attempt).await?;
+    enrollment::clear_attempt(&completed.store, &completed.attempt).await?;
     Ok(Some(completed))
 }
 
@@ -294,46 +238,21 @@ pub(super) async fn restart_attempt(
         .await?
         .context("No saved enrollment attempt exists")?;
     let mut expected = previous.expected().cloned();
-    if let Some(destination) = &previous.destination() {
-        let target = WorkspacePaths::at(destination)?;
-        let binding = if target.directory == paths.directory {
-            identity::binding(store).await?
-        } else if target.database.try_exists()? {
-            let _owner = match crate::instance::elect(&target)? {
-                crate::instance::Election::Owner(owner) => owner,
-                crate::instance::Election::Contended(address) => {
-                    crate::instance::activation::request_async(&address).await?;
-                    anyhow::bail!(
-                        "The destination workspace is open. Reauthorize from its activated window instead."
-                    );
-                }
-            };
-            let target_store =
-                ClientStore::open_discovered(&target.database, Default::default()).await?;
-            let binding = identity::binding(&target_store).await;
-            let closed = target_store.close().await;
-            let binding = binding?;
-            closed?;
-            binding
-        } else {
-            None
-        };
-        if let Some(binding) = binding {
-            anyhow::ensure!(
-                (Some(&binding) == previous.expected()
-                    || binding.credential_reference == previous.credential_reference())
-                    && flow::origin(&binding.server)? == flow::origin(previous.server())?,
-                "The destination's enrollment changed; its current binding was preserved"
-            );
-            expected = Some(binding);
-        }
+    if let Some(binding) = identity::binding(store).await? {
+        anyhow::ensure!(
+            (Some(&binding) == previous.expected()
+                || binding.credential_reference == previous.credential_reference())
+                && flow::origin(&binding.server)? == flow::origin(previous.server())?,
+            "The workspace enrollment changed; its current binding was preserved"
+        );
+        expected = Some(binding);
     }
     let server = previous.server().to_owned();
     let reference = tokio::task::spawn_blocking(move || credentials::create(&server)).await??;
     let next = EnrollmentAttempt::new(
         reference.clone(),
         previous.server().to_owned(),
-        previous.destination().cloned(),
+        Some(paths.directory.clone()),
         expected,
     )?;
     if let Err(error) = enrollment::save_attempt(store, &next).await {
@@ -349,28 +268,4 @@ pub(super) async fn restart_attempt(
             .await??;
     }
     Ok(next)
-}
-
-/// Retain a corrected destination only while the previous target is known not to be installed.
-pub(super) async fn change_destination(
-    store: &ClientStore,
-    destination: Option<std::path::PathBuf>,
-) -> anyhow::Result<()> {
-    let mut attempt = enrollment::attempt(store)
-        .await?
-        .context("No saved enrollment attempt exists")?;
-    anyhow::ensure!(
-        attempt.expected().is_none()
-            && matches!(
-                attempt.phase(),
-                EnrollmentPhase::KeySaved | EnrollmentPhase::NeedsDestination
-            ),
-        "An installed or uncertain destination cannot be relocated. Resume completion at its saved workspace."
-    );
-    attempt.change_destination(
-        destination
-            .map(|directory| WorkspacePaths::at(&directory).map(|paths| paths.directory))
-            .transpose()?,
-    )?;
-    enrollment::save_attempt(store, &attempt).await
 }

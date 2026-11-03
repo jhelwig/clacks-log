@@ -49,6 +49,23 @@ async fn retention_recovers_from_older_database() -> anyhow::Result<()> {
     )
     .await?;
     publish(&native.store, &native.first, &first, key).await?;
+    let directory_key = RecordKey {
+        account: owner,
+        id: RecordId::Directory(contact.id()),
+    };
+    let earlier_directory = super::directory::directory(
+        contact.id(),
+        clacks_model::directory::values::DirectoryProvider::Qrz,
+        10,
+        Some("Before backup"),
+    )?;
+    clacks_client_store::directory::snapshots::apply(
+        &first,
+        contact.id(),
+        earlier_directory.snapshots().next().unwrap().clone(),
+    )
+    .await?;
+    publish(&native.store, &native.first, &first, directory_key).await?;
     let first_ack = pull(&native.store, &native.first, &first).await?;
 
     let other = qso(QsoId::new(), Default::default());
@@ -91,6 +108,19 @@ async fn retention_recovers_from_older_database() -> anyhow::Result<()> {
         revoked_accepted = Some(publish(&native.store, &native.first, &first, key).await?);
     }
     let revoked_accepted = revoked_accepted.unwrap();
+    let newer_directory = super::directory::directory(
+        contact.id(),
+        clacks_model::directory::values::DirectoryProvider::HamQth,
+        20,
+        None,
+    )?;
+    clacks_client_store::directory::snapshots::apply(
+        &first,
+        contact.id(),
+        newer_directory.snapshots().next().unwrap().clone(),
+    )
+    .await?;
+    let directory_accepted = publish(&native.store, &native.first, &first, directory_key).await?;
 
     let third_path = directory.path().join("third.sqlite");
     let third = ClientStore::create(&third_path, owner, Default::default()).await?;
@@ -307,6 +337,16 @@ async fn retention_recovers_from_older_database() -> anyhow::Result<()> {
     };
     assert_eq!(returned.state(), corrected.state());
     assert_eq!(returned.stamp.accepted_at(), corrected.stamp.accepted_at());
+    let clacks_sync::record::Observation::Accepted(directory_return) =
+        synchronization::context::observation(&mut connection, &recovered, directory_key).await?
+    else {
+        anyhow::bail!("Retired author's directory history was not recovered")
+    };
+    assert_eq!(
+        directory_return.state(),
+        directory_accepted.state(),
+        "restore must preserve original provider lookup tuple and complete winner"
+    );
 
     let clacks_sync::record::Observation::Accepted(imported_return) =
         synchronization::context::observation(&mut connection, &recovered, imported_key).await?

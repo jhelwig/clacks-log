@@ -67,7 +67,12 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
         retry: Default::default(),
     };
     let directory_status = directory.status.subscribe();
+    let (lookup_updates, lookup_view) = mpsc::channel(32);
     let resources = SessionResources {
+        lookup: crate::directory::lookup::Outputs {
+            updates: lookup_updates,
+            context: context.clone(),
+        },
         directory,
         enrollment_updates,
         settings_requests: requests,
@@ -96,6 +101,7 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
         Box::new(move |creation| {
             let _ = context.set(creation.egui_ctx.clone());
             let mut app = DesktopApp::new(UiResources {
+                lookup_view,
                 directory_status,
                 enrollment_view,
                 status,
