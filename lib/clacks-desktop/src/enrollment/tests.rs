@@ -3,6 +3,7 @@
 #[path = "../../../clacks-web/tests/support/provider.rs"]
 mod provider;
 
+mod recovery;
 mod synchronization;
 
 use super::{EnrollmentRequest, EnrollmentStatus, credentials, flow};
@@ -212,41 +213,6 @@ async fn verify_native_enrollment() -> anyhow::Result<()> {
         None,
     )?;
     clacks_client_store::enrollment::save_attempt(&initiating, &attempt).await?;
-    let (updates, _) = watch::channel(EnrollmentStatus::default());
-    assert!(
-        matches!(
-            super::worker::inspect(&initiating).await?,
-            EnrollmentStatus::Idle {
-                discard_available: false,
-                resume_available: true,
-                ..
-            }
-        ),
-        "a saved refresh credential must not be offered for discard"
-    );
-    let refused = super::worker::execute(
-        initiating.clone(),
-        paths.clone(),
-        super::EnrollmentCommand::Discard,
-        updates,
-        CancellationToken::new(),
-    )
-    .await;
-    assert!(matches!(
-        refused,
-        EnrollmentStatus::Failed {
-            discard_available: false,
-            ..
-        }
-    ));
-    assert_eq!(
-        credentials::load(&reference)?.refresh,
-        Some(refresh.clone())
-    );
-    assert_eq!(
-        clacks_client_store::enrollment::attempt(&initiating).await?,
-        Some(attempt)
-    );
     initiating.close().await?;
     drop(first);
     let resumed = flow::resume(reference.clone()).await?;
@@ -266,7 +232,8 @@ async fn verify_native_enrollment() -> anyhow::Result<()> {
     desktop
         .commands
         .send(crate::session::SessionCommand::Enrollment(
-            super::EnrollmentCommand::Resume {
+            super::EnrollmentCommand::Connect {
+                server: origin.clone(),
                 label: "Native enrollment desktop".into(),
             },
         ))
@@ -300,36 +267,18 @@ async fn verify_native_enrollment() -> anyhow::Result<()> {
     synchronization::verify(&origin, &binding, &browser, &provider, &subject)
         .await
         .context("verify two desktop sessions")?;
-    let mut retry = clacks_client_store::enrollment::EnrollmentAttempt::new(
-        reference.clone(),
-        origin.clone(),
-        Some(paths.directory.clone()),
-        Some(binding.clone()),
-    )?;
-    retry.credential_saved();
-    clacks_client_store::enrollment::save_attempt(&opened, &retry).await?;
-    credentials::remove(&reference)?;
-    let replacement = super::worker::restart_attempt(&opened, &paths).await?;
-    let _replacement_entry = NativeEntry(replacement.credential_reference().to_owned());
-    assert_ne!(replacement.credential_reference(), reference);
-    let prior = replacement
-        .expected()
-        .context("installed destination was not retained")?;
-    assert_eq!(prior.account, expected.account);
-    assert_eq!(prior.actor, expected.actor);
-    assert_eq!(prior.credential_reference, reference);
-    assert_eq!(
-        replacement.phase(),
-        clacks_client_store::enrollment::EnrollmentPhase::KeySaved
-    );
-    assert_eq!(
-        clacks_client_store::enrollment::attempt(&opened).await?,
-        Some(replacement)
-    );
-    assert_eq!(
-        clacks_client_store::identity::binding(&opened).await?,
-        Some(binding)
-    );
+    recovery::verify(&origin, &reference, expected.account).await?;
+    browser
+        .post(format!(
+            "{origin}{}",
+            clacks_web::actions::clients::RevokeClient::PATH
+        ))
+        .header("origin", &origin)
+        .form(&[("actor", binding.actor.to_string())])
+        .send()
+        .await?
+        .error_for_status()?;
+    recovery::rejected(&origin, &reference).await?;
     opened.close().await?;
     let clients: serde_json::Value = browser
         .post(format!(

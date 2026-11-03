@@ -20,48 +20,7 @@ pub async fn install(store: &ClientStore, next: &EnrollmentBinding) -> anyhow::R
         "Enrollment requires a server and protected credential reference"
     );
     let mut transaction = store.write().await?;
-    let current = identity::load(&mut transaction)
-        .await?
-        .ok_or_else(|| anyhow::anyhow!("workspace identity is missing"))?;
-    anyhow::ensure!(current.binding.is_none(), StoreError::StaleBinding);
-    let definitions = clacks_model::defaults::account_definitions()?;
-    let mut count = 0i64;
-    for value in definitions
-        .output_profiles
-        .into_iter()
-        .map(|value| RecordValue::OutputProfile(Box::new(value)))
-        .chain(
-            definitions
-                .groups
-                .into_iter()
-                .map(|value| RecordValue::Group(Box::new(value))),
-        )
-    {
-        let key = RecordKey {
-            account: store.account,
-            id: value.id(),
-        };
-        if let Some(record) = client::load(&mut transaction, key).await? {
-            anyhow::ensure!(
-                matches!(
-                    record.latest(),
-                    clacks_sync::record::Observation::Unavailable { .. }
-                ) && record
-                    .pending()
-                    .is_some_and(|pending| pending.prepared.is_none() && pending.witness.is_none())
-                    && record.working_state() == Some(&RecordState::Live(value)),
-                StoreError::PopulatedWorkspace
-            );
-            count += 1;
-        }
-    }
-    let rows = sqlx::query_file!("sql/enrollment/first_population.sql")
-        .fetch_one(&mut *transaction)
-        .await?;
-    anyhow::ensure!(
-        rows.records == count && rows.checkpoints == 0,
-        StoreError::PopulatedWorkspace
-    );
+    eligible_in(store, &mut transaction).await?;
     sqlx::query_file!("sql/enrollment/defer_keys.sql")
         .execute(&mut *transaction)
         .await?;
@@ -118,4 +77,63 @@ pub async fn install(store: &ClientStore, next: &EnrollmentBinding) -> anyhow::R
         account: next.account,
         pool: store.pool.clone(),
     })
+}
+
+/// Check whether this standalone log can connect before requesting authorization.
+/// Installation repeats this check in its write transaction to reject later edits.
+pub async fn check_eligible(store: &ClientStore) -> anyhow::Result<()> {
+    let mut transaction = store.pool.begin().await?;
+    eligible_in(store, &mut transaction).await?;
+    transaction.commit().await?;
+    Ok(())
+}
+
+/// Reject bindings or independently populated data within a consistent snapshot.
+async fn eligible_in(
+    store: &ClientStore,
+    transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> anyhow::Result<()> {
+    let current = identity::load(transaction)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("workspace identity is missing"))?;
+    anyhow::ensure!(current.binding.is_none(), StoreError::StaleBinding);
+    let definitions = clacks_model::defaults::account_definitions()?;
+    let mut count = 0i64;
+    for value in definitions
+        .output_profiles
+        .into_iter()
+        .map(|value| RecordValue::OutputProfile(Box::new(value)))
+        .chain(
+            definitions
+                .groups
+                .into_iter()
+                .map(|value| RecordValue::Group(Box::new(value))),
+        )
+    {
+        let key = RecordKey {
+            account: store.account,
+            id: value.id(),
+        };
+        if let Some(record) = client::load(transaction, key).await? {
+            anyhow::ensure!(
+                matches!(
+                    record.latest(),
+                    clacks_sync::record::Observation::Unavailable { .. }
+                ) && record
+                    .pending()
+                    .is_some_and(|pending| pending.prepared.is_none() && pending.witness.is_none())
+                    && record.working_state() == Some(&RecordState::Live(value)),
+                StoreError::PopulatedWorkspace
+            );
+            count += 1;
+        }
+    }
+    let rows = sqlx::query_file!("sql/enrollment/first_population.sql")
+        .fetch_one(&mut **transaction)
+        .await?;
+    anyhow::ensure!(
+        rows.records == count && rows.checkpoints == 0,
+        StoreError::PopulatedWorkspace
+    );
+    Ok(())
 }

@@ -1,10 +1,18 @@
-//! Session-owned enrollment orchestration and explicit durable completion retries.
+//! Session-owned connection orchestration with private completion recovery.
+//!
+//! `clacks_desktop_enrollment_operations_total` counts admitted operations, with
+//! bounded completed/cancelled/cleanup_failed/failed outcomes. Completion includes
+//! cleanup; cleanup failure never implies that a committed binding was rolled back.
+//! `clacks_desktop_enrollment_duration_seconds` covers the whole operation, including
+//! browser wait, under the same outcome labels. Account IDs and inputs are not labels.
 
 #[cfg(test)]
 mod tests;
 
 use super::{
-    EnrollmentCommand, EnrollmentRequest, EnrollmentStatus, completion, credentials, flow,
+    EnrollmentCommand, EnrollmentRequest, EnrollmentStatus, completion, credentials,
+    failure::{self, Problem},
+    flow,
 };
 use crate::workspace::WorkspacePaths;
 use anyhow::Context;
@@ -16,36 +24,20 @@ use clacks_client_store::{
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
-/// Durable attempt and label for an explicit browser approval when needed.
-struct RequestedAttempt {
-    /// Persisted nonsecret completion boundary.
-    attempt: EnrollmentAttempt,
-    /// User-visible label for a newly requested authorization.
-    label: String,
-}
-
-/// Read local connection context, checking native state before offering credential removal.
+/// Read presentation context without exposing internal attempt management.
 pub(crate) async fn inspect(store: &ClientStore) -> anyhow::Result<EnrollmentStatus> {
     let binding = identity::binding(store).await?;
     let attempt = enrollment::attempt(store).await?;
-    let discard_available = match &attempt {
-        Some(attempt) => discardable(attempt).await.unwrap_or(false),
-        None => false,
-    };
-
     Ok(EnrollmentStatus::Idle {
-        server: attempt
+        server: binding
             .as_ref()
-            .map(|attempt| attempt.server().to_owned())
-            .or_else(|| binding.as_ref().map(|binding| binding.server.clone())),
+            .map(|binding| binding.server.clone())
+            .or_else(|| attempt.as_ref().map(|attempt| attempt.server().to_owned())),
         enrolled: binding.is_some(),
-
-        resume_available: attempt.is_some(),
-        discard_available,
     })
 }
 
-/// Run one admitted workflow, returning its outcome for publication after the session joins it.
+/// Run one admitted operation; only the session publishes its terminal outcome.
 #[tracing::instrument(skip_all, name = "desktop.enrollment.workflow")]
 pub(crate) async fn execute(
     store: ClientStore,
@@ -54,181 +46,214 @@ pub(crate) async fn execute(
     status: watch::Sender<EnrollmentStatus>,
     cancellation: CancellationToken,
 ) -> EnrollmentStatus {
+    let started = std::time::Instant::now();
     status.send_replace(EnrollmentStatus::Saving);
     let result = run(&store, &paths, command, &status, cancellation.clone()).await;
-
+    let outcome = match &result {
+        Ok(()) => "completed",
+        Err(_) if cancellation.is_cancelled() => "cancelled",
+        Err(error) if matches!(error.downcast_ref::<Problem>(), Some(Problem::Cleanup)) => {
+            "cleanup_failed"
+        }
+        Err(_) => "failed",
+    };
+    metrics::counter!("clacks_desktop_enrollment_operations_total", "outcome" => outcome)
+        .increment(1);
+    metrics::histogram!("clacks_desktop_enrollment_duration_seconds", "outcome" => outcome)
+        .record(started.elapsed().as_secs_f64());
     match result {
-        Ok(Some(completed)) => EnrollmentStatus::Ready {
-            destination: completed.destination,
-        },
-        Ok(None) => match inspect(&store).await {
-            Ok(status) => status,
-            Err(error) => EnrollmentStatus::Failed {
-                message: error.to_string(),
-                resume_available: false,
-                discard_available: false,
-            },
-        },
+        Ok(()) => EnrollmentStatus::Ready,
+        Err(_) if cancellation.is_cancelled() => {
+            tracing::info!("Connection cancelled; internal completion state retained");
+            inspect(&store)
+                .await
+                .unwrap_or_else(|error| failure::present(&error))
+        }
         Err(error) => {
-            let attempt = enrollment::attempt(&store).await.ok().flatten();
-            let discard_available = match &attempt {
-                Some(attempt) => discardable(attempt).await.unwrap_or(false),
-                None => false,
-            };
-            if cancellation.is_cancelled() {
-                tracing::info!(
-                    "Desktop authorization cancelled; durable completion state retained"
-                );
-            } else {
-                tracing::warn!(
-                    error.type = crate::telemetry::failure::error_class(&error),
-                    "Desktop enrollment did not complete; retry information is available in the connection dialog"
-                );
+            tracing::warn!(outcome, error.type = crate::telemetry::failure::error_class(&error),
+                "Connection operation did not complete");
+            let mut failed = failure::present(&error);
+            if let EnrollmentStatus::Failed { enrolled, .. } = &mut failed {
+                *enrolled = identity::binding(&store).await.ok().flatten().is_some();
             }
-            EnrollmentStatus::Failed {
-                message: format!("{error:#}"),
-                resume_available: attempt.is_some(),
-
-                discard_available,
-            }
+            failed
         }
     }
 }
 
-/// Permit abandoning only a key without saved refresh credentials, or an already absent entry.
-///
-/// Native persistence can precede SQLite's phase update. An unreadable native
-/// entry is not evidence that its credentials are safe to remove.
-async fn discardable(attempt: &EnrollmentAttempt) -> anyhow::Result<bool> {
-    if attempt.phase() != EnrollmentPhase::KeySaved {
-        return Ok(false);
-    }
-
-    let reference = attempt.credential_reference().to_owned();
-    tokio::task::spawn_blocking(move || match credentials::load(&reference) {
-        Ok(bundle) => Ok(bundle.refresh.is_none()),
-        Err(error)
-            if matches!(
-                error.downcast_ref::<keyring_core::Error>(),
-                Some(keyring_core::Error::NoEntry)
-            ) =>
-        {
-            Ok(true)
-        }
-        Err(error) => Err(error),
-    })
-    .await?
-}
-
-/// Carry out one normal attempt, preserving completion state until binding and credential cleanup succeed.
+/// Resolve connection intent against actual installed/native state.
 async fn run(
     store: &ClientStore,
     paths: &WorkspacePaths,
     command: EnrollmentCommand,
     status: &watch::Sender<EnrollmentStatus>,
     cancellation: CancellationToken,
-) -> anyhow::Result<Option<completion::CompletedWorkspace>> {
-    if matches!(command, EnrollmentCommand::Discard) {
-        let attempt = enrollment::attempt(store)
-            .await?
-            .context("No saved enrollment attempt exists")?;
-        anyhow::ensure!(
-            discardable(&attempt).await?,
-            "This attempt has saved credentials or may already be installed. Resume completion instead of discarding its key."
-        );
-        anyhow::ensure!(
-            identity::binding(store).await?.is_none_or(
-                |binding| binding.credential_reference != attempt.credential_reference()
-            ),
-            "An installed credential cannot be discarded as an unfinished attempt"
-        );
-        let reference = attempt.credential_reference().to_owned();
-        tokio::task::spawn_blocking(move || credentials::remove(&reference)).await??;
-        enrollment::clear_attempt(store, &attempt).await?;
-        return Ok(None);
-    }
-    let RequestedAttempt { mut attempt, label } = match command {
-        EnrollmentCommand::Begin { server, label } => {
-            anyhow::ensure!(
-                enrollment::attempt(store).await?.is_none(),
-                "A saved enrollment attempt already exists. Resume it or discard its uninstalled key first."
-            );
-            let server = flow::origin(&server)?.to_string();
-            anyhow::ensure!(
-                !label.trim().is_empty() && label.chars().count() <= 128,
-                "Enter a client label of 1–128 characters"
-            );
-            let expected = identity::binding(store).await?;
-            if let Some(binding) = &expected {
-                anyhow::ensure!(
-                    flow::origin(&binding.server)? == flow::origin(&server)?,
-                    "Reauthorization must use this workspace's existing server"
-                );
-            }
-            let native_server = server.clone();
-            let reference =
-                tokio::task::spawn_blocking(move || credentials::create(&native_server)).await??;
-            let attempt =
-                EnrollmentAttempt::new(reference, server, Some(paths.directory.clone()), expected)?;
-            if let Err(error) = enrollment::save_attempt(store, &attempt).await {
-                let reference = attempt.credential_reference().to_owned();
-                let removed =
-                    tokio::task::spawn_blocking(move || credentials::remove(&reference)).await;
-                if !matches!(removed, Ok(Ok(()))) {
-                    tracing::warn!(
-                        "Could not remove the unused proof key after saving its attempt failed"
-                    );
-                }
-                return Err(error.context("Could not save the new enrollment attempt"));
-            }
-            RequestedAttempt { attempt, label }
-        }
-        EnrollmentCommand::AuthorizeAgain { label } => RequestedAttempt {
-            attempt: restart_attempt(store, paths).await?,
-            label,
-        },
-        EnrollmentCommand::Resume { label } => RequestedAttempt {
-            attempt: enrollment::attempt(store)
-                .await?
-                .context("No saved enrollment attempt exists; choose Connect")?,
-            label,
-        },
-        EnrollmentCommand::Cancel | EnrollmentCommand::Discard => {
-            anyhow::bail!("No authorization workflow was selected")
-        }
+) -> anyhow::Result<()> {
+    let EnrollmentCommand::Connect { server, label } = command else {
+        anyhow::bail!("No connection was requested");
     };
-    let reference = attempt.credential_reference().to_owned();
-    let bundle = tokio::task::spawn_blocking(move || credentials::load(&reference)).await??;
-    let authorized = if bundle.refresh.is_some() {
-        tokio::select! { _ = cancellation.cancelled() => anyhow::bail!("Completion cancelled; the saved attempt is available for retry"), result = flow::resume(attempt.credential_reference().to_owned()) => result? }
+    let server = flow::origin(&server).context(Problem::Input)?.to_string();
+    anyhow::ensure!(
+        !label.trim().is_empty() && label.chars().count() <= 128,
+        Problem::Input
+    );
+    let binding = identity::binding(store).await.context(Problem::Storage)?;
+    if let Some(binding) = &binding {
+        anyhow::ensure!(
+            flow::origin(&binding.server)? == flow::origin(&server)?,
+            Problem::Server
+        );
     } else {
-        flow::authorize(
-            EnrollmentRequest {
-                server: attempt.server().to_owned(),
-                label,
-                credential_reference: attempt.credential_reference().to_owned(),
-                expected: attempt.expected().cloned(),
-            },
-            status.clone(),
-            cancellation.clone(),
-        )
-        .await?
+        enrollment::first::check_eligible(store).await?;
+    }
+    let mut saved = enrollment::attempt(store).await.context(Problem::Storage)?;
+    if let Some(attempt) = &saved {
+        if flow::origin(attempt.server())? != flow::origin(&server)? {
+            anyhow::ensure!(
+                binding.is_none()
+                    && attempt.expected().is_none()
+                    && attempt.phase() != EnrollmentPhase::DestinationBound,
+                Problem::Server
+            );
+            let reference = attempt.credential_reference().to_owned();
+            tokio::task::spawn_blocking(move || match credentials::load(&reference) {
+                Ok(_) => credentials::remove(&reference),
+                Err(error) if failure::missing(&error) => Ok(()),
+                Err(error) => Err(error),
+            })
+            .await?
+            .context(Problem::Credentials)?;
+            enrollment::clear_attempt(store, attempt)
+                .await
+                .context(Problem::Storage)?;
+            saved = None;
+        } else if let Some(binding) = &binding {
+            if binding.credential_reference == attempt.credential_reference() {
+                // SQLite can commit before the phase update. The exact installed
+                // reference and origin establish completion without a network call.
+                cleanup(store, attempt).await.context(Problem::Cleanup)?;
+                tracing::info!("Connection completion cleanup finished");
+                return Ok(());
+            }
+            anyhow::ensure!(attempt.expected() == Some(binding), Problem::Storage);
+        } else {
+            anyhow::ensure!(
+                attempt.expected().is_none()
+                    && attempt.phase() != EnrollmentPhase::DestinationBound,
+                Problem::Storage
+            );
+        }
+    }
+    let mut attempt = match saved {
+        Some(attempt) => attempt,
+        None => create_attempt(store, paths, &server, binding).await?,
+    };
+    anyhow::ensure!(!cancellation.is_cancelled(), "Connection cancelled");
+    let reference = attempt.credential_reference().to_owned();
+    let loaded = tokio::task::spawn_blocking(move || credentials::load(&reference)).await?;
+    let mut authorized = None;
+    match loaded {
+        Ok(bundle) if bundle.refresh.is_some() => {
+            let refreshed = tokio::select! {
+                _ = cancellation.cancelled() => anyhow::bail!("Connection cancelled"),
+                result = flow::resume(attempt.credential_reference().to_owned()) => result,
+            };
+            match refreshed {
+                Ok(value)
+                    if attempt
+                        .expected()
+                        .is_none_or(|expected| expected.account == value.identity.account) =>
+                {
+                    tracing::info!("Saved authorization verified");
+                    authorized = Some(value);
+                }
+                Ok(_) => {
+                    attempt = restart_attempt(store, paths).await?;
+                }
+                Err(error) if failure::refresh_rejected(&error) => {
+                    attempt = restart_attempt(store, paths).await?;
+                }
+                Err(error) => return Err(error.context(Problem::Authorization)),
+            }
+        }
+        Ok(_) => {}
+        Err(error) if failure::missing(&error) => {
+            attempt = restart_attempt(store, paths).await?;
+        }
+        Err(error) => return Err(error.context(Problem::Credentials)),
+    }
+    let authorized = match authorized {
+        Some(authorized) => authorized,
+        None => {
+            tracing::info!("Browser authorization required for connection");
+            flow::authorize(
+                EnrollmentRequest {
+                    server: attempt.server().to_owned(),
+                    label,
+                    credential_reference: attempt.credential_reference().to_owned(),
+                    expected: attempt.expected().cloned(),
+                },
+                status.clone(),
+                cancellation.clone(),
+            )
+            .await
+            .map_err(|error| {
+                if error.downcast_ref::<Problem>().is_some() {
+                    error
+                } else {
+                    error.context(Problem::Authorization)
+                }
+            })?
+        }
     };
     status.send_replace(EnrollmentStatus::Saving);
     attempt.credential_saved();
-    enrollment::save_attempt(store, &attempt).await?;
-    let completed = completion::finish(store, &authorized, cancellation).await?;
-    if let Some(previous) = &completed.attempt.expected()
-        && previous.credential_reference != completed.binding.credential_reference
-    {
-        let reference = previous.credential_reference.clone();
-        tokio::task::spawn_blocking(move || credentials::remove(&reference)).await?
-            .context("Enrollment is installed, but superseded credential removal failed. Resume completion to retry cleanup")?;
-    }
-    enrollment::clear_attempt(&completed.store, &completed.attempt).await?;
-    Ok(Some(completed))
+    enrollment::save_attempt(store, &attempt)
+        .await
+        .context(Problem::Storage)?;
+    let completed = completion::finish(store, &authorized, cancellation)
+        .await
+        .context(Problem::Storage)?;
+    cleanup(&completed.store, &completed.attempt)
+        .await
+        .context(Problem::Cleanup)?;
+    Ok(())
 }
 
+/// Persist a new native key and its nonsecret context before authorization starts.
+async fn create_attempt(
+    store: &ClientStore,
+    paths: &WorkspacePaths,
+    server: &str,
+    expected: Option<identity::EnrollmentBinding>,
+) -> anyhow::Result<EnrollmentAttempt> {
+    let native_server = server.to_owned();
+    let reference = tokio::task::spawn_blocking(move || credentials::create(&native_server))
+        .await?
+        .context(Problem::Credentials)?;
+    let attempt = EnrollmentAttempt::new(
+        reference.clone(),
+        server.to_owned(),
+        Some(paths.directory.clone()),
+        expected,
+    )?;
+    if let Err(error) = enrollment::save_attempt(store, &attempt).await {
+        let _ = tokio::task::spawn_blocking(move || credentials::remove(&reference)).await;
+        return Err(error.context(Problem::Storage));
+    }
+    Ok(attempt)
+}
+
+/// Remove only superseded material after the new connection is installed.
+async fn cleanup(store: &ClientStore, attempt: &EnrollmentAttempt) -> anyhow::Result<()> {
+    if let Some(previous) = attempt.expected()
+        && previous.credential_reference != attempt.credential_reference()
+    {
+        let reference = previous.credential_reference.clone();
+        tokio::task::spawn_blocking(move || credentials::remove(&reference)).await??;
+    }
+    enrollment::clear_attempt(store, attempt).await
+}
 /// Start fresh browser approval while retaining any binding already installed by this attempt.
 pub(super) async fn restart_attempt(
     store: &ClientStore,

@@ -10,8 +10,7 @@ exposes Resume saved attempt, Discard saved attempt and separate browser recover
 This design covers the existing desktop dialog, enrollment worker, first-install
 eligibility check, session integration and owning documentation. It adds no startup
 policy, automatic background retry service, account switcher, workspace picker,
-protocol, dependency, migration or general recovery framework. Product code is not
-part of this documentation change.
+protocol, dependency, migration or general recovery framework.
 
 ## Existing requirements and evidence
 
@@ -27,8 +26,8 @@ part of this documentation change.
   authorization, but UI commands make the user select the entry path.
 - The session already serializes enrollment, joins the worker before publishing
   terminal status, and reopens account-qualified services after installation.
-- Section 6 and the workspace row in `client-enrollment-proposal.md` are outdated:
-  they still prescribe another workspace, destination editing and recovery buttons.
+- Section 6 and the workspace row in `client-enrollment-proposal.md` own the
+  corrected in-place enrollment and internal recovery requirements.
 
 ## Approaches
 
@@ -40,6 +39,11 @@ server locking. A new recovery manager or retry queue has no demonstrated gap to
 fill and is excluded. These are rejected approaches, not additional user choices.
 
 ## Dialog behavior
+
+Default a new connection to `https://clacks.w7hex.com` and the existing
+“Desktop” client label so hosted users can submit without additional input.
+A saved attempt or installed binding supplies its own server; first connections
+remain editable for self-hosted servers.
 
 Keep Server and Client label. Explain the label with “Identifies this installation
 in your account's client list.” Keep Connect and Cancel for first enrollment and

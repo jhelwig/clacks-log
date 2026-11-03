@@ -305,21 +305,21 @@ pub(crate) async fn run(
                     let outcome = match result {
                         Ok(outcome) => outcome,
                         Err(_) => EnrollmentStatus::Failed {
-                            message: "The enrollment worker stopped unexpectedly; retry the saved attempt.".into(),
-                            resume_available: true,
-                            discard_available: false,
+                            enrolled: false,
+                            message: "The enrollment worker stopped unexpectedly; try connecting again.".into(),
+                            details: None,
                         },
                     };
                     enrollment_updates.send_replace(outcome);
                 }
             },
             _ = enrollment_progress.changed() => {
-                let ready = matches!(*enrollment_progress.borrow_and_update(), EnrollmentStatus::Ready {..});
-                let account_changed = if let Some(workspace) = &opened {
-                    clacks_client_store::identity::binding(&workspace.store).await?
-                        .is_some_and(|binding| binding.account != workspace.store.account_id())
+                let ready = matches!(*enrollment_progress.borrow_and_update(), EnrollmentStatus::Ready);
+                let binding_changed = if let Some(workspace) = &opened {
+                    let installed = clacks_client_store::identity::binding(&workspace.store).await?;
+                    installed != *lookup_binding.borrow()
                 } else { false };
-                if enrollment_work.is_empty() && (ready || account_changed) && closing.is_none() && let Some(workspace) = opened.take() {
+                if enrollment_work.is_empty() && (ready || binding_changed) && closing.is_none() && let Some(workspace) = opened.take() {
                     sync_stop.cancel();
                     while let Some(result) = sync_work.join_next().await { if let Err(error) = result { tracing::error!(event="sync.worker.failed", error.type=if error.is_panic() { "task_panic" } else { "task_cancelled" }); } }
                     lookup_stop.cancel();
@@ -371,13 +371,18 @@ pub(crate) async fn run(
                             if closing.is_none() {
                                 let enrollment = match worker::inspect(&workspace.store).await {
                                     Ok(enrollment) => enrollment,
-                                    Err(error) => EnrollmentStatus::Failed {
-                                        message: error.to_string(),
-                                        resume_available: false,
-                                        discard_available: false,
+                                    Err(_error) => EnrollmentStatus::Failed {
+                                        enrolled: workspace.identity.enrolled,
+                                        message: "Could not read connection settings. Try connecting again.".into(),
+                                        details: None,
                                     },
                                 };
-                                enrollment_updates.send_replace(enrollment);
+                                // A watch channel coalesces updates. Preserve the terminal
+                                // result through reopening so the dialog cannot miss success
+                                // or an actionable post-install cleanup failure.
+                                if !matches!(*enrollment_updates.borrow(), EnrollmentStatus::Ready | EnrollmentStatus::Failed { .. }) {
+                                    enrollment_updates.send_replace(enrollment);
+                                }
                                 settings_updates.send_replace(Some(Arc::new(workspace.settings.clone())));
                                 tracing::info!(
                                     event = "desktop.workspace_ready",

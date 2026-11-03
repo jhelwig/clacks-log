@@ -343,8 +343,10 @@ Enrollment completion does not establish synchronization completion.
 
 ### Connection dialog and internal completion
 
-Connect submits the selected server and human client label. Keep the enrolled
-workspace's existing reauthorization entry point, server and account boundary.
+Connect submits the selected server and human client label. New connections
+default to `https://clacks.w7hex.com` and “Desktop”, requiring no additional
+input for hosted use. Saved or installed connections retain their server. Keep the
+enrolled workspace's existing reauthorization entry point, server and account boundary.
 Both actions use the same internal orchestration. The dialog never exposes saved
 attempts, credential disposal, destination selection or separate recovery actions.
 An unfinished attempt alone must not disable Connect or lock the server field.
@@ -393,7 +395,7 @@ The session owns terminal publication after joining the worker. Preserve the exi
 startup behavior; this cleanup adds no automatic startup authorization or background
 retry policy. The [connection workflow design](superpowers/specs/2026-11-03-connection-workflow-design.md)
 and [implementation plan](superpowers/plans/2026-11-03-connection-workflow.md) define
-the agreed cleanup; implementation remains pending.
+the connection workflow and its verification requirements.
 
 ## 7. Reauthorization and revoked work
 

@@ -210,7 +210,7 @@ async fn finish(
     if let Some(expected) = expected {
         anyhow::ensure!(
             identity.account == expected.account,
-            "The authorized server account does not match this workspace"
+            super::failure::Problem::Account
         );
     }
     Ok(AuthorizedEnrollment {

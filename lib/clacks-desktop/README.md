@@ -430,35 +430,41 @@ wait for human interaction or expose delay flags.
 
 ## Server connection
 
-**Connect…** opens the server-origin and client-label form. The browser handles
-sign-in and explicit approval; Huskarl owns the temporary loopback callback and
-proof-bound credential exchange. macOS Keychain and Windows Credential Manager
-hold the signing key and persistent refresh credential. SQLite retains only
-their opaque reference and nonsecret completion context. Linux desktop native
-credential storage is not implemented yet; no plaintext fallback is used.
+**Connect…** opens the server and client-label form. New connections default to
+`https://clacks.w7hex.com` and “Desktop”, so hosted users can choose Connect without
+entering anything. Saved and installed connections retain their own server. The
+client label identifies the installation in the account's client list.
+
+Connect owns authorization and completion recovery. It uses saved credentials when
+possible and opens browser sign-in/approval when required; users never manage saved
+attempts or choose credential-repair operations. Huskarl owns the temporary loopback
+callback and proof-bound exchange. Protected native storage holds the signing key
+and refresh credential; SQLite retains only nonsecret references and completion
+context. Linux native credential storage is not implemented; no plaintext fallback
+is used.
 
 First enrollment connects the current application instance and existing empty
-workspace. Unchanged bundled definitions are replaced by the account's
-synchronized definitions; local operating facts and preferences remain.
-A populated standalone log is preserved and is not automatically merged (D56):
-export its contacts, connect an empty local log, then import through the accepted
-import workflow. Connect does not create another workspace or launch a process.
-**Connection…** on an enrolled
-workspace can replace its authorization without relocating its local data.
-The agreed connection cleanup makes Connect/Reauthorize own saved-credential reuse,
-browser authorization when required and completion recovery. Users do not manage
-saved attempts or credential disposal. Server correction is allowed before binding;
-installed account/server boundaries remain fixed. Errors retain inputs and allow
-retry through the same primary action. Native-store access and transient server
-failures do not automatically replace credentials or reopen browser authorization.
+workspace. Unchanged bundled definitions are replaced by the account's synchronized
+definitions; local operating facts and preferences remain. Populated standalone logs
+are rejected before authorization and checked again during installation under D56:
+export contacts, connect an empty log, then import through the accepted import
+workflow. Connect does not create another workspace or launch a process.
 
-Implementation note: the current dialog still exposes Resume saved attempt,
-Discard saved attempt and Authorize again in browser. Their removal and the worker
-changes are specified in the [connection workflow design](../../docs/superpowers/specs/2026-11-03-connection-workflow-design.md)
-and [implementation plan](../../docs/superpowers/plans/2026-11-03-connection-workflow.md).
+Before enrollment, the server can be corrected and Connect safely replaces only
+uninstalled connection material. **Connection…** offers Reauthorize for the existing
+account/server. Previously unsent work retains its recovery restrictions if the
+writer was replaced. Native access failures and transient server failures preserve
+credentials instead of reopening browser approval. A verified rejected credential
+or wrong-account saved credential uses the existing browser flow internally.
 
-An enrolled workspace receives its initial account state through the session-owned
-synchronization task.
+While connecting, duplicate submission is disabled. Open browser is available during
+approval. Cancel, Escape and close stop local work without promising to undo remote
+approval. Failures retain inputs and permit retry through the same primary action,
+with a concise explanation and sanitized expandable details. Successful completion
+closes the dialog; the existing status display reports synchronization separately.
+Committed installation remains installed if cleanup fails, and retry finishes the
+remaining local work without another authorization. Account-qualified services reload
+when the durable binding changes, including when cleanup remains pending.
 
 ### Native credential integration
 

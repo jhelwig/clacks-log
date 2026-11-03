@@ -1,6 +1,6 @@
 # Connection Workflow Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Make Connect complete connection setup without user-managed recovery.
 
@@ -48,16 +48,16 @@ with `install`; do not duplicate its rules or weaken its atomic guard. Keep fixe
 queries in their existing SQL files. The worker calls preflight only for first
 connection, before native-key creation/browser work.
 
-- [ ] Extend `connect_preserves_populated_standalone_log` and existing store cases:
+- [x] Extend `connect_preserves_populated_standalone_log` and existing store cases:
   independently authored contacts/customized definitions reject; unchanged bundled
   initialization passes; a write after successful preflight still rejects install.
-- [ ] Run the affected tests and confirm the preflight assertions fail before the
+- [x] Run the affected tests and confirm the preflight assertions fail before the
   implementation; retain real production-store operations for fixture setup.
-- [ ] Extract the predicate, wire preflight, and return a specific existing
+- [x] Extract the predicate, wire preflight, and return a specific existing
   populated-workspace error before any authorization side effects.
-- [ ] Run `SQLX_OFFLINE=true cargo test -p clacks-client-store --all-targets --locked --offline`
+- [x] Run `SQLX_OFFLINE=true cargo test -p clacks-client-store --all-targets --locked --offline`
   and the affected desktop completion tests; require passing results.
-- [ ] Commit the independently verified eligibility change with a reviewed message.
+- [x] Commit the independently verified eligibility change with a reviewed message.
 
 ## Task 2: Consolidate connection and internal recovery
 
@@ -75,13 +75,13 @@ carries the existing nonlogged URL; Saving represents connection progress; Ready
 signals local completion; Failed carries a safe summary and optional sanitized
 technical details. Remove resume/discard availability flags from all producers.
 
-- [ ] Use the pinned Huskarl `core::Error::verdict()` and returned
+- [x] Use the pinned Huskarl `core::Error::verdict()` and returned
   `OAuthError::code()` accessors through the preserved error chain. The library
   deliberately excludes HTTP 429/5xx from rejection verdicts even when their bodies
   contain OAuth errors. Use `OAuthErrorCode::InvalidGrant`
   for definite refresh rejection, native `NoEntry` for absence, and preserve source
   errors for other outcomes. Never inspect formatted error strings.
-- [ ] Extend existing real enrollment fixtures with assertions for: a retryable
+- [x] Extend existing real enrollment fixtures with assertions for: a retryable
   server failure preserving the key; saved refresh completion without fresh browser
   approval; rejected refresh causing one fresh browser flow; inaccessible native
   material not causing deletion/replacement; corrected unbound server retiring only
@@ -90,22 +90,22 @@ technical details. Remove resume/discard availability flags from all producers.
   wrong-account approval returning an error and retaining the installed binding.
   Use actual protocol outcomes/environmental failures supported by existing fixtures;
   do not add production test hooks or a mock credential-service abstraction.
-- [ ] Extend completion coverage to reenter after a committed binding with pending
+- [x] Extend completion coverage to reenter after a committed binding with pending
   cleanup, asserting the same account/writer and no new authorization. Use existing
   persistence operations to establish that legitimate state, not broken tables.
-- [ ] Run the affected cases to establish failing Clacks behavior, then implement
+- [x] Run the affected cases to establish failing Clacks behavior, then implement
   the spec's ordered handling in the worker. Validate labels on every Connect path.
   Keep server replacement guarded by actual binding and native entry inspection.
-- [ ] Preserve cancellation, session joining, service reloading and existing
+- [x] Preserve cancellation, session joining, service reloading and existing
   same-account/new-writer recovery rules. Distinguish committed connection from
   remaining cleanup failure in outcomes and messages.
-- [ ] Add bounded workflow outcome reporting using existing tracing/metrics patterns.
+- [x] Add bounded workflow outcome reporting using existing tracing/metrics patterns.
   Verify credential/URL exclusion and truthful committed outcomes in the existing
   telemetry test support; avoid testing subscriber formatting or library internals.
-- [ ] Run `SQLX_OFFLINE=true cargo test -p clacks-desktop --locked --offline enrollment`
+- [x] Run `SQLX_OFFLINE=true cargo test -p clacks-desktop --locked --offline enrollment`
   under the documented native test prerequisites. Record any platform constraint;
   do not claim native credential coverage from skipped scenarios.
-- [ ] Commit the verified workflow changes with a reviewed message.
+- [x] Commit the verified workflow changes with a reviewed message.
 
 ## Task 3: Present one connection operation and verify the assembled UI
 
@@ -118,30 +118,61 @@ A valid idle/failed form submits its current server/label regardless of pending
 internal state. An installed binding alone fixes the server; busy state disables
 input and duplicate submission. Ready closes the dialog and restores opener focus.
 
-- [ ] Update the existing form scenario to assert retry uses Connect with retained
+- [x] Default new connections to `https://clacks.w7hex.com` and “Desktop”; verify
+  startup inspection does not clear that default and one click submits both values.
+  Retain saved/installed server values and editable self-hosted input.
+- [x] Update the existing form scenario to assert retry uses Connect with retained
   inputs, edited server is submitted before enrollment, and no recovery-management
   controls appear. Assert reauthorization retains its installed server.
-- [ ] Extend actual session/UI scenarios for cancellation followed by retry:
+- [x] Extend actual session/UI scenarios for cancellation followed by retry:
   Cancel/Escape/close dismiss, worker admission remains serialized, and terminal
   success closes the dialog without presenting a path or synchronization claim.
-- [ ] Implement the field helper, progress copy, browser fallback, sanitized
+- [x] Implement the field helper, progress copy, browser fallback, sanitized
   expandable error details and completion behavior from the design.
-- [ ] Update the desktop README from its temporary implementation note to describe
+- [x] Update the desktop README from its temporary implementation note to describe
   delivered behavior. Confirm the owning enrollment contract and design agree.
-- [ ] Run `SQLX_OFFLINE=true cargo test -p clacks-desktop --locked --offline`,
+- [x] Run `SQLX_OFFLINE=true cargo test -p clacks-desktop --locked --offline`,
   `SQLX_OFFLINE=true cargo clippy -p clacks-desktop -p clacks-client-store --all-targets --locked --offline -- -D warnings`,
   `cargo fmt --all --check`, and `git diff --check`. Resolve meaningful failures.
-- [ ] Follow the development inventory and desktop UI completion gates: inspect
+- [x] Follow the development inventory and desktop UI completion gates: inspect
   the production application in all states listed in the spec, resize it, exercise
   keyboard dismissal/details, and record screenshots/platform/remaining Windows
   acceptance limitations. No default workspace or persistent development account
   is used for automated tests.
-- [ ] Review the final diff against the design and commit with a reviewed message.
+- [x] Review the final diff against the design and commit with a reviewed message.
   Report behavior and evidence; leave integration/merge to the user.
 
-## Documentation reconciliation already included with this plan
+## Execution evidence
 
-The owning enrollment contract now describes in-place first enrollment and internal
-recovery. The desktop README distinguishes the required cleanup from the still-old
-implementation until Task 3 lands. No application behavior is claimed as delivered
-by this documentation change. This plan has not been executed.
+The owning enrollment contract, desktop README and browser approval copy describe
+in-place enrollment and internal recovery. Fresh connections use the hosted server
+and existing Desktop label. No new dependencies or migrations were introduced.
+
+The client-store suite passed all 92 tests. The signed macOS desktop suite passed
+205 tests, with two child-process fixture entry points ignored by the outer runner
+and invoked through their owning tests. Native enrollment exercised real protected
+storage, the actual issuer and disposable databases. Typed classification covers
+native access denial; a live macOS credential-access denial was not forced.
+
+Fresh review identified two startup/completion cases: late inspection overwriting
+the saved server with the hosted default, and a committed same-account credential
+replacement failing to reload services when cleanup failed. Both had failing
+regression tests before their fixes and passed in the final full desktop suite.
+
+Tasks 1–3 share one implementation commit because the command, session and UI
+migration is coupled. Native Windows visual and credential acceptance remains
+unverified on this macOS host. Native UI evidence is recorded with delivery.
+
+The production macOS application was inspected in an explicitly isolated workspace
+at 100% application scale, in light and dark appearance, at normal and maximized
+window sizes. Hosted defaults, invalid input, unavailable-server failure, expanded
+diagnostics, server correction, browser progress, Cancel/Escape dismissal, first
+connection and same-account reauthorization were exercised. Both successful browser
+round trips closed the dialog and showed Server connected. The installed server
+rejected editing. Populated-workspace rejection and interrupted completion were
+verified by automated production-store/session tests rather than forced in the UI.
+
+Matching server/browser assets must be built with `cargo leptos build`; combining
+an ordinary Cargo server build with cargo-leptos development assets produced a
+hydration mismatch during inspection. Rebuilding both through the framework's
+standard command resolved it without changing authorization policy.
