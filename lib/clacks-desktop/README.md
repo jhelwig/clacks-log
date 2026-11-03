@@ -633,3 +633,28 @@ review, then explicitly refresh references and retry the deletion. Missing tag
 or equipment references require explicit removal/replacement; review does not
 restore them. Previously authorized work stays held until usable shared
 comparison evidence exists and its matching review is explicitly resolved.
+
+## Application menus
+
+Windows and macOS use native **Settings**, **View** and **Help** menus. Settings
+contains logbook management, saved station profiles/equipment, settings refresh,
+connection management and appearance. View resets the workbench layout. Help
+opens workspace/account/log-location details. On macOS, the conventional
+application menu remains available and Command-Q uses the same orderly shutdown
+as closing the window.
+
+The in-window toolbar retains immediate logbook selection and Unsynchronized
+changes. Synchronization status remains in the existing footer. The Linux build
+uses an egui menu bar with the same commands; it does not require GTK menu
+integration. Native-menu initialization failure on Windows/macOS is reported as
+a startup error rather than silently substituting an in-window toolbar.
+
+For native acceptance, run a separate disposable local workspace with
+`cargo run --bin clacks-log -- --workspace /absolute/path/to/disposable-workspace`.
+Check menu placement, idle activation, disabled items during modal editing,
+focus restoration, unchanged contact drafts and orderly Quit. On Windows also
+check Alt menu access and different display scales; on macOS check the
+application menu, Help search and Command-Q. Open Unsynchronized changes and
+check that macOS application-menu commands target the main workbench when that
+auxiliary window has focus. Component tests and cross-compilation do not replace
+these platform checks.

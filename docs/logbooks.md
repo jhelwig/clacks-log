@@ -55,7 +55,8 @@ are outside the agreed model. Duplicate names do not merge identities.
 
 ### Dedicated management dialog
 
-Use a compact main-window selector with **Manage logbooks…** beside it. Immediate
+Use a compact main-window selector with **Manage logbooks…** in the native
+**Settings** menu, following the desktop UI contract. Immediate
 view selection stays available without a permanent management pane. The dedicated
 dialog separates named-tag edits and deletion from routine view changes. It uses
 the existing Save/Cancel, validation, focus, dismissal and feedback facilities.

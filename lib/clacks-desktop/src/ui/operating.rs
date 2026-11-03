@@ -1,7 +1,6 @@
 //! Navigation owns one operating edit and independent reusable-record editors.
 
 pub(super) mod fields;
-mod home;
 mod pending;
 mod quick;
 mod responses;
@@ -229,36 +228,52 @@ impl SettingsUi {
         }
     }
 
-    /// Open reusable management from the application bar without changing operation.
-    pub fn management(&mut self, ui: &mut egui::Ui, sender: &mpsc::Sender<SettingsRequest>) {
+    /// A modal workflow, excluding the invisible home frame.
+    pub fn is_open(&self) -> bool {
+        self.stack.len() > 1
+    }
+
+    /// Pending requests retain their existing admission guard.
+    pub fn is_busy(&self) -> bool {
+        !self.dismissed.is_empty() || self.stack.iter().any(|frame| frame.response.is_some())
+    }
+
+    /// Open the existing reusable station list.
+    pub fn open_profiles(&mut self, opener: Option<egui::Id>) {
+        self.open_management(Screen::Profiles, opener);
+    }
+
+    /// Open the existing reusable equipment list.
+    pub fn open_equipment(&mut self, opener: Option<egui::Id>) {
+        self.open_management(Screen::Equipment, opener);
+    }
+
+    fn open_management(&mut self, screen: Screen, opener: Option<egui::Id>) {
+        if self.is_open() || self.is_busy() {
+            return;
+        }
         if self.stack.is_empty() {
             self.stack.push(Frame::new(Screen::Home));
         }
-        let menu = home::show(
-            ui,
-            self.stack
-                .last()
-                .is_none_or(|frame| frame.response.is_none()),
-        );
-        let next = match menu.inner {
-            Some(home::HomeAction::Profiles) => Some(Screen::Profiles),
-            Some(home::HomeAction::Equipment) => Some(Screen::Equipment),
-            Some(home::HomeAction::Refresh) => {
-                if let Some(frame) = self.stack.last_mut() {
-                    frame.send(sender, SettingsAction::Refresh);
-                }
-                None
-            }
-            None | Some(home::HomeAction::None) => None,
-        };
-        if let Some(next) = next {
-            let mut frame = Frame::new(next);
-            frame.opener = Some(menu.response.id);
-            self.stack.push(frame);
+        let mut frame = Frame::new(screen);
+        frame.opener = opener;
+        self.stack.push(frame);
+    }
+
+    /// Refresh through the same request owner used by saved-settings management.
+    pub fn refresh_settings(&mut self, sender: &mpsc::Sender<SettingsRequest>) {
+        if self.is_busy() {
+            return;
+        }
+        if self.stack.is_empty() {
+            self.stack.push(Frame::new(Screen::Home));
+        }
+        if let Some(frame) = self.stack.last_mut() {
+            frame.send(sender, SettingsAction::Refresh);
         }
     }
 
-    /// Consume committed view updates, poll this screen's response, and render real workflows.
+    /// Render current operating controls and the existing modal stack.
     pub fn show(
         &mut self,
         ui: &mut egui::Ui,

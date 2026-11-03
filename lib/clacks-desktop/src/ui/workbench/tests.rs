@@ -262,28 +262,18 @@ fn history_fills_remaining_bounds_with_empty_or_populated_rows() {
 }
 
 #[test]
-fn layout_reset_restores_dimensions_from_the_view_menu() {
-    let workbench = Workbench {
+fn layout_reset_restores_dimensions() {
+    let mut workbench = Workbench {
         sizes: PaneSizes {
             height: 500.0,
             width: 800.0,
         },
         ..Default::default()
     };
-    let mut ui = Harness::builder().build_ui_state(
-        |ui, workbench: &mut Workbench| workbench.menu(ui),
-        workbench,
-    );
-    assert!(ui.query_by_label("Reset workbench layout").is_none());
-    ui.get_by_label("View").click();
-    ui.run();
-    ui.get_by_label("Layout").click();
-    ui.run();
-    ui.get_by_label("Reset workbench layout").click();
-    ui.run();
-    assert_eq!(ui.state().sizes.height, PaneSizes::default().height);
-    assert_eq!(ui.state().sizes.width, PaneSizes::default().width);
-    assert!(ui.state().reset);
+    workbench.reset_layout();
+    assert_eq!(workbench.sizes.height, PaneSizes::default().height);
+    assert_eq!(workbench.sizes.width, PaneSizes::default().width);
+    assert!(workbench.reset);
 }
 
 #[test]

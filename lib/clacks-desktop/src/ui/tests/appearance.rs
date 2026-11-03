@@ -12,7 +12,7 @@ fn dismissal_restores_opener_focus_after_keyboard_interaction() {
                 |ui, state: &mut AppearanceUi| {
                     let opener = ui.button("Appearance…");
                     if opener.clicked() {
-                        state.open(opener.id);
+                        state.open(Some(opener.id));
                     }
                     state.show(ui.ctx());
                 },

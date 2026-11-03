@@ -254,17 +254,15 @@ impl Workbench {
         eframe::set_value(storage, "clacks.workbench.panes.v1", &self.sizes);
     }
 
-    /// Expose layout commands in the application menu without using logging space.
-    pub fn menu(&mut self, ui: &mut egui::Ui) {
-        ui.menu_button("View", |ui| {
-            ui.menu_button("Layout", |ui| {
-                if ui.button("Reset workbench layout").clicked() {
-                    self.sizes = PaneSizes::default();
-                    self.reset = true;
-                    ui.close();
-                }
-            });
-        });
+    /// Whether a saved-contact modal currently owns workbench input.
+    pub fn has_modal(&self) -> bool {
+        self.contacts.has_modal()
+    }
+
+    /// Restore pane sizes without changing contact input.
+    pub fn reset_layout(&mut self) {
+        self.sizes = PaneSizes::default();
+        self.reset = true;
     }
 
     /// Draw the production logging panes using current committed defaults.

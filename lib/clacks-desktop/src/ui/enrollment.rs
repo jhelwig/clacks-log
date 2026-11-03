@@ -63,19 +63,16 @@ impl Default for EnrollmentUi {
 }
 
 impl EnrollmentUi {
-    /// Offer connection management without changing the workbench layout or logging context.
-    pub fn opener(&mut self, ui: &mut egui::Ui, status: &EnrollmentStatus) {
-        if let EnrollmentStatus::Idle { enrolled, .. } = status {
-            self.enrolled = *enrolled;
-        }
-        let opener = ui.button(if self.enrolled {
-            "Connection…"
-        } else {
-            "Connect…"
-        });
-        if opener.clicked() {
+    /// Current modal visibility participates in menu availability.
+    pub fn is_open(&self) -> bool {
+        self.open
+    }
+
+    /// Open the connection workflow without resetting its inputs.
+    pub fn open(&mut self, opener: Option<egui::Id>) {
+        if !self.open {
             self.open = true;
-            self.opener = Some(opener.id);
+            self.opener = opener;
             self.validation.invalidate();
         }
     }

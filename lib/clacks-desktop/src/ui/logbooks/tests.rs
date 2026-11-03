@@ -27,6 +27,12 @@ fn mount() -> Harness<'static, Host> {
         .build_ui_state(
             |ui, host| {
                 host.view.observe(&host.snapshot, None);
+                let opener =
+                    ui.add_enabled(!host.view.is_busy(), egui::Button::new("Manage logbooks…"));
+                if opener.clicked() {
+                    host.view.open_management(Some(opener.id));
+                }
+
                 host.view.show(ui, &host.snapshot, &host.sender);
                 host.view.feedback(ui, &host.sender);
                 host.view.dialog(ui.ctx(), &host.snapshot, &host.sender);

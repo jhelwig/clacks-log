@@ -61,6 +61,9 @@ chrono = "0.4"
 openidconnect = { version = "=4.0.1", default-features = false, features = ["reqwest", "rustls-tls", "timing-resistant-secret-traits"] }
 axum = { version = "=0.8.9", features = ["form", "query", "ws"] }
 clacks-server = { path = "lib/clacks-server" }
+muda = { version = "=0.21.2", default-features = false }
+winit = { version = "=0.30.13", default-features = false }
+raw-window-handle = "=0.6.2"
 eframe = { version = "=0.37.0", default-features = false, features = ["accesskit", "clipboard", "default_fonts", "links", "persistence", "system_fonts", "wgpu", "wayland", "x11"] }
 egui_extras = { version = "=0.37.0", default-features = false }
 egui_kittest = { version = "=0.37.0", default-features = false }

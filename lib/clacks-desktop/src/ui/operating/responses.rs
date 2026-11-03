@@ -5,7 +5,7 @@ use clacks_client_store::{operating::OperatingSaveOutcome, settings::EquipmentDe
 
 impl SettingsUi {
     /// Settle admitted requests, including dialogs the operator already dismissed.
-    pub(super) fn poll(&mut self) {
+    pub(in crate::ui) fn poll(&mut self) {
         let dismissed = std::mem::take(&mut self.dismissed);
         for mut frame in dismissed {
             self.poll_frame(&mut frame);

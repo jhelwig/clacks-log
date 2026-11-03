@@ -98,7 +98,7 @@ pub(super) struct LogbooksUi {
     fallback_notice: Option<TagId>,
     /// Whether the startup fallback has already been considered.
     startup_observed: bool,
-    /// ID of the Manage logbooks button that opened the dialog.
+    /// Focused workbench widget before management opened.
     opener: Option<egui::Id>,
     /// Button to focus after the modal has finished closing.
     restore_focus: Option<egui::Id>,
@@ -148,7 +148,25 @@ impl LogbooksUi {
         }
     }
 
-    /// Render immediate view selection and its management opener in the application bar.
+    /// Whether the logbook manager is already open.
+    pub fn is_open(&self) -> bool {
+        self.management.is_some()
+    }
+
+    /// Open management without replacing an unfinished edit.
+    pub fn open_management(&mut self, opener: Option<egui::Id>) {
+        if self.management.is_none() && !self.is_busy() {
+            self.opener = opener;
+            self.management = Some(Management {
+                form: None,
+                deletion: None,
+                response: None,
+                notice: None,
+            });
+        }
+    }
+
+    /// Render immediate view selection in the in-window toolbar.
     pub fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -229,16 +247,6 @@ impl LogbooksUi {
                 "Finishing logbook request…"
             });
         }
-        let manage = ui.add_enabled(!self.is_busy(), egui::Button::new("Manage logbooks…"));
-        if manage.clicked() {
-            self.opener = Some(manage.id);
-            self.management = Some(Management {
-                form: None,
-                deletion: None,
-                response: None,
-                notice: None,
-            });
-        }
     }
 
     /// Present actionable results outside the compact application bar.
@@ -308,7 +316,7 @@ impl LogbooksUi {
     }
 
     /// Whether a submitted logbook request still has an unconsumed reply.
-    fn is_busy(&self) -> bool {
+    pub fn is_busy(&self) -> bool {
         self.selection_response.is_some()
             || self
                 .management

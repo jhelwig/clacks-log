@@ -4,7 +4,7 @@ use super::*;
 
 impl LogbooksUi {
     /// Handle completed logbook requests without repeating their writes.
-    pub(super) fn poll(&mut self) {
+    pub(in crate::ui) fn poll(&mut self) {
         if let Some(response) = take_response(&mut self.selection_response) {
             self.selecting = None;
             self.accept(response, None);

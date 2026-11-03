@@ -39,7 +39,7 @@ fn appearance_apply_survives_app_save_and_reconstruction() {
     window
         .app
         .appearance
-        .open(egui::Id::unique("test.appearance.opener"));
+        .open(Some(egui::Id::unique("test.appearance.opener")));
     let pending = &mut window.app.appearance.editor.as_mut().unwrap().pending;
     pending.appearance = Appearance::Light;
     pending.zoom = 1.25;
@@ -83,7 +83,7 @@ fn appearance_cancelled_preview_is_not_saved() {
     window
         .app
         .appearance
-        .open(egui::Id::unique("test.appearance.opener"));
+        .open(Some(egui::Id::unique("test.appearance.opener")));
     let pending = &mut window.app.appearance.editor.as_mut().unwrap().pending;
     pending.appearance = Appearance::Dark;
     pending.zoom = 1.5;
@@ -266,7 +266,7 @@ fn closing_discards_appearance_preview_and_continue_waiting_keeps_the_window_ope
     window
         .app
         .appearance
-        .open(egui::Id::unique("test.appearance.opener"));
+        .open(Some(egui::Id::unique("test.appearance.opener")));
     window.app.appearance.editor.as_mut().unwrap().pending.zoom = 1.5;
     window.app.begin_close();
     window.updates.send_replace(SessionStatus::Closing {
@@ -280,3 +280,5 @@ fn closing_discards_appearance_preview_and_continue_waiting_keeps_the_window_ope
     ui.step();
     assert!(ui.state().app.continuing);
 }
+
+mod menu_commands;

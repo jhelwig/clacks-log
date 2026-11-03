@@ -123,6 +123,11 @@ impl ContactsUi {
         self.chrome_height + table::minimum_height(ui)
     }
 
+    /// A saved-contact workflow reserves modal input while its load is pending.
+    pub fn has_modal(&self) -> bool {
+        self.editor.is_some() || self.deletion.is_some() || self.operation.is_some()
+    }
+
     /// Open the existing saved-contact editor from either contact table.
     pub fn open(&mut self, id: QsoId, requests: &mpsc::Sender<SettingsRequest>) {
         self.request(ContactAction::Load { id }, requests);

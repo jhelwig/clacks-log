@@ -5,6 +5,7 @@ mod appearance;
 mod closing;
 mod contact_table;
 mod contacts;
+mod diagnostics;
 mod dialog;
 mod enrollment;
 mod equipment;
@@ -13,6 +14,9 @@ mod fields;
 pub(crate) mod fonts;
 mod logbooks;
 mod logging;
+mod menu_commands;
+#[cfg(any(test, not(any(target_os = "macos", windows))))]
+mod menus;
 mod operating;
 mod preferences;
 mod profiles;
@@ -74,6 +78,14 @@ pub(crate) struct DesktopApp {
     lookup_view: mpsc::Receiver<crate::directory::lookup::LookupUpdate>,
     /// Current directory-only diagnosis; logging remains independently available.
     directory_status: watch::Receiver<crate::directory::provisioning::ProvisioningStatus>,
+    /// Native menu resources, never constructed by headless component tests.
+    #[cfg(any(target_os = "macos", windows))]
+    native_menus: Option<crate::menus::native::MenuAdapter>,
+    /// Native activation events consumed by root logic.
+    #[cfg(any(target_os = "macos", windows))]
+    menu_receiver: Option<std::sync::mpsc::Receiver<crate::menus::MenuCommand>>,
+    /// Workspace information opened from Help.
+    details: diagnostics::DiagnosticsUi,
     /// Connection dialog, independent of logging and saved-settings editors.
     enrollment: enrollment::EnrollmentUi,
     /// Latest authoritative enrollment progress from the runtime.
@@ -140,6 +152,11 @@ impl DesktopApp {
         Self {
             lookup_view,
             directory_status,
+            #[cfg(any(target_os = "macos", windows))]
+            native_menus: None,
+            #[cfg(any(target_os = "macos", windows))]
+            menu_receiver: None,
+            details: Default::default(),
             enrollment: Default::default(),
             enrollment_view,
             appearance: Default::default(),
@@ -236,6 +253,11 @@ impl DesktopApp {
 }
 
 impl eframe::App for DesktopApp {
+    fn on_exit(&mut self) {
+        #[cfg(any(target_os = "macos", windows))]
+        self.native_menus.take();
+    }
+
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         self.appearance.save(storage);
         self.workbench.save(storage);
@@ -247,6 +269,8 @@ impl eframe::App for DesktopApp {
 
     fn logic(&mut self, context: &egui::Context, _frame: &mut eframe::Frame) {
         self.update_lifecycle(context);
+        #[cfg(any(target_os = "macos", windows))]
+        self.process_menus(context);
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
@@ -281,23 +305,15 @@ impl eframe::App for DesktopApp {
             };
             self.logbooks.observe(&snapshot.logbooks, restored);
         }
+        #[cfg(not(any(target_os = "macos", windows)))]
+        self.show_menus(ui);
         egui::Panel::top("application.header").show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.heading("Clacks Log");
                 if let Some(snapshot) = &snapshot {
                     self.logbooks
                         .show(ui, &snapshot.logbooks, &self.settings_requests);
-                    self.settings.management(ui, &self.settings_requests);
-                    self.workbench.menu(ui);
                     self.review.action(ui);
-                }
-                startup::details(self, ui, &state);
-                if snapshot.is_some() {
-                    self.enrollment.opener(ui, &self.enrollment_view.borrow());
-                }
-                let appearance = ui.add_enabled(!closing, egui::Button::new("Appearance…"));
-                if appearance.clicked() {
-                    self.appearance.open(appearance.id);
                 }
             });
         });
@@ -380,9 +396,12 @@ impl eframe::App for DesktopApp {
                 }
             }
 
+            self.details.show(ui.ctx(), &self.paths, &state);
             self.appearance.show(ui.ctx());
             self.enrollment
                 .show(ui.ctx(), &self.commands, &mut self.enrollment_view);
         }
+        #[cfg(any(target_os = "macos", windows))]
+        self.update_menu_state();
     }
 }

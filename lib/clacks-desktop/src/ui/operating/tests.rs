@@ -24,7 +24,6 @@ fn mount() -> Harness<'static, Host> {
         .with_size(egui::vec2(1100.0, 1200.0))
         .build_ui_state(
             |ui, host| {
-                host.view.management(ui, &host.sender);
                 host.view.show(ui, &host.snapshot, &host.sender);
             },
             Host {
