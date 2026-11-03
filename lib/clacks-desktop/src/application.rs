@@ -95,29 +95,27 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
         ..Default::default()
     };
 
-    let window = eframe::run_native(
-        "Clacks Log",
+    let window = run_window(
         options,
-        Box::new(move |creation| {
-            let _ = context.set(creation.egui_ctx.clone());
-            let mut app = DesktopApp::new(UiResources {
-                lookup_view,
-                directory_status,
-                enrollment_view,
-                status,
-                activation,
-                commands: ui_commands,
-                paths,
-                diagnostics,
-                loss,
-                file_failure,
-                settings_requests,
-                settings_view,
-            });
-            app.restore_appearance(&creation.egui_ctx, creation.storage);
-            Ok(Box::new(app))
-        }),
+        context,
+        UiResources {
+            lookup_view,
+            directory_status,
+            enrollment_view,
+            status,
+            activation,
+            commands: ui_commands,
+            paths,
+            diagnostics,
+            loss,
+            file_failure,
+            settings_requests,
+            settings_view,
+        },
     );
+    if let Err(error) = &window {
+        tracing::error!(%error, "Desktop initialization failed");
+    }
 
     // This fallback also runs when the renderer fails before constructing the app.
     let cleanup = runtime.block_on(async {
@@ -132,4 +130,37 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
     }
 
     cleanup
+}
+
+/// Run native initialization inside an error boundary so session cleanup always runs.
+fn run_window(
+    options: eframe::NativeOptions,
+    context: Arc<OnceLock<eframe::egui::Context>>,
+    resources: UiResources,
+) -> anyhow::Result<()> {
+    #[cfg(any(target_os = "macos", windows))]
+    let mut menus = crate::menus::native::MenuAdapter::prepare()?;
+    #[cfg(any(target_os = "macos", windows))]
+    let options = {
+        let mut options = options;
+        menus.configure(&mut options);
+        options
+    };
+    eframe::run_native(
+        "Clacks Log",
+        options,
+        Box::new(move |creation| {
+            let _ = context.set(creation.egui_ctx.clone());
+            let mut app = DesktopApp::new(resources);
+            app.restore_appearance(&creation.egui_ctx, creation.storage);
+            #[cfg(any(target_os = "macos", windows))]
+            {
+                let (sender, receiver) = std::sync::mpsc::channel();
+                menus.attach(creation, sender)?;
+                app.install_menus(menus, receiver);
+            }
+            Ok(Box::new(app))
+        }),
+    )
+    .map_err(|error| anyhow::anyhow!("native window failed: {error}"))
 }

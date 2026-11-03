@@ -7,6 +7,7 @@ mod directory;
 mod instance;
 mod logbooks;
 mod logging;
+mod menus;
 mod operating;
 mod review;
 mod session;

@@ -1,0 +1,138 @@
+//! Menu admission and dispatch reuse the existing presentation owners.
+
+use super::DesktopApp;
+use crate::{menus::MenuCommand, session::SessionStatus};
+use eframe::egui;
+
+impl DesktopApp {
+    /// Current state, not the state when the operating system queued activation.
+    pub(super) fn menu_enabled(&self, command: MenuCommand) -> bool {
+        if command == MenuCommand::Quit {
+            return true;
+        }
+        let state = self.status.borrow();
+        if self.close_requested
+            || matches!(
+                *state,
+                SessionStatus::Closing { .. } | SessionStatus::Closed
+            )
+        {
+            return false;
+        }
+        if self.appearance.editor.is_some()
+            || self.enrollment.is_open()
+            || self.logbooks.is_open()
+            || self.settings.is_open()
+            || self.details.is_open()
+            || self.workbench.has_modal()
+        {
+            return false;
+        }
+        if matches!(command, MenuCommand::Appearance | MenuCommand::Diagnostics) {
+            return true;
+        }
+        if !matches!(*state, SessionStatus::Ready { .. }) || self.settings_view.borrow().is_none() {
+            return false;
+        }
+        match command {
+            MenuCommand::ManageLogbooks => !self.logbooks.is_busy(),
+            MenuCommand::StationProfiles
+            | MenuCommand::EquipmentConfigurations
+            | MenuCommand::RefreshSettings => !self.settings.is_busy(),
+            _ => true,
+        }
+    }
+
+    /// Execute once on the UI thread; downstream operations keep their own errors.
+    pub(super) fn dispatch_menu(&mut self, context: &egui::Context, command: MenuCommand) {
+        let enabled = self.menu_enabled(command);
+        let outcome = if enabled {
+            "accepted"
+        } else {
+            "stale_disabled"
+        };
+        tracing::debug!(?command, outcome, "Menu command dispatched");
+        metrics::counter!("clacks.desktop.menu.commands", "command" => command.id(), "outcome" => outcome).increment(1);
+        if !enabled {
+            return;
+        }
+        // A menu Quit may arrive after this pass's lifecycle advance, including
+        // while hidden. Schedule the next logic pass to drain shutdown normally.
+        context.request_repaint_of(egui::ViewportId::ROOT);
+        let opener = context.memory(|memory| memory.focused());
+        match command {
+            MenuCommand::ManageLogbooks => self.logbooks.open_management(opener),
+            MenuCommand::StationProfiles => self.settings.open_profiles(opener),
+            MenuCommand::EquipmentConfigurations => self.settings.open_equipment(opener),
+            MenuCommand::RefreshSettings => self.settings.refresh_settings(&self.settings_requests),
+            MenuCommand::Connection => self.enrollment.open(opener),
+            MenuCommand::Appearance => self.appearance.open(opener),
+            MenuCommand::ResetLayout => self.workbench.reset_layout(),
+            MenuCommand::Diagnostics => self.details.open(opener),
+            MenuCommand::Quit => self.begin_close(),
+        }
+        if !matches!(
+            command,
+            MenuCommand::Quit | MenuCommand::RefreshSettings | MenuCommand::ResetLayout
+        ) {
+            for action in [
+                egui::ViewportCommand::Visible(true),
+                egui::ViewportCommand::Minimized(false),
+                egui::ViewportCommand::Focus,
+            ] {
+                context.send_viewport_cmd_to(egui::ViewportId::ROOT, action);
+            }
+        }
+    }
+}
+
+impl DesktopApp {
+    /// Native resources remain separate from headless component resources.
+    #[cfg(any(target_os = "macos", windows))]
+    pub(crate) fn install_menus(
+        &mut self,
+        menus: crate::menus::native::MenuAdapter,
+        receiver: std::sync::mpsc::Receiver<MenuCommand>,
+    ) {
+        self.native_menus = Some(menus);
+        self.menu_receiver = Some(receiver);
+        self.update_menu_state();
+    }
+
+    /// Consume activation once, including while the workbench is not painted.
+    #[cfg(any(target_os = "macos", windows))]
+    pub(super) fn process_menus(&mut self, context: &egui::Context) {
+        self.logbooks.poll();
+        self.settings.poll();
+        loop {
+            let command = self
+                .menu_receiver
+                .as_ref()
+                .and_then(|receiver| receiver.try_recv().ok());
+            let Some(command) = command else {
+                break;
+            };
+            self.dispatch_menu(context, command);
+        }
+        self.update_menu_state();
+    }
+
+    /// Current modal, lifecycle and pending-request rules govern native items.
+    #[cfg(any(target_os = "macos", windows))]
+    pub(super) fn update_menu_state(&self) {
+        if let Some(menus) = &self.native_menus {
+            for command in crate::menus::GROUPS
+                .iter()
+                .flat_map(|group| group.commands.iter().flatten())
+            {
+                menus.set_enabled(*command, self.menu_enabled(*command));
+            }
+            menus.set_connection_label(self.is_enrolled());
+        }
+    }
+
+    /// Read authoritative account state even before the next rendered frame.
+    pub(super) fn is_enrolled(&self) -> bool {
+        matches!(&*self.status.borrow(), SessionStatus::Ready { identity, .. } if identity.enrolled)
+    }
+}

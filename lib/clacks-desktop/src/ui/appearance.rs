@@ -14,12 +14,12 @@ pub(super) struct AppearanceEditor {
     /// Values currently shown in the preview.
     pub pending: AppearancePreferences,
     /// Native control that opened this preview and receives focus on dismissal.
-    opener: egui::Id,
+    opener: Option<egui::Id>,
 }
 
 impl AppearanceEditor {
     /// Start a preview using the last committed presentation choices.
-    pub fn new(preferences: &AppearancePreferences, opener: egui::Id) -> Self {
+    pub fn new(preferences: &AppearancePreferences, opener: Option<egui::Id>) -> Self {
         Self {
             pending: preferences.clone(),
             opener,
@@ -92,7 +92,7 @@ impl AppearanceUi {
     }
 
     /// Open the local appearance editor without replacing an existing preview.
-    pub fn open(&mut self, opener: egui::Id) {
+    pub fn open(&mut self, opener: Option<egui::Id>) {
         self.editor
             .get_or_insert_with(|| AppearanceEditor::new(&self.committed, opener));
     }
@@ -110,7 +110,7 @@ impl AppearanceUi {
             self.notice = None;
         }
         if let Some(editor) = self.editor.take() {
-            self.restore_focus = Some(editor.opener);
+            self.restore_focus = editor.opener;
             context.request_repaint();
         }
         theme::install(context, &self.committed);

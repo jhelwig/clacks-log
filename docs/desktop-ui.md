@@ -28,7 +28,7 @@ exact visual tokens remain implementation design.
 ![Accepted compact workbench composition](images/desktop-workbench-reference.jpg)
 
 This accepted reference fixes the composition: application name and logbook
-selection share the application bar; station/profile, station identity,
+selection share the in-window toolbar; station/profile, station identity,
 equipment, operator, inline power and Operating settings share the operating
 strip directly beneath it. Defined sections frame the logging tools below.
 The logbook selector and operating summary are chrome, rather than independent
@@ -99,7 +99,8 @@ fallback commits atomically with the effective tag deletion; presentation
 preferences do not maintain another saved selection.
 
 Use a compact main-window logbook/view selector for immediate switching, with
-**Manage logbooks…** beside it (D305). Management opens a dedicated dialog for
+**Manage logbooks…** in the native **Settings** menu. This placement supersedes
+the adjacent management button described in D305. Management opens a dedicated dialog for
 named-tag creation, names, per-service automatic-upload policies and deletion;
 do not add another permanent management pane. All contacts and Untagged are not
 editable tags. Use the shared Save/Cancel, validation and dismissal behavior.
@@ -282,7 +283,7 @@ The current shared palette uses these surface and emphasis roles:
 | Role | Dark | Light |
 | --- | --- | --- |
 | Workspace canvas | `#1d2228` | `#f0f1f5` |
-| Application bar, section body, dialog | `#252a30` | `#ffffff` |
+| In-window toolbar, section body, dialog | `#252a30` | `#ffffff` |
 | Operating strip and raised headers | `#2a2f35` | `#f0f1f5` |
 | Recessed fields and value controls | `#1d2226` | `#f5f6f8` |
 | Restrained border | `#49525b` | `#cbd1d8` |
@@ -295,10 +296,28 @@ selection and disabled states. Primary Save/Apply actions use the accent fill
 and a contrasting foreground; secondary actions retain the quieter control
 treatment. Edited and error colors retain their independent state meanings.
 
-The application bar contains the logbook selector with **Manage logbooks…** beside
-it. Reusable station/equipment management and refresh remain available through a
-compact **Saved settings** menu, alongside appearance controls; they do not occupy
-a permanent workbench content panel. The operating strip uses selected values as
+The in-window toolbar retains the logbook selector and direct access to conflict
+resolution through **Unsynchronized changes**. Preserve existing synchronization
+status in its current location, including the workspace-status footer. Move
+management commands into OS-native menus using the following agreed structure:
+
+| Native menu | Commands |
+| --- | --- |
+| Settings | Manage logbooks…, Station profiles…, Equipment configurations…, Refresh settings, account/server management, Appearance… |
+| View | Reset workbench layout |
+| Help | Workspace & diagnostics… |
+
+Use the native menu bar, including the screen-level menu bar on macOS; an egui
+menu drawn in the toolbar is not a substitute. Do not create a separate Logbooks
+menu. A single-entry menu is appropriate only when its future extension is
+obvious, as it is for View and Help. This structure does not introduce new
+settings screens or change the commands' underlying workflows.
+
+This correction concerns management-command placement. Preserve existing
+synchronization status and conflict-resolution access; improving their
+communication is a separate issue. Contact entry and Save are outside this
+change. Reusable station/equipment management does not occupy a permanent
+workbench content panel. The operating strip uses selected values as
 its quick-change controls instead of separate rows of values and Change buttons.
 Full editing remains **Operating settings…** beside inline power. Reflow or scroll
 when the window cannot accommodate the strip at the selected scale.
