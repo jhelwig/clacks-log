@@ -313,13 +313,6 @@ impl eframe::App for DesktopApp {
         }
         egui::Panel::bottom("application.status").show(ui, |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui
-                    .add_enabled(!closing, egui::Button::new("Close"))
-                    .clicked()
-                {
-                    self.begin_close();
-                }
-                ui.separator();
                 startup::status(ui, &state);
             });
         });
@@ -328,7 +321,7 @@ impl eframe::App for DesktopApp {
             .frame(
                 egui::Frame::central_panel(ui.style())
                     .fill(background)
-                    .inner_margin(12),
+                    .inner_margin(0),
             )
             .show(ui, |ui| {
                 if let Some(notice) = &self.appearance.notice {

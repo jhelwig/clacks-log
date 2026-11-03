@@ -110,6 +110,214 @@ use crate::ui::tests::fixtures;
 use egui_kittest::{Harness, kittest::Queryable};
 
 #[test]
+fn entry_header_and_save_remain_visible_while_the_form_scrolls() {
+    let (sender, mut requests) = mpsc::channel(8);
+    let mut ui = Harness::builder()
+        .allow_missing_glyphs()
+        .with_context_setup(|ctx| crate::ui::theme::install(ctx, &Default::default()))
+        .with_size(egui::vec2(550.0, 220.0))
+        .build_ui_state(
+            move |ui, entry: &mut LoggingUi| entry.show(ui, &sender),
+            ready_entry(),
+        );
+    let header = ui.get_by_label("QSO entry").rect();
+    let save = ui
+        .get_by_role_and_label(egui::Role::Button, "Save QSO")
+        .rect();
+    assert!((header.center().y - save.center().y).abs() < 1.0);
+    assert!(save.left() > header.right());
+    assert!((save.right() - 534.0).abs() < 1.0);
+    let divider_y = ui
+        .output()
+        .shapes
+        .iter()
+        .filter_map(|shape| match &shape.shape {
+            egui::Shape::LineSegment {
+                points: [left, right],
+                ..
+            } if (left.y - right.y).abs() < 0.5
+                && (right.x - left.x).abs() > 500.0
+                && left.y > save.bottom() =>
+            {
+                Some(left.y)
+            }
+            _ => None,
+        })
+        .min_by(f32::total_cmp)
+        .expect("header divider");
+    let top_padding = save.top() - 8.0;
+    assert!((top_padding - (542.0 - save.right())).abs() < 0.5);
+    assert!(
+        (top_padding - (divider_y - save.bottom())).abs() < 0.5,
+        "header padding must be symmetric: top={top_padding}, bottom={}",
+        divider_y - save.bottom()
+    );
+    let call_top = ui
+        .get_by_role_and_label(egui::Role::TextInput, "Callsign")
+        .rect()
+        .top();
+    ui.get_by_label("Comment").scroll_to_me();
+    ui.run();
+    assert_eq!(ui.get_by_label("QSO entry").rect(), header);
+    assert_eq!(
+        ui.get_by_role_and_label(egui::Role::Button, "Save QSO")
+            .rect(),
+        save
+    );
+    assert!(
+        ui.get_by_role_and_label(egui::Role::TextInput, "Callsign")
+            .rect()
+            .top()
+            < call_top
+    );
+    ui.get_by_role_and_label(egui::Role::Button, "Save QSO")
+        .click();
+    ui.run();
+    assert!(
+        std::iter::from_fn(|| requests.try_recv().ok()).any(|request| {
+            matches!(
+                request.action,
+                SettingsAction::Contacts(ContactAction::Save { .. })
+            )
+        })
+    );
+}
+
+#[test]
+fn reports_align_and_timestamp_toggles_fill_the_input_height() {
+    for (width, font_scale) in [(550.0, 1.0), (1100.0, 1.0), (550.0, 1.5)] {
+        for edited in [false, true] {
+            let mut form = ready_entry().entry.form;
+            let baseline = form.clone();
+            if edited {
+                form.sent = "59".into();
+                form.received = "59".into();
+            }
+            let mut ui = Harness::builder()
+                .allow_missing_glyphs()
+                .with_context_setup(move |context| {
+                    crate::ui::theme::install(context, &Default::default());
+                    context.all_styles_mut(|style| {
+                        for font in style.text_styles.values_mut() {
+                            font.size *= font_scale;
+                        }
+                    });
+                })
+                .with_size(egui::vec2(width, 700.0))
+                .build_ui_state(
+                    move |ui, form| {
+                        let errors = if edited {
+                            vec![crate::operating::FieldError {
+                                field: "Sent".into(),
+                                message: "A long validation message must remain within its report column.".into(),
+                            }]
+                        } else { vec![] };
+                        entry::show(ui, form, &baseline, &errors, false, true, &Default::default());
+                    },
+                    form,
+                );
+            for locked in [false, true] {
+                let sent = ui
+                    .get_by_role_and_label(egui::Role::TextInput, "Sent")
+                    .rect();
+                let received = ui
+                    .get_by_role_and_label(egui::Role::TextInput, "Received")
+                    .rect();
+                assert!(
+                    (sent.top() - received.top()).abs() < 1.0,
+                    "{sent:?} {received:?}"
+                );
+                assert!(sent.right() <= received.left());
+                let toggles: Vec<_> = ui
+                    .get_all_by_label(if locked { "Locked" } else { "Live" })
+                    .collect();
+                assert_eq!(toggles.len(), 2);
+                for (label, toggle) in ["Start · UTC", "End · UTC"].into_iter().zip(toggles) {
+                    let input = ui
+                        .get_by_role_and_label(egui::Role::TextInput, label)
+                        .rect();
+                    let button = toggle.rect();
+                    assert!(button.right() <= width - 8.0, "{width}: {button:?}");
+                    assert!(
+                        (input.top() - button.top()).abs() < 1.0,
+                        "{input:?} {button:?}"
+                    );
+                    assert!(
+                        (input.height() - button.height()).abs() < 1.0,
+                        "{input:?} {button:?}"
+                    );
+                }
+                if !locked {
+                    ui.state_mut().start.lock();
+                    ui.state_mut().end.lock();
+                    ui.run();
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn reflow_spacing_is_content_sized_at_different_pane_heights() {
+    for font_scale in [1.0, 1.5] {
+        let mut previous_positions: Option<Vec<f32>> = None;
+        for height in [400.0, 700.0, 1100.0] {
+            let mut form = ready_entry().entry.form;
+            let baseline = form.clone();
+            form.sent = "59".into();
+            form.received = "59".into();
+            let ui = Harness::builder()
+                .allow_missing_glyphs()
+                .with_context_setup(move |context| {
+                    crate::ui::theme::install(context, &Default::default());
+                    context.all_styles_mut(|style| {
+                        for font in style.text_styles.values_mut() {
+                            font.size *= font_scale;
+                        }
+                    });
+                })
+                .with_size(egui::vec2(550.0, height))
+                .build_ui_state(
+                    move |ui, form| {
+                        entry::show(ui, form, &baseline, &[], false, true, &Default::default());
+                    },
+                    form,
+                );
+            let sent = ui
+                .get_by_role_and_label(egui::Role::TextInput, "Sent")
+                .rect();
+            let start = ui
+                .get_by_role_and_label(egui::Role::TextInput, "Start · UTC")
+                .rect();
+            let end = ui
+                .get_by_role_and_label(egui::Role::TextInput, "End · UTC")
+                .rect();
+            let comment = ui.get_by_label("Comment").rect();
+            assert!(
+                (0.0..80.0).contains(&(start.top() - sent.bottom())),
+                "reflow must follow the reports without filling the pane: height={height}, {sent:?}, {start:?}"
+            );
+            if font_scale == 1.0 {
+                assert!((start.top() - end.top()).abs() < 1.0);
+            } else {
+                assert!((0.0..80.0).contains(&(end.top() - start.bottom())));
+            }
+            assert!((0.0..80.0).contains(&(comment.top() - end.bottom())));
+            let positions = vec![sent.top(), start.top(), end.top(), comment.top()];
+            if let Some(previous) = &previous_positions {
+                for (before, after) in previous.iter().zip(&positions) {
+                    assert!(
+                        (before - after).abs() < 1.0,
+                        "pane height must not change form spacing: {previous:?} -> {positions:?}"
+                    );
+                }
+            }
+            previous_positions = Some(positions);
+        }
+    }
+}
+
+#[test]
 fn single_line_enter_saves_but_multiline_enter_edits_the_comment() {
     struct Entry {
         form: crate::logging::form::ContactForm,
@@ -217,6 +425,21 @@ fn detail_fields_follow_the_available_pane_width() {
                 view,
             );
         ui.run();
+        for heading in [
+            "Station identity",
+            "Operating position",
+            "Geographic details",
+        ] {
+            let heading = ui.get_by_label(heading).rect();
+            assert!(
+                !ui.output().shapes.iter().any(|shape| matches!(
+                    &shape.shape,
+                    egui::Shape::Rect(rect)
+                        if rect.stroke.width > 0.0 && rect.rect.contains_rect(heading)
+                )),
+                "form sections must not be inset cards"
+            );
+        }
         for label in [
             "Station callsign",
             "Latitude",

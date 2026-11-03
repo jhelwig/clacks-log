@@ -24,10 +24,7 @@ impl ContactsUi {
                 Err(oneshot::error::TryRecvError::Empty) => {}
                 Err(oneshot::error::TryRecvError::Closed) => {
                     self.page_request = None;
-                    self.notice = Some(
-                        "Contact list read ended without a response. Refresh contacts to retry."
-                            .into(),
-                    );
+                    self.notice = Some("Contact list read ended without a response.".into());
                 }
             }
         }
@@ -62,7 +59,7 @@ impl ContactsUi {
             SettingsResponse::Closing => {
                 self.notice = Some("The workspace is closing. No further work was admitted.".into())
             }
-            _ => self.notice = Some("Unexpected contact response; refresh before retrying.".into()),
+            _ => self.notice = Some("Unexpected contact response.".into()),
         }
     }
 
@@ -94,8 +91,7 @@ impl ContactsUi {
                 }
             }
             ContactResponse::Loaded(None, _) => {
-                self.notice =
-                    Some("This contact is no longer available locally. Refresh contacts.".into())
+                self.notice = Some("This contact is no longer available locally.".into())
             }
             ContactResponse::Saved(SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_)) => {
                 self.changed = true;

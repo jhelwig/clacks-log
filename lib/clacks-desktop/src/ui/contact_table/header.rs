@@ -73,7 +73,11 @@ pub(super) fn show(
 ) -> Option<HeaderAction> {
     let label = column.map_or("Right-click to choose columns", preferences::label);
     let colors = theme::palette(ui.ctx().theme());
-    let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click());
+    let (id, content_rect) = ui.allocate_space(ui.available_size());
+    // Match egui_extras' gapless row backgrounds and resize boundaries without
+    // adding the inter-cell spacing to the column's measured content width.
+    let rect = content_rect.expand2(ui.spacing().item_spacing * 0.5);
+    let response = ui.interact(rect, id, egui::Sense::click());
     response.widget_info(|| {
         egui::WidgetInfo::labeled(egui::Role::ColumnHeader, ui.is_enabled(), label)
     });
@@ -90,11 +94,6 @@ pub(super) fn show(
     ui.painter().hline(
         rect.x_range(),
         rect.bottom(),
-        egui::Stroke::new(1.0, colors.border),
-    );
-    ui.painter().vline(
-        rect.right(),
-        rect.y_range(),
         egui::Stroke::new(1.0, colors.border),
     );
     if response.has_focus() {

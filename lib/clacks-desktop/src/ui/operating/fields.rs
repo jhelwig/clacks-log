@@ -199,7 +199,7 @@ fn station_fields(
     );
     let mut changed = false;
     if quick_fields {
-        ui.group(|ui| {
+        ui.scope(|ui| {
             ui.set_min_width(ui.available_width());
             ui.strong("Station identity");
             changed |= radio_text(
@@ -212,8 +212,9 @@ fn station_fields(
             );
         });
     }
-    ui.group(|ui| {
+    ui.scope(|ui| {
         ui.set_min_width(ui.available_width());
+        ui.separator();
         ui.strong("Operating position");
         let position_changed = match (
             form.position.build(),
@@ -298,8 +299,9 @@ fn station_fields(
             }
         }
     });
-    ui.group(|ui| {
+    ui.scope(|ui| {
         ui.set_min_width(ui.available_width());
+        ui.separator();
         ui.strong("Geographic details");
         let edited = text_changed(&form.dxcc, baseline.map(|value| value.dxcc.as_str()));
         changed |= radio_text_with_fallback(
@@ -402,8 +404,9 @@ fn references_with_fallback(
     fallback: Option<StationFallback<'_>>,
 ) -> bool {
     let mut changed = false;
-    ui.group(|ui| {
+    ui.scope(|ui| {
         ui.set_min_width(ui.available_width());
+        ui.separator();
         ui.strong("Participation / references");
         if let Some(fallback) = fallback {
             for reference in &fallback.station.references {

@@ -194,3 +194,137 @@ fn two_presentations_preserve_shared_column_widths_order_and_reset() {
             <= 1.0
     );
 }
+
+#[test]
+fn pagination_stays_at_the_pane_edge_for_empty_and_scrolling_results() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for height in [220.0, 450.0] {
+        for count in [0, 40] {
+            let mut view = super::WorkedBeforeUi::default();
+            view.model.query.call_prefix = "W7HEX".into();
+            view.model.page = Some(ContactPage {
+                rows: (0..count)
+                    .map(|n| {
+                        let mut qso = fixtures::contact();
+                        crate::test_support::edit(&mut qso, |qso| {
+                            qso.contacted_station.callsign =
+                                clacks_model::scalar::RecordedCallsign::new(&format!("K1T{n:03}"))
+                                    .unwrap();
+                            Ok(())
+                        });
+                        ContactRow {
+                            facts: Default::default(),
+                            working: HistoryRow {
+                                qso,
+                                pending: true,
+                                review: None,
+                            },
+                        }
+                    })
+                    .collect(),
+                matching_total: count,
+                selected_total: 0,
+                selected_outside_filter: 0,
+                has_more: true,
+            });
+            let mut ui = Harness::builder()
+                .allow_missing_glyphs()
+                .with_context_setup(|ctx| crate::ui::theme::install(ctx, &Default::default()))
+                .with_size(egui::vec2(340.0, height))
+                .build_ui_state(
+                    |ui, view: &mut super::WorkedBeforeUi| {
+                        view.show(ui);
+                    },
+                    view,
+                );
+            let footer = ui.get_by_role_and_label(egui::Role::Button, "Next").rect();
+            assert!((footer.bottom() - (height - 8.0)).abs() < 1.0, "{footer:?}");
+            if count > 0 {
+                assert!(ui.query_by_label("K1T039").is_none());
+                let last = ui
+                    .state()
+                    .model
+                    .page
+                    .as_ref()
+                    .unwrap()
+                    .rows
+                    .last()
+                    .unwrap()
+                    .working
+                    .qso
+                    .id();
+                ui.state_mut().tab.pending_focus = Some(last);
+                ui.run();
+                assert!(ui.query_by_label("K1T039").is_some());
+                assert_eq!(
+                    ui.get_by_role_and_label(egui::Role::Button, "Next").rect(),
+                    footer
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn detached_window_minimum_keeps_controls_and_a_row_visible() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for scale in [1.0, 1.5] {
+        let setup = move |ctx: &egui::Context| {
+            crate::ui::theme::install(ctx, &Default::default());
+            ctx.all_styles_mut(|style| {
+                for font in style.text_styles.values_mut() {
+                    font.size *= scale;
+                }
+            });
+        };
+        let measured = Harness::builder().with_context_setup(setup).build_ui_state(
+            |ui, minimum: &mut Option<egui::Vec2>| {
+                *minimum = super::WorkedBeforeUi::default()
+                    .window_builder(ui.ctx())
+                    .min_inner_size;
+            },
+            None,
+        );
+        let minimum = measured
+            .state()
+            .expect("native resizing must have a minimum");
+        let mut view = super::WorkedBeforeUi::default();
+        view.model.page = Some(ContactPage {
+            rows: vec![],
+            matching_total: 0,
+            selected_total: 0,
+            selected_outside_filter: 0,
+            has_more: false,
+        });
+        let ui = Harness::builder()
+            .with_context_setup(setup)
+            .allow_missing_glyphs()
+            .with_size(minimum + egui::vec2(16.0, 16.0))
+            .build_ui_state(
+                |ui, view: &mut super::WorkedBeforeUi| {
+                    view.show(ui);
+                },
+                view,
+            );
+        let footer = ui.get_by_role_and_label(egui::Role::Button, "Next").rect();
+        assert!(footer.right() <= minimum.x + 8.0 && footer.bottom() <= minimum.y + 8.0);
+        let message = ui
+            .output()
+            .shapes
+            .iter()
+            .find_map(|shape| match &shape.shape {
+                egui::Shape::Text(text) if text.galley.text() == "No contacts in this view." => {
+                    Some((
+                        shape.clip_rect,
+                        text.galley.rect.translate(text.pos.to_vec2()),
+                    ))
+                }
+                _ => None,
+            })
+            .unwrap();
+        assert!(
+            message.0.expand(0.5).contains_rect(message.1),
+            "{minimum:?}: {message:?}"
+        );
+    }
+}

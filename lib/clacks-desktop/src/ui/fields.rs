@@ -149,12 +149,16 @@ pub(super) fn choice(
         + ui.spacing().item_spacing.x
         + 2.0 * ui.spacing().button_padding.x;
     ui.allocate_ui_with_layout(
-        egui::vec2(width, ui.spacing().interact_size.y),
+        egui::vec2(
+            width.min(ui.max_rect().width()),
+            ui.spacing().interact_size.y,
+        ),
         egui::Layout::left_to_right(egui::Align::Center),
         |ui| {
             let label = ui.label(caption);
-            ui.add_enabled(enabled, egui::Button::new(value))
+            ui.add_enabled(enabled, egui::Button::new(value.clone()).truncate())
                 .labelled_by(label.id)
+                .on_hover_text(value.text())
         },
     )
     .inner

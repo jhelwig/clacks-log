@@ -21,6 +21,22 @@ pub(super) struct TableAction {
     pub open: Option<QsoId>,
 }
 
+/// Minimum viewport containing column headings, one complete row and the
+/// horizontal scrollbar without covering that row.
+pub(super) fn minimum_height(ui: &egui::Ui) -> f32 {
+    2.0 * row_height(ui)
+        + ui.spacing().item_spacing.y
+        + ui.spacing()
+            .scroll
+            .allocated_width()
+            .max(ui.spacing().scroll.bar_width)
+}
+
+/// Shared height for table headings and data rows at the current typography.
+fn row_height(ui: &egui::Ui) -> f32 {
+    (ui.text_style_height(&egui::TextStyle::Monospace) + 8.0).max(ui.spacing().interact_size.y)
+}
+
 /// Display current rows; sorting requests change the SQL query rather than sorting payloads.
 pub(super) fn show(
     ui: &mut egui::Ui,
@@ -64,18 +80,15 @@ pub(super) fn show(
     let mut header_action = None;
     egui::ScrollArea::horizontal()
         .id_salt("contacts.horizontal")
+        .auto_shrink([false, false])
         .show(ui, |ui| {
-            let row_height = (ui.text_style_height(&egui::TextStyle::Monospace) + 8.0)
-                .max(ui.spacing().interact_size.y);
-            let reserved = row_height
-                + ui.spacing().interact_size.y
-                + ui.spacing().item_spacing.y * 4.0
-                + ui.spacing().scroll.bar_width;
+            let row_height = row_height(ui);
+            let reserved = row_height + ui.spacing().item_spacing.y;
             let max_height = (ui.available_height() - reserved).max(0.0);
             let mut table = TableBuilder::new(ui)
                 .id_salt("contacts.working")
                 .max_scroll_height(max_height)
-                .min_scrolled_height(0.0)
+                .min_scrolled_height(max_height)
                 .striped(true)
                 .resizable(true)
                 .sense(egui::Sense::click());
@@ -101,7 +114,7 @@ pub(super) fn show(
                         });
                     }
                 })
-                .body(|body| {
+                .body(|mut body| {
                     for (column, width) in visible.iter().zip(body.widths()) {
                         if let Some(saved) = preferences
                             .columns
@@ -110,6 +123,10 @@ pub(super) fn show(
                         {
                             saved.width = *width;
                         }
+                    }
+                    if page.is_some() && rows.is_empty() {
+                        body.ui_mut().label("No contacts in this view.");
+                        return;
                     }
                     body.rows(row_height, rows.len(), |mut row| {
                         let Some(value) = rows.get(row.index()) else {
@@ -170,9 +187,6 @@ pub(super) fn show(
     if let Some(choice) = header_action {
         choice.apply(preferences);
         ui.ctx().request_repaint();
-    }
-    if page.is_some() && rows.is_empty() {
-        ui.label("No contacts in this view.");
     }
     if pending_focus.is_none()
         && let Some(id) = native_focus
