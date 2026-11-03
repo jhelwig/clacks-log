@@ -41,6 +41,12 @@ uses the same composition and component hierarchy.
 The upper-right area holds Worked Before and additional contact details as
 alternative tabs in the same pane. Showing details replaces that pane's Worked
 Before content; it does not create a third upper pane or expand the entry form.
+Present these controls as a contiguous tab strip with visible surfaces and
+boundaries even before hover. The selected tab joins visually to the content
+below; inactive tabs must remain obviously clickable.
+All tabs share their top and bottom edges and height, including tabs with an
+additional action icon. Center icons vertically with the tab label; nested
+action controls must not introduce extra tab padding or change its height.
 Keep quick entry visible on the left and contact history below. The reference
 images establish the visual language and pane placement; the right-hand pane
 now includes this tab selection. The
@@ -116,13 +122,29 @@ remaining width and height below the upper panes, including while loading or
 empty; its bounds do not shrink to its controls or row count. Reset changes layout, not
 operating settings, contact data, appearance, fonts or selection.
 
-Apply the same section frame and inner padding directly to all three pane
-boundaries. Align the upper panes at their top and bottom edges, with their outer
-left and right edges aligned to history. Splitter containers add no extra padding
+Contact history and Worked Before own their complete pane layout: controls and
+filter/status at the top, pagination at the bottom, and a table viewport filling
+the remaining bounds. Rows scroll inside that viewport; row count does not move
+pagination. Determine usable minimum sizes from the fixed controls and a table
+viewport that shows at least one complete row or empty-state message, rather
+than having the table estimate space for controls outside it.
+
+The three panes are divisions of the main window: use square corners, no outer
+gutter and no enclosing card outlines. Tabs, table surfaces and scroll viewports
+fill their pane allocation up to the shared boundaries. Put spacing around form
+controls inside the scrollable content, never around the whole pane or outside
+its scrollbar. Group form fields with headings and restrained separators rather
+than repeated inset cards. The shared divider itself is the resize
+target, without a separate handle element. Align the upper panes at their top
+and bottom edges, with their outer left and right edges aligned to history.
+Splitter containers add no extra padding
 or nested section frames. Detail-form groups and text fields use the available
 pane width and follow pane resizing rather than retaining a fixed input width.
 
 Use minimum pane sizes that keep controls usable at the selected UI scale.
+Reserve the measured width of the complete detail-tab strip, including its
+window action, when limiting the divider. The native window minimum must
+accommodate both panes and update when typography or display scaling changes.
 Restore remembered sizes within the space available in the current window;
 old dimensions must not leave a pane inaccessible after display/window changes.
 Additional windows retain the independent-view behavior below.
@@ -151,8 +173,15 @@ Use this compact entry order and grouping:
 - Sent and received reports, then the independently controlled Start and End
   timestamps, grouped beneath the radio fields. Each Start/End control combines
   its UTC date and time under the same independent live/locked control.
-- A full-width Comment below those fields, followed by the save action and
-  local validation/save feedback.
+- Align the Sent and Received input fields. Live/Locked buttons align with and
+  occupy the full height of their corresponding timestamp input fields.
+  Reserve report-feedback space consistently across edited and unchanged values.
+  When the row cannot fit, move Start and End below the reports together; stack
+  the timestamp controls when they cannot fit side by side. Keep feedback within
+  its field's width.
+- A full-width Comment below those fields, followed by local validation/save
+  feedback. Keep the QSO entry header outside the scrolling form, with Save QSO
+  at its right edge so both remain visible while the form scrolls.
 
 The adjacent area selects Worked Before, Contact details or Our settings.
 Contact details contains additional contacted-station/location/reference and
@@ -183,6 +212,11 @@ unfinished new-contact form and retains the shared dialog Save/Cancel rules.
 Dedicated QSO-entry and Worked Before windows are additional views. Opening or
 closing one leaves the main workbench's visible areas and arrangement intact;
 it does not switch the main window into a different mode or relocate its tools.
+Worked Before does not expose inline **Open in window** or **Close window**
+buttons. Additional windows close through the operating system's window controls.
+Open its additional window with an icon inside the Worked Before tab, using a
+window outline with an outward upper-right arrow. Give the icon a tooltip and
+accessible name. Activating it preserves the selected main-window tab and draft.
 
 All QSO-entry views on one client share the same in-progress contact. Changes to
 that contact and its current callsign are reflected in the other entry and
@@ -269,7 +303,9 @@ its quick-change controls instead of separate rows of values and Change buttons.
 Full editing remains **Operating settings…** beside inline power. Reflow or scroll
 when the window cannot accommodate the strip at the selected scale.
 
-The workspace-status footer stays compact. Workspace paths and account identity
+The workspace-status footer stays compact and contains no application-specific
+Close button. Use the operating system's normal window controls and close
+affordances to initiate application shutdown. Workspace paths and account identity
 are available through **Workspace & diagnostics**. Opening failures, retry actions
 and degraded-diagnostic warnings remain visible when those details are collapsed.
 Later contact capabilities fill the logging region without placeholder panes for
@@ -439,6 +475,8 @@ Configure columns by right-clicking a table column header. Its context menu
 contains visibility choices, column ordering and reset; do not add a separate
 Columns button. Headers use the full column cell with the shared header surface,
 restrained separators, left-aligned titles and a sort-direction indicator.
+The header surface and click target extend to the actual column boundaries,
+including inter-cell spacing; do not draw a second inset column border.
 They retain hover/focus cues without text-sized button frames. Primary click
 sorts the column. Keep headers available with no result rows; an all-hidden
 layout retains a header context-menu target for restoring columns.

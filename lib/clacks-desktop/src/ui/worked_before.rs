@@ -54,6 +54,11 @@ impl Default for WorkedBeforeUi {
 }
 
 impl WorkedBeforeUi {
+    /// Show the additional native view while preserving the main tab and shared query.
+    pub fn open_window(&mut self) {
+        self.window_open = true;
+    }
+
     /// Restore only the independent Worked Before column choices.
     pub fn restore(&mut self, storage: Option<&dyn eframe::Storage>) {
         self.preferences = ContactTablePreferences::restore(storage, TableKind::WorkedBefore);
@@ -82,11 +87,8 @@ impl WorkedBeforeUi {
         self.model.refresh();
     }
 
-    /// Draw the tab within the logging region's existing section frame.
+    /// Draw prior contacts directly within the logging region's tab.
     pub fn show(&mut self, ui: &mut egui::Ui) -> Option<QsoId> {
-        if ui.small_button("Open in window").clicked() {
-            self.window_open = true;
-        }
         ui.push_id("worked_before.tab", |ui| {
             show_table(ui, &mut self.model, &mut self.preferences, &mut self.tab)
         })
@@ -101,31 +103,51 @@ fn show_table(
     preferences: &mut ContactTablePreferences,
     interaction: &mut TableInteraction,
 ) -> Option<QsoId> {
-    ui.horizontal_wrapped(|ui| {
-        ui.strong(if model.query.call_prefix.is_empty() {
-            "Enter a callsign to see prior contacts".to_owned()
-        } else {
-            format!("Worked Before · {}", model.query.call_prefix)
+    if !model.query.call_prefix.is_empty() || model.error.is_some() {
+        egui::Panel::top("prior.controls")
+            .frame(egui::Frame::NONE)
+            .show(ui, |ui| {
+                show_controls(ui, model);
+            });
+    }
+    egui::Panel::bottom("prior.pagination")
+        .frame(egui::Frame::NONE)
+        .show(ui, |ui| {
+            show_pagination(ui, model);
         });
-        if ui.small_button("Refresh prior contacts").clicked() {
-            model.refresh();
-        }
-    });
+    egui::CentralPanel::default()
+        .frame(egui::Frame::NONE)
+        .show(ui, |ui| {
+            let action = contact_table::show(
+                ui,
+                model.page.as_ref(),
+                preferences,
+                &mut interaction.selected,
+                &mut interaction.focused,
+                &mut interaction.pending_focus,
+                Some(model.day),
+            );
+
+            action.open
+        })
+        .inner
+}
+
+/// Render the shared heading and query feedback in either presentation.
+fn show_controls(ui: &mut egui::Ui, model: &model::WorkedBeforeModel) {
+    if !model.query.call_prefix.is_empty() {
+        ui.strong(format!("Worked Before · {}", model.query.call_prefix));
+    }
     if let Some(error) = &model.error {
         super::feedback::problem(ui, error);
     }
     if !model.query.call_prefix.is_empty() && model.page.is_none() && model.error.is_none() {
         ui.small("Loading prior contacts…");
     }
-    let action = contact_table::show(
-        ui,
-        model.page.as_ref(),
-        preferences,
-        &mut interaction.selected,
-        &mut interaction.focused,
-        &mut interaction.pending_focus,
-        Some(model.day),
-    );
+}
+
+/// Render the shared pagination controls in either presentation.
+fn show_pagination(ui: &mut egui::Ui, model: &mut model::WorkedBeforeModel) {
     ui.horizontal_wrapped(|ui| {
         if ui
             .add_enabled(model.query.offset > 0, egui::Button::new("Previous"))
@@ -147,5 +169,4 @@ fn show_table(
             model.page.as_ref().map_or(0, |p| p.matching_total)
         ));
     });
-    action.open
 }

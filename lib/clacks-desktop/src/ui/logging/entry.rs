@@ -205,56 +205,96 @@ pub(in crate::ui) fn show(
     if grid_changed {
         form.dx.edit_grid(form.dx.position.grid.clone());
     }
-    let clock_width = ((ui.available_width() - 144.0) / 2.0).max(160.0);
-    ui.horizontal(|ui| {
-        for field in [
-            QuickField {
-                id: "entry.sent",
-                label: "Sent",
-                value: &mut form.sent,
-                baseline: &baseline.sent,
-            },
-            QuickField {
-                id: "entry.received",
-                label: "Received",
-                value: &mut form.received,
-                baseline: &baseline.received,
-            },
-        ] {
-            ui.allocate_ui_with_layout(
-                egui::vec2(60.0, 48.0),
-                egui::Layout::top_down(egui::Align::Min),
-                |ui| {
-                    let had_focus = ui.memory(|m| m.has_focus(ui.make_persistent_id(field.id)));
-                    let response = text(
-                        ui,
-                        field.id,
-                        field.label,
-                        field.value,
-                        field.baseline,
-                        errors,
-                        true,
-                    );
-                    collect(ui, &response, &mut action, had_focus);
+    let gap = ui.spacing().item_spacing.x;
+    // Reserve the edited heading even for pristine values, so editing either
+    // report cannot move its peer or displace the timestamp controls.
+    let report_width = ["Received", "Not applied"]
+        .into_iter()
+        .map(|text| {
+            egui::WidgetText::from(egui::RichText::new(text).small())
+                .into_galley(
+                    ui,
+                    Some(egui::TextWrapMode::Extend),
+                    f32::INFINITY,
+                    egui::TextStyle::Small,
+                )
+                .size()
+                .x
+        })
+        .sum::<f32>()
+        + gap;
+    let minimum_clock = super::timestamps::minimum_width(ui, live_controls);
+    let available = ui.available_width();
+    let inline_clock = (available - 2.0 * report_width - 3.0 * gap) / 2.0;
+    let clock_width = if inline_clock >= minimum_clock {
+        inline_clock
+    } else if (available - gap) / 2.0 >= minimum_clock {
+        (available - gap) / 2.0
+    } else {
+        available
+    };
+    ui.allocate_ui_with_layout(
+        egui::vec2(available, ui.spacing().interact_size.y),
+        egui::Layout::left_to_right(egui::Align::Min).with_main_wrap(true),
+        |ui| {
+            for field in [
+                QuickField {
+                    id: "entry.sent",
+                    label: "Sent",
+                    value: &mut form.sent,
+                    baseline: &baseline.sent,
                 },
-            );
-        }
-        for (label, value, original) in [
-            ("Start · UTC", &mut form.start, &baseline.start),
-            ("End · UTC", &mut form.end, &baseline.end),
-        ] {
-            ui.allocate_ui_with_layout(
-                egui::vec2(clock_width, 48.0),
-                egui::Layout::top_down(egui::Align::Min),
-                |ui| {
-                    let result =
-                        super::timestamps::show(ui, label, value, original, errors, live_controls);
-                    action.edited |= result.edited;
-                    action.save |= result.save;
+                QuickField {
+                    id: "entry.received",
+                    label: "Received",
+                    value: &mut form.received,
+                    baseline: &baseline.received,
                 },
-            );
-        }
-    });
+            ] {
+                ui.allocate_ui_with_layout(
+                    egui::vec2(report_width, 48.0),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        let had_focus = ui.memory(|m| m.has_focus(ui.make_persistent_id(field.id)));
+                        let response = text(
+                            ui,
+                            field.id,
+                            field.label,
+                            field.value,
+                            field.baseline,
+                            errors,
+                            true,
+                        );
+                        collect(ui, &response, &mut action, had_focus);
+                    },
+                );
+            }
+            if inline_clock < minimum_clock {
+                ui.end_row();
+            }
+            for (label, value, original) in [
+                ("Start · UTC", &mut form.start, &baseline.start),
+                ("End · UTC", &mut form.end, &baseline.end),
+            ] {
+                ui.allocate_ui_with_layout(
+                    egui::vec2(clock_width, 48.0),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        let result = super::timestamps::show(
+                            ui,
+                            label,
+                            value,
+                            original,
+                            errors,
+                            live_controls,
+                        );
+                        action.edited |= result.edited;
+                        action.save |= result.save;
+                    },
+                );
+            }
+        },
+    );
     let label = ui.small("Comment");
     let response = ui
         .add(

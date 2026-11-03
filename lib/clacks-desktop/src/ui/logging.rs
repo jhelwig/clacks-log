@@ -170,53 +170,75 @@ impl LoggingUi {
             self.validation.validated();
         }
         self.validation.request_repaint(ui.ctx(), now);
-        ui.strong("QSO entry");
-        ui.separator();
-        let before = self.entry.form.clone();
-        let fallback = self.directory.fallback(&self.entry.form, &self.definitions);
-        let action = ui
-            .add_enabled_ui(self.pending.is_none(), |ui| {
-                entry::show(
-                    ui,
-                    &mut self.entry.form,
-                    &self.baseline,
-                    &self.errors,
-                    self.focus_call,
-                    true,
-                    &fallback,
-                )
-            })
-            .inner;
-        self.focus_call = false;
-        self.directory
-            .observe(self.entry.id, &self.entry.form.dx.callsign, requests);
-        self.directory.show(ui, self.entry.id, requests);
-        if action.edited {
-            self.entry.capture_corrections(&before);
-            self.submitted = None;
-            self.validation.edited(now);
-        }
-        if !self.errors.is_empty() {
-            for error in &self.errors {
-                ui.small(
-                    egui::RichText::new(format!("{}: {}", error.field, error.message))
-                        .color(ui.visuals().error_fg_color),
-                );
-            }
-        }
         let enabled = self.pending.is_none() && self.validation.can_submit(&self.errors);
-        let clicked = ui
-            .add_enabled(enabled, egui::Button::new("Save QSO"))
-            .clicked();
-        if self.pending.is_some() {
-            ui.label("Saving…");
-        }
-        if (clicked || action.save) && self.pending.is_none() {
-            self.save(requests);
-        }
-        if let Some(notice) = &self.notice {
-            feedback::problem(ui, notice);
-        }
+        let item_spacing = ui.spacing().item_spacing;
+        ui.spacing_mut().item_spacing.y = 0.0;
+        let header = super::theme::form_frame().show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.strong("QSO entry");
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.add_enabled(enabled, egui::Button::new("Save QSO"))
+                        .clicked()
+                })
+                .inner
+            })
+            .inner
+        });
+        ui.spacing_mut().item_spacing = item_spacing;
+        ui.painter().hline(
+            header.response.rect.x_range(),
+            header.response.rect.bottom(),
+            egui::Stroke::new(1.0, super::theme::palette(ui.ctx().theme()).border),
+        );
+        let clicked = header.inner;
+        egui::ScrollArea::vertical()
+            .id_salt("entry.quick.scroll")
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                super::theme::form_frame().show(ui, |ui| {
+                    let before = self.entry.form.clone();
+                    let fallback = self.directory.fallback(&self.entry.form, &self.definitions);
+                    let action = ui
+                        .add_enabled_ui(self.pending.is_none(), |ui| {
+                            entry::show(
+                                ui,
+                                &mut self.entry.form,
+                                &self.baseline,
+                                &self.errors,
+                                self.focus_call,
+                                true,
+                                &fallback,
+                            )
+                        })
+                        .inner;
+                    self.focus_call = false;
+                    self.directory
+                        .observe(self.entry.id, &self.entry.form.dx.callsign, requests);
+                    self.directory.show(ui, self.entry.id, requests);
+                    if action.edited {
+                        self.entry.capture_corrections(&before);
+                        self.submitted = None;
+                        self.validation.edited(now);
+                    }
+                    if !self.errors.is_empty() {
+                        for error in &self.errors {
+                            ui.small(
+                                egui::RichText::new(format!("{}: {}", error.field, error.message))
+                                    .color(ui.visuals().error_fg_color),
+                            );
+                        }
+                    }
+                    if self.pending.is_some() {
+                        ui.label("Saving…");
+                    }
+                    if (clicked || action.save) && self.pending.is_none() {
+                        self.save(requests);
+                    }
+                    if let Some(notice) = &self.notice {
+                        feedback::problem(ui, notice);
+                    }
+                });
+            });
     }
 
     /// Present either additional contact facts or contact-specific own settings.
@@ -232,19 +254,24 @@ impl LoggingUi {
             .add_enabled_ui(self.pending.is_none(), |ui| {
                 egui::ScrollArea::vertical()
                     .id_salt("entry.details")
+                    .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        details::show(
-                            ui,
-                            &mut self.entry.form,
-                            &self.baseline,
-                            &self.definitions,
-                            &self.errors,
-                            crate::ui::logging::details::DetailPresentation {
-                                own,
-                                owner: "entry.details",
-                                fallback: &fallback,
-                            },
-                        )
+                        super::theme::form_frame()
+                            .show(ui, |ui| {
+                                details::show(
+                                    ui,
+                                    &mut self.entry.form,
+                                    &self.baseline,
+                                    &self.definitions,
+                                    &self.errors,
+                                    crate::ui::logging::details::DetailPresentation {
+                                        own,
+                                        owner: "entry.details",
+                                        fallback: &fallback,
+                                    },
+                                )
+                            })
+                            .inner
                     })
                     .inner
             })

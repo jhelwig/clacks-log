@@ -73,6 +73,16 @@ pub(super) fn palette(theme: Theme) -> Palette {
     }
 }
 
+/// Fill a main-window division; its panel owns the shared resize boundary.
+pub(super) fn pane_frame(ui: &egui::Ui) -> egui::Frame {
+    egui::Frame::NONE.fill(palette(ui.ctx().theme()).surface)
+}
+
+/// Space form controls inside their viewport without insetting pane chrome or scrollbars.
+pub(super) fn form_frame() -> egui::Frame {
+    egui::Frame::NONE.inner_margin(8)
+}
+
 /// Give a real tool section the active appearance's restrained boundary and surface.
 pub(super) fn section_frame(ui: &egui::Ui) -> egui::Frame {
     let colors = palette(ui.ctx().theme());

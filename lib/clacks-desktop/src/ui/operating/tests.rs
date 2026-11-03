@@ -197,3 +197,39 @@ fn quick_profile_selection_stages_station_values_and_preserves_independent_equip
     assert_eq!(expected, before);
     assert_eq!(next, desired);
 }
+
+#[test]
+fn long_profile_stays_inside_the_composed_operating_strip() {
+    let mut snapshot = fixtures::snapshot();
+    let mut profile = snapshot
+        .operating
+        .selected_profile()
+        .unwrap()
+        .clone()
+        .into_fields();
+    profile.name = "Portable station configuration ".repeat(8);
+    snapshot.operating = clacks_client_store::operating::OperatingState::new(
+        snapshot.operating.current().cloned(),
+        Some(profile.try_into().unwrap()),
+        snapshot.operating.selected_equipment().cloned(),
+    )
+    .unwrap();
+    let (sender, _requests) = mpsc::channel(8);
+    let ui = Harness::builder()
+        .allow_missing_glyphs()
+        .with_context_setup(|ctx| crate::ui::theme::install(ctx, &Default::default()))
+        .with_size(egui::vec2(1000.0, 500.0))
+        .build_ui_state(
+            move |ui, quick| {
+                super::summary::show(ui, &snapshot, quick, &sender);
+            },
+            super::quick::QuickOperatingUi::default(),
+        );
+    for label in ["Station", "Equipment", "Operator"] {
+        let rect = ui.get_by_role_and_label(egui::Role::Button, label).rect();
+        assert!(
+            rect.left() >= 8.0 && rect.right() <= 992.0,
+            "{label}: {rect:?}"
+        );
+    }
+}

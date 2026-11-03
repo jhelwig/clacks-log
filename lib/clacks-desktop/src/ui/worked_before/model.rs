@@ -93,10 +93,7 @@ impl WorkedBeforeModel {
                     self.pending = None;
                 }
                 Ok(_) | Err(oneshot::error::TryRecvError::Closed) => {
-                    self.error = Some(
-                        "Worked Before read ended without a usable response. Refresh to retry."
-                            .into(),
-                    );
+                    self.error = Some("Worked Before read ended without a usable response.".into());
                     self.pending = None;
                 }
                 Err(oneshot::error::TryRecvError::Empty) => {}

@@ -82,6 +82,8 @@ pub(super) struct ContactsUi {
     initialized: bool,
     /// Committed contact change awaiting workbench-wide read invalidation.
     pub(super) changed: bool,
+    /// Measured fixed controls, used by the workbench divider constraint.
+    chrome_height: f32,
 }
 
 impl ContactsUi {
@@ -114,6 +116,11 @@ impl ContactsUi {
                 .directory
                 .update(id, &editor.form.dx.callsign, update);
         }
+    }
+
+    /// Minimum allocation for fixed controls and one usable table row.
+    pub fn minimum_height(&self, ui: &egui::Ui) -> f32 {
+        self.chrome_height + table::minimum_height(ui)
     }
 
     /// Open the existing saved-contact editor from either contact table.
@@ -174,95 +181,110 @@ impl ContactsUi {
         if self.membership.is_none() {
             egui::Popup::close_id(ui.ctx(), egui::Id::unique("contacts.membership"));
         }
-        let history = egui::CentralPanel::default().frame(theme::section_frame(ui));
+        let history = egui::CentralPanel::default().frame(theme::pane_frame(ui));
         history.show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                ui.strong("Contact history");
-                if ui.small_button("Refresh contacts").clicked() {
-                    self.refresh(self.query.view);
-                }
-                self.membership_action(ui, requests);
-                let selected_view = self.query.show_selected;
-                if ui
-                    .add_enabled(
-                        !self.selected.is_empty() || selected_view,
-                        egui::Button::new(if selected_view {
-                            "Show all in view"
+            let header = egui::Panel::top("history.controls")
+                .frame(egui::Frame::NONE)
+                .show(ui, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.strong("Contact history");
+                        self.membership_action(ui, requests);
+                        let selected_view = self.query.show_selected;
+                        if ui
+                            .add_enabled(
+                                !self.selected.is_empty() || selected_view,
+                                egui::Button::new(if selected_view {
+                                    "Show all in view"
+                                } else {
+                                    "Show selected"
+                                }),
+                            )
+                            .clicked()
+                        {
+                            self.query.show_selected = !selected_view;
+                            self.query.selected_ids = self.selected.clone();
+                            self.refresh(self.query.view);
+                        }
+                        if ui.small_button("Clear selection").clicked() {
+                            self.selected.clear();
+                            if std::mem::take(&mut self.query.show_selected) {
+                                self.refresh(self.query.view);
+                            }
+                        }
+                    });
+                    if let Some(notice) = &self.notice {
+                        if self.problem {
+                            feedback::problem(ui, notice);
                         } else {
-                            "Show selected"
-                        }),
-                    )
-                    .clicked()
-                {
-                    self.query.show_selected = !selected_view;
-                    self.query.selected_ids = self.selected.clone();
-                    self.refresh(self.query.view);
-                }
-                if ui.small_button("Clear selection").clicked() {
-                    self.selected.clear();
-                    if std::mem::take(&mut self.query.show_selected) {
-                        self.refresh(self.query.view);
+                            ui.small(notice);
+                        }
                     }
-                }
-            });
-            if let Some(notice) = &self.notice {
-                if self.problem {
-                    feedback::problem(ui, notice);
-                } else {
-                    ui.small(notice);
-                }
-            }
-            self.membership_feedback(ui);
-            self.filter.show(ui, snapshot, definitions);
-            let action = table::show(
-                ui,
-                self.page.as_ref(),
-                &mut self.preferences,
-                &mut self.selected,
-                &mut self.focused,
-                &mut self.pending_focus,
-                None,
-            );
-            if self.query.order != self.preferences.order {
-                self.query.order = self.preferences.order;
-                self.refresh(self.query.view);
-            }
-            if let Some(id) = action.open {
-                self.request(ContactAction::Load { id }, requests);
-            }
-            ui.horizontal_wrapped(|ui| {
-                if ui
-                    .add_enabled(
-                        self.query.offset > 0 && self.page_request.is_none(),
-                        egui::Button::new("Previous"),
-                    )
-                    .clicked()
-                {
-                    self.query.offset = self.query.offset.saturating_sub(self.query.limit);
-                    self.dirty = true;
-                }
-                if ui
-                    .add_enabled(
-                        self.page.as_ref().is_some_and(|p| p.has_more)
-                            && self.page_request.is_none(),
-                        egui::Button::new("Next"),
-                    )
-                    .clicked()
-                {
-                    self.query.offset = self.query.offset.saturating_add(self.query.limit);
-                    self.dirty = true;
-                }
-                let matching = self.page.as_ref().map_or(0, |p| p.matching_total);
-                let selected = self.page.as_ref().map_or(0, |p| p.selected_total);
-                let hidden = self.page.as_ref().map_or(0, |p| p.selected_outside_filter);
-                ui.small(format!(
+                    self.membership_feedback(ui);
+                    self.filter.show(ui, snapshot, definitions);
+                });
+            let footer = egui::Panel::bottom("history.pagination")
+                .frame(egui::Frame::NONE)
+                .show(ui, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        if ui
+                            .add_enabled(
+                                self.query.offset > 0 && self.page_request.is_none(),
+                                egui::Button::new("Previous"),
+                            )
+                            .clicked()
+                        {
+                            self.query.offset = self.query.offset.saturating_sub(self.query.limit);
+                            self.dirty = true;
+                        }
+                        if ui
+                            .add_enabled(
+                                self.page.as_ref().is_some_and(|p| p.has_more)
+                                    && self.page_request.is_none(),
+                                egui::Button::new("Next"),
+                            )
+                            .clicked()
+                        {
+                            self.query.offset = self.query.offset.saturating_add(self.query.limit);
+                            self.dirty = true;
+                        }
+                        let matching = self.page.as_ref().map_or(0, |p| p.matching_total);
+                        let selected = self.page.as_ref().map_or(0, |p| p.selected_total);
+                        let hidden = self.page.as_ref().map_or(0, |p| p.selected_outside_filter);
+                        ui.small(format!(
                     "Page {} · {matching} matching · {selected} selected · {hidden} outside filter",
                     self.query.offset / self.query.limit + 1
                 ));
-                if self.page_request.is_some() {
-                    ui.small("Loading…");
-                }
-            });
+                        if self.page_request.is_some() {
+                            ui.small("Loading…");
+                        }
+                    });
+                });
+            let chrome_height = header.response.rect.height() + footer.response.rect.height();
+            if (self.chrome_height - chrome_height).abs() > 0.5 {
+                self.chrome_height = chrome_height;
+                ui.ctx()
+                    .request_discard("history fixed controls changed height");
+            }
+            egui::CentralPanel::default()
+                .frame(egui::Frame::NONE)
+                .show(ui, |ui| {
+                    let action = table::show(
+                        ui,
+                        self.page.as_ref(),
+                        &mut self.preferences,
+                        &mut self.selected,
+                        &mut self.focused,
+                        &mut self.pending_focus,
+                        None,
+                    );
+                    if self.query.order != self.preferences.order {
+                        self.query.order = self.preferences.order;
+                        self.refresh(self.query.view);
+                    }
+                    if let Some(id) = action.open {
+                        self.request(ContactAction::Load { id }, requests);
+                    }
+                });
         });
         self.filter.advance(ui.ctx(), requests, false);
         self.update_query();

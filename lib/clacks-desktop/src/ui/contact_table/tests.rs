@@ -1,7 +1,7 @@
 //! Real table interactions preserve contact and column identity.
 
 use super::*;
-use crate::ui::tests::fixtures;
+use crate::ui::{tests::fixtures, theme};
 use clacks_client_store::read::{
     contacts::{ContactColumn, SortDirection},
     history::HistoryRow,
@@ -145,6 +145,24 @@ fn full_cell_headers_sort_and_configure_columns_even_without_contacts() {
     let start = ui
         .get_by_role_and_label(egui::Role::ColumnHeader, "Start · UTC")
         .rect();
+    let call = ui
+        .get_by_role_and_label(egui::Role::ColumnHeader, "Callsign")
+        .rect();
+    assert!(
+        (call.right() - start.left()).abs() < 1.0,
+        "header cells must meet at the column boundary: {call:?}, {start:?}"
+    );
+    for header in [call, start] {
+        assert!(
+            ui.output().shapes.iter().any(|shape| matches!(
+                &shape.shape,
+                egui::Shape::Rect(rect)
+                    if rect.fill == theme::palette(ui.ctx.theme()).header
+                        && rect.rect.contains_rect(header)
+            )),
+            "the header surface must fill its entire interactive cell"
+        );
+    }
     assert!(
         start.width() >= 175.0,
         "the entire column header is interactive"
