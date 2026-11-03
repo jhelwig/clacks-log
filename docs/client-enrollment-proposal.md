@@ -47,7 +47,7 @@ Engineering defaults, rather than additional product requirements:
 | Secret encryption | RustCrypto `aes-gcm`: Advanced Encryption Standard with a 256-bit key in Galois/Counter Mode (AES-256-GCM), library/OS nonce generation with the required per-key nonce uniqueness, authenticated account/object binding. No custom cryptography or new external service. |
 | Cleanup | Once per minute, bounded database batches. Expiry is checked on use even when physical cleanup is delayed. Active nonexpiring refresh authorization is excluded. |
 | Unfinished issuance | Five-minute deadline from first issuance for a provisional, not-yet-activated family. A delayed final transition must fail if that provisional state was collected. This is not an expiry for an enrolled client. |
-| Workspace destination | A new account workspace under the managed data directory, with a directory override. Keep the current workspace intact; do not repurpose the running database. |
+| Workspace enrollment | Connect the current empty workspace in place. Replace only unchanged bundled initialization, preserve local operating facts/preferences, and reject independently populated standalone data under D56. No destination picker or additional process. |
 
 No schema/protocol/crypto compatibility guarantee is inferred from package names.
 The selected libraries are described in accounts.md; Cargo.lock records exact
@@ -327,82 +327,73 @@ bundle. Call the protected identity read to obtain the authoritative account/act
 Check it against the intended existing account for recovery; a mismatch leaves
 the existing database binding unchanged and reports the actual account selected.
 
-For first enrollment, create an empty store with that verified server AccountId
-using `ClientStore::create`, then install `EnrollmentBinding`. Never seed standalone
-definitions here, remap existing account IDs or relax the populated-workspace
-guard. The ordinary desktop creates local definitions at startup, so even its
-otherwise-unused current standalone database is not this empty enrollment target.
-
-Proposed destination: `data_local_dir()/accounts/<AccountId>/<ClientActorId>`
-unless a directory was selected. Show it before creation and use existing
-workspace ownership/activation. Open the new workspace through the production
-desktop entry point with `--workspace`; the old workspace remains available and
-unchanged. This adds no account registry or multi-account switcher. Existing files
-are never overwritten or accepted merely because their path looks right.
+For first enrollment, connect the current empty workspace in place using the
+verified server account identity. Replace only unchanged, unpublished bundled
+initialization. Preserve local operating facts and preferences. Reject independently
+populated standalone data under D56; do not merge it or silently create another
+workspace. Check eligibility before creating a key or opening browser authorization,
+and repeat the same check transactionally when installing the binding. A later
+local change must not bypass that guard.
 
 Bind SQLite only after the native bundle is durably saved. Use the existing exact
 prior-binding guard and one immediate transaction. SQLite stores only the native
-reference plus non-secret server/account/actor values. Request the actual initial
-state through #14. Enrollment completion does not establish synchronization
-progress; distinguish enrolled/awaiting initial synchronization from received
-account state.
+reference plus nonsecret server/account/actor values. The session reloads its
+account-qualified services after installation and requests initial account state.
+Enrollment completion does not establish synchronization completion.
 
-### Interrupted local completion
+### Connection dialog and internal completion
 
-Native storage and SQLite are separate transactional systems. Keep the small
-non-secret pending-attempt context in the initiating workspace's existing
-local-state facility, with native reference, origin, proposed destination and
-expected binding; do not copy secrets into SQLite to make a distributed
-transaction. Only one enrollment attempt per initiating workspace runs at once.
-The local attempt is one versioned document with distinct first-enrollment and
-recovery alternatives. Recovery carries its existing destination and prior
-binding together. First enrollment can select or correct an uninstalled
-destination; a bound phase always carries its committed destination. Phase
-transitions record completed native-store and database operations; they do not
-assert those effects merely because an in-memory value was constructed.
+Connect submits the selected server and human client label. Keep the enrolled
+workspace's existing reauthorization entry point, server and account boundary.
+Both actions use the same internal orchestration. The dialog never exposes saved
+attempts, credential disposal, destination selection or separate recovery actions.
+An unfinished attempt alone must not disable Connect or lock the server field.
 
-This is local completion state, not a server acknowledgment protocol.
+The worker chooses whether to start browser authorization, reuse a saved key,
+refresh saved credentials or finish committed local completion. Missing credentials
+or a definite refresh rejection can require fresh browser authorization within that
+operation. Use Huskarl's structured errors and native-store errors; a network/server
+failure or unreadable native entry does not establish credential invalidity. Never
+turn transient failure into a browser loop or replay a consumed authorization code.
+A saved credential verified as belonging to the wrong account triggers one existing
+account-constrained browser authorization, preserving the installed key/binding.
+A mismatch from that fresh approval is reported without another browser loop.
 
-On retry/restart, a saved native credential can refresh and read its actual
-identity, then finish the guarded binding. A missing/unusable bundle requires
-browser authorization again. The saved-attempt dialog offers explicit
-**Authorize again in browser**, preserving an already installed destination and
-its actor hint while saving a fresh native key. It never turns a network failure
-into an automatic browser loop. A database commit failure preserves the saved
-credential for retry and the previous binding. After a replacement binding commits,
-remove the obsolete native entry; failure to remove it is reported/retryable,
-not a reason to roll back committed data or close the actor.
+Keep the existing nonsecret pending-attempt context and native credential reference.
+Native storage and SQLite remain separate transactional systems. Inspect actual
+native and binding state when recovering; recorded phases alone cannot establish
+whether an effect committed. No new recovery queue or persistent coordinator is
+required. Only one enrollment operation runs per workspace at a time.
 
-Do not create an empty destination account until its server identity is known.
-Restarting the initiating workspace can resume its saved attempt through the
-native reference. After binding the destination, clear that initiating state;
-if cleanup was interrupted, recheck the destination's exact saved binding before
-retrying and never allocate another actor merely to finish local completion.
-No installation registry or public test-only API is needed.
-A first-enrollment destination rejected before binding can be corrected through
-**Use this destination**, then resumed with the same saved native credential.
-`NeedsDestination` records that known pre-binding rejection. A completed or
-uncertain binding is not permission to relocate the workspace. Invalid directory
-input is checked before creating the initial key, and a recorded completed
-binding is never downgraded merely because completion is retried.
+Correcting the server before enrollment supersedes only the uninstalled attempt.
+Check actual bindings before removing its obsolete native entry and clearing its
+exact local attempt. This includes refresh material used solely by that uninstalled
+attempt. An absent entry permits clearing its stale reference; unreadable material
+or failed removal stops replacement without losing the recovery context. Never
+remove an installed key or silently switch an enrolled account/server. Abandoning
+local material does not revoke a remotely approved client; the account client list
+continues to own explicit revocation.
 
-An abandoned committed server enrollment remains visible
-in the account client list and can be explicitly revoked; no inactivity expiry.
+A database failure retains usable credentials and the prior binding for the next
+Connect request. Once installation commits, recognize the exact binding and finish
+outstanding cleanup without allocating another writer or requesting browser approval
+solely for cleanup. Removing obsolete credentials cannot roll back committed data.
+Report cleanup failure distinctly from failure to connect.
 
-Before credentials have been saved or a destination bound, the connection dialog
-also offers **Discard saved attempt**. Availability and removal check the native
-entry as well as SQLite's phase: a saved refresh credential may precede the phase
-update after an interruption. An unreadable entry does not establish that removal
-is safe; an already absent entry can be cleared as unfinished local state.
-Discard removes only its uninstalled native key and local attempt, allowing
-correction of a mistaken server address. It
-does not revoke any authorization already approved remotely. Installed bindings
-and attempts with saved credentials must use completion recovery instead.
+While working, show connection/browser progress and prevent duplicate submission.
+Keep Open browser as a fallback during browser approval. On failure preserve inputs,
+show a concise actionable explanation and sanitized expandable technical details,
+and make the primary action available after the worker exits. Cancel, Escape and
+close stop the local operation and dismiss the dialog without promising remote
+rollback. On local success close the dialog; existing connection diagnostics own
+subsequent synchronization status. Do not display a destination path or an overall
+synchronization success claim.
 
-The session owns terminal status publication after joining the enrollment worker.
-Progress may update while it runs, but retry actions become available only after
-the previous task has left admission. An occupied destination is activated using
-the existing asynchronous activation exchange; no nested runtime is started.
+The session owns terminal publication after joining the worker. Preserve the existing
+startup behavior; this cleanup adds no automatic startup authorization or background
+retry policy. The [connection workflow design](superpowers/specs/2026-11-03-connection-workflow-design.md)
+and [implementation plan](superpowers/plans/2026-11-03-connection-workflow.md) define
+the agreed cleanup; implementation remains pending.
 
 ## 7. Reauthorization and revoked work
 

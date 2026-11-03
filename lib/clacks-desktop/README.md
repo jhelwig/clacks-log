@@ -445,13 +445,18 @@ export its contacts, connect an empty local log, then import through the accepte
 import workflow. Connect does not create another workspace or launch a process.
 **Connection…** on an enrolled
 workspace can replace its authorization without relocating its local data.
-Saved attempts can be resumed after restart. **Authorize again in browser**
-replaces an unusable credential while preserving the current workspace and
-its existing actor hint. An uninstalled key-only attempt can
-be discarded to correct the server address; this does not revoke any approval
-already committed on the server. Saved credentials and installed bindings
-use completion recovery instead. Discard checks the native entry even when
-SQLite still records only key creation; unreadable credentials are preserved.
+The agreed connection cleanup makes Connect/Reauthorize own saved-credential reuse,
+browser authorization when required and completion recovery. Users do not manage
+saved attempts or credential disposal. Server correction is allowed before binding;
+installed account/server boundaries remain fixed. Errors retain inputs and allow
+retry through the same primary action. Native-store access and transient server
+failures do not automatically replace credentials or reopen browser authorization.
+
+Implementation note: the current dialog still exposes Resume saved attempt,
+Discard saved attempt and Authorize again in browser. Their removal and the worker
+changes are specified in the [connection workflow design](../../docs/superpowers/specs/2026-11-03-connection-workflow-design.md)
+and [implementation plan](../../docs/superpowers/plans/2026-11-03-connection-workflow.md).
+
 An enrolled workspace receives its initial account state through the session-owned
 synchronization task.
 
