@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.payload p\nWHERE p.account = $1 AND p.payload_id = ANY(ARRAY(\n    SELECT payload_id FROM clacks.payload WHERE account = $1\n    EXCEPT\n    SELECT payload_id FROM clacks.accepted_record WHERE account = $1\n    ORDER BY payload_id LIMIT $2\n))\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d074519e1ad809578f8af6f312b4de1bd0074c823f90e2c0a33c3a27c133d8f1"
+}
