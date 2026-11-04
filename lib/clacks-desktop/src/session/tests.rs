@@ -180,4 +180,4 @@ async fn close_while_failed_preserves_file_and_releases_resources() -> anyhow::R
     Ok(())
 }
 
-mod ws_suite;
+pub(crate) mod ws_suite;

@@ -215,20 +215,48 @@ where
     }
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn close_drains_an_admitted_single_representation() -> anyhow::Result<()> {
-    use tracing::instrument::WithSubscriber;
+/// Run the observer-based workflow under one subscriber shared by every worker.
+/// The existing composition harness gives this subscriber its own process.
+pub(crate) fn run_isolated(case: &str) -> anyhow::Result<()> {
     use tracing_subscriber::prelude::*;
+    let signal = AdmissionSignal::default();
+    tracing::subscriber::set_global_default(tracing_subscriber::registry().with(signal.clone()))?;
+
+    let mut builder = if case == "ws-suite-session-queued" {
+        tokio::runtime::Builder::new_current_thread()
+    } else {
+        tokio::runtime::Builder::new_multi_thread()
+    };
+    builder.worker_threads(2);
+    let runtime = builder.enable_all().build()?;
+    let result = runtime.block_on(async {
+        tokio::time::timeout(Duration::from_secs(30), async {
+            match case {
+                "ws-suite-session-close" => close_drains_scenario(signal).await,
+                "ws-suite-session-enrollment" => enrollment_drains_scenario(signal).await,
+                "ws-suite-session-queued" => queued_counterpart_scenario(signal).await,
+                "ws-suite-session-reconfigure" => receiver_change_scenario(signal).await,
+                _ => anyhow::bail!("Unknown WS Suite session scenario: {case}"),
+            }
+        })
+        .await
+    });
+    runtime.shutdown_timeout(Duration::from_secs(5));
+    result.map_err(|error| anyhow::anyhow!("WS Suite session scenario {case}: {error}"))?
+}
+
+#[test]
+fn close_drains_an_admitted_single_representation() -> anyhow::Result<()> {
+    crate::telemetry::tests::child_case("ws-suite-session-close")
+}
+
+async fn close_drains_scenario(signal: AdmissionSignal) -> anyhow::Result<()> {
     let mut fixture = Fixture::new()?;
     let database = fixture.resources.paths.database.clone();
     let probe = std::net::UdpSocket::bind("127.0.0.1:0")?;
     let endpoint = probe.local_addr()?;
     drop(probe);
-    let signal = AdmissionSignal::default();
-    let subscriber = tracing_subscriber::registry().with(signal.clone());
-    let task = tokio::spawn(
-        run(fixture.resources, fixture.input, fixture.updates).with_subscriber(subscriber),
-    );
+    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
     next_matching(&mut fixture.status, |state| {
         matches!(state, SessionStatus::Ready { .. })
     })
@@ -271,10 +299,12 @@ async fn close_drains_an_admitted_single_representation() -> anyhow::Result<()> 
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn enrollment_drains_capture_before_account_eligibility() -> anyhow::Result<()> {
-    use tracing::instrument::WithSubscriber;
-    use tracing_subscriber::prelude::*;
+#[test]
+fn enrollment_drains_capture_before_account_eligibility() -> anyhow::Result<()> {
+    crate::telemetry::tests::child_case("ws-suite-session-enrollment")
+}
+
+async fn enrollment_drains_scenario(signal: AdmissionSignal) -> anyhow::Result<()> {
     let mut fixture = Fixture::new()?;
     let database = fixture.resources.paths.database.clone();
     let mut enrollment = fixture.resources.enrollment_updates.subscribe();
@@ -284,11 +314,7 @@ async fn enrollment_drains_capture_before_account_eligibility() -> anyhow::Resul
     let origin = std::net::TcpListener::bind("127.0.0.1:0")?;
     let server = format!("http://{}", origin.local_addr()?);
     drop(origin);
-    let signal = AdmissionSignal::default();
-    let subscriber = tracing_subscriber::registry().with(signal.clone());
-    let task = tokio::spawn(
-        run(fixture.resources, fixture.input, fixture.updates).with_subscriber(subscriber),
-    );
+    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
     next_matching(&mut fixture.status, |state| {
         matches!(state, SessionStatus::Ready { .. })
     })
@@ -366,20 +392,18 @@ async fn enrollment_drains_capture_before_account_eligibility() -> anyhow::Resul
     Ok(())
 }
 
-#[tokio::test]
-async fn queued_counterpart_precedes_expiration_after_scheduler_pause() -> anyhow::Result<()> {
-    use tracing::instrument::WithSubscriber;
-    use tracing_subscriber::prelude::*;
+#[test]
+fn queued_counterpart_precedes_expiration_after_scheduler_pause() -> anyhow::Result<()> {
+    crate::telemetry::tests::child_case("ws-suite-session-queued")
+}
+
+async fn queued_counterpart_scenario(signal: AdmissionSignal) -> anyhow::Result<()> {
     let mut fixture = Fixture::new()?;
     let database = fixture.resources.paths.database.clone();
     let probe = std::net::UdpSocket::bind("127.0.0.1:0")?;
     let endpoint = probe.local_addr()?;
     drop(probe);
-    let signal = AdmissionSignal::default();
-    let task = tokio::spawn(
-        run(fixture.resources, fixture.input, fixture.updates)
-            .with_subscriber(tracing_subscriber::registry().with(signal.clone())),
-    );
+    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
     next_matching(&mut fixture.status, |state| {
         matches!(state, SessionStatus::Ready { .. })
     })
@@ -434,10 +458,12 @@ async fn queued_counterpart_precedes_expiration_after_scheduler_pause() -> anyho
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn receiver_change_drains_and_retains_recent_identity() -> anyhow::Result<()> {
-    use tracing::instrument::WithSubscriber;
-    use tracing_subscriber::prelude::*;
+#[test]
+fn receiver_change_drains_and_retains_recent_identity() -> anyhow::Result<()> {
+    crate::telemetry::tests::child_case("ws-suite-session-reconfigure")
+}
+
+async fn receiver_change_scenario(signal: AdmissionSignal) -> anyhow::Result<()> {
     let mut fixture = Fixture::new()?;
     let database = fixture.resources.paths.database.clone();
     let first = std::net::UdpSocket::bind("127.0.0.1:0")?;
@@ -446,11 +472,7 @@ async fn receiver_change_drains_and_retains_recent_identity() -> anyhow::Result<
     let second = std::net::UdpSocket::bind("127.0.0.1:0")?;
     let replacement = second.local_addr()?;
     drop(second);
-    let signal = AdmissionSignal::default();
-    let task = tokio::spawn(
-        run(fixture.resources, fixture.input, fixture.updates)
-            .with_subscriber(tracing_subscriber::registry().with(signal.clone())),
-    );
+    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
     next_matching(&mut fixture.status, |state| {
         matches!(state, SessionStatus::Ready { .. })
     })

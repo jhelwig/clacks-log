@@ -17,7 +17,7 @@ use clap::Parser;
 use std::process::{Command, Stdio};
 
 /// Execute one real composition case in an isolated global-subscriber process.
-fn child_case(case: &str) -> anyhow::Result<()> {
+pub(crate) fn child_case(case: &str) -> anyhow::Result<()> {
     let mut command = Command::new(std::env::current_exe()?);
     for (key, _) in std::env::vars_os() {
         if key
@@ -73,8 +73,11 @@ fn log_output_failure_is_degraded_operation() -> anyhow::Result<()> {
 #[test]
 #[ignore = "isolated process fixture, invoked by composition tests"]
 fn child_entry() -> anyhow::Result<()> {
-    let directory = tempfile::tempdir()?;
     let case = std::env::var("CLACKS_TELEMETRY_CASE")?;
+    if case.starts_with("ws-suite-session-") {
+        return crate::session::tests::ws_suite::run_isolated(&case);
+    }
+    let directory = tempfile::tempdir()?;
     let collector = (!matches!(case.as_str(), "unavailable" | "unwritable" | "membership"))
         .then(|| {
             collector::Collector::start(match case.as_str() {

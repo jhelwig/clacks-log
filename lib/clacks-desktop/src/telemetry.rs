@@ -5,7 +5,7 @@ mod export;
 pub(crate) mod failure;
 mod output;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use crate::{config::DesktopConfig, workspace::WorkspacePaths};
 use opentelemetry::trace::TracerProvider as _;
