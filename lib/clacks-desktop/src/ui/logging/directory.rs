@@ -6,6 +6,7 @@ use clacks_model::{
     scalar::RecordedCallsign,
 };
 use eframe::egui;
+use std::sync::Arc;
 use tokio::{sync::watch, time::Instant};
 
 /// Directory hints for contact controls, separate from recorded save input.
@@ -67,8 +68,8 @@ pub(in crate::ui) struct DirectoryView {
     due: Option<Instant>,
     /// Only this consumer's interest is dropped on clear/change.
     handle: Option<LookupHandle>,
-    /// Most recent safe presentation outcome.
-    state: Option<LookupState>,
+    /// Shared presentation outcome, retained without a per-frame copy of its facts.
+    state: Option<Arc<LookupState>>,
     /// Eligible prior success survives failure/not-found for the same key.
     snapshot: Option<DirectorySnapshot>,
     /// Workspace identity prevents cross-workspace consumer reuse.
@@ -232,7 +233,7 @@ impl DirectoryView {
                     self.handle = Some(lookup.request(key.clone()));
                 }
                 self.due = None;
-                self.state = Some(LookupState::Pending);
+                self.state = Some(Arc::new(LookupState::Pending));
             } else {
                 context.request_repaint_after(due - now);
             }
@@ -247,7 +248,7 @@ impl DirectoryView {
             && let Some(key) = &self.key
         {
             self.handle = Some(lookup.request(key.clone()));
-            self.state = Some(LookupState::Pending);
+            self.state = Some(Arc::new(LookupState::Pending));
         }
         if let Some(outcome) = self.handle.as_ref().and_then(LookupHandle::ready) {
             if let LookupState::Found(snapshot) = outcome.as_ref()
@@ -259,7 +260,7 @@ impl DirectoryView {
             {
                 self.snapshot = Some(snapshot.as_ref().clone());
             }
-            self.state = Some(outcome.as_ref().clone());
+            self.state = Some(outcome);
         }
     }
 
@@ -287,7 +288,7 @@ impl DirectoryView {
 
     /// Retry failure or rejected authentication without refreshing a successful lookup.
     pub(in crate::ui) fn show(&mut self, ui: &mut egui::Ui) {
-        let retry = match &self.state {
+        let retry = match self.state.as_deref() {
             Some(LookupState::Pending) => {
                 ui.small("Looking up callsign…");
                 false
@@ -308,7 +309,7 @@ impl DirectoryView {
         };
         if retry && let (Some(client), Some(key)) = (&self.client, &self.key) {
             self.handle = Some(client.retry(key.clone()));
-            self.state = Some(LookupState::Pending);
+            self.state = Some(Arc::new(LookupState::Pending));
         }
     }
 }

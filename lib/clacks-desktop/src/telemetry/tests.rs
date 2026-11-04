@@ -263,6 +263,14 @@ fn child_entry() -> anyhow::Result<()> {
             .join("");
 
         assert!(!contents.contains("SECRET_SENTINEL"));
+        if let Some((lookup, _)) = &directory_owner {
+            let reused = contents
+                .lines()
+                .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+                .find(|value| value["fields"]["event"] == "directory.lookup.reused")
+                .expect("cache reuse event from the real lookup scenario");
+            assert_eq!(reused["fields"]["lookup_id"], lookup.to_string());
+        }
         if case == "directory-login" {
             directory_login::exclude_secrets(contents.as_bytes());
         }

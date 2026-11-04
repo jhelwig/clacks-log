@@ -56,7 +56,10 @@ impl State {
             .retain(|_, entry| now.duration_since(entry.completed) < RETENTION);
         let success = self.successes.get_mut(key)?;
         success.used = now;
-        tracing::debug!(event = "directory.lookup.reused");
+        if let LookupState::Found(snapshot) = success.outcome.as_ref() {
+            let lookup_id = snapshot.lookup_id();
+            tracing::debug!(event = "directory.lookup.reused", lookup_id = %lookup_id);
+        }
         Some(LookupHandle {
             ready: Some(success.outcome.clone()),
             operation: None,
