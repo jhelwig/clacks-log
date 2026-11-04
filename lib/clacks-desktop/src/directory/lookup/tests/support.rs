@@ -3,7 +3,7 @@ use super::*;
 /// Provider and local-store fixture for one temporary account workspace.
 pub(crate) struct Service {
     pub(crate) client: LookupClient,
-    pub(super) store: ClientStore,
+    pub(crate) store: ClientStore,
     stop: CancellationToken,
     task: tokio::task::JoinHandle<anyhow::Result<()>>,
     _directory: tempfile::TempDir,
@@ -22,7 +22,7 @@ impl Service {
         Self::from_store(endpoint, store, directory)
     }
 
-    pub(super) fn from_store(
+    pub(crate) fn from_store(
         endpoint: url::Url,
         store: ClientStore,
         directory: tempfile::TempDir,
@@ -64,6 +64,11 @@ impl Service {
         self.client.inner.configuration.send_replace(());
     }
 
+    pub(crate) async fn settled(&self) {
+        self.client.inner.tasks.close();
+        self.client.inner.tasks.wait().await;
+    }
+
     pub(crate) async fn close(self) -> anyhow::Result<()> {
         self.stop.cancel();
         self.task.await??;
@@ -72,19 +77,19 @@ impl Service {
     }
 }
 
-pub(super) fn key(call: &str) -> LookupKey {
+pub(crate) fn key(call: &str) -> LookupKey {
     LookupKey::from_recorded(&RecordedCallsign::new(call).unwrap())
 }
-pub(super) fn login() -> axum::response::Response {
+pub(crate) fn login() -> axum::response::Response {
     response(
         200,
         "<QRZDatabase><Session><Key>fixture-key</Key></Session></QRZDatabase>",
     )
 }
-pub(super) fn found() -> axum::response::Response {
+pub(crate) fn found() -> axum::response::Response {
     response(200, include_str!("../../providers/fixtures/qrz.xml"))
 }
-pub(super) fn lookup_count(fixture: &test_support::Fixture) -> usize {
+pub(crate) fn lookup_count(fixture: &test_support::Fixture) -> usize {
     fixture
         .requests
         .lock()
@@ -93,13 +98,13 @@ pub(super) fn lookup_count(fixture: &test_support::Fixture) -> usize {
         .filter(|request| request.method == "GET")
         .count()
 }
-pub(super) fn snapshot(outcome: &LookupState) -> &DirectorySnapshot {
+pub(crate) fn snapshot(outcome: &LookupState) -> &DirectorySnapshot {
     match outcome {
         LookupState::Found(snapshot) => snapshot,
         other => panic!("expected found, got {other:?}"),
     }
 }
-pub(super) async fn requests(fixture: &test_support::Fixture, count: usize) {
+pub(crate) async fn requests(fixture: &test_support::Fixture, count: usize) {
     tokio::time::timeout(Duration::from_secs(5), async {
         while fixture.requests.lock().unwrap().len() < count {
             tokio::time::sleep(Duration::from_millis(1)).await;
@@ -108,7 +113,7 @@ pub(super) async fn requests(fixture: &test_support::Fixture, count: usize) {
     .await
     .unwrap();
 }
-pub(super) fn delayed() -> (axum::response::Response, oneshot::Sender<&'static str>) {
+pub(crate) fn delayed() -> (axum::response::Response, oneshot::Sender<&'static str>) {
     let (release, released) = oneshot::channel();
     let response = axum::response::Response::builder()
         .body(axum::body::Body::from_stream(futures_util::stream::once(
@@ -121,7 +126,7 @@ pub(super) fn delayed() -> (axum::response::Response, oneshot::Sender<&'static s
 }
 
 /// A real submitted contact for snapshot and early-save scenarios.
-pub(super) fn contact(id: QsoId, call: &str) -> clacks_model::contact::Qso {
+pub(crate) fn contact(id: QsoId, call: &str) -> clacks_model::contact::Qso {
     let mut form = crate::logging::form::ContactForm::empty();
     form.own.callsign = "W7HEX".into();
     form.dx.callsign = call.into();

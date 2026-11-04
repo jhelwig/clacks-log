@@ -388,6 +388,7 @@ pub(crate) async fn run(
                 if enrollment_work.is_empty()
                     && closing.is_none()
                     && receiver_commands.is_none()
+                    && let Some(lookup) = &lookup_client
                     && let Some(workspace) = &opened
                 {
                     receiver_stop = CancellationToken::new();
@@ -396,6 +397,7 @@ pub(crate) async fn run(
                     receiver_work.spawn(
                         crate::ws_suite::runtime::run(
                             workspace.store.clone(),
+                            lookup.clone(),
                             input,
                             ws_suite.clone(),
                             settings_updates.clone(),
@@ -474,13 +476,14 @@ pub(crate) async fn run(
                                 lookup_binding.send_replace(clacks_client_store::identity::binding(&workspace.store).await?);
                                 let (client, runtime) = crate::directory::lookup::runtime::LookupRuntime::new(workspace.store.clone(), lookup_binding_view.clone(), directory.installed.subscribe(), context.clone()).await;
                                 lookup.send_replace(Some(client.clone()));
-                                lookup_client = Some(client);
+                                lookup_client = Some(client.clone());
                                 lookup_work.spawn(runtime.run(lookup_stop.clone()));
                                 let (receiver_sender, receiver_input) = mpsc::channel(8);
                                 receiver_commands = Some(receiver_sender);
                                 receiver_work.spawn(
                                     crate::ws_suite::runtime::run(
                                         workspace.store.clone(),
+                                        client.clone(),
                                         receiver_input,
                                         ws_suite.clone(),
                                         settings_updates.clone(),

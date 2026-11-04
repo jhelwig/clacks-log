@@ -36,8 +36,17 @@ async fn capture_rejection_survives_next_success() -> anyhow::Result<()> {
     let (commands, input) = mpsc::channel(8);
     let (calls, mut entry_calls) = mpsc::unbounded_channel();
     let stop = CancellationToken::new();
+    let (lookup, lookup_runtime) = crate::directory::lookup::runtime::LookupRuntime::new(
+        store.clone(),
+        watch::channel(None).1,
+        watch::channel(None).1,
+        Default::default(),
+    )
+    .await;
+    let lookup_task = tokio::spawn(lookup_runtime.run(stop.clone()));
     let task = tokio::spawn(runtime::run(
         store.clone(),
+        lookup,
         input,
         Outputs {
             calls,
@@ -68,7 +77,7 @@ async fn capture_rejection_survives_next_success() -> anyhow::Result<()> {
             .await?
             .unwrap();
         assert_eq!(
-            received.call, call,
+            received.1.call, call,
             "each packet retains arrival order, including repeats"
         );
     }
@@ -99,6 +108,7 @@ async fn capture_rejection_survives_next_success() -> anyhow::Result<()> {
         "a different saved contact must not erase capture failure feedback"
     );
     drop(commands);
+    lookup_task.await??;
     store.close().await?;
     Ok(())
 }

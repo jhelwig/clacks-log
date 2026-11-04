@@ -158,6 +158,48 @@ fn incoming_status_does_not_rewrite_pending_submission() {
     }
 }
 
+#[tokio::test]
+async fn clear_drops_display_interest_without_cancelling_shared_lookup() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::{Service, delayed, key, login, requests},
+        test_support::fixture,
+    };
+    let (held, release) = delayed();
+    let provider = fixture(vec![login(), held]).await?;
+    let service = Service::new(provider.endpoint.clone()).await?;
+    let context = egui::Context::default();
+    let mut entry = ready_entry();
+    entry.incoming_call("OK2CQR/P");
+    let due = entry.directory.submission().unwrap().due;
+    entry
+        .directory
+        .advance(&context, Some(&service.client), due);
+    requests(&provider, 2).await;
+    let shared = service.client.request(key("OK2CQR"));
+    entry.clear();
+    release
+        .send(include_str!("../../directory/providers/fixtures/qrz.xml"))
+        .unwrap();
+    shared.wait().await;
+    entry.advance_lookup(&context, Some(&service.client));
+    assert!(entry.contact_call().is_empty());
+    assert!(entry.directory.submission().is_none());
+    assert!(
+        entry
+            .directory
+            .fallback(&entry.entry.form, &entry.definitions)
+            .name
+            .is_none()
+    );
+    entry.incoming_call("OK2CQR");
+    let due = entry.directory.submission().unwrap().due;
+    entry
+        .directory
+        .advance(&context, Some(&service.client), due);
+    assert_eq!(provider.lookup_count(), 1);
+    service.close().await
+}
+
 #[test]
 fn pending_submission_preserves_its_facts_and_resets_from_current_defaults() {
     let mut view = ready_entry();

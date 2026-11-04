@@ -106,12 +106,13 @@ fn packet(
     work: &mut FuturesUnordered<BoxFuture<'static, Completion>>,
     store: &ClientStore,
     outputs: &Outputs,
+    lookup: &crate::directory::lookup::LookupClient,
 ) {
     let notice = match protocol::decode(bytes, sender) {
         Ok(Some(protocol::DecodedMessage::Completion(notice))) => notice,
         Ok(Some(protocol::DecodedMessage::Status(call))) => {
             if !draining {
-                let _ = outputs.calls.send(call);
+                let _ = outputs.calls.send((lookup.clone(), call));
                 if let Some(context) = outputs.context.get() {
                     context.request_repaint();
                 }
@@ -163,10 +164,12 @@ fn measure(received: Instant, format: &'static str, outcome: &'static str) {
     metrics::histogram!("clacks_ws_suite_capture_duration_seconds","format"=>format,"outcome"=>outcome).record(received.elapsed().as_secs_f64());
 }
 
-/// Start the existing transactional contact operation without holding packet reception.
+/// Start a transactional contact save without blocking packet reception.
 fn save(
     capture: ReadyCapture,
     store: &ClientStore,
+    lookup: &crate::directory::lookup::LookupClient,
+    changes: &watch::Sender<()>,
     work: &mut FuturesUnordered<BoxFuture<'static, Completion>>,
     pairs: &mut Pairing,
     view: &mut ReceiverView,
@@ -187,6 +190,20 @@ fn save(
         }
     };
     let store = store.clone();
+    let key = clacks_model::directory::values::LookupKey::from_recorded(
+        &projection.qso.contacted_station().callsign,
+    );
+    let directory = crate::directory::lookup::persistence::prepare(
+        lookup.clone(),
+        store.clone(),
+        capture.id,
+        crate::directory::lookup::LookupDemand {
+            handle: Some(lookup.request(key.clone())),
+            key,
+            due: Instant::now(),
+        },
+        changes.clone(),
+    );
     let span = tracing::debug_span!(
         "ws_suite.capture_save",
         qso_id = %capture.id,
@@ -196,7 +213,7 @@ fn save(
     work.push(
         async move {
             let result = match clacks_client_store::save::contacts::save(
-                &store, None, projection.qso, None,
+                &store, None, projection.qso, directory.ready_snapshot().map(|snapshot| *snapshot),
             ).await {
                 Ok(SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_)) => Ok(projection.warnings),
                 Ok(_) => Err("The completed WS Suite contact could not be saved because its local record changed.".into()),
@@ -209,6 +226,7 @@ fn save(
                     Err("Could not save the completed WS Suite contact. It has not been captured.".into())
                 }
             };
+            directory.settle(result.is_ok());
 
             let snapshot = if result.is_ok() {
                 clacks_client_store::settings::snapshot(&store).await.map_err(|_| {
@@ -234,6 +252,7 @@ fn save(
 /// Return drained recognition state so a failed enrollment can resume the same workspace.
 pub(crate) async fn run(
     store: ClientStore,
+    lookup: crate::directory::lookup::LookupClient,
     mut commands: mpsc::Receiver<ReceiverRequest>,
     outputs: Outputs,
     settings_updates: watch::Sender<Option<Arc<SettingsSnapshot>>>,
@@ -298,6 +317,7 @@ pub(crate) async fn run(
                                 &mut work,
                                 &store,
                                 &outputs,
+                                &lookup,
                             );
                         }
                     }
@@ -316,7 +336,9 @@ pub(crate) async fn run(
             }
         }
         for capture in pairs.take_ready(Instant::now()) {
-            save(capture, &store, &mut work, &mut pairs, &mut view, &outputs);
+            save(
+                capture, &store, &lookup, &changes, &mut work, &mut pairs, &mut view, &outputs,
+            );
         }
         if pairs.is_empty() && work.is_empty() {
             if closing {

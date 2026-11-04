@@ -345,3 +345,34 @@ fn committed_contact_notice_refreshes_history_without_settings_change() {
         "a committed snapshot must re-read local history even when settings are unchanged"
     );
 }
+
+#[tokio::test]
+async fn queued_calls_do_not_cross_workspace_replacement() -> anyhow::Result<()> {
+    let provider = crate::directory::test_support::fixture(vec![]).await?;
+    let old =
+        crate::directory::lookup::tests::support::Service::new(provider.endpoint.clone()).await?;
+    let current =
+        crate::directory::lookup::tests::support::Service::new(provider.endpoint.clone()).await?;
+    let (calls, input) = mpsc::unbounded_channel();
+    let mut window = Window::new();
+    window.app.entry_calls = input;
+    window.app.lookup_view = watch::channel(Some(current.client.clone())).1;
+    calls.send((
+        old.client.clone(),
+        crate::ws_suite::protocol::StatusCall {
+            call: "OLDWORKSPACE".into(),
+        },
+    ))?;
+    window.app.update_lifecycle(&window.context);
+    assert!(window.app.workbench.entry.contact_call().is_empty());
+    calls.send((
+        current.client.clone(),
+        crate::ws_suite::protocol::StatusCall {
+            call: "NEWCALL".into(),
+        },
+    ))?;
+    window.app.update_lifecycle(&window.context);
+    assert_eq!(window.app.workbench.entry.contact_call(), "NEWCALL");
+    old.close().await?;
+    current.close().await
+}

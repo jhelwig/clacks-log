@@ -36,8 +36,17 @@ pub(super) async fn run(paths: &WorkspacePaths) -> anyhow::Result<()> {
     };
     let stop = CancellationToken::new();
     let (changes, mut committed) = watch::channel(());
+    let (lookup, lookup_runtime) = crate::directory::lookup::runtime::LookupRuntime::new(
+        store.clone(),
+        watch::channel(None).1,
+        watch::channel(None).1,
+        Default::default(),
+    )
+    .await;
+    let lookup_task = tokio::spawn(lookup_runtime.run(stop.clone()));
     let task = tokio::spawn(ws_suite::runtime::run(
         store.clone(),
+        lookup,
         input,
         outputs,
         watch::channel(None).0,
@@ -91,6 +100,7 @@ pub(super) async fn run(paths: &WorkspacePaths) -> anyhow::Result<()> {
     assert!(matches!(view.reception, ReceptionState::Failed(_)));
     stop.cancel();
     task.await??;
+    lookup_task.await??;
     store.close().await?;
     Ok(())
 }

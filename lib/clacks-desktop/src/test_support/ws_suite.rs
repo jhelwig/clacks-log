@@ -49,8 +49,13 @@ pub(crate) fn structured(call: &str) -> Vec<u8> {
 
 /// ADIF counterpart, with distinct optional text and higher-precision supplied power.
 pub(crate) fn adif(call: &str) -> Vec<u8> {
+    adif_at(call, "000000")
+}
+
+/// A distinct completion identity for shared station-result scenarios.
+pub(crate) fn adif_at(call: &str, time: &str) -> Vec<u8> {
     let body = format!(
-        "<CALL:{}>{call}<QSO_DATE:8>19700101<TIME_ON:6>000000<FREQ:6>14.074<MODE:4>MFSK<SUBMODE:3>FT4<STATION_CALLSIGN:5>W7ABC<TX_PWR:6>5.0007<COMMENT:15>packet-private!<EOR>",
+        "<CALL:{}>{call}<QSO_DATE:8>19700101<TIME_ON:6>{time}<FREQ:6>14.074<MODE:4>MFSK<SUBMODE:3>FT4<STATION_CALLSIGN:5>W7ABC<TX_PWR:6>5.0007<COMMENT:15>packet-private!<EOR>",
         call.len()
     );
     let mut payload = vec![];

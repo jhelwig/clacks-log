@@ -519,3 +519,5 @@ async fn receiver_change_scenario(signal: AdmissionSignal) -> anyhow::Result<()>
     tokio::time::timeout(Duration::from_secs(10), store.close()).await??;
     Ok(())
 }
+
+mod lookup;
