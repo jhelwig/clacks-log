@@ -70,6 +70,8 @@ pub(crate) struct ReceiverView {
 pub(crate) struct Outputs {
     /// Latest loaded preference and reception failure.
     pub updates: watch::Sender<ReceiverView>,
+    /// Ordered entry calls; completion capture never consumes these.
+    pub calls: tokio::sync::mpsc::UnboundedSender<protocol::StatusCall>,
     /// Renderer wake handle, attached after startup.
     pub context: Arc<OnceLock<eframe::egui::Context>>,
 }

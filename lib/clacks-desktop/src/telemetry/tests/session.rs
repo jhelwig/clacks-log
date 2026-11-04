@@ -30,6 +30,7 @@ pub(super) fn complete(
     let (settings_updates, _settings_view) = watch::channel(None);
     let resources = SessionResources {
         ws_suite: crate::ws_suite::Outputs {
+            calls: tokio::sync::mpsc::unbounded_channel().0,
             updates: watch::channel(Default::default()).0,
             context: Default::default(),
         },

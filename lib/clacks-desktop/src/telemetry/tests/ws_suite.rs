@@ -30,6 +30,7 @@ pub(super) async fn run(paths: &WorkspacePaths) -> anyhow::Result<()> {
     };
     let (commands, input) = mpsc::channel(8);
     let outputs = Outputs {
+        calls: tokio::sync::mpsc::unbounded_channel().0,
         updates: watch::channel(ReceiverView::default()).0,
         context: Default::default(),
     };

@@ -94,12 +94,28 @@ pub(crate) struct DecodedCompletion {
     pub facts: IncomingFacts,
 }
 
+/// A status call has no capture identity or completion facts.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct StatusCall {
+    /// Current DX call, including an explicit empty value.
+    pub call: String,
+}
+
+/// Independent inputs carried by the same receiver transport.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum DecodedMessage {
+    /// Update the shared entry callsign only.
+    Status(StatusCall),
+    /// Admit a completed contact through the capture path.
+    Completion(DecodedCompletion),
+}
+
 /// Decode one datagram, ignoring unrelated message types without heartbeat discovery.
 /// Malformed/unsupported input returns a bounded error without a packet dump.
 pub(crate) fn decode(
     datagram: &[u8],
     sender: SocketAddr,
-) -> anyhow::Result<Option<DecodedCompletion>> {
+) -> anyhow::Result<Option<DecodedMessage>> {
     let mut input = datagram;
     anyhow::ensure!(
         binary::u32(&mut input)? == 0xadbc_cbda,
@@ -108,10 +124,16 @@ pub(crate) fn decode(
     let schema = binary::u32(&mut input)?;
     anyhow::ensure!(matches!(schema, 2 | 3), "Unsupported WS schema.");
     let kind = binary::u32(&mut input)?;
-    if !matches!(kind, 5 | 12) {
+    if !matches!(kind, 1 | 5 | 12) {
         return Ok(None);
     }
     let instance = binary::text(&mut input)?;
+    if kind == 1 {
+        let _frequency = binary::u64(&mut input)?;
+        let _mode = binary::text(&mut input)?;
+        let call = binary::text(&mut input)?;
+        return Ok(Some(DecodedMessage::Status(StatusCall { call })));
+    }
     let (format, facts) = if kind == 5 {
         (
             CompletionFormat::Structured,
@@ -154,7 +176,7 @@ pub(crate) fn decode(
         primary,
         mode,
     };
-    Ok(Some(DecodedCompletion {
+    Ok(Some(DecodedMessage::Completion(DecodedCompletion {
         source: SourceIdentity {
             sender: sender.ip(),
             instance,
@@ -162,5 +184,5 @@ pub(crate) fn decode(
         identity,
         format,
         facts,
-    }))
+    })))
 }

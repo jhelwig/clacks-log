@@ -32,13 +32,8 @@ impl LoggingUi {
             SettingsResponse::Contacts(ContactResponse::Saved(
                 SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_),
             )) => {
-                self.entry
-                    .reset_after_save(&self.active, self.view, time::now());
-                self.baseline = self.entry.form.clone();
-                self.submitted = None;
-                self.focus_call = true;
+                self.clear();
                 self.changed = true;
-                self.validation.invalidate();
                 self.problem = refresh.is_some();
                 self.notice = Some(refresh.unwrap_or_else(|| "Saved locally".into()));
             }

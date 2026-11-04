@@ -1,6 +1,6 @@
 use super::super::{
     pairing::{Admission, Pairing},
-    protocol::{self, CompletionFormat},
+    protocol::CompletionFormat,
 };
 use super::protocol::adif;
 use tokio::time::Instant;
@@ -8,7 +8,7 @@ use tokio::time::Instant;
 #[tokio::test(start_paused = true)]
 async fn pairing_window_and_inflight_identity() -> anyhow::Result<()> {
     let bytes=adif(b"<CALL:5>W7HEX<QSO_DATE:8>20261103<TIME_ON:6>123456<FREQ:6>14.074<MODE:3>FT8<STATION_CALLSIGN:5>W7ABC<EOR>");
-    let notice = protocol::decode(&bytes, "127.0.0.1:1".parse()?)?.unwrap();
+    let notice = super::completion(&bytes, "127.0.0.1:1".parse()?)?.unwrap();
     let context = super::context()?;
     let mut pairs = Pairing::default();
     let start = Instant::now();
@@ -41,7 +41,7 @@ async fn pairing_window_and_inflight_identity() -> anyhow::Result<()> {
 #[tokio::test(start_paused = true)]
 async fn pairing_orders_fallback_and_latest_replacement() -> anyhow::Result<()> {
     let bytes=adif(b"<CALL:5>W7HEX<QSO_DATE:8>20261103<TIME_ON:6>123456<FREQ:6>14.074<MODE:3>FT8<STATION_CALLSIGN:5>W7ABC<EOR>");
-    let adif = protocol::decode(&bytes, "127.0.0.1:1".parse()?)?.unwrap();
+    let adif = super::completion(&bytes, "127.0.0.1:1".parse()?)?.unwrap();
     let mut structured = adif.clone();
     structured.format = CompletionFormat::Structured;
     for first_adif in [false, true] {
@@ -102,7 +102,7 @@ async fn pairing_orders_fallback_and_latest_replacement() -> anyhow::Result<()> 
 #[tokio::test(start_paused = true)]
 async fn slow_context_read_does_not_extend_pairing_window() -> anyhow::Result<()> {
     let bytes=adif(b"<CALL:5>W7HEX<QSO_DATE:8>20261103<TIME_ON:6>123456<FREQ:6>14.074<MODE:3>FT8<STATION_CALLSIGN:5>W7ABC<EOR>");
-    let adif = protocol::decode(&bytes, "127.0.0.1:1".parse()?)?.unwrap();
+    let adif = super::completion(&bytes, "127.0.0.1:1".parse()?)?.unwrap();
     let mut structured = adif.clone();
     structured.format = CompletionFormat::Structured;
     let mut pairs = Pairing::default();

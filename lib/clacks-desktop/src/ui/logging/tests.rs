@@ -13,6 +13,152 @@ fn ready_entry() -> LoggingUi {
 }
 
 #[test]
+fn clear_uses_fresh_entry_reset_without_save() {
+    let (sender, mut requests) = mpsc::channel(8);
+    let mut entry = ready_entry();
+    entry.entry.form.dx.callsign = "invalid!".into();
+    entry.entry.form.comment = "Discard me".into();
+    entry.entry.form.sent = "59".into();
+    entry.entry.form.received = "59".into();
+    entry.entry.form.receive.frequency = "7.074".into();
+    entry.entry.form.receive.band = "40m".into();
+    entry.entry.form.mode_parent = "PHONE".into();
+    entry.active = fixtures::snapshot().operating;
+    let tag = clacks_model::ids::TagId::new();
+    entry.view = SelectedView::Logbook(tag);
+    let old_id = entry.entry.id;
+    let mut ui = Harness::builder()
+        .allow_missing_glyphs()
+        .with_size(egui::vec2(800.0, 800.0))
+        .build_ui_state(
+            move |ui, entry: &mut LoggingUi| entry.show(ui, &sender),
+            entry,
+        );
+    ui.get_by_role_and_label(egui::Role::Button, "Clear")
+        .click();
+    ui.run();
+    assert!(ui.state().entry.form.dx.callsign.is_empty());
+    assert!(ui.state().entry.form.dx_name.is_empty());
+    assert!(ui.state().entry.form.comment.is_empty());
+    assert!(ui.state().entry.form.sent.is_empty());
+    assert_eq!(ui.state().entry.form.primary.band, "20m");
+    assert_eq!(ui.state().entry.form.mode, "SSB");
+    assert_eq!(ui.state().entry.form.mode_parent, "PHONE");
+    assert_eq!(ui.state().entry.form.receive.frequency, "7.074");
+    assert_eq!(ui.state().entry.form.receive.band, "40m");
+    assert_eq!(ui.state().entry.form.tags, [tag].into());
+    assert_eq!(ui.state().entry.form.own.callsign, "W7HEX");
+    assert!(ui.get_by_label("Callsign").is_focused());
+    let clear = ui.get_by_role_and_label(egui::Role::Button, "Clear").rect();
+    let save = ui
+        .get_by_role_and_label(egui::Role::Button, "Save QSO")
+        .rect();
+    assert!(clear.right() < save.left());
+    assert!(ui.state().entry.form.start.live && ui.state().entry.form.end.live);
+    assert_ne!(ui.state().entry.id, old_id);
+    assert!(requests.try_recv().is_err());
+}
+
+#[tokio::test(start_paused = true)]
+async fn authoritative_repeats_and_equal_key_changes_keep_correct_debounce() {
+    let mut entry = ready_entry();
+    entry.entry.form.dx.position.grid = "CN87".into();
+    entry.entry.form.sent = "-10".into();
+    entry.entry.form.received = "-07".into();
+    entry.entry.form.comment = "Keep this".into();
+    let mut expected = entry.entry.form.clone();
+    let now = tokio::time::Instant::now();
+    entry.incoming_call(" w7hex ");
+    expected.dx.callsign = "W7HEX".into();
+    assert_eq!(
+        entry
+            .entry
+            .form
+            .build(entry.entry.id, &entry.definitions)
+            .unwrap(),
+        expected.build(entry.entry.id, &entry.definitions).unwrap()
+    );
+    assert_eq!(
+        entry.directory.submission().unwrap().due,
+        now + std::time::Duration::from_millis(500)
+    );
+    tokio::time::advance(std::time::Duration::from_millis(200)).await;
+    entry.incoming_call("W7HEX");
+    assert_eq!(
+        entry.directory.submission().unwrap().due,
+        now + std::time::Duration::from_millis(500)
+    );
+    entry.entry.form.dx.callsign = "K1LOCAL".into();
+    entry
+        .directory
+        .observe("K1LOCAL", tokio::time::Instant::now());
+    entry.incoming_call("W7HEX");
+    assert_eq!(entry.contact_call(), "W7HEX");
+    assert_eq!(
+        entry.directory.submission().unwrap().due,
+        now + std::time::Duration::from_millis(700)
+    );
+    entry.incoming_call("W7HEX/P");
+    let demand = entry.directory.submission().unwrap();
+    assert_eq!(demand.key.as_str(), "W7HEX");
+    assert_eq!(demand.due, now + std::time::Duration::from_millis(700));
+    entry.incoming_call("");
+    assert_eq!(entry.contact_call(), "");
+    assert!(entry.directory.submission().is_none());
+}
+
+#[test]
+fn incoming_status_does_not_rewrite_pending_submission() {
+    for success in [false, true] {
+        let mut entry = ready_entry();
+        let (sender, mut requests) = mpsc::channel(8);
+        entry.directory.observe(
+            entry.contact_call().to_owned().as_str(),
+            tokio::time::Instant::now(),
+        );
+        entry.save(&sender);
+        let submitted = entry.submitted.clone().unwrap();
+        let request = requests.try_recv().unwrap();
+        let SettingsAction::Contacts(ContactAction::Save {
+            next, directory, ..
+        }) = request.action
+        else {
+            panic!()
+        };
+        entry.incoming_call("K1LATER");
+        assert_eq!(entry.contact_call(), "K1LATER");
+        assert_eq!(entry.submitted.as_ref(), Some(&submitted));
+        assert_eq!(*next, submitted);
+        assert_eq!(directory.unwrap().key.as_str(), "OK2CQR");
+        entry.clear();
+        assert_eq!(
+            entry.contact_call(),
+            "K1LATER",
+            "pending saves disable Clear"
+        );
+        let response = if success {
+            SettingsResponse::Contacts(contacts::ContactResponse::Saved(
+                clacks_client_store::save::SaveOutcome::Saved(fixtures::row(RecordValue::Qso(
+                    next,
+                ))),
+            ))
+        } else {
+            SettingsResponse::Failed("Not admitted".into())
+        };
+        request.reply.send(response).unwrap();
+        entry.poll();
+        if success {
+            assert!(entry.contact_call().is_empty());
+            assert!(entry.entry.form.dx_name.is_empty());
+        } else {
+            assert_eq!(entry.contact_call(), "K1LATER");
+            assert_eq!(entry.entry.form.dx_name, "Recorded name");
+            assert!(!entry.entry.form.start.live && !entry.entry.form.end.live);
+        }
+    }
+}
+
+#[test]
 fn pending_submission_preserves_its_facts_and_resets_from_current_defaults() {
     let mut view = ready_entry();
     view.entry.form.start = crate::logging::time::ContactTimestamp::recorded(Some(

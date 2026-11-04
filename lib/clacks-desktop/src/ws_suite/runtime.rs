@@ -105,9 +105,19 @@ fn packet(
     pairs: &mut Pairing,
     work: &mut FuturesUnordered<BoxFuture<'static, Completion>>,
     store: &ClientStore,
+    outputs: &Outputs,
 ) {
     let notice = match protocol::decode(bytes, sender) {
-        Ok(Some(notice)) => notice,
+        Ok(Some(protocol::DecodedMessage::Completion(notice))) => notice,
+        Ok(Some(protocol::DecodedMessage::Status(call))) => {
+            if !draining {
+                let _ = outputs.calls.send(call);
+                if let Some(context) = outputs.context.get() {
+                    context.request_repaint();
+                }
+            }
+            return;
+        }
         Ok(None) => return,
         Err(_) => {
             tracing::warn!(event="ws_suite.message_rejected",source_ip=%sender.ip(),reason="malformed_or_unsupported");
@@ -287,6 +297,7 @@ pub(crate) async fn run(
                                 &mut pairs,
                                 &mut work,
                                 &store,
+                                &outputs,
                             );
                         }
                     }

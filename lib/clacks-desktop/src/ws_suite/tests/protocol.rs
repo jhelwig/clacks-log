@@ -1,5 +1,49 @@
 use super::super::protocol;
 
+#[test]
+fn status_call_wire_fields() -> anyhow::Result<()> {
+    // Schema 3/type 1, Id WS, zero dial frequency, blank mode, DX call W7HEX.
+    let bytes = [
+        0xad, 0xbc, 0xcb, 0xda, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 2, b'W', b'S', 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 5, b'W', b'7', b'H', b'E', b'X',
+    ];
+    let sender = "127.0.0.1:2237".parse()?;
+    for schema in [2, 3] {
+        let mut frame = bytes.to_vec();
+        frame[7] = schema;
+        for call in [Some("W7HEX"), Some(""), None] {
+            frame.truncate(30);
+            match call {
+                Some(call) => {
+                    frame.extend_from_slice(&(call.len() as u32).to_be_bytes());
+                    frame.extend_from_slice(call.as_bytes());
+                }
+                None => frame.extend_from_slice(&u32::MAX.to_be_bytes()),
+            }
+            assert_eq!(
+                protocol::decode(&frame, sender)?,
+                Some(protocol::DecodedMessage::Status(protocol::StatusCall {
+                    call: call.unwrap_or_default().into()
+                }))
+            );
+            frame.extend_from_slice(&[0xff, 1, 2]);
+            assert!(protocol::decode(&frame, sender)?.is_some());
+        }
+    }
+    for length in 12..bytes.len() {
+        assert!(
+            protocol::decode(&bytes[..length], sender).is_err(),
+            "truncated at {length}"
+        );
+    }
+    let unknown_mode = crate::test_support::ws_suite::status("W7HEX");
+    assert!(matches!(
+        protocol::decode(&unknown_mode, sender)?,
+        Some(protocol::DecodedMessage::Status(_))
+    ));
+    Ok(())
+}
+
 /// Authored binary wrapper around hand-checked ADI bytes, not a production encoder.
 pub(crate) fn adif(body: &[u8]) -> Vec<u8> {
     let mut bytes = vec![
@@ -13,15 +57,15 @@ pub(crate) fn adif(body: &[u8]) -> Vec<u8> {
 #[test]
 fn adi_length_framing() -> anyhow::Result<()> {
     let body=b"<adif_ver:5>3.1.0<eoh><call:5>w7hex<qso_date:8>20261103<time_on:6>123456<freq:9>14.074000<mode:4>MFSK<submode:3>FT4<station_callsign:0><comment:7>x<EOR>y<name:4>Jos\xe9<eor>";
-    let notice = protocol::decode(&adif(body), "127.0.0.1:9999".parse()?)?.unwrap();
+    let notice = super::completion(&adif(body), "127.0.0.1:9999".parse()?)?.unwrap();
     assert_eq!(notice.identity.contacted_callsign, "W7HEX");
     assert_eq!(notice.identity.mode, "FT4");
     assert_eq!(notice.facts.text("COMMENT"), Some("x<EOR>y"));
     assert_eq!(notice.facts.text("NAME"), Some("José"));
     assert_eq!(notice.facts.text("STATION_CALLSIGN"), None);
-    assert!(protocol::decode(&adif(b"<CALL:99>short"), "127.0.0.1:1".parse()?).is_err());
+    assert!(super::completion(&adif(b"<CALL:99>short"), "127.0.0.1:1".parse()?).is_err());
     assert!(
-        protocol::decode(
+        super::completion(
             &adif(b"<CALL:5>W7HEX<EOR><CALL:5>W7ABC<EOR>"),
             "127.0.0.1:1".parse()?
         )
@@ -41,7 +85,7 @@ fn completion_wire_fields() -> anyhow::Result<()> {
         0, 0, 3, b'-', b'1', b'0', 0, 0, 0, 3, b'-', b'0', b'7', 0, 0, 0, 1, b'5', 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0x25, 0x3d, 0x8c, 0, 0, 0, 0, 1,
     ];
-    let notice = protocol::decode(&bytes, "127.0.0.1:2237".parse()?)?.unwrap();
+    let notice = super::completion(&bytes, "127.0.0.1:2237".parse()?)?.unwrap();
     assert_eq!(notice.identity.start.unix_seconds(), 0);
     assert_eq!(notice.facts.end.unwrap().unix_seconds(), 1);
     assert_eq!(notice.identity.mode, "FT4");
@@ -52,7 +96,7 @@ fn completion_wire_fields() -> anyhow::Result<()> {
     let mut schema3 = bytes.clone();
     *schema3.get_mut(7).unwrap() = 3;
     assert_eq!(
-        protocol::decode(&schema3, "127.0.0.1:1".parse()?)?
+        super::completion(&schema3, "127.0.0.1:1".parse()?)?
             .unwrap()
             .identity,
         notice.identity
@@ -61,7 +105,7 @@ fn completion_wire_fields() -> anyhow::Result<()> {
     *offset.get_mut(30).unwrap() = 2;
     offset.splice(31..31, 3600_i32.to_be_bytes());
     assert_eq!(
-        protocol::decode(&offset, "127.0.0.1:2".parse()?)?
+        super::completion(&offset, "127.0.0.1:2".parse()?)?
             .unwrap()
             .facts
             .end
@@ -71,9 +115,9 @@ fn completion_wire_fields() -> anyhow::Result<()> {
     );
     let mut local = bytes.clone();
     *local.get_mut(30).unwrap() = 0;
-    assert!(protocol::decode(&local, "127.0.0.1:1".parse()?).is_err());
+    assert!(super::completion(&local, "127.0.0.1:1".parse()?).is_err());
     let mut truncated = bytes.clone();
     truncated.push(0);
-    assert!(protocol::decode(&truncated, "127.0.0.1:1".parse()?).is_err());
+    assert!(super::completion(&truncated, "127.0.0.1:1".parse()?).is_err());
     Ok(())
 }

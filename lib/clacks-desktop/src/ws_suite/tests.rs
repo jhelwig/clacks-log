@@ -26,3 +26,14 @@ fn context() -> anyhow::Result<super::contact::CaptureContext> {
 
 mod runtime;
 mod socket;
+
+/// Decode completion fixtures without coupling pairing assertions to status routing.
+fn completion(
+    bytes: &[u8],
+    sender: std::net::SocketAddr,
+) -> anyhow::Result<Option<super::protocol::DecodedCompletion>> {
+    Ok(match super::protocol::decode(bytes, sender)? {
+        Some(super::protocol::DecodedMessage::Completion(value)) => Some(value),
+        _ => None,
+    })
+}

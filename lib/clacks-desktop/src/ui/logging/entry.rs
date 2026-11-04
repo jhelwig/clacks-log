@@ -1,4 +1,4 @@
-//! Compact contact fields in the agreed row order.
+//! Compact contact-entry fields and quick controls.
 
 use super::super::fields::{self, FieldPresentation};
 use crate::{logging::form::ContactForm, operating::FieldError};

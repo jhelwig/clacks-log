@@ -19,6 +19,72 @@ use clacks_model::scalar::UtcSecond;
 use eframe::egui;
 use tokio::sync::mpsc;
 
+#[tokio::test]
+async fn status_changes_only_entry_and_drives_existing_observers() -> anyhow::Result<()> {
+    let directory = tempfile::tempdir()?;
+    let store = clacks_client_store::store::ClientStore::create(
+        &directory.path().join("workspace.sqlite"),
+        Default::default(),
+        Default::default(),
+    )
+    .await?;
+    let qso = fixtures::contact();
+    clacks_client_store::save::contacts::save(&store, None, qso.clone(), None).await?;
+    let context = egui::Context::default();
+    let (sender, mut requests) = mpsc::channel(8);
+    let mut entry = crate::ui::logging::LoggingUi::default();
+    let mut model = WorkedBeforeModel::default();
+    entry.incoming_call(qso.contacted_station().callsign.as_str());
+    model.update(
+        &context,
+        entry.contact_call(),
+        SelectedView::AllContacts,
+        Default::default(),
+        UtcSecond::from_unix_seconds(0),
+        &sender,
+    );
+    let request = requests.try_recv()?;
+    let SettingsAction::Contacts(action) = request.action else {
+        panic!()
+    };
+    let response = crate::session::settings::contacts::execute(
+        &store,
+        action,
+        None,
+        tokio::sync::watch::channel(()).0,
+    )
+    .await?;
+    request
+        .reply
+        .send(SettingsResponse::Contacts(response))
+        .unwrap();
+    model.update(
+        &context,
+        entry.contact_call(),
+        SelectedView::AllContacts,
+        Default::default(),
+        UtcSecond::from_unix_seconds(0),
+        &sender,
+    );
+    assert_eq!(
+        model.page.as_ref().unwrap().rows[0].working.qso.id(),
+        qso.id()
+    );
+    entry.incoming_call("");
+    model.update(
+        &context,
+        entry.contact_call(),
+        SelectedView::AllContacts,
+        Default::default(),
+        UtcSecond::from_unix_seconds(0),
+        &sender,
+    );
+    assert!(model.page.is_none());
+    assert!(requests.try_recv().is_err());
+    store.close().await?;
+    Ok(())
+}
+
 #[test]
 fn worked_before_rejects_old_calls_and_refreshes_today() -> anyhow::Result<()> {
     let context = egui::Context::default();

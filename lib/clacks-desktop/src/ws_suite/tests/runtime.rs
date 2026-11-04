@@ -34,11 +34,13 @@ async fn capture_rejection_survives_next_success() -> anyhow::Result<()> {
     let (updates, mut view) = watch::channel(ReceiverView::default());
     let (changes, mut changed) = watch::channel(());
     let (commands, input) = mpsc::channel(8);
+    let (calls, mut entry_calls) = mpsc::unbounded_channel();
     let stop = CancellationToken::new();
     let task = tokio::spawn(runtime::run(
         store.clone(),
         input,
         Outputs {
+            calls,
             updates,
             context: Default::default(),
         },
@@ -58,6 +60,19 @@ async fn capture_rejection_survives_next_success() -> anyhow::Result<()> {
     })
     .await??;
     let sender = tokio::net::UdpSocket::bind("127.0.0.1:0").await?;
+    for call in ["W7HEX", "W7HEX", ""] {
+        sender
+            .send_to(&crate::test_support::ws_suite::status(call), address)
+            .await?;
+        let received = tokio::time::timeout(Duration::from_secs(5), entry_calls.recv())
+            .await?
+            .unwrap();
+        assert_eq!(
+            received.call, call,
+            "each packet retains arrival order, including repeats"
+        );
+    }
+    assert!(!changed.has_changed()?);
     // A real, identifiable completion without required own identity is rejected.
     let rejected = super::protocol::adif(
         b"<CALL:5>W7BAD<QSO_DATE:8>19700101<TIME_ON:6>000000<FREQ:6>14.074<MODE:3>FT8<EOR>",

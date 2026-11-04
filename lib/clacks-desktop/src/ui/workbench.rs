@@ -64,6 +64,11 @@ pub(super) struct Workbench {
 }
 
 impl Workbench {
+    /// Apply the WS callsign to the shared entry observed by lookup and history.
+    pub(super) fn incoming_call(&mut self, call: &str) {
+        self.entry.incoming_call(call);
+    }
+
     /// Advance directory lookup demand for the entry and saved-contact editor.
     pub(super) fn advance_lookup(
         &mut self,

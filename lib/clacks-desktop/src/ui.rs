@@ -47,6 +47,8 @@ use tracing_appender::non_blocking::ErrorCounter;
 
 /// Runtime handles and diagnostic resources transferred to the native window.
 pub(crate) struct UiResources {
+    /// Ordered WS entry updates belonging to this workspace.
+    pub entry_calls: mpsc::UnboundedReceiver<crate::ws_suite::protocol::StatusCall>,
     /// Original-owner directory results.
     pub lookup_view: watch::Receiver<Option<crate::directory::lookup::LookupClient>>,
     /// Local commits invalidate history even without synchronization.
@@ -79,6 +81,8 @@ pub(crate) struct UiResources {
 
 /// Window-owned view state and standard communication handles.
 pub(crate) struct DesktopApp {
+    /// Entry updates drained even while entry is hidden.
+    entry_calls: mpsc::UnboundedReceiver<crate::ws_suite::protocol::StatusCall>,
     /// Receiver configuration modal and retained outcomes.
     ws_suite: ws_suite::ReceiverUi,
     /// Runtime-owned receiver view.
@@ -147,6 +151,7 @@ impl DesktopApp {
     /// Attach the actual session and diagnostic state to one native window.
     pub fn new(resources: UiResources) -> Self {
         let UiResources {
+            entry_calls,
             ws_suite_view,
             lookup_view,
             contact_changes,
@@ -163,6 +168,7 @@ impl DesktopApp {
             file_failure,
         } = resources;
         Self {
+            entry_calls,
             ws_suite: Default::default(),
             ws_suite_view,
             lookup_view,
@@ -223,6 +229,9 @@ impl DesktopApp {
         if self.contact_changes.has_changed().unwrap_or(false) {
             self.contact_changes.borrow_and_update();
             self.workbench.entry.changed = true;
+        }
+        while let Ok(call) = self.entry_calls.try_recv() {
+            self.workbench.incoming_call(&call.call);
         }
         self.ws_suite.poll(&self.ws_suite_view.borrow());
         self.workbench

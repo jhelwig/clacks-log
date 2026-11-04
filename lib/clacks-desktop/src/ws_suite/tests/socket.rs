@@ -162,6 +162,7 @@ async fn multicast_capture(
         store.clone(),
         input,
         Outputs {
+            calls: mpsc::unbounded_channel().0,
             updates,
             context: Default::default(),
         },

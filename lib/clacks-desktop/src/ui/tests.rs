@@ -148,6 +148,7 @@ impl Window {
         let (_settings_updates, settings_view) = watch::channel(None);
         Self {
             app: DesktopApp::new(UiResources {
+                entry_calls: mpsc::unbounded_channel().1,
                 ws_suite_view: watch::channel(Default::default()).1,
                 lookup_view: watch::channel(None).1,
                 contact_changes: watch::channel(()).1,

@@ -15,6 +15,15 @@ fn text(bytes: &mut Vec<u8>, value: &str) {
     bytes.extend_from_slice(value.as_bytes());
 }
 
+/// Status prefix sufficient to reach DX call, with unrelated appended bytes.
+pub(crate) fn status(call: &str) -> Vec<u8> {
+    let mut body = 0_u64.to_be_bytes().to_vec();
+    text(&mut body, "unknown-mode");
+    text(&mut body, call);
+    body.extend_from_slice(&[0, 1, 2]);
+    frame(1, &body)
+}
+
 /// Structured completion at Unix second zero on 14.074 MHz, using FT4's leaf label.
 pub(crate) fn structured(call: &str) -> Vec<u8> {
     let mut body = vec![0, 0, 0, 0, 0, 0x25, 0x3d, 0x8c, 0, 0, 3, 0xe8, 1];

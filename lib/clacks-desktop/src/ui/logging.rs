@@ -84,6 +84,37 @@ impl Default for LoggingUi {
 }
 
 impl LoggingUi {
+    /// Accept the latest WS call without touching other unfinished facts.
+    pub(super) fn incoming_call(&mut self, call: &str) {
+        let call = call.trim().to_ascii_uppercase();
+        if self.entry.form.dx.callsign == call {
+            return;
+        }
+        self.entry.form.dx.callsign = call;
+        if self.pending.is_none() {
+            self.submitted = None;
+        }
+        self.validation.invalidate();
+        self.directory
+            .observe(&self.entry.form.dx.callsign, tokio::time::Instant::now());
+    }
+
+    /// Use the same fresh draft initialization as a successful manual save.
+    pub(super) fn clear(&mut self) {
+        if self.pending.is_some() {
+            return;
+        }
+        self.entry.reset(&self.active, self.view, time::now());
+        self.baseline = self.entry.form.clone();
+        self.directory = Default::default();
+        self.submitted = None;
+        self.validation.invalidate();
+        self.errors.clear();
+        self.problem = false;
+        self.notice = None;
+        self.focus_call = true;
+    }
+
     /// Advance shared lookup interest independently of which entry pane is visible.
     pub(super) fn advance_lookup(
         &mut self,
@@ -184,8 +215,16 @@ impl LoggingUi {
             ui.horizontal(|ui| {
                 ui.strong("QSO entry");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add_enabled(enabled, egui::Button::new("Save QSO"))
+                    let save = ui
+                        .add_enabled(enabled, egui::Button::new("Save QSO"))
+                        .clicked();
+                    if ui
+                        .add_enabled(self.pending.is_none(), egui::Button::new("Clear"))
                         .clicked()
+                    {
+                        self.clear();
+                    }
+                    save
                 })
                 .inner
             })
