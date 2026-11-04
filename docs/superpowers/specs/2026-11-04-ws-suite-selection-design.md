@@ -29,6 +29,7 @@ continue to be built and saved independently of the manual entry.
 | Status changes only the entry callsign; preserve all other unsaved fields | Explicit user decision in this #21 discussion |
 | Clear sits immediately left of Save QSO and performs the existing post-save reset without saving | Explicit user decision in this #21 discussion |
 | Status handling and QSO capture remain independent, sharing in-flight lookups and transient results by lookup key | Explicit user direction and selected approach in this #21 discussion |
+| Retain successful transient directory results for up to 24 hours, subject to the 128-result eviction limit; no successful-result refresh behavior | Explicit user decisions in this #21 discussion |
 | No explicit handling of simultaneous WS instances is needed for MVP | Explicit user scope decision in this #21 discussion |
 
 The dependency is exactly:
@@ -38,7 +39,7 @@ WS status -> shared entry callsign -> Worked Before
                                  -> debounced directory demand
 
 WS completion -> independently built QSO -> local save
-                                      -> directory demand by that QSO's key
+                                      -> reuse/join directory data by its key
 
 Directory demands -> shared in-flight lookup / transient result by key
 ```
@@ -78,7 +79,7 @@ There is no need to infer which status packet belongs to a completed QSO.
   messages. Extend it to expose Status type 1 as a separate decoded variant.
 - `ws_suite::runtime` already receives packets, pairs completions and saves
   projected native contacts directly. Add status delivery and independently
-  obtain directory handles for usable capture projections.
+  reuse ready/in-flight directory data for usable capture projections.
 - `LoggingUi` owns one shared unfinished `NewEntry`; `contact_call()` is the
   existing input to Worked Before. Keep this dependency and the dedicated
   window's shared entry behavior.
@@ -107,14 +108,17 @@ across provider requests, database operations or other awaits.
 
 ### 4.1. Ownership and operations
 
-Create one shared lookup facility for the active local account workspace. Within
-the selected provider/credential context, its collection is keyed by the existing
-`LookupKey`. Derive keys through the existing shared transformation; retain
-recorded callsigns unchanged. For example, `W7HEX/P` and `W7HEX` share the directory
-key `W7HEX` but remain different entry/Worked Before inputs.
+Create one shared lookup facility for the active local account workspace. Its
+collection is keyed by the existing `LookupKey`. Provider credentials belong to
+network request admission, not to the identity of cached station information.
+Derive keys through the existing shared transformation and retain recorded
+callsigns unchanged. For example, `W7HEX/P` and `W7HEX` share the directory key
+`W7HEX` but remain different entry/Worked Before inputs.
 
-Expose focused operations to obtain an ordinary lookup handle and to explicitly
-retry/refresh a key. An ordinary request:
+Expose an operation for established entry-driven lookup demand and an operation
+to reuse an existing result or join an existing request without starting one.
+The former is used after the entry debounce and by existing failure-retry actions;
+the latter is used by independent capture. An ordinary entry-driven request:
 
 1. Returns an unexpired successful transient result when available.
 2. Otherwise joins the in-flight operation for that key.
@@ -136,45 +140,53 @@ once at successful completion, using the actual provider and completion time.
 Sharing, cache hits, saving and synchronization preserve that identity and time.
 Never claim that attaching an old result performed a new lookup.
 
-### 4.2. Transient retention — proposed engineering defaults
+### 4.2. Transient retention
 
-Retain successful results for **five minutes from successful completion**, using
-monotonic time for local expiry, with at most **128 reusable successes per current
-provider context**. Evict expired successes during collection access and evict
-least-recently-used successes when inserting beyond the count limit. Cache hits
-do not extend the five-minute lifetime. No periodic cleanup task is needed.
+Retain successful results for **24 hours from successful completion**, with at
+most **128 reusable successes per workspace**. The duration and count limit are
+explicit user decisions. Use monotonic time for local expiry; cache hits do not
+extend the lifetime or change the recorded lookup time. Remove expired reusable
+entries during collection access. When inserting beyond the count limit, evict
+the least-recently-used success. Lazy cleanup and this eviction order are
+engineering choices; no periodic cleanup task or cache settings UI is needed.
 
-These numbers are engineering defaults, not agreed product requirements. They
-bound session memory and avoid treating hours-old results as fresh requests.
-They add no settings UI. A consumer that already holds a result can continue to
-display it or finish saving it after cache eviction; eviction does not revoke a
-handle or delete a contact's durable snapshot.
+A consumer that already holds a result can continue to display it or finish
+saving it after reusable-cache expiry or eviction; neither revokes a handle or
+deletes a contact's durable snapshot. The cache is memory-only and ends with the
+workspace session, so 24-hour retention does not imply persistence across
+application exit.
 
-In-flight operations remain joinable until terminal completion and are separate
-from the completed-success limit. Keep the existing bounded provider request
-deadlines. Not-found and failures are delivered to current consumers but are
-not retained as reusable negative cache entries. They do not replace an existing
-successful display or saved snapshot for the same eligible key.
+In-flight operations remain joinable until terminal completion and do not count
+against the 128 completed successes. Keep the existing bounded provider request
+deadlines. As an engineering choice, not-found and failures are delivered to
+current consumers but are not retained as reusable negative cache entries. They
+do not replace an existing successful display or saved snapshot for the same
+eligible key.
 
-Explicit retry/refresh bypasses a retained success but joins an already running
-request for the key. An unsuccessful refresh preserves an existing unexpired
-success; a successful refresh replaces the cached success as a whole. Ordinary
-demand does not invent automatic retries after a failure. Preserve existing
-authentication pauses and provider-requested quiet periods.
+Keep the existing Retry directory lookup and Retry directory login actions for
+lookup failures and rejected credentials. They are not general successful-result
+refresh controls. Retry uses the same keyed operation: reuse a still-valid success
+if one exists, otherwise join existing work or admit a request subject to the
+existing authentication and provider quiet-period rules. Authentication retry
+still resumes the affected provider under D195. Add no refresh action, cache
+bypass, scheduled refresh or automatic failure-retry loop.
 
 ### 4.3. Configuration, cancellation and shutdown
 
-Scope new request sharing to the active account and selected provider material.
-Changing actual provider or credentials selects a fresh reusable context;
-unchanged installed material retains its context. Admitted handles finish with
-their captured provider/material and cannot pause replacement credentials when
-their old credentials fail. Existing native provisioning and retry rules remain
-the owners of protected material and authentication recovery.
+Scope sharing to the active account workspace. Newly admitted network operations
+use the current selected provider and protected material. Admitted handles finish
+with their captured provider/material; a late rejection of old credentials must
+not pause replacement credentials. Existing native provisioning and retry rules
+remain the owners of protected material and authentication recovery. Updated
+credentials resume affected lookup under D195 without introducing bulk catch-up.
 
-Do not invalidate a consumer's admitted successful result solely because provider
-configuration changed. Saved snapshots retain existing D209 arbitration and key
-eligibility, without a current-provider gate. Old contexts are released when
-their work and consumer handles are released; they are not a cross-provider cache.
+Changing credentials or provider selection does not erase successful station
+information, reset its 24-hour age or give it a new lookup identity. Reused results
+retain their actual provider attribution and complete snapshot; do not merge
+providers' facts. Only newly dispatched queries use the current provider. This
+preserves the existing separation between configuration for new requests and
+eligibility of information already obtained. Saved snapshots retain D209
+arbitration and key eligibility without a current-provider gate.
 
 Clearing/changing an entry cancels its debounce and detaches its display interest.
 It does not cancel another consumer's handle for the same key. As an engineering
@@ -193,8 +205,10 @@ explicit bulk lookup remains the recovery path for contacts lacking enrichment.
 ## 5. Status, entry and Worked Before
 
 Decode Status's instance ID and DX call using the existing checked binary
-primitives. Validate the required fields leading to DX call, including dial
-frequency and mode, without applying those fields to entry or defaults. Ignore
+primitives. Structurally decode/skip the fields leading to DX call, including
+dial frequency and mode, without applying them to entry or defaults. Zero
+frequency and blank/unrecognized mode do not invalidate a structurally readable
+status call; they are not being used as native QSO radio facts here. Ignore
 unsupported appended fields. Distinguish malformed/truncated input from a valid
 empty/null call; malformed input must not clear the entry. No polling command,
 heartbeat negotiation or WS control message is needed to consume incoming status.
@@ -228,13 +242,15 @@ pending handle and displayed directory information immediately; old responses
 cannot restore that display. Retaining same-key successful information while a
 new demand is debouncing remains allowed by the existing eligibility rules.
 
-An admitted manual save retains its immutable submitted facts. **Proposed
-engineering default:** while that form is read-only pending its save response,
-leave incoming status events in their ordinary delivery channel. After settling
-the response, process them in order through the normal entry-call path. Successful
-save first performs the normal reset; failed save first restores the submitted
-form. Status then replaces only its call. This preserves submitted values without
-introducing a separate saved status or source-selection state machine.
+An admitted manual save retains its immutable submitted facts. Read-only form
+controls prevent user edits during that save; incoming WS status still follows
+the authoritative call-update rule. Updating the displayed entry call cannot
+rewrite the admitted payload or its directory key. No status deferral queue or
+replay-after-save behavior is specified. Successful save performs the agreed
+fresh-entry reset. A failed save preserves the other submitted form values and
+any newer authoritative incoming call rather than restoring an obsolete call.
+This applies the existing independent submission and incoming-call requirements;
+it does not permit changes to the QSO that was actually submitted.
 
 Do not add multi-instance arbitration or source-selection UI. Received events
 use ordinary arrival order; source identity remains relevant to #19 capture
@@ -243,22 +259,25 @@ recognition, not to directory-key sharing.
 ## 6. Independent capture and result application
 
 For each usable capture candidate, derive the directory key from its projected
-QSO's actual contacted callsign. Obtain a shared handle independently of the
-entry, displayed call, status source, manual draft ID or manual corrections.
-**Proposed engineering default:** on a cache miss with no matching in-flight
-request, this capture demand starts a lookup immediately. Completion therefore
-supports enrichment when no useful prior status was received, while entry-driven
-lookup remains the normal pre-completion path. Provider absence/failure never
-prevents saving.
+QSO's actual contacted callsign. Independently reuse an unexpired success or join
+an in-flight lookup for that key. This does not depend on the entry, displayed
+call, status source, manual draft ID or manual corrections. If neither exists,
+save without directory information. D91 establishes entry-driven lookup; D95
+establishes retention of pending results, not a new completion-driven request
+trigger. This specification therefore adds no provider query on a capture miss.
+User-triggered bulk lookup remains available under D99 for missed enrichment.
+Provider absence/failure never prevents saving.
 
 If success is already available, pass it to the ordinary atomic contact/snapshot
-save. Otherwise save without it and retain the handle alongside that capture
-operation's existing QSO ID. Do not await directory completion before saving.
+save. If a request is in flight, save without its result and retain its handle
+alongside that capture operation's existing QSO ID. On a miss there is no handle
+or enrichment continuation. Do not await directory completion before saving.
 
-After a successful save, a ready result is applied immediately; otherwise an
-ordinary workspace-owned continuation awaits the shared handle and applies its
-success through `directory::snapshots::apply`. A result that completes during
-the database save remains available through the handle. Enrichment continuation
+After a successful save with a joined request, a ready result is applied
+immediately; otherwise an ordinary workspace-owned continuation awaits that
+handle and applies its success through `directory::snapshots::apply`. A result
+that completes during the database save remains available through the handle.
+Enrichment continuation
 is separate from the receiver's pairing/save drain. Release the pairing candidate
 and mark successful capture when the contact save commits, regardless of lookup.
 
@@ -347,6 +366,8 @@ of states, window conditions or external applications to exercise.
 
 1. Fixed independently authored Status bytes establish envelope/field decoding,
    empty/null call handling, ignored appended fields and malformed-input safety.
+   Include zero frequency and unfamiliar/blank mode to establish that unused
+   radio fields do not acquire native-QSO validation requirements.
    Reuse existing completion protocol coverage rather than duplicating it.
 2. Exercise a real shared entry with local edits and incoming status: repeated WS
    authority, unchanged packets not restarting 500 ms, empty clearing, slash-form
@@ -358,12 +379,13 @@ of states, window conditions or external applications to exercise.
    clock cases rather than creating a parallel form harness.
 3. Use existing local provider fixture endpoints and real Clacks lookup APIs to
    show concurrent entry/capture demand issues one actual request, reuses one
-   lookup identity/time, and handles transient expiry, eviction, explicit retry
-   and provider/material changes. Test Clacks's keying and dispatch decisions,
+   lookup identity/time, and handles 24-hour expiry, 128-result eviction, existing
+   failure retry and provider/material changes. Test Clacks's keying and dispatch decisions,
    not `Shared` cloning or mutex correctness in isolation.
 4. Real capture/save/read cases cover ready success, success during save, late
-   success after entry changes/Clear, no prior status, save failure where ordinary
-   real inputs permit it, QSO deletion and key-changing edit before application,
+   success after entry changes/Clear, cache miss without a new request, save
+   failure where ordinary real inputs permit it, QSO deletion and key-changing
+   edit before application,
    and two distinct QSO IDs consuming one result. Include manual save/edit before
    debounce expiry: demand occurs at the original deadline, including during a
    pending save or after reset, without delaying save acknowledgment. Preserve
@@ -373,7 +395,8 @@ of states, window conditions or external applications to exercise.
 5. Clear and successful save share the same reset behavior. Verify no save request
    on Clear, invalid-form availability, fresh draft identity, timestamps, retained
    radio fields, current defaults/membership, focus and pending-save disablement.
-   Include the defined deferred-status handling across manual save outcomes.
+   Include incoming status during a pending manual save: the field changes,
+   the admitted payload stays fixed, and reset/failure follows section 5.
 6. Exercise received WS Status through the Clacks receiver, shared entry and local
    Worked Before, using independently authored protocol packets. Assert Clacks's
    decoded-call mapping and entry-driven history behavior. External GridTracker/WS
