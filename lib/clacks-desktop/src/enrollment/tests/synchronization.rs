@@ -359,7 +359,7 @@ pub(super) async fn verify(
         action(
             &second.settings,
             SettingsAction::Contacts(ContactAction::Save {
-                snapshot: None,
+                directory: None,
                 expected: Some(Box::new(received)),
                 next: Box::new(corrected.clone())
             })
@@ -425,7 +425,7 @@ pub(super) async fn verify(
         action(
             &first.settings,
             SettingsAction::Contacts(ContactAction::Save {
-                snapshot: None,
+                directory: None,
                 expected: Some(Box::new(expected)),
                 next: Box::new(fields.try_into()?)
             })
@@ -514,7 +514,7 @@ pub(super) async fn verify(
         action(
             &first.settings,
             SettingsAction::Contacts(ContactAction::Save {
-                snapshot: None,
+                directory: None,
                 expected: Some(Box::new(expected)),
                 next: Box::new(fields.try_into()?)
             })

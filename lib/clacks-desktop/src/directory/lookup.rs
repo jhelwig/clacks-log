@@ -1,451 +1,230 @@
-//! Debounced entry lookups with immutable response ownership and guarded persistence.
+//! Shared callsign-directory operations, independent of forms and saved contacts.
 
+mod cache;
+pub(crate) mod persistence;
+pub(crate) mod runtime;
 #[cfg(test)]
 pub(crate) mod tests;
 
-use super::providers::{ProviderError, ProviderLookup, ProviderSession};
-use clacks_client_store::{directory::snapshots, identity::EnrollmentBinding, store::ClientStore};
+use super::providers::ProviderSession;
+use clacks_client_store::store::ClientStore;
 use clacks_model::{
-    directory::values::{DirectorySnapshot, DirectorySnapshotFields, LookupKey},
-    ids::{LookupId, QsoId},
-    scalar::{RecordedCallsign, UtcTimestamp},
+    directory::values::{DirectorySnapshot, LookupKey},
+    ids::LookupId,
 };
-use clacks_sync::protocol::directory::{DirectoryMaterial, ProvisionedConfiguration};
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, OnceLock},
-    time::Duration,
+use clacks_sync::protocol::directory::DirectoryMaterial;
+use futures_util::{
+    FutureExt,
+    future::{BoxFuture, Shared},
 };
-use tokio::{
-    sync::{mpsc, watch},
-    task::JoinSet,
-    time::Instant,
-};
-use tokio_util::sync::CancellationToken;
-use tracing::{Instrument, instrument::WithSubscriber};
+use std::sync::{Arc, Mutex, OnceLock};
+use tokio::{sync::watch, time::Instant};
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
-/// One terminal logical lookup, independent of internal authentication renewal.
+/// Logical provider operations, excluding consumer joins and cache hits.
 pub(crate) const LOOKUPS_METRIC: &str = "clacks_directory_lookups_total";
-/// Admission-to-terminal seconds, excluding debounce.
+/// Admission-to-terminal seconds, excluding entry debounce.
 pub(crate) const LOOKUP_DURATION_METRIC: &str = "clacks_directory_lookup_duration_seconds";
 
-/// Entry changes share the existing ordered settings admission channel.
-pub(crate) enum LookupCommand {
-    /// Observe the current effective call without altering recorded facts.
-    CallChanged { qso: QsoId, call: String },
-    /// Retry a cached result only after the contact has actually committed.
-    Saved { qso: QsoId },
-    /// Forget the displayed entry after deletion or dismissal.
-    Deleted { qso: QsoId },
-    /// Explicitly retry authentication for this entry.
-    Retry { qso: QsoId },
-}
-
-/// Nonsecret presentation scoped to one contact and normalized key.
-pub(crate) struct LookupUpdate {
-    /// Original response owner.
-    pub qso: QsoId,
-    /// Absent only when clearing empty text.
-    pub key: Option<LookupKey>,
-    /// Current lookup diagnosis or successful preview.
-    pub state: LookupState,
-    /// A directory winner actually committed and invalidates contact reads.
-    pub changed: bool,
-}
-
-/// Lookup feedback is independent from saved recorded text and synchronization.
+/// Safe directory outcome; recorded contact fields are never altered by it.
 #[derive(Clone, Debug)]
 pub(crate) enum LookupState {
-    /// Empty text or unavailable configuration has no result.
+    /// Empty input, closed workspace or unavailable provider configuration.
     Cleared,
-    /// Debouncing or awaiting the selected provider.
+    /// A consumer is debouncing or awaiting its provider result.
     Pending,
-    /// Complete successful separate facts.
+    /// One complete successful station snapshot shared unchanged among consumers.
     Found(Box<DirectorySnapshot>),
-    /// Explicit provider absence preserves previously retained success.
+    /// An explicit provider absence preserves an eligible older snapshot.
     NotFound,
-    /// Current material requires explicit retry or replacement.
+    /// Current protected material requires replacement or explicit retry.
     PausedAuthentication,
-    /// Safe diagnostic, never a secret or provider payload.
+    /// Safe failure diagnosis without provider payloads or secrets.
     Failed(String),
 }
 
-/// Concrete presentation outputs also wake hidden native windows.
+/// Standard future sharing provides independent completion handles.
+type Operation = Shared<BoxFuture<'static, Arc<LookupState>>>;
+
+/// A ready result or one shared asynchronous provider operation.
 #[derive(Clone)]
-pub(crate) struct Outputs {
-    /// Bounded actual window delivery.
-    pub updates: mpsc::Sender<LookupUpdate>,
-    /// Renderer attaches once after startup.
-    pub context: Arc<OnceLock<eframe::egui::Context>>,
+pub(crate) struct LookupHandle {
+    /// Cached outcomes are immediately inspectable without polling.
+    ready: Option<Arc<LookupState>>,
+    /// Pending operations are driven by the owning workspace.
+    operation: Option<Operation>,
 }
 
-impl Outputs {
-    /// Deliver one original-owner outcome without waiting for a redraw.
-    async fn publish(
-        &self,
-        qso: QsoId,
-        key: Option<LookupKey>,
-        state: LookupState,
-        changed: bool,
-        stop: &CancellationToken,
-    ) {
-        tokio::select! { _ = stop.cancelled() => {}, _ = self.updates.send(LookupUpdate { qso, key, state, changed }) => {} }
-        if let Some(context) = self.context.get() {
-            context.request_repaint();
+impl LookupHandle {
+    /// Retain already obtained successful facts when a consumer freezes its save input.
+    pub fn from_snapshot(snapshot: DirectorySnapshot) -> Self {
+        Self::completed(LookupState::Found(Box::new(snapshot)))
+    }
+    /// Return an already available outcome without waiting for provider access.
+    pub fn ready(&self) -> Option<Arc<LookupState>> {
+        self.ready.clone().or_else(|| {
+            self.operation
+                .as_ref()
+                .and_then(|work| work.peek().cloned())
+        })
+    }
+
+    /// Await this consumer's shared result without affecting other consumers.
+    pub async fn wait(self) -> Arc<LookupState> {
+        if let Some(ready) = self.ready {
+            return ready;
+        }
+        match self.operation {
+            Some(work) => work.await,
+            None => Arc::new(LookupState::Cleared),
+        }
+    }
+
+    /// Construct a terminal result with no provider dispatch.
+    fn completed(state: LookupState) -> Self {
+        Self {
+            ready: Some(Arc::new(state)),
+            operation: None,
         }
     }
 }
 
-/// Only open entries retain debounce and successful preview state.
-struct Entry {
-    /// Current canonical text.
-    key: LookupKey,
-    /// Next admission, absent once dispatched.
-    due: Option<Instant>,
-    /// Available success retained across failures.
-    success: Option<DirectorySnapshot>,
+/// Immutable caller demand, including the original entry deadline when saving early.
+#[derive(Clone)]
+pub(crate) struct LookupDemand {
+    /// Normalized requested station, independent of any QSO identity.
+    pub key: LookupKey,
+    /// Entry debounce deadline, or now for independent capture.
+    pub due: Instant,
+    /// Operation or result retained by this consumer when available.
+    pub handle: Option<LookupHandle>,
 }
 
-/// Normalize once at the same boundary used for snapshot eligibility.
-fn observe(entries: &mut BTreeMap<QsoId, Entry>, qso: QsoId, call: &str) {
-    let Ok(call) = RecordedCallsign::new(call) else {
-        entries.remove(&qso);
-        return;
-    };
-    let key = LookupKey::from_recorded(&call);
-    if entries.get(&qso).is_some_and(|entry| entry.key == key) {
-        return;
-    }
-    entries.insert(
-        qso,
-        Entry {
-            key,
-            due: Some(Instant::now() + Duration::from_millis(500)),
-            success: None,
-        },
-    );
-}
-
-/// Reject only the actual native material captured by this response, including restored revisions.
-fn authentication_rejected(
-    selected: &mut anyhow::Result<Option<Selected>>,
-    provider: clacks_model::directory::values::DirectoryProvider,
-    material: &DirectoryMaterial,
-) -> LookupState {
-    if let Ok(Some(selected)) = selected
-        && selected.provider == provider
-        && &selected.material == material
-    {
-        selected.paused = true;
-        LookupState::PausedAuthentication
-    } else {
-        LookupState::Failed("Earlier directory credentials were rejected".into())
-    }
-}
-
-/// A logical lookup reports cancellation when shutdown drops its unfinished future.
-struct Attempt {
-    /// Provider captured at admission.
-    provider: &'static str,
-    /// Safe immutable correlation.
-    lookup: LookupId,
-    /// Original contact owner.
-    qso: QsoId,
-    /// Admission excludes debounce and includes any session contention.
-    started: std::time::Instant,
-    /// A response replaces the default cancellation outcome.
-    outcome: &'static str,
-}
-
-impl Attempt {
-    /// Settle this admitted attempt while retaining ownership of the cancellation guard.
-    fn finish(&mut self, outcome: &'static str) {
-        self.outcome = outcome;
-    }
-}
-
-impl Drop for Attempt {
-    fn drop(&mut self) {
-        metrics::counter!(LOOKUPS_METRIC, "provider"=>self.provider, "outcome"=>self.outcome)
-            .increment(1);
-        metrics::histogram!(LOOKUP_DURATION_METRIC, "provider"=>self.provider, "outcome"=>self.outcome).record(self.started.elapsed().as_secs_f64());
-        tracing::debug!(event="directory.lookup.completed", lookup_id=%self.lookup, qso_id=%self.qso, provider=self.provider, outcome=self.outcome);
-    }
-}
-
-/// Immutable ownership travels back with the response, independently from later form edits.
-struct LookupRequest {
-    /// Original contact, also the unfinished entry's stable identity.
-    qso: QsoId,
-    /// Canonical call used by this HTTP request.
-    key: LookupKey,
-    /// Immutable ordering and diagnostic correlation.
-    lookup_id: LookupId,
-    /// Actual material captures replacement and restored content without an artificial epoch.
-    material: DirectoryMaterial,
-    /// Provider selected at admission.
-    provider: clacks_model::directory::values::DirectoryProvider,
-}
-
-/// Execute an admitted request under its own context, retaining ownership through cancellation.
-#[tracing::instrument(skip_all, name="desktop.directory.lookup", fields(qso_id=%request.qso, lookup_id=%request.lookup_id, provider=?request.provider))]
-async fn fetch(
-    session: ProviderSession,
-    request: LookupRequest,
-    mut attempt: Attempt,
-) -> (
-    LookupRequest,
-    Result<ProviderLookup, ProviderError>,
-    UtcTimestamp,
-) {
-    let result = session.lookup(&request.key).await;
-    attempt.finish(match &result {
-        Ok(ProviderLookup::Found(_)) => "success",
-        Ok(ProviderLookup::NotFound) => "not_found",
-        Err(ProviderError::Authentication) => "authentication",
-        Err(_) => "unavailable",
-    });
-    let now = time::OffsetDateTime::now_utc();
-    let completed =
-        UtcTimestamp::new(now.unix_timestamp(), now.nanosecond()).expect("current UTC timestamp");
-    (request, result, completed)
-}
-
-/// Session and pause belong to exactly one installed protected entry.
+/// Provider session and recovery state for the actual installed material.
+#[derive(Clone)]
 struct Selected {
-    /// Captured material identity and contents; diagnostics redact its login.
+    /// Captured protected value; never included in telemetry.
     material: DirectoryMaterial,
-    /// Concrete provider selected when this session was created.
+    /// Provider selected at actual network admission.
     provider: clacks_model::directory::values::DirectoryProvider,
-    /// Concrete sessions share only their transient authentication.
+    /// Pooled transport and transient authentication.
     session: ProviderSession,
-    /// Authentication rejection pauses only this material.
+    /// Authentication rejection pauses only the affected current material.
     paused: bool,
-    /// Provider-requested quiet period; a gate, never an automatic retry queue.
-    retry_after: Option<(Instant, Duration)>,
+    /// Longest outstanding provider-requested quiet period.
+    retry_after: Option<(Instant, std::time::Duration)>,
 }
 
-/// Load native material off the async runtime's worker threads.
-async fn selection(
-    binding: Option<&EnrollmentBinding>,
-    installation: Option<&ProvisionedConfiguration>,
-) -> anyhow::Result<Option<Selected>> {
-    let (Some(binding), Some(installation)) = (binding, installation) else {
-        return Ok(None);
-    };
-    anyhow::ensure!(
-        binding.account == installation.account,
-        "Directory installation belongs to another account"
-    );
-    let (Some(provider), Some(material)) = (
-        installation.configuration.selected,
-        installation.material.clone(),
-    ) else {
-        return Ok(None);
-    };
-    Ok(Some(Selected {
-        material: material.clone(),
-        provider,
-        session: ProviderSession::new(provider, material)?,
-        paused: false,
-        retry_after: None,
-    }))
-}
-
-/// Keep successful persistence and normal sync/read invalidation at the same boundary.
-async fn persist(
-    store: &ClientStore,
-    qso: QsoId,
-    snapshot: DirectorySnapshot,
-    changes: &watch::Sender<()>,
-) -> bool {
-    match snapshots::apply(store, qso, snapshot).await {
-        Ok(snapshots::SnapshotOutcome::Applied) => {
-            changes.send_replace(());
-            true
-        }
-        Ok(_) => false,
-        Err(_) => {
-            tracing::warn!(event="directory.snapshot.failed", qso_id=%qso);
-            false
-        }
-    }
-}
-
-/// Own all provider work until shutdown, independently from logging or sync availability.
-pub(crate) async fn run(
+/// Resources shared within exactly one opened account workspace.
+struct Inner {
+    /// Only data access and task registration occur under this lock.
+    state: Mutex<cache::State>,
+    /// Account definitions used to map provider values into native directory facts.
     store: ClientStore,
-    mut binding: watch::Receiver<Option<EnrollmentBinding>>,
-    mut installed: watch::Receiver<Option<ProvisionedConfiguration>>,
-    commands: mpsc::Receiver<LookupCommand>,
-    outputs: Outputs,
-    changes: watch::Sender<()>,
+    /// Explicit executor permits nonblocking requests from the native UI thread.
+    executor: tokio::runtime::Handle,
+    /// Standard workspace task ownership includes provider and saved-result work.
+    tasks: TaskTracker,
+    /// Cancellation never prevents an already admitted QSO save.
     stop: CancellationToken,
-) {
-    let initial = installed.borrow_and_update().clone();
-    let initial_binding = binding.borrow_and_update().clone();
-    let selected = selection(initial_binding.as_ref(), initial.as_ref()).await;
-    Runtime {
-        store,
-        binding,
-        installed,
-        outputs,
-        changes,
-        stop,
+    /// Wake native views when outcomes or configuration become available.
+    context: Arc<OnceLock<eframe::egui::Context>>,
+    /// Current failed consumers can resume after actual configuration recovery.
+    configuration: watch::Sender<()>,
+}
+
+/// Cloneable access to the current workspace's keyed directory operations.
+#[derive(Clone)]
+pub(crate) struct LookupClient {
+    /// Workspace-scoped state; no form or QSO owns the provider request.
+    inner: Arc<Inner>,
+}
+
+impl LookupClient {
+    /// Determine whether two consumer handles refer to the same opened workspace.
+    pub fn same_workspace(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
     }
-    .serve(commands, selected)
-    .await;
-}
-
-/// Workspace resources shared by initial and subsequent selected sessions.
-struct Runtime {
-    /// Owning local workspace.
-    store: ClientStore,
-    /// Protected owner established by enrollment.
-    binding: watch::Receiver<Option<EnrollmentBinding>>,
-    /// Actual installed configuration stream.
-    installed: watch::Receiver<Option<ProvisionedConfiguration>>,
-    /// Original window outputs.
-    outputs: Outputs,
-    /// Ordinary sync/read invalidation.
-    changes: watch::Sender<()>,
-    /// Owning session cancellation.
-    stop: CancellationToken,
-}
-
-impl Runtime {
-    /// Run with the initial concrete selection, retaining captured sessions through replacement.
-    async fn serve(
-        self,
-        mut commands: mpsc::Receiver<LookupCommand>,
-        mut selected: anyhow::Result<Option<Selected>>,
-    ) {
-        let Self {
-            store,
-            mut binding,
-            mut installed,
-            outputs,
-            changes,
-            stop,
-        } = self;
-        let mut entries = BTreeMap::<QsoId, Entry>::new();
-        let mut work = JoinSet::new();
-        let mut binding_open = true;
-        loop {
-            let due = entries.values().filter_map(|entry| entry.due).min();
-            tokio::select! {
-                biased;
-                _ = stop.cancelled() => break,
-                changed = binding.changed(), if binding_open => {
-                    if changed.is_err() { binding_open = false; continue; }
-                    let current_binding = binding.borrow_and_update().clone();
-                    let current_installation = installed.borrow().clone();
-                    selected = selection(current_binding.as_ref(), current_installation.as_ref()).await;
-                    for entry in entries.values_mut().filter(|entry| entry.success.is_none()) { entry.due = Some(Instant::now()); }
-                }
-                changed = installed.changed() => {
-
-                    if changed.is_err() { break; }
-                    let next = installed.borrow_and_update().clone();
-                    if let (Ok(Some(current)), Some(next)) = (&selected, &next) && next.material.as_ref() == Some(&current.material) && next.configuration.selected == Some(current.provider) { continue; }
-                    let current_binding = binding.borrow().clone();
-                    selected = selection(current_binding.as_ref(), next.as_ref()).await;
-                    for entry in entries.values_mut().filter(|entry| entry.success.is_none()) { entry.due = Some(Instant::now()); }
-                }
-                command = commands.recv() => match command {
-                    None => break,
-                    Some(LookupCommand::CallChanged { qso, call }) => {
-                        observe(&mut entries, qso, &call);
-                        if !entries.contains_key(&qso) { outputs.publish(qso, None, LookupState::Cleared, false, &stop).await; }
-                    }
-                    Some(LookupCommand::Deleted { qso }) => { entries.remove(&qso); }
-                    Some(LookupCommand::Saved { qso }) => {
-                        if let Some(snapshot) = entries.get(&qso).and_then(|entry| entry.success.clone()) && persist(&store, qso, snapshot.clone(), &changes).await { outputs.publish(qso, Some(snapshot.key().clone()), LookupState::Found(Box::new(snapshot)), true, &stop).await; }
-                    }
-                    Some(LookupCommand::Retry { qso }) => {
-                        if selected.is_err() {
-                            let current_binding = binding.borrow().clone();
-                            let current_installation = installed.borrow().clone();
-                            selected = selection(current_binding.as_ref(), current_installation.as_ref()).await;
-                        }
-                        if let Ok(Some(selected)) = &mut selected {
-                            if selected.paused { selected.session.reset_authentication(); }
-                            selected.paused = false;
-                        }
-                        if let Some(entry) = entries.get_mut(&qso) { entry.due = Some(Instant::now()); }
-                    }
-                },
-                _ = async { if let Some(due) = due { tokio::time::sleep_until(due).await } else { std::future::pending().await } } => {
-                    for (&qso, entry) in entries.iter_mut().filter(|(_, entry)| entry.due.is_some_and(|due| due <= Instant::now())) {
-                        entry.due = None;
-                        let selected = match &selected {
-                            Ok(Some(selected)) if selected.retry_after.is_some_and(|(started, delay)| started.elapsed() < delay) => { outputs.publish(qso, Some(entry.key.clone()), LookupState::Failed("Directory rate limit reached; retry later.".into()), false, &stop).await; continue; }
-                            Ok(Some(selected)) if !selected.paused => selected,
-                            Ok(Some(_)) => { outputs.publish(qso, Some(entry.key.clone()), LookupState::PausedAuthentication, false, &stop).await; continue; }
-                            Ok(None) => { outputs.publish(qso, Some(entry.key.clone()), LookupState::Cleared, false, &stop).await; continue; }
-                            Err(_) => { outputs.publish(qso, Some(entry.key.clone()), LookupState::Failed("Directory configuration could not be used; retry directory storage.".into()), false, &stop).await; continue; }
-                        };
-                        let session = selected.session.clone();
-                        let provider = selected.provider;
-                        let key = entry.key.clone();
-                        let lookup = LookupId::new();
-                        outputs.publish(qso, Some(key.clone()), LookupState::Pending, false, &stop).await;
-                        let attempt = Attempt { provider: provider.as_str(), lookup, qso, started: std::time::Instant::now(), outcome: "cancelled" };
-                        let request = LookupRequest { qso, key, lookup_id: lookup, material: selected.material.clone(), provider };
-                        work.spawn(fetch(session, request, attempt).in_current_span().with_current_subscriber());
-                    }
-                }
-                Some(result) = work.join_next(), if !work.is_empty() => {
-                    let Ok((LookupRequest { qso, key, lookup_id, material, provider }, result, completed)) = result else { continue; };
-                    let mut changed = false;
-                    let state = match result {
-                        Ok(ProviderLookup::Found(facts)) => {
-                            let mut facts = *facts;
-                            if let Ok(settings) = clacks_client_store::settings::snapshot(&store).await {
-                                facts.references = facts.references.into_iter().filter_map(|reference| {
-                                    let definition = settings.groups.iter().filter_map(|row| match row.working_state() { Some(clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Group(group))) => Some(group.as_ref()), _ => None }).find(|definition| definition.id() == reference.group_id);
-                                    clacks_model::group::normalize_reference(&reference, definition).ok()
-                                }).collect();
-                            }
-                            let snapshot = DirectorySnapshot::new(DirectorySnapshotFields { provider, key: key.clone(), lookup_time: completed, lookup_id, facts });
-                            match snapshot {
-                                Ok(snapshot) => {
-                                    changed = persist(&store, qso, snapshot.clone(), &changes).await;
-                                    if let Some(entry) = entries.get_mut(&qso).filter(|entry| entry.key == key)
-                                        && entry.success.as_ref().is_none_or(|current| current.compare_lookup(&snapshot).is_lt()) { entry.success = Some(snapshot.clone()); }
-                                    LookupState::Found(Box::new(snapshot))
-                                }
-                                Err(_) => LookupState::Failed("Directory returned invalid facts".into()),
-                            }
-                        }
-                        Ok(ProviderLookup::NotFound) => LookupState::NotFound,
-                        Err(ProviderError::Authentication) => {
-                            tracing::warn!(event="directory.authentication.rejected", qso_id=%qso, lookup_id=%lookup_id, provider=provider.as_str());
-                            authentication_rejected(&mut selected, provider, &material)
-                        }
-                        Err(ProviderError::RateLimited { retry_after }) => {
-                            if let Ok(Some(selected)) = &mut selected
-                                && selected.provider == provider && selected.material == material
-                                && let Some(delay) = retry_after
-                            {
-                                let remaining = selected.retry_after.map(|(started, delay)| delay.saturating_sub(started.elapsed())).unwrap_or_default();
-                                if delay > remaining {
-                                    selected.retry_after = Some((Instant::now(), delay));
-                                }
-                            }
-                            tracing::warn!(event="directory.lookup.rate_limited", qso_id=%qso, lookup_id=%lookup_id, provider=provider.as_str());
-                            LookupState::Failed("Directory rate limit reached; retry later.".into())
-                        }
-                        Err(error) => {
-                            tracing::warn!(event="directory.lookup.unavailable", qso_id=%qso, lookup_id=%lookup_id, provider=provider.as_str(), reason=%error);
-                            LookupState::Failed(error.to_string())
-                        }
-                    };
-                    outputs.publish(qso, Some(key), state, changed, &stop).await;
-                }
+    /// Reuse success, join existing work or start one request for this key.
+    pub fn request(&self, key: LookupKey) -> LookupHandle {
+        let Ok(mut state) = self.inner.state.lock() else {
+            return LookupHandle::completed(LookupState::Failed(
+                "Directory lookup state is unavailable".into(),
+            ));
+        };
+        if state.closed {
+            return LookupHandle::completed(LookupState::Cleared);
+        }
+        let now = Instant::now();
+        if let Some(handle) = state.cached(&key, now) {
+            return handle;
+        }
+        if let Some(flight) = state.inflight.get(&key) {
+            tracing::debug!(event="directory.lookup.joined", lookup_id=%flight.id);
+            return flight.handle.clone();
+        }
+        let selected = match &state.selected {
+            Ok(Some(selected)) if selected.paused => {
+                return LookupHandle::completed(LookupState::PausedAuthentication);
             }
+            Ok(Some(selected))
+                if selected
+                    .retry_after
+                    .is_some_and(|(started, delay)| started.elapsed() < delay) =>
+            {
+                return LookupHandle::completed(LookupState::Failed(
+                    "Directory rate limit reached; retry later.".into(),
+                ));
+            }
+            Ok(Some(selected)) => selected.clone(),
+            Ok(None) => return LookupHandle::completed(LookupState::Cleared),
+            Err(message) => return LookupHandle::completed(LookupState::Failed(message.clone())),
+        };
+        let id = LookupId::new();
+        let operation = runtime::fetch(Arc::downgrade(&self.inner), selected, key.clone(), id)
+            .boxed()
+            .shared();
+        let handle = LookupHandle {
+            ready: None,
+            operation: Some(operation),
+        };
+        state.inflight.insert(
+            key,
+            cache::Flight {
+                id,
+                handle: handle.clone(),
+            },
+        );
+        let driven = handle.clone();
+        let inner = self.inner.clone();
+        // Register under the admission lock: closing a tracker alone permits new spawns.
+        self.inner.tasks.spawn_on(
+            async move {
+                driven.wait().await;
+                if let Some(context) = inner.context.get() {
+                    context.request_repaint();
+                }
+            },
+            &self.inner.executor,
+        );
+        handle
+    }
+
+    /// Resume rejected authentication and retry failure through the ordinary keyed operation.
+    pub fn retry(&self, key: LookupKey) -> LookupHandle {
+        if let Ok(mut state) = self.inner.state.lock()
+            && let Ok(Some(selected)) = &mut state.selected
+        {
+            if selected.paused {
+                selected.session.reset_authentication();
+            }
+            selected.paused = false;
         }
-        work.abort_all();
-        while work.join_next().await.is_some() {}
+        self.request(key)
+    }
+
+    /// Subscribe to changes in provider selection or protected material.
+    pub fn configuration_changes(&self) -> watch::Receiver<()> {
+        self.inner.configuration.subscribe()
     }
 }

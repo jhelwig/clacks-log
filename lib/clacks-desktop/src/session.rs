@@ -82,7 +82,9 @@ pub(crate) struct SessionResources {
     /// Receiver preference/failure output owned by this workspace.
     pub ws_suite: crate::ws_suite::Outputs,
     /// Lookup outcomes belong to the native window.
-    pub lookup: crate::directory::lookup::Outputs,
+    pub lookup: watch::Sender<Option<crate::directory::lookup::LookupClient>>,
+    /// Local commit notification shared with both sync and native history.
+    pub contact_changes: watch::Sender<()>,
     /// Directory installation and diagnostic outputs owned by this workspace session.
     pub directory: crate::directory::provisioning::Outputs,
     /// Nonsecret enrollment progress delivered to the native connection dialog.
@@ -171,6 +173,7 @@ pub(crate) async fn run(
     let SessionResources {
         ws_suite,
         lookup,
+        contact_changes: local_changes,
         directory,
         enrollment_updates,
         paths,
@@ -198,11 +201,10 @@ pub(crate) async fn run(
     let mut receiver_commands: Option<mpsc::Sender<crate::ws_suite::ReceiverRequest>> = None;
     let mut lookup_stop = CancellationToken::new();
     let (lookup_binding, lookup_binding_view) = watch::channel(None);
-    let mut lookup_commands: Option<mpsc::Sender<crate::directory::lookup::LookupCommand>> = None;
+    let mut lookup_client: Option<crate::directory::lookup::LookupClient> = None;
     let mut sync_stop = CancellationToken::new();
     let (sync_updates, mut sync_progress) =
         watch::channel(crate::synchronization::Status::Disconnected);
-    let (local_changes, _) = watch::channel(());
     let mut directory_progress = directory.status.subscribe();
     let mut settings_progress = settings_updates.subscribe();
     let mut font_work = JoinSet::new();
@@ -311,7 +313,7 @@ pub(crate) async fn run(
                         closing = Some(started);
                         enrollment_stop.cancel();
                         sync_stop.cancel();
-                        lookup_stop.cancel();
+                        lookup.send_replace(None); lookup_client = None; lookup_stop.cancel();
                         receiver_stop.cancel();
                         settings_requests.close();
                         while let Ok(request) = settings_requests.try_recv() { let _ = request.reply.send(settings::SettingsResponse::Closing); }
@@ -370,7 +372,7 @@ pub(crate) async fn run(
                     while let Some(result) = sync_work.join_next().await { if let Err(error) = result { tracing::error!(event="sync.worker.failed", error.type=if error.is_panic() { "task_panic" } else { "task_cancelled" }); } }
                     lookup_stop.cancel();
                     while lookup_work.join_next().await.is_some() {}
-                    lookup_commands = None;
+                    lookup_client = None; lookup.send_replace(None);
                     receiver_stop.cancel();
                     while receiver_work.join_next().await.is_some() {}
                     receiver_commands = None;
@@ -469,6 +471,11 @@ pub(crate) async fn run(
                                         restored_view_from: workspace.restored_view_from,
                                     },
                                 );
+                                lookup_binding.send_replace(clacks_client_store::identity::binding(&workspace.store).await?);
+                                let (client, runtime) = crate::directory::lookup::runtime::LookupRuntime::new(workspace.store.clone(), lookup_binding_view.clone(), directory.installed.subscribe(), context.clone()).await;
+                                lookup.send_replace(Some(client.clone()));
+                                lookup_client = Some(client);
+                                lookup_work.spawn(runtime.run(lookup_stop.clone()));
                                 let (receiver_sender, receiver_input) = mpsc::channel(8);
                                 receiver_commands = Some(receiver_sender);
                                 receiver_work.spawn(
@@ -483,10 +490,6 @@ pub(crate) async fn run(
                                     ).in_current_span().with_current_subscriber(),
                                 );
                                 start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_stop, &directory).await?;
-                                lookup_binding.send_replace(clacks_client_store::identity::binding(&workspace.store).await?);
-                                let (sender, receiver) = mpsc::channel(16);
-                                lookup_commands = Some(sender);
-                                lookup_work.spawn(crate::directory::lookup::run(workspace.store.clone(), lookup_binding_view.clone(), directory.installed.subscribe(), receiver, lookup.clone(), local_changes.clone(), lookup_stop.clone()));
                             }
                             opened = Some(workspace);
                         }
@@ -509,23 +512,13 @@ pub(crate) async fn run(
                 match request {
                     Some(request) => {
                         if let Some(workspace) = &opened {
-                            if let settings::SettingsAction::Directory(command) = request.action {
-                                if let Some(sender) = &lookup_commands { let _ = sender.send(command).await; }
-                                let _ = request.reply.send(settings::SettingsResponse::Directory);
-                                continue;
-                            }
-                            let lookup = lookup_commands.clone();
-                            let saved = match &request.action { settings::SettingsAction::Contacts(settings::contacts::ContactAction::Save { next, .. }) => Some(next.id()), _ => None };
+                            let lookup = lookup_client.clone();
                             let store = workspace.store.clone();
                             let changes = local_changes.clone();
                             work.spawn(async move {
                                 let shared = request.action.is_shared_write();
-                                let result = settings::execute(store, request).await;
+                                let result = settings::execute(store, request, lookup, changes.clone()).await;
                                 if shared && result.is_some() {changes.send_replace(());}
-                                if let (Some(qso), Some(sender), Some(completion)) = (saved, lookup, result.as_ref()) {
-                                    let response = match &completion.response { settings::SettingsResponse::RefreshFailed { outcome, .. } => outcome.as_ref(), other => other };
-                                    if matches!(response, settings::SettingsResponse::Contacts(settings::contacts::ContactResponse::Saved(clacks_client_store::save::SaveOutcome::Saved(_) | clacks_client_store::save::SaveOutcome::Unchanged(_)))) { let _ = sender.send(crate::directory::lookup::LookupCommand::Saved { qso }).await; }
-                                }
                                 result
                             }.in_current_span().with_current_subscriber());
                         } else {

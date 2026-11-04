@@ -420,12 +420,9 @@ fn child_entry() -> anyhow::Result<()> {
                     }
                 }
             }
-            assert_eq!(dispatches, 2);
-            assert_eq!(
-                outcomes,
-                [("not_found".into(), 1), ("success".into(), 1)].into()
-            );
-            assert_eq!(duration_count, 2);
+            assert_eq!(dispatches, 1);
+            assert_eq!(outcomes, [("success".into(), 1)].into());
+            assert_eq!(duration_count, 1);
         }
 
         if matches!(case.as_str(), "headers-file" | "headers-env") {

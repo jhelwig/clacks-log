@@ -57,10 +57,8 @@ impl Fixture {
                 updates: watch::channel(Default::default()).0,
                 context: Default::default(),
             },
-            lookup: crate::directory::lookup::Outputs {
-                updates: tokio::sync::mpsc::channel(32).0,
-                context: Default::default(),
-            },
+            lookup: tokio::sync::watch::channel(None).0,
+            contact_changes: tokio::sync::watch::channel(()).0,
             directory: crate::directory::provisioning::Outputs {
                 installed: tokio::sync::watch::channel(None).0,
                 status: tokio::sync::watch::channel(Default::default()).0,

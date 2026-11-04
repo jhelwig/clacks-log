@@ -114,10 +114,12 @@ pub(super) async fn retry_contact(paths: &WorkspacePaths) -> anyhow::Result<()> 
         contacts::execute(
             &store,
             ContactAction::Save {
-                snapshot: None,
+                directory: None,
                 expected: None,
                 next: Box::new(qso.clone())
-            }
+            },
+            None,
+            tokio::sync::watch::channel(()).0,
         )
         .await?,
         ContactResponse::Saved(SaveOutcome::Saved(_))
@@ -126,10 +128,12 @@ pub(super) async fn retry_contact(paths: &WorkspacePaths) -> anyhow::Result<()> 
         contacts::execute(
             &store,
             ContactAction::Save {
-                snapshot: None,
+                directory: None,
                 expected: None,
                 next: Box::new(qso)
-            }
+            },
+            None,
+            tokio::sync::watch::channel(()).0,
         )
         .await?,
         ContactResponse::Saved(SaveOutcome::Unchanged(_))

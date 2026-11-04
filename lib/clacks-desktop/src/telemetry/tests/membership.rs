@@ -31,10 +31,12 @@ pub(super) async fn run(paths: &WorkspacePaths) -> anyhow::Result<()> {
         execute(
             &store,
             ContactAction::Save {
-                snapshot: None,
+                directory: None,
                 expected: None,
                 next: Box::new(qso.clone()),
             },
+            None,
+            tokio::sync::watch::channel(()).0,
         )
         .await?;
     }

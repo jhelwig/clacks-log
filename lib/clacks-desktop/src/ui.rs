@@ -48,7 +48,9 @@ use tracing_appender::non_blocking::ErrorCounter;
 /// Runtime handles and diagnostic resources transferred to the native window.
 pub(crate) struct UiResources {
     /// Original-owner directory results.
-    pub lookup_view: mpsc::Receiver<crate::directory::lookup::LookupUpdate>,
+    pub lookup_view: watch::Receiver<Option<crate::directory::lookup::LookupClient>>,
+    /// Local commits invalidate history even without synchronization.
+    pub contact_changes: watch::Receiver<()>,
     /// Separate protected-directory installation diagnostics.
     pub directory_status: watch::Receiver<crate::directory::provisioning::ProvisioningStatus>,
     /// Nonsecret enrollment context and progress from the owning session.
@@ -82,7 +84,9 @@ pub(crate) struct DesktopApp {
     /// Runtime-owned receiver view.
     ws_suite_view: watch::Receiver<crate::ws_suite::ReceiverView>,
     /// Pending results drained independently from form navigation.
-    lookup_view: mpsc::Receiver<crate::directory::lookup::LookupUpdate>,
+    lookup_view: watch::Receiver<Option<crate::directory::lookup::LookupClient>>,
+    /// Local commit notifications, independent of settings changes.
+    contact_changes: watch::Receiver<()>,
     /// Current directory-only diagnosis; logging remains independently available.
     directory_status: watch::Receiver<crate::directory::provisioning::ProvisioningStatus>,
     /// Native menu resources, never constructed by headless component tests.
@@ -145,6 +149,7 @@ impl DesktopApp {
         let UiResources {
             ws_suite_view,
             lookup_view,
+            contact_changes,
             directory_status,
             enrollment_view,
             status,
@@ -161,6 +166,7 @@ impl DesktopApp {
             ws_suite: Default::default(),
             ws_suite_view,
             lookup_view,
+            contact_changes,
             directory_status,
             #[cfg(any(target_os = "macos", windows))]
             native_menus: None,
@@ -214,10 +220,13 @@ impl DesktopApp {
 
     /// Apply background notifications and native close handling, including while hidden.
     fn update_lifecycle(&mut self, context: &egui::Context) {
-        self.ws_suite.poll(&self.ws_suite_view.borrow());
-        while let Ok(update) = self.lookup_view.try_recv() {
-            self.workbench.lookup_update(update);
+        if self.contact_changes.has_changed().unwrap_or(false) {
+            self.contact_changes.borrow_and_update();
+            self.workbench.entry.changed = true;
         }
+        self.ws_suite.poll(&self.ws_suite_view.borrow());
+        self.workbench
+            .advance_lookup(context, self.lookup_view.borrow().as_ref());
         if self.activation.has_changed().unwrap_or(false) {
             self.activation.borrow_and_update();
             context.send_viewport_cmd(egui::ViewportCommand::Visible(true));

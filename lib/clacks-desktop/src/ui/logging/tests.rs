@@ -51,7 +51,7 @@ fn pending_submission_preserves_its_facts_and_resets_from_current_defaults() {
         panic!("wrong operation")
     };
     let contacts::ContactAction::Save {
-        snapshot: None,
+        directory: None,
         expected: basis,
         next,
     } = action
@@ -491,94 +491,7 @@ fn applied_defaults_are_the_edit_baseline_and_contact_corrections_survive_refres
 }
 
 #[test]
-fn directory_pending_save_routes_result_by_committed_outcome() {
-    use crate::directory::lookup::{LookupState, LookupUpdate};
-    use clacks_model::directory::values::{
-        DirectoryFacts, DirectoryProvider, DirectorySnapshot, DirectorySnapshotFields, LookupKey,
-    };
-    let mut view = ready_entry();
-    let owner = view.entry.id;
-    let key =
-        LookupKey::from_recorded(&clacks_model::scalar::RecordedCallsign::new("OK2CQR").unwrap());
-    let snapshot = DirectorySnapshot::new(DirectorySnapshotFields {
-        provider: DirectoryProvider::HamQth,
-        key: key.clone(),
-        lookup_time: clacks_model::scalar::UtcTimestamp::new(1, 0).unwrap(),
-        lookup_id: clacks_model::ids::LookupId::new(),
-        facts: DirectoryFacts {
-            name: Some("Directory only".into()),
-            ..Default::default()
-        },
-    })
-    .unwrap();
-    let (sender, mut requests) = mpsc::channel(4);
-    view.save(&sender);
-    let request = requests.try_recv().unwrap();
-    view.lookup_update(&LookupUpdate {
-        changed: false,
-        qso: owner,
-        key: Some(key.clone()),
-        state: LookupState::Found(Box::new(snapshot.clone())),
-    });
-    assert_eq!(view.entry.form.dx_name, "Recorded name");
-    let mut older = DirectorySnapshotFields::from(snapshot.clone());
-    older.lookup_time = clacks_model::scalar::UtcTimestamp::new(0, 0).unwrap();
-    older.lookup_id = clacks_model::ids::LookupId::new();
-    older.facts.name = Some("Earlier completion".into());
-    view.lookup_update(&LookupUpdate {
-        changed: false,
-        qso: owner,
-        key: Some(key.clone()),
-        state: LookupState::Found(Box::new(DirectorySnapshot::new(older).unwrap())),
-    });
-    assert_eq!(
-        view.directory.snapshot(&view.entry.form.dx.callsign),
-        Some(Box::new(snapshot.clone()))
-    );
-    request
-        .reply
-        .send(SettingsResponse::Failed("Actual save failed".into()))
-        .unwrap();
-    view.poll();
-    assert_eq!(view.entry.id, owner);
-    view.save(&sender);
-    let request = requests.try_recv().unwrap();
-    let SettingsAction::Contacts(ContactAction::Save {
-        next,
-        snapshot: attached,
-        ..
-    }) = request.action
-    else {
-        panic!("save");
-    };
-    assert_eq!(attached, Some(Box::new(snapshot.clone())));
-    assert_eq!(next.id(), owner);
-    request
-        .reply
-        .send(SettingsResponse::Contacts(
-            contacts::ContactResponse::Saved(clacks_client_store::save::SaveOutcome::Unchanged(
-                crate::ui::tests::fixtures::row(RecordValue::Qso(next)),
-            )),
-        ))
-        .unwrap();
-    view.poll();
-    assert_ne!(view.entry.id, owner);
-    view.lookup_update(&LookupUpdate {
-        changed: false,
-        qso: owner,
-        key: Some(key),
-        state: LookupState::Found(Box::new(snapshot)),
-    });
-    assert!(
-        view.directory
-            .snapshot(&view.entry.form.dx.callsign)
-            .is_none()
-    );
-}
-
-#[test]
 fn directory_fallback_is_attributed_and_keyboard_save_keeps_recorded_name_empty() {
-    use crate::directory::lookup::{LookupState, LookupUpdate};
     use clacks_model::directory::values::{
         DirectoryFacts, DirectoryProvider, DirectorySnapshot, DirectorySnapshotFields, LookupKey,
     };
@@ -587,40 +500,34 @@ fn directory_fallback_is_attributed_and_keyboard_save_keeps_recorded_name_empty(
     view.entry.form.dx_name.clear();
     let (sender, mut requests) = mpsc::channel(8);
     view.directory
-        .observe(view.entry.id, &view.entry.form.dx.callsign, &sender);
-    requests.try_recv().unwrap();
+        .observe(&view.entry.form.dx.callsign, tokio::time::Instant::now());
     let key =
         LookupKey::from_recorded(&clacks_model::scalar::RecordedCallsign::new("OK2CQR").unwrap());
-    view.lookup_update(&LookupUpdate {
-        qso: view.entry.id,
-        key: Some(key.clone()),
-        changed: false,
-        state: LookupState::Found(Box::new(
-            DirectorySnapshot::new(DirectorySnapshotFields {
-                provider: DirectoryProvider::HamQth,
-                key,
-                lookup_time: clacks_model::scalar::UtcTimestamp::new(1, 0).unwrap(),
-                lookup_id: clacks_model::ids::LookupId::new(),
-                facts: DirectoryFacts {
-                    name: Some("Separate directory name".into()),
-                    locality: Some("Directory locality".into()),
-                    location: Some(
-                        clacks_model::location::RecordedLocationFields {
-                            position: Some(clacks_model::position::Position::GridArea(
-                                clacks_model::position::Locator::parse("FN31").unwrap(),
-                            )),
-                            dxcc: Some("291".into()),
-                            ..Default::default()
-                        }
-                        .try_into()
-                        .unwrap(),
-                    ),
-                    ..Default::default()
-                },
-            })
-            .unwrap(),
-        )),
-    });
+    view.directory.retain(Some(Box::new(
+        DirectorySnapshot::new(DirectorySnapshotFields {
+            provider: DirectoryProvider::HamQth,
+            key,
+            lookup_time: clacks_model::scalar::UtcTimestamp::new(1, 0).unwrap(),
+            lookup_id: clacks_model::ids::LookupId::new(),
+            facts: DirectoryFacts {
+                name: Some("Separate directory name".into()),
+                locality: Some("Directory locality".into()),
+                location: Some(
+                    clacks_model::location::RecordedLocationFields {
+                        position: Some(clacks_model::position::Position::GridArea(
+                            clacks_model::position::Locator::parse("FN31").unwrap(),
+                        )),
+                        dxcc: Some("291".into()),
+                        ..Default::default()
+                    }
+                    .try_into()
+                    .unwrap(),
+                ),
+                ..Default::default()
+            },
+        })
+        .unwrap(),
+    )));
     let mut ui = Harness::builder()
         .allow_missing_glyphs()
         .with_size(egui::vec2(1400.0, 1600.0))
@@ -753,7 +660,7 @@ fn directory_fallback_is_attributed_and_keyboard_save_keeps_recorded_name_empty(
     let request = requests.try_recv().unwrap();
     let SettingsAction::Contacts(ContactAction::Save {
         next,
-        snapshot: Some(snapshot),
+        directory: Some(demand),
         ..
     }) = request.action
     else {
@@ -761,8 +668,80 @@ fn directory_fallback_is_attributed_and_keyboard_save_keeps_recorded_name_empty(
     };
     assert!(next.contacted_operator().is_none());
     assert!(next.contacted_station().location.is_none());
+    let result = demand.handle.unwrap().ready().unwrap();
+    let crate::directory::lookup::LookupState::Found(snapshot) = result.as_ref() else {
+        panic!("directory facts")
+    };
     assert_eq!(
         snapshot.facts().name.as_deref(),
         Some("Separate directory name")
     );
+}
+
+#[tokio::test]
+async fn current_failed_entry_resumes_on_usable_configuration() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::Service,
+        test_support::{fixture, response},
+    };
+    let provider = fixture(vec![
+        response(
+            200,
+            "<QRZDatabase><Session><Key>fixture-key</Key></Session></QRZDatabase>",
+        ),
+        response(
+            200,
+            include_str!("../../directory/providers/fixtures/qrz.xml"),
+        ),
+    ])
+    .await?;
+    let service = Service::new(provider.endpoint.clone()).await?;
+    service.available(false);
+    let mut view = ready_entry();
+    let context = egui::Context::default();
+    let now = tokio::time::Instant::now();
+    view.directory.observe(&view.entry.form.dx.callsign, now);
+    view.directory.advance(
+        &context,
+        Some(&service.client),
+        now + std::time::Duration::from_millis(500),
+    );
+    assert_eq!(provider.lookup_count(), 0);
+    service.available(true);
+    view.directory.advance(
+        &context,
+        Some(&service.client),
+        now + std::time::Duration::from_millis(501),
+    );
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while provider.lookup_count() == 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+        }
+    })
+    .await?;
+    service
+        .client
+        .request(clacks_model::directory::values::LookupKey::from_recorded(
+            &clacks_model::scalar::RecordedCallsign::new("OK2CQR")?,
+        ))
+        .wait()
+        .await;
+    view.directory.advance(
+        &context,
+        Some(&service.client),
+        now + std::time::Duration::from_secs(1),
+    );
+    assert_eq!(provider.lookup_count(), 1);
+    service.available(true);
+    view.directory.advance(
+        &context,
+        Some(&service.client),
+        now + std::time::Duration::from_secs(2),
+    );
+    assert_eq!(
+        provider.lookup_count(),
+        1,
+        "usable configuration does not refresh a successful result"
+    );
+    service.close().await
 }

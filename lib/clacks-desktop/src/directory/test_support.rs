@@ -46,6 +46,18 @@ struct FixtureState {
     responses: Arc<Mutex<VecDeque<Response>>>,
 }
 
+impl Fixture {
+    /// Count actual QRZ lookup HTTP requests, excluding authentication.
+    pub(crate) fn lookup_count(&self) -> usize {
+        self.requests
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|request| request.method == "GET")
+            .count()
+    }
+}
+
 impl Drop for Fixture {
     fn drop(&mut self) {
         self.server.abort();

@@ -149,7 +149,8 @@ impl Window {
         Self {
             app: DesktopApp::new(UiResources {
                 ws_suite_view: watch::channel(Default::default()).1,
-                lookup_view: mpsc::channel(32).1,
+                lookup_view: watch::channel(None).1,
+                contact_changes: watch::channel(()).1,
                 directory_status: watch::channel(Default::default()).1,
                 enrollment_view: watch::channel(Default::default()).1,
                 status,
@@ -285,3 +286,61 @@ fn closing_discards_appearance_preview_and_continue_waiting_keeps_the_window_ope
 mod menu_commands;
 
 mod ws_suite;
+
+#[test]
+fn committed_contact_notice_refreshes_history_without_settings_change() {
+    use crate::session::settings::{
+        SettingsAction, SettingsResponse,
+        contacts::{ContactAction, ContactResponse},
+    };
+    use egui_kittest::Harness;
+    let mut window = Window::new();
+    let (changes, changed) = watch::channel(());
+    window.app.contact_changes = changed;
+    let (sender, mut requests) = mpsc::channel(16);
+    let snapshot = fixtures::snapshot();
+    let mut ui = Harness::builder()
+        .allow_missing_glyphs()
+        .with_size(egui::vec2(1400.0, 900.0))
+        .build_ui_state(
+            move |ui, window: &mut Window| {
+                window.app.update_lifecycle(ui.ctx());
+                window.app.workbench.show(ui, &snapshot, &sender);
+            },
+            window,
+        );
+    for _ in 0..3 {
+        while let Ok(request) = requests.try_recv() {
+            let result = match request.action {
+                SettingsAction::Contacts(ContactAction::Page { .. }) => {
+                    ContactResponse::Page(clacks_client_store::read::contacts::ContactPage {
+                        rows: vec![],
+                        has_more: false,
+                        matching_total: 0,
+                        selected_total: 0,
+                        selected_outside_filter: 0,
+                    })
+                }
+                SettingsAction::Contacts(ContactAction::LoadQueryState) => {
+                    ContactResponse::QueryState(Default::default())
+                }
+                other => panic!("unexpected operation {}", other.diagnostic_name()),
+            };
+            request
+                .reply
+                .send(SettingsResponse::Contacts(result))
+                .unwrap();
+        }
+        ui.run();
+    }
+    assert!(requests.try_recv().is_err());
+    changes.send_replace(());
+    ui.run();
+    assert!(
+        matches!(
+            requests.try_recv().unwrap().action,
+            SettingsAction::Contacts(ContactAction::Page { .. })
+        ),
+        "a committed snapshot must re-read local history even when settings are unchanged"
+    );
+}

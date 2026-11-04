@@ -84,10 +84,17 @@ impl Default for LoggingUi {
 }
 
 impl LoggingUi {
-    /// Receive only results owned by the current unfinished entry.
-    pub(super) fn lookup_update(&mut self, update: &crate::directory::lookup::LookupUpdate) {
+    /// Advance shared lookup interest independently of which entry pane is visible.
+    pub(super) fn advance_lookup(
+        &mut self,
+        context: &egui::Context,
+        lookup: Option<&crate::directory::lookup::LookupClient>,
+    ) {
+        self.poll();
         self.directory
-            .update(self.entry.id, &self.entry.form.dx.callsign, update);
+            .observe(&self.entry.form.dx.callsign, tokio::time::Instant::now());
+        self.directory
+            .advance(context, lookup, tokio::time::Instant::now());
     }
 
     /// Borrow the unfinished contacted call for Worked Before without exposing the draft.
@@ -213,8 +220,8 @@ impl LoggingUi {
                         .inner;
                     self.focus_call = false;
                     self.directory
-                        .observe(self.entry.id, &self.entry.form.dx.callsign, requests);
-                    self.directory.show(ui, self.entry.id, requests);
+                        .observe(&self.entry.form.dx.callsign, tokio::time::Instant::now());
+                    self.directory.show(ui);
                     if action.edited {
                         self.entry.capture_corrections(&before);
                         self.submitted = None;
@@ -282,7 +289,7 @@ impl LoggingUi {
             self.validation.edited(ui.input(|i| i.time));
         }
         self.directory
-            .observe(self.entry.id, &self.entry.form.dx.callsign, requests);
+            .observe(&self.entry.form.dx.callsign, tokio::time::Instant::now());
         if changed.save && self.pending.is_none() {
             self.save(requests);
         }
@@ -300,7 +307,7 @@ impl LoggingUi {
         let (reply, receiver) = oneshot::channel();
         let request = SettingsRequest {
             action: SettingsAction::Contacts(ContactAction::Save {
-                snapshot: self.directory.snapshot(&self.entry.form.dx.callsign),
+                directory: self.directory.submission(),
                 expected: None,
                 next: Box::new(next.clone()),
             }),
