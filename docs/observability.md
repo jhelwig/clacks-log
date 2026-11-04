@@ -183,6 +183,13 @@ or completion framework. Functional regression checks cover real saved/reloaded
 data, unchanged retry, refusal/recovery, cancellation and offline operation using
 the existing suites and production schemas.
 
+Desktop reporting checks that run database workers or other background threads
+use the process-owned subscriber throughout the workflow. Do not install an
+alternative thread-local capture subscriber around that work. Isolate checks
+requiring a different subscriber in the existing composition-test process, and
+keep the workflow's domain and reporting assertions together rather than
+repeating its storage setup solely to capture telemetry.
+
 Failure exercises use disposable infrastructure and synthetic accounts. Compare
 before/after and repeat/no-op cases, observe export deadlines/loss and overhead,
 and distinguish unverified boundaries from passes. Do not interrupt deployed

@@ -428,6 +428,37 @@ and individually delete a multi-tag contact. Verify layout, keyboard operation,
 combined timestamp ordering and durable local outcomes. Automated tests do not
 wait for human interaction or expose delay flags.
 
+## WS Suite capture
+
+Open **Settings → WS Suite…**, enable **Receive WS Suite updates**, choose
+Unicast or Multicast, and Apply. Unicast receives on the selected Local address
+and Port. Multicast joins the supplied Group address and Port on System default
+or an explicitly selected Network interface. Refresh interfaces updates the
+available names/addresses. IPv6 local-scope multicast requires an explicit
+interface. No file editing or application restart is needed.
+
+The checkbox and normal unapplied-field treatment convey configuration. Only
+failures have a separate reception message. Apply retries failed reception even
+without changes; successful retry clears the message and closes the dialog.
+Failed activation retains saved values and keeps the dialog open. Applying Off
+preserves the last committed connection and works despite unavailable interfaces
+or invalid disabled inputs. Cancel/Escape/close discard unsubmitted edits.
+
+Preferences belong to the current local workspace. Reception starts when that
+workspace opens if enabled. Closing the application stops capture. Unicast
+requires an available port; multicast supports other local receiver applications
+sharing the group/port. WS must use a matching destination/interface and enable
+same-computer multicast delivery. Enable capture in one Clacks client per source.
+
+Type 5/type 12 completions share a 100 ms pairing window; both usable forms save
+early as one ADIF contact, otherwise the usable form saves at expiry. Recent
+repeat suppression is in memory per source until its next successful completion;
+receiver-only changes retain it. Saved contacts follow ordinary history and
+synchronization. Active defaults, the selected tag and current definitions are
+captured once; the unfinished manual contact remains independent. The
+[integration contract](../../docs/integrations.md#ws-suite-the-wsjt-x-family-of-weak-signal-radio-applications-capture)
+defines field handling and correlation.
+
 ## Server connection
 
 **Connect…** opens the server and client-label form. New connections default to

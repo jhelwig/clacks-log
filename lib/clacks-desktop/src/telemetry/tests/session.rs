@@ -29,6 +29,10 @@ pub(super) fn complete(
     let (_settings_requests, requests) = mpsc::channel(8);
     let (settings_updates, _settings_view) = watch::channel(None);
     let resources = SessionResources {
+        ws_suite: crate::ws_suite::Outputs {
+            updates: watch::channel(Default::default()).0,
+            context: Default::default(),
+        },
         lookup: crate::directory::lookup::Outputs {
             updates: tokio::sync::mpsc::channel(32).0,
             context: Default::default(),

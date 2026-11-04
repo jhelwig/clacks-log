@@ -13,6 +13,8 @@ pub(crate) enum MenuCommand {
     RefreshSettings,
     /// Open enrollment/connection management.
     Connection,
+    /// Configure WS Suite reception.
+    WsSuite,
     /// Preview local appearance preferences.
     Appearance,
     /// Restore workbench pane sizes.
@@ -32,6 +34,7 @@ impl MenuCommand {
             Self::EquipmentConfigurations => "equipment_configurations",
             Self::RefreshSettings => "refresh_settings",
             Self::Connection => "connection",
+            Self::WsSuite => "ws_suite",
             Self::Appearance => "appearance",
             Self::ResetLayout => "reset_layout",
             Self::Diagnostics => "diagnostics",
@@ -62,6 +65,7 @@ pub(crate) const GROUPS: &[MenuGroup] = &[
             Some(MenuCommand::RefreshSettings),
             None,
             Some(MenuCommand::Connection),
+            Some(MenuCommand::WsSuite),
             None,
             Some(MenuCommand::Appearance),
         ],
@@ -86,6 +90,7 @@ impl MenuCommand {
             Self::RefreshSettings => "Refresh settings",
             Self::Connection if enrolled => "Connection…",
             Self::Connection => "Connect…",
+            Self::WsSuite => "WS Suite…",
             Self::Appearance => "Appearance…",
             Self::ResetLayout => "Reset workbench layout",
             Self::Diagnostics => "Workspace & diagnostics…",

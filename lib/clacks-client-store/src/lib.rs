@@ -28,3 +28,5 @@ mod incoming;
 #[cfg(test)]
 #[path = "../tests/support/mod.rs"]
 mod test_support;
+
+pub mod ws_suite;

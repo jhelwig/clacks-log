@@ -33,6 +33,8 @@ const MAX_FONT_TASKS: usize = 4;
 /// Lifecycle, presentation and enrollment requests owned by one workspace session.
 #[derive(Debug)]
 pub(crate) enum SessionCommand {
+    /// Configure the workspace-owned WS Suite receiver.
+    WsSuite(crate::ws_suite::ReceiverRequest),
     /// Request an enrollment workflow on the owning workspace session.
     Enrollment(crate::enrollment::EnrollmentCommand),
     /// Resolve presentation fonts on session-owned workers, without touching account data.
@@ -77,6 +79,8 @@ pub(crate) enum SessionStatus {
 
 /// Resources transferred to the runtime while outer composition retains ownership.
 pub(crate) struct SessionResources {
+    /// Receiver preference/failure output owned by this workspace.
+    pub ws_suite: crate::ws_suite::Outputs,
     /// Lookup outcomes belong to the native window.
     pub lookup: crate::directory::lookup::Outputs,
     /// Directory installation and diagnostic outputs owned by this workspace session.
@@ -165,6 +169,7 @@ pub(crate) async fn run(
     status: watch::Sender<SessionStatus>,
 ) -> anyhow::Result<()> {
     let SessionResources {
+        ws_suite,
         lookup,
         directory,
         enrollment_updates,
@@ -187,6 +192,10 @@ pub(crate) async fn run(
     let mut work = JoinSet::new();
     let mut sync_work = JoinSet::new();
     let mut lookup_work = JoinSet::new();
+    let mut receiver_work = JoinSet::new();
+    let mut receiver_stop = CancellationToken::new();
+    let mut receiver_pairs = crate::ws_suite::pairing::Pairing::default();
+    let mut receiver_commands: Option<mpsc::Sender<crate::ws_suite::ReceiverRequest>> = None;
     let mut lookup_stop = CancellationToken::new();
     let (lookup_binding, lookup_binding_view) = watch::channel(None);
     let mut lookup_commands: Option<mpsc::Sender<crate::directory::lookup::LookupCommand>> = None;
@@ -221,6 +230,7 @@ pub(crate) async fn run(
             && font_work.is_empty()
             && enrollment_work.is_empty()
             && sync_work.is_empty()
+            && receiver_work.is_empty()
             && lookup_work.is_empty()
         {
             break;
@@ -229,6 +239,22 @@ pub(crate) async fn run(
         tokio::select! {
             biased;
             command = commands.recv(), if commands_open => match command {
+                Some(SessionCommand::WsSuite(request)) => {
+                    if closing.is_none()
+                        && enrollment_work.is_empty()
+                        && let Some(sender) = &receiver_commands
+                    {
+                        if let Err(error) = sender.try_send(request) {
+                            let _ = error.into_inner().reply.send(
+                                crate::ws_suite::ReceiverResponse::Failed(
+                                    "The receiver is busy. Try again.".into(),
+                                ),
+                            );
+                        }
+                    } else {
+                        let _ = request.reply.send(crate::ws_suite::ReceiverResponse::Closing);
+                    }
+                },
                 Some(SessionCommand::Enrollment(EnrollmentCommand::Cancel)) => {
                     enrollment_stop.cancel();
                 },
@@ -237,6 +263,15 @@ pub(crate) async fn run(
                         settle_settings(result, &settings_updates, &context);
                     }
                     if let Some(workspace) = &opened {
+                        receiver_stop.cancel();
+                        while let Some(result) = receiver_work.join_next().await {
+                            if let Ok(Ok(pairs)) = result {
+                                receiver_pairs = pairs;
+                            } else {
+                                tracing::error!(event = "ws_suite.receiver_task_failed");
+                            }
+                        }
+                        receiver_commands = None;
                         enrollment_stop = CancellationToken::new();
                         enrollment_work.spawn(
                             worker::execute(
@@ -277,6 +312,7 @@ pub(crate) async fn run(
                         enrollment_stop.cancel();
                         sync_stop.cancel();
                         lookup_stop.cancel();
+                        receiver_stop.cancel();
                         settings_requests.close();
                         while let Ok(request) = settings_requests.try_recv() { let _ = request.reply.send(settings::SettingsResponse::Closing); }
                         tracing::info!(event = "desktop.shutdown_requested");
@@ -293,6 +329,16 @@ pub(crate) async fn run(
                     if commands.is_closed() {
                         commands_open = false;
                     }
+                }
+            },
+            result = receiver_work.join_next(), if !receiver_work.is_empty() => {
+                if matches!(result, Some(Err(_)) | Some(Ok(Err(_)))) {
+                    let mut view = ws_suite.updates.borrow().clone();
+                    view.reception = crate::ws_suite::ReceptionState::Failed(
+                        "WS Suite reception stopped unexpectedly. Reopen the workspace to retry.".into(),
+                    );
+                    ws_suite.publish(view);
+                    tracing::error!(event = "ws_suite.receiver_task_failed");
                 }
             },
             _ = lookup_work.join_next(), if !lookup_work.is_empty() => {},
@@ -325,12 +371,37 @@ pub(crate) async fn run(
                     lookup_stop.cancel();
                     while lookup_work.join_next().await.is_some() {}
                     lookup_commands = None;
+                    receiver_stop.cancel();
+                    while receiver_work.join_next().await.is_some() {}
+                    receiver_commands = None;
+                    receiver_stop = CancellationToken::new();
+                    receiver_pairs = Default::default();
                     workspace.store.close().await?;
                     sync_stop = CancellationToken::new();
                     lookup_stop = CancellationToken::new();
                     attempt_started = Instant::now();
                     publish(&status, &context, SessionStatus::Opening);
                     opening::begin(&mut opening, paths.clone());
+                }
+                if enrollment_work.is_empty()
+                    && closing.is_none()
+                    && receiver_commands.is_none()
+                    && let Some(workspace) = &opened
+                {
+                    receiver_stop = CancellationToken::new();
+                    let (sender, input) = mpsc::channel(8);
+                    receiver_commands = Some(sender);
+                    receiver_work.spawn(
+                        crate::ws_suite::runtime::run(
+                            workspace.store.clone(),
+                            input,
+                            ws_suite.clone(),
+                            settings_updates.clone(),
+                            local_changes.clone(),
+                            std::mem::take(&mut receiver_pairs),
+                            receiver_stop.clone(),
+                        ).in_current_span().with_current_subscriber(),
+                    );
                 }
                 if let Some(context) = context.get() {context.request_repaint();}
             },
@@ -397,6 +468,19 @@ pub(crate) async fn run(
                                         identity: workspace.identity,
                                         restored_view_from: workspace.restored_view_from,
                                     },
+                                );
+                                let (receiver_sender, receiver_input) = mpsc::channel(8);
+                                receiver_commands = Some(receiver_sender);
+                                receiver_work.spawn(
+                                    crate::ws_suite::runtime::run(
+                                        workspace.store.clone(),
+                                        receiver_input,
+                                        ws_suite.clone(),
+                                        settings_updates.clone(),
+                                        local_changes.clone(),
+                                        std::mem::take(&mut receiver_pairs),
+                                        receiver_stop.clone(),
+                                    ).in_current_span().with_current_subscriber(),
                                 );
                                 start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_stop, &directory).await?;
                                 lookup_binding.send_replace(clacks_client_store::identity::binding(&workspace.store).await?);

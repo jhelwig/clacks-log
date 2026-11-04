@@ -68,7 +68,12 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
     };
     let directory_status = directory.status.subscribe();
     let (lookup_updates, lookup_view) = mpsc::channel(32);
+    let (ws_suite_updates, ws_suite_view) = watch::channel(Default::default());
     let resources = SessionResources {
+        ws_suite: crate::ws_suite::Outputs {
+            updates: ws_suite_updates,
+            context: context.clone(),
+        },
         lookup: crate::directory::lookup::Outputs {
             updates: lookup_updates,
             context: context.clone(),
@@ -99,6 +104,7 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
         options,
         context,
         UiResources {
+            ws_suite_view,
             lookup_view,
             directory_status,
             enrollment_view,

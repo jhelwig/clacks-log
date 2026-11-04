@@ -15,6 +15,7 @@ mod synchronization;
 mod telemetry;
 mod ui;
 mod workspace;
+mod ws_suite;
 
 /// Run the native desktop on the calling main thread using startup configuration.
 ///

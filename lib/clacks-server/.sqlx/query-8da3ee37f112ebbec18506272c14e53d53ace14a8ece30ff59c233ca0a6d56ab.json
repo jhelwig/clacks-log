@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM clacks.record_vector v\nWHERE v.account = $1 AND v.vector_id = ANY(ARRAY(\n    SELECT vector_id FROM clacks.record_vector WHERE account = $1\n    EXCEPT\n    SELECT vector_id FROM clacks.version_stamp WHERE account = $1\n    ORDER BY vector_id LIMIT $2\n))\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8da3ee37f112ebbec18506272c14e53d53ace14a8ece30ff59c233ca0a6d56ab"
+}

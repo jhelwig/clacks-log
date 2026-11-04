@@ -11,3 +11,5 @@ pub(crate) fn edit(
     change(&mut fields).expect("valid fixture input");
     *qso = Qso::try_from(fields).expect("valid contact fixture edit");
 }
+
+pub(crate) mod ws_suite;

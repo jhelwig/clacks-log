@@ -8,6 +8,9 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+socket2.workspace = true
+network-interface.workspace = true
+winnow.workspace = true
 sqlx.workspace = true
 opentelemetry-http.workspace = true
 rustls.workspace = true

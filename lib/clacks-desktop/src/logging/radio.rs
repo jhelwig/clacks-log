@@ -62,7 +62,7 @@ impl RadioForm {
 }
 
 /// Parse positive decimal MHz with whole-hertz precision and SQLite-safe range.
-fn parse_mhz(text: &str) -> anyhow::Result<Option<Hertz>> {
+pub(crate) fn parse_mhz(text: &str) -> anyhow::Result<Option<Hertz>> {
     let text = text.trim();
     if text.is_empty() {
         return Ok(None);

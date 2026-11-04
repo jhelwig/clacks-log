@@ -20,6 +20,7 @@ impl DesktopApp {
             return false;
         }
         if self.appearance.editor.is_some()
+            || self.ws_suite.is_open()
             || self.enrollment.is_open()
             || self.logbooks.is_open()
             || self.settings.is_open()
@@ -67,6 +68,10 @@ impl DesktopApp {
             MenuCommand::RefreshSettings => self.settings.refresh_settings(&self.settings_requests),
             MenuCommand::Connection => self.enrollment.open(opener),
             MenuCommand::Appearance => self.appearance.open(opener),
+            MenuCommand::WsSuite => {
+                self.ws_suite
+                    .open(opener, &self.ws_suite_view.borrow(), &self.commands)
+            }
             MenuCommand::ResetLayout => self.workbench.reset_layout(),
             MenuCommand::Diagnostics => self.details.open(opener),
             MenuCommand::Quit => self.begin_close(),

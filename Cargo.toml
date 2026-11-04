@@ -117,6 +117,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 regex = "1"
 winnow = "=1.0.3"
+socket2 = { version = "=0.6.5", features = ["all"] }
+network-interface = "=2.0.5"
 num-bigint = "=0.4.8"
 num-integer = "=0.1.47"
 ulid = { version = "3", features = ["serde"] }

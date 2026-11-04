@@ -65,6 +65,20 @@ independent. The complete configuration and optional login live together in the
 native entry. No directory configuration or installation transition is committed
 to SQLite; synchronized contact-associated snapshots remain separate.
 
+## WS Suite receiver preference
+
+`ws_suite::{load,save}` owns the typed `ws_suite.receiver` value in the existing
+workspace-local `local_state` table. Missing values default to disabled loopback
+unicast without writing. Save validates active fields and distinguishes semantic
+changes from no-ops. A disabled apply preserves the committed connection and
+changes only its enabled flag. Explicit multicast interfaces retain OS name and
+local address; numeric interface indexes are resolved at activation, not stored.
+
+The desktop owns socket activation and retries independently of the committed
+preference. This setting is not synchronized and stores no capture receipts,
+packets or contact-processing history. Incoming QSOs use ordinary
+`save::contacts::save` and existing contact read/synchronization facilities.
+
 ## Checked SQL
 
 Crate-internal types in `src/rows/` group the relational schema by record family.

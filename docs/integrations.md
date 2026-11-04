@@ -89,9 +89,43 @@ A deletion accepted by the synchronization server prevents further uploads of th
 
 ## WS Suite (the WSJT-X family of weak-signal radio applications) capture
 
-[The WS source investigation](../references/ws-suite-udp.md) verifies both primary-protocol completed-QSO messages and the separate plain-Amateur Data Interchange Format (ADIF) broadcast in WS 3.2.1 build 261010. Primary type 5 and type 12 are emitted for the same contact; the ingestion design must avoid duplicate records.
+[The WS source investigation](../references/ws-suite-udp.md) identifies primary
+binary completion types 5 and 12 in WS 3.2.1 build 261010. Configure reception
+through **Settings → WS Suite…** on the capturing desktop. It supports direct
+unicast binding and multicast group/interface membership; preferences are local
+to that workspace. Only one Clacks client captures each WS source. Other clients
+receive saved contacts through ordinary synchronization. Other applications may
+join the same multicast group/port. WS and Clacks normally run on the same
+computer; multicast sending must use the matching interface with local delivery
+enabled. Clacks does not change WS settings or forward its packets.
 
-WS supplies our station callsign, grid, and optionally operator identity, alongside the contact facts. It does not generate our administrative location, zones, or Parks on the Air (POTA) references in the inspected ADIF path. Prefer supplied field values when present; use the client's current defaults to fill missing operating context. Do not add discrepancy notices or reconciliation for now. Automatic catch-up from WS's local ADIF log is outside MVP. ADIF file import is part of MVP. Empty-value semantics, application routing, and detailed import behavior remain open.
+The first completion starts a 100 ms pairing window. Both usable representations
+end it early and select type 12 ADIF as a whole. At expiry the available usable
+representation is saved, with structured type 5 as fallback. Same-type repeats
+do not extend the wait. Source identity uses sender IP and the opaque protocol
+Id, excluding source port. Correlation uses normalized contacted callsign, UTC
+start second, exact supplied frequency (otherwise band) and leaf mode. Keep the
+latest successful completion identity per source until its next success, in
+memory only, including across receiver configuration changes. There are no
+persistent receipts or restart/deletion replay guarantees.
+
+Supplied own facts win; missing or empty live own fields use the captured active
+operating defaults. Invalid nonempty optional values are omitted with feedback,
+not replaced by defaults. Incoming contacts receive the selected named tag, or
+none for built-in views, without changing defaults or the unfinished manual
+contact. Supplied decimal watts truncate below milliwatts (`5.0007 W` becomes
+`5000 mW`). Source contest codes resolve eligible literal ordinary CONTEST_ID
+bindings in current account definitions, never seeded IDs. Received exchange
+fields do not become our geography.
+
+Capture uses the existing local contact save and synchronization path, without
+waiting for server/provider access or directory lookup. Reception failures are
+separate from the checkbox/unapplied state; Apply retries unchanged failed
+settings. Workspace shutdown/reconfiguration settles admitted pairing windows
+and saves before releasing their resources. Automatic catch-up from WS's local
+ADIF log, historical import and #21's status/selection workflow are separate
+capabilities. ADIF file import remains part of MVP; its historical import
+semantics are separate from this live capture path.
 
 ## Primary references
 
