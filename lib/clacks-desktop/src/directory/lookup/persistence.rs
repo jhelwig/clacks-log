@@ -60,6 +60,7 @@ pub(crate) fn prepare(
         };
     }
     let stop = inner.stop.clone();
+    let context = inner.context.clone();
     inner.tasks.spawn_on(async move {
         let result = async {
             tokio::time::sleep_until(demand.due).await;
@@ -73,7 +74,7 @@ pub(crate) fn prepare(
         };
         let Ok(((), outcome)) = outcome else { return; };
         if let LookupState::Found(snapshot) = outcome.as_ref() {
-            apply(&store, qso, snapshot.as_ref().clone(), &changes).await;
+            apply(&store, qso, snapshot.as_ref().clone(), &changes, &context).await;
         }
     }, &inner.executor);
     drop(state);
@@ -90,12 +91,16 @@ async fn apply(
     qso: QsoId,
     snapshot: DirectorySnapshot,
     changes: &watch::Sender<()>,
+    context: &std::sync::OnceLock<eframe::egui::Context>,
 ) {
     let lookup_id = snapshot.lookup_id();
     tracing::debug!(event="directory.snapshot.applying",qso_id=%qso,lookup_id=%lookup_id);
     match snapshots::apply(store, qso, snapshot).await {
         Ok(snapshots::SnapshotOutcome::Applied) => {
             changes.send_replace(());
+            if let Some(context) = context.get() {
+                context.request_repaint();
+            }
         }
         Ok(_) => {}
         Err(error) => {

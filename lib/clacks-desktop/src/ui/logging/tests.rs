@@ -970,3 +970,200 @@ async fn current_failed_entry_resumes_on_usable_configuration() -> anyhow::Resul
     );
     service.close().await
 }
+
+#[tokio::test]
+async fn queued_save_requests_at_original_deadline_before_execution() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::{Service, delayed, login, requests},
+        test_support::fixture,
+    };
+    let (held, release) = delayed();
+    let provider = fixture(vec![login(), held]).await?;
+    let service = Service::new(provider.endpoint.clone()).await?;
+    let context = egui::Context::default();
+    let mut view = ready_entry();
+    tokio::time::pause();
+    view.advance_lookup(&context, Some(&service.client));
+    let due = view.directory.submission().unwrap().due;
+    tokio::time::advance(std::time::Duration::from_millis(100)).await;
+    let (sender, mut queued) = mpsc::channel(1);
+    view.save(&sender);
+    let request = queued.try_recv()?;
+    let id = view.submitted.as_ref().unwrap().id();
+    view.incoming_call("W7LATER");
+    tokio::time::advance(due - tokio::time::Instant::now() - std::time::Duration::from_millis(1))
+        .await;
+    assert_eq!(provider.lookup_count(), 0);
+    tokio::time::advance(std::time::Duration::from_millis(1)).await;
+    tokio::time::resume();
+    requests(&provider, 2).await;
+    assert_eq!(view.contact_call(), "W7LATER");
+    let (changes, _) = tokio::sync::watch::channel(());
+    let SettingsAction::Contacts(action) = request.action else {
+        panic!("contact save")
+    };
+    let response = contacts::execute(
+        &service.store,
+        action,
+        Some(service.client.clone()),
+        changes,
+    )
+    .await?;
+    request
+        .reply
+        .send(SettingsResponse::Contacts(response))
+        .unwrap();
+    view.poll();
+    release
+        .send(include_str!("../../directory/providers/fixtures/qrz.xml"))
+        .unwrap();
+    service.settled().await;
+    let row = clacks_client_store::save::load(
+        &service.store,
+        clacks_sync::record::RecordKey {
+            account: service.store.account_id(),
+            id: clacks_sync::record::RecordId::Directory(id),
+        },
+    )
+    .await?;
+    assert!(row.is_some());
+    assert_eq!(provider.lookup_count(), 1);
+    service.close().await
+}
+
+#[tokio::test]
+async fn saved_editor_configuration_change_does_not_create_lookup_demand() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::{Service, found, login},
+        test_support::fixture,
+    };
+    let provider = fixture(vec![login(), found()]).await?;
+    let service = Service::new(provider.endpoint.clone()).await?;
+    let context = egui::Context::default();
+    let mut view = directory::DirectoryView::saved("OK2CQR");
+    let now = tokio::time::Instant::now();
+    view.advance(&context, Some(&service.client), now);
+    service.available(false);
+    view.advance(&context, Some(&service.client), now);
+    service.available(true);
+    view.advance(&context, Some(&service.client), now);
+    service.settled().await;
+    assert!(view.submission().is_none());
+    assert_eq!(provider.lookup_count(), 0);
+    service.close().await
+}
+
+#[tokio::test]
+async fn replacement_credentials_resume_an_already_pending_call() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::{Service, delayed, found, key, login, requests},
+        test_support::fixture,
+    };
+    let (held, release) = delayed();
+    let old = fixture(vec![login(), held]).await?;
+    let new = fixture(vec![login(), found()]).await?;
+    let service = Service::new(old.endpoint.clone()).await?;
+    let context = egui::Context::default();
+    let mut view = ready_entry();
+    view.entry.form.dx_name.clear();
+    view.advance_lookup(&context, Some(&service.client));
+    let due = view.directory.submission().unwrap().due;
+    view.directory.advance(&context, Some(&service.client), due);
+    requests(&old, 2).await;
+    let old_result = service.client.request(key("OK2CQR"));
+    service.replace(new.endpoint.clone())?;
+    view.directory.advance(&context, Some(&service.client), due);
+    release
+        .send("<QRZDatabase><Session><Error>Invalid password</Error></Session></QRZDatabase>")
+        .unwrap();
+    old_result.wait().await;
+    view.directory.advance(&context, Some(&service.client), due);
+    requests(&new, 2).await;
+    service.client.request(key("OK2CQR")).wait().await;
+    view.directory.advance(&context, Some(&service.client), due);
+    assert!(
+        view.directory
+            .fallback(&view.entry.form, &view.definitions)
+            .name
+            .is_some()
+    );
+    assert_eq!(new.lookup_count(), 1);
+    service.close().await
+}
+
+#[tokio::test]
+async fn rejected_save_drops_its_unstarted_directory_interest() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::{Service, found, login},
+        test_support::fixture,
+    };
+    let provider = fixture(vec![login(), found()]).await?;
+    let service = Service::new(provider.endpoint.clone()).await?;
+    let context = egui::Context::default();
+    let mut view = ready_entry();
+    tokio::time::pause();
+    view.advance_lookup(&context, Some(&service.client));
+    let (sender, mut queued) = mpsc::channel(1);
+    let (reply, _result) = oneshot::channel();
+    sender
+        .try_send(SettingsRequest {
+            action: SettingsAction::Contacts(ContactAction::LoadQueryState),
+            reply,
+        })
+        .unwrap();
+    view.save(&sender);
+    assert!(view.pending.is_none());
+    view.incoming_call("W7LATER");
+    tokio::time::advance(std::time::Duration::from_millis(500)).await;
+    tokio::time::resume();
+    service.settled().await;
+    assert_eq!(provider.lookup_count(), 0);
+    assert!(matches!(
+        queued.try_recv()?.action,
+        SettingsAction::Contacts(ContactAction::LoadQueryState)
+    ));
+    service.close().await
+}
+
+#[tokio::test]
+async fn late_joiner_recovers_replaced_authentication() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::{Service, delayed, found, key, login, requests},
+        test_support::fixture,
+    };
+    let (held, release) = delayed();
+    let old = fixture(vec![login(), held]).await?;
+    let new = fixture(vec![login(), found()]).await?;
+    let service = Service::new(old.endpoint.clone()).await?;
+    // Another consumer already owns the old-material operation before entry's debounce.
+    let old_result = service.client.request(key("OK2CQR"));
+    requests(&old, 2).await;
+    let context = egui::Context::default();
+    let mut view = ready_entry();
+    view.entry.form.dx_name.clear();
+    view.advance_lookup(&context, Some(&service.client));
+    let due = view.directory.submission().unwrap().due;
+    service.replace(new.endpoint.clone())?;
+    view.directory.advance(
+        &context,
+        Some(&service.client),
+        due - std::time::Duration::from_millis(1),
+    );
+    view.directory.advance(&context, Some(&service.client), due);
+    release
+        .send("<QRZDatabase><Session><Error>Invalid password</Error></Session></QRZDatabase>")
+        .unwrap();
+    old_result.wait().await;
+    view.directory.advance(&context, Some(&service.client), due);
+    requests(&new, 2).await;
+    service.client.request(key("OK2CQR")).wait().await;
+    view.directory.advance(&context, Some(&service.client), due);
+    assert!(
+        view.directory
+            .fallback(&view.entry.form, &view.definitions)
+            .name
+            .is_some()
+    );
+    assert_eq!(new.lookup_count(), 1);
+    service.close().await
+}

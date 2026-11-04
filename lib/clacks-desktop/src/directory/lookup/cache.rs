@@ -60,6 +60,7 @@ impl State {
         Some(LookupHandle {
             ready: Some(success.outcome.clone()),
             operation: None,
+            deferred_task: None,
         })
     }
 

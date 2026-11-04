@@ -410,6 +410,8 @@ atomically with the QSO. Otherwise the actual save caller retains its immutable
 key/deadline/handle alongside its QSO identity; only a successful save permits
 late application. A failed save installs no late snapshot. Directory operations
 do not own forms or search for corresponding completed contacts.
+An admitted early save drives its original entry deadline even while save work
+is queued. A rejected submission releases its unstarted lookup interest.
 
 At application, the existing store transaction checks the current live QSO and
 normalized key. Deletion or a key change prevents application; other recorded

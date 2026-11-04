@@ -19,7 +19,10 @@ use futures_util::{
 };
 use std::sync::{Arc, Mutex, OnceLock};
 use tokio::{sync::watch, time::Instant};
-use tokio_util::{sync::CancellationToken, task::TaskTracker};
+use tokio_util::{
+    sync::CancellationToken,
+    task::{AbortOnDropHandle, TaskTracker},
+};
 
 /// Logical provider operations, excluding consumer joins and cache hits.
 pub(crate) const LOOKUPS_METRIC: &str = "clacks_directory_lookups_total";
@@ -53,6 +56,8 @@ pub(crate) struct LookupHandle {
     ready: Option<Arc<LookupState>>,
     /// Pending operations are driven by the owning workspace.
     operation: Option<Operation>,
+    /// Caller-owned timer interest; dropping it never aborts an admitted keyed operation.
+    deferred_task: Option<Arc<AbortOnDropHandle<()>>>,
 }
 
 impl LookupHandle {
@@ -71,6 +76,7 @@ impl LookupHandle {
 
     /// Await this consumer's shared result without affecting other consumers.
     pub async fn wait(self) -> Arc<LookupState> {
+        let _deferred_task = self.deferred_task;
         if let Some(ready) = self.ready {
             return ready;
         }
@@ -85,6 +91,7 @@ impl LookupHandle {
         Self {
             ready: Some(Arc::new(state)),
             operation: None,
+            deferred_task: None,
         }
     }
 }
@@ -141,6 +148,44 @@ pub(crate) struct LookupClient {
 }
 
 impl LookupClient {
+    /// Drive a submitted consumer at its original deadline, independently of save execution.
+    pub fn request_at(&self, key: LookupKey, due: Instant) -> LookupHandle {
+        if due <= Instant::now() {
+            return self.request(key);
+        }
+        let Ok(state) = self.inner.state.lock() else {
+            return LookupHandle::completed(LookupState::Failed(
+                "Directory lookup is unavailable.".into(),
+            ));
+        };
+        if state.closed {
+            return LookupHandle::completed(LookupState::Cleared);
+        }
+        let client = self.clone();
+        let stop = self.inner.stop.clone();
+        let operation = async move {
+            tokio::select! {
+                _ = stop.cancelled() => Arc::new(LookupState::Cleared),
+                _ = tokio::time::sleep_until(due) => client.request(key).wait().await,
+            }
+        }
+        .boxed()
+        .shared();
+        let driven = operation.clone();
+        // The task owns only the future; the caller owns its abort-on-drop handle.
+        let task = self.inner.tasks.spawn_on(
+            async move {
+                driven.await;
+            },
+            &self.inner.executor,
+        );
+        LookupHandle {
+            ready: None,
+            operation: Some(operation),
+            deferred_task: Some(Arc::new(AbortOnDropHandle::new(task))),
+        }
+    }
+
     /// Determine whether two consumer handles refer to the same opened workspace.
     pub fn same_workspace(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.inner, &other.inner)
@@ -187,6 +232,7 @@ impl LookupClient {
         let handle = LookupHandle {
             ready: None,
             operation: Some(operation),
+            deferred_task: None,
         };
         state.inflight.insert(
             key,
@@ -221,6 +267,13 @@ impl LookupClient {
             selected.paused = false;
         }
         self.request(key)
+    }
+
+    /// A rejection of old material does not pause usable replacement material.
+    pub fn can_resume_authentication(&self) -> bool {
+        self.inner.state.lock().is_ok_and(|state| {
+            !state.closed && matches!(&state.selected, Ok(Some(selected)) if !selected.paused)
+        })
     }
 
     /// Subscribe to changes in provider selection or protected material.

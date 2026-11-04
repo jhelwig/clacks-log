@@ -213,10 +213,17 @@ impl DirectoryView {
         if let Some(configuration) = &mut self.configuration
             && configuration.has_changed().unwrap_or(false)
         {
-            configuration.borrow_and_update();
-            if self.snapshot.is_none() && self.key.is_some() {
-                self.handle = None;
-                self.due = Some(self.due.unwrap_or(now).max(now));
+            let outcome = self.handle.as_ref().and_then(LookupHandle::ready);
+            // Keep the watch transition unread while old material is still running.
+            // Its success remains eligible; its failure can then resume with current material.
+            if self.handle.is_none() || outcome.is_some() {
+                configuration.borrow_and_update();
+                let requested = self.due.is_some() || self.handle.is_some();
+                let succeeded = matches!(outcome.as_deref(), Some(LookupState::Found(_)));
+                if requested && !succeeded && self.snapshot.is_none() && self.key.is_some() {
+                    self.handle = None;
+                    self.due = Some(self.due.unwrap_or(now).max(now));
+                }
             }
         }
         if let Some(due) = self.due {
@@ -229,6 +236,18 @@ impl DirectoryView {
             } else {
                 context.request_repaint_after(due - now);
             }
+        }
+        if matches!(
+            self.handle
+                .as_ref()
+                .and_then(LookupHandle::ready)
+                .as_deref(),
+            Some(LookupState::PausedAuthentication)
+        ) && lookup.can_resume_authentication()
+            && let Some(key) = &self.key
+        {
+            self.handle = Some(lookup.request(key.clone()));
+            self.state = Some(LookupState::Pending);
         }
         if let Some(outcome) = self.handle.as_ref().and_then(LookupHandle::ready) {
             if let LookupState::Found(snapshot) = outcome.as_ref()
@@ -249,13 +268,20 @@ impl DirectoryView {
         if self.due.is_none() && self.handle.is_none() {
             return None;
         }
+        let key = self.key.clone()?;
+        let due = self.due.unwrap_or_else(Instant::now);
         Some(LookupDemand {
-            key: self.key.clone()?,
-            due: self.due.unwrap_or_else(Instant::now),
+            key: key.clone(),
+            due,
             handle: self
                 .handle
                 .clone()
-                .or_else(|| self.snapshot.clone().map(LookupHandle::from_snapshot)),
+                .or_else(|| self.snapshot.clone().map(LookupHandle::from_snapshot))
+                .or_else(|| {
+                    self.client
+                        .as_ref()
+                        .map(|client| client.request_at(key, due))
+                }),
         })
     }
 

@@ -64,6 +64,24 @@ impl Service {
         self.client.inner.configuration.send_replace(());
     }
 
+    /// Install replacement dispatch material through the real client's configuration input.
+    pub(crate) fn replace(&self, endpoint: url::Url) -> anyhow::Result<()> {
+        let replacement = material();
+        self.client.inner.state.lock().unwrap().selected = Ok(Some(Selected {
+            material: replacement.clone(),
+            provider: clacks_model::directory::values::DirectoryProvider::Qrz,
+            session: ProviderSession::Qrz(QrzSession::new(
+                providers::client()?,
+                endpoint,
+                replacement,
+            )),
+            paused: false,
+            retry_after: None,
+        }));
+        self.client.inner.configuration.send_replace(());
+        Ok(())
+    }
+
     pub(crate) async fn settled(&self) {
         self.client.inner.tasks.close();
         self.client.inner.tasks.wait().await;

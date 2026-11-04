@@ -126,3 +126,50 @@ async fn saved_editor_keeps_lookup_trigger_and_result_guards() -> anyhow::Result
     }
     Ok(())
 }
+
+#[tokio::test]
+async fn late_snapshot_commit_requests_its_own_repaint() -> anyhow::Result<()> {
+    let (held, release) = delayed();
+    let fixture = fixture(vec![login(), held]).await?;
+    let service = Service::new(fixture.endpoint.clone()).await?;
+    let context = eframe::egui::Context::default();
+    assert!(service.client.inner.context.set(context.clone()).is_ok());
+    let (changes, changed) = watch::channel(());
+    let (wake, mut wakes) = tokio::sync::mpsc::unbounded_channel();
+    context.set_repaint_observer(move |_| {
+        let _ = wake.send(changed.has_changed().unwrap_or(false));
+    });
+    let qso = QsoId::new();
+    let handle = service.client.request(key("OK2CQR"));
+    let prepared = persistence::prepare(
+        service.client.clone(),
+        service.store.clone(),
+        qso,
+        LookupDemand {
+            key: key("OK2CQR"),
+            due: Instant::now(),
+            handle: Some(handle.clone()),
+        },
+        changes,
+    );
+    clacks_client_store::save::contacts::save(&service.store, None, contact(qso, "OK2CQR"), None)
+        .await?;
+    requests(&fixture, 2).await;
+    release
+        .send(include_str!("../../providers/fixtures/qrz.xml"))
+        .unwrap();
+    handle.wait().await;
+    // The save gate is still closed: observe the provider wake before allowing application.
+    assert!(
+        !tokio::time::timeout(Duration::from_secs(5), wakes.recv())
+            .await?
+            .unwrap()
+    );
+    prepared.settle(true);
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !wakes.recv().await.unwrap() {}
+    })
+    .await?;
+    service.settled().await;
+    service.close().await
+}

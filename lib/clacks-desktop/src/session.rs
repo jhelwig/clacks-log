@@ -459,6 +459,11 @@ pub(crate) async fn run(
                                     enrollment_updates.send_replace(enrollment);
                                 }
                                 settings_updates.send_replace(Some(Arc::new(workspace.settings.clone())));
+                                lookup_binding.send_replace(clacks_client_store::identity::binding(&workspace.store).await?);
+                                let (client, runtime) = crate::directory::lookup::runtime::LookupRuntime::new(workspace.store.clone(), lookup_binding_view.clone(), directory.installed.subscribe(), context.clone()).await;
+                                lookup.send_replace(Some(client.clone()));
+                                lookup_client = Some(client.clone());
+                                lookup_work.spawn(runtime.run(lookup_stop.clone()));
                                 tracing::info!(
                                     event = "desktop.workspace_ready",
                                     account_id = %workspace.identity.account,
@@ -473,11 +478,6 @@ pub(crate) async fn run(
                                         restored_view_from: workspace.restored_view_from,
                                     },
                                 );
-                                lookup_binding.send_replace(clacks_client_store::identity::binding(&workspace.store).await?);
-                                let (client, runtime) = crate::directory::lookup::runtime::LookupRuntime::new(workspace.store.clone(), lookup_binding_view.clone(), directory.installed.subscribe(), context.clone()).await;
-                                lookup.send_replace(Some(client.clone()));
-                                lookup_client = Some(client.clone());
-                                lookup_work.spawn(runtime.run(lookup_stop.clone()));
                                 let (receiver_sender, receiver_input) = mpsc::channel(8);
                                 receiver_commands = Some(receiver_sender);
                                 receiver_work.spawn(
