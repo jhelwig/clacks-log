@@ -167,16 +167,18 @@ async fn multicast_capture(
     .await;
     let lookup_task = tokio::spawn(lookup_runtime.run(stop.clone()));
     let task = tokio::spawn(runtime::run(
-        store.clone(),
-        lookup,
+        crate::ws_suite::runtime::Resources {
+            store: store.clone(),
+            lookup,
+            settings_updates: watch::channel(None).0,
+            changes: watch::channel(()).0,
+        },
         input,
         Outputs {
             calls: mpsc::unbounded_channel().0,
             updates,
             context: Default::default(),
         },
-        watch::channel(None).0,
-        watch::channel(()).0,
         Default::default(),
         stop.clone(),
     ));

@@ -32,6 +32,7 @@ pub(crate) async fn ownership_scenario(
     let owner = QsoId::new();
     let handle = service.client.request(key("OK2CQR"));
     requests(&fixture, 2).await;
+    let joined = service.client.request(key("OK2CQR/P"));
     let (changes, mut changed) = watch::channel(());
     let prepared = persistence::prepare(
         service.client.clone(),
@@ -52,9 +53,19 @@ pub(crate) async fn ownership_scenario(
         .unwrap();
     tokio::time::timeout(Duration::from_secs(5), changed.changed()).await??;
     let outcome = handle.wait().await;
+    let joined = joined.wait().await;
     let id = snapshot(&outcome).lookup_id();
+    assert_eq!(snapshot(&joined).lookup_id(), id);
+    assert_eq!(
+        snapshot(&joined).lookup_time(),
+        snapshot(&outcome).lookup_time()
+    );
     let reused = service.client.request(key("OK2CQR/P")).ready().unwrap();
     assert_eq!(snapshot(&reused).lookup_id(), id);
+    assert_eq!(
+        snapshot(&reused).lookup_time(),
+        snapshot(&outcome).lookup_time()
+    );
     let row = clacks_client_store::save::load(
         &service.store,
         clacks_sync::record::RecordKey {

@@ -45,16 +45,18 @@ async fn capture_rejection_survives_next_success() -> anyhow::Result<()> {
     .await;
     let lookup_task = tokio::spawn(lookup_runtime.run(stop.clone()));
     let task = tokio::spawn(runtime::run(
-        store.clone(),
-        lookup,
+        crate::ws_suite::runtime::Resources {
+            store: store.clone(),
+            lookup,
+            settings_updates: watch::channel(None).0,
+            changes,
+        },
         input,
         Outputs {
             calls,
             updates,
             context: Default::default(),
         },
-        watch::channel(None).0,
-        changes,
         Default::default(),
         stop.clone(),
     ));
@@ -77,7 +79,7 @@ async fn capture_rejection_survives_next_success() -> anyhow::Result<()> {
             .await?
             .unwrap();
         assert_eq!(
-            received.1.call, call,
+            received.status.call, call,
             "each packet retains arrival order, including repeats"
         );
     }

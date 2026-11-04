@@ -81,7 +81,7 @@ pub(crate) enum SessionStatus {
 pub(crate) struct SessionResources {
     /// Receiver preference/failure output owned by this workspace.
     pub ws_suite: crate::ws_suite::Outputs,
-    /// Lookup outcomes belong to the native window.
+    /// Shared directory client for the active workspace and its consumers.
     pub lookup: watch::Sender<Option<crate::directory::lookup::LookupClient>>,
     /// Local commit notification shared with both sync and native history.
     pub contact_changes: watch::Sender<()>,
@@ -396,12 +396,12 @@ pub(crate) async fn run(
                     receiver_commands = Some(sender);
                     receiver_work.spawn(
                         crate::ws_suite::runtime::run(
-                            workspace.store.clone(),
-                            lookup.clone(),
+                            crate::ws_suite::runtime::Resources {
+                                store: workspace.store.clone(), lookup:lookup.clone(),
+                                settings_updates:settings_updates.clone(), changes:local_changes.clone(),
+                            },
                             input,
                             ws_suite.clone(),
-                            settings_updates.clone(),
-                            local_changes.clone(),
                             std::mem::take(&mut receiver_pairs),
                             receiver_stop.clone(),
                         ).in_current_span().with_current_subscriber(),
@@ -482,12 +482,12 @@ pub(crate) async fn run(
                                 receiver_commands = Some(receiver_sender);
                                 receiver_work.spawn(
                                     crate::ws_suite::runtime::run(
-                                        workspace.store.clone(),
-                                        client.clone(),
+                                        crate::ws_suite::runtime::Resources {
+                                            store:workspace.store.clone(), lookup:client.clone(),
+                                            settings_updates:settings_updates.clone(), changes:local_changes.clone(),
+                                        },
                                         receiver_input,
                                         ws_suite.clone(),
-                                        settings_updates.clone(),
-                                        local_changes.clone(),
                                         std::mem::take(&mut receiver_pairs),
                                         receiver_stop.clone(),
                                     ).in_current_span().with_current_subscriber(),

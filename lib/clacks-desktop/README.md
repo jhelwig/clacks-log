@@ -600,15 +600,15 @@ local reads and the retained current delivery without reconnecting or changing
 enrollment. Native access failure retains the last usable runtime configuration.
 Directory replacement/removal preserves enrollment entries. Configuration is
 received on the authenticated connection independently from record checkpoints;
-the last installed material remains usable during sync outages. The lookup actor
-watches actual enrollment/configuration changes without restarting unfinished
-entry ownership when synchronization reconnects.
+the last installed material remains usable during sync outages. Shared lookup
+dispatch watches actual enrollment/configuration changes without resetting
+eligible cached successes or consumer interest on synchronization reconnect.
 
 ### Direct directory lookup
 
 Configure the account's selected provider and credentials at **Account →
-Directory** in the web interface. A manual callsign edit admits lookup after
-500 ms of unchanged normalized input; empty input makes no request. Opening an
+Directory** in the web interface. An effective entry callsign change admits
+lookup after 500 ms of unchanged normalized input; empty input makes no request. Opening an
 unchanged saved contact shows retained facts without refreshing it. QRZ and
 HamQTH use separate concrete client-direct sessions with shared transient
 authentication and independent station requests. Session expiry renews once;
@@ -618,13 +618,20 @@ Provider failure/not-found preserves successful facts, with no bulk catch-up.
 Directory name, location, references and locality are attributed separately from
 recorded controls, including HamQTH attribution. Tabbing or saving never copies
 them into recorded facts. Save is immediate; an available success commits
-atomically with the QSO. A late response retains its original QSO/key and checks
-the actual live parent inside the snapshot transaction. Saved original contacts
+atomically with the QSO. The actual save caller retains a shared result with
+its submitted QSO/key; late application checks the actual live parent inside
+the snapshot transaction. Saved original contacts
 can receive late results after the form moves on; changed-key/deleted contacts
 cannot. Committed snapshots invalidate local history even while sync is offline.
 One whole winner per contact/key synchronizes separately from recorded edits.
-Bulk lookup, WS Suite capture and external-service publication remain separate
-capabilities.
+WS Status updates only entry's call; Worked Before observes it. Clear, immediately
+left of Save QSO, uses the same reset without saving and is disabled only while
+saving. Neither affects independent capture. Capture requests its actual key
+immediately: reuse a cached success, join an active lookup or start a miss,
+without delaying save. Shared transient successes live 24 hours from completion,
+with a 128-result limit; hits and credential changes do not extend age. There is
+no successful-result refresh or cache bypass. Bulk lookup and external-service
+publication remain separate capabilities.
 
 ## Account synchronization
 

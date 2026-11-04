@@ -66,7 +66,12 @@ pub(crate) struct ReceiverView {
 }
 
 /// Reuse the workspace client identity to scope ordered entry delivery.
-pub(crate) type EntryCall = (crate::directory::lookup::LookupClient, protocol::StatusCall);
+pub(crate) struct EntryCall {
+    /// Workspace identity used to reject entry updates from a closed workspace.
+    pub workspace: crate::directory::lookup::LookupClient,
+    /// Only the field supplied by Status.
+    pub status: protocol::StatusCall,
+}
 
 /// Publish outcomes and wake native presentation independently of painting.
 #[derive(Clone)]

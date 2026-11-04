@@ -357,20 +357,20 @@ async fn queued_calls_do_not_cross_workspace_replacement() -> anyhow::Result<()>
     let mut window = Window::new();
     window.app.entry_calls = input;
     window.app.lookup_view = watch::channel(Some(current.client.clone())).1;
-    calls.send((
-        old.client.clone(),
-        crate::ws_suite::protocol::StatusCall {
+    calls.send(crate::ws_suite::EntryCall {
+        workspace: old.client.clone(),
+        status: crate::ws_suite::protocol::StatusCall {
             call: "OLDWORKSPACE".into(),
         },
-    ))?;
+    })?;
     window.app.update_lifecycle(&window.context);
     assert!(window.app.workbench.entry.contact_call().is_empty());
-    calls.send((
-        current.client.clone(),
-        crate::ws_suite::protocol::StatusCall {
+    calls.send(crate::ws_suite::EntryCall {
+        workspace: current.client.clone(),
+        status: crate::ws_suite::protocol::StatusCall {
             call: "NEWCALL".into(),
         },
-    ))?;
+    })?;
     window.app.update_lifecycle(&window.context);
     assert_eq!(window.app.workbench.entry.contact_call(), "NEWCALL");
     old.close().await?;

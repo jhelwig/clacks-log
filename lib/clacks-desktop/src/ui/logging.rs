@@ -52,7 +52,7 @@ pub(super) struct LoggingUi {
     view: SelectedView,
     /// Quiet success or persistent failure feedback.
     notice: Option<String>,
-    /// Return keyboard focus to Callsign after a successful new save.
+    /// Return keyboard focus to Callsign after a fresh-entry reset.
     focus_call: bool,
     /// Actual committed contact change, consumed by workbench list invalidation.
     pub changed: bool,

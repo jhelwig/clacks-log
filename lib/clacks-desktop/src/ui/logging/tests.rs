@@ -59,6 +59,43 @@ fn clear_uses_fresh_entry_reset_without_save() {
     assert!(requests.try_recv().is_err());
 }
 
+#[test]
+fn clear_is_disabled_only_for_pending_save() {
+    use egui_kittest::kittest::NodeT;
+    let (sender, mut requests) = mpsc::channel(8);
+    let mut entry = ready_entry();
+    entry.save(&sender);
+    let request = requests.try_recv().unwrap();
+    let mut ui = Harness::builder()
+        .allow_missing_glyphs()
+        .with_size(egui::vec2(800.0, 800.0))
+        .build_ui_state(
+            move |ui, entry: &mut LoggingUi| entry.show(ui, &sender),
+            entry,
+        );
+    assert!(
+        ui.get_by_role_and_label(egui::Role::Button, "Clear")
+            .accesskit_node()
+            .is_disabled()
+    );
+    request
+        .reply
+        .send(SettingsResponse::Failed("Not admitted".into()))
+        .unwrap();
+    ui.run();
+    assert!(
+        !ui.get_by_role_and_label(egui::Role::Button, "Clear")
+            .accesskit_node()
+            .is_disabled()
+    );
+    ui.get_by_role_and_label(egui::Role::Button, "Clear")
+        .click();
+    ui.run();
+    assert!(ui.state().entry.form.dx.callsign.is_empty());
+    assert!(ui.state().notice.is_none());
+    assert!(requests.try_recv().is_err());
+}
+
 #[tokio::test(start_paused = true)]
 async fn authoritative_repeats_and_equal_key_changes_keep_correct_debounce() {
     let mut entry = ready_entry();

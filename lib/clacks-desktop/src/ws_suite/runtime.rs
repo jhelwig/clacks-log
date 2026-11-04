@@ -22,6 +22,18 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 
+/// Workspace dependencies shared by reception and its independent save operations.
+pub(crate) struct Resources {
+    /// Actual local workspace, closed only after admitted work settles.
+    pub store: ClientStore,
+    /// Shared station lookups, independent of receiver draining.
+    pub lookup: crate::directory::lookup::LookupClient,
+    /// Delivery of settings refreshed after a contact save.
+    pub settings_updates: watch::Sender<Option<Arc<SettingsSnapshot>>>,
+    /// Local commit notification for synchronization and history.
+    pub changes: watch::Sender<()>,
+}
+
 /// A committed reconfiguration awaiting the same admitted-work drain as shutdown.
 struct PendingApply {
     /// Persisted next receiver intent.
@@ -100,22 +112,22 @@ fn activate(
 fn packet(
     bytes: &[u8],
     sender: SocketAddr,
-    received: Instant,
     draining: bool,
     pairs: &mut Pairing,
     work: &mut FuturesUnordered<BoxFuture<'static, Completion>>,
-    store: &ClientStore,
+    resources: &Resources,
     outputs: &Outputs,
-    lookup: &crate::directory::lookup::LookupClient,
 ) {
+    let received = Instant::now();
     let notice = match protocol::decode(bytes, sender) {
         Ok(Some(protocol::DecodedMessage::Completion(notice))) => notice,
         Ok(Some(protocol::DecodedMessage::Status(call))) => {
-            if !draining {
-                let _ = outputs.calls.send((lookup.clone(), call));
-                if let Some(context) = outputs.context.get() {
-                    context.request_repaint();
-                }
+            let _ = outputs.calls.send(super::EntryCall {
+                workspace: resources.lookup.clone(),
+                status: call,
+            });
+            if let Some(context) = outputs.context.get() {
+                context.request_repaint();
             }
             return;
         }
@@ -131,7 +143,7 @@ fn packet(
     match pairs.admit(notice, received) {
         Admission::New(key) => {
             tracing::debug!(name:"ws_suite.capture_admitted",source_ip=%key.source.sender,source_id=%key.source.instance);
-            let store = store.clone();
+            let store = resources.store.clone();
             work.push(
                 async move {
                     let result = clacks_client_store::settings::snapshot(&store)
@@ -167,9 +179,7 @@ fn measure(received: Instant, format: &'static str, outcome: &'static str) {
 /// Start a transactional contact save without blocking packet reception.
 fn save(
     capture: ReadyCapture,
-    store: &ClientStore,
-    lookup: &crate::directory::lookup::LookupClient,
-    changes: &watch::Sender<()>,
+    resources: &Resources,
     work: &mut FuturesUnordered<BoxFuture<'static, Completion>>,
     pairs: &mut Pairing,
     view: &mut ReceiverView,
@@ -189,20 +199,20 @@ fn save(
             return;
         }
     };
-    let store = store.clone();
+    let store = resources.store.clone();
     let key = clacks_model::directory::values::LookupKey::from_recorded(
         &projection.qso.contacted_station().callsign,
     );
     let directory = crate::directory::lookup::persistence::prepare(
-        lookup.clone(),
+        resources.lookup.clone(),
         store.clone(),
         capture.id,
         crate::directory::lookup::LookupDemand {
-            handle: Some(lookup.request(key.clone())),
+            handle: Some(resources.lookup.request(key.clone())),
             key,
             due: Instant::now(),
         },
-        changes.clone(),
+        resources.changes.clone(),
     );
     let span = tracing::debug_span!(
         "ws_suite.capture_save",
@@ -251,12 +261,9 @@ fn save(
 /// Apply and shutdown drain the same pending candidates before releasing the socket/store.
 /// Return drained recognition state so a failed enrollment can resume the same workspace.
 pub(crate) async fn run(
-    store: ClientStore,
-    lookup: crate::directory::lookup::LookupClient,
+    resources: Resources,
     mut commands: mpsc::Receiver<ReceiverRequest>,
     outputs: Outputs,
-    settings_updates: watch::Sender<Option<Arc<SettingsSnapshot>>>,
-    changes: watch::Sender<()>,
     mut pairs: Pairing,
     stop: CancellationToken,
 ) -> anyhow::Result<Pairing> {
@@ -271,7 +278,7 @@ pub(crate) async fn run(
     );
     let mut view = ReceiverView::default();
     let mut listener = None;
-    match ws_suite::load(&store).await {
+    match ws_suite::load(&resources.store).await {
         Ok(settings) => {
             if settings.enabled {
                 match interfaces().await {
@@ -311,13 +318,11 @@ pub(crate) async fn run(
                             packet(
                                 bytes,
                                 sender,
-                                Instant::now(),
                                 closing || pending.is_some(),
                                 &mut pairs,
                                 &mut work,
-                                &store,
+                                &resources,
                                 &outputs,
-                                &lookup,
                             );
                         }
                     }
@@ -337,7 +342,7 @@ pub(crate) async fn run(
         }
         for capture in pairs.take_ready(Instant::now()) {
             save(
-                capture, &store, &lookup, &changes, &mut work, &mut pairs, &mut view, &outputs,
+                capture, &resources, &mut work, &mut pairs, &mut view, &outputs,
             );
         }
         if pairs.is_empty() && work.is_empty() {
@@ -383,7 +388,7 @@ pub(crate) async fn run(
                         if let Err(error) = validation {
                             let _ = request.reply.send(ReceiverResponse::Failed(error));
                         } else {
-                            match ws_suite::save(&store, &next).await {
+                            match ws_suite::save(&resources.store, &next).await {
                                 Err(_) => {
                                     tracing::error!(event = "ws_suite.settings_save_failed");
                                     let _ = request.reply.send(ReceiverResponse::Failed(
@@ -445,7 +450,7 @@ pub(crate) async fn run(
                         pairs.settle(&key, saved);
                         match result {
                             Ok(warnings) => {
-                                changes.send_replace(());
+                                resources.changes.send_replace(());
                                 tracing::info!(
                                     name: "ws_suite.capture_committed",
                                     event = "ws_suite.capture_committed",
@@ -461,7 +466,7 @@ pub(crate) async fn run(
                                     ));
                                 }
                                 match snapshot {
-                                    Ok(snapshot) => { settings_updates.send_replace(Some(Arc::new(snapshot))); }
+                                    Ok(snapshot) => { resources.settings_updates.send_replace(Some(Arc::new(snapshot))); }
                                     Err(error) => {
                                         view.capture_notice = Some(error);
                                         tracing::error!(event = "ws_suite.capture_refresh_failed", qso_id = %id);
@@ -501,4 +506,54 @@ pub(crate) async fn run(
     drop(listener);
     tracing::info!(event = "ws_suite.receiver_stopped");
     Ok(pairs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn status_delivery_is_independent_of_capture_drain() -> anyhow::Result<()> {
+        let directory = tempfile::tempdir()?;
+        let store = ClientStore::create(
+            &directory.path().join("workspace.sqlite"),
+            Default::default(),
+            Default::default(),
+        )
+        .await?;
+        let (lookup, _runtime) = crate::directory::lookup::runtime::LookupRuntime::new(
+            store.clone(),
+            watch::channel(None).1,
+            watch::channel(None).1,
+            Default::default(),
+        )
+        .await;
+        let (calls, mut received) = mpsc::unbounded_channel();
+        let outputs = Outputs {
+            calls,
+            updates: watch::channel(Default::default()).0,
+            context: Default::default(),
+        };
+        let resources = Resources {
+            store: store.clone(),
+            lookup,
+            settings_updates: watch::channel(None).0,
+            changes: watch::channel(()).0,
+        };
+        let mut pairs = Pairing::default();
+        let mut work = FuturesUnordered::new();
+        packet(
+            &crate::test_support::ws_suite::status("W7HEX"),
+            "127.0.0.1:2237".parse()?,
+            true,
+            &mut pairs,
+            &mut work,
+            &resources,
+            &outputs,
+        );
+        assert_eq!(received.try_recv()?.status.call, "W7HEX");
+        assert!(pairs.is_empty() && work.is_empty());
+        store.close().await?;
+        Ok(())
+    }
 }

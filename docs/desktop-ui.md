@@ -543,6 +543,13 @@ moves between fields. Use the same validation and submission behavior as the
 visible Save action. Dropdowns and multiline text retain their normal editing
 behavior, and unrelated dialogs do not acquire a global contact-save shortcut.
 
+Put **Clear** immediately left of **Save QSO**. It uses the same fresh-entry
+reset as a successful save, without saving, including focus on Callsign. Invalid
+input does not disable it; a pending save does. WS Status updates only the entry
+call, preserving all other unsaved fields. Worked Before observes that field.
+Incoming calls during saving cannot rewrite the admitted payload/key; failure
+keeps the latest authoritative call and other submitted input.
+
 While a contact-entry save is pending, make the submitted entry read-only and
 show **Saving…** (D315). Prevent duplicate submission; keep the rest of the
 workbench responsive. Success performs the agreed next-entry reset. Failure

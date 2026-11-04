@@ -45,12 +45,14 @@ pub(super) async fn run(paths: &WorkspacePaths) -> anyhow::Result<()> {
     .await;
     let lookup_task = tokio::spawn(lookup_runtime.run(stop.clone()));
     let task = tokio::spawn(ws_suite::runtime::run(
-        store.clone(),
-        lookup,
+        crate::ws_suite::runtime::Resources {
+            store: store.clone(),
+            lookup,
+            settings_updates: watch::channel(None).0,
+            changes,
+        },
         input,
         outputs,
-        watch::channel(None).0,
-        changes,
         Default::default(),
         stop.clone(),
     ));

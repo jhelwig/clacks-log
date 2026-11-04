@@ -84,7 +84,15 @@ D91 requires Clacks to follow WS DX-call UDP updates and run directory lookup af
 
 [Official upstream WSJT-X protocol source](https://raw.githubusercontent.com/WSJTX/wsjtx/master/Network/NetworkMessage.hpp), checked 2026-10-12, documents Status type 1 with DX call and DX grid, and status emission when DX Call changes. This verifies the upstream protocol capability, not a live capture of the installed WS build or a new inspection of WS-specific status serialization. Prior WS source investigation in this note focused on completed-QSO paths.
 
-Status updates that leave Clacks's effective call unchanged must not continually postpone lookup. Under D93, a repeated WS call still replaces a different locally entered Clacks call and restarts debounce because the effective call changed. Completion data must be associated with the correct source/contact rather than the current displayed call; a late lookup response cannot attach metadata to a subsequent contact. In-progress display state does not itself constitute a completed QSO.
+Status updates that leave Clacks's effective call unchanged must not continually postpone lookup. Under D93, a repeated WS call still replaces a different locally entered Clacks call and restarts debounce because the effective call changed. Status changes only the shared entry callsign; Worked Before reads that field.
+Capture independently requests directory information for its own projected
+QSO's key, reusing a 24-hour/128-result transient success or joining in-flight
+work, and starting on a miss without delaying save. The actual save caller
+retains its shared handle with its QSO identity; Status has no completed-QSO
+association. This corrected #21 contract supersedes the earlier form-owned
+lookup interpretation. In-progress display state is not a completed QSO.
+Authored protocol/receiver tests verify Clacks wiring; they do not establish
+installed GridTracker Generate Messages forwarding or WS configuration.
 
 ## Activity references versus exchanges
 

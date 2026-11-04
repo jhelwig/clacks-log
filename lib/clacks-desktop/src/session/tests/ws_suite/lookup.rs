@@ -45,16 +45,18 @@ impl Receiver {
         let (commands, input) = mpsc::channel(8);
         let stop = CancellationToken::new();
         let task = tokio::spawn(ws_suite::runtime::run(
-            service.store.clone(),
-            service.client.clone(),
+            crate::ws_suite::runtime::Resources {
+                store: service.store.clone(),
+                lookup: service.client.clone(),
+                settings_updates: watch::channel(None).0,
+                changes,
+            },
             input,
             Outputs {
                 calls: mpsc::unbounded_channel().0,
                 updates,
                 context: Default::default(),
             },
-            watch::channel(None).0,
-            changes,
             Default::default(),
             stop.clone(),
         ));
