@@ -183,7 +183,7 @@ so overnight contacts do not depend on inferring a date from time-of-day order.
 On Save, capture one coherent submitted contact, including the current live
 values. Do not let clocks advance the submitted payload while it is saving.
 Failure preserves the submitted timestamps and other input for correction or
-retry; only successful new-contact saving invokes the reset below.
+retry; successful saving and Clear use the shared reset below.
 
 ## 6. Save and next-entry behavior
 
@@ -196,10 +196,20 @@ While saving, make the submitted entry read-only and show Saving. Block duplicat
 submission while keeping the rest of the workbench responsive. Changes to the
 view or active settings during this period do not mutate the submitted contact.
 On successful completion, initialize the next entry using the then-current view
-and active settings. If saving fails, restore the preserved submitted form
-rather than silently substituting new defaults.
+and active settings. If saving fails, preserve other submitted values and any
+newer authoritative WS callsign, without substituting new defaults.
 
-Successful new-contact saving:
+WS Status replaces only the shared entry callsign, including empty values and
+repeated values that override local edits. Worked Before reads that entry field;
+directory lookup observes its own 500 ms debounce. Other unsaved facts survive.
+An incoming call during saving changes the visible field, never the immutable
+submitted payload or directory key.
+
+**Clear**, immediately left of **Save QSO**, performs the same reset without
+saving. It works with invalid input and is disabled only during a pending save.
+It clears directory display, validation/feedback and submission state, creates a
+fresh draft identity and returns focus to Callsign. The next WS Status may
+populate the call again. Clear and successful new-contact saving:
 
 - Clears the contacted station's callsign, recorded location, operator/name and
   references, both reports and comment.

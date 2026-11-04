@@ -156,7 +156,7 @@ impl DirectorySnapshot {
     pub fn facts(&self) -> &DirectoryFacts {
         &self.0.facts
     }
-    /// Compare the agreed successful-time and identity tuple, not arrival order.
+    /// Compare the successful-time and identity tuple, not arrival order.
     pub fn compare_lookup(&self, other: &Self) -> std::cmp::Ordering {
         self.0
             .lookup_time

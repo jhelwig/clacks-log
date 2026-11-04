@@ -1,4 +1,8 @@
 use super::*;
+async fn execute(store: &ClientStore, action: ContactAction) -> anyhow::Result<ContactResponse> {
+    super::execute(store, action, None, tokio::sync::watch::channel(()).0).await
+}
+
 use clacks_client_store::store::StoreSettings;
 use clacks_model::{group::DefinitionSet, scalar::UtcSecond};
 
@@ -27,7 +31,7 @@ async fn repeated_create_acknowledges_only_the_same_submitted_contact() -> anyho
     let created = execute(
         &store,
         ContactAction::Save {
-            snapshot: None,
+            directory: None,
             expected: None,
             next: Box::new(qso.clone()),
         },
@@ -70,7 +74,7 @@ async fn repeated_create_acknowledges_only_the_same_submitted_contact() -> anyho
     let repeated = execute(
         &store,
         ContactAction::Save {
-            snapshot: None,
+            directory: None,
             expected: None,
             next: Box::new(qso.clone()),
         },
@@ -93,7 +97,7 @@ async fn repeated_create_acknowledges_only_the_same_submitted_contact() -> anyho
     let retry = execute(
         &store,
         ContactAction::Save {
-            snapshot: None,
+            directory: None,
             expected: None,
             next: Box::new(qso),
         },

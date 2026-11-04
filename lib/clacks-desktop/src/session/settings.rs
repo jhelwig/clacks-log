@@ -29,8 +29,6 @@ use tokio::sync::oneshot;
 
 /// An owned application operation, independent of the lifecycle command channel.
 pub(crate) enum SettingsAction {
-    /// Ordered entry lookup notification.
-    Directory(crate::directory::lookup::LookupCommand),
     /// Read account-wide pending work and actual comparisons.
     Review(review::ReviewAction),
     /// Read or edit account-owned contact working state.
@@ -90,8 +88,6 @@ pub(crate) struct SettingsRequest {
 /// Authoritative operation outcome delivered independently from view refresh.
 #[derive(Debug)]
 pub(crate) enum SettingsResponse {
-    /// Entry notification accepted by the owning session.
-    Directory,
     /// Snapshot result for the originating review view.
     Review(review::ReviewResponse),
     /// Authoritative contact result.
@@ -140,12 +136,13 @@ pub(super) struct Completion {
 pub(super) async fn execute(
     store: ClientStore,
     mut request: SettingsRequest,
+    lookup: Option<crate::directory::lookup::LookupClient>,
+    changes: tokio::sync::watch::Sender<()>,
 ) -> Option<Completion> {
     let account = store.account_id();
     let action_kind = request.action.diagnostic_name();
 
     let result = match request.action {
-        SettingsAction::Directory(_) => Ok(SettingsResponse::Directory),
         SettingsAction::Review(action) => review::execute(&store, action)
             .await
             .map(SettingsResponse::Review),
@@ -160,7 +157,7 @@ pub(super) async fn execute(
                         tracing::debug!(event = "contact_query.cancelled", account_id = %account, kind);
                         return None;
                     }
-                    result = contacts::execute(&store, action) => result,
+                    result = contacts::execute(&store, action, lookup, changes) => result,
                 };
                 metrics::histogram!(CONTACT_QUERY_DURATION_METRIC, "kind" => kind)
                     .record(started.elapsed().as_secs_f64());
@@ -180,10 +177,10 @@ pub(super) async fn execute(
             } else if preparation {
                 tokio::select! {
                     _ = request.reply.closed() => return None,
-                    result = contacts::execute(&store, action) => result,
+                    result = contacts::execute(&store, action, lookup, changes) => result,
                 }
             } else {
-                contacts::execute(&store, action).await
+                contacts::execute(&store, action, lookup, changes).await
             };
             result.map(SettingsResponse::Contacts)
         }
@@ -272,7 +269,6 @@ impl SettingsAction {
     /// Compose the containing action with its local operation name, without payloads.
     pub(crate) fn diagnostic_name(&self) -> std::borrow::Cow<'static, str> {
         match self {
-            Self::Directory(_) => "directory".into(),
             Self::Review(action) => format!("review.{}", action.diagnostic_name()).into(),
             Self::Contacts(action) => format!("contacts.{}", action.diagnostic_name()).into(),
             Self::Logbooks(action) => format!("logbooks.{}", action.diagnostic_name()).into(),

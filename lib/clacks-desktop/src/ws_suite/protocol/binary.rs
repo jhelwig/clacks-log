@@ -12,7 +12,7 @@ pub(super) fn u32(input: &mut &[u8]) -> anyhow::Result<u32> {
 }
 
 /// Consume one big-endian unsigned 64-bit field.
-fn u64(input: &mut &[u8]) -> anyhow::Result<u64> {
+pub(super) fn u64(input: &mut &[u8]) -> anyhow::Result<u64> {
     winnow::binary::be_u64::<_, ContextError>
         .parse_next(input)
         .map_err(|_| anyhow::anyhow!("Truncated WS integer."))

@@ -37,7 +37,7 @@ pub(crate) enum ContactAction {
     Save {
         expected: Option<Box<ClientRecord>>,
         next: Box<Qso>,
-        snapshot: Option<Box<clacks_model::directory::values::DirectorySnapshot>>,
+        directory: Option<crate::directory::lookup::LookupDemand>,
     },
     /// Read selected contacts and catalog from one snapshot.
     PrepareMembership {
@@ -106,6 +106,8 @@ pub(crate) enum ContactResponse {
 pub(crate) async fn execute(
     store: &ClientStore,
     action: ContactAction,
+    lookup: Option<crate::directory::lookup::LookupClient>,
+    changes: tokio::sync::watch::Sender<()>,
 ) -> anyhow::Result<ContactResponse> {
     match action {
         ContactAction::WorkedBefore { query } => {
@@ -159,9 +161,21 @@ pub(crate) async fn execute(
         ContactAction::Save {
             expected,
             next,
-            snapshot,
+            directory,
         } => {
             let record_key = key(store, next.id());
+            let prepared = lookup.zip(directory).map(|(lookup, demand)| {
+                crate::directory::lookup::persistence::prepare(
+                    lookup,
+                    store.clone(),
+                    next.id(),
+                    demand,
+                    changes,
+                )
+            });
+            let snapshot = prepared
+                .as_ref()
+                .and_then(|prepared| prepared.ready_snapshot());
             let outcome = save::contacts::save(
                 store,
                 expected.as_deref(),
@@ -169,6 +183,12 @@ pub(crate) async fn execute(
                 snapshot.map(|value| *value),
             )
             .await?;
+            if let Some(prepared) = prepared {
+                prepared.settle(matches!(
+                    outcome,
+                    SaveOutcome::Saved(_) | SaveOutcome::Unchanged(_)
+                ));
+            }
             if matches!(outcome, SaveOutcome::Stale { .. }) {
                 tracing::info!(event = "contact.save.stale", account_id = %store.account_id(), record_id = %record_key.id);
             }

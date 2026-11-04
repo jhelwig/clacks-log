@@ -158,15 +158,27 @@ async fn multicast_capture(
     let (updates, mut view) = watch::channel(ReceiverView::default());
     let (commands, input) = mpsc::channel(8);
     let stop = CancellationToken::new();
-    let task = tokio::spawn(runtime::run(
+    let (lookup, lookup_runtime) = crate::directory::lookup::runtime::LookupRuntime::new(
         store.clone(),
+        watch::channel(None).1,
+        watch::channel(None).1,
+        Default::default(),
+    )
+    .await;
+    let lookup_task = tokio::spawn(lookup_runtime.run(stop.clone()));
+    let task = tokio::spawn(runtime::run(
+        crate::ws_suite::runtime::Resources {
+            store: store.clone(),
+            lookup,
+            settings_updates: watch::channel(None).0,
+            changes: watch::channel(()).0,
+        },
         input,
         Outputs {
+            calls: mpsc::unbounded_channel().0,
             updates,
             context: Default::default(),
         },
-        watch::channel(None).0,
-        watch::channel(()).0,
         Default::default(),
         stop.clone(),
     ));
@@ -247,6 +259,7 @@ async fn multicast_capture(
     assert_eq!(contact.contacted_station().callsign.as_str(), "W7HEX");
     assert_eq!(contact.comment().as_deref(), Some("packet-private!"));
 
+    lookup_task.await??;
     store.close().await?;
     Ok(())
 }

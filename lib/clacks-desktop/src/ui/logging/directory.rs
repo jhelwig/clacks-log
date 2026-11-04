@@ -1,18 +1,15 @@
 //! Separate provider facts never flow into editable recorded controls.
 
-use crate::{
-    directory::lookup::{LookupCommand, LookupState, LookupUpdate},
-    session::settings::{SettingsAction, SettingsRequest},
-};
+use crate::directory::lookup::{LookupClient, LookupDemand, LookupHandle, LookupState};
 use clacks_model::{
     directory::values::{DirectorySnapshot, LookupKey},
-    ids::QsoId,
     scalar::RecordedCallsign,
 };
 use eframe::egui;
-use tokio::sync::{mpsc, oneshot};
+use std::sync::Arc;
+use tokio::{sync::watch, time::Instant};
 
-/// Selected directory hints for the existing contact controls, never save input.
+/// Directory hints for contact controls, separate from recorded save input.
 #[derive(Default)]
 pub(in crate::ui) struct DirectoryFallback {
     /// Selected directory's visible source name.
@@ -60,33 +57,33 @@ impl DirectoryFallback {
     }
 }
 
-/// Presentation remembers only the active form's observed key and successful preview.
+/// Caller-owned display state; provider operations remain shared by lookup key.
 #[derive(Default)]
 pub(in crate::ui) struct DirectoryView {
-    /// Last notification admitted to the session.
-    observed: Option<(QsoId, Option<LookupKey>)>,
-    /// Latest safe result for this form.
-    state: Option<LookupState>,
-    /// Retained success is not removed by failure or not-found.
+    /// Effective entry text is distinct from its directory request key.
+    observed: Option<String>,
+    /// Current requested station, absent for empty/unusable input.
+    key: Option<LookupKey>,
+    /// Original last-change debounce deadline.
+    due: Option<Instant>,
+    /// Only this consumer's interest is dropped on clear/change.
+    handle: Option<LookupHandle>,
+    /// Shared presentation outcome, retained without a per-frame copy of its facts.
+    state: Option<Arc<LookupState>>,
+    /// Eligible prior success survives failure/not-found for the same key.
     snapshot: Option<DirectorySnapshot>,
+    /// Workspace identity prevents cross-workspace consumer reuse.
+    client: Option<LookupClient>,
+    /// Configuration recovery resumes an unsuccessful active consumer.
+    configuration: Option<watch::Receiver<()>>,
 }
 
-/// Derive the same checked key used by lookup persistence.
+/// Use the model's request transformation without rewriting recorded facts.
 fn key(call: &str) -> Option<LookupKey> {
     RecordedCallsign::new(call)
         .ok()
         .as_ref()
         .map(LookupKey::from_recorded)
-}
-
-/// Submit through the normal ordered application channel; retry on a later frame if full.
-fn send(requests: &mpsc::Sender<SettingsRequest>, command: LookupCommand) -> bool {
-    requests
-        .try_send(SettingsRequest {
-            action: SettingsAction::Directory(command),
-            reply: oneshot::channel().0,
-        })
-        .is_ok()
 }
 
 impl DirectoryView {
@@ -151,105 +148,168 @@ impl DirectoryView {
             locality: snapshot.facts().locality.clone(),
         }
     }
-    /// Opening an unchanged saved contact presents retained facts without refreshing it.
-    pub(in crate::ui) fn saved(qso: QsoId, call: &str) -> Self {
+    /// Opening an unchanged saved contact does not request provider refresh.
+    pub(in crate::ui) fn saved(call: &str) -> Self {
         Self {
-            observed: Some((qso, key(call))),
+            observed: Some(call.trim().to_uppercase()),
+            key: key(call),
             ..Default::default()
         }
     }
 
-    /// Restore its already retained success without copying anything into recorded fields.
+    /// Present durable eligible information separately from recorded controls.
     pub(in crate::ui) fn retain(&mut self, snapshot: Option<Box<DirectorySnapshot>>) {
         self.snapshot = snapshot.map(|value| *value);
     }
 
-    /// Notify only changed canonical calls, preserving a debounce across spelling-only changes.
-    pub(in crate::ui) fn observe(
-        &mut self,
-        qso: QsoId,
-        call: &str,
-        requests: &mpsc::Sender<SettingsRequest>,
-    ) {
-        let next = (qso, key(call));
-        if self.observed.is_none() && next.1.is_none() {
-            self.observed = Some(next);
+    /// Restart debounce for effective text changes, including equal-key slash changes.
+    pub(in crate::ui) fn observe(&mut self, call: &str, now: Instant) {
+        let observed = call.trim().to_uppercase();
+        if self.observed.as_ref() == Some(&observed) {
             return;
         }
-        if self.observed.as_ref() == Some(&next) {
-            return;
-        }
-        if let Some((previous, _)) = &self.observed
-            && *previous != qso
-            && !send(requests, LookupCommand::Deleted { qso: *previous })
-        {
-            return;
-        }
-        if send(
-            requests,
-            LookupCommand::CallChanged {
-                qso,
-                call: call.to_owned(),
-            },
-        ) {
-            self.observed = Some(next);
-            self.state = None;
+        let next = key(call);
+        if self.key != next || next.is_none() {
             self.snapshot = None;
         }
-    }
-
-    /// Match immutable response ownership against the current form, including unsent edits.
-    pub(in crate::ui) fn update(&mut self, qso: QsoId, call: &str, update: &LookupUpdate) {
-        if update.qso != qso || update.key != key(call) {
-            return;
-        }
-        if let LookupState::Found(snapshot) = &update.state
-            && self
-                .snapshot
-                .as_ref()
-                .is_none_or(|current| current.compare_lookup(snapshot).is_lt())
-        {
-            self.snapshot = Some(snapshot.as_ref().clone());
-        }
-        self.state = Some(update.state.clone());
-    }
-
-    /// Attach only a matching success to the atomic contact save.
-    pub(in crate::ui) fn snapshot(&self, call: &str) -> Option<Box<DirectorySnapshot>> {
-        self.snapshot
+        self.observed = Some(observed);
+        self.key = next;
+        self.due = self
+            .key
             .as_ref()
-            .filter(|snapshot| Some(snapshot.key()) == key(call).as_ref())
-            .cloned()
-            .map(Box::new)
+            .map(|_| now + std::time::Duration::from_millis(500));
+        self.handle = None;
+        self.state = None;
     }
 
-    /// Present local lookup progress/failures without duplicating returned facts.
-    pub(in crate::ui) fn show(
-        &self,
-        ui: &mut egui::Ui,
-        qso: QsoId,
-        requests: &mpsc::Sender<SettingsRequest>,
+    /// Poll caller deadlines and shared results even when the form pane is hidden.
+    pub(in crate::ui) fn advance(
+        &mut self,
+        context: &egui::Context,
+        lookup: Option<&LookupClient>,
+        now: Instant,
     ) {
-        match &self.state {
+        let Some(lookup) = lookup else {
+            if self.client.take().is_some() {
+                self.configuration = None;
+                self.handle = None;
+                self.snapshot = None;
+                self.state = None;
+            }
+            return;
+        };
+        if self
+            .client
+            .as_ref()
+            .is_none_or(|current| !current.same_workspace(lookup))
+        {
+            if self.client.is_some() {
+                self.handle = None;
+                self.snapshot = None;
+                self.state = None;
+            }
+            self.client = Some(lookup.clone());
+            self.configuration = Some(lookup.configuration_changes());
+        }
+        if let Some(configuration) = &mut self.configuration
+            && configuration.has_changed().unwrap_or(false)
+        {
+            let outcome = self.handle.as_ref().and_then(LookupHandle::ready);
+            // Keep the watch transition unread while old material is still running.
+            // Its success remains eligible; its failure can then resume with current material.
+            if self.handle.is_none() || outcome.is_some() {
+                configuration.borrow_and_update();
+                let requested = self.due.is_some() || self.handle.is_some();
+                let succeeded = matches!(outcome.as_deref(), Some(LookupState::Found(_)));
+                if requested && !succeeded && self.snapshot.is_none() && self.key.is_some() {
+                    self.handle = None;
+                    self.due = Some(self.due.unwrap_or(now).max(now));
+                }
+            }
+        }
+        if let Some(due) = self.due {
+            if due <= now {
+                if let Some(key) = &self.key {
+                    self.handle = Some(lookup.request(key.clone()));
+                }
+                self.due = None;
+                self.state = Some(Arc::new(LookupState::Pending));
+            } else {
+                context.request_repaint_after(due - now);
+            }
+        }
+        if matches!(
+            self.handle
+                .as_ref()
+                .and_then(LookupHandle::ready)
+                .as_deref(),
+            Some(LookupState::PausedAuthentication)
+        ) && lookup.can_resume_authentication()
+            && let Some(key) = &self.key
+        {
+            self.handle = Some(lookup.request(key.clone()));
+            self.state = Some(Arc::new(LookupState::Pending));
+        }
+        if let Some(outcome) = self.handle.as_ref().and_then(LookupHandle::ready) {
+            if let LookupState::Found(snapshot) = outcome.as_ref()
+                && self.key.as_ref() == Some(snapshot.key())
+                && self
+                    .snapshot
+                    .as_ref()
+                    .is_none_or(|current| current.compare_lookup(snapshot).is_lt())
+            {
+                self.snapshot = Some(snapshot.as_ref().clone());
+            }
+            self.state = Some(outcome);
+        }
+    }
+
+    /// Freeze this caller's key/deadline for an independently submitted save.
+    pub(in crate::ui) fn submission(&self) -> Option<LookupDemand> {
+        if self.due.is_none() && self.handle.is_none() {
+            return None;
+        }
+        let key = self.key.clone()?;
+        let due = self.due.unwrap_or_else(Instant::now);
+        Some(LookupDemand {
+            key: key.clone(),
+            due,
+            handle: self
+                .handle
+                .clone()
+                .or_else(|| self.snapshot.clone().map(LookupHandle::from_snapshot))
+                .or_else(|| {
+                    self.client
+                        .as_ref()
+                        .map(|client| client.request_at(key, due))
+                }),
+        })
+    }
+
+    /// Retry failure or rejected authentication without refreshing a successful lookup.
+    pub(in crate::ui) fn show(&mut self, ui: &mut egui::Ui) {
+        let retry = match self.state.as_deref() {
             Some(LookupState::Pending) => {
                 ui.small("Looking up callsign…");
+                false
             }
             Some(LookupState::NotFound) => {
                 ui.small("Callsign not found in the selected directory.");
+                false
             }
             Some(LookupState::PausedAuthentication) => {
                 ui.small("Directory credentials were rejected.");
-                if ui.button("Retry directory login").clicked() {
-                    send(requests, LookupCommand::Retry { qso });
-                }
+                ui.button("Retry directory login").clicked()
             }
             Some(LookupState::Failed(message)) => {
                 ui.small(message);
-                if ui.button("Retry directory lookup").clicked() {
-                    send(requests, LookupCommand::Retry { qso });
-                }
+                ui.button("Retry directory lookup").clicked()
             }
-            _ => {}
+            _ => false,
+        };
+        if retry && let (Some(client), Some(key)) = (&self.client, &self.key) {
+            self.handle = Some(client.retry(key.clone()));
+            self.state = Some(Arc::new(LookupState::Pending));
         }
     }
 }

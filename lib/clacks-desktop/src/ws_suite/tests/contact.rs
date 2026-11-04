@@ -1,4 +1,4 @@
-use super::super::{contact, protocol};
+use super::super::contact;
 use super::protocol::adif;
 use clacks_model::ids::QsoId;
 
@@ -14,7 +14,7 @@ fn supplied_power_truncates_to_milliwatts() -> anyhow::Result<()> {
 
 #[test]
 fn live_context_and_selected_tag() -> anyhow::Result<()> {
-    let notice=protocol::decode(&adif(b"<CALL:5>W7HEX<QSO_DATE:8>20261103<TIME_ON:6>123456<FREQ:6>14.074<MODE:3>FT8<STATION_CALLSIGN:5>W7ABC<TX_PWR:6>5.0007<EOR>"),"127.0.0.1:1".parse()?)?.unwrap();
+    let notice=super::completion(&adif(b"<CALL:5>W7HEX<QSO_DATE:8>20261103<TIME_ON:6>123456<FREQ:6>14.074<MODE:3>FT8<STATION_CALLSIGN:5>W7ABC<TX_PWR:6>5.0007<EOR>"),"127.0.0.1:1".parse()?)?.unwrap();
     let mut context = super::context()?;
     context.selected_view = clacks_client_store::logbooks::selection::SelectedView::Logbook(
         "00000000000000000000000021".parse()?,
@@ -118,7 +118,7 @@ fn contest_lookup_respects_binding_conditions() -> anyhow::Result<()> {
         "00000000000000000000000012",
         vec![BindingCondition::AssociationPresent(StationSide::Contacted)],
     )?;
-    let notice=protocol::decode(&adif(b"<CALL:5>W7HEX<QSO_DATE:8>20261103<TIME_ON:6>123456<FREQ:6>14.074<MODE:3>FT8<STATION_CALLSIGN:5>W7ABC<CONTEST_ID:14>ARRL-FIELD-DAY<CLASS:2>1D<ARRL_SECT:3>WWA<EOR>"),"127.0.0.1:1".parse()?)?.unwrap();
+    let notice=super::completion(&adif(b"<CALL:5>W7HEX<QSO_DATE:8>20261103<TIME_ON:6>123456<FREQ:6>14.074<MODE:3>FT8<STATION_CALLSIGN:5>W7ABC<CONTEST_ID:14>ARRL-FIELD-DAY<CLASS:2>1D<ARRL_SECT:3>WWA<EOR>"),"127.0.0.1:1".parse()?)?.unwrap();
     let mut context = super::context()?;
     context.definitions = DefinitionSet::new(vec![own, contacted])?;
     let projection = contact::build(QsoId::new(), &notice, &context)?;

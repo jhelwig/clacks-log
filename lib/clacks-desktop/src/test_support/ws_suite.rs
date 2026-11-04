@@ -15,6 +15,15 @@ fn text(bytes: &mut Vec<u8>, value: &str) {
     bytes.extend_from_slice(value.as_bytes());
 }
 
+/// Status prefix sufficient to reach DX call, with unrelated appended bytes.
+pub(crate) fn status(call: &str) -> Vec<u8> {
+    let mut body = 0_u64.to_be_bytes().to_vec();
+    text(&mut body, "unknown-mode");
+    text(&mut body, call);
+    body.extend_from_slice(&[0, 1, 2]);
+    frame(1, &body)
+}
+
 /// Structured completion at Unix second zero on 14.074 MHz, using FT4's leaf label.
 pub(crate) fn structured(call: &str) -> Vec<u8> {
     let mut body = vec![0, 0, 0, 0, 0, 0x25, 0x3d, 0x8c, 0, 0, 3, 0xe8, 1];
@@ -40,8 +49,13 @@ pub(crate) fn structured(call: &str) -> Vec<u8> {
 
 /// ADIF counterpart, with distinct optional text and higher-precision supplied power.
 pub(crate) fn adif(call: &str) -> Vec<u8> {
+    adif_at(call, "000000")
+}
+
+/// A distinct completion identity for shared station-result scenarios.
+pub(crate) fn adif_at(call: &str, time: &str) -> Vec<u8> {
     let body = format!(
-        "<CALL:{}>{call}<QSO_DATE:8>19700101<TIME_ON:6>000000<FREQ:6>14.074<MODE:4>MFSK<SUBMODE:3>FT4<STATION_CALLSIGN:5>W7ABC<TX_PWR:6>5.0007<COMMENT:15>packet-private!<EOR>",
+        "<CALL:{}>{call}<QSO_DATE:8>19700101<TIME_ON:6>{time}<FREQ:6>14.074<MODE:4>MFSK<SUBMODE:3>FT4<STATION_CALLSIGN:5>W7ABC<TX_PWR:6>5.0007<COMMENT:15>packet-private!<EOR>",
         call.len()
     );
     let mut payload = vec![];

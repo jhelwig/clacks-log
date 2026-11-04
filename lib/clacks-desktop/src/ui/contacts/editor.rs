@@ -44,10 +44,7 @@ impl ContactEditor {
         };
         let form = ContactForm::from_qso(qso);
         Ok(Self {
-            directory: crate::ui::logging::directory::DirectoryView::saved(
-                qso.id(),
-                &form.dx.callsign,
-            ),
+            directory: crate::ui::logging::directory::DirectoryView::saved(&form.dx.callsign),
             expected,
             baseline: form.clone(),
             form,
@@ -169,11 +166,11 @@ impl ContactsUi {
                         ui.small(notice);
                     }
                 }
-                if let Ok(id) = editor.id() {
+                if editor.id().is_ok() {
                     editor
                         .directory
-                        .observe(id, &editor.form.dx.callsign, requests);
-                    editor.directory.show(ui, id, requests);
+                        .observe(&editor.form.dx.callsign, tokio::time::Instant::now());
+                    editor.directory.show(ui);
                 }
                 ui.horizontal_wrapped(|ui| {
                     cancel = ui.button("Cancel").clicked();
@@ -191,7 +188,7 @@ impl ContactsUi {
                         {
                             Ok(next) => {
                                 save = Some(ContactAction::Save {
-                                    snapshot: editor.directory.snapshot(&editor.form.dx.callsign),
+                                    directory: editor.directory.submission(),
                                     expected: Some(Box::new(editor.expected.clone())),
                                     next: Box::new(next),
                                 })
@@ -213,7 +210,6 @@ impl ContactsUi {
                 });
             },
         );
-        let owner = editor.id().ok();
         if delete {
             self.deletion = Some(deletion::DeletionConfirmation {
                 expected: editor.expected.clone(),
@@ -221,14 +217,12 @@ impl ContactsUi {
             });
         }
         if reload && let Some(record) = self.current_record.take() {
-            self.closed_editor = owner;
             match ContactEditor::from_record(record) {
                 Ok(value) => self.editor = Some(value),
                 Err(error) => self.notice = Some(error.to_string()),
             }
         }
         if cancel || result.cancel_requested {
-            self.closed_editor = owner;
             self.editor = None;
             self.deletion = None;
         } else if let Some(action) = save {

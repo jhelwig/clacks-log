@@ -54,13 +54,12 @@ impl Fixture {
         let (settings_updates, settings_view) = watch::channel(None);
         let resources = SessionResources {
             ws_suite: crate::ws_suite::Outputs {
+                calls: tokio::sync::mpsc::unbounded_channel().0,
                 updates: watch::channel(Default::default()).0,
                 context: Default::default(),
             },
-            lookup: crate::directory::lookup::Outputs {
-                updates: tokio::sync::mpsc::channel(32).0,
-                context: Default::default(),
-            },
+            lookup: tokio::sync::watch::channel(None).0,
+            contact_changes: tokio::sync::watch::channel(()).0,
             directory: crate::directory::provisioning::Outputs {
                 installed: tokio::sync::watch::channel(None).0,
                 status: tokio::sync::watch::channel(Default::default()).0,
@@ -181,3 +180,29 @@ async fn close_while_failed_preserves_file_and_releases_resources() -> anyhow::R
 }
 
 pub(crate) mod ws_suite;
+
+#[tokio::test]
+async fn ready_exposes_lookup_before_new_form_submissions() -> anyhow::Result<()> {
+    let fixture = Fixture::new()?;
+    let status = fixture.status.clone();
+    let lookup = fixture.resources.lookup.subscribe();
+    let context = eframe::egui::Context::default();
+    let (observed, mut ready_wakes) = mpsc::unbounded_channel();
+    context.set_repaint_observer(move |_| {
+        if matches!(*status.borrow(), SessionStatus::Ready { .. }) {
+            let _ = observed.send(lookup.borrow().is_some());
+        }
+    });
+    assert!(fixture.resources.context.set(context).is_ok());
+    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
+    let available = tokio::time::timeout(Duration::from_secs(5), ready_wakes.recv())
+        .await?
+        .unwrap();
+    fixture.commands.send(SessionCommand::BeginShutdown).await?;
+    task.await??;
+    assert!(
+        available,
+        "a newly admissible save must be able to retain its lookup deadline handle"
+    );
+    Ok(())
+}

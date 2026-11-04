@@ -240,10 +240,7 @@ fn editor_membership_uses_the_existing_save_boundary() {
     ui.get_by_label("Cancel").click();
     ui.run();
     assert!(ui.state().view.editor.is_none());
-    assert!(matches!(
-        receiver.try_recv().unwrap().action,
-        SettingsAction::Directory(crate::directory::lookup::LookupCommand::Deleted { .. })
-    ));
+    assert!(receiver.try_recv().is_err());
     let mut editor = editor::ContactEditor::from_record(record.clone()).unwrap();
     editor.form.comment = "Corrected fact".into();
     ui.state_mut().view.editor = Some(editor);
@@ -459,41 +456,15 @@ fn directory_opening_saved_contact_does_not_refresh_its_unchanged_call() {
         fixtures::contact(),
     )));
     let mut editor = editor::ContactEditor::from_record(record).unwrap();
-    let (sender, mut requests) = tokio::sync::mpsc::channel(4);
     editor
         .directory
-        .observe(editor.id().unwrap(), &editor.form.dx.callsign, &sender);
-    assert!(requests.try_recv().is_err());
+        .observe(&editor.form.dx.callsign, tokio::time::Instant::now());
+    assert!(editor.directory.submission().is_none());
     editor.form.dx.callsign = "W7OTHER".into();
     editor
         .directory
-        .observe(editor.id().unwrap(), &editor.form.dx.callsign, &sender);
-    assert!(matches!(
-        requests.try_recv().unwrap().action,
-        SettingsAction::Directory(crate::directory::lookup::LookupCommand::CallChanged { .. })
-    ));
-}
-
-#[test]
-fn directory_editor_close_keeps_its_notification_until_the_session_admits_it() {
-    let mut view = ContactsUi::default();
-    let qso = clacks_model::ids::QsoId::new();
-    view.closed_editor = Some(qso);
-    let (sender, mut requests) = tokio::sync::mpsc::channel(1);
-    sender
-        .try_send(SettingsRequest {
-            action: SettingsAction::Refresh,
-            reply: tokio::sync::oneshot::channel().0,
-        })
-        .unwrap();
-    assert!(!view.flush_closed_editor(&sender));
-    assert_eq!(view.closed_editor, Some(qso));
-    requests.try_recv().unwrap();
-    assert!(view.flush_closed_editor(&sender));
-    assert!(view.closed_editor.is_none());
-    assert!(
-        matches!(requests.try_recv().unwrap().action, SettingsAction::Directory(crate::directory::lookup::LookupCommand::Deleted { qso: owner }) if owner == qso)
-    );
+        .observe(&editor.form.dx.callsign, tokio::time::Instant::now());
+    assert!(editor.directory.submission().is_some());
 }
 
 #[test]
@@ -558,7 +529,7 @@ fn saved_editor_displays_directory_name_without_recording_it_on_save() {
     let request = requests.try_recv().unwrap();
     let SettingsAction::Contacts(ContactAction::Save {
         next,
-        snapshot: Some(snapshot),
+        directory: None,
         ..
     }) = request.action
     else {
@@ -566,10 +537,6 @@ fn saved_editor_displays_directory_name_without_recording_it_on_save() {
     };
     assert!(next.contacted_operator().is_none());
     assert!(next.contacted_station().location.is_none());
-    assert_eq!(
-        snapshot.facts().name.as_deref(),
-        Some("Retained directory name")
-    );
 }
 
 #[test]

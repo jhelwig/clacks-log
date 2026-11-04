@@ -13,6 +13,231 @@ fn ready_entry() -> LoggingUi {
 }
 
 #[test]
+fn clear_uses_fresh_entry_reset_without_save() {
+    let (sender, mut requests) = mpsc::channel(8);
+    let mut entry = ready_entry();
+    entry.entry.form.dx.callsign = "invalid!".into();
+    entry.entry.form.comment = "Discard me".into();
+    entry.entry.form.sent = "59".into();
+    entry.entry.form.received = "59".into();
+    entry.entry.form.receive.frequency = "7.074".into();
+    entry.entry.form.receive.band = "40m".into();
+    entry.entry.form.mode_parent = "PHONE".into();
+    entry.active = fixtures::snapshot().operating;
+    let tag = clacks_model::ids::TagId::new();
+    entry.view = SelectedView::Logbook(tag);
+    let old_id = entry.entry.id;
+    let mut ui = Harness::builder()
+        .allow_missing_glyphs()
+        .with_size(egui::vec2(800.0, 800.0))
+        .build_ui_state(
+            move |ui, entry: &mut LoggingUi| entry.show(ui, &sender),
+            entry,
+        );
+    ui.get_by_role_and_label(egui::Role::Button, "Clear")
+        .click();
+    ui.run();
+    assert!(ui.state().entry.form.dx.callsign.is_empty());
+    assert!(ui.state().entry.form.dx_name.is_empty());
+    assert!(ui.state().entry.form.comment.is_empty());
+    assert!(ui.state().entry.form.sent.is_empty());
+    assert_eq!(ui.state().entry.form.primary.band, "20m");
+    assert_eq!(ui.state().entry.form.mode, "SSB");
+    assert_eq!(ui.state().entry.form.mode_parent, "PHONE");
+    assert_eq!(ui.state().entry.form.receive.frequency, "7.074");
+    assert_eq!(ui.state().entry.form.receive.band, "40m");
+    assert_eq!(ui.state().entry.form.tags, [tag].into());
+    assert_eq!(ui.state().entry.form.own.callsign, "W7HEX");
+    assert!(ui.get_by_label("Callsign").is_focused());
+    let clear = ui.get_by_role_and_label(egui::Role::Button, "Clear").rect();
+    let save = ui
+        .get_by_role_and_label(egui::Role::Button, "Save QSO")
+        .rect();
+    assert!(clear.right() < save.left());
+    assert!(ui.state().entry.form.start.live && ui.state().entry.form.end.live);
+    assert_ne!(ui.state().entry.id, old_id);
+    assert!(requests.try_recv().is_err());
+}
+
+#[test]
+fn clear_is_disabled_only_for_pending_save() {
+    use egui_kittest::kittest::NodeT;
+    let (sender, mut requests) = mpsc::channel(8);
+    let mut entry = ready_entry();
+    entry.save(&sender);
+    let request = requests.try_recv().unwrap();
+    let mut ui = Harness::builder()
+        .allow_missing_glyphs()
+        .with_size(egui::vec2(800.0, 800.0))
+        .build_ui_state(
+            move |ui, entry: &mut LoggingUi| entry.show(ui, &sender),
+            entry,
+        );
+    assert!(
+        ui.get_by_role_and_label(egui::Role::Button, "Clear")
+            .accesskit_node()
+            .is_disabled()
+    );
+    request
+        .reply
+        .send(SettingsResponse::Failed("Not admitted".into()))
+        .unwrap();
+    ui.run();
+    assert!(
+        !ui.get_by_role_and_label(egui::Role::Button, "Clear")
+            .accesskit_node()
+            .is_disabled()
+    );
+    ui.get_by_role_and_label(egui::Role::Button, "Clear")
+        .click();
+    ui.run();
+    assert!(ui.state().entry.form.dx.callsign.is_empty());
+    assert!(ui.state().notice.is_none());
+    assert!(requests.try_recv().is_err());
+}
+
+#[tokio::test(start_paused = true)]
+async fn authoritative_repeats_and_equal_key_changes_keep_correct_debounce() {
+    let mut entry = ready_entry();
+    entry.entry.form.dx.position.grid = "CN87".into();
+    entry.entry.form.sent = "-10".into();
+    entry.entry.form.received = "-07".into();
+    entry.entry.form.comment = "Keep this".into();
+    let mut expected = entry.entry.form.clone();
+    let now = tokio::time::Instant::now();
+    entry.incoming_call(" w7hex ");
+    expected.dx.callsign = "W7HEX".into();
+    assert_eq!(
+        entry
+            .entry
+            .form
+            .build(entry.entry.id, &entry.definitions)
+            .unwrap(),
+        expected.build(entry.entry.id, &entry.definitions).unwrap()
+    );
+    assert_eq!(
+        entry.directory.submission().unwrap().due,
+        now + std::time::Duration::from_millis(500)
+    );
+    tokio::time::advance(std::time::Duration::from_millis(200)).await;
+    entry.incoming_call("W7HEX");
+    assert_eq!(
+        entry.directory.submission().unwrap().due,
+        now + std::time::Duration::from_millis(500)
+    );
+    entry.entry.form.dx.callsign = "K1LOCAL".into();
+    entry
+        .directory
+        .observe("K1LOCAL", tokio::time::Instant::now());
+    entry.incoming_call("W7HEX");
+    assert_eq!(entry.contact_call(), "W7HEX");
+    assert_eq!(
+        entry.directory.submission().unwrap().due,
+        now + std::time::Duration::from_millis(700)
+    );
+    entry.incoming_call("W7HEX/P");
+    let demand = entry.directory.submission().unwrap();
+    assert_eq!(demand.key.as_str(), "W7HEX");
+    assert_eq!(demand.due, now + std::time::Duration::from_millis(700));
+    entry.incoming_call("");
+    assert_eq!(entry.contact_call(), "");
+    assert!(entry.directory.submission().is_none());
+}
+
+#[test]
+fn incoming_status_does_not_rewrite_pending_submission() {
+    for success in [false, true] {
+        let mut entry = ready_entry();
+        let (sender, mut requests) = mpsc::channel(8);
+        entry.directory.observe(
+            entry.contact_call().to_owned().as_str(),
+            tokio::time::Instant::now(),
+        );
+        entry.save(&sender);
+        let submitted = entry.submitted.clone().unwrap();
+        let request = requests.try_recv().unwrap();
+        let SettingsAction::Contacts(ContactAction::Save {
+            next, directory, ..
+        }) = request.action
+        else {
+            panic!()
+        };
+        entry.incoming_call("K1LATER");
+        assert_eq!(entry.contact_call(), "K1LATER");
+        assert_eq!(entry.submitted.as_ref(), Some(&submitted));
+        assert_eq!(*next, submitted);
+        assert_eq!(directory.unwrap().key.as_str(), "OK2CQR");
+        entry.clear();
+        assert_eq!(
+            entry.contact_call(),
+            "K1LATER",
+            "pending saves disable Clear"
+        );
+        let response = if success {
+            SettingsResponse::Contacts(contacts::ContactResponse::Saved(
+                clacks_client_store::save::SaveOutcome::Saved(fixtures::row(RecordValue::Qso(
+                    next,
+                ))),
+            ))
+        } else {
+            SettingsResponse::Failed("Not admitted".into())
+        };
+        request.reply.send(response).unwrap();
+        entry.poll();
+        if success {
+            assert!(entry.contact_call().is_empty());
+            assert!(entry.entry.form.dx_name.is_empty());
+        } else {
+            assert_eq!(entry.contact_call(), "K1LATER");
+            assert_eq!(entry.entry.form.dx_name, "Recorded name");
+            assert!(!entry.entry.form.start.live && !entry.entry.form.end.live);
+        }
+    }
+}
+
+#[tokio::test]
+async fn clear_drops_display_interest_without_cancelling_shared_lookup() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::{Service, delayed, key, login, requests},
+        test_support::fixture,
+    };
+    let (held, release) = delayed();
+    let provider = fixture(vec![login(), held]).await?;
+    let service = Service::new(provider.endpoint.clone()).await?;
+    let context = egui::Context::default();
+    let mut entry = ready_entry();
+    entry.incoming_call("OK2CQR/P");
+    let due = entry.directory.submission().unwrap().due;
+    entry
+        .directory
+        .advance(&context, Some(&service.client), due);
+    requests(&provider, 2).await;
+    let shared = service.client.request(key("OK2CQR"));
+    entry.clear();
+    release
+        .send(include_str!("../../directory/providers/fixtures/qrz.xml"))
+        .unwrap();
+    shared.wait().await;
+    entry.advance_lookup(&context, Some(&service.client));
+    assert!(entry.contact_call().is_empty());
+    assert!(entry.directory.submission().is_none());
+    assert!(
+        entry
+            .directory
+            .fallback(&entry.entry.form, &entry.definitions)
+            .name
+            .is_none()
+    );
+    entry.incoming_call("OK2CQR");
+    let due = entry.directory.submission().unwrap().due;
+    entry
+        .directory
+        .advance(&context, Some(&service.client), due);
+    assert_eq!(provider.lookup_count(), 1);
+    service.close().await
+}
+
+#[test]
 fn pending_submission_preserves_its_facts_and_resets_from_current_defaults() {
     let mut view = ready_entry();
     view.entry.form.start = crate::logging::time::ContactTimestamp::recorded(Some(
@@ -51,7 +276,7 @@ fn pending_submission_preserves_its_facts_and_resets_from_current_defaults() {
         panic!("wrong operation")
     };
     let contacts::ContactAction::Save {
-        snapshot: None,
+        directory: None,
         expected: basis,
         next,
     } = action
@@ -491,94 +716,7 @@ fn applied_defaults_are_the_edit_baseline_and_contact_corrections_survive_refres
 }
 
 #[test]
-fn directory_pending_save_routes_result_by_committed_outcome() {
-    use crate::directory::lookup::{LookupState, LookupUpdate};
-    use clacks_model::directory::values::{
-        DirectoryFacts, DirectoryProvider, DirectorySnapshot, DirectorySnapshotFields, LookupKey,
-    };
-    let mut view = ready_entry();
-    let owner = view.entry.id;
-    let key =
-        LookupKey::from_recorded(&clacks_model::scalar::RecordedCallsign::new("OK2CQR").unwrap());
-    let snapshot = DirectorySnapshot::new(DirectorySnapshotFields {
-        provider: DirectoryProvider::HamQth,
-        key: key.clone(),
-        lookup_time: clacks_model::scalar::UtcTimestamp::new(1, 0).unwrap(),
-        lookup_id: clacks_model::ids::LookupId::new(),
-        facts: DirectoryFacts {
-            name: Some("Directory only".into()),
-            ..Default::default()
-        },
-    })
-    .unwrap();
-    let (sender, mut requests) = mpsc::channel(4);
-    view.save(&sender);
-    let request = requests.try_recv().unwrap();
-    view.lookup_update(&LookupUpdate {
-        changed: false,
-        qso: owner,
-        key: Some(key.clone()),
-        state: LookupState::Found(Box::new(snapshot.clone())),
-    });
-    assert_eq!(view.entry.form.dx_name, "Recorded name");
-    let mut older = DirectorySnapshotFields::from(snapshot.clone());
-    older.lookup_time = clacks_model::scalar::UtcTimestamp::new(0, 0).unwrap();
-    older.lookup_id = clacks_model::ids::LookupId::new();
-    older.facts.name = Some("Earlier completion".into());
-    view.lookup_update(&LookupUpdate {
-        changed: false,
-        qso: owner,
-        key: Some(key.clone()),
-        state: LookupState::Found(Box::new(DirectorySnapshot::new(older).unwrap())),
-    });
-    assert_eq!(
-        view.directory.snapshot(&view.entry.form.dx.callsign),
-        Some(Box::new(snapshot.clone()))
-    );
-    request
-        .reply
-        .send(SettingsResponse::Failed("Actual save failed".into()))
-        .unwrap();
-    view.poll();
-    assert_eq!(view.entry.id, owner);
-    view.save(&sender);
-    let request = requests.try_recv().unwrap();
-    let SettingsAction::Contacts(ContactAction::Save {
-        next,
-        snapshot: attached,
-        ..
-    }) = request.action
-    else {
-        panic!("save");
-    };
-    assert_eq!(attached, Some(Box::new(snapshot.clone())));
-    assert_eq!(next.id(), owner);
-    request
-        .reply
-        .send(SettingsResponse::Contacts(
-            contacts::ContactResponse::Saved(clacks_client_store::save::SaveOutcome::Unchanged(
-                crate::ui::tests::fixtures::row(RecordValue::Qso(next)),
-            )),
-        ))
-        .unwrap();
-    view.poll();
-    assert_ne!(view.entry.id, owner);
-    view.lookup_update(&LookupUpdate {
-        changed: false,
-        qso: owner,
-        key: Some(key),
-        state: LookupState::Found(Box::new(snapshot)),
-    });
-    assert!(
-        view.directory
-            .snapshot(&view.entry.form.dx.callsign)
-            .is_none()
-    );
-}
-
-#[test]
 fn directory_fallback_is_attributed_and_keyboard_save_keeps_recorded_name_empty() {
-    use crate::directory::lookup::{LookupState, LookupUpdate};
     use clacks_model::directory::values::{
         DirectoryFacts, DirectoryProvider, DirectorySnapshot, DirectorySnapshotFields, LookupKey,
     };
@@ -587,40 +725,34 @@ fn directory_fallback_is_attributed_and_keyboard_save_keeps_recorded_name_empty(
     view.entry.form.dx_name.clear();
     let (sender, mut requests) = mpsc::channel(8);
     view.directory
-        .observe(view.entry.id, &view.entry.form.dx.callsign, &sender);
-    requests.try_recv().unwrap();
+        .observe(&view.entry.form.dx.callsign, tokio::time::Instant::now());
     let key =
         LookupKey::from_recorded(&clacks_model::scalar::RecordedCallsign::new("OK2CQR").unwrap());
-    view.lookup_update(&LookupUpdate {
-        qso: view.entry.id,
-        key: Some(key.clone()),
-        changed: false,
-        state: LookupState::Found(Box::new(
-            DirectorySnapshot::new(DirectorySnapshotFields {
-                provider: DirectoryProvider::HamQth,
-                key,
-                lookup_time: clacks_model::scalar::UtcTimestamp::new(1, 0).unwrap(),
-                lookup_id: clacks_model::ids::LookupId::new(),
-                facts: DirectoryFacts {
-                    name: Some("Separate directory name".into()),
-                    locality: Some("Directory locality".into()),
-                    location: Some(
-                        clacks_model::location::RecordedLocationFields {
-                            position: Some(clacks_model::position::Position::GridArea(
-                                clacks_model::position::Locator::parse("FN31").unwrap(),
-                            )),
-                            dxcc: Some("291".into()),
-                            ..Default::default()
-                        }
-                        .try_into()
-                        .unwrap(),
-                    ),
-                    ..Default::default()
-                },
-            })
-            .unwrap(),
-        )),
-    });
+    view.directory.retain(Some(Box::new(
+        DirectorySnapshot::new(DirectorySnapshotFields {
+            provider: DirectoryProvider::HamQth,
+            key,
+            lookup_time: clacks_model::scalar::UtcTimestamp::new(1, 0).unwrap(),
+            lookup_id: clacks_model::ids::LookupId::new(),
+            facts: DirectoryFacts {
+                name: Some("Separate directory name".into()),
+                locality: Some("Directory locality".into()),
+                location: Some(
+                    clacks_model::location::RecordedLocationFields {
+                        position: Some(clacks_model::position::Position::GridArea(
+                            clacks_model::position::Locator::parse("FN31").unwrap(),
+                        )),
+                        dxcc: Some("291".into()),
+                        ..Default::default()
+                    }
+                    .try_into()
+                    .unwrap(),
+                ),
+                ..Default::default()
+            },
+        })
+        .unwrap(),
+    )));
     let mut ui = Harness::builder()
         .allow_missing_glyphs()
         .with_size(egui::vec2(1400.0, 1600.0))
@@ -753,7 +885,7 @@ fn directory_fallback_is_attributed_and_keyboard_save_keeps_recorded_name_empty(
     let request = requests.try_recv().unwrap();
     let SettingsAction::Contacts(ContactAction::Save {
         next,
-        snapshot: Some(snapshot),
+        directory: Some(demand),
         ..
     }) = request.action
     else {
@@ -761,8 +893,277 @@ fn directory_fallback_is_attributed_and_keyboard_save_keeps_recorded_name_empty(
     };
     assert!(next.contacted_operator().is_none());
     assert!(next.contacted_station().location.is_none());
+    let result = demand.handle.unwrap().ready().unwrap();
+    let crate::directory::lookup::LookupState::Found(snapshot) = result.as_ref() else {
+        panic!("directory facts")
+    };
     assert_eq!(
         snapshot.facts().name.as_deref(),
         Some("Separate directory name")
     );
+}
+
+#[tokio::test]
+async fn current_failed_entry_resumes_on_usable_configuration() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::Service,
+        test_support::{fixture, response},
+    };
+    let provider = fixture(vec![
+        response(
+            200,
+            "<QRZDatabase><Session><Key>fixture-key</Key></Session></QRZDatabase>",
+        ),
+        response(
+            200,
+            include_str!("../../directory/providers/fixtures/qrz.xml"),
+        ),
+    ])
+    .await?;
+    let service = Service::new(provider.endpoint.clone()).await?;
+    service.available(false);
+    let mut view = ready_entry();
+    let context = egui::Context::default();
+    let now = tokio::time::Instant::now();
+    view.directory.observe(&view.entry.form.dx.callsign, now);
+    view.directory.advance(
+        &context,
+        Some(&service.client),
+        now + std::time::Duration::from_millis(500),
+    );
+    assert_eq!(provider.lookup_count(), 0);
+    service.available(true);
+    view.directory.advance(
+        &context,
+        Some(&service.client),
+        now + std::time::Duration::from_millis(501),
+    );
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while provider.lookup_count() == 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+        }
+    })
+    .await?;
+    service
+        .client
+        .request(clacks_model::directory::values::LookupKey::from_recorded(
+            &clacks_model::scalar::RecordedCallsign::new("OK2CQR")?,
+        ))
+        .wait()
+        .await;
+    view.directory.advance(
+        &context,
+        Some(&service.client),
+        now + std::time::Duration::from_secs(1),
+    );
+    assert_eq!(provider.lookup_count(), 1);
+    service.available(true);
+    view.directory.advance(
+        &context,
+        Some(&service.client),
+        now + std::time::Duration::from_secs(2),
+    );
+    assert_eq!(
+        provider.lookup_count(),
+        1,
+        "usable configuration does not refresh a successful result"
+    );
+    service.close().await
+}
+
+#[tokio::test]
+async fn queued_save_requests_at_original_deadline_before_execution() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::{Service, delayed, login, requests},
+        test_support::fixture,
+    };
+    let (held, release) = delayed();
+    let provider = fixture(vec![login(), held]).await?;
+    let service = Service::new(provider.endpoint.clone()).await?;
+    let context = egui::Context::default();
+    let mut view = ready_entry();
+    tokio::time::pause();
+    view.advance_lookup(&context, Some(&service.client));
+    let due = view.directory.submission().unwrap().due;
+    tokio::time::advance(std::time::Duration::from_millis(100)).await;
+    let (sender, mut queued) = mpsc::channel(1);
+    view.save(&sender);
+    let request = queued.try_recv()?;
+    let id = view.submitted.as_ref().unwrap().id();
+    view.incoming_call("W7LATER");
+    tokio::time::advance(due - tokio::time::Instant::now() - std::time::Duration::from_millis(1))
+        .await;
+    assert_eq!(provider.lookup_count(), 0);
+    tokio::time::advance(std::time::Duration::from_millis(1)).await;
+    tokio::time::resume();
+    requests(&provider, 2).await;
+    assert_eq!(view.contact_call(), "W7LATER");
+    let (changes, _) = tokio::sync::watch::channel(());
+    let SettingsAction::Contacts(action) = request.action else {
+        panic!("contact save")
+    };
+    let response = contacts::execute(
+        &service.store,
+        action,
+        Some(service.client.clone()),
+        changes,
+    )
+    .await?;
+    request
+        .reply
+        .send(SettingsResponse::Contacts(response))
+        .unwrap();
+    view.poll();
+    release
+        .send(include_str!("../../directory/providers/fixtures/qrz.xml"))
+        .unwrap();
+    service.settled().await;
+    let row = clacks_client_store::save::load(
+        &service.store,
+        clacks_sync::record::RecordKey {
+            account: service.store.account_id(),
+            id: clacks_sync::record::RecordId::Directory(id),
+        },
+    )
+    .await?;
+    assert!(row.is_some());
+    assert_eq!(provider.lookup_count(), 1);
+    service.close().await
+}
+
+#[tokio::test]
+async fn saved_editor_configuration_change_does_not_create_lookup_demand() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::{Service, found, login},
+        test_support::fixture,
+    };
+    let provider = fixture(vec![login(), found()]).await?;
+    let service = Service::new(provider.endpoint.clone()).await?;
+    let context = egui::Context::default();
+    let mut view = directory::DirectoryView::saved("OK2CQR");
+    let now = tokio::time::Instant::now();
+    view.advance(&context, Some(&service.client), now);
+    service.available(false);
+    view.advance(&context, Some(&service.client), now);
+    service.available(true);
+    view.advance(&context, Some(&service.client), now);
+    service.settled().await;
+    assert!(view.submission().is_none());
+    assert_eq!(provider.lookup_count(), 0);
+    service.close().await
+}
+
+#[tokio::test]
+async fn replacement_credentials_resume_an_already_pending_call() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::{Service, delayed, found, key, login, requests},
+        test_support::fixture,
+    };
+    let (held, release) = delayed();
+    let old = fixture(vec![login(), held]).await?;
+    let new = fixture(vec![login(), found()]).await?;
+    let service = Service::new(old.endpoint.clone()).await?;
+    let context = egui::Context::default();
+    let mut view = ready_entry();
+    view.entry.form.dx_name.clear();
+    view.advance_lookup(&context, Some(&service.client));
+    let due = view.directory.submission().unwrap().due;
+    view.directory.advance(&context, Some(&service.client), due);
+    requests(&old, 2).await;
+    let old_result = service.client.request(key("OK2CQR"));
+    service.replace(new.endpoint.clone())?;
+    view.directory.advance(&context, Some(&service.client), due);
+    release
+        .send("<QRZDatabase><Session><Error>Invalid password</Error></Session></QRZDatabase>")
+        .unwrap();
+    old_result.wait().await;
+    view.directory.advance(&context, Some(&service.client), due);
+    requests(&new, 2).await;
+    service.client.request(key("OK2CQR")).wait().await;
+    view.directory.advance(&context, Some(&service.client), due);
+    assert!(
+        view.directory
+            .fallback(&view.entry.form, &view.definitions)
+            .name
+            .is_some()
+    );
+    assert_eq!(new.lookup_count(), 1);
+    service.close().await
+}
+
+#[tokio::test]
+async fn rejected_save_drops_its_unstarted_directory_interest() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::{Service, found, login},
+        test_support::fixture,
+    };
+    let provider = fixture(vec![login(), found()]).await?;
+    let service = Service::new(provider.endpoint.clone()).await?;
+    let context = egui::Context::default();
+    let mut view = ready_entry();
+    tokio::time::pause();
+    view.advance_lookup(&context, Some(&service.client));
+    let (sender, mut queued) = mpsc::channel(1);
+    let (reply, _result) = oneshot::channel();
+    sender
+        .try_send(SettingsRequest {
+            action: SettingsAction::Contacts(ContactAction::LoadQueryState),
+            reply,
+        })
+        .unwrap();
+    view.save(&sender);
+    assert!(view.pending.is_none());
+    view.incoming_call("W7LATER");
+    tokio::time::advance(std::time::Duration::from_millis(500)).await;
+    tokio::time::resume();
+    service.settled().await;
+    assert_eq!(provider.lookup_count(), 0);
+    assert!(matches!(
+        queued.try_recv()?.action,
+        SettingsAction::Contacts(ContactAction::LoadQueryState)
+    ));
+    service.close().await
+}
+
+#[tokio::test]
+async fn late_joiner_recovers_replaced_authentication() -> anyhow::Result<()> {
+    use crate::directory::{
+        lookup::tests::support::{Service, delayed, found, key, login, requests},
+        test_support::fixture,
+    };
+    let (held, release) = delayed();
+    let old = fixture(vec![login(), held]).await?;
+    let new = fixture(vec![login(), found()]).await?;
+    let service = Service::new(old.endpoint.clone()).await?;
+    // Another consumer already owns the old-material operation before entry's debounce.
+    let old_result = service.client.request(key("OK2CQR"));
+    requests(&old, 2).await;
+    let context = egui::Context::default();
+    let mut view = ready_entry();
+    view.entry.form.dx_name.clear();
+    view.advance_lookup(&context, Some(&service.client));
+    let due = view.directory.submission().unwrap().due;
+    service.replace(new.endpoint.clone())?;
+    view.directory.advance(
+        &context,
+        Some(&service.client),
+        due - std::time::Duration::from_millis(1),
+    );
+    view.directory.advance(&context, Some(&service.client), due);
+    release
+        .send("<QRZDatabase><Session><Error>Invalid password</Error></Session></QRZDatabase>")
+        .unwrap();
+    old_result.wait().await;
+    view.directory.advance(&context, Some(&service.client), due);
+    requests(&new, 2).await;
+    service.client.request(key("OK2CQR")).wait().await;
+    view.directory.advance(&context, Some(&service.client), due);
+    assert!(
+        view.directory
+            .fallback(&view.entry.form, &view.definitions)
+            .name
+            .is_some()
+    );
+    assert_eq!(new.lookup_count(), 1);
+    service.close().await
 }

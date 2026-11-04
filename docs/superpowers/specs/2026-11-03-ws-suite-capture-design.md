@@ -487,11 +487,15 @@ Do not fan out a save to other clients or gate it on enrollment, server/provider
 access, successful lookup or external-upload readiness. Once committed, the
 ordinary SQLite and synchronization contracts supply durability and recovery.
 
-#19 does not trigger lookup from completion, attach the current manual-entry
-result by callsign alone or reset that entry. #21 will use the same source and
-QSO correlation boundary for its selection/late-result workflow; only a result
-already associated with this exact QSO can enter the existing optional snapshot
-save path. No placeholder lookup consumer is required to complete #19.
+The corrected [#21 specification](2026-11-04-ws-suite-selection-design.md)
+extends capture with independent directory demand. Derive its key from the
+projected QSO: reuse an unexpired shared success, join an in-flight lookup or
+start on a miss. Never wait for directory completion before saving. A ready
+success enters the existing atomic save; a pending handle stays with that actual
+save's QSO ID and is applied only after success through the store's live/key
+guards. Entry and Status participate only through optional shared station-result
+reuse, never through capture identity or form ownership. Capture does not change
+or reset the manual entry. Enrichment does not extend receiver pairing/drain.
 
 A store failure is reported through existing nonmodal error treatment and
 structured diagnostics; do not mark it captured. Retain the candidate's ID

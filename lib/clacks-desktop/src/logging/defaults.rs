@@ -146,13 +146,8 @@ impl NewEntry {
         self.form.build(self.id, definitions)
     }
 
-    /// Prepare the next contact after committed success, retaining only radio information.
-    pub fn reset_after_save(
-        &mut self,
-        active: &OperatingState,
-        view: SelectedView,
-        now: UtcSecond,
-    ) {
+    /// Initialize a fresh contact, retaining only radio information.
+    pub fn reset(&mut self, active: &OperatingState, view: SelectedView, now: UtcSecond) {
         let primary = self.form.primary.clone();
         let receive = self.form.receive.clone();
         let mode = self.form.mode.clone();

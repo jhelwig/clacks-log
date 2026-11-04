@@ -64,13 +64,19 @@ pub(super) struct Workbench {
 }
 
 impl Workbench {
-    /// Route only matching contact/key results to their original form.
-    pub(super) fn lookup_update(&mut self, update: crate::directory::lookup::LookupUpdate) {
-        if update.changed {
-            self.entry.changed = true;
-        }
-        self.entry.lookup_update(&update);
-        self.contacts.lookup_update(&update);
+    /// Apply the WS callsign to the shared entry observed by lookup and history.
+    pub(super) fn incoming_call(&mut self, call: &str) {
+        self.entry.incoming_call(call);
+    }
+
+    /// Advance directory lookup demand for the entry and saved-contact editor.
+    pub(super) fn advance_lookup(
+        &mut self,
+        context: &egui::Context,
+        lookup: Option<&crate::directory::lookup::LookupClient>,
+    ) {
+        self.entry.advance_lookup(context, lookup);
+        self.contacts.advance_lookup(context, lookup);
     }
 
     /// Measure the composed tabs using the same typography and icon allocation

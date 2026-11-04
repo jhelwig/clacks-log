@@ -1,6 +1,10 @@
 //! Query reporting and cancellation at the runtime's actual admission boundary.
 
 use super::*;
+async fn execute(store: ClientStore, request: SettingsRequest) -> Option<Completion> {
+    super::execute(store, request, None, tokio::sync::watch::channel(()).0).await
+}
+
 use clacks_client_store::read::{
     contacts::ContactPageQuery, query_state::QueryState, worked_before::WorkedBeforeQuery,
 };

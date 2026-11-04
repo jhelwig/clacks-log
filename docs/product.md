@@ -228,6 +228,20 @@ D82 rejects close-to-tray/background-running behavior. Closing the client stops 
 
 Clacks Log's agreed scheduling is in [External logbook services](integrations.md).
 
+WS Status updates only Clacks's shared entry callsign. Worked Before observes
+that field; directory lookup debounces effective call changes for 500 ms. Other
+unsaved entry fields survive incoming calls. Clear, left of Save QSO, uses the
+post-save reset without saving. It remains available for invalid input and is
+disabled during a pending save.
+
+Entry and WS capture share in-flight directory lookups and transient successes
+by normalized lookup key. Successful reusable results have 24-hour retention
+from completion and a 128-result limit. Capture independently requests its own
+projected call's key, reusing/joining or starting a miss immediately, without
+waiting to save. Actual save callers retain eligible results with their QSO IDs;
+Status has no association with completed contacts. See the corrected
+[#21 specification](superpowers/specs/2026-11-04-ws-suite-selection-design.md).
+
 GridTracker's Generate Messages action reaches Clacks through WS status updates; D115 defines the resulting callsign, directory-lookup and Worked Before behavior.
 
 ## Manual logging and rig integration

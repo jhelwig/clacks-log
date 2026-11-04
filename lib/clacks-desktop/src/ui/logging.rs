@@ -52,7 +52,7 @@ pub(super) struct LoggingUi {
     view: SelectedView,
     /// Quiet success or persistent failure feedback.
     notice: Option<String>,
-    /// Return keyboard focus to Callsign after a successful new save.
+    /// Return keyboard focus to Callsign after a fresh-entry reset.
     focus_call: bool,
     /// Actual committed contact change, consumed by workbench list invalidation.
     pub changed: bool,
@@ -84,10 +84,48 @@ impl Default for LoggingUi {
 }
 
 impl LoggingUi {
-    /// Receive only results owned by the current unfinished entry.
-    pub(super) fn lookup_update(&mut self, update: &crate::directory::lookup::LookupUpdate) {
+    /// Accept the latest WS call without touching other unfinished facts.
+    pub(super) fn incoming_call(&mut self, call: &str) {
+        let call = call.trim().to_ascii_uppercase();
+        if self.entry.form.dx.callsign == call {
+            return;
+        }
+        self.entry.form.dx.callsign = call;
+        if self.pending.is_none() {
+            self.submitted = None;
+        }
+        self.validation.invalidate();
         self.directory
-            .update(self.entry.id, &self.entry.form.dx.callsign, update);
+            .observe(&self.entry.form.dx.callsign, tokio::time::Instant::now());
+    }
+
+    /// Use the same fresh draft initialization as a successful manual save.
+    pub(super) fn clear(&mut self) {
+        if self.pending.is_some() {
+            return;
+        }
+        self.entry.reset(&self.active, self.view, time::now());
+        self.baseline = self.entry.form.clone();
+        self.directory = Default::default();
+        self.submitted = None;
+        self.validation.invalidate();
+        self.errors.clear();
+        self.problem = false;
+        self.notice = None;
+        self.focus_call = true;
+    }
+
+    /// Advance shared lookup interest independently of which entry pane is visible.
+    pub(super) fn advance_lookup(
+        &mut self,
+        context: &egui::Context,
+        lookup: Option<&crate::directory::lookup::LookupClient>,
+    ) {
+        self.poll();
+        self.directory
+            .observe(&self.entry.form.dx.callsign, tokio::time::Instant::now());
+        self.directory
+            .advance(context, lookup, tokio::time::Instant::now());
     }
 
     /// Borrow the unfinished contacted call for Worked Before without exposing the draft.
@@ -177,8 +215,16 @@ impl LoggingUi {
             ui.horizontal(|ui| {
                 ui.strong("QSO entry");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add_enabled(enabled, egui::Button::new("Save QSO"))
+                    let save = ui
+                        .add_enabled(enabled, egui::Button::new("Save QSO"))
+                        .clicked();
+                    if ui
+                        .add_enabled(self.pending.is_none(), egui::Button::new("Clear"))
                         .clicked()
+                    {
+                        self.clear();
+                    }
+                    save
                 })
                 .inner
             })
@@ -213,8 +259,8 @@ impl LoggingUi {
                         .inner;
                     self.focus_call = false;
                     self.directory
-                        .observe(self.entry.id, &self.entry.form.dx.callsign, requests);
-                    self.directory.show(ui, self.entry.id, requests);
+                        .observe(&self.entry.form.dx.callsign, tokio::time::Instant::now());
+                    self.directory.show(ui);
                     if action.edited {
                         self.entry.capture_corrections(&before);
                         self.submitted = None;
@@ -282,7 +328,7 @@ impl LoggingUi {
             self.validation.edited(ui.input(|i| i.time));
         }
         self.directory
-            .observe(self.entry.id, &self.entry.form.dx.callsign, requests);
+            .observe(&self.entry.form.dx.callsign, tokio::time::Instant::now());
         if changed.save && self.pending.is_none() {
             self.save(requests);
         }
@@ -300,7 +346,7 @@ impl LoggingUi {
         let (reply, receiver) = oneshot::channel();
         let request = SettingsRequest {
             action: SettingsAction::Contacts(ContactAction::Save {
-                snapshot: self.directory.snapshot(&self.entry.form.dx.callsign),
+                directory: self.directory.submission(),
                 expected: None,
                 next: Box::new(next.clone()),
             }),

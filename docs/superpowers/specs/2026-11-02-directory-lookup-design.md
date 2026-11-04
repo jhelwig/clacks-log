@@ -384,37 +384,46 @@ installed credentials. This uses the captured request context, not a new epoch.
 
 ## 7. Entry, save and delayed response lifecycle
 
-Observe actual effective callsign changes in the existing form/session flow.
-Use Tokio timing/cancellation and the existing request/result channels; keep
-database and HTTP work out of redraw callbacks. Debounce 500 ms after the last
-effective call change; unchanged input does not restart the timer. Normalize
-the request key separately. Empty input clears transient directory display and
-does not request a lookup. A change retaining the normalized key retains eligible
-snapshot facts; a different key immediately stops their use.
+The corrected [#21 specification](2026-11-04-ws-suite-selection-design.md)
+supersedes form-owned request correlation. WS Status changes only the shared
+entry callsign; Worked Before observes that field independently of directory
+lookup. Preserve every other unsaved field. Incoming calls, including repeated
+values overriding local edits and empty calls, are authoritative.
 
-Give each unfinished entry/request its ordinary correlation identity. On Save,
-keep the association with the exact submitted QSO while the existing save is
-pending. Never delay saving for lookup. Once save commits, direct pending/late
-results to that QSO; on failed save, retain the submitted form and its result.
-A result already available when saving can be installed with its QSO in the
-same local transaction. An arriving result during save is retained until the
-save outcome determines its owner. This is bounded transient application state,
-not a persistent unfinished-draft store or a general request broker.
+Debounce entry lookup 500 ms after an effective trim/uppercase text change.
+Unchanged input does not restart the timer; slash changes can restart it even
+when the normalized lookup key stays the same. Empty input or Clear removes
+only that entry's display interest. An old result cannot restore cleared hints.
 
-At application, read the current local working QSO in the transaction. A deleted
-QSO or changed normalized key prevents application; ordinary editing of other
-recorded fields does not. Editing a saved callsign triggers lookup for its new
-effective key; opening an unchanged saved contact alone is not a bulk refresh.
-Do not run a directory result through recorded-QSO stale-save/conflict handling.
-Clearing/moving to the next entry invalidates only its display ownership, not an
-already saved original QSO's eligible late result. No provider-switch-specific
-display suppression is added.
+Entry, saved-contact editing and WS capture obtain shared handles by lookup key.
+Join an in-flight lookup or reuse a successful transient result. Retain reusable
+successes for 24 hours from completion, with a 128-result limit per workspace;
+hits do not extend age. The cache is memory-only and is not reconstructed from
+contact snapshots. Provider/material changes govern new dispatch and preserve
+cached successes. There is no success-refresh or cache-bypass action; existing
+failure/login retries remain available.
 
-Provider selection/removal controls newly admitted requests after the installed
-configuration change. Already-started requests remain correlated with their
-original entry/QSO and use the same response eligibility checks. Replacement
-does not require another rejection epoch for results already obtained with old
-credentials. Provider changes do not invalidate retained contact snapshots.
+WS capture independently requests its actual projected contact's key, starting
+lookup on a miss immediately without the entry debounce. Never delay either
+manual or capture saving for directory completion. A ready result can be saved
+atomically with the QSO. Otherwise the actual save caller retains its immutable
+key/deadline/handle alongside its QSO identity; only a successful save permits
+late application. A failed save installs no late snapshot. Directory operations
+do not own forms or search for corresponding completed contacts.
+An admitted early save drives its original entry deadline even while save work
+is queued. A rejected submission releases its unstarted lookup interest.
+
+At application, the existing store transaction checks the current live QSO and
+normalized key. Deletion or a key change prevents application; other recorded
+edits do not. Opening an unchanged saved contact requests no refresh. Clearing
+or changing entry does not cancel another consumer's eligible saved result.
+Provider requests and result application are owned by the workspace lifetime,
+independently of receiver reconfiguration/draining.
+
+Provider selection/removal controls new dispatch after installed configuration
+changes. Started operations retain their captured material; replacement does
+not add a rejection epoch or suppress eligible successes from old credentials.
+Provider changes do not invalidate retained contact snapshots.
 All snapshots for one QSO/key compete under D209 regardless of provider;
 disconnected clients can legitimately return a later successful old-provider
 lookup. There is no current-provider gate on saved snapshot eligibility.

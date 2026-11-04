@@ -127,14 +127,25 @@ async fn shutdown_flushes_unfinished_query_without_waiting_for_debounce() -> any
     let SettingsAction::Contacts(action) = request.action else {
         anyhow::bail!("not a contact preference")
     };
-    let response = crate::session::settings::contacts::execute(&store, action).await?;
+    let response = crate::session::settings::contacts::execute(
+        &store,
+        action,
+        None,
+        tokio::sync::watch::channel(()).0,
+    )
+    .await?;
     request
         .reply
         .send(SettingsResponse::Contacts(response))
         .unwrap();
     assert!(query.flush(&context, &sender));
-    let response =
-        crate::session::settings::contacts::execute(&store, ContactAction::LoadQueryState).await?;
+    let response = crate::session::settings::contacts::execute(
+        &store,
+        ContactAction::LoadQueryState,
+        None,
+        tokio::sync::watch::channel(()).0,
+    )
+    .await?;
     assert!(matches!(response, ContactResponse::QueryState(saved) if saved == state));
     store.close().await?;
     Ok(())

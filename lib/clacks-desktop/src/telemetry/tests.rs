@@ -263,6 +263,14 @@ fn child_entry() -> anyhow::Result<()> {
             .join("");
 
         assert!(!contents.contains("SECRET_SENTINEL"));
+        if let Some((lookup, _)) = &directory_owner {
+            let reused = contents
+                .lines()
+                .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+                .find(|value| value["fields"]["event"] == "directory.lookup.reused")
+                .expect("cache reuse event from the real lookup scenario");
+            assert_eq!(reused["fields"]["lookup_id"], lookup.to_string());
+        }
         if case == "directory-login" {
             directory_login::exclude_secrets(contents.as_bytes());
         }
@@ -420,12 +428,9 @@ fn child_entry() -> anyhow::Result<()> {
                     }
                 }
             }
-            assert_eq!(dispatches, 2);
-            assert_eq!(
-                outcomes,
-                [("not_found".into(), 1), ("success".into(), 1)].into()
-            );
-            assert_eq!(duration_count, 2);
+            assert_eq!(dispatches, 1);
+            assert_eq!(outcomes, [("success".into(), 1)].into());
+            assert_eq!(duration_count, 1);
         }
 
         if matches!(case.as_str(), "headers-file" | "headers-env") {

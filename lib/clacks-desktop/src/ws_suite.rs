@@ -65,11 +65,21 @@ pub(crate) struct ReceiverView {
     pub capture_notice: Option<String>,
 }
 
+/// Reuse the workspace client identity to scope ordered entry delivery.
+pub(crate) struct EntryCall {
+    /// Workspace identity used to reject entry updates from a closed workspace.
+    pub workspace: crate::directory::lookup::LookupClient,
+    /// Only the field supplied by Status.
+    pub status: protocol::StatusCall,
+}
+
 /// Publish outcomes and wake native presentation independently of painting.
 #[derive(Clone)]
 pub(crate) struct Outputs {
     /// Latest loaded preference and reception failure.
     pub updates: watch::Sender<ReceiverView>,
+    /// Ordered entry calls; completion capture never consumes these.
+    pub calls: tokio::sync::mpsc::UnboundedSender<EntryCall>,
     /// Renderer wake handle, attached after startup.
     pub context: Arc<OnceLock<eframe::egui::Context>>,
 }
