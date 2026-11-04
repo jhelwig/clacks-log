@@ -29,6 +29,7 @@ continue to be built and saved independently of the manual entry.
 | Status changes only the entry callsign; preserve all other unsaved fields | Explicit user decision in this #21 discussion |
 | Clear sits immediately left of Save QSO and performs the existing post-save reset without saving | Explicit user decision in this #21 discussion |
 | Status handling and QSO capture remain independent, sharing in-flight lookups and transient results by lookup key | Explicit user direction and selected approach in this #21 discussion |
+| WS capture independently requests directory information: reuse a valid cached result, join in-flight work, or start lookup on a miss without delaying save | Explicit user requirement in this #21 discussion |
 | Retain successful transient directory results for up to 24 hours, subject to the 128-result eviction limit; no successful-result refresh behavior | Explicit user decisions in this #21 discussion |
 | No explicit handling of simultaneous WS instances is needed for MVP | Explicit user scope decision in this #21 discussion |
 
@@ -39,7 +40,7 @@ WS status -> shared entry callsign -> Worked Before
                                  -> debounced directory demand
 
 WS completion -> independently built QSO -> local save
-                                      -> reuse/join directory data by its key
+                                      -> directory request by its key
 
 Directory demands -> shared in-flight lookup / transient result by key
 ```
@@ -79,7 +80,8 @@ There is no need to infer which status packet belongs to a completed QSO.
   messages. Extend it to expose Status type 1 as a separate decoded variant.
 - `ws_suite::runtime` already receives packets, pairs completions and saves
   projected native contacts directly. Add status delivery and independently
-  reuse ready/in-flight directory data for usable capture projections.
+  request directory data for usable capture projections through the shared
+  lookup operation.
 - `LoggingUi` owns one shared unfinished `NewEntry`; `contact_call()` is the
   existing input to Worked Before. Keep this dependency and the dedicated
   window's shared entry behavior.
@@ -115,10 +117,9 @@ Derive keys through the existing shared transformation and retain recorded
 callsigns unchanged. For example, `W7HEX/P` and `W7HEX` share the directory key
 `W7HEX` but remain different entry/Worked Before inputs.
 
-Expose an operation for established entry-driven lookup demand and an operation
-to reuse an existing result or join an existing request without starting one.
-The former is used after the entry debounce and by existing failure-retry actions;
-the latter is used by independent capture. An ordinary entry-driven request:
+Expose one shared lookup operation used by entry, independent capture and the
+existing failure-retry actions. Entry demand follows its 500 ms debounce;
+capture demand does not wait for an entry change or debounce. Each request:
 
 1. Returns an unexpired successful transient result when available.
 2. Otherwise joins the in-flight operation for that key.
@@ -259,27 +260,28 @@ recognition, not to directory-key sharing.
 ## 6. Independent capture and result application
 
 For each usable capture candidate, derive the directory key from its projected
-QSO's actual contacted callsign. Independently reuse an unexpired success or join
-an in-flight lookup for that key. This does not depend on the entry, displayed
-call, status source, manual draft ID or manual corrections. If neither exists,
-save without directory information. D91 establishes entry-driven lookup; D95
-establishes retention of pending results, not a new completion-driven request
-trigger. This specification therefore adds no provider query on a capture miss.
-User-triggered bulk lookup remains available under D99 for missed enrichment.
-Provider absence/failure never prevents saving.
+QSO's actual contacted callsign and independently request directory information
+through the shared lookup operation. Reuse an unexpired cached success, otherwise
+join an in-flight lookup for that key, otherwise start a lookup. This is an
+explicit user requirement and does not depend on prior status, the entry,
+displayed call, manual draft ID or manual corrections. A cache miss starts lookup
+without the entry's 500 ms debounce. The existing selected-provider,
+authentication-pause and quiet-period rules still govern network dispatch;
+provider absence/failure never prevents saving. User-triggered bulk lookup
+remains available under D99 for enrichment missed while lookup is unavailable.
 
 If success is already available, pass it to the ordinary atomic contact/snapshot
-save. If a request is in flight, save without its result and retain its handle
-alongside that capture operation's existing QSO ID. On a miss there is no handle
-or enrichment continuation. Do not await directory completion before saving.
+save. If lookup is pending, whether joined or newly started on a miss, save
+without its result and retain its handle alongside that capture operation's
+existing QSO ID. Do not await directory completion before saving.
 
-After a successful save with a joined request, a ready result is applied
+After a successful save with a pending lookup, a ready result is applied
 immediately; otherwise an ordinary workspace-owned continuation awaits that
 handle and applies its success through `directory::snapshots::apply`. A result
 that completes during the database save remains available through the handle.
-Enrichment continuation
-is separate from the receiver's pairing/save drain. Release the pairing candidate
-and mark successful capture when the contact save commits, regardless of lookup.
+Enrichment continuation is separate from the receiver's pairing/save drain.
+Release the pairing candidate and mark successful capture when the contact save
+commits, regardless of lookup.
 
 The target identity comes from the actual capture save. At application the store
 checks that this QSO remains live and its current lookup key matches. Changes to
@@ -378,16 +380,23 @@ of states, window conditions or external applications to exercise.
    remains local/provider-independent. Extend existing semantic UI and controlled
    clock cases rather than creating a parallel form harness.
 3. Use existing local provider fixture endpoints and real Clacks lookup APIs to
-   show concurrent entry/capture demand issues one actual request, reuses one
-   lookup identity/time, and handles 24-hour expiry, 128-result eviction, existing
-   failure retry and provider/material changes. Test Clacks's keying and dispatch decisions,
-   not `Shared` cloning or mutex correctness in isolation.
+   show that a capture cache hit issues no new request and retains the original
+   lookup identity/time. A capture joining an in-flight lookup issues no duplicate
+   request; concurrent entry/capture misses admit one operation for their shared
+   key. Cover 24-hour expiry, 128-result eviction, existing failure retry and
+   provider/material changes. Test Clacks's keying and dispatch decisions, not
+   `Shared` cloning or mutex correctness in isolation.
 4. Real capture/save/read cases cover ready success, success during save, late
-   success after entry changes/Clear, cache miss without a new request, save
-   failure where ordinary real inputs permit it, QSO deletion and key-changing
-   edit before application,
-   and two distinct QSO IDs consuming one result. Include manual save/edit before
-   debounce expiry: demand occurs at the original deadline, including during a
+   success after entry changes/Clear, and capture with no prior status or entry
+   lookup: its cache miss starts a provider lookup, the QSO is saved/readable
+   while the response remains pending, and a later success attaches the separate
+   snapshot to that saved QSO. Establish save-before-response for both joined and
+   newly started lookups, using the existing controllable provider endpoint.
+   Cover provider failure without loss of the saved contact, save failure where
+   ordinary real inputs permit it, QSO deletion and key-changing edit before
+   application, and two distinct QSO IDs consuming one result. Include manual
+   save/edit before debounce expiry: demand occurs at the original deadline,
+   including during a
    pending save or after reset, without delaying save acknowledgment. Preserve
    recorded facts and current operating defaults. Verify saved snapshots through
    existing public operations and their ordinary synchronization path. No test
