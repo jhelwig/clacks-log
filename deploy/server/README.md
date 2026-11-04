@@ -112,8 +112,181 @@ endpoints, headers and timeouts with standard `OTEL_EXPORTER_OTLP_*` variables;
 keep authorization headers in deployment secrets. Library batching/queues and the
 metrics bridge are standard libraries. The HTTP request span extracts standard
 Trace Context headers without copying arbitrary baggage into logs. Request metrics
-use bounded status classes, never account IDs or callback URLs. Account/identity
-changes are logged after commit. User-facing security-event history is deferred.
+use exact response codes and matched route templates, never account IDs or
+callback URLs. Account/identity changes are logged after commit. User-facing security-event history is deferred.
+
+## Operator telemetry
+
+### Export configuration, identity and filtering
+
+Enable export in the existing server configuration with `otlp = true`. For an
+already provisioned collector reachable from the server, a portable environment
+example is:
+
+```sh
+export OTEL_EXPORTER_OTLP_ENDPOINT='https://collector.example.com:4318'
+export OTEL_EXPORTER_OTLP_TIMEOUT=10000
+export OTEL_RESOURCE_ATTRIBUTES='deployment.environment.name=production'
+export RUST_LOG=info
+```
+
+Adjust the example values for your deployment. The shared endpoint is a base URL: the HTTP exporters append
+`/v1/traces`, `/v1/metrics` and `/v1/logs`. Signal-specific
+`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` and
+`OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` override it and must include the complete
+signal path. Timeout values are milliseconds; signal-specific timeout/header
+settings override the shared settings. Clacks selects HTTP/protobuf in code;
+`OTEL_EXPORTER_OTLP_PROTOCOL` does not switch this executable to another transport.
+
+If the collector requires authentication, provision
+`OTEL_EXPORTER_OTLP_HEADERS='Authorization=Bearer%20REPLACE_WITH_COLLECTOR_TOKEN'`
+through protected deployment secrets; never copy a real token into documentation
+or shell history. Header values are URL-decoded. Leave the setting absent for a
+trusted private receiver that does not require it. This does not expose a new
+public collector listener or configure backend storage.
+
+The executable sets `service.name=clacks-server` and `service.version` to its
+package version after loading resource environment attributes; these values take
+precedence over environment attempts to rename them. Add deployment attributes
+through `OTEL_RESOURCE_ATTRIBUTES`. An optional `service.instance.id` can identify
+an operator-selected server instance; it is absent unless configured. A package
+version alone does not identify a source revision: use the deployment's running
+image/revision record when investigating a particular release.
+
+The default `RUST_LOG` filter is `info`. Significant account/client events remain
+visible; routine `oauth.grant.refused`, `oauth.proof.refused` and
+`oauth.client.refused` events are `debug`. For a deliberate issuer investigation,
+`RUST_LOG=info,clacks_server::oauth::events=debug` selects those diagnostics.
+Apply filter changes through your deployment configuration. Dependency
+caps keep Reqwest, Hyper, HTTP/2, SQLx and OpenTelemetry diagnostics at warning or
+higher even with more verbose directives; session internals are disabled.
+Exporter diagnostics are excluded from the exported log bridge to avoid loops.
+Trace sampling (`OTEL_TRACES_SAMPLER` and, where applicable,
+`OTEL_TRACES_SAMPLER_ARG`) does not suppress required security logs or metrics.
+A missing sampled trace does not invalidate a retained security event.
+
+Configure collection, storage, access and retention using the selected backend's
+supported deployment facilities. Local standard-error logs remain available when
+export fails. Exporter/collector buffering may lose telemetry; operator telemetry
+is distinct from durable synchronization evidence and account-user history.
+Shutdown bounds and the local incomplete-export warning are described in
+[runtime operations](#runtime-operations).
+
+### Request failures and latency
+
+Request spans follow OpenTelemetry HTTP semantic conventions. Duration covers
+handling through response headers, excluding streaming body delivery and upgraded
+socket lifetime. Exact response status and matched routes are available; a
+headers-produced log does not prove body delivery. Paths, benign query values
+and user agents remain in traces. The designated OAuth query values are redacted
+by the released middleware. Percent-encoded parameter names are an explicit
+upstream limitation; no blanket span-attribute scrubber is installed.
+
+With a Prometheus backend, the standard HTTP duration instrument commonly maps
+to `http_server_request_duration_seconds_count` and
+`http_server_request_duration_seconds_bucket`, with `http_route`,
+`http_request_method` and `http_response_status_code` labels. The following
+Prometheus query language (PromQL) examples assume that translation and
+`job="clacks-server"`. Verify metric/label translation in your collector and add
+selectors for the deployment or instances you intend to inspect. Resource
+attributes are not all automatically indexed as metric labels.
+
+Request rate by route and exact response code:
+
+```promql
+sum by (http_route, http_response_status_code) (
+  rate(http_server_request_duration_seconds_count{job="clacks-server"}[5m])
+)
+```
+
+Server-failure rate by route:
+
+```promql
+sum by (http_route) (
+  rate(http_server_request_duration_seconds_count{job="clacks-server",http_response_status_code=~"5.."}[5m])
+)
+```
+
+Replace `5..` with `4..` to inspect client refusals separately. Expected 4xx
+responses do not automatically set error span status; 5xx responses do. Unknown
+routes omit `http.route`; never substitute raw paths as metric dimensions.
+
+Route-level p95 handling duration:
+
+```promql
+histogram_quantile(0.95,
+  sum by (le, http_route) (
+    rate(http_server_request_duration_seconds_bucket{job="clacks-server"}[5m])
+  )
+)
+```
+
+The default metric export interval is 60 seconds (`OTEL_METRIC_EXPORT_INTERVAL`
+is in milliseconds). Use a rate window spanning several exports. A short window
+or a never-observed status may return no series. Empty data is not a zero failure
+rate. Percentiles can be absent or uninformative at low volume. Counters reset on
+process restart; `rate`/`increase` handle observed resets but cannot recover
+activity before the first sample or promise exact per-scenario counts under
+concurrent traffic. Use application request metrics for totals rather than
+sampled traces or metrics derived from sampled traces.
+
+### Authentication outcomes and correlation
+
+With the same example Prometheus translation, inspect recent counter changes:
+
+```promql
+increase(clacks_client_authorizations_total{job="clacks-server"}[15m])
+```
+
+```promql
+increase(clacks_client_revocations_total{job="clacks-server"}[15m])
+```
+
+```promql
+sum by (grant_type) (
+  rate(clacks_oauth_tokens_issued_total{job="clacks-server"}[5m])
+)
+```
+
+Authorizations count successful activation; revocations count changed committed
+client membership; issued tokens are grouped by grant type. None counts unique
+users or successful provider sign-ins. A missing authorization/token series can
+mean there was no observation in that process/window, not that enrollment or
+sign-in failed. Add deployment selectors appropriate to your backend when several
+instances or environments share a service name.
+
+For an individual action, query the existing structured log attributes in your
+logging backend. Select `service.name=clacks-server` and the intended deployment
+resource identity, then filter the appropriate outcome:
+
+| Outcome | Log field | Interpretation |
+| --- | --- | --- |
+| Provider sign-in | Body equals `Browser login established`; account/identity attributes | A browser login was committed for that account |
+| Client authorization | `event=client.authorization.activated`; account/actor attributes | Client authorization was activated |
+| Client revocation | `event=client.revoked`; account/actor attributes | Changed client membership was committed |
+| Token issuance | `event=oauth.token.issued`; grant type, account and grant-family attributes | The issuer issued a token; not a count of provider sign-ins |
+| Token revocation | `event=oauth.token.revoked`; token type; `cascade_failed=true` on cascade failure | Issuer token operation; inspect cascade outcome, not a substitute for the membership event |
+
+A callback redirect alone does not establish successful login. The login success
+record currently uses a fixed body rather than an `event` attribute; match the
+body exactly instead of inferring success from arbitrary message text. Account,
+identity, actor and grant-family IDs are operational correlation context, never
+metric dimensions. A zero-result query requires checking the time window,
+collection, retention and filtering before interpreting the workflow outcome.
+
+Use the log record's standard trace/span context to retrieve the trace in your
+backend. Match the span ID to the relevant operation and inspect its enclosing
+HTTP span for matched route and response status. The `account.login.admit` span
+belongs to `account.login.callback`; client revocation uses
+`account.client.revoke`. Backend field names, indexed labels and log-to-trace
+links depend on collector/storage configuration, rather than the Clacks wire
+protocol or a fixed log-query schema. Configure and document those mappings for
+your installation. Log and trace retention can differ; a log may outlive its
+linked trace, and sampling may leave a security log without a stored trace.
+
+Do not include provider codes, cookies, access tokens, proof headers or private
+keys in investigation records. Operator telemetry does not replace authoritative
+application evidence or provide an account-user security-history store.
 
 ## Backup and recovery
 
@@ -156,36 +329,3 @@ application rollback targets must retain the writer boundary and live formats.
 Maintenance requires a direct or session-pooled connection, not transaction
 pooling. Keep every key required by retained backups even after current source
 references reach zero.
-
-### Investigating application requests
-
-Request spans follow OpenTelemetry HTTP semantic conventions. Request duration
-covers application handling through response headers, excluding later streaming
-body transmission and upgraded sockets. Exact response status and matched routes
-are available; a headers-produced log is not proof of body delivery. Standard
-Tower callbacks report observed failures. Paths, benign query values and user
-agents remain in traces. The designated OAuth query values are
-redacted by the released middleware. Percent-encoded parameter names are an
-explicit upstream limitation; no blanket span-attribute scrubber is installed.
-
-With the existing Alloy/Prometheus translation, use
-`http_server_request_duration_seconds_count` for rates and
-`http_server_request_duration_seconds_bucket` for distributions, grouped by
-`http_route`, `http_request_method` and `http_response_status_code`. The configured
-`service.instance.id` becomes `instance`, and service name becomes `job`.
-For example, a route-level percentile is:
-
-```promql
-histogram_quantile(0.95,
-  sum by (le, http_route) (
-    rate(http_server_request_duration_seconds_bucket{job="clacks-server"}[5m])
-  )
-)
-```
-
-Update managed dashboards/alerts in their owning Operations repository before the
-corresponding application rollout; do not deploy dashboard changes from the UI.
-The legacy `clacks_http_*` families are replaced by the standard duration family.
-Trace sampling does not affect these request measurements or required security
-logs. Grafana usefulness must be verified against actual requests, failures and
-synchronization, rather than inferred from signal delivery or output snapshots.
