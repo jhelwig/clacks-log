@@ -123,7 +123,3 @@ stalled-peer/failure-phase exercises, production-load overhead and native Window
 execution. The cleanup counter boundary was inspected in code, but no synthetic
 schema failpoint was introduced to manufacture that scenario. The native runtime
 exercise does not constitute rendered desktop UI acceptance.
-
-The Operations companion PR updates the two managed HTTP dashboard queries and
-Loki's trace derived-field matcher. Neither has been applied. Rollout must
-coordinate the renamed metric queries with the application release.

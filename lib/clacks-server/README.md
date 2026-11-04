@@ -4,6 +4,8 @@ Production account persistence, OpenID Connect (OIDC) and operator operations fo
 Clacks Log. PostgreSQL
 is the server store; its schema is independent of the SQLite desktop store.
 The account contract is in [accounts.md](../../docs/accounts.md).
+For exporter configuration, operator queries and log/trace correlation, see the
+[operator telemetry guide](../../deploy/server/README.md#operator-telemetry).
 
 For a running local instance, follow the
 [complete development workflow](../../docs/server-development.md). The sections
