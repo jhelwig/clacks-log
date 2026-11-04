@@ -44,3 +44,5 @@ mod enrollment;
 
 mod directory_snapshots;
 mod resolution;
+
+mod ws_suite;

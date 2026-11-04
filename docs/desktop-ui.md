@@ -303,9 +303,26 @@ management commands into OS-native menus using the following agreed structure:
 
 | Native menu | Commands |
 | --- | --- |
-| Settings | Manage logbooks…, Station profiles…, Equipment configurations…, Refresh settings, account/server management, Appearance… |
+| Settings | Manage logbooks…, Station profiles…, Equipment configurations…, Refresh settings, account/server management, WS Suite…, Appearance… |
 | View | Reset workbench layout |
 | Help | Workspace & diagnostics… |
+
+**WS Suite…** opens the shared receiver-settings dialog. **Receive WS Suite
+updates** enables its pending Unicast/Multicast fields; **Apply** commits and
+activates them without restarting. Unicast has Local address and Port;
+Multicast has Group address, Port, Network interface and Refresh interfaces.
+A new workspace starts disabled with a loopback unicast proposal. The multicast
+group must be supplied by the operator. Current local interfaces show their OS
+name and address, with System default available where scope permits.
+
+Use the existing 300 ms validation, field errors, unapplied-value treatment,
+Apply/Cancel and opener-focus rules. Disabled connection fields do not block
+applying Off. The checkbox and unapplied treatment convey normal configuration;
+there is no separate Off/Listening status or endpoint summary. A reception
+failure has its own actionable message, retained outside a dismissed dialog
+with direct settings access. Apply can retry unchanged failed settings. A
+successful retry clears that message and closes the dialog; another failure
+keeps it open. Closing or cancelling does not undo an already submitted Apply.
 
 Use the native menu bar, including the screen-level menu bar on macOS; an egui
 menu drawn in the toolbar is not a substitute. Do not create a separate Logbooks

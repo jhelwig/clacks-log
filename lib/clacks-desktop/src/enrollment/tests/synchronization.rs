@@ -215,6 +215,7 @@ pub(super) async fn verify(
         identity::bind(&store, None, binding.clone()).await?;
         store.close().await?;
     }
+    let first_database = first.resources.paths.database.clone();
     let second_database = second.resources.paths.database.clone();
     let mut directory_entries = Vec::new();
     let mut directory_reference = String::new();
@@ -289,33 +290,58 @@ pub(super) async fn verify(
         );
     }
 
-    let mut form = crate::logging::form::ContactForm::empty();
-    form.own.callsign = "W7HEX".into();
-    form.dx.callsign = "OK2CQR".into();
-    form.primary.band = "20m".into();
-    form.mode = "SSB".into();
-    form.start = crate::logging::time::ContactTimestamp::recorded(Some(
-        clacks_model::scalar::UtcSecond::from_unix_seconds(1000),
-    ));
-    let qso = form
-        .build(
-            QsoId::new(),
-            &clacks_model::group::DefinitionSet::new(vec![])?,
+    // The first actual contact now enters through the production UDP receiver.
+    let probe = std::net::UdpSocket::bind("127.0.0.1:0")?;
+    let endpoint = probe.local_addr()?;
+    drop(probe);
+    let (reply, response) = oneshot::channel();
+    first
+        .commands
+        .send(SessionCommand::WsSuite(crate::ws_suite::ReceiverRequest {
+            action: crate::ws_suite::ReceiverAction::Apply {
+                next: clacks_client_store::ws_suite::ReceiverSettings {
+                    enabled: true,
+                    connection: clacks_client_store::ws_suite::ReceiverConnection::Unicast {
+                        address: endpoint.ip(),
+                        port: endpoint.port(),
+                    },
+                },
+            },
+            reply,
+        }))
+        .await?;
+    let crate::ws_suite::ReceiverResponse::Applied(view) = response.await? else {
+        anyhow::bail!("receiver Apply failed")
+    };
+    anyhow::ensure!(
+        view.reception == crate::ws_suite::ReceptionState::Listening,
+        "receiver activation failed"
+    );
+    let sender = tokio::net::UdpSocket::bind("127.0.0.1:0").await?;
+    sender
+        .send_to(
+            &crate::test_support::ws_suite::structured("OK2CQR"),
+            endpoint,
         )
-        .map_err(|error| anyhow::anyhow!("{error:?}"))?;
+        .await?;
+    sender
+        .send_to(&crate::test_support::ws_suite::adif("OK2CQR"), endpoint)
+        .await?;
+    let source = ClientStore::open_discovered(&first_database, Default::default()).await?;
+    let qso = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            let mut read = clacks_client_store::read::snapshot(&source).await?;
+            let page = read.contact_page(&Default::default()).await?;
+            read.close().await?;
+            if let Some(row) = page.rows.into_iter().next() {
+                break anyhow::Ok(row.working.qso);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await??;
+    source.close().await?;
     let id = qso.id();
-    assert!(matches!(
-        action(
-            &first.settings,
-            SettingsAction::Contacts(ContactAction::Save {
-                snapshot: None,
-                expected: None,
-                next: Box::new(qso.clone())
-            })
-        )
-        .await?,
-        SettingsResponse::Contacts(ContactResponse::Saved(SaveOutcome::Saved(_)))
-    ));
     let received = contact(&second.settings, &mut second.settings_view, id, |row| {
         row.pending().is_none()
     })

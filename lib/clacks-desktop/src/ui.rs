@@ -30,6 +30,7 @@ mod theme;
 mod validation;
 mod workbench;
 mod worked_before;
+mod ws_suite;
 
 use crate::{
     session::{SessionCommand, SessionStatus, settings::SettingsRequest},
@@ -52,6 +53,8 @@ pub(crate) struct UiResources {
     pub directory_status: watch::Receiver<crate::directory::provisioning::ProvisioningStatus>,
     /// Nonsecret enrollment context and progress from the owning session.
     pub enrollment_view: watch::Receiver<crate::enrollment::EnrollmentStatus>,
+    /// Receiver preference and failure updates.
+    pub ws_suite_view: watch::Receiver<crate::ws_suite::ReceiverView>,
     /// Workspace lifecycle notifications.
     pub status: watch::Receiver<SessionStatus>,
     /// Existing-instance activation notifications.
@@ -74,6 +77,10 @@ pub(crate) struct UiResources {
 
 /// Window-owned view state and standard communication handles.
 pub(crate) struct DesktopApp {
+    /// Receiver configuration modal and retained outcomes.
+    ws_suite: ws_suite::ReceiverUi,
+    /// Runtime-owned receiver view.
+    ws_suite_view: watch::Receiver<crate::ws_suite::ReceiverView>,
     /// Pending results drained independently from form navigation.
     lookup_view: mpsc::Receiver<crate::directory::lookup::LookupUpdate>,
     /// Current directory-only diagnosis; logging remains independently available.
@@ -136,6 +143,7 @@ impl DesktopApp {
     /// Attach the actual session and diagnostic state to one native window.
     pub fn new(resources: UiResources) -> Self {
         let UiResources {
+            ws_suite_view,
             lookup_view,
             directory_status,
             enrollment_view,
@@ -150,6 +158,8 @@ impl DesktopApp {
             file_failure,
         } = resources;
         Self {
+            ws_suite: Default::default(),
+            ws_suite_view,
             lookup_view,
             directory_status,
             #[cfg(any(target_os = "macos", windows))]
@@ -204,6 +214,7 @@ impl DesktopApp {
 
     /// Apply background notifications and native close handling, including while hidden.
     fn update_lifecycle(&mut self, context: &egui::Context) {
+        self.ws_suite.poll(&self.ws_suite_view.borrow());
         while let Ok(update) = self.lookup_view.try_recv() {
             self.workbench.lookup_update(update);
         }
@@ -343,6 +354,9 @@ impl eframe::App for DesktopApp {
                 if let Some(notice) = &self.appearance.notice {
                     feedback::problem(ui, notice);
                 }
+                let receiver_available = self.menu_enabled(crate::menus::MenuCommand::WsSuite);
+                self.ws_suite
+                    .feedback(ui, &self.commands, receiver_available);
                 startup::diagnostics(self, ui);
                 startup::show(self, ui, &state);
                 if let Some(snapshot) = &snapshot {
@@ -398,6 +412,7 @@ impl eframe::App for DesktopApp {
 
             self.details.show(ui.ctx(), &self.paths, &state);
             self.appearance.show(ui.ctx());
+            self.ws_suite.show(ui.ctx(), &self.commands);
             self.enrollment
                 .show(ui.ctx(), &self.commands, &mut self.enrollment_view);
         }

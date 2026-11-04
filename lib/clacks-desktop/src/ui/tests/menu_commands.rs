@@ -478,3 +478,16 @@ fn native_menu_text_preserves_literal_ampersand() {
         "Workspace & diagnostics…"
     );
 }
+
+#[test]
+fn ws_suite_menu_uses_shared_modal_admission() {
+    let mut window = Window::new();
+    assert!(!window.app.menu_enabled(MenuCommand::WsSuite));
+    ready(&mut window);
+    window
+        .app
+        .dispatch_menu(&window.context, MenuCommand::WsSuite);
+    assert!(window.app.ws_suite.is_open());
+    assert!(!window.app.menu_enabled(MenuCommand::ManageLogbooks));
+    assert!(!window.app.menu_enabled(MenuCommand::WsSuite));
+}

@@ -150,6 +150,22 @@ Linux; Windows CI is temporarily disabled because of its runtime cost. Cargo
 timing HTML is available in the `cargo-timings-ubuntu-latest` artifact for seven
 days and reports compilation units and their dependency timelines.
 
+The ordinary suite checks IPv6 multicast socket construction and options.
+IPv6 packet delivery, receiver coexistence, group isolation and capture are an
+explicit native check using an existing non-loopback IPv6 interface. The case
+is listed as ignored, with its prerequisite, in ordinary test runs. Run it with:
+
+```sh
+cargo +1.99.1 test -p clacks-desktop --lib --locked --offline ws_suite::tests::socket::ipv6_multicast_capture_on_existing_interface -- --ignored --exact --nocapture
+```
+
+The check reports the selected interface and keeps traffic on this computer
+using interface-local scope and zero multicast hops. It fails if no suitable
+interface exists or delivery fails; that platform's IPv6 verification remains
+incomplete. No adapters, routes or test address overrides are provisioned.
+A green ordinary CI run does not establish IPv6 packet-delivery acceptance.
+Native Windows multicast verification remains required for the MVP.
+
 The [account server](lib/clacks-server/README.md),
 [web interface](lib/clacks-web/README.md) and
 [Linux deployment](deploy/server/README.md) provide the production account,

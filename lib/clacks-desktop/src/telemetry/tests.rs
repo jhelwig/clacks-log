@@ -6,6 +6,7 @@ mod membership;
 mod operations;
 mod output;
 mod session;
+mod ws_suite;
 
 use super::*;
 use crate::{
@@ -118,6 +119,7 @@ fn child_entry() -> anyhow::Result<()> {
             | "headers-env"
             | "directory"
             | "directory-login"
+            | "ws-suite"
     );
     let mut arguments = vec![
         "clacks-log".to_owned(),
@@ -136,6 +138,9 @@ fn child_entry() -> anyhow::Result<()> {
         arguments.extend(["--otlp-timeout-ms".into(), "100".into()]);
     }
 
+    if case == "ws-suite" {
+        arguments.extend(["--log-filter".into(), "info".into()]);
+    }
     if case == "filtered" {
         arguments.extend([
             "--log-filter".into(),
@@ -201,6 +206,7 @@ fn child_entry() -> anyhow::Result<()> {
             "directory-login" => runtime.block_on(directory_login::run())?,
             "retry" => runtime.block_on(operations::retry_contact(&paths))?,
             "membership" => runtime.block_on(membership::run(&paths))?,
+            "ws-suite" => runtime.block_on(ws_suite::run(&paths))?,
             "directory" => {
                 directory_owner = Some(runtime.block_on(
                     crate::directory::lookup::tests::ownership_scenario(&paths.database),
@@ -265,6 +271,42 @@ fn child_entry() -> anyhow::Result<()> {
                 );
             }
         }
+        if case == "ws-suite" {
+            assert!(contents.contains("ws_suite.capture_committed"));
+            let commit = contents
+                .lines()
+                .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+                .find(|value| {
+                    value
+                        .get("fields")
+                        .and_then(|fields| fields.get("event"))
+                        .and_then(|event| event.as_str())
+                        == Some("ws_suite.capture_committed")
+                })
+                .expect("ordinary-level capture event");
+            let fields = commit.get("fields").unwrap();
+            assert!(
+                fields
+                    .get("qso_id")
+                    .and_then(|value| value.as_str())
+                    .unwrap()
+                    .parse::<clacks_model::ids::QsoId>()
+                    .is_ok()
+            );
+            assert_eq!(
+                fields.get("source_ip").and_then(|value| value.as_str()),
+                Some("127.0.0.1")
+            );
+            assert_eq!(
+                fields.get("source_id").and_then(|value| value.as_str()),
+                Some("WS")
+            );
+
+            assert!(contents.contains("ws_suite.receiver_failed"));
+            for secret in ["packet-private!", "structured-only", "W7HEX", "W7ABC"] {
+                assert!(!contents.contains(secret));
+            }
+        }
         if case == "membership" {
             assert!(!contents.contains("newer fact"));
         }
@@ -272,6 +314,9 @@ fn child_entry() -> anyhow::Result<()> {
 
     if let Some(collector) = &collector {
         let requests = collector.requests.lock().unwrap();
+        if case == "ws-suite" {
+            ws_suite::verify(&requests)?;
+        }
         if case == "directory-login" {
             directory_login::verify(&requests)?;
         }
@@ -465,4 +510,9 @@ fn retry_acknowledgment_preserves_work_without_disclosing_contact_facts() -> any
 #[test]
 fn membership_handles_stale_bases_and_cancellation() -> anyhow::Result<()> {
     child_case("membership")
+}
+
+#[test]
+fn ws_suite_capture_reports_commits_and_failures_without_payloads() -> anyhow::Result<()> {
+    child_case("ws-suite")
 }

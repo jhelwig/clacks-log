@@ -148,6 +148,7 @@ impl Window {
         let (_settings_updates, settings_view) = watch::channel(None);
         Self {
             app: DesktopApp::new(UiResources {
+                ws_suite_view: watch::channel(Default::default()).1,
                 lookup_view: mpsc::channel(32).1,
                 directory_status: watch::channel(Default::default()).1,
                 enrollment_view: watch::channel(Default::default()).1,
@@ -282,3 +283,5 @@ fn closing_discards_appearance_preview_and_continue_waiting_keeps_the_window_ope
 }
 
 mod menu_commands;
+
+mod ws_suite;

@@ -11,6 +11,7 @@ use eframe::egui;
 pub(super) fn primary(ui: &mut egui::Ui, label: &str, enabled: bool) -> egui::Response {
     let colors = theme::palette(ui.ctx().theme());
     ui.scope(|ui| {
+        ui.visuals_mut().override_text_color = Some(colors.on_accent);
         let widgets = &mut ui.visuals_mut().widgets;
         widgets.inactive.weak_bg_fill = colors.accent;
         widgets.inactive.bg_fill = colors.accent;
@@ -32,3 +33,6 @@ pub(super) fn primary(ui: &mut egui::Ui, label: &str, enabled: bool) -> egui::Re
     })
     .inner
 }
+
+#[cfg(test)]
+mod tests;
