@@ -232,9 +232,11 @@ RC numbers distinguish release candidates without changing MSI version ordering.
 includes its revision and workflow run so repeated builds of the same Cargo
 version can be distinguished without claiming a newer MSI version.
 
-Attach the final MSI, SHA-256 checksums and concise build/verification notes to
-the appropriate destination. Identify signing status, source revision, version,
-architecture and workflow run. Draft creation is not publication or proof of native acceptance. The user tests the exact
+The installer download contains only the final MSI. Record its SHA-256 and
+build identity in the workflow summary, and keep diagnostics and verification
+results in the job logs. Release notes link to the build run. Identify signing
+status, source revision, version, architecture and workflow run. Draft creation
+is not publication or proof of native acceptance. The user tests the exact
 attached installer; publishing the draft must not rebuild, re-sign or otherwise
 replace its bytes. A changed installer requires fresh checksum identification
 and native acceptance.
@@ -295,8 +297,8 @@ The sequence is:
 3. In unsigned mode, leave the executable unsigned. In a deliberately enabled
    future signed mode, sign and verify the built executable before packaging.
 4. Build the MSI with pinned `msi-builder` and its read-back check enabled.
-   Retain its supported inspection output for diagnosis; use the packager's
-   validation and default read-back rather than a custom MSI table checker.
+   Retain its supported inspection output in the job logs for diagnosis; use
+   the packager's validation and default read-back rather than a custom MSI table checker.
 5. Optionally sign the MSI through supported `msi-builder sign` facilities or
    Microsoft's standard SignTool when the eventual signing provider calls for
    it. Do not require exportable private keys or select a provider now. A
@@ -304,10 +306,10 @@ The sequence is:
    it never silently becomes unsigned. Ordinary unsigned builds have no secret
    prerequisite and do not invoke signature verification that rejects them.
 6. Verify final artifacts as appropriate for the mode, then compute SHA-256
-   checksums and upload the MSI and ordinary evidence/notes. No artifact
-   mutation follows its final checksum. Manual development builds upload
-   workflow artifacts; successful tag builds attach the final outputs to a
-   draft GitHub Release. Automation never publishes that draft.
+   checksums for the workflow summary. Upload only the MSI; retain build
+   evidence in the summary and logs. No artifact mutation follows its final
+   checksum. Manual development builds upload workflow artifacts; successful
+   tag builds attach the same MSI to a draft GitHub Release. Automation never publishes that draft.
 
 Use workflow composition and the packager's existing facilities. If nontrivial
 project-owned executable preparation is genuinely necessary, keep it in Rust

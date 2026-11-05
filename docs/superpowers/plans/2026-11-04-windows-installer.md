@@ -42,7 +42,7 @@ outcomes or authorize publication.
   executable signing before MSI construction and MSI signing before final
   verification, checksumming and upload for future integration.
 - Project-owned executable tooling is Rust. Use standard tool and platform
-  commands for resource inspection, hashing, JSON evidence and delivery.
+  commands for resource inspection, hashing, logged evidence and delivery.
 - Preserve unrelated state and use isolated application paths for native tests.
 - Review commit message files and physically wrap prose at 72 columns.
 
@@ -105,14 +105,14 @@ outcomes or authorize publication.
   standard SDK dependency listing and packager inspection output. Native Windows
   testing must establish actual runtime availability.
 - [x] Preserve future EXE/MSI signing insertion points. After final verification,
-  use standard SHA-256 hashing and JSON evidence commands to record the exact
+  use standard SHA-256 hashing and log/summary commands to record the exact
   artifact, source/build identity and reused verification links. No checkpoint
   file or additional artifact immutability protocol is introduced.
-- [x] Upload development/release build bundles with producer-owned artifact names
+- [x] Upload only the MSI with producer-owned artifact names
   including run and attempt. Consumers use producer outputs so partial job
   reruns retrieve the correct artifacts. Propagate each command's failure.
 - [x] Give contents-write permission only to release delivery. Use
-  `gh release create --verify-tag --draft` with final artifacts. GitHub-reported conflicts
+  `gh release create --verify-tag --draft` with only the final MSI. GitHub-reported conflicts
   or partial uploads fail visibly; do not implement automatic asset reconciliation,
   deletion or replacement. Publication remains manual.
 - [ ] Exercise manual and tag workflows once available on the default branch;
