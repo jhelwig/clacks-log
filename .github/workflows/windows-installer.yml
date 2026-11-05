@@ -46,7 +46,7 @@ jobs:
           RUST_LOG: info
         run: target/debug/clacks-desktop-package gate --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_SHA" --output ci-evidence.json
       - name: Preserve existing verification identity
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.source.outputs.artifact }}
           path: |
@@ -84,7 +84,7 @@ jobs:
         run: cargo clippy -p clacks-desktop-packaging -p clacks-desktop-package --all-targets --locked --offline -- -D warnings
       - name: Retrieve release eligibility evidence
         if: github.event_name == 'push'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.eligibility.outputs.artifact }}
           path: target/windows-package
@@ -184,7 +184,7 @@ jobs:
             native_acceptance = 'not established by packaging; see issue #79'
           } | ConvertTo-Json -Depth 10 | Set-Content "$delivery/build-info.json"
       - name: Upload installer and evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.identity.outputs.artifact }}
           path: target/windows-package/delivery/*
@@ -200,7 +200,7 @@ jobs:
       group: windows-installer-draft-${{ github.ref }}
       cancel-in-progress: false
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.package.outputs.artifact }}
           path: target/windows-package/delivery
