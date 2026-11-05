@@ -1253,6 +1253,7 @@ dependencies = [
  "huskarl-core",
  "huskarl-crypto-native",
  "huskarl-reqwest",
+ "image",
  "interprocess",
  "keyring-core",
  "leptos",
@@ -1301,6 +1302,26 @@ dependencies = [
  "winit",
  "winnow 1.0.3",
  "zeroize",
+]
+
+[[package]]
+name = "clacks-desktop-package"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clacks-desktop-packaging",
+]
+
+[[package]]
+name = "clacks-desktop-packaging"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -1375,6 +1396,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clacks-desktop",
+ "winresource",
 ]
 
 [[package]]
@@ -10215,6 +10237,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0592e1c9d151f854e6fd382574c3a0855250e1d9b2f99d9281c6e6391af352f1"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "winresource"
+version = "0.1.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2bc6d36480b829272a5bdabf08e6dca8004761c1da7e35efef800540c66221b"
+dependencies = [
+ "toml 1.1.8+spec-1.1.0",
+ "version_check",
 ]
 
 [[package]]

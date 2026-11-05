@@ -4,6 +4,7 @@ mod application;
 mod config;
 mod credentials;
 mod directory;
+mod icon;
 mod instance;
 mod logbooks;
 mod logging;

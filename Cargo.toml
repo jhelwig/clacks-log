@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    "lib/clacks-desktop-packaging",
+    "bin/clacks-desktop-package",
     "lib/clacks-web",
     "lib/clacks-server",
     "bin/clacks-admin",
@@ -29,6 +31,9 @@ license = "Elastic-2.0"
 publish = false
 
 [workspace.dependencies]
+clacks-desktop-packaging = { path = "lib/clacks-desktop-packaging" }
+winresource = "=0.1.34"
+image = { version = "=0.25.10", default-features = false, features = ["png"] }
 rustls = { version = "=0.23.46", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 tokio-tungstenite = { version = "=0.29.0", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
 futures-util = { version = "=0.3.34", features = ["sink"] }

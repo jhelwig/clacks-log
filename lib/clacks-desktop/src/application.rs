@@ -96,7 +96,9 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
     let ui_commands = commands.clone();
     let options = eframe::NativeOptions {
         renderer: eframe::Renderer::Wgpu,
-        viewport: eframe::egui::ViewportBuilder::default().with_inner_size([680.0, 440.0]),
+        viewport: eframe::egui::ViewportBuilder::default()
+            .with_inner_size([680.0, 440.0])
+            .with_icon(crate::icon::application_icon()?),
         persistence_path: Some(paths.directory.join("desktop-ui")),
         ..Default::default()
     };
