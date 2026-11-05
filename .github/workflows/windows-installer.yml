@@ -68,6 +68,7 @@ jobs:
     outputs:
       sha: ${{ steps.identity.outputs.sha }}
       prerelease: ${{ steps.identity.outputs.prerelease }}
+      msi: ${{ steps.identity.outputs.name }}
       artifact: ${{ steps.identity.outputs.artifact }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -156,24 +157,24 @@ jobs:
           MSI_NAME: ${{ steps.identity.outputs.name }}
           APP_VERSION: ${{ steps.identity.outputs.version }}
         run: |
-          target/msi-builder/msi-builder.exe inspect "target/windows-package/delivery/$env:MSI_NAME" | Out-File target/windows-package/delivery/msi-inspection.txt
+          target/msi-builder/msi-builder.exe inspect "target/windows-package/delivery/$env:MSI_NAME"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $exe = 'target/x86_64-pc-windows-msvc/release/clacks-log.exe'
           $version = (Get-Item $exe).VersionInfo
           if ($version.FileVersion -ne $env:APP_VERSION -or $version.ProductVersion -ne $env:APP_VERSION) { throw 'Executable version differs from Cargo version' }
-          $version | Select-Object FileVersion,ProductVersion,ProductName,CompanyName | ConvertTo-Json | Set-Content target/windows-package/delivery/exe-version.json
-          dumpbin /dependents $exe | Out-File target/windows-package/delivery/imports.txt
+          $version | Select-Object FileVersion,ProductVersion,ProductName,CompanyName | ConvertTo-Json
+          dumpbin /dependents $exe
       - name: Record final checksum and build evidence
         env:
           MSI_NAME: ${{ steps.identity.outputs.name }}
         run: |
           $delivery = 'target/windows-package/delivery'
           $hash = (Get-FileHash "$delivery/$env:MSI_NAME" -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $env:MSI_NAME" | Set-Content -Encoding utf8 "$delivery/SHA256SUMS"
+          $metadata = Get-Content target/windows-package/metadata.json -Raw | ConvertFrom-Json
           $ci = $null
           if ($env:GITHUB_EVENT_NAME -eq 'push') { $ci = Get-Content target/windows-package/ci-evidence.json -Raw | ConvertFrom-Json }
           @{
-            application = Get-Content target/windows-package/metadata.json -Raw | ConvertFrom-Json
+            application = $metadata
             artifact = $env:MSI_NAME
             sha256 = $hash
             reused_ci = $ci
@@ -182,12 +183,24 @@ jobs:
             workflow_run = $env:GITHUB_RUN_ID
             workflow_attempt = $env:GITHUB_RUN_ATTEMPT
             native_acceptance = 'not established by packaging; see issue #79'
-          } | ConvertTo-Json -Depth 10 | Set-Content "$delivery/build-info.json"
-      - name: Upload installer and evidence
+          } | ConvertTo-Json -Depth 10
+          @(
+            '### Windows installer',
+            '',
+            "- Installer: $env:MSI_NAME",
+            "- Version: $($metadata.version)",
+            "- Source commit: $($metadata.revision)",
+            "- SHA-256: $hash",
+            "- Signing: $($metadata.signing_mode)",
+            "- Runner image: $env:ImageOS/$env:ImageVersion",
+            '',
+            'Build diagnostics and reused verification results are in the job logs.'
+          ) | Add-Content $env:GITHUB_STEP_SUMMARY
+      - name: Upload installer
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.identity.outputs.artifact }}
-          path: target/windows-package/delivery/*
+          path: target/windows-package/delivery/${{ steps.identity.outputs.name }}
           if-no-files-found: error
 
   draft:
@@ -204,9 +217,11 @@ jobs:
         with:
           name: ${{ needs.package.outputs.artifact }}
           path: target/windows-package/delivery
-      - name: Create unpublished release with final artifacts
+      - name: Create unpublished release with installer
         env:
           GH_TOKEN: ${{ github.token }}
           PRERELEASE: ${{ needs.package.outputs.prerelease }}
+          MSI_NAME: ${{ needs.package.outputs.msi }}
+          BUILD_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh release create "$GITHUB_REF_NAME" target/windows-package/delivery/* --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease="$PRERELEASE" --latest=false --title "Clacks Log $GITHUB_REF_NAME" --notes "Unsigned Windows installer. Test the attached installer before publishing. Source: $GITHUB_SHA. See build-info.json and SHA256SUMS for build identity; native Windows acceptance remains to be recorded in issue #79."
+          gh release create "$GITHUB_REF_NAME" "target/windows-package/delivery/$MSI_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease="$PRERELEASE" --latest=false --title "Clacks Log $GITHUB_REF_NAME" --notes "Unsigned Windows installer. Test the attached installer before publishing. Source: $GITHUB_SHA. Build identity, checksum and diagnostics: $BUILD_URL; native Windows acceptance remains to be recorded in issue #79."

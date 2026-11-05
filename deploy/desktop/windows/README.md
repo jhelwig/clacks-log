@@ -14,8 +14,9 @@ After this workflow is present on the default branch, open GitHub Actions →
 start it. Only Windows build and packaging checks run. No PR, ordinary push,
 merge or schedule starts a Windows build. Download the run's
 `windows-installer-SHA-RUN-ATTEMPT` artifact and extract it before installation.
-The bundle contains the MSI, SHA256SUMS, build-info.json, actual MSI tables,
-executable version information and native import listing.
+The ZIP contains only the MSI. The workflow summary records its SHA-256, version,
+source commit, signing status and runner image. Installer tables, executable
+metadata, native imports and reused verification results remain in the job logs.
 
 Development filenames include the unchanged Cargo version, revision and run
 identity. Rebuilding the same version does not make it a newer MSI release.
@@ -40,11 +41,11 @@ introduced. Preserve the candidate needed for an actual native comparison.
    existing checks to finish, then rerun this workflow; it never polls or starts
    them. Documentation-only commits excluded by existing path filters do not
    inherit an ancestor's pass.
-4. Successful packaging uploads a finalized artifact bundle and creates a
-   **draft release** containing those same files. Only delivery has contents
+4. Successful packaging uploads only the final MSI and creates a
+   **draft release** with that same MSI attached. Only delivery has contents
    write permission; build and eligibility jobs cannot publish a release.
-5. Download the draft's exact MSI, check SHA256SUMS and perform the native
-   acceptance scenarios in the approved spec. Record results against its hash
+5. Download the draft's exact MSI, compare its hash with the workflow summary
+   linked from the release notes, and perform the native acceptance scenarios in the approved spec. Record results against its hash
    and source revision in issue #79/PR. Publish the draft manually after testing;
    publication does not rebuild, re-sign or otherwise change the tested bytes.
 
@@ -53,8 +54,8 @@ example `clacks-log-0.1.0-rc.1-windows-x64.msi`. The validated tag supplies the
 release step's prerelease input: false for `vVERSION`, true for `vVERSION-rc.N`.
 Both forms create drafts for manual testing and publication. The MSI keeps the
 numeric Cargo version; RC numbers do not establish newer MSI upgrade versions.
-Standard GitHub CLI creates the draft and attaches the final files. GitHub-reported conflicts or
-partial upload failures fail delivery; no automatic asset reconciliation,
+Standard GitHub CLI creates the draft and attaches only the MSI.
+GitHub-reported conflicts or partial upload failures fail delivery; no automatic asset reconciliation,
 replacement or deletion is performed. A partial upload remains unpublished.
 Inspect any partial draft before retrying delivery. Rebuilt bytes need fresh
 acceptance. Tags must not move.
