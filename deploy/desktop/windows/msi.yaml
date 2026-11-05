@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jkroepke/msi-builder/v1.2.0/pkg/config/schema.json
+schema: msi-builder/v1
+product:
+  name: Clacks Log
+  manufacturer: Clacks Log
+  version: '{{ .VERSION }}'
+  upgradeCode: '395c6d91-cc2b-4b20-a512-5ce7fabbd24d'
+  description: Clacks Log desktop installer
+  arp:
+    comments: Uninstall retains user data and protected credentials.
+    icon: ClacksLogIcon
+    installLocation: INSTALLDIR
+package:
+  platform: x64
+  scope: perUser
+  installerVersion: '5.0'
+  embedCabinets: true
+installDir:
+  id: INSTALLDIR
+  parent: LocalAppDataFolder
+  name: Programs/Clacks Log
+upgrade:
+  removeOld: afterInstallInitialize
+  downgrade: error
+  ignoreRemoveFailure: false
+properties:
+  MSIRESTARTMANAGERCONTROL: DisableShutdown
+  REBOOT: ReallySuppress
+icons:
+  ClacksLogIcon: ../../../lib/clacks-desktop/assets/clacks-log.ico
+components:
+  - id: AppExecutable
+    files:
+      - id: ClacksLogExe
+        source: ../../../target/x86_64-pc-windows-msvc/release/clacks-log.exe
+        shortcuts:
+          - name: Clacks Log
+            directory: ProgramMenuFolder
+            icon: ClacksLogIcon
+            properties:
+              System.AppUserModel.ID: com.w7hex.clacks-log
+  - id: ProjectLicense
+    files:
+      - source: ../../../LICENSE
+        name: LICENSE.txt
+  - id: ThirdPartyNotices
+    files:
+      - source: ../../../target/windows-package/THIRD-PARTY-NOTICES.txt
+ui:
+  enabled: true
