@@ -2,7 +2,7 @@
 schema: msi-builder/v1
 product:
   name: Clacks Log
-  manufacturer: Clacks Log
+  manufacturer: Technosorcery, LLC
   version: '{{ .VERSION }}'
   upgradeCode: '395c6d91-cc2b-4b20-a512-5ce7fabbd24d'
   description: Clacks Log desktop installer
@@ -50,5 +50,9 @@ components:
     files:
       - source: ../../../references/trustedqsl/upstream/LICENSE.txt
         name: THIRD-PARTY-DATA-NOTICES.txt
+  - id: ProjectOwnershipNotice
+    files:
+      - source: ../../../NOTICE
+        name: NOTICE.txt
 ui:
   enabled: true

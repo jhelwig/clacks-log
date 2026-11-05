@@ -2491,3 +2491,14 @@ validation; Linux desktop releases remain deferred. Complete integrated MVP
 validation and final distribution-trust acceptance remain separate from early
 packaging. Package formats and tools remain engineering choices; no separate
 updater or Microsoft Store distribution is added.
+
+### Decision D393
+
+#### D393
+
+Technosorcery, LLC is the owning entity for all of Clacks Log. Use its exact
+name for first-party publisher/company metadata and the project ownership
+notice. The application remains Clacks Log; preserve stable application,
+package-upgrade, workspace and credential identities. Standard Elastic License
+2.0 remains the application license, and third-party ownership, licenses and
+notices remain intact.

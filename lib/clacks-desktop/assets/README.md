@@ -11,8 +11,8 @@ letters centered with generous margins, flat background `#1D2228` and letters
 `#ADD6E7`; transparent outside the tile; no gradients, shading, shadows, texture,
 decoration, radio imagery, books, towers, pictograms, symbolism or other text.
 The original remains authoritative; generated color/shading are not asserted to
-be pixel-exact palette values. This project-created artwork accompanies the
-project under its root LICENSE; no external artwork or font file is bundled.
+be pixel-exact palette values. This project-created artwork belongs to
+Technosorcery, LLC and accompanies the project under its root LICENSE; no external artwork or font file is bundled.
 
 Renditions were generated with macOS ImageIO (`sips`), without redrawing:
 

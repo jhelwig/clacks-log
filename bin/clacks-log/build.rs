@@ -6,7 +6,8 @@ fn main() -> std::io::Result<()> {
         .set_icon("../../lib/clacks-desktop/assets/clacks-log.ico")
         .set("ProductName", "Clacks Log")
         .set("FileDescription", "Clacks Log native desktop application")
-        .set("CompanyName", "Clacks Log")
+        .set("CompanyName", "Technosorcery, LLC")
+        .set("LegalCopyright", "Copyright (c) 2026 Technosorcery, LLC.")
         .set("OriginalFilename", "clacks-log.exe")
         .compile()
 }
