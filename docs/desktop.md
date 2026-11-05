@@ -14,8 +14,10 @@ It starts offline, creates or reopens a real account workspace, presents useful
 startup/readiness/error information, activates an existing instance and closes
 cleanly. It uses production libraries and durable storage throughout.
 
-Windows is the MVP target. Architecture and tooling support eventual macOS/Linux
-clients without promising those releases in this issue. Keep Rust 1.99.1 from
+Windows is this foundation's delivery target. D392 advances early Windows
+installation artifacts ahead of complete MVP workflow readiness, followed by
+macOS packaging in a separate milestone. Final release-readiness validation
+covers both platforms; Linux desktop delivery remains deferred. Keep Rust 1.99.1 from
 `rust-toolchain.toml`, workspace-inherited dependencies and Elastic License 2.0.
 Project-owned tooling and non-trivial fixtures are Rust-only.
 
@@ -406,3 +408,12 @@ Primary API references supporting the integration boundaries:
 - [OS project directories](https://docs.rs/directories/latest/directories/struct.ProjectDirs.html): platform-specific configuration and local data locations.
 - [tracing-appender rotation](https://docs.rs/tracing-appender/latest/tracing_appender/rolling/struct.Builder.html): time rotation and retained-file count.
 - [OTLP Rust exporter](https://docs.rs/opentelemetry-otlp/latest/opentelemetry_otlp/) and [metrics adapter](https://docs.rs/metrics-opentelemetry/latest/metrics_opentelemetry/): standard export and producer integration; resolved versions are pinned in `Cargo.lock`.
+
+## Windows installation artifacts
+
+See the [Windows packaging guide](../deploy/desktop/windows/README.md) for the
+manual development artifact and tag-triggered draft release workflow. The
+installer targets Windows 11 x64 and current-user scope, preserves application
+state/credentials on uninstall and never initializes a workspace. The desktop
+continues to own migrations and graceful shutdown. Unsigned early packaging
+does not establish native Windows acceptance or final distribution trust.

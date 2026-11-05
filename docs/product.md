@@ -1,5 +1,9 @@
 # Product scope and operating workflows
 
+Clacks Log is owned and published by **Technosorcery, LLC** (D393). The
+project's own software uses the existing Elastic License 2.0; third-party
+ownership and license notices remain applicable.
+
 Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The [native-model specification](native-model.md) defines the contact and shared-data contracts. The [native-model library](../lib/clacks-model/README.md) implements their pure value and selection operations. The client-store library supplies durable persistence; desktop/server applications remain downstream capabilities.
 
 Clacks Log should replace the everyday shack logger while supporting independently writable offline logs on any number of clients. Fixed and portable operation use the same product model.

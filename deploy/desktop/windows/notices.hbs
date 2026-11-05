@@ -1,0 +1,22 @@
+Clacks Log — third-party notices
+
+Clacks Log is owned and published by Technosorcery, LLC.
+The application is distributed under the accompanying LICENSE.txt; NOTICE.txt
+identifies the project owner. Third-party attribution below is unchanged.
+The following notices apply to its Windows desktop runtime dependencies,
+including bundled native code, fonts and trust-root data where declared.
+Package source archives are available at
+https://crates.io/api/v1/crates/PACKAGE/VERSION/download using each package's
+name and version below; repository URLs identify upstream source locations.
+
+{{#each licenses}}
+===============================================================================
+{{name}}
+Used by:
+{{#each used_by}}
+  {{crate.name}} {{crate.version}} {{crate.repository}}
+{{/each}}
+
+{{{text}}}
+
+{{/each}}

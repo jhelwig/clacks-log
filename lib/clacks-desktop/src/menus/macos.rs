@@ -22,6 +22,7 @@ pub(super) fn application_menu(menu: &Menu, items: &mut Vec<CommandItem>) -> any
             Some(muda::AboutMetadata {
                 name: Some("Clacks Log".into()),
                 version: Some(env!("CARGO_PKG_VERSION").into()),
+                copyright: Some("Copyright (c) 2026 Technosorcery, LLC.".into()),
                 ..Default::default()
             }),
         ),
