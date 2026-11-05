@@ -2472,3 +2472,22 @@ iCloud synchronization. This supersedes D376's macOS backend feature selection;
 its Windows backend and other storage boundaries remain in force. Native macOS
 credential acceptance requires the correctly signed/profile-authorized host
 described in the [desktop guide](../lib/clacks-desktop/README.md#native-credential-integration).
+
+### Decision D392
+
+#### D392
+
+Advance release-mode desktop builds and appropriate installation artifacts ahead
+of complete MVP workflow readiness. Deliver Windows first, then macOS as a
+separate milestone following the Windows installer. Windows executable/installer
+signing is not required for the early milestone, but adding it must extend the
+same release pipeline without redesign. macOS retains D391's inherent signing
+and provisioning requirements for protected credentials. Early artifacts package
+available functionality rather than waiting for remaining MVP capabilities.
+
+This refines D162's release timing: macOS is now explicitly scheduled after the
+early Windows installer, with both platforms included in final release-readiness
+validation; Linux desktop releases remain deferred. Complete integrated MVP
+validation and final distribution-trust acceptance remain separate from early
+packaging. Package formats and tools remain engineering choices; no separate
+updater or Microsoft Store distribution is added.

@@ -1,5 +1,8 @@
 # Clacks Log
 
+Clacks Log is owned and published by **Technosorcery, LLC**. See [NOTICE](NOTICE)
+and [LICENSE](LICENSE) for project ownership and license terms.
+
 Clacks Log is a pre-alpha amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
 Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The client-storage library persists those values, pending work, evidence and complete-window receipts in SQLite. The desktop foundation creates or reopens a local account, presents startup diagnostics and coordinates activation and graceful shutdown. The desktop supports local manual contact entry, editing and individual deletion. The server provides PostgreSQL-backed accounts and OIDC login/identity management; enrolled desktops synchronize through authenticated WebSockets, while external-service adapters remain downstream capabilities.
@@ -40,7 +43,7 @@ and dependencies. Historical source material is evidence, not operative guidance
 
 | Component | Selected direction |
 | --- | --- |
-| Desktop | Rust with egui/eframe, wgpu and egui_extras; Windows MVP, cross-platform foundations for later macOS/Linux clients |
+| Desktop | Rust with egui/eframe, wgpu and egui_extras; early Windows installer followed by macOS packaging; Linux desktop deferred |
 | Storage | Embedded SQLite on clients; PostgreSQL on the server; ordinary transactions without a custom client write queue |
 | Server | One Clacks application containing web, synchronization and background workers, deployed in Linux containers alongside PostgreSQL |
 | Web | Leptos/Axum with server rendering and Rust/WebAssembly hydration; architecture accommodates later browsing, editing and reporting |
@@ -88,7 +91,7 @@ Each account owns its contacts; Clacks logbooks are tag-defined views. Contacts 
 
 The desktop interface should support substantial operating context, efficient use of space, and specialist applications such as WS Suite (the WSJT-X family of weak-signal radio applications) and GridTracker. The logger is not intended to replace every application in the shack.
 
-Synchronization will be self-hostable. The MVP server targets documented Linux container deployment; native Windows server hosting is not required (D189). An optional hosted subscription service is part of the product direction; its launch can be post-MVP (D241). The desktop targets eventual Windows, macOS, and Linux support. Windows desktop support is sufficient for the first release (D162); macOS/Linux releases are post-MVP, with cross-platform architecture and tooling required from the start. Minimum viable product (MVP) supports arbitrary client counts and multiple independent accounts on one server, with isolated account data, profiles, clients, and service credentials.
+Synchronization will be self-hostable. The MVP server targets documented Linux container deployment; native Windows server hosting is not required (D189). An optional hosted subscription service is part of the product direction; its launch can be post-MVP (D241). D392 advances release-mode desktop builds before complete MVP workflow readiness: deliver the early Windows installer first, then macOS packaging as a separate milestone. Windows signing is optional for early artifacts and must extend the same pipeline later; macOS retains D391 credential-related signing requirements. Final release-readiness validation covers both platforms; Linux desktop delivery remains deferred. Minimum viable product (MVP) supports arbitrary client counts and multiple independent accounts on one server, with isolated account data, profiles, clients, and service credentials.
 
 LoTW integration will use a source-guided Rust port of relevant tqsllib behavior, preserving interoperability while designing our own credential storage, tenant isolation, and execution model.
 
@@ -196,3 +199,13 @@ Follow [collaboration guidance](AGENTS.md) when working on an issue. Keep
 maintained requirements and integration contracts in their owning documents.
 Completed execution plans are retained in Git history and pull requests; active
 plans may remain under `docs/superpowers/plans/` while their work is in review.
+
+## Windows desktop packaging
+
+The [Windows installer workflow](deploy/desktop/windows/README.md) provides
+manual development builds as Actions artifacts and version-tag builds as draft
+GitHub Releases. It targets current-user installation on Windows 11 x64;
+early artifacts are unsigned. Windows builds do not run for pull requests or
+ordinary branch pushes. Release builds reuse existing successful Linux/web
+results for the exact tagged commit rather than rerunning them. Native Windows
+acceptance and release publication remain distinct from package construction.
