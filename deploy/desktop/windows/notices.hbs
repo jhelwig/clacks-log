@@ -1,0 +1,20 @@
+Clacks Log — third-party notices
+
+The application is distributed under the accompanying LICENSE.txt.
+The following notices apply to its Windows desktop runtime dependencies,
+including bundled native code, fonts and trust-root data where declared.
+Package source archives are available at
+https://crates.io/api/v1/crates/PACKAGE/VERSION/download using each package's
+name and version below; repository URLs identify upstream source locations.
+
+{{#each licenses}}
+===============================================================================
+{{name}}
+Used by:
+{{#each used_by}}
+  {{crate.name}} {{crate.version}} {{crate.repository}}
+{{/each}}
+
+{{{text}}}
+
+{{/each}}

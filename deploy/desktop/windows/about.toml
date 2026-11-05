@@ -1,0 +1,11 @@
+# Licenses present in the actual Windows desktop runtime graph. Prefer MIT for
+# dual-licensed packages; retain all required conjunctive license texts.
+accepted = [
+  "MIT", "Apache-2.0", "ISC", "BSD-2-Clause", "BSD-3-Clause", "0BSD", "Zlib",
+  "Unicode-3.0", "BSL-1.0", "CDLA-Permissive-2.0", "OFL-1.1",
+  "Ubuntu-font-1.0", "MPL-2.0",
+]
+targets = ["x86_64-pc-windows-msvc"]
+ignore-dev-dependencies = true
+ignore-build-dependencies = true
+private = { ignore = true }
