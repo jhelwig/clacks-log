@@ -46,5 +46,9 @@ components:
   - id: ThirdPartyNotices
     files:
       - source: ../../../target/windows-package/THIRD-PARTY-NOTICES.txt
+  - id: ThirdPartyDataNotices
+    files:
+      - source: ../../../references/trustedqsl/upstream/LICENSE.txt
+        name: THIRD-PARTY-DATA-NOTICES.txt
 ui:
   enabled: true
