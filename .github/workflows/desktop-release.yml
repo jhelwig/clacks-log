@@ -384,7 +384,7 @@ jobs:
           # Current payload has one executable and only system dynamic imports;
           # any future bundled nested code must be signed before this outer app.
           codesign --force --sign "$identity" --keychain "$keychain" --entitlements "$SIGNING_TEMP/entitlements.plist" --timestamp --options runtime "$app_bundle"
-          codesign --verify --strict -R "anchor apple generic and identifier \"com.w7hex.clacks-log\" and certificate leaf[subject.OU] = \"$team\"" "$app_bundle"
+          codesign --verify --strict -R "=anchor apple generic and identifier \"com.w7hex.clacks-log\" and certificate leaf[subject.OU] = \"$team\"" "$app_bundle"
           codesign --display --verbose=4 "$app_bundle"
           codesign --display --entitlements - "$app_bundle"
           profile_id=$(plutil -extract UUID raw -o - "$SIGNING_TEMP/profile.plist")
