@@ -2,7 +2,7 @@
 
 use crate::support::{self, id, qso, qso_key};
 use clacks_client_store::{
-    directory::snapshots::{self, SnapshotOutcome},
+    directory::snapshots::{self, SnapshotChange, SnapshotIneligible, SnapshotOutcome},
     save::{self, SaveOutcome},
     store::ClientStore,
 };
@@ -51,7 +51,9 @@ async fn directory_snapshots_survive_restart_and_key_changes() -> anyhow::Result
     };
     assert_eq!(
         snapshots::apply(&store, id(10), snapshot(&call, 11, None)?).await?,
-        SnapshotOutcome::Applied
+        SnapshotOutcome::Applied {
+            change: SnapshotChange::Updated
+        }
     );
     assert_eq!(
         save::load(&store, qso_key(id(10)))
@@ -93,11 +95,15 @@ async fn directory_snapshots_survive_restart_and_key_changes() -> anyhow::Result
             snapshot(&call, 20, Some("Obsolete request"))?
         )
         .await?,
-        SnapshotOutcome::Ineligible
+        SnapshotOutcome::Ineligible {
+            reason: SnapshotIneligible::LookupKeyChanged
+        }
     );
     assert_eq!(
         snapshots::apply(&store, id(10), snapshot("K2ABC", 21, Some("Other key"))?).await?,
-        SnapshotOutcome::Applied
+        SnapshotOutcome::Applied {
+            change: SnapshotChange::New
+        }
     );
     assert!(matches!(
         save::contacts::save(
@@ -117,7 +123,9 @@ async fn directory_snapshots_survive_restart_and_key_changes() -> anyhow::Result
             snapshot("K2ABC", 40, Some("Deleted parent"))?
         )
         .await?,
-        SnapshotOutcome::Ineligible
+        SnapshotOutcome::Ineligible {
+            reason: SnapshotIneligible::ParentUnavailable
+        }
     );
     let row = save::load(&store, key).await?.unwrap();
     let Some(RecordState::Live(RecordValue::Directory(values))) = row.working_state() else {
@@ -128,6 +136,78 @@ async fn directory_snapshots_survive_restart_and_key_changes() -> anyhow::Result
         values.snapshot(&lookup).unwrap().lookup_time(),
         UtcTimestamp::new(11, 0)?
     );
+    store.close().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn directory_snapshot_outcomes_distinguish_material_changes() -> anyhow::Result<()> {
+    let directory = tempfile::tempdir()?;
+    let file = directory.path().join("outcomes.sqlite");
+    let store = ClientStore::create(&file, id(1), Default::default()).await?;
+    let original = qso(id(10));
+    let call = original.contacted_station().callsign.as_str();
+    save::contacts::save(&store, None, original.clone(), None).await?;
+
+    for (second, name, expected) in [
+        (
+            10,
+            Some("First"),
+            SnapshotOutcome::Applied {
+                change: SnapshotChange::New,
+            },
+        ),
+        (
+            20,
+            Some("First"),
+            SnapshotOutcome::Applied {
+                change: SnapshotChange::MetadataOnly,
+            },
+        ),
+        (15, Some("Older different"), SnapshotOutcome::Unchanged),
+        (
+            30,
+            None,
+            SnapshotOutcome::Applied {
+                change: SnapshotChange::Updated,
+            },
+        ),
+    ] {
+        assert_eq!(
+            snapshots::apply(&store, original.id(), snapshot(call, second, name)?).await?,
+            expected
+        );
+    }
+    let mut fields: DirectorySnapshotFields = snapshot(call, 40, None)?.into();
+    fields.provider = DirectoryProvider::HamQth;
+    let winner = DirectorySnapshot::new(fields)?;
+    assert_eq!(
+        snapshots::apply(&store, original.id(), winner.clone()).await?,
+        SnapshotOutcome::Applied {
+            change: SnapshotChange::Updated
+        }
+    );
+    store.close().await?;
+
+    let store = ClientStore::open(&file, id(1), Default::default()).await?;
+    let recorded = save::load(&store, qso_key(original.id())).await?.unwrap();
+    assert_eq!(
+        recorded.working_state(),
+        Some(&support::contact(original.clone()))
+    );
+    let row = save::load(
+        &store,
+        RecordKey {
+            account: id(1),
+            id: RecordId::Directory(original.id()),
+        },
+    )
+    .await?
+    .unwrap();
+    let Some(RecordState::Live(RecordValue::Directory(directory))) = row.working_state() else {
+        panic!("directory");
+    };
+    assert_eq!(directory.snapshot(winner.key()), Some(&winner));
     store.close().await?;
     Ok(())
 }

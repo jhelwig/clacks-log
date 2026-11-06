@@ -52,7 +52,7 @@ pub async fn save(
         tracing::info!(event="contact.create_retry_acknowledged", account_id=%store.account, record_id=%key.id);
     }
     report_saved(key, expected, &outcome);
-    if installed == Some(snapshots::SnapshotOutcome::Applied) {
+    if matches!(installed, Some(snapshots::SnapshotOutcome::Applied { .. })) {
         tracing::info!(event="directory.snapshot.saved", account_id=%store.account, qso_id=%qso);
     }
     Ok(outcome)

@@ -19,11 +19,37 @@ use sqlx::SqliteConnection;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SnapshotOutcome {
     /// A changed complete winner committed.
-    Applied,
+    Applied {
+        /// Material difference from the previous current-key snapshot.
+        change: SnapshotChange,
+    },
     /// Existing winners already dominate or equal this lookup.
     Unchanged,
     /// Parent is missing/deleted or its current normalized callsign differs.
-    Ineligible,
+    Ineligible {
+        /// Live-parent condition that prevents this application.
+        reason: SnapshotIneligible,
+    },
+}
+
+/// Meaning of a committed complete snapshot replacement, excluding its ordering metadata.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SnapshotChange {
+    /// No snapshot existed for the current normalized key.
+    New,
+    /// Provider or complete directory facts changed.
+    Updated,
+    /// Only successful lookup time and identity changed.
+    MetadataOnly,
+}
+
+/// Reason a successful lookup cannot currently be attached to its original contact.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SnapshotIneligible {
+    /// Contact is missing or deleted.
+    ParentUnavailable,
+    /// Contact now refers to a different normalized station key.
+    LookupKeyChanged,
 }
 
 /// Install a successful lookup without changing any recorded contact values.
@@ -36,7 +62,7 @@ pub async fn apply(
     let mut transaction = store.write().await?;
     let outcome = apply_in(&mut transaction, store.account, qso, snapshot).await?;
     transaction.commit().await?;
-    if outcome == SnapshotOutcome::Applied {
+    if matches!(outcome, SnapshotOutcome::Applied { .. }) {
         tracing::info!(event="directory.snapshot.saved", account_id=%store.account, qso_id=%qso);
     }
     Ok(outcome)
@@ -60,10 +86,14 @@ pub(crate) async fn apply_in(
     let Some(RecordState::Live(RecordValue::Qso(parent))) =
         parent.as_ref().and_then(|row| row.working_state())
     else {
-        return Ok(SnapshotOutcome::Ineligible);
+        return Ok(SnapshotOutcome::Ineligible {
+            reason: SnapshotIneligible::ParentUnavailable,
+        });
     };
     if LookupKey::from_recorded(&parent.contacted_station().callsign) != *snapshot.key() {
-        return Ok(SnapshotOutcome::Ineligible);
+        return Ok(SnapshotOutcome::Ineligible {
+            reason: SnapshotIneligible::LookupKeyChanged,
+        });
     }
     let key = RecordKey {
         account,
@@ -74,6 +104,16 @@ pub(crate) async fn apply_in(
         Some(RecordState::Live(RecordValue::Directory(value))) => value.as_ref().clone(),
         None | Some(RecordState::Deleted) => DirectoryRecord::new(qso),
         _ => anyhow::bail!("Directory identity contains a different record family"),
+    };
+    let change = match directory.snapshot(snapshot.key()) {
+        None => SnapshotChange::New,
+        Some(previous)
+            if previous.provider() == snapshot.provider()
+                && previous.facts() == snapshot.facts() =>
+        {
+            SnapshotChange::MetadataOnly
+        }
+        Some(_) => SnapshotChange::Updated,
     };
     if !directory.record(snapshot)? {
         return Ok(SnapshotOutcome::Unchanged);
@@ -86,7 +126,7 @@ pub(crate) async fn apply_in(
     )
     .await?
     {
-        SaveOutcome::Saved(_) => Ok(SnapshotOutcome::Applied),
+        SaveOutcome::Saved(_) => Ok(SnapshotOutcome::Applied { change }),
         SaveOutcome::Unchanged(_) => Ok(SnapshotOutcome::Unchanged),
         SaveOutcome::Stale { .. } => {
             anyhow::bail!("Directory basis changed within its owning transaction")
