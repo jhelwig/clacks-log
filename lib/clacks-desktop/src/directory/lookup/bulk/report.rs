@@ -154,6 +154,8 @@ pub(crate) struct BulkDetail {
 pub(crate) enum BulkStop {
     /// All admitted members were considered.
     Completed,
+    /// Cancellation prevented target preparation from completing; lookup never started.
+    PreparationCancelled,
     /// User or workspace requested cancellation.
     Cancelled,
     /// A shared problem stopped the remaining members.

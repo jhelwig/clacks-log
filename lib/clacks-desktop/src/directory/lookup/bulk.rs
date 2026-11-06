@@ -200,7 +200,7 @@ async fn run(
     };
     match captured {
         None => {
-            report.stop = BulkStop::Cancelled;
+            report.stop = BulkStop::PreparationCancelled;
             for id in ids {
                 unprocessed(&mut report, unknown(id), UnprocessedReason::Cancelled);
             }
@@ -375,7 +375,7 @@ async fn run(
     }
     let outcome = match &report.stop {
         BulkStop::Completed => "completed",
-        BulkStop::Cancelled => "cancelled",
+        BulkStop::Cancelled | BulkStop::PreparationCancelled => "cancelled",
         BulkStop::Stopped { .. } => "stopped",
         BulkStop::PreparationFailed { .. } => "preparation_failed",
     };

@@ -199,6 +199,9 @@ fn show_report(ui: &mut egui::Ui, report: &BulkReport) {
         BulkStop::Cancelled => {
             ui.label("Cancelled. Completed updates were kept.");
         }
+        BulkStop::PreparationCancelled => {
+            ui.label("Cancelled during preparation. Lookup did not start; no bulk snapshot writes were made.");
+        }
         BulkStop::Stopped { reason } => {
             feedback::problem(ui, &reason.to_string());
             ui.label(reason.guidance());

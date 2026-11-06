@@ -62,6 +62,22 @@ fn bulk_lookup_report_survives_view_change_and_has_explicit_cancel_and_dismiss()
     ui.get_by_label("Cancel lookup").click();
     ui.run();
     assert!(cancel.is_cancelled());
+    updates.send_replace(BulkUpdate::Finished(Arc::new(BulkReport {
+        total: 1,
+        counts: BulkCounts {
+            unprocessed: 1,
+            ..Default::default()
+        },
+        details: vec![],
+        stop: BulkStop::PreparationCancelled,
+    })));
+    ui.run();
+    assert!(
+        ui.query_by_label(
+            "Cancelled during preparation. Lookup did not start; no bulk snapshot writes were made."
+        )
+        .is_some()
+    );
     let failure = BulkFailure::Storage {
         message: "Workspace storage is unavailable. Completed updates were preserved; check available disk space and workspace diagnostics before retrying.".into(),
     };

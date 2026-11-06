@@ -26,6 +26,24 @@ pub(crate) async fn finish(
 }
 
 #[tokio::test]
+async fn bulk_lookup_cancelled_before_preparation_reports_lookup_never_started()
+-> anyhow::Result<()> {
+    let fixture = fixture(vec![]).await?;
+    let service = Service::new(fixture.endpoint.clone()).await?;
+    let mut run = service
+        .client
+        .start_bulk([id(1)].into(), watch::channel(()).0)?;
+    // The current-thread executor cannot poll the admitted task until we yield.
+    run.cancel.cancel();
+    let report = finish(&mut run).await?;
+    assert!(matches!(report.stop, BulkStop::PreparationCancelled));
+    assert_eq!(report.counts.unprocessed, 1);
+    assert_eq!(report.counts.settled(), report.total);
+    assert_eq!(lookup_count(&fixture), 0);
+    service.close().await
+}
+
+#[tokio::test]
 async fn bulk_lookup_stops_current_rate_limits_and_missing_configuration() -> anyhow::Result<()> {
     for configured in [true, false] {
         let fixture = fixture(if configured {
