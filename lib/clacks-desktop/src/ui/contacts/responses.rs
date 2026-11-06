@@ -81,6 +81,10 @@ impl ContactsUi {
     pub(super) fn accept(&mut self, response: ContactResponse) {
         self.problem = false;
         match response {
+            ContactResponse::DirectoryLookupStarted(_) => {
+                self.notice =
+                    Some("Directory lookup requires its originating admission request.".into())
+            }
             ContactResponse::MembershipPrepared(_) | ContactResponse::MembershipChanged(_) => {
                 self.notice = Some("Unexpected membership response".into());
             }

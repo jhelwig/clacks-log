@@ -43,6 +43,7 @@ impl DesktopApp {
             return false;
         }
         match command {
+            MenuCommand::LookupDirectory => self.workbench.can_lookup_directory(),
             MenuCommand::SelectAll => {
                 self.workbench.history_has_focus(context) && !self.workbench.selection_pending()
             }
@@ -57,6 +58,11 @@ impl DesktopApp {
     /// Execute once on the UI thread; downstream operations keep their own errors.
     pub(super) fn dispatch_menu(&mut self, context: &egui::Context, command: MenuCommand) {
         self.workbench.poll_selection();
+        self.workbench.poll_bulk_lookup();
+        if let Some(snapshot) = self.settings_view.borrow().as_ref() {
+            self.workbench
+                .reconcile_history_view(snapshot.logbooks.selected_view);
+        }
         let enabled = self.menu_enabled(context, command);
         let outcome = if enabled {
             "accepted"
@@ -73,6 +79,9 @@ impl DesktopApp {
         context.request_repaint_of(egui::ViewportId::ROOT);
         let opener = context.memory(|memory| memory.focused());
         match command {
+            MenuCommand::LookupDirectory => self
+                .workbench
+                .start_directory_lookup(&self.settings_requests),
             MenuCommand::SelectAll => {
                 if let Some(id) = context.memory(|memory| memory.focused())
                     && egui::TextEdit::load_state(context, id).is_some()
@@ -131,6 +140,7 @@ impl DesktopApp {
         self.logbooks.poll();
         self.settings.poll();
         self.workbench.poll_selection();
+        self.workbench.poll_bulk_lookup();
         loop {
             let command = self
                 .menu_receiver

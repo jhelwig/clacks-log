@@ -92,6 +92,13 @@ that consume it. Failure leaves the preceding complete selection intact; newer
 view, filter or selection intent discards an obsolete result. The native command
 selects text when a text field has focus and contacts when history owns focus.
 
+**Edit → Look up directory information** consumes this same selection, including
+hidden members, with no distinct all-matching action or history-toolbar button.
+The run captures its selected identities before lookup; subsequent filter/view
+changes do not retarget it. Progress, cancellation and retained failure reports
+remain accessible through the history workflow. Successful results update only
+separate directory snapshots under the existing applicability/arbitration rules.
+
 Keep selected QSO identities across filtering, sorting and scrolling. Show the
 selected total and count outside the **applied filter**, not merely outside the
 visible rows. Show selected reveals the selected set; Clear selection clears

@@ -6,6 +6,7 @@ use clacks_client_store::read::contacts::ContactPage;
 use clacks_sync::record::{RecordState, RecordValue};
 use egui_kittest::Harness;
 
+mod bulk;
 mod selection;
 
 #[test]

@@ -24,6 +24,10 @@ use clacks_sync::{
 
 /// Owned contact work admitted through the existing session channel.
 pub(crate) enum ContactAction {
+    /// Admit a tracked consumer for the current frozen selected identities.
+    StartDirectoryLookup {
+        ids: std::collections::BTreeSet<QsoId>,
+    },
     /// Read prior contacts for the current literal contacted-callsign prefix.
     WorkedBefore { query: WorkedBeforeQuery },
     /// Restore unfinished and applied history expressions.
@@ -56,6 +60,7 @@ impl ContactAction {
     /// Local operation name without containing-action context or request payloads.
     pub(crate) fn diagnostic_name(&self) -> &'static str {
         match self {
+            Self::StartDirectoryLookup { .. } => "directory_lookup.start",
             Self::WorkedBefore { .. } => "worked_before",
             Self::LoadQueryState => "query_state.load",
             Self::SaveQueryState { .. } => "query_state.save",
@@ -83,6 +88,8 @@ impl ContactAction {
 /// An authoritative contact result, independent of any following settings refresh.
 #[derive(Debug)]
 pub(crate) enum ContactResponse {
+    /// Admission settled; provider work runs independently of the settings worker.
+    DirectoryLookupStarted(crate::directory::lookup::bulk::BulkLookupHandle),
     /// Working contacts supplying the shared Worked Before view.
     WorkedBefore(ContactPage),
     /// Stored expression text, independent of parsing and current rows.
@@ -117,6 +124,16 @@ pub(crate) async fn execute(
     changes: tokio::sync::watch::Sender<()>,
 ) -> anyhow::Result<ContactResponse> {
     match action {
+        ContactAction::StartDirectoryLookup { ids } => {
+            let client = lookup.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Directory lookup is unavailable while the workspace is opening or closing"
+                )
+            })?;
+            Ok(ContactResponse::DirectoryLookupStarted(
+                client.start_bulk(ids, changes)?,
+            ))
+        }
         ContactAction::SelectAll { query } => Ok(ContactResponse::SelectedAll(
             selection::matching_ids(store, query).await?,
         )),

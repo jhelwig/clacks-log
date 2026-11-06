@@ -1,5 +1,6 @@
 //! Shared callsign-directory operations, independent of forms and saved contacts.
 
+pub(crate) mod bulk;
 mod cache;
 pub(crate) mod failure;
 pub(crate) mod persistence;
@@ -112,6 +113,8 @@ pub(crate) struct LookupDemand {
 /// Provider session and recovery state for the actual installed material.
 #[derive(Clone)]
 struct Selected {
+    /// Transient identity of this actual installed configuration, shared by its clones.
+    origin: Arc<()>,
     /// Captured protected value; never included in telemetry.
     material: DirectoryMaterial,
     /// Provider selected at actual network admission.
@@ -221,10 +224,12 @@ impl LookupClient {
                     .retry_after
                     .is_some_and(|(started, delay)| started.elapsed() < delay) =>
             {
-                return LookupHandle::completed(LookupState::Failed(LookupFailure::new(
+                let mut failure = LookupFailure::new(
                     LookupFailureKind::RateLimited,
                     "Directory rate limit reached; retry later.",
-                )));
+                );
+                failure.origin = Some(Arc::downgrade(&selected.origin));
+                return LookupHandle::completed(LookupState::Failed(failure));
             }
             Ok(Some(selected)) => selected.clone(),
             Ok(None) => return LookupHandle::completed(LookupState::Cleared),

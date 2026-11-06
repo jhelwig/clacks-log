@@ -115,6 +115,92 @@ fn edit_select_all_dispatches_once_for_focused_history() -> anyhow::Result<()> {
 }
 
 #[test]
+fn bulk_lookup_native_menu_gates_pending_selection_and_reconciles_queued_view_changes()
+-> anyhow::Result<()> {
+    use crate::session::settings::{
+        SettingsAction, SettingsResponse,
+        contacts::{ContactAction, ContactResponse},
+    };
+    use egui_kittest::kittest::Queryable;
+    for switch_view in [false, true] {
+        let mut window = Window::new();
+        ready(&mut window);
+        let (sender, mut requests) = mpsc::channel(16);
+        window.app.settings_requests = sender;
+        let mut ui = main_screen::mount(window);
+        requests
+            .try_recv()?
+            .reply
+            .send(SettingsResponse::Contacts(ContactResponse::QueryState(
+                Default::default(),
+            )))
+            .unwrap();
+        ui.run_steps(2);
+        let page = fixtures::contact_page(0, 1, 1);
+        let selected = page.rows.first().unwrap().working.qso.id();
+        requests
+            .try_recv()?
+            .reply
+            .send(SettingsResponse::Contacts(ContactResponse::Page(page)))
+            .unwrap();
+        ui.run_steps(2);
+        ui.get_by_label("K1T000").click();
+        ui.run_steps(2);
+        let context = ui.ctx.clone();
+        ui.state_mut()
+            .app
+            .dispatch_menu(&context, MenuCommand::SelectAll);
+        ui.state_mut()
+            .app
+            .dispatch_menu(&context, MenuCommand::LookupDirectory);
+        let mut selection = None;
+        while let Ok(request) = requests.try_recv() {
+            match request.action {
+                SettingsAction::Contacts(ContactAction::SelectAll { .. }) => {
+                    selection = Some(request.reply)
+                }
+                SettingsAction::Contacts(ContactAction::Page { .. }) => {}
+                _ => panic!("lookup must wait for selection"),
+            }
+        }
+        let hidden = clacks_model::ids::QsoId::new();
+        selection
+            .unwrap()
+            .send(SettingsResponse::Contacts(ContactResponse::SelectedAll(
+                [hidden].into(),
+            )))
+            .unwrap();
+        if switch_view {
+            let mut snapshot = fixtures::snapshot();
+            snapshot.logbooks.selected_view =
+                clacks_client_store::logbooks::selection::SelectedView::Untagged;
+            ui.state_mut().app.settings_view = watch::channel(Some(Arc::new(snapshot))).1;
+        }
+        ui.state_mut()
+            .app
+            .dispatch_menu(&context, MenuCommand::LookupDirectory);
+        ui.state_mut()
+            .app
+            .dispatch_menu(&context, MenuCommand::LookupDirectory);
+        let mut runs = Vec::new();
+        while let Ok(request) = requests.try_recv() {
+            match request.action {
+                SettingsAction::Contacts(ContactAction::StartDirectoryLookup { ids }) => {
+                    runs.push(ids)
+                }
+                _ => panic!("unexpected action"),
+            }
+        }
+        if switch_view {
+            assert!(runs.is_empty());
+        } else {
+            assert_eq!(runs, vec![[selected, hidden].into()]);
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn menu_commands_respect_workspace_state() {
     let mut window = Window::new();
     assert!(

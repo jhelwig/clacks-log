@@ -67,6 +67,7 @@ async fn configuration_changes_preserve_success_but_replace_dispatch_material() 
     {
         let mut state = service.client.inner.state.lock().unwrap();
         state.selected = Ok(Some(Selected {
+            origin: Arc::new(()),
             material: replacement.clone(),
             provider: clacks_model::directory::values::DirectoryProvider::Qrz,
             session: ProviderSession::Qrz(QrzSession::new(

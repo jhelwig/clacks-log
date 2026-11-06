@@ -641,8 +641,41 @@ saving. Neither affects independent capture. Capture requests its actual key
 immediately: reuse a cached success, join an active lookup or start a miss,
 without delaying save. Shared transient successes live 24 hours from completion,
 with a 128-result limit; hits and credential changes do not extend age. There is
-no successful-result refresh or cache bypass. Bulk lookup and external-service
-publication remain separate capabilities.
+no cache bypass or forced provider refresh. Selected-contact bulk lookup reuses
+this exact request/cache path; external-service publication remains separate.
+
+### Selected-contact bulk directory lookup
+
+Use **Edit → Look up directory information** to populate or refresh separate
+directory snapshots for the current history selection. **Edit → Select all**
+adds all contacts matching the applied filter in the current view, across every
+page, preserving selected contacts outside that filter. It selects text instead
+when a text field has focus. Selection preparation publishes one complete set;
+selection-consuming actions wait until it finishes.
+
+Lookup captures actual selected identities, including hidden contacts, then
+resolves saved calls/keys before provider waits or writes. Later filtering,
+scrolling or view/selection edits do not retarget the run. Ordinary entry,
+capture, saves, history reads and synchronization remain independently usable.
+Successful whole snapshots use the existing guarded transaction and arbitration;
+recorded contact facts never change. Cached/joined results keep their original
+provider/time/lookup identity, without a batch cache or bypass.
+
+Progress and Cancel remain in the history workflow. Cancellation stops this
+consumer at a safe application boundary; it leaves shared provider work alone
+and keeps acknowledged writes, including a write already started. Workspace
+shutdown cancels/drains this tracked work before closing storage. Nothing
+automatically resumes after restart or provider recovery.
+
+The retained report distinguishes new/updated, unchanged, not found, failed and
+unprocessed contacts. A newer snapshot with identical provider/facts still
+commits and synchronizes its metadata but counts as unchanged. Failure and
+unprocessed details retain recorded callsign/time when available and explain
+connectivity, rate limits, credentials/subscription, invalid responses or local
+storage problems with appropriate next steps. A shared admission/storage problem
+stops the remaining contacts without automatic retries. Correct the cause and
+explicitly start another run; no failed-contact queue or persistent history is
+created.
 
 ## Account synchronization
 

@@ -1,5 +1,6 @@
 //! Production saved-contact list and independent edit/delete workflows.
 
+mod bulk;
 mod deletion;
 mod editor;
 mod membership;
@@ -75,6 +76,8 @@ pub(super) struct ContactsUi {
     selection: Option<selection::PendingSelection>,
     /// Actual focused history widget, distinct from Worked Before and entry.
     history_focus: Option<egui::Id>,
+    /// Non-modal lookup consumer, preserved independently from selection/view changes.
+    bulk: Option<bulk::BulkLookupUi>,
     /// Logical focused contact for keyboard navigation.
     focused: Option<QsoId>,
     /// Keyboard target awaiting native focus after scrolling into the rendered rows.
@@ -176,6 +179,7 @@ impl ContactsUi {
         self.update_query();
         self.poll();
         self.poll_selection();
+        self.poll_bulk_lookup();
         self.poll_membership();
         if self.membership.is_none() {
             egui::Popup::close_id(ui.ctx(), egui::Id::unique("contacts.membership"));
@@ -228,6 +232,7 @@ impl ContactsUi {
                         }
                     }
                     self.membership_feedback(ui);
+                    self.bulk_feedback(ui);
                     if self.selection_pending() {
                         ui.small("Selecting contacts…");
                         ui.ctx()

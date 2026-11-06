@@ -240,6 +240,7 @@ pub(super) async fn execute(
         ) => None,
         SettingsResponse::Contacts(
             contacts::ContactResponse::Page(_)
+            | contacts::ContactResponse::DirectoryLookupStarted(_)
             | contacts::ContactResponse::SelectedAll(_)
             | contacts::ContactResponse::WorkedBefore(_)
             | contacts::ContactResponse::MembershipPrepared(_)

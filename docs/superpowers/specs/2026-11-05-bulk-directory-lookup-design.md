@@ -2,7 +2,8 @@
 
 Engineering specification for [issue #22](https://github.com/jhelwig/clacks-log/issues/22).
 Status: approved in the specification discussion on 5 November 2026;
-implementation has not started. Product and architecture decisions remain
+implemented on `feature/bulk-directory-lookup`, pending integration. Product and
+architecture decisions remain
 authoritative. The engineering defaults below are accepted for this delivery,
 not additional project-wide product requirements.
 

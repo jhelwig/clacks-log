@@ -64,6 +64,26 @@ pub(super) struct Workbench {
 }
 
 impl Workbench {
+    /// Admit the only directory lookup action against actual selected identities.
+    pub fn start_directory_lookup(&mut self, requests: &mpsc::Sender<SettingsRequest>) {
+        self.contacts.start_directory_lookup(requests);
+    }
+    /// Current selection and run lifecycle determine menu availability.
+    pub fn can_lookup_directory(&self) -> bool {
+        self.contacts.can_lookup_directory()
+    }
+    /// Poll non-modal bulk work independently from painting contact tables.
+    pub fn poll_bulk_lookup(&mut self) {
+        self.contacts.poll_bulk_lookup();
+    }
+    /// A logbook change clears selection before queued native commands can consume it.
+    pub fn reconcile_history_view(
+        &mut self,
+        view: clacks_client_store::logbooks::selection::SelectedView,
+    ) {
+        self.contacts.reconcile_view(view);
+    }
+
     /// Route the shared Edit command to the actual history-selection owner.
     pub fn select_all_contacts(&mut self, requests: &mpsc::Sender<SettingsRequest>) {
         self.contacts.select_all(requests);

@@ -140,6 +140,7 @@ fn selection(
         "Directory configuration could not be used; retry directory storage.".to_string()
     })?;
     Ok(Some(Selected {
+        origin: Arc::new(()),
         material,
         provider,
         session,
@@ -194,7 +195,7 @@ pub(super) async fn fetch(
         result = selected.session.lookup(&key) => Some(result),
     };
     let mut retry_after = None;
-    let state = match result {
+    let mut state = match result {
         None => LookupState::Cleared,
         Some(Ok(ProviderLookup::Found(facts))) => {
             let mut facts = *facts;
@@ -255,6 +256,9 @@ pub(super) async fn fetch(
             LookupState::Failed(failure)
         }
     };
+    if let LookupState::Failed(failure) = &mut state {
+        failure.origin = Some(Arc::downgrade(&selected.origin));
+    }
     attempt.outcome = match &state {
         LookupState::Found(_) => "success",
         LookupState::NotFound => "not_found",
