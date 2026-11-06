@@ -151,7 +151,9 @@ async fn directory_snapshots_round_trip_without_qso_edits_and_remain_inert_after
     assert_eq!(
         clacks_client_store::directory::snapshots::apply(&local, contact.id(), local_snapshot)
             .await?,
-        clacks_client_store::directory::snapshots::SnapshotOutcome::Applied
+        clacks_client_store::directory::snapshots::SnapshotOutcome::Applied {
+            change: clacks_client_store::directory::snapshots::SnapshotChange::Updated,
+        }
     );
     let pending = native
         .prepare(
