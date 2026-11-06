@@ -14,6 +14,15 @@ use egui_extras::{Column, TableBuilder};
 use preferences::ContactTablePreferences;
 use std::collections::BTreeSet;
 
+/// Accepted rows and optional loading feedback within the table viewport.
+#[derive(Default)]
+pub(super) struct TableContent<'a> {
+    /// Last accepted page, retained during background refreshes.
+    pub page: Option<&'a ContactPage>,
+    /// Loading feedback supplied by the query owner when no page is available.
+    pub loading_message: Option<&'a str>,
+}
+
 /// A contact explicitly activated from this table.
 #[derive(Default)]
 pub(super) struct TableAction {
@@ -40,7 +49,7 @@ fn row_height(ui: &egui::Ui) -> f32 {
 /// Display current rows; sorting requests change the SQL query rather than sorting payloads.
 pub(super) fn show(
     ui: &mut egui::Ui,
-    page: Option<&ContactPage>,
+    content: TableContent<'_>,
     preferences: &mut ContactTablePreferences,
     selected: &mut BTreeSet<QsoId>,
     focused: &mut Option<QsoId>,
@@ -50,6 +59,7 @@ pub(super) fn show(
     let mut action = TableAction::default();
     let mut row_ids = std::collections::BTreeMap::new();
     let mut native_focus = None;
+    let page = content.page;
 
     let rows = page.map_or(&[][..], |page| page.rows.as_slice());
     if pending_focus.is_some_and(|id| !rows.iter().any(|row| row.working.qso.id() == id)) {
@@ -124,7 +134,13 @@ pub(super) fn show(
                             saved.width = *width;
                         }
                     }
-                    if page.is_some() && rows.is_empty() {
+                    if page.is_none() {
+                        if let Some(message) = content.loading_message {
+                            body.ui_mut().label(message);
+                        }
+                        return;
+                    }
+                    if rows.is_empty() {
                         body.ui_mut().label("No contacts in this view.");
                         return;
                     }

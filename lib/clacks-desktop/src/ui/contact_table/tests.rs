@@ -42,7 +42,10 @@ fn mount() -> Harness<'static, Host> {
             |ui, host: &mut Host| {
                 let action = show(
                     ui,
-                    Some(&host.page),
+                    TableContent {
+                        page: Some(&host.page),
+                        ..Default::default()
+                    },
                     &mut host.preferences,
                     &mut host.selected,
                     &mut host.focused,

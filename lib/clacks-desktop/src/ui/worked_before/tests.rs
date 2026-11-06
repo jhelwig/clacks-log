@@ -19,6 +19,49 @@ use clacks_model::scalar::UtcSecond;
 use eframe::egui;
 use tokio::sync::mpsc;
 
+#[test]
+fn loading_stays_inside_the_table_without_moving_its_headers() {
+    use egui_kittest::{Harness, kittest::Queryable};
+
+    let mut ui = Harness::builder()
+        .allow_missing_glyphs()
+        .with_size(egui::vec2(1000.0, 350.0))
+        .build_ui_state(
+            |ui, view: &mut super::WorkedBeforeUi| {
+                view.show(ui);
+            },
+            super::WorkedBeforeUi::default(),
+        );
+    let header = ui.get_by_label("Callsign").rect();
+    let footer = ui.get_by_role_and_label(egui::Role::Button, "Next").rect();
+    ui.state_mut().model.query.call_prefix = "W7HEX".into();
+    ui.run();
+    let loading = ui.get_by_label("Loading prior contacts…").rect();
+    assert!(loading.top() >= header.bottom());
+    assert_eq!(ui.get_by_label("Callsign").rect(), header);
+    assert_eq!(
+        ui.get_by_role_and_label(egui::Role::Button, "Next").rect(),
+        footer
+    );
+
+    ui.state_mut().model.page = Some(ContactPage {
+        rows: vec![],
+        matching_total: 0,
+        selected_total: 0,
+        selected_outside_filter: 0,
+        has_more: false,
+    });
+    ui.run();
+    assert!(ui.query_by_label("Loading prior contacts…").is_none());
+    assert!(ui.query_by_label("Worked Before · W7HEX").is_none());
+    assert!(ui.get_by_label("No contacts in this view.").rect().top() >= header.bottom());
+    assert_eq!(ui.get_by_label("Callsign").rect(), header);
+    assert_eq!(
+        ui.get_by_role_and_label(egui::Role::Button, "Next").rect(),
+        footer
+    );
+}
+
 #[tokio::test]
 async fn status_changes_only_entry_and_drives_existing_observers() -> anyhow::Result<()> {
     let directory = tempfile::tempdir()?;

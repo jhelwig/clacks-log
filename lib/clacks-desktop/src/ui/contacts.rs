@@ -253,7 +253,10 @@ impl ContactsUi {
                 .show(ui, |ui| {
                     let action = table::show(
                         ui,
-                        self.page.as_ref(),
+                        table::TableContent {
+                            page: self.page.as_ref(),
+                            ..Default::default()
+                        },
                         &mut self.preferences,
                         &mut self.selected,
                         &mut self.focused,

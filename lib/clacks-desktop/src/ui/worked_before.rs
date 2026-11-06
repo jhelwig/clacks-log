@@ -103,7 +103,7 @@ fn show_table(
     preferences: &mut ContactTablePreferences,
     interaction: &mut TableInteraction,
 ) -> Option<QsoId> {
-    if !model.query.call_prefix.is_empty() || model.error.is_some() {
+    if model.error.is_some() {
         egui::Panel::top("prior.controls")
             .frame(egui::Frame::NONE)
             .show(ui, |ui| {
@@ -120,7 +120,11 @@ fn show_table(
         .show(ui, |ui| {
             let action = contact_table::show(
                 ui,
-                model.page.as_ref(),
+                contact_table::TableContent {
+                    page: model.page.as_ref(),
+                    loading_message: (!model.query.call_prefix.is_empty() && model.error.is_none())
+                        .then_some("Loading prior contacts…"),
+                },
                 preferences,
                 &mut interaction.selected,
                 &mut interaction.focused,
@@ -133,16 +137,10 @@ fn show_table(
         .inner
 }
 
-/// Render the shared heading and query feedback in either presentation.
+/// Render query feedback in either presentation.
 fn show_controls(ui: &mut egui::Ui, model: &model::WorkedBeforeModel) {
-    if !model.query.call_prefix.is_empty() {
-        ui.strong(format!("Worked Before · {}", model.query.call_prefix));
-    }
     if let Some(error) = &model.error {
         super::feedback::problem(ui, error);
-    }
-    if !model.query.call_prefix.is_empty() && model.page.is_none() && model.error.is_none() {
-        ui.small("Loading prior contacts…");
     }
 }
 
