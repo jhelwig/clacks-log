@@ -1,12 +1,12 @@
-//! Real bounded history rows with native IDs, selection and column presentation.
+//! Continuous virtual history with bounded reads and native identity selection.
 
+pub(super) mod data;
 mod header;
 pub(super) mod preferences;
 #[cfg(test)]
 mod tests;
 
 use clacks_client_store::read::contacts::ContactColumn;
-use clacks_client_store::read::contacts::ContactPage;
 use clacks_model::ids::QsoId;
 use clacks_model::recognition::mode::ModeIdentity;
 use eframe::egui;
@@ -15,19 +15,33 @@ use preferences::ContactTablePreferences;
 use std::collections::BTreeSet;
 
 /// Accepted rows and optional loading feedback within the table viewport.
-#[derive(Default)]
 pub(super) struct TableContent<'a> {
-    /// Last accepted page, retained during background refreshes.
-    pub page: Option<&'a ContactPage>,
+    /// Loaded viewport pages and the complete logical result count.
+    pub data: &'a data::TableData,
+    /// Display the selected set rather than matches of the expression.
+    pub selected_only: bool,
+    /// Reset the viewport after a changed query or ordering.
+    pub reset_scroll: bool,
     /// Loading feedback supplied by the query owner when no page is available.
     pub loading_message: Option<&'a str>,
 }
 
-/// A contact explicitly activated from this table.
+/// Row activation and visible data demand from one table presentation.
 #[derive(Default)]
 pub(super) struct TableAction {
     /// Stable identity to load, independent of row order.
     pub open: Option<QsoId>,
+    /// Internal page offsets needed by visible rows and a pending keyboard target.
+    pub needed: BTreeSet<u32>,
+}
+
+/// Keyboard navigation intent retained while its destination row is loading.
+#[derive(Clone, Copy)]
+pub(super) struct PendingFocus {
+    /// Absolute row to reveal and focus when available.
+    pub index: usize,
+    /// Native focus owner that initiated navigation; a new owner cancels it.
+    pub owner: Option<egui::Id>,
 }
 
 /// Minimum viewport containing column headings, one complete row and the
@@ -53,17 +67,30 @@ pub(super) fn show(
     preferences: &mut ContactTablePreferences,
     selected: &mut BTreeSet<QsoId>,
     focused: &mut Option<QsoId>,
-    pending_focus: &mut Option<QsoId>,
+    pending_focus: &mut Option<PendingFocus>,
     today: Option<i64>,
 ) -> TableAction {
     let mut action = TableAction::default();
     let mut row_ids = std::collections::BTreeMap::new();
     let mut native_focus = None;
-    let page = content.page;
-
-    let rows = page.map_or(&[][..], |page| page.rows.as_slice());
-    if pending_focus.is_some_and(|id| !rows.iter().any(|row| row.working.qso.id() == id)) {
+    let data = content.data;
+    let total = data.len(content.selected_only);
+    let navigation_interrupted = ui.input(|input| {
+        input.pointer.any_pressed()
+            || input.key_pressed(egui::Key::Tab)
+            || input.key_pressed(egui::Key::Escape)
+    });
+    if content.reset_scroll
+        || navigation_interrupted
+        || pending_focus.is_some_and(|target| {
+            target.index >= total
+                || ui.memory(|memory| memory.focused().is_some_and(|id| Some(id) != target.owner))
+        })
+    {
         *pending_focus = None;
+    }
+    if data.counts.is_none() {
+        action.needed.insert(0);
     }
     let visible: Vec<_> = preferences
         .columns
@@ -72,6 +99,7 @@ pub(super) fn show(
         .cloned()
         .collect();
     if visible.is_empty() {
+        action.needed.insert(0);
         let height = ui.spacing().interact_size.y;
         let choice = ui
             .allocate_ui(egui::vec2(ui.available_width(), height), |ui| {
@@ -108,10 +136,10 @@ pub(super) fn show(
             if reset {
                 table.reset();
             }
-            if let Some(index) =
-                pending_focus.and_then(|id| rows.iter().position(|row| row.working.qso.id() == id))
-            {
-                table = table.scroll_to_row(index, Some(egui::Align::Center));
+            if content.reset_scroll {
+                table = table.vertical_scroll_offset(0.0);
+            } else if let Some(target) = *pending_focus {
+                table = table.scroll_to_row(target.index, Some(egui::Align::Center));
             }
             table
                 .header(row_height, |mut header| {
@@ -134,18 +162,33 @@ pub(super) fn show(
                             saved.width = *width;
                         }
                     }
-                    if page.is_none() {
+                    if data.counts.is_none() {
                         if let Some(message) = content.loading_message {
                             body.ui_mut().label(message);
                         }
                         return;
                     }
-                    if rows.is_empty() {
+                    if total == 0 {
                         body.ui_mut().label("No contacts in this view.");
                         return;
                     }
-                    body.rows(row_height, rows.len(), |mut row| {
-                        let Some(value) = rows.get(row.index()) else {
+                    body.rows(row_height, total, |mut row| {
+                        let index = row.index();
+                        if let Some(offset) = data::page_offset(index) {
+                            action.needed.insert(offset);
+                        }
+                        let Some(value) = data.row(index) else {
+                            for (column, _) in visible.iter().enumerate() {
+                                row.col(|ui| {
+                                    if column == 0 {
+                                        ui.weak(
+                                            content
+                                                .loading_message
+                                                .unwrap_or("Contact unavailable"),
+                                        );
+                                    }
+                                });
+                            }
                             return;
                         };
                         row.set_selected(selected.contains(&value.working.qso.id()));
@@ -164,7 +207,7 @@ pub(super) fn show(
                             has_focus |= cell_response.has_focus();
                         }
                         let response = row.response();
-                        row_ids.insert(value.working.qso.id(), response.id);
+                        row_ids.insert(index, response.id);
                         if response.clicked() {
                             *focused = Some(value.working.qso.id());
                             response.request_focus();
@@ -210,7 +253,9 @@ pub(super) fn show(
         *focused = Some(id);
     }
     if native_focus.is_some() || pending_focus.is_some() {
-        if ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter)) {
+        if ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter))
+            && pending_focus.is_none()
+        {
             action.open = *focused;
         }
         let delta = if ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowDown))
@@ -225,24 +270,38 @@ pub(super) fn show(
             ui.memory_mut(|memory| memory.move_focus(egui::FocusDirection::None));
         }
         if delta != 0
-            && let Some(index) =
-                focused.and_then(|id| rows.iter().position(|row| row.working.qso.id() == id))
+            && let Some(index) = pending_focus
+                .map(|target| target.index)
+                .or_else(|| focused.and_then(|id| data.index(id)))
             && let Some(next) = index
                 .checked_add_signed(delta)
-                .and_then(|index| rows.get(index))
+                .filter(|index| *index < total)
         {
-            *focused = Some(next.working.qso.id());
-            *pending_focus = Some(next.working.qso.id());
-            selected.clear();
-            selected.insert(next.working.qso.id());
+            let owner = pending_focus.map_or_else(
+                || ui.memory(|memory| memory.focused()),
+                |target| target.owner,
+            );
+            *pending_focus = Some(PendingFocus { index: next, owner });
             ui.ctx().request_repaint();
         }
     }
-    if let Some(target) = pending_focus.and_then(|id| row_ids.get(&id)) {
+    if let Some(offset) = pending_focus.and_then(|target| data::page_offset(target.index)) {
+        action.needed.insert(offset);
+    }
+    if let Some(pending) = *pending_focus
+        && let Some(value) = data.row(pending.index)
+        && let Some(target) = row_ids.get(&pending.index)
+    {
+        *focused = Some(value.working.qso.id());
+        selected.clear();
+        selected.insert(value.working.qso.id());
         ui.memory_mut(|m| m.request_focus(*target));
         *pending_focus = None;
     }
-    if pending_focus.is_some() {
+    if pending_focus
+        .and_then(|target| data.row(target.index))
+        .is_some()
+    {
         ui.ctx().request_repaint();
     }
     action

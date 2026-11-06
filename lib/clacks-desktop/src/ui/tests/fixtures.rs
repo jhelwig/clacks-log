@@ -104,3 +104,39 @@ pub(in crate::ui) fn contact() -> clacks_model::contact::Qso {
     form.build(Default::default(), &DefinitionSet::default())
         .unwrap()
 }
+
+/// Ordered component input with distinct callsigns and native contact identities.
+pub(in crate::ui) fn contact_page(
+    start: u32,
+    count: u32,
+    total: u64,
+) -> clacks_client_store::read::contacts::ContactPage {
+    use clacks_client_store::read::{
+        contacts::{ContactPage, ContactRow},
+        history::HistoryRow,
+    };
+    ContactPage {
+        rows: (start..start + count)
+            .map(|index| {
+                let mut qso = contact();
+                crate::test_support::edit(&mut qso, |qso| {
+                    qso.contacted_station.callsign =
+                        RecordedCallsign::new(&format!("K1T{index:03}")).unwrap();
+                    Ok(())
+                });
+                ContactRow {
+                    facts: Default::default(),
+                    working: HistoryRow {
+                        qso,
+                        pending: true,
+                        review: None,
+                    },
+                }
+            })
+            .collect(),
+        matching_total: total,
+        selected_total: 0,
+        selected_outside_filter: 0,
+        has_more: u64::from(start + count) < total,
+    }
+}

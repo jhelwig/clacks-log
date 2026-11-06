@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::ui::tests::fixtures;
+use clacks_client_store::read::contacts::ContactPage;
 use clacks_sync::record::{RecordState, RecordValue};
 use egui_kittest::Harness;
 
@@ -72,6 +73,7 @@ fn view_change_clears_selection_and_ignores_an_old_page_reply() {
         page_request: Some(PageRequest {
             query: ContactPageQuery::default(),
             expression: String::new(),
+            replace: true,
             receiver,
         }),
         ..Default::default()
@@ -97,7 +99,7 @@ fn view_change_clears_selection_and_ignores_an_old_page_reply() {
         .unwrap();
     view.poll();
     assert!(view.selected.is_empty());
-    assert!(view.page.is_none());
+    assert!(view.data.counts.is_none());
     assert_eq!(view.query.view, SelectedView::Untagged);
     assert!(view.dirty);
 }
@@ -139,7 +141,7 @@ fn query_replies_follow_current_inputs_and_failures_keep_complete_rows() -> anyh
         )))
         .unwrap();
     view.poll();
-    assert_eq!(view.page.as_ref().unwrap().matching_total, 7);
+    assert_eq!(view.data.counts.as_ref().unwrap().matching_total, 7);
     assert_eq!(view.filter.state.applied, "mode:CW");
 
     view.refresh(view.query.view);
@@ -153,10 +155,9 @@ fn query_replies_follow_current_inputs_and_failures_keep_complete_rows() -> anyh
         ))
         .unwrap();
     view.poll();
-    assert_eq!(view.page.as_ref().unwrap().matching_total, 7);
+    assert_eq!(view.data.counts.as_ref().unwrap().matching_total, 7);
     assert_eq!(view.filter.state.applied, "mode:CW");
-    assert!(view.problem);
-    assert!(view.notice.as_ref().unwrap().contains("Cannot read"));
+    assert!(view.read_error.as_ref().unwrap().contains("Cannot read"));
     Ok(())
 }
 
@@ -539,71 +540,4 @@ fn saved_editor_displays_directory_name_without_recording_it_on_save() {
     assert!(next.contacted_station().location.is_none());
 }
 
-#[test]
-fn history_pagination_is_pane_owned_with_empty_and_scrolling_rows() {
-    use egui_kittest::kittest::Queryable;
-    for height in [220.0, 450.0] {
-        for count in [0, 40] {
-            let page = ContactPage {
-                rows: (0..count)
-                    .map(|n| {
-                        let mut qso = fixtures::contact();
-                        crate::test_support::edit(&mut qso, |qso| {
-                            qso.contacted_station.callsign =
-                                clacks_model::scalar::RecordedCallsign::new(&format!("K1T{n:03}"))
-                                    .unwrap();
-                            Ok(())
-                        });
-                        clacks_client_store::read::contacts::ContactRow {
-                            facts: Default::default(),
-                            working: clacks_client_store::read::history::HistoryRow {
-                                qso,
-                                pending: true,
-                                review: None,
-                            },
-                        }
-                    })
-                    .collect(),
-                matching_total: count,
-                selected_total: 0,
-                selected_outside_filter: 0,
-                has_more: true,
-            };
-            let last = page.rows.last().map(|row| row.working.qso.id());
-            let view = ContactsUi {
-                page: Some(page),
-                ..Default::default()
-            };
-            let (sender, _requests) = mpsc::channel(16);
-            let mut ui = Harness::builder()
-                .allow_missing_glyphs()
-                .with_context_setup(|ctx| crate::ui::theme::install(ctx, &Default::default()))
-                .with_size(egui::vec2(1000.0, height))
-                .build_ui_state(
-                    move |ui, view: &mut ContactsUi| {
-                        view.show(
-                            ui,
-                            &fixtures::snapshot(),
-                            &sender,
-                            &DefinitionSet::default(),
-                        )
-                    },
-                    view,
-                );
-            let footer = ui.get_by_role_and_label(egui::Role::Button, "Next").rect();
-            let title = ui.get_by_label("Contact history").rect();
-            assert!((footer.bottom() - (height - 8.0)).abs() < 1.0, "{footer:?}");
-            if let Some(last) = last {
-                assert!(ui.query_by_label("K1T039").is_none());
-                ui.state_mut().pending_focus = Some(last);
-                ui.run();
-                assert!(ui.query_by_label("K1T039").is_some());
-                assert_eq!(
-                    ui.get_by_role_and_label(egui::Role::Button, "Next").rect(),
-                    footer
-                );
-                assert_eq!(ui.get_by_label("Contact history").rect(), title);
-            }
-        }
-    }
-}
+mod scrolling;

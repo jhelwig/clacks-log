@@ -83,9 +83,9 @@ without resetting the in-progress entry or changing active operating settings.
 
 ### Selection and counts — Agreed
 
-Keep selected QSO identities across filtering, sorting and paging. Show the
+Keep selected QSO identities across filtering, sorting and scrolling. Show the
 selected total and count outside the **applied filter**, not merely outside the
-current page. Show selected reveals the selected set; Clear selection clears
+visible rows. Show selected reveals the selected set; Clear selection clears
 it. Bulk-action labels distinguish selected contacts from all matching contacts.
 Changing the selected logbook/view clears selection, including hidden members;
 returning does not restore it. Selection highlighting must not obscure pending
@@ -454,6 +454,17 @@ out. **E5 default:** return matching-page data and counts from one ordinary
 read snapshot; use 100-row pages initially, with stable ID ties. The concrete
 page/cursor representation is implementation work, not another operator policy.
 
+Per issue #88, these pages are internal reads, never user-facing navigation.
+History and both Worked Before presentations show all matching rows in one
+continuous virtual table. The scrollbar spans the complete result count; jumping
+to a distant position reads the needed rows without fetching intervening pages.
+Keep only pages needed by active viewports and pending keyboard navigation.
+Loading rows retain their logical positions. Preserve usable results after a
+read failure and offer retry. Worked Before shares query/data and column choices
+while its tab and dedicated window retain independent scrolling and focus.
+Show selected uses the selected-contact count for its logical table extent,
+independently of the expression's matching count.
+
 **E8 — Engineering default:** persist edited/applied query text together as one
 versioned native preference value under `history.query` in the workspace's
 existing `local_state(key, value)` table. Use normal local write transactions;
@@ -510,8 +521,8 @@ contact/evidence scenario set for the semantic and store assertions:
   references staying paired in one predicate; group definitions remain data.
 - Service-specific current coverage/confirmation, imported positives, credential
   replacement and relevant corrections, without simulating a remote provider.
-- Real relational paging/count/selection and query-state persistence over a
-  restart; unfinished text and applied results remain distinguishable.
+- Real relational internal paging/count/selection and query-state persistence
+  over a restart; unfinished text and applied results remain distinguishable.
 - The assembled query bar's completion/error flow, Enter handling, same-row editor
   request, view-switch selection clearing and stale-response suppression. Use
   egui_kittest's native facilities; do not create custom UI drivers or repeat
@@ -519,6 +530,9 @@ contact/evidence scenario set for the semantic and store assertions:
 - Worked Before prefix changes/empty input, independent history expressions,
   working edits/deletions, older rows and a UTC-day transition using controlled
   time instead of real sleeps.
+- Full-result scrolling beyond internal read boundaries, direct scrollbar jumps,
+  keyboard activation across unloaded boundaries, selected-only extent,
+  independent Worked Before viewports, stale-read suppression and read retry.
 
 Inspect the production workbench under the [UI completion gates](desktop-ui.md#ui-change-completion-gates):
 query bar and popup placement, unchanged entry/details arrangement, pane bounds

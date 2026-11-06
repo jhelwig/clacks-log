@@ -17,9 +17,7 @@ use crate::session::settings::{
     contacts::{ContactAction, ContactResponse},
 };
 use clacks_client_store::{
-    logbooks::selection::SelectedView,
-    read::contacts::{ContactPage, ContactPageQuery},
-    save::SaveOutcome,
+    logbooks::selection::SelectedView, read::contacts::ContactPageQuery, save::SaveOutcome,
     settings::SettingsSnapshot,
 };
 use clacks_model::{group::DefinitionSet, ids::QsoId};
@@ -35,6 +33,8 @@ struct PageRequest {
     query: ContactPageQuery,
     /// Expression text associated with this exact request.
     expression: String,
+    /// First reply after invalidation replaces all prior cached pages.
+    replace: bool,
     /// Runtime acknowledgment.
     receiver: oneshot::Receiver<SettingsResponse>,
 }
@@ -47,8 +47,14 @@ pub(super) struct ContactsUi {
     query: ContactPageQuery,
     /// Expression text bound to the current requested page inputs.
     query_text: String,
-    /// Last successfully read bounded page.
-    page: Option<ContactPage>,
+    /// Bounded viewport rows and their complete result counts.
+    data: table::data::TableData,
+    /// Pages currently required by the history viewport.
+    needed: BTreeSet<u32>,
+    /// A changed query/order requires the viewport to return to its beginning.
+    reset_scroll: bool,
+    /// Failed read, separate from saved-contact operation feedback; blocks automatic retry.
+    read_error: Option<String>,
     /// Originating page request used to reject obsolete results.
     page_request: Option<PageRequest>,
     /// One saved-contact operation whose acknowledgment remains owned here.
@@ -67,7 +73,7 @@ pub(super) struct ContactsUi {
     /// Logical focused contact for keyboard navigation.
     focused: Option<QsoId>,
     /// Keyboard target awaiting native focus after scrolling into the rendered rows.
-    pending_focus: Option<QsoId>,
+    pending_focus: Option<table::PendingFocus>,
     /// Known mutations or view changes require another bounded read.
     dirty: bool,
     /// Persistent operation feedback, independent of editor dismissal.
@@ -76,8 +82,6 @@ pub(super) struct ContactsUi {
     problem: bool,
     /// Current record returned by a stale save, available only for explicit reload.
     current_record: Option<ClientRecord>,
-    /// Whether the first page request has been admitted.
-    initialized: bool,
     /// Committed contact change awaiting workbench-wide read invalidation.
     pub(super) changed: bool,
     /// Measured fixed controls, used by the workbench divider constraint.
@@ -137,9 +141,13 @@ impl ContactsUi {
             self.query.selected_ids.clear();
             self.focused = None;
             self.pending_focus = None;
-            self.page = None;
+            self.data.clear();
+            self.needed.clear();
+            self.reset_scroll = true;
         }
         self.query.offset = 0;
+        self.pending_focus = None;
+        self.read_error = None;
         self.dirty = true;
         if let Some(editor) = &mut self.editor {
             editor.validation.invalidate();
@@ -187,11 +195,13 @@ impl ContactsUi {
                             self.query.show_selected = !selected_view;
                             self.query.selected_ids = self.selected.clone();
                             self.refresh(self.query.view);
+                            self.reset_scroll = true;
                         }
                         if ui.small_button("Clear selection").clicked() {
                             self.selected.clear();
                             if std::mem::take(&mut self.query.show_selected) {
                                 self.refresh(self.query.view);
+                                self.reset_scroll = true;
                             }
                         }
                     });
@@ -202,44 +212,30 @@ impl ContactsUi {
                             ui.small(notice);
                         }
                     }
+                    if let Some(error) = &self.read_error {
+                        feedback::problem(ui, error);
+                        if ui.small_button("Retry contact read").clicked() {
+                            self.read_error = None;
+                        }
+                    }
                     self.membership_feedback(ui);
                     self.filter.show(ui, snapshot, definitions);
                 });
-            let footer = egui::Panel::bottom("history.pagination")
+            let footer = egui::Panel::bottom("history.counts")
                 .frame(egui::Frame::NONE)
+                .min_size(0.0)
                 .show(ui, |ui| {
                     ui.horizontal_wrapped(|ui| {
-                        if ui
-                            .add_enabled(
-                                self.query.offset > 0 && self.page_request.is_none(),
-                                egui::Button::new("Previous"),
-                            )
-                            .clicked()
-                        {
-                            self.query.offset = self.query.offset.saturating_sub(self.query.limit);
-                            self.dirty = true;
-                        }
-                        if ui
-                            .add_enabled(
-                                self.page.as_ref().is_some_and(|p| p.has_more)
-                                    && self.page_request.is_none(),
-                                egui::Button::new("Next"),
-                            )
-                            .clicked()
-                        {
-                            self.query.offset = self.query.offset.saturating_add(self.query.limit);
-                            self.dirty = true;
-                        }
-                        let matching = self.page.as_ref().map_or(0, |p| p.matching_total);
-                        let selected = self.page.as_ref().map_or(0, |p| p.selected_total);
-                        let hidden = self.page.as_ref().map_or(0, |p| p.selected_outside_filter);
+                        let matching = self.data.counts.as_ref().map_or(0, |p| p.matching_total);
+                        let selected = self.data.counts.as_ref().map_or(0, |p| p.selected_total);
+                        let hidden = self
+                            .data
+                            .counts
+                            .as_ref()
+                            .map_or(0, |p| p.selected_outside_filter);
                         ui.small(format!(
-                    "Page {} · {matching} matching · {selected} selected · {hidden} outside filter",
-                    self.query.offset / self.query.limit + 1
-                ));
-                        if self.page_request.is_some() {
-                            ui.small("Loading…");
-                        }
+                            "{matching} matching · {selected} selected · {hidden} outside filter"
+                        ));
                     });
                 });
             let chrome_height = header.response.rect.height() + footer.response.rect.height();
@@ -254,8 +250,13 @@ impl ContactsUi {
                     let action = table::show(
                         ui,
                         table::TableContent {
-                            page: self.page.as_ref(),
-                            ..Default::default()
+                            data: &self.data,
+                            selected_only: self.query.show_selected,
+                            reset_scroll: std::mem::take(&mut self.reset_scroll),
+                            loading_message: self
+                                .read_error
+                                .is_none()
+                                .then_some("Loading contacts…"),
                         },
                         &mut self.preferences,
                         &mut self.selected,
@@ -263,9 +264,11 @@ impl ContactsUi {
                         &mut self.pending_focus,
                         None,
                     );
+                    self.needed = action.needed;
                     if self.query.order != self.preferences.order {
                         self.query.order = self.preferences.order;
                         self.refresh(self.query.view);
+                        self.reset_scroll = true;
                     }
                     if let Some(id) = action.open {
                         self.request(ContactAction::Load { id }, requests);
@@ -275,6 +278,10 @@ impl ContactsUi {
         self.filter.advance(ui.ctx(), requests, false);
         self.update_query();
         self.read_page(requests);
+        if self.page_request.is_some() {
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(25));
+        }
         self.show_editor(ui.ctx(), definitions, requests, &snapshot.logbooks);
         self.show_deletion(ui.ctx(), requests);
     }
@@ -288,10 +295,15 @@ impl ContactsUi {
             self.query_text = self.filter.desired_text.clone();
             self.query.offset = 0;
             self.dirty = true;
+            self.reset_scroll = true;
+            self.focused = None;
+            self.pending_focus = None;
+            self.read_error = None;
         }
         if self.query.selected_ids != self.selected {
             self.query.selected_ids = self.selected.clone();
             self.dirty = true;
+            self.read_error = None;
         }
         if self.page_request.as_ref().is_some_and(|p| {
             p.query != self.query || p.expression != self.filter.desired_text || self.dirty
@@ -303,12 +315,23 @@ impl ContactsUi {
 
     /// Admit a page only after the applied query has been restored successfully.
     fn read_page(&mut self, requests: &mpsc::Sender<SettingsRequest>) {
-        if self.filter.desired.is_none()
-            || !(self.dirty || !self.initialized)
-            || self.page_request.is_some()
+        if self.filter.desired.is_none() || self.page_request.is_some() || self.read_error.is_some()
         {
             return;
         }
+        let needed = if self.reset_scroll {
+            [0].into()
+        } else {
+            self.needed.clone()
+        };
+        let offset = if self.dirty {
+            Some(needed.first().copied().unwrap_or(0))
+        } else {
+            self.data.require(&needed)
+        };
+        let Some(offset) = offset else { return };
+        self.query.offset = offset;
+        self.query.limit = table::data::PAGE_SIZE;
         let (reply, receiver) = oneshot::channel();
         let query = self.query.clone();
         if requests
@@ -323,10 +346,10 @@ impl ContactsUi {
             self.page_request = Some(PageRequest {
                 query,
                 expression: self.filter.desired_text.clone(),
+                replace: self.dirty,
                 receiver,
             });
             self.dirty = false;
-            self.initialized = true;
         }
     }
 

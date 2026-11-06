@@ -10,21 +10,35 @@ impl ContactsUi {
                 Ok(response) => {
                     let query = pending.query.clone();
                     let expression = pending.expression.clone();
+                    let replace = pending.replace;
                     self.page_request = None;
                     if query == self.query && !self.dirty {
-                        if matches!(
-                            &response,
-                            SettingsResponse::Contacts(ContactResponse::Page(_))
-                        ) {
-                            self.filter.applied(expression);
+                        match response {
+                            SettingsResponse::Contacts(ContactResponse::Page(page)) => {
+                                self.data.accept(query.offset, page, replace);
+                                self.filter.applied(expression);
+                                self.read_error = None;
+                            }
+                            SettingsResponse::Failed(message) => {
+                                self.dirty |= replace;
+                                self.read_error = Some(message);
+                            }
+                            _ => {
+                                self.dirty |= replace;
+                                self.read_error = Some(
+                                    "Contact list read ended without a usable response.".into(),
+                                );
+                            }
                         }
-                        self.response(response);
+                    } else {
+                        tracing::debug!(offset = query.offset, "Discarded obsolete history reply");
                     }
                 }
                 Err(oneshot::error::TryRecvError::Empty) => {}
                 Err(oneshot::error::TryRecvError::Closed) => {
+                    self.dirty |= pending.replace;
                     self.page_request = None;
-                    self.notice = Some("Contact list read ended without a response.".into());
+                    self.read_error = Some("Contact list read ended without a response.".into());
                 }
             }
         }
@@ -76,7 +90,9 @@ impl ContactsUi {
             ContactResponse::WorkedBefore(_) => {
                 self.notice = Some("Unexpected Worked Before response".into());
             }
-            ContactResponse::Page(page) => self.page = Some(page),
+            ContactResponse::Page(_) => {
+                self.notice = Some("Contact rows require their originating read request.".into());
+            }
             ContactResponse::Loaded(Some(record), snapshot) => {
                 match editor::ContactEditor::from_record(record) {
                     Ok(mut value) => {

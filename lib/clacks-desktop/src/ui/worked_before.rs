@@ -24,7 +24,11 @@ struct TableInteraction {
     /// Keyboard-focused row identity.
     focused: Option<QsoId>,
     /// Requested keyboard focus after scrolling.
-    pending_focus: Option<QsoId>,
+    pending_focus: Option<contact_table::PendingFocus>,
+    /// Pages required by this presentation's viewport and keyboard target.
+    needed: BTreeSet<u32>,
+    /// Return to the first row after changed query inputs.
+    reset_scroll: bool,
 }
 
 /// One reusable view owner; opening its window never changes the workbench mode.
@@ -78,6 +82,25 @@ impl WorkedBeforeUi {
         now: UtcSecond,
         requests: &mpsc::Sender<SettingsRequest>,
     ) {
+        if self.model.query.call_prefix != call.trim().to_uppercase()
+            || self.model.query.view != view
+            || self.model.query.order != self.preferences.order
+        {
+            self.tab = TableInteraction {
+                reset_scroll: true,
+                ..Default::default()
+            };
+            self.window = TableInteraction {
+                reset_scroll: true,
+                ..Default::default()
+            };
+        }
+        self.model.tab_needed = self.tab.needed.clone();
+        self.model.window_needed = if self.window_open {
+            self.window.needed.clone()
+        } else {
+            BTreeSet::new()
+        };
         self.model
             .update(context, call, view, self.preferences.order, now, requests);
     }
@@ -85,6 +108,8 @@ impl WorkedBeforeUi {
     /// Invalidate shared rows after a committed contact, view or definition change.
     pub fn refresh(&mut self) {
         self.model.refresh();
+        self.tab.pending_focus = None;
+        self.window.pending_focus = None;
     }
 
     /// Draw prior contacts directly within the logging region's tab.
@@ -110,10 +135,11 @@ fn show_table(
                 show_controls(ui, model);
             });
     }
-    egui::Panel::bottom("prior.pagination")
+    egui::Panel::bottom("prior.counts")
         .frame(egui::Frame::NONE)
+        .min_size(0.0)
         .show(ui, |ui| {
-            show_pagination(ui, model);
+            show_counts(ui, model);
         });
     egui::CentralPanel::default()
         .frame(egui::Frame::NONE)
@@ -121,7 +147,9 @@ fn show_table(
             let action = contact_table::show(
                 ui,
                 contact_table::TableContent {
-                    page: model.page.as_ref(),
+                    data: &model.data,
+                    selected_only: false,
+                    reset_scroll: std::mem::take(&mut interaction.reset_scroll),
                     loading_message: (!model.query.call_prefix.is_empty() && model.error.is_none())
                         .then_some("Loading prior contacts…"),
                 },
@@ -131,40 +159,29 @@ fn show_table(
                 &mut interaction.pending_focus,
                 Some(model.day),
             );
-
+            if interaction.needed != action.needed {
+                interaction.needed = action.needed;
+                ui.ctx().request_repaint();
+            }
             action.open
         })
         .inner
 }
 
 /// Render query feedback in either presentation.
-fn show_controls(ui: &mut egui::Ui, model: &model::WorkedBeforeModel) {
+fn show_controls(ui: &mut egui::Ui, model: &mut model::WorkedBeforeModel) {
     if let Some(error) = &model.error {
         super::feedback::problem(ui, error);
+        if ui.small_button("Retry prior contacts").clicked() {
+            model.error = None;
+        }
     }
 }
 
-/// Render the shared pagination controls in either presentation.
-fn show_pagination(ui: &mut egui::Ui, model: &mut model::WorkedBeforeModel) {
-    ui.horizontal_wrapped(|ui| {
-        if ui
-            .add_enabled(model.query.offset > 0, egui::Button::new("Previous"))
-            .clicked()
-        {
-            model.next_page(false);
-        }
-        if ui
-            .add_enabled(
-                model.page.as_ref().is_some_and(|p| p.has_more),
-                egui::Button::new("Next"),
-            )
-            .clicked()
-        {
-            model.next_page(true);
-        }
-        ui.small(format!(
-            "{} prior contacts",
-            model.page.as_ref().map_or(0, |p| p.matching_total)
-        ));
-    });
+/// Render complete logical counts, independent of internal read boundaries.
+fn show_counts(ui: &mut egui::Ui, model: &model::WorkedBeforeModel) {
+    ui.small(format!(
+        "{} prior contacts",
+        model.data.counts.as_ref().map_or(0, |p| p.matching_total)
+    ));
 }
