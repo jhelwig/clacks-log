@@ -38,7 +38,7 @@ jobs:
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
         run: |
           cargo metadata --no-deps --format-version 1 --locked --offline > cargo-metadata.json
-          target/debug/clacks-desktop-package prepare --metadata cargo-metadata.json --revision "$SOURCE_SHA" --tag "$GITHUB_REF_NAME" --output metadata.json
+          target/debug/clacks-desktop-package prepare --platform windows-x64 --metadata cargo-metadata.json --revision "$SOURCE_SHA" --tag "$GITHUB_REF_NAME" --output metadata.json
       - name: Reuse exact-commit Linux and web results
         env:
           GH_TOKEN: ${{ github.token }}
@@ -103,7 +103,7 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $tagArgs = @()
           if ($env:GITHUB_EVENT_NAME -eq 'push') { $tagArgs = @('--tag', $env:GITHUB_REF_NAME) }
-          target/debug/clacks-desktop-package.exe prepare --metadata target/windows-package/cargo-metadata.json --revision $sha @tagArgs --output target/windows-package/metadata.json
+          target/debug/clacks-desktop-package.exe prepare --platform windows-x64 --metadata target/windows-package/cargo-metadata.json --revision $sha @tagArgs --output target/windows-package/metadata.json
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $metadata = Get-Content target/windows-package/metadata.json -Raw | ConvertFrom-Json
           $version = $metadata.version
