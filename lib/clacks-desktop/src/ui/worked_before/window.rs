@@ -20,18 +20,19 @@ impl WorkedBeforeUi {
             )
         };
         let mut width_ui = measure(10000.0, "prior.minimum.width");
-        show_pagination(&mut width_ui, &mut self.model);
+        show_counts(&mut width_ui, &self.model);
+        width_ui.label("No contacts in this view.");
         let width = width_ui.min_rect().width().ceil();
         let mut height_ui = measure(width, "prior.minimum.height");
         let spacing = height_ui.spacing().item_spacing.y;
         height_ui.spacing_mut().item_spacing.y = 0.0;
         height_ui.scope(|ui| {
             ui.spacing_mut().item_spacing.y = spacing;
-            show_controls(ui, &self.model);
+            show_controls(ui, &mut self.model);
         });
         height_ui.scope(|ui| {
             ui.spacing_mut().item_spacing.y = spacing;
-            show_pagination(ui, &mut self.model);
+            show_counts(ui, &self.model);
         });
         height_ui.spacing_mut().item_spacing.y = spacing;
         let height =

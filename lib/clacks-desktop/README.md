@@ -391,8 +391,13 @@ without changing new entry or operating defaults. Stale records require explicit
 reload before overwriting their current stored facts. Delete QSO confirms the
 contact's deletion across every logbook, with Cancel initially focused.
 
-History reads bounded pages with combined UTC timestamp sorting and configurable
-columns. Its always-visible expression bar applies valid input after 250 ms;
+History and Worked Before display all matching contacts in one continuous
+scrolling table, without pagination controls or page numbers. The scrollbar
+covers the full result set; bounded background reads supply visible rows and
+keyboard targets without loading intervening rows after a distant jump. Read
+failures retain usable rows and offer retry. History retains combined UTC
+timestamp sorting and configurable columns. Its always-visible expression bar
+applies valid input after 250 ms;
 invalid or unfinished input retains the last complete results and identifies
 their applied expression. Suggestions use the shared field catalog and current
 mode/band, tag and group data. Enter/Tab accepts a suggestion; Escape dismisses
@@ -415,7 +420,7 @@ picker through **Edit…**. Checkbox changes remain pending in the form until
 editor discards them. No separate membership Apply step is required.
 
 History shows **Edit assigned logbooks…** only when contacts are selected. Its
-picker includes off-page/outside-filter selected IDs, preserving untouched mixed
+picker includes offscreen/outside-filter selected IDs, preserving untouched mixed
 memberships. **Apply** submits guarded membership changes. **Cancel processing**
 stops between contact saves; retained results distinguish saved, unchanged, stale
 and unprocessed contacts from a failed acknowledgment or subsequent refresh.

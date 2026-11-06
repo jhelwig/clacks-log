@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::ui::{tests::fixtures, theme};
+use clacks_client_store::read::contacts::ContactPage;
 use clacks_client_store::read::{
     contacts::{ContactColumn, SortDirection},
     history::HistoryRow,
@@ -9,12 +10,15 @@ use clacks_client_store::read::{
 use egui_kittest::{Harness, kittest::Queryable};
 
 struct Host {
-    page: ContactPage,
+    data: data::TableData,
+    needed: BTreeSet<u32>,
+    selected_only: bool,
     preferences: preferences::ContactTablePreferences,
     selected: BTreeSet<QsoId>,
     focused: Option<QsoId>,
-    pending_focus: Option<QsoId>,
+    pending_focus: Option<PendingFocus>,
     opened: Option<QsoId>,
+    entry: String,
 }
 
 fn mount() -> Harness<'static, Host> {
@@ -40,11 +44,16 @@ fn mount() -> Harness<'static, Host> {
         .with_size(egui::vec2(1100.0, 240.0))
         .build_ui_state(
             |ui, host: &mut Host| {
+                let label = ui.label("Entry callsign");
+                ui.text_edit_singleline(&mut host.entry)
+                    .labelled_by(label.id);
                 let action = show(
                     ui,
                     TableContent {
-                        page: Some(&host.page),
-                        ..Default::default()
+                        data: &host.data,
+                        selected_only: host.selected_only,
+                        reset_scroll: false,
+                        loading_message: None,
                     },
                     &mut host.preferences,
                     &mut host.selected,
@@ -52,23 +61,35 @@ fn mount() -> Harness<'static, Host> {
                     &mut host.pending_focus,
                     None,
                 );
+                host.needed = action.needed;
                 if action.open.is_some() {
                     host.opened = action.open;
                 }
             },
             Host {
-                page: ContactPage {
-                    rows,
-                    has_more: false,
-                    matching_total: 40,
-                    selected_total: 0,
-                    selected_outside_filter: 0,
+                data: {
+                    let mut data = data::TableData::default();
+                    data.accept(
+                        0,
+                        ContactPage {
+                            rows,
+                            has_more: false,
+                            matching_total: 40,
+                            selected_total: 0,
+                            selected_outside_filter: 0,
+                        },
+                        true,
+                    );
+                    data
                 },
+                needed: Default::default(),
+                selected_only: false,
                 preferences: Default::default(),
                 selected: Default::default(),
                 focused: None,
                 pending_focus: None,
                 opened: None,
+                entry: String::new(),
             },
         )
 }
@@ -82,7 +103,7 @@ fn keyboard_navigation_scrolls_to_and_opens_the_contact_by_identity() {
         ui.key_press(egui::Key::ArrowDown);
         ui.run();
     }
-    let expected = ui.state().page.rows.get(12).unwrap().working.qso.id();
+    let expected = ui.state().data.row(12).unwrap().working.qso.id();
     assert_eq!(ui.state().focused, Some(expected));
     assert_eq!(ui.state().selected, [expected].into());
     assert!(ui.query_by_label("K1T012").is_some());
@@ -141,8 +162,9 @@ fn tab_focus_can_open_a_contact_without_a_pointer_click() {
 fn full_cell_headers_sort_and_configure_columns_even_without_contacts() {
     let mut ui = mount();
     ui.set_size(egui::vec2(1100.0, 650.0));
-    ui.state_mut().page.rows.clear();
-    ui.state_mut().page.matching_total = 0;
+    ui.state_mut()
+        .data
+        .accept(0, fixtures::contact_page(0, 0, 0), true);
     ui.run();
     assert!(ui.query_by_label("Columns").is_none());
     let start = ui
@@ -234,4 +256,127 @@ fn full_cell_headers_sort_and_configure_columns_even_without_contacts() {
     ui.key_press(egui::Key::Escape);
     ui.run();
     assert!(ui.query_by_label("Own call").is_some());
+}
+
+#[test]
+fn distant_rows_request_only_their_internal_page_and_open_by_identity() {
+    let mut ui = mount();
+    ui.state_mut()
+        .data
+        .accept(0, fixtures::contact_page(0, 100, 1000), true);
+    ui.state_mut().pending_focus = Some(PendingFocus {
+        index: 734,
+        owner: None,
+    });
+    ui.run_steps(3);
+    assert!(ui.state().needed.contains(&700));
+    assert!(ui.state().needed.iter().all(|offset| *offset >= 600));
+    assert!(ui.state().pending_focus.is_some());
+    assert!(ui.state().opened.is_none());
+
+    let page = fixtures::contact_page(700, 100, 1000);
+    let expected = page.rows.get(34).unwrap().working.qso.id();
+    ui.state_mut().data.accept(700, page, false);
+    ui.run();
+    assert!(ui.query_by_label("K1T734").is_some());
+    assert_eq!(ui.state().focused, Some(expected));
+    ui.key_press(egui::Key::Enter);
+    ui.run();
+    assert_eq!(ui.state().opened, Some(expected));
+}
+
+#[test]
+fn keyboard_crosses_an_unloaded_boundary_without_opening_the_previous_contact() {
+    let mut ui = mount();
+    ui.state_mut()
+        .data
+        .accept(0, fixtures::contact_page(0, 100, 250), true);
+    ui.state_mut().pending_focus = Some(PendingFocus {
+        index: 99,
+        owner: None,
+    });
+    ui.run();
+    let previous = ui.state().focused;
+    ui.key_press(egui::Key::ArrowDown);
+    ui.run_steps(3);
+    assert_eq!(
+        ui.state().pending_focus.map(|target| target.index),
+        Some(100)
+    );
+    assert!(ui.state().needed.contains(&100));
+    ui.key_press(egui::Key::Enter);
+    ui.run_steps(2);
+    assert!(ui.state().opened.is_none());
+    assert_eq!(ui.state().focused, previous);
+
+    let page = fixtures::contact_page(100, 100, 250);
+    let expected = page.rows.first().unwrap().working.qso.id();
+    ui.state_mut().data.accept(100, page, false);
+    ui.run();
+    assert_eq!(ui.state().selected, [expected].into());
+    ui.key_press(egui::Key::Enter);
+    ui.run();
+    assert_eq!(ui.state().opened, Some(expected));
+}
+
+#[test]
+fn show_selected_scrolls_the_selected_set_independently_of_expression_count() {
+    let mut ui = mount();
+    let mut page = fixtures::contact_page(0, 100, 3);
+    page.selected_total = 210;
+    page.selected_outside_filter = 207;
+    ui.state_mut().data.accept(0, page, true);
+    ui.state_mut().selected_only = true;
+    ui.state_mut().pending_focus = Some(PendingFocus {
+        index: 209,
+        owner: None,
+    });
+    ui.run_steps(3);
+    assert!(ui.state().needed.contains(&200));
+    let mut page = fixtures::contact_page(200, 10, 3);
+    page.selected_total = 210;
+    page.selected_outside_filter = 207;
+    ui.state_mut().data.accept(200, page, false);
+    ui.run();
+    assert!(ui.query_by_label("K1T209").is_some());
+    ui.key_press(egui::Key::ArrowDown);
+    ui.run();
+    assert!(ui.state().pending_focus.is_none());
+    assert!(ui.query_by_label("K1T209").is_some());
+}
+
+#[test]
+fn delayed_keyboard_target_does_not_take_focus_from_unfinished_entry() {
+    let mut ui = mount();
+    ui.state_mut()
+        .data
+        .accept(0, fixtures::contact_page(0, 100, 250), true);
+    ui.state_mut().pending_focus = Some(PendingFocus {
+        index: 99,
+        owner: None,
+    });
+    ui.run();
+    ui.key_press(egui::Key::ArrowDown);
+    ui.run_steps(3);
+    assert_eq!(
+        ui.state().pending_focus.map(|target| target.index),
+        Some(100)
+    );
+    ui.get_by_role_and_label(egui::Role::TextInput, "Entry callsign")
+        .click();
+    ui.run_steps(3);
+    ui.state_mut()
+        .data
+        .accept(100, fixtures::contact_page(100, 100, 250), false);
+    ui.run();
+    assert!(
+        ui.get_by_role_and_label(egui::Role::TextInput, "Entry callsign")
+            .is_focused()
+    );
+    ui.key_press(egui::Key::ArrowLeft);
+    ui.run();
+    assert!(
+        ui.get_by_role_and_label(egui::Role::TextInput, "Entry callsign")
+            .is_focused()
+    );
 }

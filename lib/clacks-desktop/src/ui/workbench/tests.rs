@@ -440,7 +440,9 @@ fn compressed_history_and_detail_tabs_respect_their_pane_bounds() {
                 available: egui::Rect::NOTHING,
             },
         );
-    let next = ui.get_by_role_and_label(egui::Role::Button, "Next").rect();
+    let next = ui
+        .get_by_label("0 matching · 0 selected · 0 outside filter")
+        .rect();
     assert!(next.bottom() <= ui.state().available.bottom());
     assert!((next.bottom() - ui.state().available.bottom()).abs() < 1.0);
     let tab = ui

@@ -123,11 +123,16 @@ remaining width and height below the upper panes, including while loading or
 empty; its bounds do not shrink to its controls or row count. Reset changes layout, not
 operating settings, contact data, appearance, fonts or selection.
 
+All table views present their entire result set as one continuous scrolling
+display, without user-facing pagination controls or page numbers (issue #88).
+Internal bounded reads remain invisible to the user. The scrollbar represents
+the full result set, including rows whose data has not yet arrived.
+
 Contact history and Worked Before own their complete pane layout: controls and
-filter/status at the top, pagination at the bottom, and a table viewport filling
-the remaining bounds. Rows scroll inside that viewport; row count does not move
-pagination. Determine usable minimum sizes from the fixed controls and a table
-viewport that shows at least one complete row or empty-state message, rather
+filter/status at the top, compact counts at the bottom, and a table viewport
+filling the remaining bounds. Rows scroll inside that viewport; row count does
+not move the fixed controls. Determine usable minimum sizes from the controls
+and a table viewport that shows at least one complete row or empty-state message, rather
 than having the table estimate space for controls outside it.
 
 The three panes are divisions of the main window: use square corners, no outer

@@ -295,8 +295,10 @@ sorting alongside recorded grid areas. `clacks-model::query` owns expression
 parsing, typed values and field help; the store compiles those closed structures
 to SQL with bound literals. `history` supplies the shared working-row type.
 
-The desktop uses pages of 100 and resets paging after known mutations or view/
-sort changes. A page's `has_more` is not an account-wide count; separate page
+The desktop uses internal pages of 100 to supply continuous virtual tables with
+no user-facing pagination. It reads the pages needed by the current viewport or
+keyboard target and invalidates cached rows after known mutations or view/sort
+changes. A page's `has_more` is not an account-wide count; separate page
 reads are not represented as one immutable account snapshot. Save/edit/delete
 continues to use the existing expected-record transaction and pending metadata.
 

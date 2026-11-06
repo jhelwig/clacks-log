@@ -178,7 +178,8 @@ impl ContactsUi {
             self.membership = Some(BulkMembership {
                 ids,
                 hidden: self
-                    .page
+                    .data
+                    .counts
                     .as_ref()
                     .filter(|_| self.page_request.is_none() && !self.dirty)
                     .map(|page| page.selected_outside_filter),
