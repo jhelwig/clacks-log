@@ -329,3 +329,70 @@ application rollback targets must retain the writer boundary and live formats.
 Maintenance requires a direct or session-pooled connection, not transaction
 pooling. Keep every key required by retained backups even after current source
 references reach zero.
+
+## Automatic production deployment
+
+`.github/workflows/server-deploy.yml` deploys the existing Dokku app `clacks-log`
+after the `Rust` workflow succeeds for a push to this repository's `main` branch.
+Main pushes always run both verification jobs, including documentation-only
+updates; pull-request verification retains its existing path filters. Desktop
+tag packaging is independent of server deployment.
+
+The deployment workflow is disabled unless repository variable
+`CLACKS_AUTO_DEPLOY_ENABLED` is exactly `true`. Keep it disabled throughout
+preparation and initial setup. Merging this workflow alone must not activate
+production deployment. Configure the GitHub environment `clacks-production`:
+
+| Kind | Name | Value |
+| --- | --- | --- |
+| Secret | `CLACKS_DOKKU_HOST` | Deployment SSH hostname; keep deployment-specific addresses out of committed files and public logs |
+| Secret | `CLACKS_DOKKU_PORT` | Deployment SSH port |
+| Secret | `CLACKS_DOKKU_SSH_KEY` | Dedicated private Ed25519 deployment key whose public half permits only the required deployment commands |
+| Secret | `CLACKS_TS_OAUTH_CLIENT_ID` | Separate Tailscale deployment OAuth client ID |
+| Secret | `CLACKS_TS_OAUTH_SECRET` | That client's secret, limited to creating auth keys for `tag:clacks-deploy` |
+| Variable | `CLACKS_DOKKU_KNOWN_HOSTS` | Verified container host public key, prefixed by `clacks-dokku-production`, for example `clacks-dokku-production ssh-ed25519 PUBLIC_HOST_KEY_BASE64` |
+
+Limit the production environment's deployment branch policy to `main`. For
+unattended deployment, do not require a human environment reviewer; branch review
+and protection remain the source approval boundary. Keep the activation variable
+at repository scope so the workflow can evaluate it before entering the environment.
+Deployment uses only a read-only GitHub token. Database, Google and wrapping-key
+credentials remain on the server and must not be added to GitHub.
+
+Coordinate the Tailscale policy and controller/key setup through Operations
+separately maintained operator procedures.
+It preserves operator access and restricts runners to `DEPLOYMENT_ADDRESS:3022`; there
+is no host SSH jump or host shell. The dedicated key permits only the native
+Clacks Git receiver and `clacks-deploy-revision`, which returns the running web
+container revision without exposing its environment. Other Dokku apps and
+management commands are denied by the forced command.
+
+The workflow accepts only successful push results for `main` from this repository,
+checks out the exact tested SHA, and checks that it is still the current main tip
+before setup and immediately before pushing. Failed/canceled verification and
+pull-request results never deploy. A newer commit can arrive after the final
+check; the in-flight release finishes and the newer successful main result deploys
+subsequently. Superseded queued results are skipped. GitHub's standard concurrency
+group uses `queue: max` to retain pending successful results instead of letting a
+later completion replace them. It allows up to 100 pending jobs, prevents
+overlapping releases and does not cancel an active deployment; it does not
+promise deployment of every intermediate commit.
+
+Deployment pushes the exact source SHA to Dokku's `main` without force. Dokku
+builds the image and retains its migration/grant/readiness gates and deployment
+lock. Then the workflow compares the running container's source revision with
+the tested SHA and checks public HTTPS readiness and the packaged browser script.
+Native build output, the GitHub job result and its summary report outcomes.
+
+To enable after authorized live verification, set the repository activation
+variable to `true`; the next successful main push result triggers deployment.
+A failed deployment can be retried by rerunning its GitHub deployment workflow
+while that source remains main's current tip. If Git reports everything up to
+date but running-revision verification fails, inspect native build/state rather
+than forcing a push. A failed database release may have committed schema changes;
+use the documented compatible recovery procedure, never automatic database rollback.
+
+Set the activation variable to `false` to stop new deployments. A release already
+in progress continues; disabling the variable does not undo a deployed revision.
+Production reachability, policy-test compilation and full first deployment are
+activation checks, not established by local workflow linting or SSH tests.
