@@ -158,6 +158,16 @@ operation stops delivery; Apple may continue processing a timed-out submission.
 Inspect its recorded submission ID before manually deciding whether to rerun.
 There is no unattended resubmission/waiting queue or weaker-signing fallback.
 
+Use `spctl` to assess the signed/stapled DMG and its mounted app, then run the
+final mounted executable's `--help`/`--version` with isolated data paths. Direct
+execution checks launch authorization for its restricted entitlements without
+opening a workspace; actual protected credential use still needs native
+acceptance. Do not gate this outer-stapled arrangement on
+`syspolicy_check distribution` of the inner app: Apple documents its false
+fatal missing-ticket result for an unstapled app. See
+[Apple launch diagnostics](https://developer.apple.com/forums/thread/706442)
+and [native container assessment](https://developer.apple.com/library/archive/technotes/tn2206/).
+
 ## Installation, upgrade and removal
 
 Open the downloaded DMG and copy **Clacks Log.app** to Applications using Finder.

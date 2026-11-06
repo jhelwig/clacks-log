@@ -441,10 +441,19 @@ jobs:
           xcrun stapler validate "$dmg"
           hdiutil verify "$dmg"
           codesign --verify --strict "$dmg"
+          spctl -a -t open --context context:primary-signature -v "$dmg"
           mkdir -p "$RUNNER_TEMP/clacks-dmg"
           hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$RUNNER_TEMP/clacks-dmg"
-          codesign --verify --strict "$RUNNER_TEMP/clacks-dmg/Clacks Log.app"
-          syspolicy_check distribution "$RUNNER_TEMP/clacks-dmg/Clacks Log.app"
+          mounted_app="$RUNNER_TEMP/clacks-dmg/Clacks Log.app"
+          codesign --verify --strict "$mounted_app"
+          spctl -a -t exec -vv "$mounted_app"
+          # The outer DMG carries the stapled ticket. syspolicy_check's inner
+          # app distribution check falsely requires another stapled ticket.
+          # Direct signed execution also exercises restricted-entitlement
+          # authorization; help/version exit before discovering a workspace.
+          smoke_args=(--workspace "$RUNNER_TEMP/clacks-smoke/workspace" --config "$RUNNER_TEMP/clacks-smoke/config.toml" --log-directory "$RUNNER_TEMP/clacks-smoke/logs")
+          "$mounted_app/Contents/MacOS/clacks-log" "${smoke_args[@]}" --help
+          "$mounted_app/Contents/MacOS/clacks-log" "${smoke_args[@]}" --version
           hdiutil detach "$RUNNER_TEMP/clacks-dmg"
       - name: Record final checksum and build evidence
         env:

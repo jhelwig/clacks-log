@@ -277,9 +277,14 @@ run and attempt. Use environment `macos-signing` only for the Mac job.
   A timeout/service failure is a failed delivery even if Apple continues
   processing. No unattended resubmission loop or completion watcher.
 - [ ] Staple/validate the DMG, verify its integrity and signature, mount read-only
-  without opening Finder, verify the inner app and run
-  `syspolicy_check distribution` against it. That standard tool includes
-  provisioning-profile checks. Unmount via unconditional cleanup; do not
+  without opening Finder and verify the inner app. Assess the outer image with
+  `spctl -a -t open --context context:primary-signature -v` and the mounted app
+  with `spctl -a -t exec -vv`. Run that final mounted executable's `--help` and
+  `--version` using explicit temporary data paths; signed launch also exercises
+  restricted-entitlement authorization before any workspace is opened. Actual
+  protected credential use remains Task 4. Do not gate the inner app with
+  `syspolicy_check distribution`: it incorrectly reports a fatal missing app
+  ticket when only the outer DMG is stapled. Unmount via unconditional cleanup; do not
   mutate the inner app or add a second notarization round. Fail before upload
   if any required check fails.
 - [ ] Hash final bytes only now. Record truthful final signing/notary status,
@@ -417,7 +422,9 @@ References: [Apple packaging](https://developer.apple.com/documentation/xcode/pa
 [Apple notarization](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow),
 [GitHub signing](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications),
 [runner tool inventory](https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md).
-Native `syspolicy_check distribution --help` documents profile validation;
-`notarytool submit --help` documents timeout/authentication behavior. Verify the
+Apple's [launch diagnostics](https://developer.apple.com/forums/thread/706442)
+document both restricted-entitlement execution failures and the inner-app
+missing-ticket diagnostic. `notarytool submit --help` documents
+timeout/authentication behavior. Verify the
 selected versions remain available when implementing; do not silently switch
 to `macos-latest` or another Xcode version.
