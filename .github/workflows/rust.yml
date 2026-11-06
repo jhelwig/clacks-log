@@ -26,12 +26,15 @@ concurrency:
 
 jobs:
   verify:
+    # Defense in depth for the current private repository. Public conversion
+    # requires an enforced boundary; fork workflows can edit this condition.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     strategy:
       fail-fast: false
       matrix:
         # Windows verification is temporarily deferred due to CI runtime cost.
         os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: [self-hosted, Linux, X64, clacks-linux]
     services:
       postgres:
         image: postgres@sha256:b994732fcf33f73776c65d3a5bf1f80c00120ba5007e8ab90307b1a743c1fc16
@@ -54,15 +57,12 @@ jobs:
       CLACKS_TEST_RUNTIME_DATABASE_URL: postgres://clacks_runtime@127.0.0.1:5432/clacks
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Use persistent local Cargo build artifacts
+        env:
+          CARGO_TARGET_DIR: ${{ runner.workspace }}/target
+        run: printf 'CARGO_TARGET_DIR=%s\n' "$CARGO_TARGET_DIR" >> "$GITHUB_ENV"
       - name: Resolve repository Rust toolchain
         run: rustup show active-toolchain
-      - name: Cache Rust dependency artifacts and installed tools
-        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          # Include the installed tool's version/features alongside the action's
-          # automatic OS, architecture, compiler, manifest and lockfile keys.
-          key: sqlx-cli-0.9.0-sqlite-postgres-rustls
-          workspaces: . -> target
       - name: Fetch locked Rust dependencies
         run: cargo fetch --locked
       - name: Install pinned SQLx metadata tooling
@@ -103,9 +103,9 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
-            target/debug/clacks-log.exe --help
+            "$CARGO_TARGET_DIR/debug/clacks-log.exe" --help
           else
-            target/debug/clacks-log --help
+            "$CARGO_TARGET_DIR/debug/clacks-log" --help
           fi
       - name: Test workspace
         run: cargo test --workspace --all-targets --locked --offline
@@ -122,31 +122,31 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cargo-timings-${{ matrix.os }}
-          path: target/cargo-timings/*.html
+          path: ${{ env.CARGO_TARGET_DIR }}/cargo-timings/*.html
           if-no-files-found: ignore
           retention-days: 7
       - name: Report build disk usage
         if: always()
         run: |
           df -h .
-          du -sh target ~/.cargo
+          du -sh "$CARGO_TARGET_DIR" ~/.cargo
 
   verify-web:
-    # Release/web builds do not consume workspace test artifacts. Keep their
-    # tooling and outputs on a separate runner rather than accumulating both.
-    runs-on: ubuntu-latest
+    # One dedicated runner executes these jobs sequentially. Cargo keeps build
+    # artifacts outside the cleaned source checkout and tracks their freshness.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, X64, clacks-linux]
     env:
       SQLX_OFFLINE: 'true'
       LEPTOS_OUTPUT_NAME: clacks-web
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Use persistent local Cargo build artifacts
+        env:
+          CARGO_TARGET_DIR: ${{ runner.workspace }}/target
+        run: printf 'CARGO_TARGET_DIR=%s\n' "$CARGO_TARGET_DIR" >> "$GITHUB_ENV"
       - name: Resolve repository Rust toolchain
         run: rustup show active-toolchain
-      - name: Cache Rust web dependency artifacts and installed tools
-        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          key: cargo-leptos-0.3.11
-          workspaces: . -> target
       - name: Fetch locked Rust dependencies
         run: cargo fetch --locked
       - name: Install pinned Rust web build tooling
@@ -160,4 +160,4 @@ jobs:
         if: always()
         run: |
           df -h .
-          du -sh target ~/.cargo
+          du -sh "$CARGO_TARGET_DIR" ~/.cargo
