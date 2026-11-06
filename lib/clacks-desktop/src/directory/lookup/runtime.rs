@@ -1,4 +1,5 @@
 //! Provider configuration, safe outcomes and standard workspace task lifetime.
+use super::failure::{LookupFailure, LookupFailureKind};
 use super::{
     Inner, LOOKUP_DURATION_METRIC, LOOKUPS_METRIC, LookupClient, LookupState, Selected,
     cache::State,
@@ -229,7 +230,10 @@ pub(super) async fn fetch(
                     })
                 }) {
                 Ok(snapshot) => LookupState::Found(Box::new(snapshot)),
-                Err(_) => LookupState::Failed("Directory returned invalid facts".into()),
+                Err(_) => LookupState::Failed(LookupFailure::new(
+                    LookupFailureKind::InvalidFacts,
+                    "Directory returned invalid facts",
+                )),
             }
         }
         Some(Ok(ProviderLookup::NotFound)) => LookupState::NotFound,
@@ -240,11 +244,15 @@ pub(super) async fn fetch(
         Some(Err(ProviderError::RateLimited { retry_after: delay })) => {
             retry_after = delay;
             tracing::warn!(event="directory.lookup.rate_limited",lookup_id=%id,provider=?selected.provider);
-            LookupState::Failed("Directory rate limit reached; retry later.".into())
+            LookupState::Failed(LookupFailure::new(
+                LookupFailureKind::RateLimited,
+                "Directory rate limit reached; retry later.",
+            ))
         }
         Some(Err(error)) => {
-            tracing::warn!(event="directory.lookup.unavailable",lookup_id=%id,provider=?selected.provider,reason=%error);
-            LookupState::Failed(error.to_string())
+            let failure = LookupFailure::from_provider(&error);
+            tracing::warn!(event="directory.lookup.unavailable",lookup_id=%id,provider=?selected.provider,reason=?failure.kind);
+            LookupState::Failed(failure)
         }
     };
     attempt.outcome = match &state {

@@ -302,7 +302,7 @@ impl DirectoryView {
                 ui.button("Retry directory login").clicked()
             }
             Some(LookupState::Failed(message)) => {
-                ui.small(message);
+                ui.small(message.to_string());
                 ui.button("Retry directory lookup").clicked()
             }
             _ => false,

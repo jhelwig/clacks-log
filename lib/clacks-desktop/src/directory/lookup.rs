@@ -1,6 +1,7 @@
 //! Shared callsign-directory operations, independent of forms and saved contacts.
 
 mod cache;
+pub(crate) mod failure;
 pub(crate) mod persistence;
 pub(crate) mod runtime;
 #[cfg(test)]
@@ -13,6 +14,7 @@ use clacks_model::{
     ids::LookupId,
 };
 use clacks_sync::protocol::directory::DirectoryMaterial;
+use failure::{LookupFailure, LookupFailureKind};
 use futures_util::{
     FutureExt,
     future::{BoxFuture, Shared},
@@ -43,7 +45,7 @@ pub(crate) enum LookupState {
     /// Current protected material requires replacement or explicit retry.
     PausedAuthentication,
     /// Safe failure diagnosis without provider payloads or secrets.
-    Failed(String),
+    Failed(LookupFailure),
 }
 
 /// Standard future sharing provides independent completion handles.
@@ -154,9 +156,10 @@ impl LookupClient {
             return self.request(key);
         }
         let Ok(state) = self.inner.state.lock() else {
-            return LookupHandle::completed(LookupState::Failed(
-                "Directory lookup is unavailable.".into(),
-            ));
+            return LookupHandle::completed(LookupState::Failed(LookupFailure::new(
+                LookupFailureKind::Internal,
+                "Directory lookup is unavailable.",
+            )));
         };
         if state.closed {
             return LookupHandle::completed(LookupState::Cleared);
@@ -193,9 +196,10 @@ impl LookupClient {
     /// Reuse success, join existing work or start one request for this key.
     pub fn request(&self, key: LookupKey) -> LookupHandle {
         let Ok(mut state) = self.inner.state.lock() else {
-            return LookupHandle::completed(LookupState::Failed(
-                "Directory lookup state is unavailable".into(),
-            ));
+            return LookupHandle::completed(LookupState::Failed(LookupFailure::new(
+                LookupFailureKind::Internal,
+                "Directory lookup state is unavailable",
+            )));
         };
         if state.closed {
             return LookupHandle::completed(LookupState::Cleared);
@@ -217,13 +221,19 @@ impl LookupClient {
                     .retry_after
                     .is_some_and(|(started, delay)| started.elapsed() < delay) =>
             {
-                return LookupHandle::completed(LookupState::Failed(
-                    "Directory rate limit reached; retry later.".into(),
-                ));
+                return LookupHandle::completed(LookupState::Failed(LookupFailure::new(
+                    LookupFailureKind::RateLimited,
+                    "Directory rate limit reached; retry later.",
+                )));
             }
             Ok(Some(selected)) => selected.clone(),
             Ok(None) => return LookupHandle::completed(LookupState::Cleared),
-            Err(message) => return LookupHandle::completed(LookupState::Failed(message.clone())),
+            Err(message) => {
+                return LookupHandle::completed(LookupState::Failed(LookupFailure::new(
+                    LookupFailureKind::Configuration,
+                    message.clone(),
+                )));
+            }
         };
         let id = LookupId::new();
         let operation = runtime::fetch(Arc::downgrade(&self.inner), selected, key.clone(), id)
