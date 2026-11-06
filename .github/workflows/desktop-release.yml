@@ -1,0 +1,546 @@
+name: Desktop packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Native packages to build (development downloads only)
+        required: true
+        type: choice
+        default: windows
+        options:
+          - windows
+          - macos
+          - both
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  eligibility:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      artifact: ${{ steps.source.outputs.artifact }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Resolve immutable tagged source
+        id: source
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "artifact=release-eligibility-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: windows-installer-preflight
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked
+      - name: Build focused packaging helper
+        run: cargo build -p clacks-desktop-package --locked --offline
+      - name: Check tag against committed Cargo version
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          cargo metadata --no-deps --format-version 1 --locked --offline > cargo-metadata.json
+          target/debug/clacks-desktop-package prepare --platform windows-x64 --metadata cargo-metadata.json --revision "$SOURCE_SHA" --tag "$GITHUB_REF_NAME" --output metadata.json
+      - name: Reuse exact-commit Linux and web results
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          RUST_LOG: info
+        run: target/debug/clacks-desktop-package gate --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_SHA" --output ci-evidence.json
+      - name: Preserve existing verification identity
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.source.outputs.artifact }}
+          path: |
+            ci-evidence.json
+            metadata.json
+          if-no-files-found: error
+
+  windows:
+    needs: eligibility
+    if: >-
+      always() && !cancelled() &&
+      ((github.event_name == 'workflow_dispatch' && (inputs.platform == 'windows' || inputs.platform == 'both')) ||
+      (github.event_name == 'push' && needs.eligibility.result == 'success'))
+    runs-on: windows-2025
+    env:
+      SQLX_OFFLINE: 'true'
+      RUST_LOG: info
+      # The desktop must not depend on a developer-installed VC runtime.
+      # Confirm imports and clean Windows behavior rather than assuming this
+      # flag proves every native dependency is supplied by Windows.
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: '-C target-feature=+crt-static'
+    outputs:
+      sha: ${{ steps.identity.outputs.sha }}
+      prerelease: ${{ steps.identity.outputs.prerelease }}
+      package: ${{ steps.identity.outputs.name }}
+      artifact: ${{ steps.identity.outputs.artifact }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: windows-installer-msvc-crt-static
+      - name: Fetch locked Rust dependencies
+        run: cargo fetch --locked
+      - name: Build Windows packaging helper
+        run: cargo build -p clacks-desktop-package --locked --offline
+      - name: Test Windows packaging helper
+        run: cargo test -p clacks-desktop-packaging --all-targets --locked --offline
+      - name: Lint Windows packaging helper
+        run: cargo clippy -p clacks-desktop-packaging -p clacks-desktop-package --all-targets --locked --offline -- -D warnings
+      - name: Retrieve release eligibility evidence
+        if: github.event_name == 'push'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.eligibility.outputs.artifact }}
+          path: target/windows-package
+      - name: Resolve Windows build identity
+        id: identity
+        env:
+          ELIGIBLE_SHA: ${{ needs.eligibility.outputs.sha }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force target/windows-package/delivery | Out-Null
+          $sha = git rev-parse HEAD
+          if ($env:GITHUB_EVENT_NAME -eq 'push' -and $sha -ne $env:ELIGIBLE_SHA) { throw 'Source differs from eligible commit' }
+          cargo metadata --no-deps --format-version 1 --locked --offline | Out-File -Encoding utf8 target/windows-package/cargo-metadata.json
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $tagArgs = @()
+          if ($env:GITHUB_EVENT_NAME -eq 'push') { $tagArgs = @('--tag', $env:GITHUB_REF_NAME) }
+          target/debug/clacks-desktop-package.exe prepare --platform windows-x64 --metadata target/windows-package/cargo-metadata.json --revision $sha @tagArgs --output target/windows-package/metadata.json
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $metadata = Get-Content target/windows-package/metadata.json -Raw | ConvertFrom-Json
+          $version = $metadata.version
+          $name = "clacks-log-$version-windows-x64.msi"
+          if ($env:GITHUB_EVENT_NAME -eq 'push') { $name = "clacks-log-$($env:GITHUB_REF_NAME.Substring(1))-windows-x64.msi" }
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') { $name = "clacks-log-$version-dev-$($sha.Substring(0,7))-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT-windows-x64.msi" }
+          "sha=$sha" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "prerelease=$($metadata.prerelease.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "name=$name" >> $env:GITHUB_OUTPUT
+          "artifact=windows-installer-$sha-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT" >> $env:GITHUB_OUTPUT
+      - name: Build production desktop with Windows resources
+        run: cargo build -p clacks-log --release --target x86_64-pc-windows-msvc --locked --offline
+      - name: Smoke-check command-line startup without opening a workspace
+        run: |
+          target/x86_64-pc-windows-msvc/release/clacks-log.exe --help
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          target/x86_64-pc-windows-msvc/release/clacks-log.exe --version
+      - name: Install pinned notice harvester
+        run: cargo install cargo-about --version 0.9.3 --features cli --locked --root target/notice-tool
+      - name: Harvest desktop runtime notices
+        run: target/notice-tool/bin/cargo-about.exe generate --locked --fail --manifest-path bin/clacks-log/Cargo.toml --config deploy/desktop/windows/about.toml --output-file target/windows-package/THIRD-PARTY-NOTICES.txt deploy/desktop/windows/notices.hbs
+      # Future executable signing and signature verification belong here,
+      # before msi-builder consumes the final executable bytes.
+      # No signing service is configured; current artifacts are unsigned.
+      - name: Fetch and verify pinned MSI compiler
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Invoke-WebRequest https://github.com/jkroepke/msi-builder/releases/download/v1.2.0/msi-builder_1.2.0_windows_amd64.zip -OutFile target/windows-package/msi-builder.zip
+          $hash = (Get-FileHash target/windows-package/msi-builder.zip -Algorithm SHA256).Hash
+          if ($hash -ne 'd528277ae68218335318e8f335c01bdbfaa89882ffa53625251ad3e70c7735a7') { throw 'MSI compiler digest mismatch' }
+          Expand-Archive target/windows-package/msi-builder.zip target/msi-builder
+      - name: Validate and build MSI with default payload read-back
+        env:
+          APP_VERSION: ${{ steps.identity.outputs.version }}
+          MSI_NAME: ${{ steps.identity.outputs.name }}
+        run: |
+          target/msi-builder/msi-builder.exe validate --var "VERSION=$env:APP_VERSION" deploy/desktop/windows/msi.yaml
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          target/msi-builder/msi-builder.exe build --var "VERSION=$env:APP_VERSION" -o "target/windows-package/delivery/$env:MSI_NAME" deploy/desktop/windows/msi.yaml
+      # Future MSI signing and signature verification belong here. Then inspect
+      # and hash the final signed bytes, never mutate an already hashed MSI.
+      - name: Locate standard Windows SDK dependency inspection
+        run: |
+          $dumpbin = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'VC/Tools/MSVC/**/bin/Hostx64/x64/dumpbin.exe'
+          if ($LASTEXITCODE -or -not $dumpbin) { throw 'Windows dependency inspection tool unavailable' }
+          (Split-Path ($dumpbin | Select-Object -Last 1)) >> $env:GITHUB_PATH
+      - name: Inspect package and native dependencies
+        env:
+          MSI_NAME: ${{ steps.identity.outputs.name }}
+          APP_VERSION: ${{ steps.identity.outputs.version }}
+        run: |
+          target/msi-builder/msi-builder.exe inspect "target/windows-package/delivery/$env:MSI_NAME"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $exe = 'target/x86_64-pc-windows-msvc/release/clacks-log.exe'
+          $version = (Get-Item $exe).VersionInfo
+          if ($version.FileVersion -ne $env:APP_VERSION -or $version.ProductVersion -ne $env:APP_VERSION) { throw 'Executable version differs from Cargo version' }
+          $version | Select-Object FileVersion,ProductVersion,ProductName,CompanyName | ConvertTo-Json
+          dumpbin /dependents $exe
+      - name: Record final checksum and build evidence
+        env:
+          MSI_NAME: ${{ steps.identity.outputs.name }}
+        run: |
+          $delivery = 'target/windows-package/delivery'
+          $hash = (Get-FileHash "$delivery/$env:MSI_NAME" -Algorithm SHA256).Hash.ToLowerInvariant()
+          $metadata = Get-Content target/windows-package/metadata.json -Raw | ConvertFrom-Json
+          $ci = $null
+          if ($env:GITHUB_EVENT_NAME -eq 'push') { $ci = Get-Content target/windows-package/ci-evidence.json -Raw | ConvertFrom-Json }
+          @{
+            application = $metadata
+            artifact = $env:MSI_NAME
+            sha256 = $hash
+            reused_ci = $ci
+            runner = "$env:RUNNER_OS/$env:RUNNER_ARCH"
+            image = "$env:ImageOS/$env:ImageVersion"
+            workflow_run = $env:GITHUB_RUN_ID
+            workflow_attempt = $env:GITHUB_RUN_ATTEMPT
+            native_acceptance = 'not established by packaging; see issue #79'
+          } | ConvertTo-Json -Depth 10
+          @(
+            '### Windows installer',
+            '',
+            "- Installer: $env:MSI_NAME",
+            "- Version: $($metadata.version)",
+            "- Source commit: $($metadata.revision)",
+            "- SHA-256: $hash",
+            "- Signing: $($metadata.signing_mode)",
+            "- Runner image: $env:ImageOS/$env:ImageVersion",
+            '',
+            'Build diagnostics and reused verification results are in the job logs.'
+          ) | Add-Content $env:GITHUB_STEP_SUMMARY
+      - name: Upload installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.identity.outputs.artifact }}
+          path: target/windows-package/delivery/${{ steps.identity.outputs.name }}
+          if-no-files-found: error
+
+  macos:
+    needs: eligibility
+    if: >-
+      always() && !cancelled() &&
+      ((github.event_name == 'workflow_dispatch' && (inputs.platform == 'macos' || inputs.platform == 'both')) ||
+      (github.event_name == 'push' && needs.eligibility.result == 'success'))
+    runs-on: macos-26
+    environment: macos-signing
+    env:
+      SQLX_OFFLINE: 'true'
+      LEPTOS_OUTPUT_NAME: clacks-web
+      MACOSX_DEPLOYMENT_TARGET: '26.0'
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      RUST_LOG: info
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      sha: ${{ steps.identity.outputs.sha }}
+      prerelease: ${{ steps.identity.outputs.prerelease }}
+      package: ${{ steps.identity.outputs.name }}
+      artifact: ${{ steps.identity.outputs.artifact }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Require distribution signing inputs
+        env:
+          APPLE_SIGNING_P12_BASE64: ${{ secrets.APPLE_SIGNING_P12_BASE64 }}
+          APPLE_SIGNING_P12_PASSWORD: ${{ secrets.APPLE_SIGNING_P12_PASSWORD }}
+          APPLE_PROVISION_PROFILE_BASE64: ${{ secrets.APPLE_PROVISION_PROFILE_BASE64 }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          echo "SIGNING_TEMP=$RUNNER_TEMP/clacks-signing" >> "$GITHUB_ENV"
+          for required in APPLE_SIGNING_P12_BASE64 APPLE_SIGNING_P12_PASSWORD APPLE_PROVISION_PROFILE_BASE64 APPLE_ID APPLE_TEAM_ID APPLE_APP_SPECIFIC_PASSWORD; do
+            if [[ -z "${!required:-}" ]]; then
+              echo "Missing macos-signing input: $required" >&2
+              exit 1
+            fi
+          done
+      - name: Select native build tools
+        run: |
+          test -d "$DEVELOPER_DIR"
+          test "$(uname -m)" = arm64
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
+          rustup show active-toolchain
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: macos-arm64-deployment-26.0-xcode-26.6
+          # Signed bundles/profiles under target are not build-cache inputs.
+          cache-targets: false
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked
+      - name: Build and check focused packaging helper
+        run: |
+          cargo build -p clacks-desktop-package --locked --offline
+          cargo test -p clacks-desktop-packaging --all-targets --locked --offline
+          cargo clippy -p clacks-desktop-packaging -p clacks-desktop-package --all-targets --locked --offline -- -D warnings
+      - name: Retrieve release eligibility evidence
+        if: github.event_name == 'push'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.eligibility.outputs.artifact }}
+          path: target/macos-package
+      - name: Resolve macOS build identity
+        id: identity
+        env:
+          ELIGIBLE_SHA: ${{ needs.eligibility.outputs.sha }}
+        run: |
+          mkdir -p target/macos-package/delivery
+          sha=$(git rev-parse HEAD)
+          if [[ "$GITHUB_EVENT_NAME" == push && "$sha" != "$ELIGIBLE_SHA" ]]; then
+            echo 'Source differs from eligible commit' >&2
+            exit 1
+          fi
+          cargo metadata --no-deps --format-version 1 --locked --offline > target/macos-package/cargo-metadata.json
+          tag_args=()
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then tag_args=(--tag "$GITHUB_REF_NAME"); fi
+          target/debug/clacks-desktop-package prepare --platform macos-arm64 --metadata target/macos-package/cargo-metadata.json --revision "$sha" "${tag_args[@]}" --output target/macos-package/metadata.json
+          version=$(jq -r .version target/macos-package/metadata.json)
+          prerelease=$(jq -r .prerelease target/macos-package/metadata.json)
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            name="clacks-log-${GITHUB_REF_NAME#v}-macos-arm64.dmg"
+          else
+            name="clacks-log-$version-dev-${sha:0:7}-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-macos-arm64.dmg"
+          fi
+          {
+            echo "sha=$sha"
+            echo "version=$version"
+            echo "prerelease=$prerelease"
+            echo "name=$name"
+            echo "artifact=macos-package-$sha-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          } >> "$GITHUB_OUTPUT"
+      - name: Build production Apple Silicon desktop
+        run: |
+          cargo build -p clacks-log --release --target aarch64-apple-darwin --locked --offline
+          target/aarch64-apple-darwin/release/clacks-log --help
+          target/aarch64-apple-darwin/release/clacks-log --version
+      - name: Generate macOS runtime notices
+        run: |
+          cargo install cargo-about --version 0.9.3 --features cli --locked --root target/notice-tool
+          target/notice-tool/bin/cargo-about generate --locked --fail --manifest-path bin/clacks-log/Cargo.toml --config deploy/desktop/macos/about.toml --output-file target/macos-package/THIRD-PARTY-NOTICES.txt deploy/desktop/windows/notices.hbs
+      - name: Assemble application and inspect native payload
+        env:
+          APP_VERSION: ${{ steps.identity.outputs.version }}
+        run: |
+          app_bundle="$PWD/target/macos-package/image/Clacks Log.app"
+          mkdir -p "$app_bundle/Contents/MacOS" "$app_bundle/Contents/Resources"
+          ditto target/aarch64-apple-darwin/release/clacks-log "$app_bundle/Contents/MacOS/clacks-log"
+          ditto bin/clacks-log/macos/Info.plist "$app_bundle/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $APP_VERSION" "$app_bundle/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $APP_VERSION" "$app_bundle/Contents/Info.plist"
+          ditto lib/clacks-desktop/assets/clacks-log.icns "$app_bundle/Contents/Resources/clacks-log.icns"
+          ditto LICENSE "$app_bundle/Contents/Resources/LICENSE.txt"
+          ditto NOTICE "$app_bundle/Contents/Resources/NOTICE.txt"
+          ditto target/macos-package/THIRD-PARTY-NOTICES.txt "$app_bundle/Contents/Resources/THIRD-PARTY-NOTICES.txt"
+          ditto references/trustedqsl/upstream/LICENSE.txt "$app_bundle/Contents/Resources/THIRD-PARTY-DATA-NOTICES.txt"
+          ln -s /Applications target/macos-package/image/Applications
+          plutil -lint "$app_bundle/Contents/Info.plist"
+          file "$app_bundle/Contents/MacOS/clacks-log"
+          xcrun vtool -show-build "$app_bundle/Contents/MacOS/clacks-log"
+          otool -L "$app_bundle/Contents/MacOS/clacks-log"
+      - name: Import Developer ID identity and authorize the application
+        id: signing
+        env:
+          APPLE_SIGNING_P12_BASE64: ${{ secrets.APPLE_SIGNING_P12_BASE64 }}
+          APPLE_SIGNING_P12_PASSWORD: ${{ secrets.APPLE_SIGNING_P12_PASSWORD }}
+          APPLE_PROVISION_PROFILE_BASE64: ${{ secrets.APPLE_PROVISION_PROFILE_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          umask 077
+          mkdir -p "$SIGNING_TEMP"
+          keychain="$SIGNING_TEMP/signing.keychain-db"
+          keychain_password=$(openssl rand -hex 32)
+          echo "::add-mask::$keychain_password"
+          printf '%s' "$APPLE_SIGNING_P12_BASE64" | base64 --decode > "$SIGNING_TEMP/identity.p12"
+          printf '%s' "$APPLE_PROVISION_PROFILE_BASE64" | base64 --decode > "$SIGNING_TEMP/profile.provisionprofile"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$SIGNING_TEMP/identity.p12" -P "$APPLE_SIGNING_P12_PASSWORD" -t cert -f pkcs12 -k "$keychain" -T /usr/bin/codesign > /dev/null
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$keychain_password" "$keychain" > /dev/null
+          identity=$(security find-identity -v -p codesigning "$keychain" | awk '/"Developer ID Application:/ {print $2}')
+          if [[ ! "$identity" =~ ^[[:xdigit:]]{40}$ ]]; then
+            echo 'Expected exactly one valid Developer ID Application identity' >&2
+            exit 1
+          fi
+          security cms -D -i "$SIGNING_TEMP/profile.provisionprofile" > "$SIGNING_TEMP/profile.plist"
+          prefix=$(plutil -extract ApplicationIdentifierPrefix.0 raw -o - "$SIGNING_TEMP/profile.plist")
+          team=$(plutil -extract TeamIdentifier.0 raw -o - "$SIGNING_TEMP/profile.plist")
+          if [[ "$team" != "$APPLE_TEAM_ID" ]]; then
+            echo 'Provisioning profile team differs from the selected team' >&2
+            exit 1
+          fi
+          app_id="$prefix.com.w7hex.clacks-log"
+          ditto deploy/desktop/macos/entitlements.plist "$SIGNING_TEMP/entitlements.plist"
+          /usr/libexec/PlistBuddy -c "Set :com.apple.application-identifier $app_id" "$SIGNING_TEMP/entitlements.plist"
+          /usr/libexec/PlistBuddy -c "Set :com.apple.developer.team-identifier $team" "$SIGNING_TEMP/entitlements.plist"
+          /usr/libexec/PlistBuddy -c "Set :keychain-access-groups:0 $app_id" "$SIGNING_TEMP/entitlements.plist"
+          app_bundle="$PWD/target/macos-package/image/Clacks Log.app"
+          ditto "$SIGNING_TEMP/profile.provisionprofile" "$app_bundle/Contents/embedded.provisionprofile"
+          # Current payload has one executable and only system dynamic imports;
+          # any future bundled nested code must be signed before this outer app.
+          codesign --force --sign "$identity" --keychain "$keychain" --entitlements "$SIGNING_TEMP/entitlements.plist" --timestamp --options runtime "$app_bundle"
+          codesign --verify --strict -R "anchor apple generic and identifier \"com.w7hex.clacks-log\" and certificate leaf[subject.OU] = \"$team\"" "$app_bundle"
+          codesign --display --verbose=4 "$app_bundle"
+          codesign --display --entitlements - "$app_bundle"
+          profile_id=$(plutil -extract UUID raw -o - "$SIGNING_TEMP/profile.plist")
+          profile_expiry=$(plutil -extract ExpirationDate raw -o - "$SIGNING_TEMP/profile.plist")
+          {
+            echo "identity=$identity"
+            echo "team=$team"
+            echo "profile=$profile_id"
+            echo "profile_expiry=$profile_expiry"
+          } >> "$GITHUB_OUTPUT"
+      - name: Create and sign disk image
+        env:
+          DMG_NAME: ${{ steps.identity.outputs.name }}
+          SIGNING_IDENTITY: ${{ steps.signing.outputs.identity }}
+        run: |
+          dmg="$PWD/target/macos-package/delivery/$DMG_NAME"
+          hdiutil create -srcfolder target/macos-package/image -volname 'Clacks Log' -format UDZO -o "$dmg"
+          codesign --sign "$SIGNING_IDENTITY" --keychain "$SIGNING_TEMP/signing.keychain-db" --timestamp --identifier com.w7hex.clacks-log.dmg "$dmg"
+          codesign --verify --strict "$dmg"
+      - name: Notarize disk image
+        id: notary
+        timeout-minutes: 40
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          DMG_NAME: ${{ steps.identity.outputs.name }}
+        run: |
+          keychain="$SIGNING_TEMP/signing.keychain-db"
+          xcrun notarytool store-credentials clacks-notary --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --keychain "$keychain"
+          result=0
+          xcrun notarytool submit "target/macos-package/delivery/$DMG_NAME" --keychain-profile clacks-notary --keychain "$keychain" --wait --timeout 30m --output-format json > "$SIGNING_TEMP/notary.json" || result=$?
+          submission=$(jq -r '.id // empty' "$SIGNING_TEMP/notary.json")
+          if [[ -n "$submission" ]]; then
+            echo "submission=$submission" >> "$GITHUB_OUTPUT"
+            echo "Notarization submission: $submission" >> "$GITHUB_STEP_SUMMARY"
+            # Logs can contain paths/account details; keep them in temporary
+            # storage for diagnosis, never include them in package uploads.
+            log_result=0
+            xcrun notarytool log "$submission" --keychain-profile clacks-notary --keychain "$keychain" "$SIGNING_TEMP/notary-log.json" || log_result=$?
+            if [[ "$result" == 0 && "$log_result" != 0 ]]; then
+              echo 'Could not inspect accepted notarization diagnostics' >&2
+              exit "$log_result"
+            fi
+            if [[ -f "$SIGNING_TEMP/notary-log.json" ]]; then
+              jq '{status, statusSummary, issues: [.issues[]? | {severity, message, code, docUrl}]}' "$SIGNING_TEMP/notary-log.json"
+            fi
+          fi
+          if [[ "$result" != 0 ]]; then exit "$result"; fi
+          jq -e '.status == "Accepted"' "$SIGNING_TEMP/notary.json" > /dev/null
+      - name: Staple and verify final distribution
+        env:
+          DMG_NAME: ${{ steps.identity.outputs.name }}
+        run: |
+          dmg="$PWD/target/macos-package/delivery/$DMG_NAME"
+          xcrun stapler staple "$dmg"
+          xcrun stapler validate "$dmg"
+          hdiutil verify "$dmg"
+          codesign --verify --strict "$dmg"
+          spctl -a -t open --context context:primary-signature -v "$dmg"
+          mkdir -p "$RUNNER_TEMP/clacks-dmg"
+          hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$RUNNER_TEMP/clacks-dmg"
+          mounted_app="$RUNNER_TEMP/clacks-dmg/Clacks Log.app"
+          codesign --verify --strict "$mounted_app"
+          spctl -a -t exec -vv "$mounted_app"
+          # The outer DMG carries the stapled ticket. syspolicy_check's inner
+          # app distribution check falsely requires another stapled ticket.
+          # Direct signed execution also exercises restricted-entitlement
+          # authorization; help/version exit before discovering a workspace.
+          smoke_args=(--workspace "$RUNNER_TEMP/clacks-smoke/workspace" --config "$RUNNER_TEMP/clacks-smoke/config.toml" --log-directory "$RUNNER_TEMP/clacks-smoke/logs")
+          "$mounted_app/Contents/MacOS/clacks-log" "${smoke_args[@]}" --help
+          "$mounted_app/Contents/MacOS/clacks-log" "${smoke_args[@]}" --version
+          hdiutil detach "$RUNNER_TEMP/clacks-dmg"
+      - name: Record final checksum and build evidence
+        env:
+          DMG_NAME: ${{ steps.identity.outputs.name }}
+          SIGNING_IDENTITY: ${{ steps.signing.outputs.identity }}
+          SIGNING_TEAM: ${{ steps.signing.outputs.team }}
+          PROFILE_ID: ${{ steps.signing.outputs.profile }}
+          PROFILE_EXPIRY: ${{ steps.signing.outputs.profile_expiry }}
+          NOTARY_SUBMISSION: ${{ steps.notary.outputs.submission }}
+        run: |
+          hash=$(shasum -a 256 "target/macos-package/delivery/$DMG_NAME" | awk '{print $1}')
+          jq -n --slurpfile application target/macos-package/metadata.json \
+            --arg package "$DMG_NAME" --arg hash "$hash" --arg identity "$SIGNING_IDENTITY" \
+            --arg team "$SIGNING_TEAM" --arg profile "$PROFILE_ID" --arg expiry "$PROFILE_EXPIRY" \
+            --arg submission "$NOTARY_SUBMISSION" --arg image "$ImageOS/$ImageVersion" \
+            '{source: $application[0], artifact: $package, sha256: $hash, signing: "Developer ID Application", identity: $identity, team: $team, profile: $profile, profile_expiry: $expiry, notarization: "Accepted", submission: $submission, stapled: true, image: $image, native_acceptance: "not established by packaging; see issue #80"}'
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then cat target/macos-package/ci-evidence.json; fi
+          {
+            echo '### macOS package'
+            echo "- Disk image: $DMG_NAME"
+            echo "- Source commit: $(jq -r .revision target/macos-package/metadata.json)"
+            echo "- Version: $(jq -r .version target/macos-package/metadata.json)"
+            echo "- SHA-256: $hash"
+            echo '- Signing: Developer ID Application; notarized and stapled'
+            echo "- Signing identity/team: $SIGNING_IDENTITY / $SIGNING_TEAM"
+            echo "- Profile/expiry: $PROFILE_ID / $PROFILE_EXPIRY"
+            echo "- Notarization submission: $NOTARY_SUBMISSION"
+            echo "- Runner image: $ImageOS/$ImageVersion ($RUNNER_OS/$RUNNER_ARCH)"
+            echo "- Workflow run/attempt: $GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT"
+            echo '- Native installed-product acceptance remains separate; see issue #80.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove temporary signing material
+        if: always()
+        run: |
+          # Runner disposal is an additional boundary, not the cleanup mechanism.
+          SIGNING_TEMP="$RUNNER_TEMP/clacks-signing"
+          trap 'rm -rf "$SIGNING_TEMP"' EXIT
+          hdiutil detach "$RUNNER_TEMP/clacks-dmg" > /dev/null 2>&1 || true
+          if [[ -f "$SIGNING_TEMP/signing.keychain-db" ]]; then
+            security delete-keychain "$SIGNING_TEMP/signing.keychain-db"
+          fi
+      - name: Upload macOS disk image
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.identity.outputs.artifact }}
+          path: target/macos-package/delivery/${{ steps.identity.outputs.name }}
+          if-no-files-found: error
+
+  draft:
+    if: github.event_name == 'push' && needs.windows.result == 'success' && needs.macos.result == 'success'
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: desktop-packages-draft-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.windows.outputs.artifact }}
+          path: target/windows-package/delivery
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.macos.outputs.artifact }}
+          path: target/macos-package/delivery
+      - name: Create unpublished release with both platform packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ needs.windows.outputs.prerelease }}
+          MSI_NAME: ${{ needs.windows.outputs.package }}
+          DMG_NAME: ${{ needs.macos.outputs.package }}
+          WINDOWS_SHA: ${{ needs.windows.outputs.sha }}
+          MACOS_SHA: ${{ needs.macos.outputs.sha }}
+          BUILD_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          test "$WINDOWS_SHA" = "$MACOS_SHA"
+          test "$WINDOWS_SHA" = "$GITHUB_SHA"
+          cat > "$RUNNER_TEMP/release-notes.txt" <<EOF
+          Pre-alpha Clacks Log desktop packages for $GITHUB_REF_NAME.
+
+          - Windows 11 x64: unsigned MSI.
+          - macOS 26 Tahoe and newer on Apple Silicon: Developer ID signed, notarized and stapled DMG.
+
+          Test these exact downloads before manually publishing this draft.
+          Source revision: $WINDOWS_SHA.
+          Final checksums, signing identity and build diagnostics: $BUILD_URL.
+          Installed-artifact acceptance is separate from packaging checks; macOS evidence belongs in issue #80.
+          EOF
+          gh release create "$GITHUB_REF_NAME" "target/windows-package/delivery/$MSI_NAME" "target/macos-package/delivery/$DMG_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease="$PRERELEASE" --latest=false --title "Clacks Log $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.txt"

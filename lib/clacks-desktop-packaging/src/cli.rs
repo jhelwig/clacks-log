@@ -27,6 +27,9 @@ enum Operation {
     },
     /// Validate source-owned Cargo version and optional release tag.
     Prepare {
+        /// Native package platform; source/tag validation is shared.
+        #[arg(long, value_enum)]
+        platform: crate::metadata::PackagePlatform,
         /// Standard cargo metadata JSON file.
         #[arg(long)]
         metadata: PathBuf,
@@ -56,13 +59,14 @@ pub(crate) fn run() -> anyhow::Result<()> {
             output,
         } => crate::ci::gate(&repository, &revision).and_then(|e| crate::write_json(&output, &e)),
         Operation::Prepare {
+            platform,
             metadata,
             revision,
             tag,
             output,
         } => {
             let input = serde_json::from_slice(&fs::read(metadata)?)?;
-            crate::metadata::prepare(&input, &revision, tag.as_deref())
+            crate::metadata::prepare(&input, &revision, tag.as_deref(), platform)
                 .and_then(|e| crate::write_json(&output, &e))
         }
     };

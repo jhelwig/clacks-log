@@ -1,6 +1,15 @@
 //! Source-owned desktop package metadata.
 use serde::{Deserialize, Serialize};
 
+/// Supported native package identity selected explicitly by the build job.
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+pub(crate) enum PackagePlatform {
+    /// Existing native Windows installer target.
+    WindowsX64,
+    /// Apple Silicon application distributed inside a disk image.
+    MacosArm64,
+}
+
 /// Validated identity carried through package construction and final evidence.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct BuildMetadata {
@@ -8,24 +17,25 @@ pub(crate) struct BuildMetadata {
     pub version: String,
     /// Exact commit packaged, never a moving branch name.
     pub revision: String,
-    /// Windows Rust target triple.
+    /// Native Rust target triple selected for the package.
     pub target: String,
     /// Installer architecture.
     pub architecture: String,
-    /// Pinned package compiler version.
-    pub tool_version: String,
+    /// Pinned package compiler version, when one package compiler is used.
+    pub tool_version: Option<String>,
     /// Whether the validated release tag selects a GitHub prerelease.
     pub prerelease: bool,
-    /// Actual artifact signing status.
+    /// Preparation status; macOS distribution signing is established afterward.
     pub signing_mode: String,
 }
 
 /// Validate Cargo metadata and an optional release tag before packaging.
-#[tracing::instrument(skip_all, fields(%revision, tag))]
+#[tracing::instrument(skip_all, fields(%revision, tag, ?platform))]
 pub(crate) fn prepare(
     input: &serde_json::Value,
     revision: &str,
     tag: Option<&str>,
+    platform: PackagePlatform,
 ) -> anyhow::Result<BuildMetadata> {
     anyhow::ensure!(
         revision.len() == 40 && revision.bytes().all(|b| b.is_ascii_hexdigit()),
@@ -59,16 +69,24 @@ pub(crate) fn prepare(
     } else {
         false
     };
-    tracing::info!(%version, prerelease, "validated application package identity");
-    Ok(BuildMetadata {
+    tracing::info!(%version, prerelease, ?platform, "validated application package identity");
+
+    let mut metadata = BuildMetadata {
         version: version.into(),
         revision: revision.to_ascii_lowercase(),
         target: "x86_64-pc-windows-msvc".into(),
         architecture: "x64".into(),
-        tool_version: "1.2.0".into(),
+        tool_version: Some("1.2.0".into()),
         prerelease,
         signing_mode: "unsigned".into(),
-    })
+    };
+    if let PackagePlatform::MacosArm64 = platform {
+        metadata.target = "aarch64-apple-darwin".into();
+        metadata.architecture = "arm64".into();
+        metadata.tool_version = None;
+        metadata.signing_mode = "not-established".into();
+    }
+    Ok(metadata)
 }
 #[cfg(test)]
 mod tests;

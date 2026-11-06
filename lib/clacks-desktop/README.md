@@ -530,6 +530,12 @@ another backend. The backend-selection unit test needs no stored secret or profi
 
 #### macOS development/test host
 
+For distributable Apple Silicon artifacts on macOS 26 Tahoe and newer, use the
+[macOS packaging guide](../../deploy/desktop/macos/README.md). It documents the
+shared release workflow, required Developer ID/profile inputs, installation and
+exact-artifact native acceptance. The local host below remains a separate
+development/test facility; it is not a signed/notarized release pipeline.
+
 The repository supplies the ordinary [app metadata](../../bin/clacks-log/macos/Info.plist).
 Use Apple's native bundle/signing tools with a certificate and Mac provisioning
 profile authorizing `com.w7hex.clacks-log` and its default Keychain access
