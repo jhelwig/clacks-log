@@ -742,62 +742,72 @@ refinement does not require restyling every screen.
 
 ### UI change completion gates
 
-Apply these gates to each desktop UI change, including changes that reuse an
-existing widget. They govern implementation and acceptance; the specification
-and accepted references above remain the source of product behavior.
+Use these gates to choose verification proportional to each change. The
+specification and accepted references above remain the source of product
+behavior; this section does not require the full UI matrix for every change.
 
-1. **Establish the composition before coding.** Identify the affected contract
-   sections, accepted reference images and production components in the
-   implementation plan or PR description. State which containers own framing,
-   padding, width, scrolling and resizing. Check that nesting preserves the
-   agreed screen composition and control hierarchy. Framework defaults require
-   the same scrutiny as explicit styling.
-2. **Use the shared components with their intended semantics.** Keep common
-   presentation defaults in their owning theme/components. Check the composed
-   screen for duplicated frames, accumulated margins, content-sized containers
-   in expanding panes and fixed-width fields. Define what edited, pending,
-   invalid and applied mean for the particular workflow. Values inherited from
-   active operating settings are not unapplied contact corrections. Extend an
-   existing component or its layout owner when necessary; this gate does not
-   justify additional UI abstraction layers.
-3. **Inspect the assembled production application.** Compare actual application
-   screenshots with the agreed references for placement, alignment, grouping,
-   density, palette, control styling and relative typography. Exercise the
-   affected empty/populated, loaded-default, edited, validation, pending and
-   failure states. Check resizing, scrolling, both appearances and relevant UI
-   scaling. Validation feedback must not introduce transient layout shifts.
-   Use an isolated real workspace and ordinary production controls; mockups and
-   a separate test application do not establish implementation conformance.
-4. **Add focused Clacks regressions.** Assert the product decision the change
-   could violate, such as pane allocation, responsive form width, stable layout
-   during validation or truthful edit indicators. Retain meaningful functional
-   and keyboard coverage. Do not treat label presence, reachability, geometry
-   checks or dependency behavior as proof of complete visual acceptance, and do
-   not prescribe a test for every styling token or duplicate the whole suite.
-5. **Report evidence and limits before declaring completion.** Include the
-   inspected platform, window sizes/scales, exercised states and representative
-   application screenshots in the PR or delivery response. State any missing
-   visual or native-platform checks as pending. Passing CI does not satisfy an
-   unperformed visual check. Keep execution evidence with the PR/delivery, not
-   in repository review chronicles or a duplicate status document.
+1. **Scope the claims and checks.** Identify the changed behavior or presentation,
+   its owning contract and components, and concrete regression risks. Choose the
+   smallest set of checks that can establish those claims. A short explanation
+   in the implementation plan or PR description is sufficient; small changes
+   do not need a separate verification document. Documentation-only changes
+   normally need a documentation review, without application builds or launches.
+2. **Review the affected composition.** Keep shared presentation defaults in
+   their owning theme/components and check the surrounding layout or lifecycle
+   boundary that determines correctness. When framing, padding, width, scrolling
+   or resizing changes, review those responsibilities and relevant shared
+   consumers. Reusing a widget does not exempt its changed composition from
+   review, but does not require rechecking unchanged styling across all screens.
+   Preserve the existing edited, pending, invalid and applied semantics:
+   inherited operating values are not unapplied contact corrections. Changed
+   validation feedback must preserve stable layout. Extend the owning components
+   rather than introducing UI abstractions solely to support verification.
+3. **Inspect the production application when the claim needs it.** Use native
+   inspection for changed rendering, interaction or platform behavior that
+   automated checks cannot adequately establish. A focused smoke check of the
+   affected workflow is usually sufficient for a small UI change. Select states,
+   appearances, fonts, scales, sizes and platforms according to the change:
+   altered width constraints may need resizing checks, palette changes may need
+   both appearances, and asynchronous focus changes may need a delayed-response
+   interaction. These are examples, not a mandatory matrix. Extend inspection
+   only when a broader change or observed problem warrants it. Whenever the
+   application is launched, use an isolated workspace and ordinary production
+   controls under the machine-local development instructions.
+4. **Use focused regression checks and stop when sufficient.** Reuse existing
+   coverage and add tests only for a concrete Clacks mistake the change could
+   introduce. Select relevant component, integration or broader suites according
+   to the affected behavior and shared consumers. Do not duplicate dependency
+   coverage or run the full suite merely because a UI file changed. Once the
+   selected checks pass, broaden or repeat them only for subsequent changes,
+   failures or unresolved relevant concerns. Functional and geometry checks
+   establish their specific claims, not complete visual conformance.
+5. **Report evidence and material limits briefly.** State what was checked and
+   any missing evidence needed for the changed behavior. Include screenshots,
+   dimensions, scales or state inventories only when they help evaluate the
+   change; do not catalog unchanged dimensions. An untested appearance, platform
+   or state is not automatically pending acceptance for this change. Keep
+   execution evidence with the PR/delivery, without creating review chronicles
+   or duplicate status documents.
 
-If the production application cannot be inspected in the available environment,
-complete the implementation and automated checks that are possible, then report
-visual acceptance as pending with the specific checks still required. Do not
-claim design conformance or silently substitute headless tests. Native Windows
-graphics/input acceptance remains separate from inspection on another platform.
+When required native inspection is unavailable, finish the work that can be
+verified and identify the specific affected claim that remains unresolved.
+Additional unrelated tests cannot establish that claim. Inspection on another
+platform does not prove native Windows graphics/input behavior. Broader release
+validation still applies at its delivery milestone; it is not a blanket gate
+for every individual UI change.
 
 ### Verification and delivery
 
-Verify Clacks interactions through production forms and real local state:
+Choose the relevant Clacks interactions from the changed workflow:
 validation disables the affected action, corrections re-enable it without saving,
 Cancel discards only the pending edit, failed saves retain it, and valid commits
-report their actual outcome. Cover selection identity across filtering/sorting,
-clearing on logbook switch, independent table/pane preferences and reset, and
-the shared-draft behavior when additional windows are delivered.
+report their actual outcome. Where affected, cover selection identity across
+filtering/sorting, clearing on logbook switch, independent table/pane preferences
+and reset, and the shared-draft behavior when additional windows are delivered.
 
-Check visual/focus behavior in both appearances and at multiple fonts, scales
-and window sizes. Native Windows acceptance uses the production executable;
+Check visual/focus behavior in the appearances, fonts, scales, sizes and native
+platforms relevant to the change, following the completion gates above. Native
+Windows acceptance, when required, uses the production executable;
 automated tests remain noninteractive. Test Clacks's state presentation and use
 of the framework, not egui internals or a second fake application. Performance
 checks for large contact tables belong to the real table capability.
