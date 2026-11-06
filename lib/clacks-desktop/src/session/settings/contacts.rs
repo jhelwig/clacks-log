@@ -1,6 +1,7 @@
 //! Execute actual contact reads and guarded edits on the workspace runtime.
 
 pub(crate) mod membership;
+mod selection;
 
 #[cfg(test)]
 mod tests;
@@ -31,6 +32,8 @@ pub(crate) enum ContactAction {
     SaveQueryState { state: QueryState },
     /// Read one bounded selected-view page.
     Page { query: ContactPageQuery },
+    /// Select every applied match across the entire current view.
+    SelectAll { query: ContactPageQuery },
     /// Load an actual record and expected editing basis.
     Load { id: QsoId },
     /// Save validated facts under the displayed expected record.
@@ -57,6 +60,7 @@ impl ContactAction {
             Self::LoadQueryState => "query_state.load",
             Self::SaveQueryState { .. } => "query_state.save",
             Self::Page { .. } => "page",
+            Self::SelectAll { .. } => "select_all",
             Self::Load { .. } => "load",
             Self::Save { .. } => "save",
             Self::PrepareMembership { .. } => "membership.prepare",
@@ -69,6 +73,7 @@ impl ContactAction {
     pub(super) fn query_kind(&self) -> Option<&'static str> {
         match self {
             Self::Page { .. } => Some("history"),
+            Self::SelectAll { .. } => Some("history_selection"),
             Self::WorkedBefore { .. } => Some("worked_before"),
             _ => None,
         }
@@ -86,6 +91,8 @@ pub(crate) enum ContactResponse {
     QueryStateSaved(QueryState),
     /// Real local working rows.
     Page(ContactPage),
+    /// Complete matching identities from one local read snapshot.
+    SelectedAll(std::collections::BTreeSet<QsoId>),
     /// Current stored record, absent when unavailable locally.
     Loaded(
         Option<ClientRecord>,
@@ -110,6 +117,9 @@ pub(crate) async fn execute(
     changes: tokio::sync::watch::Sender<()>,
 ) -> anyhow::Result<ContactResponse> {
     match action {
+        ContactAction::SelectAll { query } => Ok(ContactResponse::SelectedAll(
+            selection::matching_ids(store, query).await?,
+        )),
         ContactAction::WorkedBefore { query } => {
             let mut snapshot = read::snapshot(store).await?;
             let page = snapshot.worked_before(&query).await?;

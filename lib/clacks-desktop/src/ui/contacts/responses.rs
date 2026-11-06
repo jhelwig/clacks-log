@@ -93,6 +93,9 @@ impl ContactsUi {
             ContactResponse::Page(_) => {
                 self.notice = Some("Contact rows require their originating read request.".into());
             }
+            ContactResponse::SelectedAll(_) => {
+                self.notice = Some("Contact selection requires its originating request.".into())
+            }
             ContactResponse::Loaded(Some(record), snapshot) => {
                 match editor::ContactEditor::from_record(record) {
                     Ok(mut value) => {

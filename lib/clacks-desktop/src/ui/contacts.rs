@@ -5,6 +5,7 @@ mod editor;
 mod membership;
 mod query;
 mod responses;
+mod selection;
 #[cfg(test)]
 mod tests;
 
@@ -70,6 +71,10 @@ pub(super) struct ContactsUi {
     preferences: preferences::ContactTablePreferences,
     /// Selected native contact identities, independent of row order.
     selected: BTreeSet<QsoId>,
+    /// Pending whole-query selection, independent of modal editor ownership.
+    selection: Option<selection::PendingSelection>,
+    /// Actual focused history widget, distinct from Worked Before and entry.
+    history_focus: Option<egui::Id>,
     /// Logical focused contact for keyboard navigation.
     focused: Option<QsoId>,
     /// Keyboard target awaiting native focus after scrolling into the rendered rows.
@@ -134,6 +139,8 @@ impl ContactsUi {
     /// Invalidate actual view-dependent results after a committed change.
     pub fn refresh(&mut self, view: SelectedView) {
         if self.query.view != view {
+            self.selection = None;
+            self.history_focus = None;
             self.membership_view_changed();
             self.query.view = view;
             self.selected.clear();
@@ -168,6 +175,7 @@ impl ContactsUi {
         self.filter.advance(ui.ctx(), requests, false);
         self.update_query();
         self.poll();
+        self.poll_selection();
         self.poll_membership();
         if self.membership.is_none() {
             egui::Popup::close_id(ui.ctx(), egui::Id::unique("contacts.membership"));
@@ -198,6 +206,7 @@ impl ContactsUi {
                             self.reset_scroll = true;
                         }
                         if ui.small_button("Clear selection").clicked() {
+                            self.selection = None;
                             self.selected.clear();
                             if std::mem::take(&mut self.query.show_selected) {
                                 self.refresh(self.query.view);
@@ -219,6 +228,11 @@ impl ContactsUi {
                         }
                     }
                     self.membership_feedback(ui);
+                    if self.selection_pending() {
+                        ui.small("Selecting contacts…");
+                        ui.ctx()
+                            .request_repaint_after(std::time::Duration::from_millis(25));
+                    }
                     self.filter.show(ui, snapshot, definitions);
                 });
             let footer = egui::Panel::bottom("history.counts")
@@ -265,6 +279,12 @@ impl ContactsUi {
                         None,
                     );
                     self.needed = action.needed;
+                    if let Some(owner) = action.focus_owner {
+                        self.history_focus = Some(owner);
+                    }
+                    if action.select_all {
+                        self.select_all(requests);
+                    }
                     if self.query.order != self.preferences.order {
                         self.query.order = self.preferences.order;
                         self.refresh(self.query.view);

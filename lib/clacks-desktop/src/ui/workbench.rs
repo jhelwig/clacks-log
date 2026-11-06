@@ -64,6 +64,26 @@ pub(super) struct Workbench {
 }
 
 impl Workbench {
+    /// Route the shared Edit command to the actual history-selection owner.
+    pub fn select_all_contacts(&mut self, requests: &mpsc::Sender<SettingsRequest>) {
+        self.contacts.select_all(requests);
+    }
+
+    /// True only when the history table owns focus and its applied query is ready.
+    pub fn history_has_focus(&self, context: &egui::Context) -> bool {
+        self.contacts.history_has_focus(context)
+    }
+
+    /// Keep native selection admission in step with pending read acknowledgments.
+    pub fn poll_selection(&mut self) {
+        self.contacts.poll_selection();
+    }
+
+    /// Selection consumers cannot act on an incomplete Select all request.
+    pub fn selection_pending(&self) -> bool {
+        self.contacts.selection_pending()
+    }
+
     /// Apply the WS callsign to the shared entry observed by lookup and history.
     pub(super) fn incoming_call(&mut self, call: &str) {
         self.entry.incoming_call(call);

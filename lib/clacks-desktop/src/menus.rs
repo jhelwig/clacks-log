@@ -3,6 +3,8 @@
 /// Stable identities for existing menu actions, independent of widget IDs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum MenuCommand {
+    /// Select text or all applied history matches, according to actual focus.
+    SelectAll,
     /// Open the tag-defined logbook manager.
     ManageLogbooks,
     /// Open reusable stations.
@@ -29,6 +31,7 @@ impl MenuCommand {
     /// Stable, bounded native item identifier and metric category.
     pub const fn id(self) -> &'static str {
         match self {
+            Self::SelectAll => "select_all",
             Self::ManageLogbooks => "manage_logbooks",
             Self::StationProfiles => "station_profiles",
             Self::EquipmentConfigurations => "equipment_configurations",
@@ -57,6 +60,10 @@ pub(crate) struct MenuGroup {
 /// Ordered management commands shared by platform presentations.
 pub(crate) const GROUPS: &[MenuGroup] = &[
     MenuGroup {
+        title: "Edit",
+        commands: &[Some(MenuCommand::SelectAll)],
+    },
+    MenuGroup {
         title: "Settings",
         commands: &[
             Some(MenuCommand::ManageLogbooks),
@@ -84,6 +91,7 @@ impl MenuCommand {
     /// Visible command text, including the current enrollment state.
     pub const fn label(self, enrolled: bool) -> &'static str {
         match self {
+            Self::SelectAll => "Select all",
             Self::ManageLogbooks => "Manage logbooks…",
             Self::StationProfiles => "Station profiles…",
             Self::EquipmentConfigurations => "Equipment configurations…",

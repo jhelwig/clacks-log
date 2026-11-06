@@ -165,7 +165,10 @@ impl ContactsUi {
             .membership
             .as_ref()
             .is_some_and(BulkMembership::running);
-        let button = ui.add_enabled(!running, egui::Button::new("Edit assigned logbooks…"));
+        let button = ui.add_enabled(
+            !running && !self.selection_pending(),
+            egui::Button::new("Edit assigned logbooks…"),
+        );
         if button.clicked() {
             let (reply, receiver) = oneshot::channel();
             let ids = self.selected.clone();

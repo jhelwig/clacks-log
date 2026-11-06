@@ -29,6 +29,10 @@ pub(super) struct TableContent<'a> {
 /// Row activation and visible data demand from one table presentation.
 #[derive(Default)]
 pub(super) struct TableAction {
+    /// Native widget currently supplying this table's keyboard focus.
+    pub focus_owner: Option<egui::Id>,
+    /// Select all was requested while this table owns keyboard focus.
+    pub select_all: bool,
     /// Stable identity to load, independent of row order.
     pub open: Option<QsoId>,
     /// Internal page offsets needed by visible rows and a pending keyboard target.
@@ -223,8 +227,9 @@ pub(super) fn show(
                         if response.double_clicked() {
                             action.open = Some(value.working.qso.id());
                         }
-                        if has_focus {
+                        if has_focus || response.has_focus() || response.clicked() {
                             native_focus = Some(value.working.qso.id());
+                            action.focus_owner = response.ctx.memory(|memory| memory.focused());
                         }
                         if *focused == Some(value.working.qso.id())
                             && response.ctx.memory(|m| m.focused()).is_none()
@@ -253,6 +258,8 @@ pub(super) fn show(
         *focused = Some(id);
     }
     if native_focus.is_some() || pending_focus.is_some() {
+        action.select_all =
+            ui.input_mut(|input| input.consume_key(egui::Modifiers::COMMAND, egui::Key::A));
         if ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter))
             && pending_focus.is_none()
         {

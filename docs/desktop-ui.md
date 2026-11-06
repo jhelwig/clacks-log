@@ -308,6 +308,7 @@ management commands into OS-native menus using the following agreed structure:
 
 | Native menu | Commands |
 | --- | --- |
+| Edit | Select all (focused text or all matching history contacts across pages) |
 | Settings | Manage logbooks…, Station profiles…, Equipment configurations…, Refresh settings, account/server management, WS Suite…, Appearance… |
 | View | Reset workbench layout |
 | Help | Workspace & diagnostics… |
