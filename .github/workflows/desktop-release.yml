@@ -357,6 +357,9 @@ jobs:
           security create-keychain -p "$keychain_password" "$keychain"
           security set-keychain-settings -lut 21600 "$keychain"
           security unlock-keychain -p "$keychain_password" "$keychain"
+          # codesign requires the identity's keychain on the user search list,
+          # even when --keychain explicitly selects it for signing.
+          security list-keychains -d user -s "$keychain"
           security import "$SIGNING_TEMP/identity.p12" -P "$APPLE_SIGNING_P12_PASSWORD" -t cert -f pkcs12 -k "$keychain" -T /usr/bin/codesign > /dev/null
           security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$keychain_password" "$keychain" > /dev/null
           identity=$(security find-identity -v -p codesigning "$keychain" | awk '/"Developer ID Application:/ {print $2}')
