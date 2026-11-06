@@ -37,12 +37,15 @@ concurrency:
 
 jobs:
   verify:
+    # Defense in depth for the current private repository. Public conversion
+    # requires an enforced boundary; fork workflows can edit this condition.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     strategy:
       fail-fast: false
       matrix:
         # Windows verification is temporarily deferred due to CI runtime cost.
         os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: [self-hosted, Linux, X64, clacks-linux]
     services:
       postgres:
         image: postgres@sha256:b994732fcf33f73776c65d3a5bf1f80c00120ba5007e8ab90307b1a743c1fc16
@@ -143,9 +146,10 @@ jobs:
           du -sh target ~/.cargo
 
   verify-web:
-    # Release/web builds do not consume workspace test artifacts. Keep their
-    # tooling and outputs on a separate runner rather than accumulating both.
-    runs-on: ubuntu-latest
+    # One dedicated runner executes these jobs sequentially. Default checkout
+    # cleaning separates their workspaces; each job restores its own Rust cache.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, X64, clacks-linux]
     env:
       SQLX_OFFLINE: 'true'
       LEPTOS_OUTPUT_NAME: clacks-web

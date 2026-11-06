@@ -148,10 +148,19 @@ cargo +1.99.1 test -p clacks-client-store --test integration --locked --offline 
 Continuous integration (CI) builds workspace applications and tests together,
 runs the resulting desktop
 executable for its command-line smoke check, then runs the full test suite.
-Compilation and execution have separate workflow steps. CI currently runs on
-Linux; Windows CI is temporarily disabled because of its runtime cost. Cargo
+Compilation and execution have separate workflow steps. The recurring Linux
+workspace and web jobs use the dedicated `clacks-linux` self-hosted runner,
+managed through the private Operations repository. They execute one at a time;
+checkout cleaning and job-scoped PostgreSQL containers preserve fresh test state.
+Windows CI is temporarily disabled because of its runtime cost. Cargo
 timing HTML is available in the `cargo-timings-ubuntu-latest` artifact for seven
 days and reports compilation units and their dependency timelines.
+
+The self-hosted runner is scoped to this private repository and trusted writers.
+Same-repository pull-request conditions are defense in depth, not a security
+boundary for a public repository: a fork can change its workflow. Before making
+the repository public, establish an enforced trusted-workflow boundary for runner
+access. An issues-and-feature-requests-only policy does not enforce this itself.
 
 The ordinary suite checks IPv6 multicast socket construction and options.
 IPv6 packet delivery, receiver coexistence, group isolation and capture are an
