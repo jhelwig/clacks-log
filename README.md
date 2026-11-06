@@ -200,12 +200,20 @@ maintained requirements and integration contracts in their owning documents.
 Completed execution plans are retained in Git history and pull requests; active
 plans may remain under `docs/superpowers/plans/` while their work is in review.
 
-## Windows desktop packaging
+## Desktop packaging
 
-The [Windows installer workflow](deploy/desktop/windows/README.md) provides
+The [desktop package workflow](deploy/desktop/windows/README.md) provides
 manual development builds as Actions artifacts and version-tag builds as draft
 GitHub Releases. It targets current-user installation on Windows 11 x64;
 early artifacts are unsigned. Windows builds do not run for pull requests or
 ordinary branch pushes. Release builds reuse existing successful Linux/web
 results for the exact tagged commit rather than rerunning them. Native Windows
 acceptance and release publication remain distinct from package construction.
+
+The same workflow builds a [macOS disk image](deploy/desktop/macos/README.md)
+for macOS 26 Tahoe and newer on Apple Silicon. Mac development downloads and
+tagged artifacts require Developer ID signing, the existing Keychain profile
+authorization, notarization and stapling. Manual dispatch selects Windows,
+macOS or both; tags require both packages before creating one unpublished draft.
+The owner supplies signing inputs and tests the exact installed artifacts before
+publication. Packaging automation alone does not establish native acceptance.

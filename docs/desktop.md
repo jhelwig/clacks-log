@@ -409,7 +409,7 @@ Primary API references supporting the integration boundaries:
 - [tracing-appender rotation](https://docs.rs/tracing-appender/latest/tracing_appender/rolling/struct.Builder.html): time rotation and retained-file count.
 - [OTLP Rust exporter](https://docs.rs/opentelemetry-otlp/latest/opentelemetry_otlp/) and [metrics adapter](https://docs.rs/metrics-opentelemetry/latest/metrics_opentelemetry/): standard export and producer integration; resolved versions are pinned in `Cargo.lock`.
 
-## Windows installation artifacts
+## Desktop installation artifacts
 
 See the [Windows packaging guide](../deploy/desktop/windows/README.md) for the
 manual development artifact and tag-triggered draft release workflow. The
@@ -417,3 +417,13 @@ installer targets Windows 11 x64 and current-user scope, preserves application
 state/credentials on uninstall and never initializes a workspace. The desktop
 continues to own migrations and graceful shutdown. Unsigned early packaging
 does not establish native Windows acceptance or final distribution trust.
+
+The [macOS packaging guide](../deploy/desktop/macos/README.md) covers the native
+Apple Silicon DMG for macOS 26 Tahoe and newer. Both platforms share source/tag
+eligibility and one draft release; manual development builds select a platform.
+Mac downloads require Developer ID signing, profile-authorized protected
+credentials, hardened runtime, notarization and a stapled disk image. Account
+and signing inputs require owner setup.
+Installing, replacing or removing the app bundle preserves application state;
+quit normally before replacement. Packaging checks do not establish native
+installed-product acceptance or the complete MVP release workflows.

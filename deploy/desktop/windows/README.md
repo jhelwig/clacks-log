@@ -4,14 +4,17 @@ The production application is packaged as a per-user Windows Installer (MSI)
 package for Windows 11 x64. Clacks Log is owned and published by
 **Technosorcery, LLC**. This installer does not establish completion of
 all MVP workflows or signed public-distribution acceptance. The initial pipeline
-is unsigned and needs no signing credentials. macOS packaging, a website
-mirror, Store distribution and an updater are separate work.
+is unsigned and needs no signing credentials. The [macOS guide](../macos/README.md)
+covers the signed Apple Silicon DMG in the shared pipeline. A website mirror,
+Store distribution and an updater are separate work.
 
 ## Development downloads
 
 After this workflow is present on the default branch, open GitHub Actions →
-**Windows installer** → **Run workflow**, select the desired branch/tag and
-start it. Only Windows build and packaging checks run. No PR, ordinary push,
+**Desktop packages** → **Run workflow**, select the desired branch/tag, leave
+platform set to **windows** and start it. Only Windows build and packaging
+checks run. Select **both** to request macOS too, with its signing prerequisites.
+No PR, ordinary push,
 merge or schedule starts a Windows build. Download the run's
 `windows-installer-SHA-RUN-ATTEMPT` artifact and extract it before installation.
 The ZIP contains only the MSI. The workflow summary records its SHA-256, version,
@@ -41,20 +44,25 @@ introduced. Preserve the candidate needed for an actual native comparison.
    existing checks to finish, then rerun this workflow; it never polls or starts
    them. Documentation-only commits excluded by existing path filters do not
    inherit an ancestor's pass.
-4. Successful packaging uploads only the final MSI and creates a
-   **draft release** with that same MSI attached. Only delivery has contents
+4. Each platform uploads only its final package as an Actions artifact. After
+   both Windows and macOS packaging succeed, one delivery job creates a
+   **draft release** with that same MSI and the final Mac DMG attached. A
+   failed Mac build retains the successful Windows artifact but prevents a
+   combined draft. Only delivery has contents
    write permission; build and eligibility jobs cannot publish a release.
 5. Download the draft's exact MSI, compare its hash with the workflow summary
    linked from the release notes, and perform the native acceptance scenarios in the approved spec. Record results against its hash
    and source revision in issue #79/PR. Publish the draft manually after testing;
    publication does not rebuild, re-sign or otherwise change the tested bytes.
+   Apply the macOS guide's native acceptance to its exact DMG as well.
 
 The release filename includes the complete tag without its leading `v`, for
 example `clacks-log-0.1.0-rc.1-windows-x64.msi`. The validated tag supplies the
 release step's prerelease input: false for `vVERSION`, true for `vVERSION-rc.N`.
 Both forms create drafts for manual testing and publication. The MSI keeps the
 numeric Cargo version; RC numbers do not establish newer MSI upgrade versions.
-Standard GitHub CLI creates the draft and attaches only the MSI.
+Standard GitHub CLI creates one draft with the MSI and DMG. Release notes
+identify Windows unsigned status separately from macOS signing/notarization.
 GitHub-reported conflicts or partial upload failures fail delivery; no automatic asset reconciliation,
 replacement or deletion is performed. A partial upload remains unpublished.
 Inspect any partial draft before retrying delivery. Rebuilt bytes need fresh
@@ -72,7 +80,7 @@ current-user Start menu shortcut. No desktop shortcut, startup-at-login or
 post-install launch is configured. The selected original icon and provenance
 live in the spec's assets and `lib/clacks-desktop/assets/README.md`.
 
-Use `.github/workflows/windows-installer.yml` as the executable build recipe on
+Use the Windows job in `.github/workflows/desktop-release.yml` as the executable build recipe on
 native Windows: pinned Rust 1.99.1 and lockfile, release production EXE, pinned
 notice generator, digest-verified msi-builder 1.2.0, default package read-back,
 executable version comparison, native import listing, final checksums, then upload.
