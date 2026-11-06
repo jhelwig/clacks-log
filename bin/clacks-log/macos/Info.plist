@@ -12,6 +12,10 @@
     <string>clacks-log</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+    <key>CFBundleIconFile</key>
+    <string>clacks-log.icns</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>26.0</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright (c) 2026 Technosorcery, LLC.</string>
 </dict>

@@ -1,0 +1,217 @@
+# macOS desktop disk images
+
+Clacks Log's early macOS package targets **macOS 26 Tahoe and newer on Apple
+Silicon** (`aarch64-apple-darwin`). This baseline does not select a continuing
+policy for how many older macOS releases to support. The application is owned
+by Technosorcery, LLC. Developer ID signing and notarization are required for
+macOS distribution. Current functionality is pre-alpha.
+
+## Downloads and release rules
+
+The **Desktop packages** workflow is the executable recipe for both platforms.
+After it is on the default branch, manually dispatch it with platform `macos`
+or `both` for development downloads. The default remains `windows`. Pull
+requests, ordinary pushes, merges and schedules do not start packaging.
+The `macos-package-SHA-RUN-ATTEMPT` Actions artifact contains only the final DMG.
+The summary/logs record its final SHA-256, source revision, version, signing and
+notarization evidence, tools and runner image. Normal GitHub availability applies.
+
+Immutable version tags `vVERSION` and `vVERSION-rc.N` must match committed Cargo
+versions and the newest existing exact-commit **Rust** push verification's latest
+attempt. Both Linux and web jobs must pass. Packaging reuses those results;
+it does not dispatch, poll or rerun them, use a PR merge result or inherit an
+ancestor's pass. Missing/pending/unsuccessful results stop release eligibility.
+
+Tags build both platforms and create **one draft GitHub Release** with the
+exact MSI and DMG only after both succeed. Manual dispatch creates no release.
+The owner downloads, hashes and tests those exact files before manually
+publishing. Publication never rebuilds or re-signs the tested bytes. Existing
+release/asset conflicts and partial uploads fail delivery; inspect the partial
+draft before retrying. No asset replacement, moving tags or release-recovery
+service is provided. Rebuilt bytes need fresh native acceptance.
+
+Mac release filenames are `clacks-log-VERSION-macos-arm64.dmg`, including
+`-rc.N` from prerelease tags. Development names include Cargo version,
+revision, run and attempt; rebuilding a version is not an ordered upgrade.
+Each distinct release advances the shared numeric Cargo version. Windows may
+remain unsigned while the Mac artifact is Developer ID signed and notarized.
+
+## Signing setup
+
+Both development downloads and versioned downloads require:
+
+- A Developer ID Application certificate and its private key. Apple Development
+  alone is not a distribution identity. Apple
+  Distribution and Developer ID Installer are not the certificate types used
+  for this application-in-DMG path.
+- A Developer ID provisioning profile authorizing `com.w7hex.clacks-log` and
+  its default Keychain access group. Derive the prefix and team from that
+  actual profile; the prefix is not assumed to equal the team ID.
+- Working notarization authentication: Apple ID, team ID and an app-specific
+  password with Apple's `notarytool`.
+
+The owner must separately authorize account/credential and GitHub environment
+setup, purchases and software publication.
+
+Configure environment **macos-signing** with deployment ref restrictions
+allowing only trusted source code. A manual dispatch cannot bypass those rules;
+the selected branch executes workflow code and must be trusted. Provide these
+inputs as encrypted environment secrets (the team ID may also be a variable
+only if the workflow is updated to read it there):
+
+| Secret | Contents |
+| --- | --- |
+| `APPLE_SIGNING_P12_BASE64` | Base64 password-protected Developer ID signing identity export, including the private key. |
+| `APPLE_SIGNING_P12_PASSWORD` | Password for that export. |
+| `APPLE_PROVISION_PROFILE_BASE64` | Base64 Developer ID profile for the application. |
+| `APPLE_ID` | Developer account Apple ID used for notarization. |
+| `APPLE_TEAM_ID` | Expected signing team ID. |
+| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password for notarization. |
+
+Missing inputs fail by field name without printing values. The native job
+imports the identity into an ephemeral keychain, selects its Developer ID
+Application identity, embeds the profile and populates a temporary entitlement
+copy. Keychain access stays local, app-specific and When Unlocked, without
+cloud synchronization or a different credential backend. No sandbox or
+unrelated entitlement is added.
+
+Do not put keys, profiles, authentication files or keychains in source control,
+caches or delivery artifacts. The embedded profile is intentionally inside the
+signed app; the private key and authentication material are not. Cleanup runs
+even on failure/cancellation; hosted runner disposal is a further boundary.
+Use the profile's existing team/prefix/access-group identity across upgrades.
+
+## Native build and bundle inputs
+
+The workflow selects `macos-26` and Xcode 26.6 explicitly, pins Rust 1.99.1
+through `rust-toolchain.toml`, uses locked dependencies and builds offline
+after fetching them. Record actual image/tool versions: runner images can
+change while their label stays the same. Local builds with another Xcode are
+not evidence of reproducing the selected hosted recipe.
+
+From the repository root, the basic build and notice commands are:
+
+```sh
+cargo fetch --locked
+MACOSX_DEPLOYMENT_TARGET=26.0 SQLX_OFFLINE=true \
+LEPTOS_OUTPUT_NAME=clacks-web \
+  cargo build -p clacks-log --release --target aarch64-apple-darwin \
+  --locked --offline
+cargo build -p clacks-desktop-package --locked --offline
+mkdir -p target/macos-package
+cargo metadata --no-deps --format-version 1 --locked --offline \
+  > target/macos-package/cargo-metadata.json
+target/debug/clacks-desktop-package prepare --platform macos-arm64 \
+  --metadata target/macos-package/cargo-metadata.json \
+  --revision "$(git rev-parse HEAD)" --output target/macos-package/metadata.json
+cargo install cargo-about --version 0.9.3 --features cli --locked \
+  --root target/notice-tool
+target/notice-tool/bin/cargo-about generate --locked --fail \
+  --manifest-path bin/clacks-log/Cargo.toml \
+  --config deploy/desktop/macos/about.toml \
+  --output-file target/macos-package/THIRD-PARTY-NOTICES.txt \
+  deploy/desktop/windows/notices.hbs
+```
+
+Assemble `target/macos-package/image/Clacks Log.app` with these explicit inputs:
+
+| Source | Bundle destination |
+| --- | --- |
+| `target/aarch64-apple-darwin/release/clacks-log` | `Contents/MacOS/clacks-log` |
+| `bin/clacks-log/macos/Info.plist`, with versions supplied from prepared metadata | `Contents/Info.plist` |
+| `lib/clacks-desktop/assets/clacks-log.icns` | `Contents/Resources/clacks-log.icns` |
+| `LICENSE`, `NOTICE` | `Contents/Resources/LICENSE.txt`, `NOTICE.txt` |
+| Generated `THIRD-PARTY-NOTICES.txt` | `Contents/Resources/THIRD-PARTY-NOTICES.txt` |
+| `references/trustedqsl/upstream/LICENSE.txt`, unchanged for embedded model data | `Contents/Resources/THIRD-PARTY-DATA-NOTICES.txt` |
+| Authorized external provisioning profile | `Contents/embedded.provisionprofile` |
+
+Use `ditto` for bundle contents, preserving symlinks; use PlistBuddy to set the
+copied `CFBundleVersion` and `CFBundleShortVersionString` from Cargo metadata.
+The source plist supplies minimum system version `26.0`. Populate a temporary
+copy of `entitlements.plist` from the profile, with the application identifier
+and sole default access group `PREFIX.com.w7hex.clacks-log` and its team ID.
+Keep credential service identifiers unchanged. The original icon/provenance
+lives in [the artwork guide](../../../lib/clacks-desktop/assets/README.md).
+
+There are no presently required external geographic files or non-system dynamic
+libraries in this payload. Inspect `file`, `vtool -show-build` and `otool -L`
+against the actual build; add explicitly required permitted runtime files and
+their notices if dependencies change. Do not ship developer/Homebrew paths,
+test executables, development settings, reference source trees or debug symbols.
+The [data notice guide](../../../lib/clacks-model/data/README.md) explains
+applicability; copying its notice does not execute TrustedQSL source.
+
+The complete signing recipe is in
+[desktop-release.yml](../../../.github/workflows/desktop-release.yml): sign
+nested code before the outer app, use Developer ID with a secure timestamp and
+hardened runtime, inspect signatures/entitlements/profile, create a read-only
+compressed DMG with `hdiutil` and an Applications symlink, and sign that DMG
+with ID `com.w7hex.clacks-log.dmg`. Apple's tools own signing and profile
+authorization checks; no custom profile parser or wildcard matcher is used.
+
+Submit the signed DMG with `notarytool --wait --timeout 30m`; require accepted
+notarization, inspect diagnostics, staple and validate the DMG, then inspect
+the mounted application's signature and distribution policy. Do not mutate
+its inner payload or require another notarization cycle. Compute the final
+hash after all signing/stapling, and upload that same file. A failed or timed-out
+operation stops delivery; Apple may continue processing a timed-out submission.
+Inspect its recorded submission ID before manually deciding whether to rerun.
+There is no unattended resubmission/waiting queue or weaker-signing fallback.
+
+## Installation, upgrade and removal
+
+Open the downloaded DMG and copy **Clacks Log.app** to Applications using Finder.
+Use `/Applications` or your user's `~/Applications` according to ordinary folder
+permissions. Eject the image and launch the installed app. There is no privileged
+installer, automatic post-install launch, login item or separate updater.
+
+Quit Clacks Log normally before replacing its bundle. Let admitted saves finish;
+do not replace a running app or force-quit it for an upgrade. Finder owns copying,
+permissions and cancellation. Observe actual errors; this is not a transactional
+Windows Installer upgrade or guaranteed rollback. Older builds may not understand
+a workspace migrated by a newer build; replacing the app with an older copy is
+not a supported data rollback method. A DMG does not enforce downgrade rejection.
+
+Removing the application bundle retains user workspaces, pending offline work,
+configuration, UI preferences and protected credentials. Reinstalling as the same
+user with the same signing/access-group identity reopens retained state. Only
+the application opens/migrates workspaces or manages credentials; mounting,
+copying and removing the bundle never run those operations. Intentional removal
+of retained state is separate from removing the app; no destructive cleanup
+command is added. Existing account/enrollment operations keep their documented
+credential lifecycle.
+
+## Native acceptance
+
+Build, signature and policy checks are not installed-product acceptance. Keep
+[#80](https://github.com/jhelwig/clacks-log/issues/80) open until exact installed
+artifacts satisfy [the approved native matrix](../../../docs/superpowers/specs/2026-11-05-macos-package-design.md#verification-and-completion-evidence).
+[#70](https://github.com/jhelwig/clacks-log/issues/70) retains complete integrated
+MVP release acceptance; signing this early package does not complete it.
+
+Use clean Apple Silicon environments on macOS 26.0 and the newer current major
+version. Record exact versions/hardware; an upgraded developer Mac or hosted
+runner is not clean-machine evidence. Download through the intended browser,
+preserve quarantine and normal Gatekeeper checks, compare the final hash and
+observe ordinary consent separately from trust failures. Do not prescribe
+security bypasses. Exercise first installation/launch offline as well as online.
+
+Use disposable ordinary-user accounts and explicit isolated `--workspace`,
+`--config` and `--log-directory` paths. Follow the user-owned local development
+inventory before desktop/server execution and verify the actual process before
+UI automation attaches. Never discover/launch a development app into default
+personal state. Tests use temporary workspaces and disposable databases.
+
+Exercise offline contact editing/save/reopen; native menus/input/scaling/icons;
+available enrollment/browser return/sync/directory credentials; normal shutdown;
+two genuinely increasing-version upgrades retaining pending work and credential
+access; actual interrupted/rejected copy observations; and reinstall using
+retained state. Test Clacks's installed behavior, not generic Finder, Keychain
+or Gatekeeper conformance. Existing signed-host integration tests are additional
+application evidence, not a substitute for this production artifact.
+
+Record DMG hash/version/tag/revision, signing team/profile identity and expiry,
+notarization submission/result, tools/image, native environment, observations and
+per-scenario passed/failed/blocked/untested status in #80 or its pull request.
+Redact secrets and unnecessary personal/device information. Normal GitHub
+artifacts and notes suffice; no separate archival/retention service is required.

@@ -31,3 +31,25 @@ visual acceptance. Conversion tools are not part of the release build.
 Original SHA-256:
 `ffeed442e16325147955e8186428c3221e7b50ab73d2e54d083506974ef3797f`.
 The ICO contains 16, 24, 32, 48, 64, 128 and 256 pixel PNG frames.
+
+The macOS `clacks-log.icns` uses the same original without redrawing. Generate
+it on macOS with the native tools below. Conversion is an authoring operation,
+not a dependency of release builds. Inspect the installed application's icon
+in Finder, the Dock and application switching before claiming native acceptance.
+
+```sh
+icon_dir=$(mktemp -d "$TMPDIR/clacks-icon.XXXXXX")
+mkdir "$icon_dir/Clacks.iconset"
+for size in 16 32 128 256 512; do
+  sips -z "$size" "$size" \
+    docs/superpowers/specs/assets/2026-11-04-clacks-log-icon.png \
+    --out "$icon_dir/Clacks.iconset/icon_${size}x${size}.png"
+  double=$((size * 2))
+  sips -z "$double" "$double" \
+    docs/superpowers/specs/assets/2026-11-04-clacks-log-icon.png \
+    --out "$icon_dir/Clacks.iconset/icon_${size}x${size}@2x.png"
+done
+iconutil -c icns "$icon_dir/Clacks.iconset" \
+  -o lib/clacks-desktop/assets/clacks-log.icns
+rm -r "$icon_dir"
+```
