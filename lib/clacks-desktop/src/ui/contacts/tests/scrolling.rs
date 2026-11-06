@@ -3,6 +3,84 @@
 use super::*;
 
 #[test]
+fn tall_viewport_loads_and_retains_every_visible_page() -> anyhow::Result<()> {
+    use egui_kittest::kittest::Queryable;
+
+    let (sender, mut requests) = mpsc::channel(8);
+    let mut ui = Harness::builder()
+        .with_context_setup(|ctx| crate::ui::theme::install(ctx, &Default::default()))
+        // All 250 contacts fit at once, spanning three internal 100-row reads.
+        .with_size(egui::vec2(1100.0, 10_000.0))
+        .build_ui_state(
+            move |ui, view: &mut ContactsUi| {
+                view.show(
+                    ui,
+                    &fixtures::snapshot(),
+                    &sender,
+                    &DefinitionSet::default(),
+                );
+            },
+            ContactsUi::default(),
+        );
+
+    let restore = requests.try_recv()?;
+    assert!(matches!(
+        restore.action,
+        SettingsAction::Contacts(ContactAction::LoadQueryState)
+    ));
+    restore
+        .reply
+        .send(SettingsResponse::Contacts(ContactResponse::QueryState(
+            Default::default(),
+        )))
+        .unwrap();
+    ui.run_steps(2);
+
+    let pages = [
+        fixtures::contact_page(0, 100, 250),
+        fixtures::contact_page(100, 100, 250),
+        fixtures::contact_page(200, 50, 250),
+    ];
+    let mut loaded = 0;
+    for (page, offset) in pages.into_iter().zip([0, 100, 200]) {
+        let request = requests.try_recv()?;
+        let SettingsAction::Contacts(ContactAction::Page { query }) = &request.action else {
+            panic!("expected a viewport-driven contact read")
+        };
+        assert_eq!(query.offset, offset);
+        assert_eq!(query.limit, 100);
+        loaded += page.rows.len();
+        request
+            .reply
+            .send(SettingsResponse::Contacts(ContactResponse::Page(page)))
+            .unwrap();
+        ui.run_steps(2);
+
+        // Later reads must neither replace earlier visible pages nor hide
+        // unloaded rows from the logical viewport.
+        for index in 0..loaded {
+            assert!(
+                ui.query_by_label(&format!("K1T{index:03}")).is_some(),
+                "visible contact {index} missing after accepting offset {offset}"
+            );
+        }
+        assert_eq!(
+            ui.query_all_by_label("Loading contacts…").count(),
+            250 - loaded
+        );
+    }
+
+    // Further frames must retain all three pages without rereading any of them.
+    ui.run_steps(3);
+    for index in 0..250 {
+        assert!(ui.query_by_label(&format!("K1T{index:03}")).is_some());
+    }
+    assert!(ui.query_all_by_label("Loading contacts…").next().is_none());
+    assert!(requests.try_recv().is_err());
+    Ok(())
+}
+
+#[test]
 fn history_counts_stay_at_the_pane_edge_with_empty_and_scrolling_rows() {
     use egui_kittest::kittest::Queryable;
     for height in [220.0, 450.0] {
