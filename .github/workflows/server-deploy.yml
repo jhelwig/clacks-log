@@ -67,6 +67,7 @@ jobs:
           cat > "$directory/config" <<EOF
           Host clacks-production
             HostName $DEPLOY_HOST
+            AddressFamily inet
             Port $DEPLOY_PORT
             User dokku
             HostKeyAlias clacks-dokku-production

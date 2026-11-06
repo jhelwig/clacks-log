@@ -359,13 +359,13 @@ at repository scope so the workflow can evaluate it before entering the environm
 Deployment uses only a read-only GitHub token. Database, Google and wrapping-key
 credentials remain on the server and must not be added to GitHub.
 
-Coordinate the Tailscale policy and controller/key setup through Operations
-separately maintained operator procedures.
-It preserves operator access and restricts runners to `DEPLOYMENT_ADDRESS:3022`; there
-is no host SSH jump or host shell. The dedicated key permits only the native
-Clacks Git receiver and `clacks-deploy-revision`, which returns the running web
-container revision without exposing its environment. Other Dokku apps and
-management commands are denied by the forced command.
+Restrict the deployment identity to the configured SSH endpoint through the
+network policy. The dedicated SSH key permits only the Clacks Git receiver and
+`clacks-deploy-revision`, which returns the running web container revision without
+exposing its environment. Deny other applications and management commands.
+Verify the endpoint host key out of band before configuring
+`CLACKS_DOKKU_KNOWN_HOSTS`. Populate both endpoint secrets before merging a workflow
+that consumes them.
 
 The workflow accepts only successful push results for `main` from this repository,
 checks out the exact tested SHA, and checks that it is still the current main tip
