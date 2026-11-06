@@ -9,6 +9,7 @@ mod platform;
 
 use super::{GROUPS, MenuCommand};
 use eframe::egui;
+use muda::accelerator::{Accelerator, Code, Modifiers};
 use muda::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use std::sync::{Arc, mpsc};
 
@@ -64,8 +65,20 @@ impl MenuAdapter {
             let submenu = Submenu::new(platform::menu_title(group.title), true);
             for command in group.commands {
                 if let Some(command) = command {
-                    let item =
-                        MenuItem::with_id(command.id(), item_text(*command, false), false, None);
+                    let accelerator = (*command == MenuCommand::SelectAll).then(|| {
+                        let modifier = if cfg!(target_os = "macos") {
+                            Modifiers::META
+                        } else {
+                            Modifiers::CONTROL
+                        };
+                        Accelerator::new(modifier, Code::KeyA)
+                    });
+                    let item = MenuItem::with_id(
+                        command.id(),
+                        item_text(*command, false),
+                        false,
+                        accelerator,
+                    );
                     submenu.append(&item)?;
                     items.push(CommandItem {
                         command: *command,

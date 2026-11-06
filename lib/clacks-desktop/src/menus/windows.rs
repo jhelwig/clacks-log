@@ -4,7 +4,7 @@ use muda::Menu;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::platform::windows::EventLoopBuilderExtWindows;
 
-/// Windows application commands are in the accepted three menus.
+/// Windows application commands use the shared accepted menu groups.
 pub(super) fn application_menu(_menu: &Menu, _items: &mut Vec<CommandItem>) -> anyhow::Result<()> {
     Ok(())
 }

@@ -6,6 +6,9 @@ use clacks_client_store::read::contacts::ContactPage;
 use clacks_sync::record::{RecordState, RecordValue};
 use egui_kittest::Harness;
 
+mod bulk;
+mod selection;
+
 #[test]
 fn stale_save_preserves_the_correction_and_offers_review_without_resurrection() {
     let original = fixtures::row(RecordValue::Qso(Box::new(fixtures::contact())));

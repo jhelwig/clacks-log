@@ -168,6 +168,9 @@ pub(super) async fn execute(
                     ) => {
                         tracing::debug!(event = "contact_query.completed", account_id = %account, kind, matching_count = page.matching_total, returned_count = page.rows.len());
                     }
+                    Ok(contacts::ContactResponse::SelectedAll(ids)) => {
+                        tracing::debug!(event = "contact_query.completed", account_id = %account, kind, returned_count = ids.len());
+                    }
                     Err(_) => {
                         metrics::counter!("client_store.contact_query.failures_total", "kind" => kind).increment(1);
                     }
@@ -237,6 +240,8 @@ pub(super) async fn execute(
         ) => None,
         SettingsResponse::Contacts(
             contacts::ContactResponse::Page(_)
+            | contacts::ContactResponse::DirectoryLookupStarted(_)
+            | contacts::ContactResponse::SelectedAll(_)
             | contacts::ContactResponse::WorkedBefore(_)
             | contacts::ContactResponse::MembershipPrepared(_)
             | contacts::ContactResponse::Loaded(_, _)

@@ -64,6 +64,46 @@ pub(super) struct Workbench {
 }
 
 impl Workbench {
+    /// Admit the only directory lookup action against actual selected identities.
+    pub fn start_directory_lookup(&mut self, requests: &mpsc::Sender<SettingsRequest>) {
+        self.contacts.start_directory_lookup(requests);
+    }
+    /// Current selection and run lifecycle determine menu availability.
+    pub fn can_lookup_directory(&self) -> bool {
+        self.contacts.can_lookup_directory()
+    }
+    /// Poll non-modal bulk work independently from painting contact tables.
+    pub fn poll_bulk_lookup(&mut self) {
+        self.contacts.poll_bulk_lookup();
+    }
+    /// A logbook change clears selection before queued native commands can consume it.
+    pub fn reconcile_history_view(
+        &mut self,
+        view: clacks_client_store::logbooks::selection::SelectedView,
+    ) {
+        self.contacts.reconcile_view(view);
+    }
+
+    /// Route the shared Edit command to the actual history-selection owner.
+    pub fn select_all_contacts(&mut self, requests: &mpsc::Sender<SettingsRequest>) {
+        self.contacts.select_all(requests);
+    }
+
+    /// True only when the history table owns focus and its applied query is ready.
+    pub fn history_has_focus(&self, context: &egui::Context) -> bool {
+        self.contacts.history_has_focus(context)
+    }
+
+    /// Keep native selection admission in step with pending read acknowledgments.
+    pub fn poll_selection(&mut self) {
+        self.contacts.poll_selection();
+    }
+
+    /// Selection consumers cannot act on an incomplete Select all request.
+    pub fn selection_pending(&self) -> bool {
+        self.contacts.selection_pending()
+    }
+
     /// Apply the WS callsign to the shared entry observed by lookup and history.
     pub(super) fn incoming_call(&mut self, call: &str) {
         self.entry.incoming_call(call);

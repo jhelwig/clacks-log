@@ -83,10 +83,27 @@ without resetting the in-progress entry or changing active operating settings.
 
 ### Selection and counts — Agreed
 
+**Edit → Select all** adds every saved active contact matching the applied
+expression in the current view to the ordinary selection, across all pages.
+It preserves already-selected contacts outside that expression. Unfinished
+filter text and Show selected inspection do not change this scope. While the
+selection is being prepared, show **Selecting contacts…** and disable actions
+that consume it. Failure leaves the preceding complete selection intact; newer
+view, filter or selection intent discards an obsolete result. The native command
+selects text when a text field has focus and contacts when history owns focus.
+
+**Edit → Look up directory information** consumes this same selection, including
+hidden members, with no distinct all-matching action or history-toolbar button.
+The run captures its selected identities before lookup; subsequent filter/view
+changes do not retarget it. Progress, cancellation and retained failure reports
+remain accessible through the history workflow. Successful results update only
+separate directory snapshots under the existing applicability/arbitration rules.
+
 Keep selected QSO identities across filtering, sorting and scrolling. Show the
 selected total and count outside the **applied filter**, not merely outside the
 visible rows. Show selected reveals the selected set; Clear selection clears
-it. Bulk-action labels distinguish selected contacts from all matching contacts.
+it. Contact actions operate on that selection; Select all includes all matching
+contacts without requiring a separate action scope.
 Changing the selected logbook/view clears selection, including hidden members;
 returning does not restore it. Selection highlighting must not obscure pending
 or conflict status. Deleting contacts removes those identities from active

@@ -81,6 +81,8 @@ pub(crate) struct UiResources {
 
 /// Window-owned view state and standard communication handles.
 pub(crate) struct DesktopApp {
+    /// Native Select all is delivered through egui's next ordinary text input pass.
+    pending_text_select_all: Option<egui::Id>,
     /// Entry updates drained even while entry is hidden.
     entry_calls: mpsc::UnboundedReceiver<crate::ws_suite::EntryCall>,
     /// Receiver configuration modal and retained outcomes.
@@ -178,6 +180,7 @@ impl DesktopApp {
             native_menus: None,
             #[cfg(any(target_os = "macos", windows))]
             menu_receiver: None,
+            pending_text_select_all: None,
             details: Default::default(),
             enrollment: Default::default(),
             enrollment_view,
@@ -289,6 +292,27 @@ impl DesktopApp {
 }
 
 impl eframe::App for DesktopApp {
+    fn raw_input_hook(&mut self, context: &egui::Context, input: &mut egui::RawInput) {
+        if let Some(target) = self.pending_text_select_all.take()
+            && context.memory(|memory| memory.focused() == Some(target))
+        {
+            let modifiers = egui::Modifiers {
+                command: true,
+                mac_cmd: cfg!(target_os = "macos"),
+                ctrl: !cfg!(target_os = "macos"),
+                ..Default::default()
+            };
+            let selection = [true, false].map(|pressed| egui::Event::Key {
+                key: egui::Key::A,
+                physical_key: None,
+                pressed,
+                repeat: false,
+                modifiers,
+            });
+            input.events.splice(0..0, selection);
+        }
+    }
+
     fn on_exit(&mut self) {
         #[cfg(any(target_os = "macos", windows))]
         self.native_menus.take();
@@ -379,7 +403,8 @@ impl eframe::App for DesktopApp {
                 if let Some(notice) = &self.appearance.notice {
                     feedback::problem(ui, notice);
                 }
-                let receiver_available = self.menu_enabled(crate::menus::MenuCommand::WsSuite);
+                let receiver_available =
+                    self.menu_enabled(ui.ctx(), crate::menus::MenuCommand::WsSuite);
                 self.ws_suite
                     .feedback(ui, &self.commands, receiver_available);
                 startup::diagnostics(self, ui);
@@ -442,6 +467,6 @@ impl eframe::App for DesktopApp {
                 .show(ui.ctx(), &self.commands, &mut self.enrollment_view);
         }
         #[cfg(any(target_os = "macos", windows))]
-        self.update_menu_state();
+        self.update_menu_state(ui.ctx());
     }
 }

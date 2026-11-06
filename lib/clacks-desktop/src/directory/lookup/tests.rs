@@ -9,6 +9,7 @@ use clacks_model::{ids::QsoId, scalar::RecordedCallsign};
 use std::time::Duration;
 use tokio::sync::oneshot;
 
+pub(crate) mod bulk;
 mod recovery;
 mod saved_results;
 mod sharing;

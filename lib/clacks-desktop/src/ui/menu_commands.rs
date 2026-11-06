@@ -6,7 +6,7 @@ use eframe::egui;
 
 impl DesktopApp {
     /// Current state, not the state when the operating system queued activation.
-    pub(super) fn menu_enabled(&self, command: MenuCommand) -> bool {
+    pub(super) fn menu_enabled(&self, context: &egui::Context, command: MenuCommand) -> bool {
         if command == MenuCommand::Quit {
             return true;
         }
@@ -18,6 +18,13 @@ impl DesktopApp {
             )
         {
             return false;
+        }
+        if command == MenuCommand::SelectAll
+            && context
+                .memory(|memory| memory.focused())
+                .is_some_and(|id| egui::TextEdit::load_state(context, id).is_some())
+        {
+            return true;
         }
         if self.appearance.editor.is_some()
             || self.ws_suite.is_open()
@@ -36,6 +43,10 @@ impl DesktopApp {
             return false;
         }
         match command {
+            MenuCommand::LookupDirectory => self.workbench.can_lookup_directory(),
+            MenuCommand::SelectAll => {
+                self.workbench.history_has_focus(context) && !self.workbench.selection_pending()
+            }
             MenuCommand::ManageLogbooks => !self.logbooks.is_busy(),
             MenuCommand::StationProfiles
             | MenuCommand::EquipmentConfigurations
@@ -46,7 +57,13 @@ impl DesktopApp {
 
     /// Execute once on the UI thread; downstream operations keep their own errors.
     pub(super) fn dispatch_menu(&mut self, context: &egui::Context, command: MenuCommand) {
-        let enabled = self.menu_enabled(command);
+        self.workbench.poll_selection();
+        self.workbench.poll_bulk_lookup();
+        if let Some(snapshot) = self.settings_view.borrow().as_ref() {
+            self.workbench
+                .reconcile_history_view(snapshot.logbooks.selected_view);
+        }
+        let enabled = self.menu_enabled(context, command);
         let outcome = if enabled {
             "accepted"
         } else {
@@ -62,6 +79,18 @@ impl DesktopApp {
         context.request_repaint_of(egui::ViewportId::ROOT);
         let opener = context.memory(|memory| memory.focused());
         match command {
+            MenuCommand::LookupDirectory => self
+                .workbench
+                .start_directory_lookup(&self.settings_requests),
+            MenuCommand::SelectAll => {
+                if let Some(id) = context.memory(|memory| memory.focused())
+                    && egui::TextEdit::load_state(context, id).is_some()
+                {
+                    self.pending_text_select_all = Some(id);
+                } else {
+                    self.workbench.select_all_contacts(&self.settings_requests);
+                }
+            }
             MenuCommand::ManageLogbooks => self.logbooks.open_management(opener),
             MenuCommand::StationProfiles => self.settings.open_profiles(opener),
             MenuCommand::EquipmentConfigurations => self.settings.open_equipment(opener),
@@ -96,12 +125,13 @@ impl DesktopApp {
     #[cfg(any(target_os = "macos", windows))]
     pub(crate) fn install_menus(
         &mut self,
+        context: &egui::Context,
         menus: crate::menus::native::MenuAdapter,
         receiver: std::sync::mpsc::Receiver<MenuCommand>,
     ) {
         self.native_menus = Some(menus);
         self.menu_receiver = Some(receiver);
-        self.update_menu_state();
+        self.update_menu_state(context);
     }
 
     /// Consume activation once, including while the workbench is not painted.
@@ -109,6 +139,8 @@ impl DesktopApp {
     pub(super) fn process_menus(&mut self, context: &egui::Context) {
         self.logbooks.poll();
         self.settings.poll();
+        self.workbench.poll_selection();
+        self.workbench.poll_bulk_lookup();
         loop {
             let command = self
                 .menu_receiver
@@ -119,18 +151,18 @@ impl DesktopApp {
             };
             self.dispatch_menu(context, command);
         }
-        self.update_menu_state();
+        self.update_menu_state(context);
     }
 
     /// Current modal, lifecycle and pending-request rules govern native items.
     #[cfg(any(target_os = "macos", windows))]
-    pub(super) fn update_menu_state(&self) {
+    pub(super) fn update_menu_state(&self, context: &egui::Context) {
         if let Some(menus) = &self.native_menus {
             for command in crate::menus::GROUPS
                 .iter()
                 .flat_map(|group| group.commands.iter().flatten())
             {
-                menus.set_enabled(*command, self.menu_enabled(*command));
+                menus.set_enabled(*command, self.menu_enabled(context, *command));
             }
             menus.set_connection_label(self.is_enrolled());
         }

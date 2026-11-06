@@ -1,4 +1,5 @@
 //! Provider configuration, safe outcomes and standard workspace task lifetime.
+use super::failure::{LookupFailure, LookupFailureKind};
 use super::{
     Inner, LOOKUP_DURATION_METRIC, LOOKUPS_METRIC, LookupClient, LookupState, Selected,
     cache::State,
@@ -139,6 +140,7 @@ fn selection(
         "Directory configuration could not be used; retry directory storage.".to_string()
     })?;
     Ok(Some(Selected {
+        origin: Arc::new(()),
         material,
         provider,
         session,
@@ -193,7 +195,7 @@ pub(super) async fn fetch(
         result = selected.session.lookup(&key) => Some(result),
     };
     let mut retry_after = None;
-    let state = match result {
+    let mut state = match result {
         None => LookupState::Cleared,
         Some(Ok(ProviderLookup::Found(facts))) => {
             let mut facts = *facts;
@@ -229,7 +231,10 @@ pub(super) async fn fetch(
                     })
                 }) {
                 Ok(snapshot) => LookupState::Found(Box::new(snapshot)),
-                Err(_) => LookupState::Failed("Directory returned invalid facts".into()),
+                Err(_) => LookupState::Failed(LookupFailure::new(
+                    LookupFailureKind::InvalidFacts,
+                    "Directory returned invalid facts",
+                )),
             }
         }
         Some(Ok(ProviderLookup::NotFound)) => LookupState::NotFound,
@@ -240,13 +245,20 @@ pub(super) async fn fetch(
         Some(Err(ProviderError::RateLimited { retry_after: delay })) => {
             retry_after = delay;
             tracing::warn!(event="directory.lookup.rate_limited",lookup_id=%id,provider=?selected.provider);
-            LookupState::Failed("Directory rate limit reached; retry later.".into())
+            LookupState::Failed(LookupFailure::new(
+                LookupFailureKind::RateLimited,
+                "Directory rate limit reached; retry later.",
+            ))
         }
         Some(Err(error)) => {
-            tracing::warn!(event="directory.lookup.unavailable",lookup_id=%id,provider=?selected.provider,reason=%error);
-            LookupState::Failed(error.to_string())
+            let failure = LookupFailure::from_provider(&error);
+            tracing::warn!(event="directory.lookup.unavailable",lookup_id=%id,provider=?selected.provider,reason=?failure.kind);
+            LookupState::Failed(failure)
         }
     };
+    if let LookupState::Failed(failure) = &mut state {
+        failure.origin = Some(Arc::downgrade(&selected.origin));
+    }
     attempt.outcome = match &state {
         LookupState::Found(_) => "success",
         LookupState::NotFound => "not_found",

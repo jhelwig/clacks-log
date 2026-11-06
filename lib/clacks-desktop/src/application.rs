@@ -168,7 +168,7 @@ fn run_window(
             {
                 let (sender, receiver) = std::sync::mpsc::channel();
                 menus.attach(creation, sender)?;
-                app.install_menus(menus, receiver);
+                app.install_menus(&creation.egui_ctx, menus, receiver);
             }
             Ok(Box::new(app))
         }),

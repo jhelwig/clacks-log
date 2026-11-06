@@ -14,7 +14,7 @@ impl DesktopApp {
                             if let Some(command) = command {
                                 if ui
                                     .add_enabled(
-                                        self.menu_enabled(*command),
+                                        self.menu_enabled(ui.ctx(), *command),
                                         egui::Button::new(command.label(self.is_enrolled())),
                                     )
                                     .clicked()

@@ -96,7 +96,7 @@ async fn apply(
     let lookup_id = snapshot.lookup_id();
     tracing::debug!(event="directory.snapshot.applying",qso_id=%qso,lookup_id=%lookup_id);
     match snapshots::apply(store, qso, snapshot).await {
-        Ok(snapshots::SnapshotOutcome::Applied) => {
+        Ok(snapshots::SnapshotOutcome::Applied { .. }) => {
             changes.send_replace(());
             if let Some(context) = context.get() {
                 context.request_repaint();

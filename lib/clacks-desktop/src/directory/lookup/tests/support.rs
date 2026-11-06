@@ -28,6 +28,7 @@ impl Service {
         directory: tempfile::TempDir,
     ) -> anyhow::Result<Self> {
         let selected = Selected {
+            origin: Arc::new(()),
             material: material(),
             provider: clacks_model::directory::values::DirectoryProvider::Qrz,
             session: ProviderSession::Qrz(QrzSession::new(
@@ -66,20 +67,7 @@ impl Service {
 
     /// Install replacement dispatch material through the real client's configuration input.
     pub(crate) fn replace(&self, endpoint: url::Url) -> anyhow::Result<()> {
-        let replacement = material();
-        self.client.inner.state.lock().unwrap().selected = Ok(Some(Selected {
-            material: replacement.clone(),
-            provider: clacks_model::directory::values::DirectoryProvider::Qrz,
-            session: ProviderSession::Qrz(QrzSession::new(
-                providers::client()?,
-                endpoint,
-                replacement,
-            )),
-            paused: false,
-            retry_after: None,
-        }));
-        self.client.inner.configuration.send_replace(());
-        Ok(())
+        configure_client(&self.client, endpoint)
     }
 
     pub(crate) async fn settled(&self) {
@@ -93,6 +81,21 @@ impl Service {
         self.store.close().await?;
         Ok(())
     }
+}
+
+/// Select the concrete fixture provider for an existing real workspace client.
+pub(crate) fn configure_client(client: &LookupClient, endpoint: url::Url) -> anyhow::Result<()> {
+    let replacement = material();
+    client.inner.state.lock().unwrap().selected = Ok(Some(Selected {
+        origin: Arc::new(()),
+        material: replacement.clone(),
+        provider: clacks_model::directory::values::DirectoryProvider::Qrz,
+        session: ProviderSession::Qrz(QrzSession::new(providers::client()?, endpoint, replacement)),
+        paused: false,
+        retry_after: None,
+    }));
+    client.inner.configuration.send_replace(());
+    Ok(())
 }
 
 pub(crate) fn key(call: &str) -> LookupKey {

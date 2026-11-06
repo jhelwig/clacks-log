@@ -20,6 +20,7 @@ pub(crate) struct Fixture {
     pub(crate) commands: mpsc::Sender<SessionCommand>,
     pub(crate) input: mpsc::Receiver<SessionCommand>,
     pub(crate) settings: mpsc::Sender<super::settings::SettingsRequest>,
+    pub(crate) lookup: watch::Receiver<Option<crate::directory::lookup::LookupClient>>,
     pub(crate) settings_view:
         watch::Receiver<Option<Arc<clacks_client_store::settings::SettingsSnapshot>>>,
 }
@@ -52,13 +53,14 @@ impl Fixture {
         let telemetry = crate::telemetry::initialize(&config, &paths);
         let (settings, requests) = mpsc::channel(8);
         let (settings_updates, settings_view) = watch::channel(None);
+        let (lookup_output, lookup) = watch::channel(None);
         let resources = SessionResources {
             ws_suite: crate::ws_suite::Outputs {
                 calls: tokio::sync::mpsc::unbounded_channel().0,
                 updates: watch::channel(Default::default()).0,
                 context: Default::default(),
             },
-            lookup: tokio::sync::watch::channel(None).0,
+            lookup: lookup_output,
             contact_changes: tokio::sync::watch::channel(()).0,
             directory: crate::directory::provisioning::Outputs {
                 installed: tokio::sync::watch::channel(None).0,
@@ -85,6 +87,7 @@ impl Fixture {
             commands,
             input,
             settings,
+            lookup,
             settings_view,
         })
     }

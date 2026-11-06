@@ -308,6 +308,7 @@ management commands into OS-native menus using the following agreed structure:
 
 | Native menu | Commands |
 | --- | --- |
+| Edit | Select all (focused text or all matching history contacts across pages), Look up directory information (selected contacts) |
 | Settings | Manage logbooks…, Station profiles…, Equipment configurations…, Refresh settings, account/server management, WS Suite…, Appearance… |
 | View | Reset workbench layout |
 | Help | Workspace & diagnostics… |
@@ -426,6 +427,19 @@ on selected contacts from selecting all matching contacts. Keep selection separa
 from pending/conflict status; selection highlighting must not hide those indicators.
 This does not add unrestricted bulk editing of recorded QSO facts or change the
 existing export, tag-assignment or deletion contracts.
+
+Directory lookup starts through **Edit → Look up directory information** for
+the ordinary history selection. **Edit → Select all** includes every matching
+contact across pages; there is no separate filter-scoped lookup action or
+history-toolbar lookup button. Keep lookup disabled for an empty selection,
+pending Select all or an active lookup run. Preparation and provider waits do
+not acquire modal ownership or block entry, history reads or synchronization.
+Show progress and Cancel alongside the history workflow. Keep completed writes
+on cancellation and retain outcome totals with expandable failure/unprocessed
+details until dismissed or replaced. Navigation does not retarget or hide the
+active operation. Failure explanations distinguish provider access, temporary
+connection/rate conditions and local storage issues without claiming a known
+cause when it is uncertain.
 
 Switching logbooks clears the contact selection (D297), including hidden selected
 contacts. Do not carry it into the newly opened logbook or restore it on return.

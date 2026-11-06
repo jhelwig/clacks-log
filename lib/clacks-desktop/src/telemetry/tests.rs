@@ -1,5 +1,6 @@
 //! Composition checks use isolated processes to keep global framework state separate.
 
+mod bulk_directory;
 mod collector;
 mod directory_login;
 mod membership;
@@ -122,6 +123,7 @@ fn child_entry() -> anyhow::Result<()> {
             | "headers-env"
             | "directory"
             | "directory-login"
+            | "bulk-directory"
             | "ws-suite"
     );
     let mut arguments = vec![
@@ -142,6 +144,9 @@ fn child_entry() -> anyhow::Result<()> {
     }
 
     if case == "ws-suite" {
+        arguments.extend(["--log-filter".into(), "info".into()]);
+    }
+    if case == "bulk-directory" {
         arguments.extend(["--log-filter".into(), "info".into()]);
     }
     if case == "filtered" {
@@ -202,10 +207,12 @@ fn child_entry() -> anyhow::Result<()> {
     };
     let runtime = builder.enable_all().build()?;
     let mut directory_owner = None;
+    let mut bulk_counts = None;
     if case == "session" {
         session::complete(&runtime, &paths, telemetry)?;
     } else {
         match case.as_str() {
+            "bulk-directory" => bulk_counts = Some(runtime.block_on(bulk_directory::run(&paths))?),
             "directory-login" => runtime.block_on(directory_login::run())?,
             "retry" => runtime.block_on(operations::retry_contact(&paths))?,
             "membership" => runtime.block_on(membership::run(&paths))?,
@@ -263,6 +270,9 @@ fn child_entry() -> anyhow::Result<()> {
             .join("");
 
         assert!(!contents.contains("SECRET_SENTINEL"));
+        if case == "bulk-directory" {
+            bulk_directory::exclude_private(contents.as_bytes());
+        }
         if let Some((lookup, _)) = &directory_owner {
             let reused = contents
                 .lines()
@@ -325,6 +335,9 @@ fn child_entry() -> anyhow::Result<()> {
 
     if let Some(collector) = &collector {
         let requests = collector.requests.lock().unwrap();
+        if let Some(counts) = &bulk_counts {
+            bulk_directory::verify(&requests, counts)?;
+        }
         if case == "ws-suite" {
             ws_suite::verify(&requests)?;
         }
@@ -448,6 +461,11 @@ fn child_entry() -> anyhow::Result<()> {
 #[test]
 fn enabled_export_preserves_committed_store_work() -> anyhow::Result<()> {
     child_case("enabled")
+}
+
+#[test]
+fn bulk_lookup_telemetry_matches_report_counts_without_private_data() -> anyhow::Result<()> {
+    child_case("bulk-directory")
 }
 
 #[test]

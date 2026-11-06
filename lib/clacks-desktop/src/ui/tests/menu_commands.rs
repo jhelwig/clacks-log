@@ -2,6 +2,49 @@
 use super::*;
 use crate::menus::MenuCommand;
 
+#[test]
+fn edit_select_all_selects_focused_text_without_contact_requests() {
+    use eframe::App;
+    use egui_kittest::{Harness, kittest::Queryable};
+    struct Host {
+        window: Window,
+        text: String,
+    }
+    let mut window = Window::new();
+    ready(&mut window);
+    let (sender, mut requests) = mpsc::channel(8);
+    window.app.settings_requests = sender;
+    let mut ui = Harness::builder().build_ui_state(
+        |ui, host: &mut Host| {
+            let label = ui.label("Entry callsign");
+            ui.text_edit_singleline(&mut host.text)
+                .labelled_by(label.id);
+        },
+        Host {
+            window,
+            text: "W7ORIGINAL".into(),
+        },
+    );
+    ui.get_by_label("Entry callsign").click();
+    ui.run();
+    let context = ui.ctx.clone();
+    ui.state_mut()
+        .window
+        .app
+        .dispatch_menu(&context, MenuCommand::SelectAll);
+    let mut input = std::mem::take(ui.input_mut());
+    // The native hook receives already gathered input, unlike Harness's event queue.
+    input.events.push(egui::Event::Text("W7NEW".into()));
+    ui.state_mut()
+        .window
+        .app
+        .raw_input_hook(&context, &mut input);
+    *ui.input_mut() = input;
+    ui.run();
+    assert_eq!(ui.state().text, "W7NEW");
+    assert!(requests.try_recv().is_err());
+}
+
 fn ready(window: &mut Window) {
     window.updates.send_replace(SessionStatus::Ready {
         identity: clacks_client_store::identity::WorkspaceStatus {
@@ -16,13 +59,171 @@ fn ready(window: &mut Window) {
 }
 
 #[test]
+fn edit_select_all_dispatches_once_for_focused_history() -> anyhow::Result<()> {
+    use crate::session::settings::{
+        SettingsAction, SettingsResponse,
+        contacts::{ContactAction, ContactResponse},
+    };
+    use egui_kittest::kittest::Queryable;
+    let mut window = Window::new();
+    ready(&mut window);
+    let (sender, mut requests) = mpsc::channel(16);
+    window.app.settings_requests = sender;
+    let mut ui = main_screen::mount(window);
+    let restore = requests.try_recv()?;
+    assert!(matches!(
+        restore.action,
+        SettingsAction::Contacts(ContactAction::LoadQueryState)
+    ));
+    restore
+        .reply
+        .send(SettingsResponse::Contacts(ContactResponse::QueryState(
+            Default::default(),
+        )))
+        .unwrap();
+    ui.run_steps(2);
+    let page = requests.try_recv()?;
+    assert!(matches!(
+        page.action,
+        SettingsAction::Contacts(ContactAction::Page { .. })
+    ));
+    page.reply
+        .send(SettingsResponse::Contacts(ContactResponse::Page(
+            fixtures::contact_page(0, 1, 1),
+        )))
+        .unwrap();
+    ui.run_steps(2);
+    ui.get_by_label("K1T000").click();
+    ui.run_steps(2);
+    let context = ui.ctx.clone();
+    ui.state_mut()
+        .app
+        .dispatch_menu(&context, MenuCommand::SelectAll);
+    ui.state_mut()
+        .app
+        .dispatch_menu(&context, MenuCommand::SelectAll);
+    let mut selections = 0;
+    while let Ok(request) = requests.try_recv() {
+        match request.action {
+            SettingsAction::Contacts(ContactAction::SelectAll { .. }) => selections += 1,
+            SettingsAction::Contacts(ContactAction::Page { .. }) => {}
+            _ => panic!("unexpected action"),
+        }
+    }
+    assert_eq!(selections, 1);
+    Ok(())
+}
+
+#[test]
+fn bulk_lookup_native_menu_gates_pending_selection_and_reconciles_queued_view_changes()
+-> anyhow::Result<()> {
+    use crate::session::settings::{
+        SettingsAction, SettingsResponse,
+        contacts::{ContactAction, ContactResponse},
+    };
+    use egui_kittest::kittest::Queryable;
+    for switch_view in [false, true] {
+        let mut window = Window::new();
+        ready(&mut window);
+        let (sender, mut requests) = mpsc::channel(16);
+        window.app.settings_requests = sender;
+        let mut ui = main_screen::mount(window);
+        requests
+            .try_recv()?
+            .reply
+            .send(SettingsResponse::Contacts(ContactResponse::QueryState(
+                Default::default(),
+            )))
+            .unwrap();
+        ui.run_steps(2);
+        let page = fixtures::contact_page(0, 1, 1);
+        let selected = page.rows.first().unwrap().working.qso.id();
+        requests
+            .try_recv()?
+            .reply
+            .send(SettingsResponse::Contacts(ContactResponse::Page(page)))
+            .unwrap();
+        ui.run_steps(2);
+        ui.get_by_label("K1T000").click();
+        ui.run_steps(2);
+        let context = ui.ctx.clone();
+        ui.state_mut()
+            .app
+            .dispatch_menu(&context, MenuCommand::SelectAll);
+        ui.state_mut()
+            .app
+            .dispatch_menu(&context, MenuCommand::LookupDirectory);
+        let mut selection = None;
+        while let Ok(request) = requests.try_recv() {
+            match request.action {
+                SettingsAction::Contacts(ContactAction::SelectAll { .. }) => {
+                    selection = Some(request.reply)
+                }
+                SettingsAction::Contacts(ContactAction::Page { .. }) => {}
+                _ => panic!("lookup must wait for selection"),
+            }
+        }
+        let hidden = clacks_model::ids::QsoId::new();
+        selection
+            .unwrap()
+            .send(SettingsResponse::Contacts(ContactResponse::SelectedAll(
+                [hidden].into(),
+            )))
+            .unwrap();
+        if switch_view {
+            let mut snapshot = fixtures::snapshot();
+            snapshot.logbooks.selected_view =
+                clacks_client_store::logbooks::selection::SelectedView::Untagged;
+            ui.state_mut().app.settings_view = watch::channel(Some(Arc::new(snapshot))).1;
+        }
+        ui.state_mut()
+            .app
+            .dispatch_menu(&context, MenuCommand::LookupDirectory);
+        ui.state_mut()
+            .app
+            .dispatch_menu(&context, MenuCommand::LookupDirectory);
+        let mut runs = Vec::new();
+        while let Ok(request) = requests.try_recv() {
+            match request.action {
+                SettingsAction::Contacts(ContactAction::StartDirectoryLookup { ids }) => {
+                    runs.push(ids)
+                }
+                _ => panic!("unexpected action"),
+            }
+        }
+        if switch_view {
+            assert!(runs.is_empty());
+        } else {
+            assert_eq!(runs, vec![[selected, hidden].into()]);
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn menu_commands_respect_workspace_state() {
     let mut window = Window::new();
-    assert!(!window.app.menu_enabled(MenuCommand::ManageLogbooks));
-    assert!(window.app.menu_enabled(MenuCommand::Appearance));
-    assert!(window.app.menu_enabled(MenuCommand::Diagnostics));
+    assert!(
+        !window
+            .app
+            .menu_enabled(&window.context, MenuCommand::ManageLogbooks)
+    );
+    assert!(
+        window
+            .app
+            .menu_enabled(&window.context, MenuCommand::Appearance)
+    );
+    assert!(
+        window
+            .app
+            .menu_enabled(&window.context, MenuCommand::Diagnostics)
+    );
     ready(&mut window);
-    assert!(window.app.menu_enabled(MenuCommand::ManageLogbooks));
+    assert!(
+        window
+            .app
+            .menu_enabled(&window.context, MenuCommand::ManageLogbooks)
+    );
     window
         .app
         .dispatch_menu(&window.context, MenuCommand::ManageLogbooks);
@@ -373,7 +574,11 @@ fn completed_request_reenables_menu_without_a_painted_frame() {
         ))
         .unwrap();
     window.app.process_menus(&window.context);
-    assert!(window.app.menu_enabled(MenuCommand::StationProfiles));
+    assert!(
+        window
+            .app
+            .menu_enabled(&window.context, MenuCommand::StationProfiles)
+    );
 }
 
 #[test]
@@ -482,12 +687,24 @@ fn native_menu_text_preserves_literal_ampersand() {
 #[test]
 fn ws_suite_menu_uses_shared_modal_admission() {
     let mut window = Window::new();
-    assert!(!window.app.menu_enabled(MenuCommand::WsSuite));
+    assert!(
+        !window
+            .app
+            .menu_enabled(&window.context, MenuCommand::WsSuite)
+    );
     ready(&mut window);
     window
         .app
         .dispatch_menu(&window.context, MenuCommand::WsSuite);
     assert!(window.app.ws_suite.is_open());
-    assert!(!window.app.menu_enabled(MenuCommand::ManageLogbooks));
-    assert!(!window.app.menu_enabled(MenuCommand::WsSuite));
+    assert!(
+        !window
+            .app
+            .menu_enabled(&window.context, MenuCommand::ManageLogbooks)
+    );
+    assert!(
+        !window
+            .app
+            .menu_enabled(&window.context, MenuCommand::WsSuite)
+    );
 }

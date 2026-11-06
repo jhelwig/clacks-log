@@ -6,6 +6,69 @@ async fn execute(store: &ClientStore, action: ContactAction) -> anyhow::Result<C
 use clacks_client_store::store::StoreSettings;
 use clacks_model::{group::DefinitionSet, scalar::UtcSecond};
 
+#[tokio::test]
+async fn select_all_reads_every_applied_match() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let store = ClientStore::create(
+        &dir.path().join("selection.sqlite"),
+        Default::default(),
+        Default::default(),
+    )
+    .await?;
+    let mut expected = std::collections::BTreeSet::new();
+    for _ in 0..205 {
+        let qso = contact()?;
+        expected.insert(qso.id());
+        save::contacts::save(&store, None, qso, None).await?;
+    }
+    for _ in 0..2 {
+        let mut qso = contact()?;
+        crate::test_support::edit(&mut qso, |fields| {
+            fields.contacted_station.callsign =
+                clacks_model::scalar::RecordedCallsign::new("W7OTHER")?;
+            Ok(())
+        });
+        save::contacts::save(&store, None, qso, None).await?;
+    }
+    let deleted = contact()?;
+    let SaveOutcome::Saved(basis) =
+        save::contacts::save(&store, None, deleted.clone(), None).await?
+    else {
+        panic!("save");
+    };
+    save::save(
+        &store,
+        key(&store, deleted.id()),
+        Some(&basis),
+        RecordState::Deleted,
+    )
+    .await?;
+    let filter = clacks_model::query::parse(
+        "contact.call:OK2CQR",
+        clacks_model::recognition::RecognitionCatalog::adif_318()?,
+    )?;
+    let result = execute(
+        &store,
+        ContactAction::SelectAll {
+            query: ContactPageQuery {
+                filter,
+                show_selected: true,
+                offset: 100,
+                limit: 1,
+                ..Default::default()
+            },
+        },
+    )
+    .await?;
+    let ContactResponse::SelectedAll(ids) = result else {
+        panic!("selection response");
+    };
+    assert_eq!(ids, expected);
+    assert_eq!(ids.len(), 205);
+    store.close().await?;
+    Ok(())
+}
+
 fn contact() -> anyhow::Result<Qso> {
     let mut form = crate::logging::form::ContactForm::empty();
     form.own.callsign = "W7HEX".into();

@@ -222,6 +222,12 @@ success atomically, including an unchanged creation retry; a stale edit attaches
 nothing. Transfer staging waits for live/deleted parent evidence, and already
 accepted history remains inert under a deleted parent.
 
+Snapshot application returns transaction-local `SnapshotOutcome` information:
+an applied `SnapshotChange` distinguishes new, updated and metadata-only winners,
+while unchanged winners and parent/key ineligibility remain explicit. A
+metadata-only winner still commits normal synchronized work; it is not a
+material facts change. Callers notify local consumers for every applied winner.
+
 The pool's `before_acquire` hook discards a connection whose SQLx transaction
 tracking remains active after queued rollback work drains. This is a compatibility
 workaround for SQLx 0.9.0 after SQLite automatically rolls back a storage-full
