@@ -23,12 +23,18 @@ jobs:
       group: clacks-production
       cancel-in-progress: false
       queue: max
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, clacks-linux]
     timeout-minutes: 60
     environment: clacks-production
     env:
       SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
+      - name: Check self-hosted deployment prerequisites
+        run: |
+          command -v gh
+          command -v ssh
+          command -v curl
+          sudo -n true
       - name: Skip superseded verification results
         id: eligible
         env:
@@ -91,6 +97,7 @@ jobs:
           tags: tag:clacks-deploy
           version: '1.104.4'
           args: --accept-routes=false
+          use-cache: 'false'
       - name: Deploy and verify the exact tested revision
         if: steps.eligible.outputs.deploy == 'true'
         env:

@@ -338,6 +338,17 @@ Main pushes always run both verification jobs, including documentation-only
 updates; pull-request verification retains its existing path filters. Desktop
 tag packaging is independent of server deployment.
 
+Deployment uses the existing repository-scoped runner `clacks-ci-linux` with
+labels `[self-hosted, Linux, X64, clacks-linux]`, sharing its single job slot
+with verification. Apply Operations' runner guest prerequisites before enabling
+deployment: GitHub CLI (`gh`) and passwordless sudo for the official Tailscale
+action. The workflow checks those prerequisites before using deployment secrets.
+The action starts an in-memory ephemeral tailnet connection only for the job
+and logs out/stops its daemon afterward. Its cloud caching is disabled; the
+runner retains its normal local Cargo artifacts. No permanent tailnet identity
+or deployment credentials are installed by guest provisioning. Temporary SSH
+key files are removed in an `always()` step.
+
 The deployment workflow is disabled unless repository variable
 `CLACKS_AUTO_DEPLOY_ENABLED` is exactly `true`. Keep it disabled throughout
 preparation and initial setup. Merging this workflow alone must not activate
