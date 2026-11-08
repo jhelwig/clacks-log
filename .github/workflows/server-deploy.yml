@@ -1,0 +1,124 @@
+name: Deploy Clacks server
+
+on:
+  workflow_run:
+    workflows: [Rust]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      vars.CLACKS_AUTO_DEPLOY_ENABLED == 'true' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    # Queue eligible results without letting later completions replace them.
+    # Verification can cancel obsolete runs; an active release must finish.
+    concurrency:
+      group: clacks-production
+      cancel-in-progress: false
+      queue: max
+    runs-on: [self-hosted, Linux, X64, clacks-linux]
+    timeout-minutes: 60
+    environment: clacks-production
+    env:
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Check self-hosted deployment prerequisites
+        run: |
+          command -v gh
+          command -v ssh
+          command -v curl
+          sudo -n true
+      - name: Skip superseded verification results
+        id: eligible
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          if [[ "$current" == "$SOURCE_SHA" ]]; then
+            echo 'deploy=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'deploy=false' >> "$GITHUB_OUTPUT"
+            echo 'Skipped a superseded main revision.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.eligible.outputs.deploy == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Configure the restricted deployment SSH identity
+        if: steps.eligible.outputs.deploy == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.CLACKS_DOKKU_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.CLACKS_DOKKU_HOST }}
+          DEPLOY_PORT: ${{ secrets.CLACKS_DOKKU_PORT }}
+          KNOWN_HOSTS: ${{ vars.CLACKS_DOKKU_KNOWN_HOSTS }}
+        run: |
+          test -n "$DEPLOY_KEY"
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_PORT"
+          test -n "$KNOWN_HOSTS"
+          umask 077
+          directory="$RUNNER_TEMP/clacks-deploy-ssh"
+          mkdir -p "$directory"
+          printf '%s\n' "$DEPLOY_KEY" > "$directory/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$directory/known_hosts"
+          cat > "$directory/config" <<EOF
+          Host clacks-production
+            HostName $DEPLOY_HOST
+            AddressFamily inet
+            Port $DEPLOY_PORT
+            User dokku
+            HostKeyAlias clacks-dokku-production
+            IdentityFile $directory/key
+            UserKnownHostsFile $directory/known_hosts
+            StrictHostKeyChecking yes
+            IdentitiesOnly yes
+            BatchMode yes
+            RequestTTY no
+            ForwardAgent no
+            ClearAllForwardings yes
+            PasswordAuthentication no
+            KbdInteractiveAuthentication no
+          EOF
+      - name: Join the private deployment network
+        if: steps.eligible.outputs.deploy == 'true'
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4
+        with:
+          oauth-client-id: ${{ secrets.CLACKS_TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.CLACKS_TS_OAUTH_SECRET }}
+          tags: tag:clacks-deploy
+          version: '1.104.4'
+          args: --accept-routes=false
+          use-cache: 'false'
+      - name: Deploy and verify the exact tested revision
+        if: steps.eligible.outputs.deploy == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Check again after environment approval/setup, immediately before push.
+          current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          if [[ "$current" != "$SOURCE_SHA" ]]; then
+            echo 'Skipped a revision superseded during deployment setup.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          export GIT_SSH_COMMAND="ssh -F '$RUNNER_TEMP/clacks-deploy-ssh/config'"
+          git push clacks-production:clacks-log "$SOURCE_SHA:refs/heads/main"
+          running=$(ssh -F "$RUNNER_TEMP/clacks-deploy-ssh/config" clacks-production clacks-deploy-revision)
+          test "$running" = "$SOURCE_SHA"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 2 --max-time 20 \
+            https://clacks.w7hex.com/health/ready
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 2 --max-time 20 \
+            --output /dev/null https://clacks.w7hex.com/pkg/clacks-web.js
+          printf 'Deployed and verified `%s` at https://clacks.w7hex.com.\n' "$SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove deployment key material
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/clacks-deploy-ssh"
