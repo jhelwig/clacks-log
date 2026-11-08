@@ -349,10 +349,10 @@ runner retains its normal local Cargo artifacts. No permanent tailnet identity
 or deployment credentials are installed by guest provisioning. Temporary SSH
 key files are removed in an `always()` step.
 
-The deployment workflow is disabled unless repository variable
-`CLACKS_AUTO_DEPLOY_ENABLED` is exactly `true`. Keep it disabled throughout
-preparation and initial setup. Merging this workflow alone must not activate
-production deployment. Configure the GitHub environment `clacks-production`:
+Successful main push builds trigger production deployment automatically, without
+an activation variable. Complete the infrastructure and credential setup before
+merging workflow changes into main. Configure the GitHub environment
+`clacks-production`:
 
 | Kind | Name | Value |
 | --- | --- | --- |
@@ -365,8 +365,7 @@ production deployment. Configure the GitHub environment `clacks-production`:
 
 Limit the production environment's deployment branch policy to `main`. For
 unattended deployment, do not require a human environment reviewer; branch review
-and protection remain the source approval boundary. Keep the activation variable
-at repository scope so the workflow can evaluate it before entering the environment.
+and protection remain the source approval boundary.
 Deployment uses only a read-only GitHub token. Database, Google and wrapping-key
 credentials remain on the server and must not be added to GitHub.
 
@@ -395,15 +394,18 @@ lock. Then the workflow compares the running container's source revision with
 the tested SHA and checks public HTTPS readiness and the packaged browser script.
 Native build output, the GitHub job result and its summary report outcomes.
 
-To enable after authorized live verification, set the repository activation
-variable to `true`; the next successful main push result triggers deployment.
+The first successful main push build after merging this workflow triggers
+deployment and verifies the production credentials and connectivity.
 A failed deployment can be retried by rerunning its GitHub deployment workflow
 while that source remains main's current tip. If Git reports everything up to
 date but running-revision verification fails, inspect native build/state rather
 than forcing a push. A failed database release may have committed schema changes;
 use the documented compatible recovery procedure, never automatic database rollback.
 
-Set the activation variable to `false` to stop new deployments. A release already
-in progress continues; disabling the variable does not undo a deployed revision.
+To stop new deployments, disable **Deploy Clacks server** in GitHub Actions or run
+`gh workflow disable server-deploy.yml --repo jhelwig/clacks-log`. Inspect any
+already running release separately; disabling the workflow does not undo a
+deployed revision. Re-enable it with GitHub Actions or
+`gh workflow enable server-deploy.yml --repo jhelwig/clacks-log`.
 Production reachability, policy-test compilation and full first deployment are
-activation checks, not established by local workflow linting or SSH tests.
+live rollout checks, not established by local workflow linting or SSH tests.
