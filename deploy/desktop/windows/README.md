@@ -18,7 +18,7 @@ No PR, ordinary push,
 merge or schedule starts a Windows build. Download the run's
 `windows-installer-SHA-RUN-ATTEMPT` artifact and extract it before installation.
 The ZIP contains only the MSI. The workflow summary records its SHA-256, version,
-source commit, signing status and runner image. Installer tables, executable
+source commit, signing status, runner name and Windows version. Installer tables, executable
 metadata, native imports and reused verification results remain in the job logs.
 
 Development filenames include the unchanged Cargo version, revision and run
@@ -74,6 +74,21 @@ repository's default branch. No temporary Windows PR trigger is added to work
 around that platform rule.
 
 ## Package policy and local build
+
+The Windows job uses the dedicated `clacks-windows` runner. Cargo's standard
+`CARGO_TARGET_DIR` points to a `target` directory beside `GITHUB_WORKSPACE`, outside
+the source checkout.
+Cargo retains compiled dependencies and tracks freshness across builds; normal
+checkout cleaning leaves this directory intact. Cargo downloads remain in the
+runner's managed `CARGO_HOME`. No cloud cache upload or download is involved.
+
+Packaging scratch files and delivery outputs stay under the checkout's `target`
+directory and are recreated for each run. The MSI compiler receives the compiled
+EXE's absolute path through its standard `--var EXECUTABLE=...` option. For a
+local build, supply that variable to both `validate` and `build`, resolving the
+EXE under the target directory selected by Cargo (`cargo metadata` reports
+`target_directory`). Keeping compiled artifacts does not establish installer or
+application acceptance.
 
 The application installs to `%LOCALAPPDATA%\Programs\Clacks Log` and adds one
 current-user Start menu shortcut. No desktop shortcut, startup-at-login or

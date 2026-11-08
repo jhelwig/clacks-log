@@ -70,7 +70,7 @@ jobs:
       always() && !cancelled() &&
       ((github.event_name == 'workflow_dispatch' && (inputs.platform == 'windows' || inputs.platform == 'both')) ||
       (github.event_name == 'push' && needs.eligibility.result == 'success'))
-    runs-on: windows-2025
+    runs-on: [self-hosted, Windows, X64, clacks-windows]
     env:
       SQLX_OFFLINE: 'true'
       RUST_LOG: info
@@ -85,9 +85,10 @@ jobs:
       artifact: ${{ steps.identity.outputs.artifact }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          key: windows-installer-msvc-crt-static
+      - name: Use persistent local Cargo build artifacts
+        run: |
+          $target = Join-Path (Split-Path $env:GITHUB_WORKSPACE -Parent) 'target'
+          "CARGO_TARGET_DIR=$target" >> $env:GITHUB_ENV
       - name: Fetch locked Rust dependencies
         run: cargo fetch --locked
       - name: Build Windows packaging helper
@@ -116,7 +117,7 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $tagArgs = @()
           if ($env:GITHUB_EVENT_NAME -eq 'push') { $tagArgs = @('--tag', $env:GITHUB_REF_NAME) }
-          target/debug/clacks-desktop-package.exe prepare --platform windows-x64 --metadata target/windows-package/cargo-metadata.json --revision $sha @tagArgs --output target/windows-package/metadata.json
+          & "$env:CARGO_TARGET_DIR/debug/clacks-desktop-package.exe" prepare --platform windows-x64 --metadata target/windows-package/cargo-metadata.json --revision $sha @tagArgs --output target/windows-package/metadata.json
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $metadata = Get-Content target/windows-package/metadata.json -Raw | ConvertFrom-Json
           $version = $metadata.version
@@ -132,9 +133,9 @@ jobs:
         run: cargo build -p clacks-log --release --target x86_64-pc-windows-msvc --locked --offline
       - name: Smoke-check command-line startup without opening a workspace
         run: |
-          target/x86_64-pc-windows-msvc/release/clacks-log.exe --help
+          & "$env:CARGO_TARGET_DIR/x86_64-pc-windows-msvc/release/clacks-log.exe" --help
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          target/x86_64-pc-windows-msvc/release/clacks-log.exe --version
+          & "$env:CARGO_TARGET_DIR/x86_64-pc-windows-msvc/release/clacks-log.exe" --version
       - name: Install pinned notice harvester
         run: cargo install cargo-about --version 0.9.3 --features cli --locked --root target/notice-tool
       - name: Harvest desktop runtime notices
@@ -155,9 +156,9 @@ jobs:
           APP_VERSION: ${{ steps.identity.outputs.version }}
           MSI_NAME: ${{ steps.identity.outputs.name }}
         run: |
-          target/msi-builder/msi-builder.exe validate --var "VERSION=$env:APP_VERSION" deploy/desktop/windows/msi.yaml
+          target/msi-builder/msi-builder.exe validate --var "VERSION=$env:APP_VERSION" --var "EXECUTABLE=$env:CARGO_TARGET_DIR/x86_64-pc-windows-msvc/release/clacks-log.exe" deploy/desktop/windows/msi.yaml
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          target/msi-builder/msi-builder.exe build --var "VERSION=$env:APP_VERSION" -o "target/windows-package/delivery/$env:MSI_NAME" deploy/desktop/windows/msi.yaml
+          target/msi-builder/msi-builder.exe build --var "VERSION=$env:APP_VERSION" --var "EXECUTABLE=$env:CARGO_TARGET_DIR/x86_64-pc-windows-msvc/release/clacks-log.exe" -o "target/windows-package/delivery/$env:MSI_NAME" deploy/desktop/windows/msi.yaml
       # Future MSI signing and signature verification belong here. Then inspect
       # and hash the final signed bytes, never mutate an already hashed MSI.
       - name: Locate standard Windows SDK dependency inspection
@@ -172,7 +173,7 @@ jobs:
         run: |
           target/msi-builder/msi-builder.exe inspect "target/windows-package/delivery/$env:MSI_NAME"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          $exe = 'target/x86_64-pc-windows-msvc/release/clacks-log.exe'
+          $exe = "$env:CARGO_TARGET_DIR/x86_64-pc-windows-msvc/release/clacks-log.exe"
           $version = (Get-Item $exe).VersionInfo
           if ($version.FileVersion -ne $env:APP_VERSION -or $version.ProductVersion -ne $env:APP_VERSION) { throw 'Executable version differs from Cargo version' }
           $version | Select-Object FileVersion,ProductVersion,ProductName,CompanyName | ConvertTo-Json
@@ -191,8 +192,8 @@ jobs:
             artifact = $env:MSI_NAME
             sha256 = $hash
             reused_ci = $ci
-            runner = "$env:RUNNER_OS/$env:RUNNER_ARCH"
-            image = "$env:ImageOS/$env:ImageVersion"
+            runner = "$env:RUNNER_NAME ($env:RUNNER_OS/$env:RUNNER_ARCH)"
+            windows_version = [Environment]::OSVersion.Version.ToString()
             workflow_run = $env:GITHUB_RUN_ID
             workflow_attempt = $env:GITHUB_RUN_ATTEMPT
             native_acceptance = 'not established by packaging; see issue #79'
@@ -205,7 +206,8 @@ jobs:
             "- Source commit: $($metadata.revision)",
             "- SHA-256: $hash",
             "- Signing: $($metadata.signing_mode)",
-            "- Runner image: $env:ImageOS/$env:ImageVersion",
+            "- Runner: $env:RUNNER_NAME ($env:RUNNER_OS/$env:RUNNER_ARCH)",
+            "- Windows version: $([Environment]::OSVersion.Version)",
             '',
             'Build diagnostics and reused verification results are in the job logs.'
           ) | Add-Content $env:GITHUB_STEP_SUMMARY
