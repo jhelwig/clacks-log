@@ -32,7 +32,7 @@ components:
   - id: AppExecutable
     files:
       - id: ClacksLogExe
-        source: ../../../target/x86_64-pc-windows-msvc/release/clacks-log.exe
+        source: '{{ .EXECUTABLE }}'
         shortcuts:
           - name: Clacks Log
             directory: ProgramMenuFolder
