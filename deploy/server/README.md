@@ -338,21 +338,12 @@ Main pushes always run both verification jobs, including documentation-only
 updates; pull-request verification retains its existing path filters. Desktop
 tag packaging is independent of server deployment.
 
-Deployment uses the existing repository-scoped runner `clacks-ci-linux` with
-labels `[self-hosted, Linux, X64, clacks-linux]`, sharing its single job slot
-with verification. Apply Operations' runner guest prerequisites before enabling
-deployment: GitHub CLI (`gh`) and passwordless sudo for the official Tailscale
-action. The workflow checks those prerequisites before using deployment secrets.
-The action starts an in-memory ephemeral tailnet connection only for the job
-and logs out/stops its daemon afterward. The pinned action joins with subnet
-routes accepted; the next step disables that preference with
-`tailscale set --accept-routes=false` before deployment. The narrow tailnet grant
-limits the identity's access throughout the connection. Passing the same option
-through the action's `args` input is invalid because the CLI rejects duplicates.
-Its cloud caching is disabled; the runner retains its normal local Cargo
-artifacts. No permanent tailnet identity or deployment credentials are installed
-by guest provisioning. Temporary SSH
-key files are removed in an `always()` step.
+The deployment runner needs GitHub CLI (`gh`), SSH, curl, and passwordless sudo
+for the official Tailscale action. The workflow checks those prerequisites before
+using deployment secrets. The action establishes a temporary network connection
+for the job and removes it afterward. Temporary SSH key files are removed in an
+`always()` step. Runner provisioning and network administration are maintained
+separately from this repository.
 
 Successful main push builds trigger production deployment automatically, without
 an activation variable. Complete the infrastructure and credential setup before
