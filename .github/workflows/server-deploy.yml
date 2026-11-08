@@ -95,8 +95,11 @@ jobs:
           oauth-secret: ${{ secrets.CLACKS_TS_OAUTH_SECRET }}
           tags: tag:clacks-deploy
           version: '1.104.4'
-          args: --accept-routes=false
           use-cache: 'false'
+      - name: Disable subnet route acceptance
+        if: steps.eligible.outputs.deploy == 'true'
+        # The pinned action supplies --accept-routes to up; duplicates are rejected.
+        run: sudo tailscale set --accept-routes=false
       - name: Deploy and verify the exact tested revision
         if: steps.eligible.outputs.deploy == 'true'
         env:
