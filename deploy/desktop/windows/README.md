@@ -12,8 +12,9 @@ Store distribution and an updater are separate work.
 
 After this workflow is present on the default branch, open GitHub Actions →
 **Desktop packages** → **Run workflow**, select the desired branch/tag, leave
-platform set to **windows** and start it. Only Windows build and packaging
-checks run. Select **both** to request macOS too, with its signing prerequisites.
+platform set to **windows** and start it. The shared geographic preparation and
+Windows packaging checks run. Select **both** to request macOS too, with its
+signing prerequisites.
 No PR, ordinary push,
 merge or schedule starts a Windows build. Download the run's
 `windows-installer-SHA-RUN-ATTEMPT` artifact and extract it before installation.
@@ -101,7 +102,8 @@ notice generator, digest-verified msi-builder 1.2.0, default package read-back,
 executable version comparison, native import listing, final checksums, then upload.
 The focused helper's `--help` documents its arguments. Declarative MSI authoring
 and its explicit file inputs are in `msi.yaml`. Source files are consumed directly;
-there is no separate staging manifest or inventory. MSI table output is retained
+the geographic build output is reader-checked separately below. MSI table
+output is retained
 for diagnosis without a custom table parser or duplicate policy checker.
 
 The build selects static MSVC CRT linkage to reduce dependencies on separately
@@ -124,6 +126,35 @@ TrustedQSL notice for the embedded LoTW model catalog, copied unchanged as
 source code. Regeneration fails
 on unresolved license requirements; review new requirements rather than hiding
 them with exclusions. Plain-text templates preserve unescaped license text.
+
+## Geographic build artifact
+
+Both native jobs consume the same `desktop-geography-RUN-ATTEMPT` directory
+artifact, including single-platform manual builds. The common Linux job restores
+an exact cached output or automatically generates/validates data from the current
+checkout on a miss. No geographic release or manual selection is required; see
+[build inputs and cache behavior](../../../references/geography/BUILDING.md).
+The generated `manifest-sha256.txt` travels outside the bundle and supplies
+`CLACKS_GEOGRAPHY_MANIFEST_SHA256` before native compilation. Packaging checks
+that expected identity, schema and payload integrity without repeating polygon,
+index or inventory production acceptance.
+
+The MSI's recursive directory source installs the common tree beneath `geography`
+next to the executable, retaining declared notice paths. The pinned compiler
+creates a standard component per file and re-extracts cabinets to compare each
+file's SHA-256 to its source; normal `inspect` output remains in job logs.
+Existing package evidence records geographic identity, manifest digest and
+payload length. Geographic notices travel inside the bundle, including the
+notice for catalog-derived county labels; the separate model catalog notice
+remains `THIRD-PARTY-DATA-NOTICES.txt`.
+
+To inspect an existing build output locally:
+
+```sh
+cargo run -p clacks-desktop-package --locked --offline -- geography-inspect \
+  --manifest-sha256 "$(cat target/geography-build/manifest-sha256.txt)" \
+  --bundle target/geography-build/geography --output target/geography-build/geography-evidence.json
+```
 
 ## Preservation, trust and acceptance
 

@@ -1,6 +1,7 @@
 //! Clacks-specific source identity and release eligibility.
 mod ci;
 mod cli;
+pub mod geography;
 mod metadata;
 
 use anyhow::Context;
