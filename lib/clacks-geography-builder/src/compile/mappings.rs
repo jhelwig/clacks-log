@@ -1,6 +1,9 @@
 //! Exact recorded-value assignments and compiled geographic exceptions.
 
-use super::{corrections::read_geometry, operations::TransformedFeature, overlay::overlay};
+use super::{
+    components::MappingComponents, corrections::read_geometry, operations::TransformedFeature,
+    overlay::overlay,
+};
 use crate::{
     recipe::{BuildRecipe, ValueMapping},
     source::check_cancelled,
@@ -32,6 +35,7 @@ pub(super) struct MappedContents {
 pub(super) fn compile_mappings(
     recipe: &BuildRecipe,
     features: &BTreeMap<SourceIdentity, TransformedFeature>,
+    components: &MappingComponents,
     corrections: &BTreeMap<SourceIdentity, String>,
     cancelled: &AtomicBool,
 ) -> Result<MappedContents> {
@@ -113,10 +117,7 @@ pub(super) fn compile_mappings(
                         .any(|rule| rule.affected_mapping_ids.contains(id)),
                     "exclusion masks must refer to unmodified mappings, not exception targets"
                 );
-                for identity in &source.source_feature_selectors {
-                    let source = features
-                        .get(identity)
-                        .context("exclusion mask source not transformed")?;
+                for (_, source) in selected_features(source, features, components)? {
                     polygons.extend(
                         source
                             .parts
@@ -126,14 +127,22 @@ pub(super) fn compile_mappings(
                 }
             }
             ensure!(!polygons.is_empty(), "empty mapped exclusion mask");
-            geo::unary_union(polygons.iter())
+            let geometry = MultiPolygon(polygons);
+            // Valid disjoint source components already form the required mask.
+            // Union only overlapping inputs: the sweep union can round exact
+            // transformed contours, leaving slivers when subtracting an island.
+            if clacks_geography::geometry::validate_topology(&geometry).is_ok() {
+                geometry
+            } else {
+                geo::unary_union(geometry.0.iter())
+            }
         };
         exclusions.insert(&exception.id, geometry);
     }
     for mapping in &recipe.mappings {
         check_cancelled(cancelled)?;
         ensure!(
-            !mapping.source_feature_selectors.is_empty(),
+            !mapping.source_feature_selectors.is_empty() || !mapping.source_components.is_empty(),
             "mapping has no source selectors"
         );
         let rules: Vec<_> = recipe
@@ -151,12 +160,7 @@ pub(super) fn compile_mappings(
                 );
             }
         }
-        let mut selected = BTreeSet::new();
-        for identity in &mapping.source_feature_selectors {
-            ensure!(selected.insert(identity), "duplicate mapping selector");
-            let feature = features
-                .get(identity)
-                .context("mapping source not transformed")?;
+        for (identity, feature) in selected_features(mapping, features, components)? {
             for (index, part) in feature.parts.iter().enumerate() {
                 let mut geometry = part.geometry.clone();
                 for rule in &rules {
@@ -223,7 +227,16 @@ pub(super) fn compile_mappings(
                 .mappings
                 .iter()
                 .filter(|m| rule.affected_mapping_ids.contains(&m.id))
-                .flat_map(|m| m.source_feature_selectors.iter().cloned())
+                .flat_map(|m| {
+                    m.source_feature_selectors
+                        .iter()
+                        .chain(
+                            m.source_components
+                                .iter()
+                                .map(|component| &component.feature),
+                        )
+                        .cloned()
+                })
                 .collect::<BTreeSet<_>>()
                 .into_iter()
                 .collect();
@@ -254,6 +267,35 @@ pub(super) fn compile_mappings(
         values: values.into_values().collect(),
         derivations,
     })
+}
+
+/// Resolve full-feature and component selections identically for output and exclusions.
+fn selected_features<'a>(
+    mapping: &'a ValueMapping,
+    features: &'a BTreeMap<SourceIdentity, TransformedFeature>,
+    components: &'a MappingComponents,
+) -> Result<Vec<(&'a SourceIdentity, &'a TransformedFeature)>> {
+    let mut selected = BTreeSet::new();
+    let mut result = Vec::new();
+    for identity in &mapping.source_feature_selectors {
+        ensure!(selected.insert(identity), "duplicate mapping selector");
+        result.push((
+            identity,
+            features
+                .get(identity)
+                .context("mapping source not transformed")?,
+        ));
+    }
+    if let Some(features) = components.get(&mapping.id) {
+        for (identity, feature) in features {
+            ensure!(
+                selected.insert(identity),
+                "mapping selects both full source and its component"
+            );
+            result.push((identity, feature));
+        }
+    }
+    Ok(result)
 }
 
 /// Validate authored recorded values and produce a stable key for their scoped identity.
@@ -314,14 +356,28 @@ fn value(mapping: &ValueMapping) -> Result<ValueEntry> {
     })
 }
 
-/// Keep disjoint geometry exact and subtract positive-area exclusions only.
+/// Preserve whole island removals and disjoint components without overlay rounding.
 fn subtract(
     geometry: &MultiPolygon<f64>,
     exclusion: &MultiPolygon<f64>,
 ) -> Result<MultiPolygon<f64>> {
-    if geometry.relate(exclusion).is_disjoint() {
-        Ok(geometry.clone())
-    } else {
-        overlay(geometry, exclusion, ClipType::Difference)
+    let mut remaining = Vec::new();
+    for polygon in &geometry.0 {
+        if exclusion.relate(polygon).is_covers() {
+            continue;
+        }
+        if polygon.relate(exclusion).is_disjoint() {
+            remaining.push(polygon.clone());
+        } else {
+            remaining.extend(
+                overlay(
+                    &MultiPolygon(vec![polygon.clone()]),
+                    exclusion,
+                    ClipType::Difference,
+                )?
+                .0,
+            );
+        }
     }
+    Ok(MultiPolygon(remaining))
 }

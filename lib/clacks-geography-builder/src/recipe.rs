@@ -197,6 +197,10 @@ pub struct ValueMapping {
     pub id: String,
     /// Original source feature identities.
     pub source_feature_selectors: Vec<SourceIdentity>,
+    /// Original polygon components selected by source-coordinate interior anchors.
+    /// Components retain their source identity and prescribed coordinate operations.
+    #[serde(default)]
+    pub source_components: Vec<ComponentMask>,
     /// Output role.
     pub field: Field,
     /// Geographic identity context.
@@ -316,10 +320,6 @@ pub struct AcceptanceCase {
 pub struct BuildRecipe {
     /// Recipe schema, currently 1.
     pub schema_version: u32,
-    /// Immutable data-release identity.
-    pub release_id: String,
-    /// Pinned Clacks producer revision.
-    pub producer_revision: String,
     /// Original source pins and source rights.
     pub sources: Vec<SourcePin>,
     /// Explicit source-defined selected features.
@@ -367,11 +367,7 @@ pub(crate) fn validate_recipe(recipe: &BuildRecipe) -> anyhow::Result<()> {
         "unsupported recipe schema {}",
         recipe.schema_version
     );
-    validate_release(&recipe.release_id)?;
-    ensure!(
-        !recipe.producer_revision.is_empty() && !recipe.scope.is_empty(),
-        "recipe lacks revision/scope"
-    );
+    ensure!(!recipe.scope.is_empty(), "recipe lacks scope");
     let mut ids = BTreeSet::new();
     for source in &recipe.sources {
         ensure!(
@@ -478,7 +474,7 @@ pub(crate) fn validate_digest(digest: &str) -> anyhow::Result<()> {
 }
 
 /// Check the schema's immutable directory component before publication.
-fn validate_release(id: &str) -> anyhow::Result<()> {
+pub(crate) fn validate_release(id: &str) -> anyhow::Result<()> {
     ensure!(
         !id.is_empty()
             && id.len() <= 128

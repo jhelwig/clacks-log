@@ -10,10 +10,8 @@ use std::{
 };
 
 pub mod read;
+pub mod validate;
 pub mod write;
-
-/// Mandatory coordinate convention: longitude first in WGS84 decimal degrees.
-pub const COORDINATE_CONVENTION: &str = "wgs84_longitude_latitude_degrees";
 
 /// A separately resolved geographic field.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -137,7 +135,8 @@ pub struct ProvenanceRecord {
     pub id: String,
     /// Human-readable purpose, application rationale and known limits.
     pub description: String,
-    /// Resolved rule parameters retained as evidence, never executable reader policy.
+    /// Resolved rule parameters, excluding the shared descriptive fields above/below.
+    /// This is provenance, never executable reader policy.
     #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
     pub definition: serde_json::Value,
     /// Sources whose features this rule may affect.
@@ -192,8 +191,6 @@ pub struct LayerDescriptor {
 pub struct Scope {
     /// Human-readable selected geography and limitations.
     pub description: String,
-    /// Source features deliberately selected for this release.
-    pub selected_source_identities: Vec<SourceIdentity>,
 }
 
 /// Complete immutable bundle metadata, independent of the application's version.
@@ -201,14 +198,10 @@ pub struct Scope {
 pub struct Manifest {
     /// Format contract version; this reader supports exactly version 1.
     pub schema_version: u32,
-    /// Caller-supplied data-release identity.
+    /// Build-input identity, independent of the application version.
     pub release_id: String,
-    /// Pinned Clacks producer revision.
-    pub producer_revision: String,
     /// Digest of the complete resolved build recipe.
     pub recipe_sha256: String,
-    /// Explicit longitude/latitude convention.
-    pub coordinate_convention: String,
     /// Every payload and notice, excluding the manifest itself.
     pub files: Vec<FileDigest>,
     /// Exactly one descriptor per mandatory field.
@@ -325,13 +318,8 @@ impl Manifest {
         }
         validate_release(&self.release_id)?;
         validate_digest(&self.recipe_sha256)?;
-        if self.coordinate_convention != COORDINATE_CONVENTION
-            || self.producer_revision.is_empty()
-            || self.scope.description.is_empty()
-        {
-            return Err(invalid(
-                "invalid bundle coordinate convention or provenance",
-            ));
+        if self.scope.description.is_empty() {
+            return Err(invalid("invalid bundle provenance"));
         }
         let paths = unique(self.files.iter().map(|r| r.path.as_str()), "file")?;
         for file in &self.files {
@@ -446,7 +434,6 @@ impl Manifest {
             }
             check_identities(&row.source_identities, &source_ids)?;
         }
-        check_identities(&self.scope.selected_source_identities, &source_ids)?;
         for path in &paths {
             if !self.layers.iter().any(|l| l.path == *path) && !path.starts_with("notices/") {
                 return Err(invalid("unrecognized payload role"));

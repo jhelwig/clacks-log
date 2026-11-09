@@ -3,6 +3,7 @@ mod reviewed_recipe;
 
 use clacks_geography_builder::{compile::compile_bundle, recipe::read_recipe};
 use std::{
+    collections::BTreeSet,
     path::{Path, PathBuf},
     sync::atomic::AtomicBool,
 };
@@ -14,86 +15,117 @@ fn cache() -> PathBuf {
 }
 
 #[test]
-#[ignore = "requires pinned geographic source cache"]
-fn compile_pinned_geographic_sources() {
-    let recipe = read_recipe(Path::new("../../references/geography/representative.json")).unwrap();
-    let compiled = compile_bundle(&recipe, &cache(), &AtomicBool::new(false)).unwrap();
-    for mapping in ["state-WA", "state-OR", "state-CT"] {
-        let derivations: Vec<_> = compiled
-            .contents
-            .manifest
-            .derivations
-            .iter()
-            .filter(|derivation| derivation.mapping_ids.iter().any(|id| id == mapping))
-            .collect();
-        assert_eq!(
-            derivations.len(),
-            1,
-            "{mapping} is entirely included in its own mainland source mask"
-        );
-        assert_eq!(derivations[0].operation_ids, vec!["mainland-1188"]);
-    }
-    let directory = tempfile::tempdir().unwrap();
-    let encoded =
-        clacks_geography::artifact::write::write_bundle(directory.path(), &compiled.contents)
-            .unwrap();
-    let parsed: clacks_geography::artifact::Manifest =
-        serde_json::from_slice(&std::fs::read(directory.path().join("manifest.json")).unwrap())
-            .unwrap();
-    for layer in encoded.layers {
-        assert_eq!(
-            layer.extent_or_empty,
-            parsed
-                .layers
-                .iter()
-                .find(|entry| entry.field == layer.field)
-                .unwrap()
-                .extent_or_empty,
-            "{:?} manifest floating-point round trip",
-            layer.field
-        );
-    }
-    let mut bundle = clacks_geography::artifact::read::open_bundle(directory.path()).unwrap();
-    clacks_geography_builder::compile::verify_bundle(&mut bundle, &recipe).unwrap();
-    // Compile independently again, so determinism covers the producer as well as encoding.
-    let repeated = compile_bundle(&recipe, &cache(), &AtomicBool::new(false)).unwrap();
-    let second = tempfile::tempdir().unwrap();
-    let repeated_manifest =
-        clacks_geography::artifact::write::write_bundle(second.path(), &repeated.contents).unwrap();
-    assert_eq!(
-        std::fs::read(directory.path().join("manifest.json")).unwrap(),
-        std::fs::read(second.path().join("manifest.json")).unwrap(),
-    );
-    for file in repeated_manifest.files {
-        assert_eq!(
-            std::fs::read(directory.path().join(&file.path)).unwrap(),
-            std::fs::read(second.path().join(&file.path)).unwrap(),
-            "deterministic payload {}",
-            file.path,
-        );
-    }
-    assert_eq!(
-        bundle
-            .manifest()
-            .scope
-            .selected_source_identities
-            .iter()
-            .filter(|id| id.source_id == "ct-counties")
-            .count(),
-        8
-    );
-    assert!(
-        !bundle
-            .manifest()
-            .scope
-            .selected_source_identities
-            .iter()
-            .any(|id| id.source_id == "counties" && id.feature_id.starts_with("09"))
-    );
-}
-
-#[test]
 #[ignore = "explicit maintenance of reviewed inputs; requires pinned geographic source cache"]
 fn reviewed_recipe_inputs_match_original_sources() {
     reviewed_recipe::verify_or_refresh(&cache());
+}
+
+/// Shipping data must retain actual county identities and classify independent
+/// published-source locations through the production reader, including all U.S.
+/// regions and separate radio entities. This explicit full-source acceptance is
+/// release preparation, not ordinary application CI.
+#[test]
+#[ignore = "requires pinned full shipping-source cache; optional CLACKS_GEOGRAPHY_BUNDLE reuses an already built immutable bundle"]
+fn shipping_inventory_and_required_us_fields() {
+    use clacks_geography::artifact::SourceIdentity;
+    use clacks_geography_builder::source::decode_sources;
+    use geo::{BooleanOps, Relate};
+    use geo_types::{Geometry, Rect};
+
+    let recipe = read_recipe(Path::new("../../references/geography/shipping.json")).unwrap();
+    let mut administrative = recipe.clone();
+    administrative
+        .sources
+        .retain(|source| ["states", "counties", "ct-counties"].contains(&source.id.as_str()));
+    administrative.selections.retain(|selection| {
+        ["states", "counties", "ct-counties"].contains(&selection.source_id.as_str())
+    });
+    let originals = decode_sources(&administrative, &cache(), &AtomicBool::new(false)).unwrap();
+    let ids = |source: &str| {
+        originals
+            .features
+            .iter()
+            .filter(|feature| feature.identity.source_id == source)
+            .map(|feature| feature.identity.clone())
+            .collect::<BTreeSet<_>>()
+    };
+    assert_eq!(ids("states").len(), 56);
+    assert_eq!(ids("counties").len(), 3226);
+    assert!(
+        ids("counties")
+            .iter()
+            .all(|identity| !identity.feature_id.starts_with("09"))
+    );
+    assert_eq!(
+        ids("ct-counties"),
+        [
+            "09001", "09003", "09005", "09007", "09009", "09011", "09013", "09015"
+        ]
+        .into_iter()
+        .map(|feature| SourceIdentity {
+            source_id: "ct-counties".into(),
+            feature_id: feature.into()
+        })
+        .collect()
+    );
+
+    let county = |id: &str| {
+        let feature = originals
+            .features
+            .iter()
+            .find(|feature| {
+                feature.identity.source_id == "counties" && feature.identity.feature_id == id
+            })
+            .unwrap();
+        let Geometry::MultiPolygon(geometry) = &feature.geometry else {
+            panic!("Census county must be multipart");
+        };
+        geometry.clone()
+    };
+    let multnomah = county("41051");
+    let clark = county("53011");
+    let cell = Rect::new(
+        (-122.66666666666667, 45.583333333333336),
+        (-122.58333333333333, 45.625),
+    )
+    .to_polygon();
+    assert!(
+        multnomah.union(&clark).relate(&cell).is_covers(),
+        "original county administrative land/water footprints establish complete whole-cell coverage independently of compiled lookup"
+    );
+    assert!(multnomah.relate(&cell).is_intersects());
+    assert!(clark.relate(&cell).is_intersects());
+    let original_ids: BTreeSet<_> = originals
+        .features
+        .iter()
+        .map(|feature| feature.identity.clone())
+        .collect();
+    drop(originals);
+
+    let temporary = tempfile::tempdir().unwrap();
+    let bundle_path = if let Some(path) = std::env::var_os("CLACKS_GEOGRAPHY_BUNDLE") {
+        PathBuf::from(path)
+    } else {
+        let compiled =
+            compile_bundle(&recipe, "real-sources", &cache(), &AtomicBool::new(false)).unwrap();
+        clacks_geography::artifact::write::write_bundle(temporary.path(), &compiled.contents)
+            .unwrap();
+        temporary.path().to_owned()
+    };
+    let mut bundle = clacks_geography::artifact::validate::open_bundle(&bundle_path).unwrap();
+    let compiled_ids: BTreeSet<_> = bundle
+        .manifest()
+        .derivations
+        .iter()
+        .flat_map(|row| &row.source_identities)
+        .filter(|identity| {
+            ["states", "counties", "ct-counties"].contains(&identity.source_id.as_str())
+        })
+        .cloned()
+        .collect();
+    assert_eq!(
+        compiled_ids, original_ids,
+        "declared output provenance covers every original administrative identity"
+    );
+    clacks_geography_builder::compile::verify_bundle(&mut bundle, &recipe).unwrap();
 }

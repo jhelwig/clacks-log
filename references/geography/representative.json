@@ -1,7 +1,5 @@
 {
   "schema_version": 1,
-  "release_id": "representative-2026-10-23",
-  "producer_revision": "083e1cfd7c57634ab368fa1bb7fab9d2fcee182a",
   "sources": [
     {
       "id": "states",

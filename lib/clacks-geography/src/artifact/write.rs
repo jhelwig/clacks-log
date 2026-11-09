@@ -124,7 +124,7 @@ pub fn write_bundle(root: &Path, contents: &BundleContents) -> anyhow::Result<Ma
     manifest.derivations.sort_by(|a, b| a.key.cmp(&b.key));
     manifest.validate()?;
     let mut output = File::create(root.join("manifest.json"))?;
-    serde_json::to_writer_pretty(&mut output, &manifest)?;
+    serde_json::to_writer(&mut output, &manifest)?;
     output.write_all(b"\n")?;
     output.sync_all()?;
     Ok(manifest)

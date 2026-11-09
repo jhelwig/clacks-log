@@ -6,7 +6,7 @@ use crate::{
     source::check_cancelled,
 };
 use anyhow::{Context, Result, ensure};
-use clacks_geography::artifact::{CurrentRelease, read::open_bundle, write::write_bundle};
+use clacks_geography::artifact::{CurrentRelease, validate::open_bundle, write::write_bundle};
 use sha2_rsa::{Digest, Sha256};
 use std::{
     fs::{self, OpenOptions},
@@ -56,15 +56,17 @@ pub struct BuildReport {
 /// Serializes publishers through a persistent OS-locked file. Failure before pointer
 /// replacement preserves the previous pointer. Previous release directories remain
 /// available to open readers. Cancellation after the commit does not undo publication.
-#[tracing::instrument(skip_all,name="geography.publish",fields(release_id=%recipe.release_id))]
+#[tracing::instrument(skip_all,name="geography.publish",fields(release_id=%build_id))]
 pub fn build_release(
     recipe: &BuildRecipe,
+    build_id: &str,
     cache: &Path,
     output: &Path,
     cancelled: &AtomicBool,
 ) -> Result<BuildReport> {
     check_cancelled(cancelled)?;
     crate::recipe::validate_recipe(recipe)?;
+    crate::recipe::validate_release(build_id)?;
     ensure_directory(output)?;
     let releases = output.join("releases");
     ensure_directory(&releases)?;
@@ -82,7 +84,7 @@ pub fn build_release(
     let current_path = output.join("current.json");
     reject_symlink(&current_path)?;
     let current = read_current(output)?;
-    let compiled = compile_bundle(recipe, cache, cancelled)?;
+    let compiled = compile_bundle(recipe, build_id, cache, cancelled)?;
     let staging = tempfile::Builder::new()
         .prefix(".staging-")
         .tempdir_in(&releases)?;
@@ -100,10 +102,10 @@ pub fn build_release(
     sync_directory(staging.path())?;
     let manifest_bytes = fs::read(staging.path().join("manifest.json"))?;
     let pointer = CurrentRelease {
-        release_id: recipe.release_id.clone(),
+        release_id: build_id.to_owned(),
         manifest_sha256: hex::encode(Sha256::digest(&manifest_bytes)),
     };
-    let destination = releases.join(&recipe.release_id);
+    let destination = releases.join(build_id);
     reject_symlink(&destination)?;
     let installed = !destination.try_exists()?;
     if !installed {
@@ -142,13 +144,13 @@ pub fn build_release(
             .iter()
             .map(|seam| seam.max_sampled_displacement_m)
             .fold(0., f64::max);
-        tracing::info!(name:"geography.bundle_published",release_id=%recipe.release_id,manifest_sha256=%pointer.manifest_sha256,compiled_features,reviewed_omissions=acceptance.reviewed_omissions,seam_reports,max_sampled_displacement_m,"Validated geographic release selected");
+        tracing::info!(name:"geography.bundle_published",release_id=%build_id,manifest_sha256=%pointer.manifest_sha256,compiled_features,reviewed_omissions=acceptance.reviewed_omissions,seam_reports,max_sampled_displacement_m,"Validated geographic release selected");
         let omission_ids: Vec<_> = recipe
             .omissions
             .iter()
             .map(|omission| &omission.id)
             .collect();
-        tracing::info!(name:"geography.reviewed_omissions_applied",release_id=%recipe.release_id,reviewed_omissions=acceptance.reviewed_omissions,?omission_ids,"Reviewed geographic coverage omissions retained");
+        tracing::info!(name:"geography.reviewed_omissions_applied",release_id=%build_id,reviewed_omissions=acceptance.reviewed_omissions,?omission_ids,"Reviewed geographic coverage omissions retained");
         // The pointer has committed. Further failures are reported as warnings.
         let durability = sync_directory(output);
         if let Err(error) = durability {
@@ -174,7 +176,7 @@ pub fn build_release(
     }
     Ok(BuildReport {
         outcome,
-        release_id: recipe.release_id.clone(),
+        release_id: build_id.to_owned(),
         checked_cases: acceptance.checked_cases,
         reviewed_omissions: acceptance.reviewed_omissions,
         warnings,

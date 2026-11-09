@@ -4,7 +4,7 @@ Read-only geographic lookup and deterministic FlatGeobuf encoding. The reader de
 
 Use `artifact::write::write_bundle` to encode compiled contents into a private empty directory. All five schema-1 roles are required, including empty layers. The writer generates hashes, bounds and feature counts; source/rule provenance and notices travel with the bundle. Publication belongs to the builder.
 
-Use `artifact::read::open_bundle` to validate a release, then `Bundle::lookup` with `clacks_model::position::LookupGeometry`. Open checks the schema before interpreting its metadata, every declared file and feature, scoped values/provenance, finite valid topology, exact columns, bounds/counts and the canonical index. Frame sizes are checked against file length before dependency feature allocation. Metadata uses the Open Geospatial Consortium's CRS84 coordinate reference system: longitude first in World Geodetic System 1984 (WGS84). Nonempty indexes use 16-way branching. Hashes establish coherence relative to the manifest, not publisher authentication.
+Use `artifact::read::open_bundle(path, expected_manifest_sha256)` for runtime loading, then `Bundle::lookup` with `clacks_model::position::LookupGeometry`. The expected manifest identity must come from package selection or explicit caller configuration, not the selected directory. Loading hashes that manifest handle before interpreting it, gates the schema, verifies declared payload hashes/lengths and retains file handles. It does not scan features or recheck metadata semantics, bounds/counts, indexes or directory inventory. Query-time decoding guards and I/O errors remain in effect. `artifact::validate::open_bundle` is the exhaustive production operation: metadata/references, framing, geometry, canonical indexes and full inventory are checked before successful build acceptance and caching. Coordinate metadata uses OGC CRS84: longitude first in WGS84. Hashes identify selected bytes; trusted build/configuration supplies the expected identity.
 
 A bundle pins validated file handles. Keep that immutable release unchanged while readers use it. Another release can be selected without changing the handle's data. There is no shared global reader/cache or hidden network access. `geometry::validate_topology` is also available to the producer for longitude-unwrapped geometry; coordinate-reference/domain checks belong to its caller. It combines `geo` sweep intersections, ring-contact connectivity and prepared topology relationships without repairing geometry.
 
@@ -23,5 +23,5 @@ Editors and live capture use the same native rules with their owning precedence.
 
 Run `cargo +1.99.1 test -p clacks-geography --locked --offline` and the corresponding
 Clippy checks. Fixtures are authored or reproduced in Rust and use the production
-writer/reader. Shipping data and package selection follow the independently
-maintained [release procedure](../../references/geography/RELEASING.md).
+writer/reader. Shipping data is a cacheable packaging dependency; see the
+[build procedure](../../references/geography/BUILDING.md).

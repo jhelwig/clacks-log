@@ -92,17 +92,19 @@ pub fn validate_topology(geometry: &MultiPolygon<f64>) -> Result<(), GeographyEr
             }
         }
         validate_connected_interior(polygon)?;
+        let bounds = polygon
+            .bounding_rect()
+            .ok_or_else(|| invalid("empty polygon bounds"))?;
+        let mut prepared_polygon = None;
         for other in geometry.0.iter().skip(index + 1) {
-            if polygon
-                .bounding_rect()
-                .ok_or_else(|| invalid("empty polygon bounds"))?
-                .intersects(
-                    &other
-                        .bounding_rect()
-                        .ok_or_else(|| invalid("empty polygon bounds"))?,
-                )
-            {
-                let relationship = polygon.relate(other);
+            if bounds.intersects(
+                &other
+                    .bounding_rect()
+                    .ok_or_else(|| invalid("empty polygon bounds"))?,
+            ) {
+                let relationship = prepared_polygon
+                    .get_or_insert_with(|| PreparedGeometry::from(polygon))
+                    .relate(other);
                 if relationship.get(CoordPos::Inside, CoordPos::Inside)
                     == Dimensions::TwoDimensional
                     || relationship.get(CoordPos::OnBoundary, CoordPos::OnBoundary)
