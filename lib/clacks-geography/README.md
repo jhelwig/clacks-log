@@ -14,4 +14,14 @@ Each field returns distinct scoped candidates and complete/partial/none coverage
 
 The producer's `geo`/`i_overlay` operations have a separate extent-dependent integer precision, approximately `2^-22` degrees at a 360-degree extent. That affects compiled boundaries independently of the reader's coverage lattice. The builder documents source/operation accuracy and computational limits in each release.
 
-Run `cargo +1.99.1 test -p clacks-geography --locked --offline` and the corresponding Clippy checks. Fixtures are authored or reproduced in Rust and use the production writer/reader. Application autofill, broader coverage and application-release packaging are subsequent integration work.
+`assistance::populate` applies unique, fully covered values only to eligible
+absent native fields. Existing values and protected absence remain authoritative.
+`assistance::change_position` expires geographic facts and their transient
+protection only when native geographic evidence changes; explicit-point display
+precision alone preserves them. Neither operation performs I/O or persists data.
+Editors and live capture use the same native rules with their owning precedence.
+
+Run `cargo +1.99.1 test -p clacks-geography --locked --offline` and the corresponding
+Clippy checks. Fixtures are authored or reproduced in Rust and use the production
+writer/reader. Shipping data and package selection follow the independently
+maintained [release procedure](../../references/geography/RELEASING.md).
