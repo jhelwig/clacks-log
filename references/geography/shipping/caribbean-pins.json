@@ -1,0 +1,4457 @@
+[
+  {
+    "pin": {
+      "id": "caribbean-faces-72001",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72001_faces.zip?download=1",
+      "archive_sha256": "a223f5e779d00c53f5d41531b7230ca0174fa6e6303ea3f19190396461ad965f",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72001_faces.cpg",
+        "tl_2026_72001_faces.dbf",
+        "tl_2026_72001_faces.prj",
+        "tl_2026_72001_faces.shp",
+        "tl_2026_72001_faces.shp.ea.iso.xml",
+        "tl_2026_72001_faces.shp.iso.xml",
+        "tl_2026_72001_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72001",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1092
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72003",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72003_faces.zip?download=1",
+      "archive_sha256": "209531279c46715fd3e7021764c989ab99abad721b428f478999c496f6efcd03",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72003_faces.cpg",
+        "tl_2026_72003_faces.dbf",
+        "tl_2026_72003_faces.prj",
+        "tl_2026_72003_faces.shp",
+        "tl_2026_72003_faces.shp.ea.iso.xml",
+        "tl_2026_72003_faces.shp.iso.xml",
+        "tl_2026_72003_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72003",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 922
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72005",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72005_faces.zip?download=1",
+      "archive_sha256": "0e98dba8fc0557424c2dc0f154b38e083c6f17a200fb0d05ed36769e8fd1a6cb",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72005_faces.cpg",
+        "tl_2026_72005_faces.dbf",
+        "tl_2026_72005_faces.prj",
+        "tl_2026_72005_faces.shp",
+        "tl_2026_72005_faces.shp.ea.iso.xml",
+        "tl_2026_72005_faces.shp.iso.xml",
+        "tl_2026_72005_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72005",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1067
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72007",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72007_faces.zip?download=1",
+      "archive_sha256": "44acbc14fa37e8dcdf0d2a8d77bc7f062fcb5aeb6bc3c8f07090875104f398ab",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72007_faces.cpg",
+        "tl_2026_72007_faces.dbf",
+        "tl_2026_72007_faces.prj",
+        "tl_2026_72007_faces.shp",
+        "tl_2026_72007_faces.shp.ea.iso.xml",
+        "tl_2026_72007_faces.shp.iso.xml",
+        "tl_2026_72007_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72007",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 705
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72009",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72009_faces.zip?download=1",
+      "archive_sha256": "4a86d65b366bbf8242e5e7e3fd6997148371e600b1713774c467ba8f762400b0",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72009_faces.cpg",
+        "tl_2026_72009_faces.dbf",
+        "tl_2026_72009_faces.prj",
+        "tl_2026_72009_faces.shp",
+        "tl_2026_72009_faces.shp.ea.iso.xml",
+        "tl_2026_72009_faces.shp.iso.xml",
+        "tl_2026_72009_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72009",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 667
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72011",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72011_faces.zip?download=1",
+      "archive_sha256": "16dc3eab097114c316a66be76661c6b78e6199569789b7893193ca4d24b42d70",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72011_faces.cpg",
+        "tl_2026_72011_faces.dbf",
+        "tl_2026_72011_faces.prj",
+        "tl_2026_72011_faces.shp",
+        "tl_2026_72011_faces.shp.ea.iso.xml",
+        "tl_2026_72011_faces.shp.iso.xml",
+        "tl_2026_72011_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72011",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1040
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72013",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72013_faces.zip?download=1",
+      "archive_sha256": "ab0f25d2c82a3b672c334823572b5720361aee3fc3dac7e964812e65d3041ee9",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72013_faces.cpg",
+        "tl_2026_72013_faces.dbf",
+        "tl_2026_72013_faces.prj",
+        "tl_2026_72013_faces.shp",
+        "tl_2026_72013_faces.shp.ea.iso.xml",
+        "tl_2026_72013_faces.shp.iso.xml",
+        "tl_2026_72013_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72013",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 2001
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72015",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72015_faces.zip?download=1",
+      "archive_sha256": "415a96dd68239a03214d6f67cbedc9f8b448e36c69c8f5663e744579c48dd16d",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72015_faces.cpg",
+        "tl_2026_72015_faces.dbf",
+        "tl_2026_72015_faces.prj",
+        "tl_2026_72015_faces.shp",
+        "tl_2026_72015_faces.shp.ea.iso.xml",
+        "tl_2026_72015_faces.shp.iso.xml",
+        "tl_2026_72015_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72015",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 515
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72017",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72017_faces.zip?download=1",
+      "archive_sha256": "fa4e5c1d6960655d64d2500383900b14986083ba4112a0f155920e0f237e5cb0",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72017_faces.cpg",
+        "tl_2026_72017_faces.dbf",
+        "tl_2026_72017_faces.prj",
+        "tl_2026_72017_faces.shp",
+        "tl_2026_72017_faces.shp.ea.iso.xml",
+        "tl_2026_72017_faces.shp.iso.xml",
+        "tl_2026_72017_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72017",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 502
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72019",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72019_faces.zip?download=1",
+      "archive_sha256": "56bbf68d7955d08c7e4d2c941eb473753a4a796b7df1c65bae9962d1e4317559",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72019_faces.cpg",
+        "tl_2026_72019_faces.dbf",
+        "tl_2026_72019_faces.prj",
+        "tl_2026_72019_faces.shp",
+        "tl_2026_72019_faces.shp.ea.iso.xml",
+        "tl_2026_72019_faces.shp.iso.xml",
+        "tl_2026_72019_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72019",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 621
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72021",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72021_faces.zip?download=1",
+      "archive_sha256": "c4a6199f14c48ead97413a053cbba6c8524fc50fdd2e36d08efd47e482057928",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72021_faces.cpg",
+        "tl_2026_72021_faces.dbf",
+        "tl_2026_72021_faces.prj",
+        "tl_2026_72021_faces.shp",
+        "tl_2026_72021_faces.shp.ea.iso.xml",
+        "tl_2026_72021_faces.shp.iso.xml",
+        "tl_2026_72021_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72021",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 3323
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72023",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72023_faces.zip?download=1",
+      "archive_sha256": "123a16b35d78707d3176495f7370c9436b82803370c0fb00d2c9ee33444a2e3d",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72023_faces.cpg",
+        "tl_2026_72023_faces.dbf",
+        "tl_2026_72023_faces.prj",
+        "tl_2026_72023_faces.shp",
+        "tl_2026_72023_faces.shp.ea.iso.xml",
+        "tl_2026_72023_faces.shp.iso.xml",
+        "tl_2026_72023_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72023",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1373
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72025",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72025_faces.zip?download=1",
+      "archive_sha256": "bb6418af8ac05d1d3da33037f57cb5b93fcaf1094f0fb4d5beaa6a77e75dae57",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72025_faces.cpg",
+        "tl_2026_72025_faces.dbf",
+        "tl_2026_72025_faces.prj",
+        "tl_2026_72025_faces.shp",
+        "tl_2026_72025_faces.shp.ea.iso.xml",
+        "tl_2026_72025_faces.shp.iso.xml",
+        "tl_2026_72025_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72025",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 2476
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72027",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72027_faces.zip?download=1",
+      "archive_sha256": "7f7e60d115eb047b91b3cad85b2d4a3d6cfd0343dda9b69871eaf2356192415a",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72027_faces.cpg",
+        "tl_2026_72027_faces.dbf",
+        "tl_2026_72027_faces.prj",
+        "tl_2026_72027_faces.shp",
+        "tl_2026_72027_faces.shp.ea.iso.xml",
+        "tl_2026_72027_faces.shp.iso.xml",
+        "tl_2026_72027_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72027",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 575
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72029",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72029_faces.zip?download=1",
+      "archive_sha256": "cc6d1153ac44826bfbe4935999b8d00df6df7bc4e5664e71bae5955e721e65ef",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72029_faces.cpg",
+        "tl_2026_72029_faces.dbf",
+        "tl_2026_72029_faces.prj",
+        "tl_2026_72029_faces.shp",
+        "tl_2026_72029_faces.shp.ea.iso.xml",
+        "tl_2026_72029_faces.shp.iso.xml",
+        "tl_2026_72029_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72029",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 771
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72031",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72031_faces.zip?download=1",
+      "archive_sha256": "b1da436aa70b0825ce621c03c8060303b679142f18935580185aca5a9abcfd72",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72031_faces.cpg",
+        "tl_2026_72031_faces.dbf",
+        "tl_2026_72031_faces.prj",
+        "tl_2026_72031_faces.shp",
+        "tl_2026_72031_faces.shp.ea.iso.xml",
+        "tl_2026_72031_faces.shp.iso.xml",
+        "tl_2026_72031_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72031",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 2099
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72033",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72033_faces.zip?download=1",
+      "archive_sha256": "61fb7e20a73bf1e27359f210e2ea17c900fc98ee806de16c8dae20b11df49361",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72033_faces.cpg",
+        "tl_2026_72033_faces.dbf",
+        "tl_2026_72033_faces.prj",
+        "tl_2026_72033_faces.shp",
+        "tl_2026_72033_faces.shp.ea.iso.xml",
+        "tl_2026_72033_faces.shp.iso.xml",
+        "tl_2026_72033_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72033",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 417
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72035",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72035_faces.zip?download=1",
+      "archive_sha256": "e225e5a1d50ab81680d458c9ccbe48cc2669cb15040bc2e1fff490f31567e8c7",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72035_faces.cpg",
+        "tl_2026_72035_faces.dbf",
+        "tl_2026_72035_faces.prj",
+        "tl_2026_72035_faces.shp",
+        "tl_2026_72035_faces.shp.ea.iso.xml",
+        "tl_2026_72035_faces.shp.iso.xml",
+        "tl_2026_72035_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72035",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1438
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72037",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72037_faces.zip?download=1",
+      "archive_sha256": "94d1addd672990613df8a024c26726fd1899ed85f91d07779d667bb18733d937",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72037_faces.cpg",
+        "tl_2026_72037_faces.dbf",
+        "tl_2026_72037_faces.prj",
+        "tl_2026_72037_faces.shp",
+        "tl_2026_72037_faces.shp.ea.iso.xml",
+        "tl_2026_72037_faces.shp.iso.xml",
+        "tl_2026_72037_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72037",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 602
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72039",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72039_faces.zip?download=1",
+      "archive_sha256": "f500ef5cbbff36ad450705489f059e0f46c2d724935eaa2291f9072d60a3190c",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72039_faces.cpg",
+        "tl_2026_72039_faces.dbf",
+        "tl_2026_72039_faces.prj",
+        "tl_2026_72039_faces.shp",
+        "tl_2026_72039_faces.shp.ea.iso.xml",
+        "tl_2026_72039_faces.shp.iso.xml",
+        "tl_2026_72039_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72039",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 582
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72041",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72041_faces.zip?download=1",
+      "archive_sha256": "a8092e0dc223a5f82795f662e35ab7e67a16a1e8b84327539d3b5b67ad36de2a",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72041_faces.cpg",
+        "tl_2026_72041_faces.dbf",
+        "tl_2026_72041_faces.prj",
+        "tl_2026_72041_faces.shp",
+        "tl_2026_72041_faces.shp.ea.iso.xml",
+        "tl_2026_72041_faces.shp.iso.xml",
+        "tl_2026_72041_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72041",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 864
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72043",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72043_faces.zip?download=1",
+      "archive_sha256": "3efbb27d0620896b094a0842d718f36994425c2429e4be9b88cf2487cfe289df",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72043_faces.cpg",
+        "tl_2026_72043_faces.dbf",
+        "tl_2026_72043_faces.prj",
+        "tl_2026_72043_faces.shp",
+        "tl_2026_72043_faces.shp.ea.iso.xml",
+        "tl_2026_72043_faces.shp.iso.xml",
+        "tl_2026_72043_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72043",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1223
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72045",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72045_faces.zip?download=1",
+      "archive_sha256": "dda69226eccd9995fbdf45006d268a5f7341fa300cd9d14d487a4557a7328704",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72045_faces.cpg",
+        "tl_2026_72045_faces.dbf",
+        "tl_2026_72045_faces.prj",
+        "tl_2026_72045_faces.shp",
+        "tl_2026_72045_faces.shp.ea.iso.xml",
+        "tl_2026_72045_faces.shp.iso.xml",
+        "tl_2026_72045_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72045",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 569
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72047",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72047_faces.zip?download=1",
+      "archive_sha256": "4ed271fef64dc963ac312452a784293dfacf6fb1b49edb6e8cd5dece6214aa40",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72047_faces.cpg",
+        "tl_2026_72047_faces.dbf",
+        "tl_2026_72047_faces.prj",
+        "tl_2026_72047_faces.shp",
+        "tl_2026_72047_faces.shp.ea.iso.xml",
+        "tl_2026_72047_faces.shp.iso.xml",
+        "tl_2026_72047_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72047",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 726
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72049",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72049_faces.zip?download=1",
+      "archive_sha256": "58405b8a18b395254b3d05e44de3749f0ebf50226e29f677580bc71b6d3606e8",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72049_faces.cpg",
+        "tl_2026_72049_faces.dbf",
+        "tl_2026_72049_faces.prj",
+        "tl_2026_72049_faces.shp",
+        "tl_2026_72049_faces.shp.ea.iso.xml",
+        "tl_2026_72049_faces.shp.iso.xml",
+        "tl_2026_72049_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72049",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 119
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72051",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72051_faces.zip?download=1",
+      "archive_sha256": "3bbed72acb89253baddbe9b1a8405af8c1c1036037be0b7e6d0d9bd2fcfd6c0e",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72051_faces.cpg",
+        "tl_2026_72051_faces.dbf",
+        "tl_2026_72051_faces.prj",
+        "tl_2026_72051_faces.shp",
+        "tl_2026_72051_faces.shp.ea.iso.xml",
+        "tl_2026_72051_faces.shp.iso.xml",
+        "tl_2026_72051_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72051",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 563
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72053",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72053_faces.zip?download=1",
+      "archive_sha256": "aaac8ee83b91505752c4a1a578d3268cf682c2090e33d5abf0067a48511bb9d4",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72053_faces.cpg",
+        "tl_2026_72053_faces.dbf",
+        "tl_2026_72053_faces.prj",
+        "tl_2026_72053_faces.shp",
+        "tl_2026_72053_faces.shp.ea.iso.xml",
+        "tl_2026_72053_faces.shp.iso.xml",
+        "tl_2026_72053_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72053",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 929
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72054",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72054_faces.zip?download=1",
+      "archive_sha256": "7b34f7ff250f5f0cbc2b6a16c4218553a8742e31b98fe453309a26e66b96910b",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72054_faces.cpg",
+        "tl_2026_72054_faces.dbf",
+        "tl_2026_72054_faces.prj",
+        "tl_2026_72054_faces.shp",
+        "tl_2026_72054_faces.shp.ea.iso.xml",
+        "tl_2026_72054_faces.shp.iso.xml",
+        "tl_2026_72054_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72054",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 161
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72055",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72055_faces.zip?download=1",
+      "archive_sha256": "31ad29a7999fc825ff53482361e89ce19646d1288f1b67acd3bb395362db696a",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72055_faces.cpg",
+        "tl_2026_72055_faces.dbf",
+        "tl_2026_72055_faces.prj",
+        "tl_2026_72055_faces.shp",
+        "tl_2026_72055_faces.shp.ea.iso.xml",
+        "tl_2026_72055_faces.shp.iso.xml",
+        "tl_2026_72055_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72055",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 683
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72057",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72057_faces.zip?download=1",
+      "archive_sha256": "2dcbca7f8d05cc1a4eb7173c652a6c8a65e805ce3a75cca858a6548850153363",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72057_faces.cpg",
+        "tl_2026_72057_faces.dbf",
+        "tl_2026_72057_faces.prj",
+        "tl_2026_72057_faces.shp",
+        "tl_2026_72057_faces.shp.ea.iso.xml",
+        "tl_2026_72057_faces.shp.iso.xml",
+        "tl_2026_72057_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72057",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1567
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72059",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72059_faces.zip?download=1",
+      "archive_sha256": "1d93ad1dad2154578c1740ef11d393059914dcc0bc8d760129e13893d6d9455f",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72059_faces.cpg",
+        "tl_2026_72059_faces.dbf",
+        "tl_2026_72059_faces.prj",
+        "tl_2026_72059_faces.shp",
+        "tl_2026_72059_faces.shp.ea.iso.xml",
+        "tl_2026_72059_faces.shp.iso.xml",
+        "tl_2026_72059_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72059",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1058
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72061",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72061_faces.zip?download=1",
+      "archive_sha256": "dd9d0824837b9e89134be754a6299fafdd74baaf8bf22f9a763c9a043362ecca",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72061_faces.cpg",
+        "tl_2026_72061_faces.dbf",
+        "tl_2026_72061_faces.prj",
+        "tl_2026_72061_faces.shp",
+        "tl_2026_72061_faces.shp.ea.iso.xml",
+        "tl_2026_72061_faces.shp.iso.xml",
+        "tl_2026_72061_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72061",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1842
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72063",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72063_faces.zip?download=1",
+      "archive_sha256": "4c0398fa16aeead79b8fb44fbd15a84653b246a351662a9b6558b9addaa284b0",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72063_faces.cpg",
+        "tl_2026_72063_faces.dbf",
+        "tl_2026_72063_faces.prj",
+        "tl_2026_72063_faces.shp",
+        "tl_2026_72063_faces.shp.ea.iso.xml",
+        "tl_2026_72063_faces.shp.iso.xml",
+        "tl_2026_72063_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72063",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 784
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72065",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72065_faces.zip?download=1",
+      "archive_sha256": "2b1f98cadbbe7a26b0a3db8a8730bb21caf107eae970805dbe8de9c14d151d11",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72065_faces.cpg",
+        "tl_2026_72065_faces.dbf",
+        "tl_2026_72065_faces.prj",
+        "tl_2026_72065_faces.shp",
+        "tl_2026_72065_faces.shp.ea.iso.xml",
+        "tl_2026_72065_faces.shp.iso.xml",
+        "tl_2026_72065_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72065",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 547
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72067",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72067_faces.zip?download=1",
+      "archive_sha256": "bdc11bcc26a9f3f0796b13711ebbd467905e77cea50aaf4e5efd65b54dd76cdb",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72067_faces.cpg",
+        "tl_2026_72067_faces.dbf",
+        "tl_2026_72067_faces.prj",
+        "tl_2026_72067_faces.shp",
+        "tl_2026_72067_faces.shp.ea.iso.xml",
+        "tl_2026_72067_faces.shp.iso.xml",
+        "tl_2026_72067_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72067",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 528
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72069",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72069_faces.zip?download=1",
+      "archive_sha256": "4df53cc6f24312aa71f9b874a971792dc479c898085d52da61c4c450569bd1f3",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72069_faces.cpg",
+        "tl_2026_72069_faces.dbf",
+        "tl_2026_72069_faces.prj",
+        "tl_2026_72069_faces.shp",
+        "tl_2026_72069_faces.shp.ea.iso.xml",
+        "tl_2026_72069_faces.shp.iso.xml",
+        "tl_2026_72069_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72069",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1259
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72071",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72071_faces.zip?download=1",
+      "archive_sha256": "ba7fab1c0f33fd0c9144469fd2db08de10d878f1cd0043543bd20c11593a7d52",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72071_faces.cpg",
+        "tl_2026_72071_faces.dbf",
+        "tl_2026_72071_faces.prj",
+        "tl_2026_72071_faces.shp",
+        "tl_2026_72071_faces.shp.ea.iso.xml",
+        "tl_2026_72071_faces.shp.iso.xml",
+        "tl_2026_72071_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72071",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 776
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72073",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72073_faces.zip?download=1",
+      "archive_sha256": "2647248fb19848970da24cde86b42f152c75e471150a9eead3975c4dd1908f3e",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72073_faces.cpg",
+        "tl_2026_72073_faces.dbf",
+        "tl_2026_72073_faces.prj",
+        "tl_2026_72073_faces.shp",
+        "tl_2026_72073_faces.shp.ea.iso.xml",
+        "tl_2026_72073_faces.shp.iso.xml",
+        "tl_2026_72073_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72073",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 730
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72075",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72075_faces.zip?download=1",
+      "archive_sha256": "a3c5f6c431d2fbbeaa84afa37f0a724094592521a2e020b66c6a8f7334225b0b",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72075_faces.cpg",
+        "tl_2026_72075_faces.dbf",
+        "tl_2026_72075_faces.prj",
+        "tl_2026_72075_faces.shp",
+        "tl_2026_72075_faces.shp.ea.iso.xml",
+        "tl_2026_72075_faces.shp.iso.xml",
+        "tl_2026_72075_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72075",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1405
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72077",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72077_faces.zip?download=1",
+      "archive_sha256": "3918d74362e87f8306dc1fea8f6b32747106aacddecefbc58a2f95b3f9645e67",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72077_faces.cpg",
+        "tl_2026_72077_faces.dbf",
+        "tl_2026_72077_faces.prj",
+        "tl_2026_72077_faces.shp",
+        "tl_2026_72077_faces.shp.ea.iso.xml",
+        "tl_2026_72077_faces.shp.iso.xml",
+        "tl_2026_72077_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72077",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 768
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72079",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72079_faces.zip?download=1",
+      "archive_sha256": "6faedd34272a9b4bfa7789e4c45fb3ff336e1cd16dbdd0e4baa611e1026fe84f",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72079_faces.cpg",
+        "tl_2026_72079_faces.dbf",
+        "tl_2026_72079_faces.prj",
+        "tl_2026_72079_faces.shp",
+        "tl_2026_72079_faces.shp.ea.iso.xml",
+        "tl_2026_72079_faces.shp.iso.xml",
+        "tl_2026_72079_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72079",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1119
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72081",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72081_faces.zip?download=1",
+      "archive_sha256": "8b06538dfb871a14512d720af49c317d81a7c24105fbe4638f2c703f467365a1",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72081_faces.cpg",
+        "tl_2026_72081_faces.dbf",
+        "tl_2026_72081_faces.prj",
+        "tl_2026_72081_faces.shp",
+        "tl_2026_72081_faces.shp.ea.iso.xml",
+        "tl_2026_72081_faces.shp.iso.xml",
+        "tl_2026_72081_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72081",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 753
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72083",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72083_faces.zip?download=1",
+      "archive_sha256": "acc94d62359b98e539f8169866af88e87cb60382a1077584468ea0e96b90f340",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72083_faces.cpg",
+        "tl_2026_72083_faces.dbf",
+        "tl_2026_72083_faces.prj",
+        "tl_2026_72083_faces.shp",
+        "tl_2026_72083_faces.shp.ea.iso.xml",
+        "tl_2026_72083_faces.shp.iso.xml",
+        "tl_2026_72083_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72083",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 487
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72085",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72085_faces.zip?download=1",
+      "archive_sha256": "5bd4b2286ea9bb35a279c679b45d46264df3fa01dd5e64af433fa4496e2645af",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72085_faces.cpg",
+        "tl_2026_72085_faces.dbf",
+        "tl_2026_72085_faces.prj",
+        "tl_2026_72085_faces.shp",
+        "tl_2026_72085_faces.shp.ea.iso.xml",
+        "tl_2026_72085_faces.shp.iso.xml",
+        "tl_2026_72085_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72085",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 614
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72087",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72087_faces.zip?download=1",
+      "archive_sha256": "877f5d3f4757a998aec7c84c50e068fde2a6b1f156d6c88456ba64e95cd622f1",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72087_faces.cpg",
+        "tl_2026_72087_faces.dbf",
+        "tl_2026_72087_faces.prj",
+        "tl_2026_72087_faces.shp",
+        "tl_2026_72087_faces.shp.ea.iso.xml",
+        "tl_2026_72087_faces.shp.iso.xml",
+        "tl_2026_72087_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72087",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 395
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72089",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72089_faces.zip?download=1",
+      "archive_sha256": "0c6dc6cd4876a4e1fe160c14310b9e0e2367ec6b6e75f35d819824e4f9e603a9",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72089_faces.cpg",
+        "tl_2026_72089_faces.dbf",
+        "tl_2026_72089_faces.prj",
+        "tl_2026_72089_faces.shp",
+        "tl_2026_72089_faces.shp.ea.iso.xml",
+        "tl_2026_72089_faces.shp.iso.xml",
+        "tl_2026_72089_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72089",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 531
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72091",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72091_faces.zip?download=1",
+      "archive_sha256": "595dea43f0d8a76038005551c7dad83fdbc3e8c8ed0b04ca9b90625132565979",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72091_faces.cpg",
+        "tl_2026_72091_faces.dbf",
+        "tl_2026_72091_faces.prj",
+        "tl_2026_72091_faces.shp",
+        "tl_2026_72091_faces.shp.ea.iso.xml",
+        "tl_2026_72091_faces.shp.iso.xml",
+        "tl_2026_72091_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72091",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 754
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72093",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72093_faces.zip?download=1",
+      "archive_sha256": "9b855750f69bac76cda5349473ec94f6c83813d850b2e05f342f5e5549e2e293",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72093_faces.cpg",
+        "tl_2026_72093_faces.dbf",
+        "tl_2026_72093_faces.prj",
+        "tl_2026_72093_faces.shp",
+        "tl_2026_72093_faces.shp.ea.iso.xml",
+        "tl_2026_72093_faces.shp.iso.xml",
+        "tl_2026_72093_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72093",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 476
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72095",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72095_faces.zip?download=1",
+      "archive_sha256": "4643b6da91ccf68cab5a304c4a0f83779c34cd3ddf7f3817ccc7174976c20cc6",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72095_faces.cpg",
+        "tl_2026_72095_faces.dbf",
+        "tl_2026_72095_faces.prj",
+        "tl_2026_72095_faces.shp",
+        "tl_2026_72095_faces.shp.ea.iso.xml",
+        "tl_2026_72095_faces.shp.iso.xml",
+        "tl_2026_72095_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72095",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 319
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72097",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72097_faces.zip?download=1",
+      "archive_sha256": "ecb88dd1e69e37ce2d42160f313c6eceb72063b9ae62834bdf74e632e91650bb",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72097_faces.cpg",
+        "tl_2026_72097_faces.dbf",
+        "tl_2026_72097_faces.prj",
+        "tl_2026_72097_faces.shp",
+        "tl_2026_72097_faces.shp.ea.iso.xml",
+        "tl_2026_72097_faces.shp.iso.xml",
+        "tl_2026_72097_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72097",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 2025
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72099",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72099_faces.zip?download=1",
+      "archive_sha256": "2032b99e7bca1c3c9a2309b6367f22bb46ecaa51d97fc0e87443b77bb87250d7",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72099_faces.cpg",
+        "tl_2026_72099_faces.dbf",
+        "tl_2026_72099_faces.prj",
+        "tl_2026_72099_faces.shp",
+        "tl_2026_72099_faces.shp.ea.iso.xml",
+        "tl_2026_72099_faces.shp.iso.xml",
+        "tl_2026_72099_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72099",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 676
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72101",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72101_faces.zip?download=1",
+      "archive_sha256": "97e790c5b6c019ecbf96f15c6e8979dd31a228ccfd39c85725585a6ff4c06d33",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72101_faces.cpg",
+        "tl_2026_72101_faces.dbf",
+        "tl_2026_72101_faces.prj",
+        "tl_2026_72101_faces.shp",
+        "tl_2026_72101_faces.shp.ea.iso.xml",
+        "tl_2026_72101_faces.shp.iso.xml",
+        "tl_2026_72101_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72101",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 788
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72103",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72103_faces.zip?download=1",
+      "archive_sha256": "4829bbd0aebec32b2783b439945a4ceda0069de81bf1390012bc17d55487e4d1",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72103_faces.cpg",
+        "tl_2026_72103_faces.dbf",
+        "tl_2026_72103_faces.prj",
+        "tl_2026_72103_faces.shp",
+        "tl_2026_72103_faces.shp.ea.iso.xml",
+        "tl_2026_72103_faces.shp.iso.xml",
+        "tl_2026_72103_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72103",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 779
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72105",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72105_faces.zip?download=1",
+      "archive_sha256": "3e11eb60783b554d7309e2b3a52ad69914d55f1b179ea197cd31b9ab1da2376a",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72105_faces.cpg",
+        "tl_2026_72105_faces.dbf",
+        "tl_2026_72105_faces.prj",
+        "tl_2026_72105_faces.shp",
+        "tl_2026_72105_faces.shp.ea.iso.xml",
+        "tl_2026_72105_faces.shp.iso.xml",
+        "tl_2026_72105_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72105",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 532
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72107",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72107_faces.zip?download=1",
+      "archive_sha256": "f470ef7c0f4d16218278eb40c8562942387357570ed6fec8040a56e25245dada",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72107_faces.cpg",
+        "tl_2026_72107_faces.dbf",
+        "tl_2026_72107_faces.prj",
+        "tl_2026_72107_faces.shp",
+        "tl_2026_72107_faces.shp.ea.iso.xml",
+        "tl_2026_72107_faces.shp.iso.xml",
+        "tl_2026_72107_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72107",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1058
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72109",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72109_faces.zip?download=1",
+      "archive_sha256": "72f1be690def2c46ee1da7c0679b836b9789f864939a79fd1d10f87757a7d14d",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72109_faces.cpg",
+        "tl_2026_72109_faces.dbf",
+        "tl_2026_72109_faces.prj",
+        "tl_2026_72109_faces.shp",
+        "tl_2026_72109_faces.shp.ea.iso.xml",
+        "tl_2026_72109_faces.shp.iso.xml",
+        "tl_2026_72109_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72109",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 802
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72111",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72111_faces.zip?download=1",
+      "archive_sha256": "6ea6b29e8d47291ddb573cdbaf75186d12bf8a35dfddd28cdc72c706b0ff3779",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72111_faces.cpg",
+        "tl_2026_72111_faces.dbf",
+        "tl_2026_72111_faces.prj",
+        "tl_2026_72111_faces.shp",
+        "tl_2026_72111_faces.shp.ea.iso.xml",
+        "tl_2026_72111_faces.shp.iso.xml",
+        "tl_2026_72111_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72111",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1077
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72113",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72113_faces.zip?download=1",
+      "archive_sha256": "8e8a3e4fa161c7b29487affdb482c61119eea4fac42d0cbbb32e6d9007d2ff7b",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72113_faces.cpg",
+        "tl_2026_72113_faces.dbf",
+        "tl_2026_72113_faces.prj",
+        "tl_2026_72113_faces.shp",
+        "tl_2026_72113_faces.shp.ea.iso.xml",
+        "tl_2026_72113_faces.shp.iso.xml",
+        "tl_2026_72113_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72113",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 4380
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72115",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72115_faces.zip?download=1",
+      "archive_sha256": "07ba8faad4572282d84a83a01cba829fad7f60d301f3aa0169f1ad0c0ec48daa",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72115_faces.cpg",
+        "tl_2026_72115_faces.dbf",
+        "tl_2026_72115_faces.prj",
+        "tl_2026_72115_faces.shp",
+        "tl_2026_72115_faces.shp.ea.iso.xml",
+        "tl_2026_72115_faces.shp.iso.xml",
+        "tl_2026_72115_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72115",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 377
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72117",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72117_faces.zip?download=1",
+      "archive_sha256": "2f11698ec3d445a70c257172a51d2c23a4a5a1a9305826904d187cdae6b8de5b",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72117_faces.cpg",
+        "tl_2026_72117_faces.dbf",
+        "tl_2026_72117_faces.prj",
+        "tl_2026_72117_faces.shp",
+        "tl_2026_72117_faces.shp.ea.iso.xml",
+        "tl_2026_72117_faces.shp.iso.xml",
+        "tl_2026_72117_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72117",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 364
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72119",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72119_faces.zip?download=1",
+      "archive_sha256": "c64dbe7e5b4638994362613c6871b060bb5048421a47aa8d4f1fa9e6472e49f9",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72119_faces.cpg",
+        "tl_2026_72119_faces.dbf",
+        "tl_2026_72119_faces.prj",
+        "tl_2026_72119_faces.shp",
+        "tl_2026_72119_faces.shp.ea.iso.xml",
+        "tl_2026_72119_faces.shp.iso.xml",
+        "tl_2026_72119_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72119",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1092
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72121",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72121_faces.zip?download=1",
+      "archive_sha256": "8b4253806bf0c37ec626b26be7fc66dd5de3bd8b08c744b5a578b49b21486455",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72121_faces.cpg",
+        "tl_2026_72121_faces.dbf",
+        "tl_2026_72121_faces.prj",
+        "tl_2026_72121_faces.shp",
+        "tl_2026_72121_faces.shp.ea.iso.xml",
+        "tl_2026_72121_faces.shp.iso.xml",
+        "tl_2026_72121_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72121",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 927
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72123",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72123_faces.zip?download=1",
+      "archive_sha256": "6e5195ddb5f6c365db53f919c858743948696ede217074e58a34c41ac0d0af5a",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72123_faces.cpg",
+        "tl_2026_72123_faces.dbf",
+        "tl_2026_72123_faces.prj",
+        "tl_2026_72123_faces.shp",
+        "tl_2026_72123_faces.shp.ea.iso.xml",
+        "tl_2026_72123_faces.shp.iso.xml",
+        "tl_2026_72123_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72123",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1580
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72125",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72125_faces.zip?download=1",
+      "archive_sha256": "a07024111a061ef3c74c2e84354aa757fa65d238ee53840afbe4bc394ee62c91",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72125_faces.cpg",
+        "tl_2026_72125_faces.dbf",
+        "tl_2026_72125_faces.prj",
+        "tl_2026_72125_faces.shp",
+        "tl_2026_72125_faces.shp.ea.iso.xml",
+        "tl_2026_72125_faces.shp.iso.xml",
+        "tl_2026_72125_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72125",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1481
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72127",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72127_faces.zip?download=1",
+      "archive_sha256": "9b259c5b02d1280254f3145ea945c6040d217cdee1cf39007f72f035595496b6",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72127_faces.cpg",
+        "tl_2026_72127_faces.dbf",
+        "tl_2026_72127_faces.prj",
+        "tl_2026_72127_faces.shp",
+        "tl_2026_72127_faces.shp.ea.iso.xml",
+        "tl_2026_72127_faces.shp.iso.xml",
+        "tl_2026_72127_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72127",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 5963
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72129",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72129_faces.zip?download=1",
+      "archive_sha256": "f7f22ce9000ce935cef868c439e7819c8530954e8a956956894e60656cc69f7d",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72129_faces.cpg",
+        "tl_2026_72129_faces.dbf",
+        "tl_2026_72129_faces.prj",
+        "tl_2026_72129_faces.shp",
+        "tl_2026_72129_faces.shp.ea.iso.xml",
+        "tl_2026_72129_faces.shp.iso.xml",
+        "tl_2026_72129_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72129",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 827
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72131",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72131_faces.zip?download=1",
+      "archive_sha256": "a7f83a644e5a2bbc8835306f2ec8e1d8c5b2ef9dc2135ea6717289f765de6321",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72131_faces.cpg",
+        "tl_2026_72131_faces.dbf",
+        "tl_2026_72131_faces.prj",
+        "tl_2026_72131_faces.shp",
+        "tl_2026_72131_faces.shp.ea.iso.xml",
+        "tl_2026_72131_faces.shp.iso.xml",
+        "tl_2026_72131_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72131",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1082
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72133",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72133_faces.zip?download=1",
+      "archive_sha256": "1a746d8d33b4f7866fbb4e8e19f33f5c97667beb9cf7b530f039adcc4594ea7e",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72133_faces.cpg",
+        "tl_2026_72133_faces.dbf",
+        "tl_2026_72133_faces.prj",
+        "tl_2026_72133_faces.shp",
+        "tl_2026_72133_faces.shp.ea.iso.xml",
+        "tl_2026_72133_faces.shp.iso.xml",
+        "tl_2026_72133_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72133",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 824
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72135",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72135_faces.zip?download=1",
+      "archive_sha256": "170052d178bfad027c3dcb9868870d6053d1830aac0a9a1f746b3dd2b9f5a189",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72135_faces.cpg",
+        "tl_2026_72135_faces.dbf",
+        "tl_2026_72135_faces.prj",
+        "tl_2026_72135_faces.shp",
+        "tl_2026_72135_faces.shp.ea.iso.xml",
+        "tl_2026_72135_faces.shp.iso.xml",
+        "tl_2026_72135_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72135",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 895
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72137",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72137_faces.zip?download=1",
+      "archive_sha256": "c322da864327e9fdc55a5341d8027450f44ab511c690817f30a0fde46fec2eff",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72137_faces.cpg",
+        "tl_2026_72137_faces.dbf",
+        "tl_2026_72137_faces.prj",
+        "tl_2026_72137_faces.shp",
+        "tl_2026_72137_faces.shp.ea.iso.xml",
+        "tl_2026_72137_faces.shp.iso.xml",
+        "tl_2026_72137_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72137",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1171
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72139",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72139_faces.zip?download=1",
+      "archive_sha256": "926897a78499e38abba66f9466dd5580cd3dfcc7293b2ecbba5eb57b312b6997",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72139_faces.cpg",
+        "tl_2026_72139_faces.dbf",
+        "tl_2026_72139_faces.prj",
+        "tl_2026_72139_faces.shp",
+        "tl_2026_72139_faces.shp.ea.iso.xml",
+        "tl_2026_72139_faces.shp.iso.xml",
+        "tl_2026_72139_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72139",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 826
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72141",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72141_faces.zip?download=1",
+      "archive_sha256": "aadea2e93a710bff0adb54c9ffe753bbae53af608239d4b2f1bc396f6b4b6d4c",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72141_faces.cpg",
+        "tl_2026_72141_faces.dbf",
+        "tl_2026_72141_faces.prj",
+        "tl_2026_72141_faces.shp",
+        "tl_2026_72141_faces.shp.ea.iso.xml",
+        "tl_2026_72141_faces.shp.iso.xml",
+        "tl_2026_72141_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72141",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1397
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72143",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72143_faces.zip?download=1",
+      "archive_sha256": "ac8ed0ea46ac2543cfeb7e17495884f7e29f26d11b52f1a4ca9a763b12e393e9",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72143_faces.cpg",
+        "tl_2026_72143_faces.dbf",
+        "tl_2026_72143_faces.prj",
+        "tl_2026_72143_faces.shp",
+        "tl_2026_72143_faces.shp.ea.iso.xml",
+        "tl_2026_72143_faces.shp.iso.xml",
+        "tl_2026_72143_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72143",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 598
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72145",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72145_faces.zip?download=1",
+      "archive_sha256": "96954182e763b6aa1bbbd5e89da18e0f43e14b2c0e72a8a7e348b46b86412b5f",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72145_faces.cpg",
+        "tl_2026_72145_faces.dbf",
+        "tl_2026_72145_faces.prj",
+        "tl_2026_72145_faces.shp",
+        "tl_2026_72145_faces.shp.ea.iso.xml",
+        "tl_2026_72145_faces.shp.iso.xml",
+        "tl_2026_72145_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72145",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1052
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72147",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72147_faces.zip?download=1",
+      "archive_sha256": "eebfce27d8475ff706daa2cf9d1952bfa3aa7252bf1ca6fd2ad2fe1b7a85c102",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72147_faces.cpg",
+        "tl_2026_72147_faces.dbf",
+        "tl_2026_72147_faces.prj",
+        "tl_2026_72147_faces.shp",
+        "tl_2026_72147_faces.shp.ea.iso.xml",
+        "tl_2026_72147_faces.shp.iso.xml",
+        "tl_2026_72147_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72147",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 838
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72149",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72149_faces.zip?download=1",
+      "archive_sha256": "1ba372ea6e4872bfa923f9f69e228f79ea550e264d4d87abcca3ec85ea6727f2",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72149_faces.cpg",
+        "tl_2026_72149_faces.dbf",
+        "tl_2026_72149_faces.prj",
+        "tl_2026_72149_faces.shp",
+        "tl_2026_72149_faces.shp.ea.iso.xml",
+        "tl_2026_72149_faces.shp.iso.xml",
+        "tl_2026_72149_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72149",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 814
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72151",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72151_faces.zip?download=1",
+      "archive_sha256": "0fc08eb2482077394eda0e185696d250fd512c8b727eea3a29cd03138cd570aa",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72151_faces.cpg",
+        "tl_2026_72151_faces.dbf",
+        "tl_2026_72151_faces.prj",
+        "tl_2026_72151_faces.shp",
+        "tl_2026_72151_faces.shp.ea.iso.xml",
+        "tl_2026_72151_faces.shp.iso.xml",
+        "tl_2026_72151_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72151",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 757
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-72153",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_72153_faces.zip?download=1",
+      "archive_sha256": "0275449c10426d57e0d83895c46a90c5962fc73870ca7ad7041b773189c29d8d",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_72153_faces.cpg",
+        "tl_2026_72153_faces.dbf",
+        "tl_2026_72153_faces.prj",
+        "tl_2026_72153_faces.shp",
+        "tl_2026_72153_faces.shp.ea.iso.xml",
+        "tl_2026_72153_faces.shp.iso.xml",
+        "tl_2026_72153_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-72153",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1305
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-78010",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_78010_faces.zip?download=1",
+      "archive_sha256": "420aa88f483a261377d467564e7c8080a268c24e4756ee5dd8e2d435d7e73973",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_78010_faces.cpg",
+        "tl_2026_78010_faces.dbf",
+        "tl_2026_78010_faces.prj",
+        "tl_2026_78010_faces.shp",
+        "tl_2026_78010_faces.shp.ea.iso.xml",
+        "tl_2026_78010_faces.shp.iso.xml",
+        "tl_2026_78010_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-78010",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 2885
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-78020",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_78020_faces.zip?download=1",
+      "archive_sha256": "c0d02f8cc1ab8e3a35980354dfa2a7bc15b185a975d05fa27d116e0965c49c1e",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_78020_faces.cpg",
+        "tl_2026_78020_faces.dbf",
+        "tl_2026_78020_faces.prj",
+        "tl_2026_78020_faces.shp",
+        "tl_2026_78020_faces.shp.ea.iso.xml",
+        "tl_2026_78020_faces.shp.iso.xml",
+        "tl_2026_78020_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-78020",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 454
+    }
+  },
+  {
+    "pin": {
+      "id": "caribbean-faces-78030",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_78030_faces.zip?download=1",
+      "archive_sha256": "c91c4cd3097b26c39efb8fcef1eebdfd6dcc0783f82630e2b23b5b74cdacfec3",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_78030_faces.cpg",
+        "tl_2026_78030_faces.dbf",
+        "tl_2026_78030_faces.prj",
+        "tl_2026_78030_faces.shp",
+        "tl_2026_78030_faces.shp.ea.iso.xml",
+        "tl_2026_78030_faces.shp.iso.xml",
+        "tl_2026_78030_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "caribbean-faces-78030",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1352
+    }
+  }
+]

@@ -1,0 +1,50 @@
+[
+  {
+    "id":"itu-north-band-interior",
+    "query":{"point":{"latitude_microdegrees":82500000,"longitude_microdegrees":0}},
+    "expected":{"itu_zone":{"coverage":"complete","candidates":[{"parent_scope":"global","value":"75"}]}},
+    "citations":["Pinned HA8TKS ITU75 original explicit rectangle spans longitudes -180 to 180 and latitudes 80 to 85 north; this independently authored interior is inside its unchanged Cartesian extent."]
+  },
+  {
+    "id":"itu-south-band-interior",
+    "query":{"point":{"latitude_microdegrees":-82500000,"longitude_microdegrees":0}},
+    "expected":{"itu_zone":{"coverage":"complete","candidates":[{"parent_scope":"global","value":"74"}]}},
+    "citations":["Pinned HA8TKS ITU74 original explicit rectangle spans longitudes -180 to 180 and latitudes 80 to 85 south; this independently authored interior is inside its unchanged Cartesian extent."]
+  },
+  {
+    "id":"itu-north-band-boundary",
+    "query":{"point":{"latitude_microdegrees":85000000,"longitude_microdegrees":0}},
+    "expected":{"itu_zone":{"coverage":"complete","candidates":[{"parent_scope":"global","value":"75"}]}},
+    "citations":["The original ITU75 rectangle's closed northern boundary is exactly 85N; no latitude beyond 85N is included by this interpretation."]
+  },
+  {
+    "id":"itu-south-band-boundary",
+    "query":{"point":{"latitude_microdegrees":-85000000,"longitude_microdegrees":0}},
+    "expected":{"itu_zone":{"coverage":"complete","candidates":[{"parent_scope":"global","value":"74"}]}},
+    "citations":["The original ITU74 rectangle's closed southern boundary is exactly 85S; no latitude beyond 85S is included by this interpretation."]
+  },
+  {
+    "id":"itu-north-cap-uncovered",
+    "query":{"point":{"latitude_microdegrees":87000000,"longitude_microdegrees":0}},
+    "expected":{"itu_zone":{"coverage":"none","candidates":[]}},
+    "citations":["The selected original ITU75 band stops at 85N. No other original selected zone supplies coverage at this point; a polar cap must not be inferred."]
+  },
+  {
+    "id":"itu-south-cap-uncovered",
+    "query":{"point":{"latitude_microdegrees":-87000000,"longitude_microdegrees":0}},
+    "expected":{"itu_zone":{"coverage":"none","candidates":[]}},
+    "citations":["The selected original ITU74 band stops at 85S. No other original selected zone supplies coverage at this point; a polar cap must not be inferred."]
+  },
+  {
+    "id":"itu-north-date-line-grid",
+    "query":{"grid":"AR"},
+    "expected":{"itu_zone":{"coverage":"partial","candidates":[{"parent_scope":"global","value":"75"}]}},
+    "citations":["Locator AR spans 180W to 160W and 80N to 90N. The explicit ITU75 band covers only its 80N–85N portion; the 85N–90N part is uncovered. Neighboring original zones stop at 80N and add no positive-area candidate."]
+  },
+  {
+    "id":"itu-south-date-line-grid",
+    "query":{"grid":"RA"},
+    "expected":{"itu_zone":{"coverage":"partial","candidates":[{"parent_scope":"global","value":"74"}]}},
+    "citations":["Locator RA spans 160E to 180E and 90S to 80S. The explicit ITU74 band covers only its 85S–80S portion; the 90S–85S part is uncovered. Neighboring original zones stop at 80S and add no positive-area candidate."]
+  }
+]
