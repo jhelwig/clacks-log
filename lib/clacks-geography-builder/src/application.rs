@@ -39,6 +39,15 @@ struct Arguments {
 /// Commands whose effects are explicitly selected by the operator.
 #[derive(Subcommand)]
 enum Command {
+    /// Author reviewed shipping inputs from pinned original sources without building a bundle.
+    AuthorShipping {
+        /// References tree containing geography recipes and reviewed input files.
+        #[arg(long)]
+        references: PathBuf,
+        /// Already acquired digest-keyed source cache.
+        #[arg(long)]
+        cache: PathBuf,
+    },
     /// Inspect selected source identities, attributes and guards for recipe maintenance.
     Inspect {
         /// Pinned source/selection recipe.
@@ -104,6 +113,10 @@ pub fn run() -> Result<()> {
 /// Compose one explicit maintenance workflow using the production library operations.
 fn execute(command: Command, cancelled: &AtomicBool) -> Result<()> {
     match command {
+        Command::AuthorShipping { references, cache } => {
+            let output = crate::authoring::author(&references, &cache, cancelled)?;
+            println!("Wrote {}", output.display());
+        }
         Command::Inspect { recipe, cache } => {
             let recipe = read_recipe(&recipe).inspect_err(|error| tracing::error!(category="recipe",error=%error,"Geographic recipe rejected"))?;
             let sources = decode_sources(&recipe, &cache, cancelled).inspect_err(|error| tracing::error!(category="source",error=%error,"Geographic inspection failed"))?;

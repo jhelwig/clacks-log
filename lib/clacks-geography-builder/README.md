@@ -6,6 +6,12 @@ Native packaging treats the validated directory as a cacheable build artifact.
 The [build procedure](../../references/geography/BUILDING.md) describes exact-key
 reuse and automatic generation on misses, without separate publication or pins.
 
+Maintained shipping inputs are authored with the supported `author-shipping`
+command, using explicit references/cache paths.
+See [shipping maintenance](../../references/geography/shipping/README.md#maintenance-and-verification).
+Authoring reads pinned originals and writes reviewed recipe/correction files;
+`fetch`, `build` and `verify` retain their separate responsibilities.
+
 Run from the workspace root with Rust 1.99.1:
 
 ```sh
