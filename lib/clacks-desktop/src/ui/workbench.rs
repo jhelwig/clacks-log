@@ -64,6 +64,16 @@ pub(super) struct Workbench {
 }
 
 impl Workbench {
+    /// Advance shared geographic replies even when their owning pane is hidden.
+    pub(super) fn advance_geography(
+        &mut self,
+        commands: &mpsc::Sender<crate::session::SessionCommand>,
+        status: &crate::geography::GeographyStatus,
+        closing: bool,
+    ) {
+        self.entry.advance_geography(commands, status, closing);
+        self.contacts.advance_geography(commands, status, closing);
+    }
     /// Admit the only directory lookup action against actual selected identities.
     pub fn start_directory_lookup(&mut self, requests: &mpsc::Sender<SettingsRequest>) {
         self.contacts.start_directory_lookup(requests);

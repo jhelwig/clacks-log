@@ -83,7 +83,7 @@ defines real-store transaction obligations and recovery limits.
 
 ## Geographic pipeline
 
-[`lib/clacks-geography`](lib/clacks-geography/README.md) validates immutable data bundles and queries native points or entire locator areas. [`lib/clacks-geography-builder`](lib/clacks-geography-builder/README.md) and its thin CLI acquire pinned sources, compile reviewed geometry/mappings, run acceptance cases and atomically select releases. The representative [recipe](references/geography/README.md) exercises the production path; expanded coverage and application autofill belong to issue #23.
+[`lib/clacks-geography`](lib/clacks-geography/README.md) validates immutable data bundles, queries native points or entire locator areas, and supplies shared geographic population rules. [`lib/clacks-geography-builder`](lib/clacks-geography-builder/README.md) and its thin CLI acquire pinned sources, compile reviewed geometry/mappings, run acceptance cases and atomically select releases. The [shipping recipe](references/geography/shipping/README.md) maintains U.S. coverage and documented worldwide limits. Desktop editors and automatic capture use the same offline rules; [native packaging](references/geography/BUILDING.md) restores one validated geographic build artifact or generates it on a cache miss, sharing the output between both platforms. Server-provided data updates remain future work.
 
 ## Project direction
 

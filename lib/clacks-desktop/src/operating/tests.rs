@@ -40,6 +40,38 @@ fn home() -> SavedLocationProfile {
     .try_into()
     .expect("valid native fixture")
 }
+
+#[test]
+fn coarse_contacted_position_expires_old_geography() {
+    let mut station = StationForm::from_snapshot(home().station());
+    station.edit_grid("FN".into());
+    let recorded = station.build_recorded(&DefinitionSet::default()).unwrap();
+    assert_eq!(recorded.location.unwrap().dxcc(), &None);
+    assert!(station.build(&DefinitionSet::default()).is_err());
+}
+
+#[test]
+fn own_position_correction_keeps_its_geography() {
+    use crate::logging::defaults::NewEntry;
+    use clacks_client_store::logbooks::selection::SelectedView;
+    let mut context = active().current().unwrap().clone();
+    let mut location = context.station.location.take().unwrap().into_fields();
+    location.primary_subdivision = Some("WA".into());
+    context.station.location = Some(location.try_into().unwrap());
+    let active = OperatingState::new(Some(context), None, None).unwrap();
+    let mut entry = NewEntry::new(
+        &active,
+        SelectedView::AllContacts,
+        clacks_model::scalar::UtcSecond::from_unix_seconds(1),
+    );
+    let previous = entry.form.clone();
+    entry.form.own.edit_grid("FN31".into());
+    entry.capture_corrections(&previous);
+    entry.form.own.primary_subdivision = "CT".into();
+    entry.refresh_defaults(&active, SelectedView::AllContacts);
+    assert_eq!(entry.form.own.primary_subdivision, "CT");
+    assert_eq!(entry.form.own.position.grid, "FN31");
+}
 fn rig() -> EquipmentConfiguration {
     (clacks_model::profile::EquipmentConfigurationFields {
         id: EquipmentConfigurationId::new(),

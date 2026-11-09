@@ -54,8 +54,18 @@ pub(crate) fn adif(call: &str) -> Vec<u8> {
 
 /// A distinct completion identity for shared station-result scenarios.
 pub(crate) fn adif_at(call: &str, time: &str) -> Vec<u8> {
+    adif_completion(call, time, "")
+}
+
+/// Paired completion with native position evidence for capture assistance.
+pub(crate) fn adif_with_position(call: &str) -> Vec<u8> {
+    adif_completion(call, "000000", "<GRIDSQUARE:4>CN87")
+}
+
+/// Compose one whole ADIF representation without borrowing the other packet's facts.
+fn adif_completion(call: &str, time: &str, position: &str) -> Vec<u8> {
     let body = format!(
-        "<CALL:{}>{call}<QSO_DATE:8>19700101<TIME_ON:6>{time}<FREQ:6>14.074<MODE:4>MFSK<SUBMODE:3>FT4<STATION_CALLSIGN:5>W7ABC<TX_PWR:6>5.0007<COMMENT:15>packet-private!<EOR>",
+        "<CALL:{}>{call}<QSO_DATE:8>19700101<TIME_ON:6>{time}<FREQ:6>14.074<MODE:4>MFSK<SUBMODE:3>FT4<STATION_CALLSIGN:5>W7ABC<TX_PWR:6>5.0007<COMMENT:15>packet-private!{position}<EOR>",
         call.len()
     );
     let mut payload = vec![];

@@ -97,6 +97,34 @@ pub(super) struct ContactsUi {
 }
 
 impl ContactsUi {
+    /// Keep saved-edit assistance bound to the live editor and its ordinary save boundary.
+    pub(super) fn advance_geography(
+        &mut self,
+        commands: &mpsc::Sender<crate::session::SessionCommand>,
+        status: &crate::geography::GeographyStatus,
+        closing: bool,
+    ) {
+        if let Some(editor) = &mut self.editor {
+            let frozen = closing || self.operation.is_some();
+            let own = editor.own_geography.advance(
+                &mut editor.form.own,
+                commands,
+                status,
+                frozen,
+                "contact_editor_own",
+            );
+            let dx = editor.dx_geography.advance(
+                &mut editor.form.dx,
+                commands,
+                status,
+                frozen,
+                "contact_editor_contacted",
+            );
+            if own || dx {
+                editor.validation.invalidate();
+            }
+        }
+    }
     /// Advance pending directory demand for the saved-contact editor.
     pub(super) fn advance_lookup(
         &mut self,

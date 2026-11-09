@@ -26,6 +26,10 @@ use tokio::sync::{mpsc, oneshot};
 
 /// Window-owned entry, exact submitted facts and its typed response.
 pub(super) struct LoggingUi {
+    /// Position requests and candidate choices for our contact-specific location.
+    own_geography: super::geography::GeographyView,
+    /// Position requests shared by quick DX entry and contact details.
+    dx_geography: super::geography::GeographyView,
     /// Separate lookup preview and diagnosis.
     directory: directory::DirectoryView,
     /// One unfinished contact and its stable submission identity.
@@ -64,6 +68,8 @@ impl Default for LoggingUi {
         let view = SelectedView::AllContacts;
         let entry = NewEntry::new(&active, view, time::now());
         Self {
+            own_geography: Default::default(),
+            dx_geography: Default::default(),
             directory: Default::default(),
             baseline: entry.form.clone(),
             entry,
@@ -84,6 +90,32 @@ impl Default for LoggingUi {
 }
 
 impl LoggingUi {
+    /// Apply native assistance independently of active tab and without marking manual edits.
+    pub(super) fn advance_geography(
+        &mut self,
+        commands: &mpsc::Sender<crate::session::SessionCommand>,
+        status: &crate::geography::GeographyStatus,
+        closing: bool,
+    ) {
+        let frozen = closing || self.pending.is_some() || self.submitted.is_some();
+        let own = self.own_geography.advance(
+            &mut self.entry.form.own,
+            commands,
+            status,
+            frozen,
+            "logging_own",
+        );
+        let dx = self.dx_geography.advance(
+            &mut self.entry.form.dx,
+            commands,
+            status,
+            frozen,
+            "logging_contacted",
+        );
+        if own || dx {
+            self.validation.invalidate();
+        }
+    }
     /// Accept the latest WS call without touching other unfinished facts.
     pub(super) fn incoming_call(&mut self, call: &str) {
         let call = call.trim().to_ascii_uppercase();
@@ -105,6 +137,8 @@ impl LoggingUi {
             return;
         }
         self.entry.reset(&self.active, self.view, time::now());
+        self.own_geography.retire();
+        self.dx_geography.retire();
         self.baseline = self.entry.form.clone();
         self.directory = Default::default();
         self.submitted = None;
@@ -274,6 +308,7 @@ impl LoggingUi {
                             );
                         }
                     }
+                    self.dx_geography.summary(ui);
                     if self.pending.is_some() {
                         ui.label("Saving…");
                     }
@@ -304,7 +339,7 @@ impl LoggingUi {
                     .show(ui, |ui| {
                         super::theme::form_frame()
                             .show(ui, |ui| {
-                                details::show(
+                                let mut action = details::show(
                                     ui,
                                     &mut self.entry.form,
                                     &self.baseline,
@@ -315,7 +350,13 @@ impl LoggingUi {
                                         owner: "entry.details",
                                         fallback: &fallback,
                                     },
-                                )
+                                );
+                                action.edited |= if own {
+                                    self.own_geography.show(ui, &mut self.entry.form.own)
+                                } else {
+                                    self.dx_geography.show(ui, &mut self.entry.form.dx)
+                                };
+                                action
                             })
                             .inner
                     })
@@ -336,6 +377,10 @@ impl LoggingUi {
 
     /// Submit exactly the validated contact and retain its ID for uncertain retries.
     fn save(&mut self, requests: &mpsc::Sender<SettingsRequest>) {
+        self.own_geography.retire();
+        self.dx_geography.retire();
+        let _ = self.entry.form.own.take_geographic_intent();
+        let _ = self.entry.form.dx.take_geographic_intent();
         let next = match self.entry.submit(time::now(), &self.definitions) {
             Ok(value) => value,
             Err(errors) => {

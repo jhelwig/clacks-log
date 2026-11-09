@@ -72,6 +72,10 @@ async fn contacts(
 #[tokio::test(flavor = "multi_thread")]
 async fn udp_pair_saves_one_local_contact() -> anyhow::Result<()> {
     let mut fixture = Fixture::new()?;
+    let bundle = fixture._directory.path().join("geography");
+    crate::test_support::geography::write(&bundle, [-125., 46., -121., 49.])?;
+    fixture.resources.geography_bundle = Some(crate::test_support::geography::selection(&bundle)?);
+    let mut geography = fixture.resources.geography.subscribe();
     let database = fixture.resources.paths.database.clone();
     let probe = std::net::UdpSocket::bind("127.0.0.1:0")?;
     let endpoint = probe.local_addr()?;
@@ -88,6 +92,16 @@ async fn udp_pair_saves_one_local_contact() -> anyhow::Result<()> {
         matches!(s, SessionStatus::Ready { .. })
     })
     .await?;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !matches!(
+            *geography.borrow_and_update(),
+            crate::geography::GeographyStatus::Ready(_)
+        ) {
+            geography.changed().await?;
+        }
+        anyhow::Ok(())
+    })
+    .await??;
     let response = apply(&fixture.commands, next.clone()).await?;
     let ReceiverResponse::Applied(view) = response else {
         panic!("{response:?}")
@@ -97,7 +111,7 @@ async fn udp_pair_saves_one_local_contact() -> anyhow::Result<()> {
         clacks_client_store::store::ClientStore::open_discovered(&database, Default::default())
             .await?;
     let sender = tokio::net::UdpSocket::bind("127.0.0.1:0").await?;
-    let packet = crate::test_support::ws_suite::adif("W7HEX");
+    let packet = crate::test_support::ws_suite::adif_with_position("W7HEX");
     sender
         .send_to(
             &crate::test_support::ws_suite::structured("W7HEX"),
@@ -105,7 +119,7 @@ async fn udp_pair_saves_one_local_contact() -> anyhow::Result<()> {
         )
         .await?;
     sender.send_to(&packet, endpoint).await?;
-    tokio::time::timeout(Duration::from_secs(5), async {
+    let assisted = tokio::time::timeout(Duration::from_secs(5), async {
         loop {
             let rows = contacts(&store).await?;
             if let Some(qso) = rows.into_iter().next() {
@@ -115,6 +129,16 @@ async fn udp_pair_saves_one_local_contact() -> anyhow::Result<()> {
         }
     })
     .await??;
+    assert_eq!(
+        assisted
+            .contacted_station()
+            .location
+            .as_ref()
+            .unwrap()
+            .primary_subdivision()
+            .as_deref(),
+        Some("WA")
+    );
     sender.send_to(&packet, endpoint).await?;
     sender.send_to(&packet, endpoint).await?;
     // Reconfiguration settles admitted work and retains latest completion identity.

@@ -438,7 +438,11 @@ STATE/MY_STATE, CNTY/MY_CNTY, CQZ/MY_CQ_ZONE and ITUZ/MY_ITU_ZONE with existing
 checked values. A supplied grid is a grid area at its actual precision, not an
 invented point. Live own-context fallback is field-by-field under D80; directory
 whole-location fallback remains separate and never writes recorded facts.
-Do not derive extra geography here; #23 owns geographic assistance. Do not
+Source projection does not derive extra geography. After format selection,
+#23's shared geographic assistance fills eligible missing fields against the
+projected native position before the existing save transaction. Supplied values,
+captured own defaults and rejected nonempty optional fields remain authoritative;
+ambiguous/unavailable lookup never invalidates an otherwise valid capture. Do not
 modify active operating state, reusable profiles/equipment, tags or the manual
 entry when a capture commits.
 

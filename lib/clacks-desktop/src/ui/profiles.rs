@@ -159,6 +159,9 @@ pub(super) fn show(
             ) {
                 frame.validation.edited(ui.input(|input| input.time));
             }
+            if frame.geography.show(ui, &mut editor.station) {
+                frame.validation.edited(ui.input(|input| input.time));
+            }
             if crate::ui::actions::primary(
                 ui,
                 "Save profile",

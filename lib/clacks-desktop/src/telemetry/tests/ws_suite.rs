@@ -46,6 +46,7 @@ pub(super) async fn run(paths: &WorkspacePaths) -> anyhow::Result<()> {
     let lookup_task = tokio::spawn(lookup_runtime.run(stop.clone()));
     let task = tokio::spawn(ws_suite::runtime::run(
         crate::ws_suite::runtime::Resources {
+            geography: watch::channel(Default::default()).1,
             store: store.clone(),
             lookup,
             settings_updates: watch::channel(None).0,

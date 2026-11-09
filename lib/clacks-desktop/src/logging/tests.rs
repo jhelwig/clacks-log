@@ -78,11 +78,16 @@ fn unrelated_edit_preserves_unrecognized_and_coarse_values() -> anyhow::Result<(
         qso.own_station.location = Some(
             (clacks_model::location::RecordedLocationFields {
                 position: Some(Position::GridArea(Locator::parse("AA")?)),
-                ..Default::default()
+                dxcc: Some("291".into()),
+                primary_subdivision: Some("WA".into()),
+                secondary_subdivision: Some("Manual county correction".into()),
+                cq_zone: Some(clacks_model::location::CqZone::new(3)?),
+                itu_zone: Some(clacks_model::location::ItuZone::new(6)?),
             })
             .try_into()
             .expect("valid native fixture"),
         );
+        qso.contacted_station.location = qso.own_station.location.clone();
         Ok(())
     });
     crate::test_support::edit(&mut qso, |qso| {
@@ -113,11 +118,14 @@ fn unrelated_edit_preserves_unrecognized_and_coarse_values() -> anyhow::Result<(
         Ok(())
     });
     let mut edit = ContactForm::from_qso(&qso);
+    assert!(!edit.own.has_geographic_intent());
+    assert!(!edit.dx.has_geographic_intent());
     edit.comment = "changed".into();
     let next = edit
         .build(qso.id(), &defs)
         .map_err(|e| anyhow::anyhow!("{e:?}"))?;
     assert_eq!(next.own_station(), qso.own_station());
+    assert_eq!(next.contacted_station(), qso.contacted_station());
     assert_eq!(next.mode(), qso.mode());
     assert_eq!(next.own_context(), qso.own_context());
     assert_eq!(next.primary(), qso.primary());

@@ -29,6 +29,8 @@ pub(super) fn complete(
     let (_settings_requests, requests) = mpsc::channel(8);
     let (settings_updates, _settings_view) = watch::channel(None);
     let resources = SessionResources {
+        geography: watch::channel(Default::default()).0,
+        geography_bundle: None,
         ws_suite: crate::ws_suite::Outputs {
             calls: tokio::sync::mpsc::unbounded_channel().0,
             updates: watch::channel(Default::default()).0,

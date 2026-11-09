@@ -208,7 +208,10 @@ fn relative_file_paths_use_the_file_directory() -> anyhow::Result<()> {
     std::fs::create_dir(&nested)?;
     std::fs::write(
         nested.join("settings.toml"),
-        "workspace='data'\n[logs]\ndirectory='diagnostics'\n",
+        format!(
+            "workspace='data'\n[logs]\ndirectory='diagnostics'\n[geography]\nbundle='offline'\nmanifest_sha256='{}'\n",
+            "b".repeat(64)
+        ),
     )?;
     let env = environment(directory.path().to_path_buf());
 
@@ -218,6 +221,8 @@ fn relative_file_paths_use_the_file_directory() -> anyhow::Result<()> {
     )?;
 
     assert_eq!(config.workspace, nested.join("data"));
+    let selected = config.geography_bundle.unwrap();
+    assert_eq!(selected.path, nested.join("offline"));
     assert_eq!(config.logs.directory, nested.join("diagnostics"));
     let overridden = resolve(
         Cli::try_parse_from([
@@ -226,11 +231,19 @@ fn relative_file_paths_use_the_file_directory() -> anyhow::Result<()> {
             "nested/settings.toml",
             "--workspace",
             "elsewhere",
+            "--geography-bundle",
+            "selected-offline",
+            "--geography-manifest-sha256",
+            &"a".repeat(64),
         ])?,
         &env.context(),
     )?;
 
     assert_eq!(overridden.workspace, directory.path().join("elsewhere"));
+    assert_eq!(
+        overridden.geography_bundle.unwrap().path,
+        directory.path().join("selected-offline")
+    );
     assert_eq!(overridden.logs.directory, nested.join("diagnostics"));
     Ok(())
 }

@@ -13,3 +13,5 @@ pub(crate) fn edit(
 }
 
 pub(crate) mod ws_suite;
+
+pub(crate) mod geography;

@@ -149,3 +149,63 @@ fn contest_lookup_respects_binding_conditions() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+#[tokio::test]
+async fn capture_assists_both_stations_after_precedence() -> anyhow::Result<()> {
+    let bundle = tempfile::tempdir()?;
+    crate::test_support::geography::write(bundle.path(), [-125., 46., -121., 49.])?;
+    let geography =
+        crate::geography::Client::open(&crate::test_support::geography::selection(bundle.path())?)?;
+    let notice=super::completion(&adif(b"<CALL:5>W7HEX<QSO_DATE:8>20261103<TIME_ON:6>123456<FREQ:6>14.074<MODE:3>FT8<GRIDSQUARE:4>CN87<DXCC:3>999<EOR>"),"127.0.0.1:1".parse()?)?.unwrap();
+    let mut context = super::context()?;
+    let mut active = context.operating.current().cloned().unwrap();
+    active.station.location = Some(
+        clacks_model::location::RecordedLocationFields {
+            position: Some(clacks_model::position::Position::GridArea(
+                clacks_model::position::Locator::parse("CN87")?,
+            )),
+            primary_subdivision: Some("DEFAULT".into()),
+            ..Default::default()
+        }
+        .try_into()?,
+    );
+    context.operating.adjust(active);
+    let projection =
+        contact::assist(contact::build(QsoId::new(), &notice, &context)?, &geography).await;
+    let own = projection.qso.own_station().location.as_ref().unwrap();
+    let contacted = projection
+        .qso
+        .contacted_station()
+        .location
+        .as_ref()
+        .unwrap();
+    assert_eq!(own.primary_subdivision().as_deref(), Some("DEFAULT"));
+    assert_eq!(own.secondary_subdivision().as_deref(), Some("KING"));
+    assert_eq!(contacted.dxcc().as_deref(), Some("999"));
+    assert_eq!(contacted.primary_subdivision().as_deref(), Some("WA"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn rejected_supplied_geography_stays_absent() -> anyhow::Result<()> {
+    let bundle = tempfile::tempdir()?;
+    crate::test_support::geography::write(bundle.path(), [-125., 46., -121., 49.])?;
+    let geography =
+        crate::geography::Client::open(&crate::test_support::geography::selection(bundle.path())?)?;
+    let notice=super::completion(&adif(b"<CALL:5>W7HEX<QSO_DATE:8>20261103<TIME_ON:6>123456<FREQ:6>14.074<MODE:3>FT8<GRIDSQUARE:4>CN87<CQZ:3>bad<EOR>"),"127.0.0.1:1".parse()?)?.unwrap();
+    let projection = contact::assist(
+        contact::build(QsoId::new(), &notice, &super::context()?)?,
+        &geography,
+    )
+    .await;
+    let location = projection
+        .qso
+        .contacted_station()
+        .location
+        .as_ref()
+        .unwrap();
+    assert_eq!(location.cq_zone(), None);
+    assert_eq!(location.itu_zone().map(|zone| zone.get()), Some(6));
+    assert!(projection.warnings.iter().any(|field| field == "CQZ"));
+    Ok(())
+}
