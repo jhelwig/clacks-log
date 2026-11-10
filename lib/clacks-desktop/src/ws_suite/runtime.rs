@@ -24,6 +24,8 @@ use tracing::Instrument;
 
 /// Workspace dependencies shared by reception and its independent save operations.
 pub(crate) struct Resources {
+    /// Shared startup selection; unavailable assistance never prevents a capture.
+    pub geography: watch::Receiver<crate::geography::GeographyStatus>,
     /// Actual local workspace, closed only after admitted work settles.
     pub store: ClientStore,
     /// Shared station lookups, independent of receiver draining.
@@ -214,7 +216,11 @@ fn save(
         },
         resources.changes.clone(),
     );
-    let span = tracing::debug_span!(
+    let geography = match &*resources.geography.borrow() {
+        crate::geography::GeographyStatus::Ready(client) => Some(client.clone()),
+        _ => None,
+    };
+    let span = tracing::info_span!(
         "ws_suite.capture_save",
         qso_id = %capture.id,
         source_ip = %capture.key.source.sender,
@@ -222,6 +228,10 @@ fn save(
     );
     work.push(
         async move {
+            let projection = match geography {
+                Some(client) => super::contact::assist(projection, &client).await,
+                None => projection,
+            };
             let result = match clacks_client_store::save::contacts::save(
                 &store, None, projection.qso, directory.ready_snapshot().map(|snapshot| *snapshot),
             ).await {
@@ -535,6 +545,7 @@ mod tests {
             context: Default::default(),
         };
         let resources = Resources {
+            geography: watch::channel(Default::default()).1,
             store: store.clone(),
             lookup,
             settings_updates: watch::channel(None).0,

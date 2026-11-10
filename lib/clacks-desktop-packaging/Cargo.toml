@@ -9,11 +9,17 @@ publish.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+clacks-geography.workspace = true
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
+
+[dev-dependencies]
+sha2-rsa.workspace = true
+hex.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true

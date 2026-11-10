@@ -137,8 +137,38 @@ station context and native IDs distinguish saved records.
 Station entry includes callsign, grid area or explicit coordinates, manual
 geographic corrections and account-defined references. Own-station locators
 require 4–12 characters. Transmit power uses watts with up to three decimal
-places. Geographic autofill, QSO entry and the general synchronization/conflict
-review UI remain separate capabilities.
+places. Shared offline geographic assistance fills each missing, unprotected
+field only when the entire point or grid area has one fully covered value.
+Ambiguous or partial results offer explicit choices. Manual corrections and
+cleared fields survive lookup completion until the position changes. Existing
+saved snapshots are never recalculated merely by opening them.
+
+The packaged reader opens `geography` beside the Windows executable or in the
+macOS application's `Contents/Resources`. Development and external selections
+use `--geography-bundle /absolute/bundle` or this startup TOML section:
+
+```toml
+[geography]
+bundle = "path"
+# For a different prepared release, set its independently supplied manifest digest:
+# manifest_sha256 = "<64 hex digits>"
+```
+
+File-relative paths resolve beside that file; command-line
+paths resolve from the current directory and take precedence. An invalid explicit
+selection reports unavailable assistance without falling back to packaged data.
+The package build embeds the generated expected manifest digest through
+`CLACKS_GEOGRAPHY_MANIFEST_SHA256`. It also supplies the default for an external
+copy of that same bundle. A developer build without this value keeps manual work
+available and needs an explicit digest when selecting external data.
+For another prepared release, set `--geography-manifest-sha256` or the file option
+above from its trusted build output. The application never learns expected
+identity from the selected directory itself. A digest without an external bundle
+directory is invalid. Loading checks manifest identity, reader compatibility and
+payload integrity; exhaustive production validation is not repeated at startup.
+Manual entry, workspace opening and contact capture remain available. A selected
+bundle stays open for the session; restart after replacing an external selection.
+Server-provided data updates remain future work.
 
 Equipment deletion first reviews every referring profile. Choose a replacement
 or remove its default for each, then confirm the atomic deletion. Changed review

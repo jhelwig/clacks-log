@@ -2,14 +2,24 @@
 
 Pinned-source acquisition, geographic compilation, acceptance checking and immutable publication. `bin/clacks-geography-build` is a thin entry point; startup and workflows live in this library. It uses `clacks-geography`'s production writer, reader and query contract.
 
+Native packaging treats the validated directory as a cacheable build artifact.
+The [build procedure](../../references/geography/BUILDING.md) describes exact-key
+reuse and automatic generation on misses, without separate publication or pins.
+
+Maintained shipping inputs are authored with the supported `author-shipping`
+command, using explicit references/cache paths.
+See [shipping maintenance](../../references/geography/shipping/README.md#maintenance-and-verification).
+Authoring reads pinned originals and writes reviewed recipe/correction files;
+`fetch`, `build` and `verify` retain their separate responsibilities.
+
 Run from the workspace root with Rust 1.99.1:
 
 ```sh
 cargo run -p clacks-geography-build --release --locked --offline -- --help
 cargo run -p clacks-geography-build --release --locked --offline -- fetch --recipe references/geography/representative.json --cache <cache>
 cargo run -p clacks-geography-build --release --locked --offline -- inspect --recipe references/geography/representative.json --cache <cache>
-cargo run -p clacks-geography-build --release --locked --offline -- build --recipe references/geography/representative.json --cache <cache> --output <output>
-cargo run -p clacks-geography-build --release --locked --offline -- verify --bundle <output>/releases/representative-2026-10-23 --recipe references/geography/representative.json
+cargo run -p clacks-geography-build --release --locked --offline -- build --recipe references/geography/representative.json --cache <cache> --build-id <build-input-fingerprint> --output <output>
+cargo run -p clacks-geography-build --release --locked --offline -- verify --bundle <output>/releases/<build-input-fingerprint> --recipe references/geography/representative.json
 ```
 
 Cargo stays offline; only explicit `fetch` downloads inputs. Acquisition uses Rustls, bounded responses/timeouts and digest-keyed atomic cache installation. Every reused entry is verified. Interrupted, oversized and checksum-mismatched downloads are not installed; a corrupt existing entry fails. Build and verify have no network requests. Ctrl-C sets the workflow cancellation flag. `inspect` emits selected original identities, attributes and semantic guards as JSON, using the same decoder as compilation.
@@ -28,7 +38,7 @@ Different operations retain their exact outputs under D269; sampled seam displac
 
 Assignment intersections/differences and mapping subtractions use nonzero-fill Clipper64 overlays on a binary lattice capped at 2^48 units/degree and 10^17 coordinate magnitude. Original vertices and source intersections are restored after clipping, with crossings inserted into both input paths before clipping. Unresolved distinct nodes, changed boundary turns, ambiguous intersections and invalid restored topology fail compilation. This preserves narrow supported exclusions and shared partition coordinates; no small-area threshold is applied. These numerical limits are separate from source accuracy and the reader's coverage precision.
 
-`build_release` holds an OS file lock on the persistent `.publish.lock`, builds in private same-filesystem staging, flushes files, reopens/validates through the production reader and runs independent recipe cases before installing a release. Releases are immutable; different bytes under an existing ID are rejected. A same-directory atomic `current.json` replacement commits selection. Earlier failure/cancellation preserves the old pointer; a crash may leave an unreferenced release that a normal retry verifies/reuses. Existing releases are not automatically removed. Post-commit durability/cleanup warnings do not undo selection or report a failed publication. Directory entries are flushed on Unix where supported; other platforms retain file flushes and atomic replacement without a portable directory-flush guarantee. Power-loss guarantees depend on the filesystem/platform.
+`build_release` holds an OS file lock on the persistent `.publish.lock`, builds in private same-filesystem staging, flushes files, reopens through the exhaustive `artifact::validate::open_bundle` production operation and runs independent recipe cases before installing a release. The same production verification runs for explicit `verify` and `archive` commands. Runtime opening and native packaging use selected artifact identity, compatibility and integrity checks without repeating production acceptance. Releases are immutable; different bytes under an existing ID are rejected. A same-directory atomic `current.json` replacement commits selection. Earlier failure/cancellation preserves the old pointer; a crash may leave an unreferenced release that a normal retry verifies/reuses. Existing releases are not automatically removed. Post-commit durability/cleanup warnings do not undo selection or report a failed publication. Directory entries are flushed on Unix where supported; other platforms retain file flushes and atomic replacement without a portable directory-flush guarantee. Power-loss guarantees depend on the filesystem/platform.
 
 The CLI configures structured diagnostics on stderr (`RUST_LOG`, default `info`), and writes explicit command results to stdout. Domain operations install no subscriber or metrics recorder. Build counters/duration distinguish published, unchanged, cancelled and failed attempts; staged work does not count as publication. Lookup metrics belong to the reader. No telemetry abstraction or generic execution metric is introduced.
 
@@ -38,7 +48,12 @@ Ordinary tests need no public network; loopback acquisition tests need TCP permi
 CLACKS_GEOGRAPHY_CACHE=<cache> cargo +1.99.1 test -p clacks-geography-builder --test real_sources --release --locked --offline -- --ignored
 ```
 
-That suite checks the compiled artifact through production queries and independently checks original source facts. Geometry fixtures can be reproduced through its `reviewed_recipe_inputs_match_original_sources` test with `CLACKS_REFRESH_GEOGRAPHY_FIXTURES=1`; it does not author or rewrite the recipe's policies/mappings. No Python, native geographic executable or TrustedQSL execution is used. Source-data notices are separate from Clacks's Elastic License 2.0. Application autofill and expanded national/world coverage remain the integration scope of issue #23.
+That suite checks the compiled artifact through production queries and independently checks original source facts. Geometry fixtures can be reproduced through its `reviewed_recipe_inputs_match_original_sources` test with `CLACKS_REFRESH_GEOGRAPHY_FIXTURES=1`; it does not author or rewrite the recipe's policies/mappings. No Python, native geographic executable or TrustedQSL execution is used. Source-data notices are separate from Clacks's Elastic License 2.0.
+
+[Shared native assistance](../clacks-geography/README.md) supplies the
+[desktop consumers](../clacks-desktop/README.md). The
+[shipping recipe](../../references/geography/shipping.json) records selected
+coverage and limitations.
 
 Use `--otlp` to opt into standard HTTP/protobuf trace, metric and log export.
 The usual `OTEL_EXPORTER_OTLP_*` environment settings select the collector; the

@@ -33,6 +33,8 @@ const MAX_FONT_TASKS: usize = 4;
 /// Lifecycle, presentation and enrollment requests owned by one workspace session.
 #[derive(Debug)]
 pub(crate) enum SessionCommand {
+    /// Query session-owned offline geographic assistance.
+    Geography(crate::geography::GeographyOperation),
     /// Configure the workspace-owned WS Suite receiver.
     WsSuite(crate::ws_suite::ReceiverRequest),
     /// Request an enrollment workflow on the owning workspace session.
@@ -79,6 +81,10 @@ pub(crate) enum SessionStatus {
 
 /// Resources transferred to the runtime while outer composition retains ownership.
 pub(crate) struct SessionResources {
+    /// Offline geographic reader state, independently of workspace opening.
+    pub geography: watch::Sender<crate::geography::GeographyStatus>,
+    /// Explicit startup bundle override, with no fallback on failure.
+    pub geography_bundle: Option<crate::geography::Selection>,
     /// Receiver preference/failure output owned by this workspace.
     pub ws_suite: crate::ws_suite::Outputs,
     /// Shared directory client for the active workspace and its consumers.
@@ -171,6 +177,8 @@ pub(crate) async fn run(
     status: watch::Sender<SessionStatus>,
 ) -> anyhow::Result<()> {
     let SessionResources {
+        geography,
+        geography_bundle,
         ws_suite,
         lookup,
         contact_changes: local_changes,
@@ -207,6 +215,9 @@ pub(crate) async fn run(
         watch::channel(crate::synchronization::Status::Disconnected);
     let mut directory_progress = directory.status.subscribe();
     let mut settings_progress = settings_updates.subscribe();
+    let mut geography_opening = JoinSet::new();
+    crate::geography::runtime::begin(&mut geography_opening, geography_bundle);
+    let mut geography_work = JoinSet::new();
     let mut font_work = JoinSet::new();
     let mut enrollment_work = JoinSet::new();
     let mut enrollment_progress = enrollment_updates.subscribe();
@@ -227,6 +238,8 @@ pub(crate) async fn run(
 
     loop {
         if closing.is_some()
+            && geography_opening.is_empty()
+            && geography_work.is_empty()
             && opening.is_empty()
             && work.is_empty()
             && font_work.is_empty()
@@ -241,7 +254,23 @@ pub(crate) async fn run(
         tokio::select! {
             biased;
             command = commands.recv(), if commands_open => match command {
+                Some(SessionCommand::Geography(operation)) => {
+                    use crate::geography::{GeographyFailure, GeographyStatus};
+                    let selected = geography.borrow().clone();
+                    if closing.is_some() {
+                        operation.reject(GeographyFailure::Closing);
+                    } else {
+                        match selected {
+                            GeographyStatus::Ready(client) => {
+                                geography_work.spawn(operation.run(client).in_current_span().with_current_subscriber());
+                            }
+                            GeographyStatus::Opening => operation.reject(GeographyFailure::Opening),
+                            GeographyStatus::Unavailable(failure) => operation.reject(failure),
+                        }
+                    }
+                },
                 Some(SessionCommand::WsSuite(request)) => {
+
                     if closing.is_none()
                         && enrollment_work.is_empty()
                         && let Some(sender) = &receiver_commands
@@ -333,7 +362,29 @@ pub(crate) async fn run(
                     }
                 }
             },
+            result = geography_opening.join_next(), if !geography_opening.is_empty() => {
+                if let Some(result) = result {
+                    let result = result.map_err(anyhow::Error::from).and_then(std::convert::identity);
+                    match result {
+                        Ok(client) if closing.is_none() => {
+                            geography.send_replace(crate::geography::GeographyStatus::Ready(client));
+                            tracing::info!(event="geography.bundle_selection", outcome="ready");
+                        }
+                        Ok(_) => {},
+                        Err(error) => {
+                            tracing::warn!(event="geography.bundle_selection", outcome="unavailable", error.type=crate::geography::runtime::error_class(&error));
+                            geography.send_replace(crate::geography::GeographyStatus::Unavailable(crate::geography::GeographyFailure::Unavailable));
+                        }
+                    }
+                    if let Some(context) = context.get() {context.request_repaint();}
+                }
+            },
+            result = geography_work.join_next(), if !geography_work.is_empty() => {
+                if matches!(result,Some(Err(_))) {tracing::error!(event="geography.editor_task_failed");}
+                if let Some(context) = context.get() {context.request_repaint();}
+            },
             result = receiver_work.join_next(), if !receiver_work.is_empty() => {
+
                 if matches!(result, Some(Err(_)) | Some(Ok(Err(_)))) {
                     let mut view = ws_suite.updates.borrow().clone();
                     view.reception = crate::ws_suite::ReceptionState::Failed(
@@ -398,7 +449,7 @@ pub(crate) async fn run(
                         crate::ws_suite::runtime::run(
                             crate::ws_suite::runtime::Resources {
                                 store: workspace.store.clone(), lookup:lookup.clone(),
-                                settings_updates:settings_updates.clone(), changes:local_changes.clone(),
+                                settings_updates:settings_updates.clone(), changes:local_changes.clone(), geography:geography.subscribe(),
                             },
                             input,
                             ws_suite.clone(),
@@ -484,7 +535,7 @@ pub(crate) async fn run(
                                     crate::ws_suite::runtime::run(
                                         crate::ws_suite::runtime::Resources {
                                             store:workspace.store.clone(), lookup:client.clone(),
-                                            settings_updates:settings_updates.clone(), changes:local_changes.clone(),
+                                            settings_updates:settings_updates.clone(), changes:local_changes.clone(), geography:geography.subscribe(),
                                         },
                                         receiver_input,
                                         ws_suite.clone(),
@@ -558,6 +609,10 @@ pub(crate) async fn run(
         }
     }
 
+    geography.send_replace(crate::geography::GeographyStatus::Unavailable(
+        crate::geography::GeographyFailure::Closing,
+    ));
+    drop(geography);
     let started = closing.unwrap_or_else(Instant::now);
     shutdown::finish(
         shutdown::ShutdownResources {

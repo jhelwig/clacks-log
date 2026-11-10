@@ -261,6 +261,10 @@ dataset refreshes do not silently rewrite historical contacts. The
 [geographic-pipeline specification](geographic-pipeline.md) defines the proposed
 reader/result contracts that consume this model's point/area geometry. The
 geographic reader does not mutate these native values or apply suggestions.
+Shared `clacks-geography::assistance` functions apply eligible native values for
+editors and automatic capture, preserving protected absence and each workflow's
+supplied/default precedence. They do not run implicitly during construction,
+deserialization, synchronization, restore, conflict resolution or export.
 
 Recorded references whose group declares location context count as recorded
 location information even when geographic details are unknown. They suppress

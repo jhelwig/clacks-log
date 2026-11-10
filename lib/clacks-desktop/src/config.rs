@@ -26,6 +26,12 @@ pub(crate) struct Cli {
     /// Read this configuration file instead of the OS-conventional default.
     #[arg(long)]
     pub config: Option<PathBuf>,
+    /// Select an immutable geographic bundle instead of installed resources.
+    #[arg(long)]
+    pub geography_bundle: Option<PathBuf>,
+    /// Expected manifest SHA-256 for an external bundle; defaults to packaged identity.
+    #[arg(long)]
+    pub geography_manifest_sha256: Option<String>,
     /// Override the structured log directory.
     #[arg(long)]
     pub log_directory: Option<PathBuf>,
@@ -89,6 +95,8 @@ impl StartupContext {
 pub(crate) struct DesktopConfig {
     /// Absolute selected workspace path, prior to canonicalization.
     pub workspace: PathBuf,
+    /// Explicit geographic bundle, resolved relative to its supplying source.
+    pub geography_bundle: Option<crate::geography::Selection>,
     /// Local diagnostic output settings.
     pub logs: LogConfig,
     /// Explicit export policy and resolved destinations.
@@ -158,6 +166,42 @@ pub(crate) fn resolve(cli: Cli, context: &StartupContext) -> anyhow::Result<Desk
         })
         .unwrap_or_else(|| context.directories.data.join("workspace"));
 
+    let geography_bundle = cli
+        .geography_bundle
+        .as_ref()
+        .map(|path| relative_to(path, &context.cwd))
+        .or_else(|| {
+            file.geography
+                .bundle
+                .as_ref()
+                .map(|path| relative_to(path, file_base))
+        });
+
+    let expected_manifest = cli
+        .geography_manifest_sha256
+        .clone()
+        .or(file.geography.manifest_sha256);
+    anyhow::ensure!(
+        geography_bundle.is_some() || expected_manifest.is_none(),
+        "a geographic manifest digest requires an external bundle directory"
+    );
+    let geography_bundle = geography_bundle
+        .map(|path| -> anyhow::Result<_> {
+            let manifest_sha256 = match expected_manifest {
+                Some(digest) => digest,
+                None => crate::geography::runtime::packaged_manifest_sha256()?,
+            };
+            anyhow::ensure!(
+                hex::decode(&manifest_sha256).is_ok_and(|bytes| bytes.len() == 32),
+                "invalid geographic manifest SHA-256"
+            );
+            Ok(crate::geography::Selection {
+                path,
+                manifest_sha256,
+            })
+        })
+        .transpose()?;
+
     let log_directory = cli
         .log_directory
         .as_ref()
@@ -215,6 +259,7 @@ pub(crate) fn resolve(cli: Cli, context: &StartupContext) -> anyhow::Result<Desk
     let telemetry = telemetry::resolve(&cli, &context.environment, &file.telemetry)?;
 
     Ok(DesktopConfig {
+        geography_bundle,
         workspace,
         logs,
         telemetry,

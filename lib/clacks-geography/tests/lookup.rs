@@ -1,7 +1,7 @@
 mod support;
 
 use clacks_geography::{
-    artifact::{CompiledFeature, ValueEntry, read::open_bundle, write::write_bundle},
+    artifact::{CompiledFeature, ValueEntry, validate::open_bundle, write::write_bundle},
     lookup::Coverage,
 };
 use clacks_model::position::{Coordinates, GridBounds, Locator, LookupGeometry, RationalDegree};

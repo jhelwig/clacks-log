@@ -1,6 +1,7 @@
 //! Own-station form values and explicit reference/position edits.
 
 use super::{FieldError, issue, optional, position::PositionForm};
+use clacks_geography::{artifact::Field, lookup::LookupResult};
 use clacks_model::{
     contact::StationSnapshot,
     group::{DefinitionSet, normalize_reference},
@@ -97,6 +98,10 @@ pub(crate) struct StationForm {
     pub references: Vec<ReferenceForm>,
     /// Last valid position used to retain or clear manual geographic corrections.
     last_position: Option<Position>,
+    /// Explicit user choices, including protected absence, for the current position.
+    pub(crate) geographic_protection: BTreeSet<Field>,
+    /// A changed position needs one UI lookup or cancellation, never a per-frame query.
+    geographic_intent: bool,
 }
 
 impl StationForm {
@@ -112,6 +117,8 @@ impl StationForm {
             itu_zone: String::new(),
             references: vec![],
             last_position: None,
+            geographic_protection: BTreeSet::new(),
+            geographic_intent: false,
         }
     }
 
@@ -135,6 +142,7 @@ impl StationForm {
                 .map(|v| v.get().to_string())
                 .unwrap_or_default();
         }
+        form.geographic_protection = Field::ALL.into();
         form.references = station
             .references
             .iter()
@@ -145,40 +153,125 @@ impl StationForm {
 
     /// Change grid-area evidence and reset corrections only after a valid position change.
     pub fn edit_grid(&mut self, grid: String) {
+        let recovering = self.position.build_recorded().is_err();
         self.position.edit_grid(grid);
-        self.position_changed();
+        self.position_changed(recovering);
     }
 
     /// Change explicit point evidence without borrowing precision from a grid center.
     pub fn edit_coordinates(&mut self, latitude: String, longitude: String) {
+        let recovering = self.position.build_recorded().is_err();
         self.position.edit_coordinates(latitude, longitude);
-        self.position_changed();
+        self.position_changed(recovering);
     }
 
     /// Adjust display-locator precision while preserving an unchanged point's corrections.
     pub fn edit_precision(&mut self, length: GridLength) {
+        let recovering = self.position.build_recorded().is_err();
         self.position.edit_precision(length);
-        self.position_changed();
+        self.position_changed(recovering);
     }
 
     /// Drop facts belonging to an old position, without guessing new geographic values.
-    fn position_changed(&mut self) {
-        let Ok(next) = self.position.build() else {
+    fn position_changed(&mut self, recovering: bool) {
+        let Ok(next) = self.position.build_recorded() else {
+            self.geographic_intent = true;
             return;
         };
-        let same = match (&self.last_position, &next) {
-            (Some(a), Some(b)) => a.same_geographic_position(b),
-            (None, None) => true,
-            _ => false,
-        };
-        if !same {
+        let mut fields = self.geographic_fields();
+        let changed = clacks_geography::assistance::change_position(
+            &mut fields,
+            &mut self.geographic_protection,
+            next.clone(),
+        );
+        if changed {
             self.dxcc.clear();
             self.primary_subdivision.clear();
             self.secondary_subdivision.clear();
             self.cq_zone.clear();
             self.itu_zone.clear();
+            self.geographic_intent = true;
         }
+        self.geographic_intent |= recovering;
         self.last_position = next;
+    }
+
+    /// Identify a position edit not yet consumed by its geographic reply owner.
+    pub(crate) fn has_geographic_intent(&self) -> bool {
+        self.geographic_intent
+    }
+
+    /// Consume only an explicit position-edit intent; snapshot copying produces none.
+    pub(crate) fn take_geographic_intent(&mut self) -> Option<Result<Option<Position>, String>> {
+        if !std::mem::take(&mut self.geographic_intent) {
+            return None;
+        }
+        Some(self.position.build_recorded())
+    }
+
+    /// Copy an active position basis without treating snapshot loading as fresh entry.
+    /// Returns whether old-position correction flags must expire.
+    pub(crate) fn follow_position(&mut self, source: &Self) -> bool {
+        let mut fields = self.geographic_fields();
+        let changed = clacks_geography::assistance::change_position(
+            &mut fields,
+            &mut self.geographic_protection,
+            source.last_position.clone(),
+        );
+        self.position = source.position.clone();
+        self.last_position = source.last_position.clone();
+        self.geographic_intent = false;
+        changed
+    }
+
+    /// Apply eligible native results while leaving malformed or manually cleared text intact.
+    pub(crate) fn apply_geography(&mut self, lookup: &LookupResult) -> bool {
+        let mut fields = self.geographic_fields();
+        let changed = clacks_geography::assistance::populate(
+            &mut fields,
+            &self.geographic_protection,
+            lookup,
+        );
+        for field in &changed {
+            match field {
+                Field::Dxcc => self.dxcc = fields.dxcc.clone().unwrap_or_default(),
+                Field::PrimarySubdivision => {
+                    self.primary_subdivision =
+                        fields.primary_subdivision.clone().unwrap_or_default()
+                }
+                Field::SecondarySubdivision => {
+                    self.secondary_subdivision =
+                        fields.secondary_subdivision.clone().unwrap_or_default()
+                }
+                Field::CqZone => {
+                    self.cq_zone = fields
+                        .cq_zone
+                        .map(|value| value.get().to_string())
+                        .unwrap_or_default()
+                }
+                Field::ItuZone => {
+                    self.itu_zone = fields
+                        .itu_zone
+                        .map(|value| value.get().to_string())
+                        .unwrap_or_default()
+                }
+            }
+        }
+        !changed.is_empty()
+    }
+
+    /// Recover independently valid geographic fields without requiring a station callsign.
+    fn geographic_fields(&self) -> clacks_model::location::RecordedLocationFields {
+        clacks_model::location::RecordedLocationFields {
+            position: self.last_position.clone(),
+            dxcc: optional(&self.dxcc),
+            primary_subdivision: optional(&self.primary_subdivision),
+            secondary_subdivision: optional(&self.secondary_subdivision),
+            cq_zone: zone(&self.cq_zone, "CQ zone", CqZone::new).ok().flatten(),
+            itu_zone: zone(&self.itu_zone, "ITU zone", ItuZone::new)
+                .ok()
+                .flatten(),
+        }
     }
 
     /// Validate station entry while preserving existing reference values verbatim.

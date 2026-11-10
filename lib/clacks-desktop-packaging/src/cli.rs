@@ -13,6 +13,19 @@ struct Arguments {
 /// Supported preparation operations.
 #[derive(Subcommand)]
 enum Operation {
+    /// Reopen an assembled geographic payload against the build-provided identity.
+    GeographyInspect {
+        /// Expected manifest digest from the common geographic build output.
+        #[arg(long)]
+        manifest_sha256: String,
+        /// Installed or assembled bundle directory.
+        #[arg(long)]
+        bundle: PathBuf,
+        /// Verified evidence JSON destination.
+        #[arg(long)]
+        output: PathBuf,
+    },
+
     /// Reuse existing successful Linux/web verification for an exact commit.
     Gate {
         /// Repository owning the existing Rust workflow.
@@ -53,6 +66,13 @@ pub(crate) fn run() -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("cannot initialize packaging diagnostics: {e}"))?;
     let args = Arguments::parse();
     let result = match args.command {
+        Operation::GeographyInspect {
+            manifest_sha256,
+            bundle,
+            output,
+        } => crate::geography::inspect(&manifest_sha256, &bundle)
+            .and_then(|e| crate::write_json(&output, &e)),
+
         Operation::Gate {
             repository,
             revision,

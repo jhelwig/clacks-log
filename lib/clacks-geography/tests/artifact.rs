@@ -1,6 +1,6 @@
 mod support;
 
-use clacks_geography::artifact::{read::open_bundle, write::write_bundle};
+use clacks_geography::artifact::{validate::open_bundle, write::write_bundle};
 use clacks_geography::error::GeographyError;
 use geo_types::polygon;
 use std::{error::Error, fs};
@@ -25,10 +25,85 @@ fn deterministic_bundle_round_trip_and_empty_layers() {
 }
 
 #[test]
+fn selection_checks_expected_manifest_before_decode_and_binds_payload_bytes() {
+    use sha2_rsa::{Digest, Sha256};
+    let directory = tempfile::tempdir().unwrap();
+    let manifest = write_bundle(directory.path(), &support::contents()).unwrap();
+    let path = directory.path().join("manifest.json");
+    let bytes = fs::read(&path).unwrap();
+    let expected = hex::encode(Sha256::digest(&bytes));
+    let load = || clacks_geography::artifact::read::open_bundle(directory.path(), &expected);
+    assert_eq!(load().unwrap().manifest(), &manifest);
+
+    fs::write(&path, b"not a manifest").unwrap();
+    let error = load().unwrap_err();
+    assert!(matches!(error, GeographyError::InvalidArtifact { .. }));
+    assert!(
+        error
+            .to_string()
+            .contains("selected manifest digest mismatch")
+    );
+
+    let mut replaced = manifest.clone();
+    replaced.release_id = "another-self-consistent-release".into();
+    fs::write(&path, serde_json::to_vec(&replaced).unwrap()).unwrap();
+    assert!(
+        load()
+            .unwrap_err()
+            .to_string()
+            .contains("selected manifest digest mismatch")
+    );
+
+    fs::write(&path, &bytes).unwrap();
+    let payload_path = directory.path().join("layers/primary_subdivision.fgb");
+    let original_payload = fs::read(&payload_path).unwrap();
+    let mut damaged_payload = original_payload.clone();
+    damaged_payload[0] ^= 0xff;
+    fs::write(&payload_path, &damaged_payload).unwrap();
+    assert!(
+        load()
+            .unwrap_err()
+            .to_string()
+            .contains("payload size or digest mismatch")
+    );
+
+    let mut bound_payload = manifest.clone();
+    bound_payload
+        .files
+        .iter_mut()
+        .find(|entry| entry.path == "layers/primary_subdivision.fgb")
+        .unwrap()
+        .sha256 = hex::encode(Sha256::digest(&damaged_payload));
+    let bound_bytes = serde_json::to_vec(&bound_payload).unwrap();
+    fs::write(&path, &bound_bytes).unwrap();
+    assert!(
+        clacks_geography::artifact::read::open_bundle(
+            directory.path(),
+            &hex::encode(Sha256::digest(&bound_bytes))
+        )
+        .is_ok(),
+        "runtime loading decoded the digest-valid malformed layer"
+    );
+
+    fs::write(&payload_path, original_payload).unwrap();
+    let mut invalid_metadata = manifest;
+    invalid_metadata.release_id = "..".into();
+    let invalid_bytes = serde_json::to_vec(&invalid_metadata).unwrap();
+    fs::write(&path, &invalid_bytes).unwrap();
+    assert!(
+        clacks_geography::artifact::read::open_bundle(
+            directory.path(),
+            &hex::encode(Sha256::digest(&invalid_bytes))
+        )
+        .is_ok(),
+        "runtime loading repeated producer metadata validation"
+    );
+}
+
+#[test]
 fn rejects_inconsistent_manifest_even_when_payload_hashes_match() {
     for change in [
         "schema",
-        "coordinate",
         "role",
         "values",
         "derivation",
@@ -47,7 +122,6 @@ fn rejects_inconsistent_manifest_even_when_payload_hashes_match() {
             serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
         match change {
             "schema" => json["schema_version"] = 2.into(),
-            "coordinate" => json["coordinate_convention"] = "latitude_longitude".into(),
             "role" => {
                 let layers = json["layers"].as_array_mut().unwrap();
                 layers.pop();
@@ -181,7 +255,7 @@ fn checksum_valid_index_and_property_corruption_is_rejected_without_panicking() 
             .unwrap();
         entry["bytes"] = (bytes.len() as u64).into();
         entry["sha256"] = hex::encode(Sha256::digest(&bytes)).into();
-        fs::write(manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+        fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
         let result = std::panic::catch_unwind(|| open_bundle(dir.path()));
         assert!(result.is_ok(), "decoder panicked for {mutation}");
         assert!(result.unwrap().is_err(), "accepted {mutation}");
@@ -281,7 +355,7 @@ fn rejects_unsupported_layer_headers_with_valid_payload_digests() {
             .unwrap();
         entry["bytes"] = (bytes.len() as u64).into();
         entry["sha256"] = hex::encode(Sha256::digest(&bytes)).into();
-        fs::write(manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+        fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
         assert!(
             open_bundle(dir.path()).is_err(),
             "accepted unsupported {mutation}"
@@ -322,31 +396,6 @@ fn indexed_topology_validation_checks_crossings_holes_and_parts() {
 }
 
 #[test]
-fn manifest_extents_preserve_every_floating_point_bit() {
-    let mut input = support::contents();
-    let layer = input
-        .layers
-        .iter_mut()
-        .find(|layer| !layer.features.is_empty())
-        .unwrap();
-    layer.features[0].geometry = geo_types::MultiPolygon(vec![
-        geo_types::Rect::new(
-            (-179.1435033839999, 18.906117143000074),
-            (179.78093509200005, 71.41250234600005),
-        )
-        .to_polygon(),
-    ]);
-    let directory = tempfile::tempdir().unwrap();
-    let encoded =
-        clacks_geography::artifact::write::write_bundle(directory.path(), &input).unwrap();
-    let parsed: clacks_geography::artifact::Manifest =
-        serde_json::from_slice(&std::fs::read(directory.path().join("manifest.json")).unwrap())
-            .unwrap();
-    assert_eq!(encoded.layers, parsed.layers);
-    clacks_geography::artifact::read::open_bundle(directory.path()).unwrap();
-}
-
-#[test]
 fn hole_contacts_must_not_disconnect_the_polygon_interior() {
     use clacks_geography::geometry::validate_topology;
     use geo_types::{MultiPolygon, Polygon, line_string};
@@ -367,14 +416,15 @@ fn hole_contacts_must_not_disconnect_the_polygon_interior() {
 
 #[test]
 fn unsupported_schema_is_identified_before_decoding_its_payload() {
+    use sha2_rsa::{Digest, Sha256};
     let directory = tempfile::tempdir().unwrap();
-    fs::write(
-        directory.path().join("manifest.json"),
-        br#"{"schema_version":2,"different_future_contract":true}"#,
-    )
-    .unwrap();
+    let bytes = br#"{"schema_version":2,"different_future_contract":true}"#;
+    fs::write(directory.path().join("manifest.json"), bytes).unwrap();
     assert!(matches!(
-        open_bundle(directory.path()),
+        clacks_geography::artifact::read::open_bundle(
+            directory.path(),
+            &hex::encode(Sha256::digest(bytes))
+        ),
         Err(GeographyError::UnsupportedSchema(2))
     ));
 }

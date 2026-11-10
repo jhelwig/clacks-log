@@ -13,3 +13,12 @@ The HA8TKS collections supply all 40 CQ zones and eleven selected International 
 `athos-review-area.json` is an authored uncertainty rectangle at longitude 23.9–24.5°, latitude 40.1–40.6°. It deliberately removes more than Mount Athos from Greece's classification. It is **not** an entity boundary and assigns no replacement entity. The [ARRL statement](https://www.arrl.org/news/arrl-dxcc-statement-on-mount-athos-operation-sv1ga-a) establishes separate-entity treatment; the [UNESCO location/map page](https://whc.unesco.org/en/list/454/maps/) supplies geographic context. No map artwork or traced boundary is included.
 
 Data source notices and redistribution evidence are literal recipe inputs, independent of Clacks's Elastic License 2.0. An upstream URL/version alone is insufficient: acquired bytes must match the pinned digest. To update inputs, use the Rust CLI's `fetch` and `inspect`, review changed selections/guards/mappings, and run the real-source acceptance suite. Geometry fixtures are reproducible with the locked Rust test support; no external geographic executable or Python environment is required.
+
+## Shipping recipe
+
+[`shipping.json`](shipping.json) broadens the source selection to all 56 Census
+state/territory features and 3,234 county equivalents, preserving the eight actual
+Connecticut counties. Its [maintained input notes](shipping/README.md) describe
+full regional operation masks, separate U.S. island entities, worldwide
+correspondence/omissions, guarded ITU replacements and original-source acceptance.
+The representative recipe remains independently usable with its original scope.

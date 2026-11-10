@@ -46,6 +46,7 @@ impl Receiver {
         let stop = CancellationToken::new();
         let task = tokio::spawn(ws_suite::runtime::run(
             crate::ws_suite::runtime::Resources {
+                geography: watch::channel(Default::default()).1,
                 store: service.store.clone(),
                 lookup: service.client.clone(),
                 settings_updates: watch::channel(None).0,

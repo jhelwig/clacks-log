@@ -3,14 +3,18 @@
 use anyhow::{Context, Result, ensure};
 use clipper2_rust::{
     FillRule,
-    clipper::poly_tree_to_faces64,
     core::{Path64, Paths64, Point64},
     engine::ClipType,
     engine_public::{Clipper64, PolyTree64},
 };
 use geo::{BoundingRect, Orient, orient::Direction};
-use geo_types::{Coord, LineString, MultiPolygon, Polygon};
+use geo_types::{Coord, LineString, MultiPolygon};
 use std::collections::BTreeMap;
+
+#[cfg(test)]
+mod tests;
+
+mod contours;
 
 /// Maximum binary scale, retaining safe integer arithmetic at geographic extents.
 const MAX_SCALE: f64 = 281_474_976_710_656.;
@@ -111,19 +115,7 @@ pub(super) fn overlay(
         "producer overlay failed ({})",
         clipper.error_code()
     );
-    let polygons = poly_tree_to_faces64(&tree)
-        .into_iter()
-        .map(|face| {
-            Ok(Polygon::new(
-                lattice.restore(&face.outer)?,
-                face.holes
-                    .iter()
-                    .map(|ring| lattice.restore(ring))
-                    .collect::<Result<_>>()?,
-            ))
-        })
-        .collect::<Result<_>>()?;
-    let result = MultiPolygon(polygons);
+    let result = contours::restore_faces(&tree, &lattice)?;
     if !result.0.is_empty() {
         clacks_geography::geometry::validate_topology(&result)
             .context("invalid producer overlay result")?;

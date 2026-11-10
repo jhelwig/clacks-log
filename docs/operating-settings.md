@@ -237,7 +237,9 @@ otherwise valid station profile or equipment configuration.
 - Expose optional geographic fields and manual corrections. A profile load copies
   them as part of the whole station snapshot. Preserve corrections at an unchanged
   position; do not carry old-position corrections to a newly entered position.
-  Geographic autofill integration is later work, not an implicit #7 dependency.
+  Geographic assistance under #23 extends these same pending values through
+  shared native rules. Lookup/candidate selection introduces no additional
+  acceptance boundary and cannot rewrite an unchanged loaded profile snapshot.
 - Record own-station participation/reference associations through the existing
   account group definitions: group ID plus optional identifier, unordered and
   deduplicated. Apply declared normalization/syntax rules to entry and explicit

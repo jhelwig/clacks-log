@@ -1,5 +1,6 @@
 //! Compilation of pinned geographic sources into classified artifact contents.
 
+mod components;
 mod coordinates;
 mod corrections;
 mod mappings;
@@ -48,19 +49,21 @@ pub struct SeamReport {
 }
 
 /// Compile verified cached sources without downloading or publishing a release.
-#[tracing::instrument(skip_all,name="geography.compile",level="debug",fields(release_id=%recipe.release_id))]
+#[tracing::instrument(skip_all, name = "geography.compile", level = "debug", fields())]
 pub fn compile_bundle(
     recipe: &BuildRecipe,
+    build_id: &str,
     cache: &Path,
     cancelled: &AtomicBool,
 ) -> Result<Compilation> {
     let sources = decode_sources(recipe, cache, cancelled)?;
-    compile_selected(recipe, &sources, cancelled)
+    compile_selected(recipe, build_id, &sources, cancelled)
 }
 
 /// Compile already decoded originals while keeping all guarded interpretation at one boundary.
 fn compile_selected(
     recipe: &BuildRecipe,
+    build_id: &str,
     sources: &DecodedSources,
     cancelled: &AtomicBool,
 ) -> Result<Compilation> {
@@ -168,17 +171,30 @@ fn compile_selected(
             .all(|r| transformed.contains_key(&r.definition.feature)),
         "unused correction"
     );
-    let mapped = mappings::compile_mappings(recipe, &transformed, &correction_ids, cancelled)?;
+    let components = components::transform_components(recipe, sources, &operations, cancelled)?;
+    seams.extend(
+        components
+            .values()
+            .flat_map(|features| features.values())
+            .flat_map(|feature| feature.seams.iter().cloned()),
+    );
+    let mapped = mappings::compile_mappings(
+        recipe,
+        &transformed,
+        &components,
+        &correction_ids,
+        cancelled,
+    )?;
     let mut limitations = recipe.limitations.clone();
     for seam in &seams {
         limitations.push(format!("Exact-operation seam {} / {} on {}:{}: {} shared vertices sampled; maximum observed displacement {:.6} m (not an accuracy or unsampled-edge bound). Gaps/overlaps retained under D269.",seam.operation_ids.first().context("seam operation")?,seam.operation_ids.last().context("seam operation")?,seam.source_identity.source_id,seam.source_identity.feature_id,seam.sampled_vertices,seam.max_sampled_displacement_m));
     }
+    let mut seen_limits = BTreeSet::new();
+    limitations.retain(|entry| seen_limits.insert(entry.clone()));
     let manifest = Manifest {
         schema_version: 1,
-        release_id: recipe.release_id.clone(),
-        producer_revision: recipe.producer_revision.clone(),
+        release_id: build_id.to_owned(),
         recipe_sha256: hex::encode(Sha256::digest(serde_json::to_vec(recipe)?)),
-        coordinate_convention: "wgs84_longitude_latitude_degrees".into(),
         files: vec![],
         layers: vec![],
         values: mapped.values,
@@ -243,6 +259,11 @@ fn compile_selected(
                     rule,
                     rule.source_feature_selectors
                         .iter()
+                        .chain(
+                            rule.source_components
+                                .iter()
+                                .map(|component| &component.feature),
+                        )
                         .map(|id| id.source_id.clone())
                         .collect(),
                     rule.citations.clone(),
@@ -265,6 +286,11 @@ fn compile_selected(
                         .flat_map(|m| {
                             m.source_feature_selectors
                                 .iter()
+                                .chain(
+                                    m.source_components
+                                        .iter()
+                                        .map(|component| &component.feature),
+                                )
                                 .map(|id| id.source_id.clone())
                         })
                         .collect(),
@@ -276,13 +302,6 @@ fn compile_selected(
         omissions: recipe.omissions.clone(),
         scope: Scope {
             description: recipe.scope.clone(),
-            selected_source_identities: sources
-                .features
-                .iter()
-                .map(|feature| feature.identity.clone())
-                .collect::<BTreeSet<_>>()
-                .into_iter()
-                .collect(),
         },
         limitations,
     };
@@ -306,7 +325,7 @@ fn compile_selected(
     })
 }
 
-/// Retain the complete resolved rule as descriptive provenance, never executable reader policy.
+/// Retain rule parameters once, alongside their shared descriptive provenance.
 fn provenance(
     id: &str,
     description: &str,
@@ -317,10 +336,28 @@ fn provenance(
 ) -> Result<ProvenanceRecord> {
     source_ids.sort();
     source_ids.dedup();
+    let mut definition = serde_json::to_value(definition)?;
+    if let Some(fields) = definition.as_object_mut() {
+        for key in [
+            "id",
+            "description",
+            "rationale",
+            "citations",
+            "supporting_citations",
+            "notice_paths",
+        ] {
+            fields.remove(key);
+        }
+        fields.retain(|_, value| {
+            !value.is_null()
+                && value.as_str() != Some("")
+                && !value.as_array().is_some_and(Vec::is_empty)
+        });
+    }
     Ok(ProvenanceRecord {
         id: id.into(),
         description: description.into(),
-        definition: serde_json::to_value(definition)?,
+        definition,
         source_ids,
         citations,
         notice_paths,
@@ -361,8 +398,8 @@ pub struct AcceptanceReport {
     pub reviewed_omissions: usize,
 }
 
-/// Verify recipe identity and exact per-field candidate/coverage expectations.
-#[tracing::instrument(skip_all,name="geography.verify",level="debug",fields(release_id=%recipe.release_id))]
+/// Check recipe identity and independent query expectations for production-validated data.
+#[tracing::instrument(skip_all, name = "geography.verify", level = "debug", fields())]
 pub fn verify_bundle(
     bundle: &mut clacks_geography::artifact::read::Bundle,
     recipe: &BuildRecipe,
@@ -372,9 +409,7 @@ pub fn verify_bundle(
     use clacks_model::position::{Coordinates, Locator, LookupGeometry};
     validate_recipe(recipe)?;
     ensure!(
-        bundle.manifest().recipe_sha256 == hex::encode(Sha256::digest(serde_json::to_vec(recipe)?))
-            && bundle.manifest().release_id == recipe.release_id
-            && bundle.manifest().producer_revision == recipe.producer_revision,
+        bundle.manifest().recipe_sha256 == hex::encode(Sha256::digest(serde_json::to_vec(recipe)?)),
         "bundle does not match resolved recipe"
     );
     ensure!(

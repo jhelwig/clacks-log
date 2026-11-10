@@ -36,6 +36,22 @@ revision, run and attempt; rebuilding a version is not an ordered upgrade.
 Each distinct release advances the shared numeric Cargo version. Windows may
 remain unsigned while the Mac artifact is Developer ID signed and notarized.
 
+## Geographic build artifact
+
+The common Linux job restores the validated data cache or generates data on a
+miss, then transfers the same directory and expected manifest digest to both
+native jobs. It also runs for a macOS-only manual build. See the
+[common build procedure](../../../references/geography/BUILDING.md) and
+[Windows payload instructions](../windows/README.md#geographic-build-artifact).
+Native compilation embeds `CLACKS_GEOGRAPHY_MANIFEST_SHA256` from that output.
+
+Assembly copies the tree to `Contents/Resources/geography`, retaining declared
+notices, and checks it against the common expected digest before Developer ID
+signing. Mounted disk-image inspection verifies runtime identity/integrity and
+the final application signature with data already included. It does not repeat
+exhaustive production acceptance. Existing build evidence records geographic
+identity and size; no standalone geographic release is needed.
+
 ## Signing setup
 
 Both development downloads and versioned downloads require:
@@ -133,7 +149,8 @@ and sole default access group `PREFIX.com.w7hex.clacks-log` and its team ID.
 Keep credential service identifiers unchanged. The original icon/provenance
 lives in [the artwork guide](../../../lib/clacks-desktop/assets/README.md).
 
-There are no presently required external geographic files or non-system dynamic
+Geographic files ship in `Contents/Resources/geography`; no separate installation
+is required. There are no presently required non-system dynamic
 libraries in this payload. Inspect `file`, `vtool -show-build` and `otool -L`
 against the actual build; add explicitly required permitted runtime files and
 their notices if dependencies change. Do not ship developer/Homebrew paths,

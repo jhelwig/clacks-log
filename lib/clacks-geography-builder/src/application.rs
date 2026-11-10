@@ -39,6 +39,15 @@ struct Arguments {
 /// Commands whose effects are explicitly selected by the operator.
 #[derive(Subcommand)]
 enum Command {
+    /// Author reviewed shipping inputs from pinned original sources without building a bundle.
+    AuthorShipping {
+        /// References tree containing geography recipes and reviewed input files.
+        #[arg(long)]
+        references: PathBuf,
+        /// Already acquired digest-keyed source cache.
+        #[arg(long)]
+        cache: PathBuf,
+    },
     /// Inspect selected source identities, attributes and guards for recipe maintenance.
     Inspect {
         /// Pinned source/selection recipe.
@@ -65,6 +74,9 @@ enum Command {
         /// Previously acquired source cache; no downloads occur.
         #[arg(long)]
         cache: PathBuf,
+        /// Generation-input fingerprint supplied by the build pipeline.
+        #[arg(long)]
+        build_id: String,
         /// Release store with an atomically replaced current pointer.
         #[arg(long)]
         output: PathBuf,
@@ -101,15 +113,19 @@ pub fn run() -> Result<()> {
 /// Compose one explicit maintenance workflow using the production library operations.
 fn execute(command: Command, cancelled: &AtomicBool) -> Result<()> {
     match command {
+        Command::AuthorShipping { references, cache } => {
+            let output = crate::authoring::author(&references, &cache, cancelled)?;
+            println!("Wrote {}", output.display());
+        }
         Command::Inspect { recipe, cache } => {
             let recipe = read_recipe(&recipe).inspect_err(|error| tracing::error!(category="recipe",error=%error,"Geographic recipe rejected"))?;
-            let sources = decode_sources(&recipe, &cache, cancelled).inspect_err(|error| tracing::error!(release_id=%recipe.release_id,category="source",error=%error,"Geographic inspection failed"))?;
+            let sources = decode_sources(&recipe, &cache, cancelled).inspect_err(|error| tracing::error!(category="source",error=%error,"Geographic inspection failed"))?;
             let summaries:Vec<_>=sources.features.iter().map(|feature|serde_json::json!({"identity":feature.identity,"feature_sha256":feature.feature_sha256,"properties":feature.properties})).collect();
             serde_json::to_writer_pretty(std::io::stdout().lock(), &summaries).inspect_err(|error| tracing::error!(category="output",error=%error,"Geographic inspection output failed"))?;
         }
         Command::Fetch { recipe, cache } => {
             let recipe = read_recipe(&recipe).inspect_err(|error| tracing::error!(category="recipe",error=%error,"Geographic recipe rejected"))?;
-            let report = fetch_sources(&recipe, &cache, cancelled).inspect_err(|error| tracing::error!(release_id=%recipe.release_id,category="source",error=%error,"Geographic acquisition failed"))?;
+            let report = fetch_sources(&recipe, &cache, cancelled).inspect_err(|error| tracing::error!(category="source",error=%error,"Geographic acquisition failed"))?;
             println!(
                 "Sources: {} installed, {} verified and reused",
                 report.installed, report.reused
@@ -118,16 +134,17 @@ fn execute(command: Command, cancelled: &AtomicBool) -> Result<()> {
         Command::Build {
             recipe,
             cache,
+            build_id,
             output,
         } => {
             let started = Instant::now();
             let result = read_recipe(&recipe).inspect_err(|error| tracing::error!(category="recipe",error=%error,"Geographic recipe rejected")).and_then(|recipe| {
-                crate::publish::build_release(&recipe, &cache, &output, cancelled)
+                crate::publish::build_release(&recipe, &build_id, &cache, &output, cancelled)
                     .inspect_err(|error| {
                         if error.is::<crate::source::BuildCancelled>() {
-                            tracing::info!(name:"geography.build_cancelled",release_id=%recipe.release_id,"Geographic build cancelled before publication");
+                            tracing::info!(name:"geography.build_cancelled",release_id=%build_id,"Geographic build cancelled before publication");
                         } else {
-                            tracing::error!(name:"geography.bundle_rejected",release_id=%recipe.release_id,category="build_failed",error=?error,"Geographic bundle rejected");
+                            tracing::error!(name:"geography.bundle_rejected",release_id=%build_id,category="build_failed",error=?error,"Geographic bundle rejected");
                         }
                     })
             });
@@ -147,11 +164,13 @@ fn execute(command: Command, cancelled: &AtomicBool) -> Result<()> {
         }
         Command::Verify { bundle, recipe } => {
             let recipe = read_recipe(&recipe).inspect_err(|error| tracing::error!(category="recipe",error=%error,"Geographic recipe rejected"))?;
-            let mut bundle = clacks_geography::artifact::read::open_bundle(&bundle).inspect_err(|error| tracing::error!(release_id=%recipe.release_id,category="artifact",error=%error,"Geographic verification failed"))?;
-            let report = crate::compile::verify_bundle(&mut bundle, &recipe).inspect_err(|error| tracing::error!(release_id=%recipe.release_id,category="acceptance",error=%error,"Geographic verification failed"))?;
+            let mut bundle = clacks_geography::artifact::validate::open_bundle(&bundle).inspect_err(|error| tracing::error!(category="artifact",error=%error,"Geographic verification failed"))?;
+            let report = crate::compile::verify_bundle(&mut bundle, &recipe).inspect_err(|error| tracing::error!(category="acceptance",error=%error,"Geographic verification failed"))?;
             println!(
                 "Verified {}: {} acceptance cases; {} reviewed omissions",
-                recipe.release_id, report.checked_cases, report.reviewed_omissions
+                bundle.manifest().release_id,
+                report.checked_cases,
+                report.reviewed_omissions
             );
         }
     }

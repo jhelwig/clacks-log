@@ -10,8 +10,7 @@ use std::{fs, sync::atomic::AtomicBool};
 fn recipe(dir: &std::path::Path, text: &[u8], source_url: &str) -> std::path::PathBuf {
     let digest = hex::encode(Sha256::digest(text));
     let json = serde_json::json!({
-        "schema_version":1,"release_id":"test-1","producer_revision":"test",
-        "sources":[{"id":"zones","publisher":"test","upstream_version":"1","citation_urls":["https://example.invalid/source"],"download_url":source_url,
+        "schema_version":1,"sources":[{"id":"zones","publisher":"test","upstream_version":"1","citation_urls":["https://example.invalid/source"],"download_url":source_url,
         "archive_sha256":digest,"expected_coordinate_declaration":"GeoJSON WGS84","text_encoding":"UTF-8","archive_members":[],"notice_paths":["notices/test.txt"],"kind":{"zones":{"assignment":"cqZones","expected_features":1,"open_rings":[]}},
         "limits":{"download_bytes":10000,"member_bytes":10000,"expanded_bytes":20000,"members":8}}],
         "selections":[{"source_id":"zones","identity_fields":["name"],"properties":{"name":["3"]},"expected_count":1}],

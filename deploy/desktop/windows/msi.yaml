@@ -39,6 +39,10 @@ components:
             icon: ClacksLogIcon
             properties:
               System.AppUserModel.ID: com.w7hex.clacks-log
+  - id: GeographicData
+    directory: geography
+    files:
+      - source: ../../../target/geography-build/geography/
   - id: ProjectLicense
     files:
       - source: ../../../LICENSE

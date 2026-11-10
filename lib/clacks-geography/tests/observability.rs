@@ -1,7 +1,7 @@
 mod support;
 mod telemetry;
 
-use clacks_geography::artifact::{read::open_bundle, write::write_bundle};
+use clacks_geography::artifact::{validate::open_bundle, write::write_bundle};
 use clacks_model::position::{Coordinates, LookupGeometry};
 
 #[test]

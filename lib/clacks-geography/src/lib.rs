@@ -8,6 +8,7 @@
 #![cfg_attr(not(test), deny(clippy::expect_used, clippy::unwrap_used))]
 
 pub mod artifact;
+pub mod assistance;
 pub mod error;
 pub mod geometry;
 pub mod lookup;

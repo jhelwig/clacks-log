@@ -43,6 +43,11 @@ Not delivered by this issue:
   docking or additional entry windows. Future entry windows share the same
   unfinished contact under the desktop UI contract.
 
+Geographic assistance under #23 extends the same station values and contact save
+boundary through shared native geographic rules. It is not owned by these forms:
+automatic live capture uses the same population operation. Saved history,
+provider facts and explicit conflict-resolution choices retain their values.
+
 The agreed upper-right area accommodates Worked Before when #10 delivers it.
 The [history specification](history.md) defines that capability and its
 expression-based filters, extending this issue's production list and editor.

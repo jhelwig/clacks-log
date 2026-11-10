@@ -304,7 +304,7 @@ fn station_fields(
         ui.separator();
         ui.strong("Geographic details");
         let edited = text_changed(&form.dxcc, baseline.map(|value| value.dxcc.as_str()));
-        changed |= radio_text_with_fallback(
+        let field_changed = radio_text_with_fallback(
             ui,
             &format!("{id}.dxcc"),
             "DXCC entity",
@@ -316,11 +316,16 @@ fn station_fields(
                 source: f.source,
             }),
         );
+        if field_changed {
+            form.geographic_protection
+                .insert(clacks_geography::artifact::Field::Dxcc);
+        }
+        changed |= field_changed;
         let edited = text_changed(
             &form.primary_subdivision,
             baseline.map(|value| value.primary_subdivision.as_str()),
         );
-        changed |= radio_text_with_fallback(
+        let field_changed = radio_text_with_fallback(
             ui,
             &format!("{id}.state"),
             "State / province",
@@ -332,11 +337,16 @@ fn station_fields(
                 source: f.source,
             }),
         );
+        if field_changed {
+            form.geographic_protection
+                .insert(clacks_geography::artifact::Field::PrimarySubdivision);
+        }
+        changed |= field_changed;
         let edited = text_changed(
             &form.secondary_subdivision,
             baseline.map(|value| value.secondary_subdivision.as_str()),
         );
-        changed |= radio_text_with_fallback(
+        let field_changed = radio_text_with_fallback(
             ui,
             &format!("{id}.county"),
             "County / subdivision",
@@ -348,8 +358,13 @@ fn station_fields(
                 source: f.source,
             }),
         );
+        if field_changed {
+            form.geographic_protection
+                .insert(clacks_geography::artifact::Field::SecondarySubdivision);
+        }
+        changed |= field_changed;
         let edited = zone_changed(&form.cq_zone, baseline.map(|value| value.cq_zone.as_str()));
-        changed |= radio_text_with_fallback(
+        let field_changed = radio_text_with_fallback(
             ui,
             &format!("{id}.cq"),
             "CQ zone",
@@ -361,11 +376,16 @@ fn station_fields(
                 source: f.source,
             }),
         );
+        if field_changed {
+            form.geographic_protection
+                .insert(clacks_geography::artifact::Field::CqZone);
+        }
+        changed |= field_changed;
         let edited = zone_changed(
             &form.itu_zone,
             baseline.map(|value| value.itu_zone.as_str()),
         );
-        changed |= radio_text_with_fallback(
+        let field_changed = radio_text_with_fallback(
             ui,
             &format!("{id}.itu"),
             "ITU zone",
@@ -377,6 +397,11 @@ fn station_fields(
                 source: f.source,
             }),
         );
+        if field_changed {
+            form.geographic_protection
+                .insert(clacks_geography::artifact::Field::ItuZone);
+        }
+        changed |= field_changed;
     });
     changed |=
         references_with_fallback(ui, id, &mut form.references, definitions, errors, fallback);

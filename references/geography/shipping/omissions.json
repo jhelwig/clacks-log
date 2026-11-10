@@ -1,0 +1,45 @@
+[
+  {
+    "id": "pitcairn-includes-separate-ducie",
+    "field": "dxcc",
+    "source_identities": [{"source_id":"subunits","feature_id":"PCN"}],
+    "reason": "The original Natural Earth PCN feature contains four components: Pitcairn, Ducie, Henderson and Oeno. Ducie (near 124.79 W, 24.67 S) is separate DXCC entity 513, while Pitcairn is 172. No whole-feature value is supported without a reviewed component correspondence; this feature remains unclassified.",
+    "citations": [
+      "https://www.arrl.org/country-lists-prefixes",
+      "https://lotw.arrl.org/lotw-help/specialdocumentationrequirements/",
+      "Pinned Natural Earth 5.1.1 PCN original component inspection; source archive/semantic feature provenance retained in the resolved recipe and manifest."
+    ]
+  },
+  {
+    "id": "nz-subantarctic-includes-snares",
+    "field": "dxcc",
+    "source_identities": [{"source_id":"subunits","feature_id":"NZA"}],
+    "reason": "The original Natural Earth NZA feature includes the Snares component near 166.6 E, 48 S. ARRL's 2015 clarification places Auckland, Campbell, Antipodes and Bounty in entity 16 but specifically excludes the Snares. No whole-feature entity 16 assignment is supported without a reviewed component split; this feature remains unclassified.",
+    "citations": [
+      "https://www.arrl.org/news/arrl-dxcc-department-announces-zl9-name-change",
+      "Pinned Natural Earth 5.1.1 NZA original component inspection; source archive/semantic feature provenance retained in the resolved recipe and manifest."
+    ]
+  },
+  {
+    "id": "costa-rica-includes-cocos",
+    "field": "dxcc",
+    "source_identities": [{"source_id":"subunits","feature_id":"CRI"}],
+    "reason": "The original Natural Earth CRI feature includes Cocos Island near 5.53 N, 87.07 W, far southwest of mainland Costa Rica. Cocos is separate DXCC entity 37; mainland Costa Rica is 308. No whole-feature value is supported without a reviewed component split; this feature remains unclassified.",
+    "citations": [
+      "https://lotw.arrl.org/lotw/docreq",
+      "https://whc.unesco.org/en/list/820/",
+      "Pinned Natural Earth 5.1.1 CRI original component inspection; source archive/semantic feature provenance retained in the resolved recipe and manifest."
+    ]
+  },
+  {
+    "id": "spain-includes-african-islands",
+    "field": "dxcc",
+    "source_identities": [{"source_id":"subunits","feature_id":"ESX"}],
+    "reason": "The original Natural Earth ESX feature includes African Spanish island components, including a Chafarinas component near 35.18 N, 2.43 W. The official Islands On The Air AF-036 directory places Chafarinas in Ceuta and Melilla (DXCC 32), while mainland Spain is 281. Separate Natural Earth SEC and SEM records therefore do not establish a correct whole-feature ESX assignment. ESX remains unclassified without a reviewed component split.",
+    "citations": [
+      "https://www.iota-world.org/islands-on-the-air/iota-groups-islands/35.html",
+      "https://www.arrl.org/country-lists-prefixes",
+      "Pinned Natural Earth 5.1.1 ESX original component inspection; source archive/semantic feature provenance retained in the resolved recipe and manifest."
+    ]
+  }
+]

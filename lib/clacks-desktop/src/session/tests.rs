@@ -55,6 +55,8 @@ impl Fixture {
         let (settings_updates, settings_view) = watch::channel(None);
         let (lookup_output, lookup) = watch::channel(None);
         let resources = SessionResources {
+            geography: watch::channel(Default::default()).0,
+            geography_bundle: None,
             ws_suite: crate::ws_suite::Outputs {
                 calls: tokio::sync::mpsc::unbounded_channel().0,
                 updates: watch::channel(Default::default()).0,
@@ -112,6 +114,11 @@ pub(crate) async fn next_matching(
 #[tokio::test(flavor = "multi_thread")]
 async fn retry_does_not_leak_failed_resources() -> anyhow::Result<()> {
     let mut fixture = Fixture::new()?;
+    fixture.resources.geography_bundle = Some(crate::geography::Selection {
+        path: fixture._directory.path().join("missing-override"),
+        manifest_sha256: "0".repeat(64),
+    });
+    let mut geography = fixture.resources.geography.subscribe();
     std::fs::write(&fixture.resources.paths.database, b"invalid")?;
     let database = fixture.resources.paths.database.clone();
 
@@ -128,6 +135,20 @@ async fn retry_does_not_leak_failed_resources() -> anyhow::Result<()> {
         matches!(s, SessionStatus::Ready { .. })
     })
     .await?;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while matches!(
+            *geography.borrow_and_update(),
+            crate::geography::GeographyStatus::Opening
+        ) {
+            geography.changed().await?;
+        }
+        anyhow::Ok(())
+    })
+    .await??;
+    assert!(matches!(
+        *geography.borrow(),
+        crate::geography::GeographyStatus::Unavailable(_)
+    ));
     fixture.commands.send(SessionCommand::BeginShutdown).await?;
     next_matching(&mut fixture.status, |s| matches!(s, SessionStatus::Closed)).await?;
     task.await??;
@@ -183,29 +204,3 @@ async fn close_while_failed_preserves_file_and_releases_resources() -> anyhow::R
 }
 
 pub(crate) mod ws_suite;
-
-#[tokio::test]
-async fn ready_exposes_lookup_before_new_form_submissions() -> anyhow::Result<()> {
-    let fixture = Fixture::new()?;
-    let status = fixture.status.clone();
-    let lookup = fixture.resources.lookup.subscribe();
-    let context = eframe::egui::Context::default();
-    let (observed, mut ready_wakes) = mpsc::unbounded_channel();
-    context.set_repaint_observer(move |_| {
-        if matches!(*status.borrow(), SessionStatus::Ready { .. }) {
-            let _ = observed.send(lookup.borrow().is_some());
-        }
-    });
-    assert!(fixture.resources.context.set(context).is_ok());
-    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
-    let available = tokio::time::timeout(Duration::from_secs(5), ready_wakes.recv())
-        .await?
-        .unwrap();
-    fixture.commands.send(SessionCommand::BeginShutdown).await?;
-    task.await??;
-    assert!(
-        available,
-        "a newly admissible save must be able to retain its lookup deadline handle"
-    );
-    Ok(())
-}

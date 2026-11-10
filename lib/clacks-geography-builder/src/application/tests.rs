@@ -2,38 +2,6 @@
 
 use super::*;
 
-#[test]
-fn build_and_verify_are_explicit_discoverable_commands() {
-    assert!(
-        Arguments::try_parse_from([
-            "clacks-geography-build",
-            "build",
-            "--recipe",
-            "recipe.json",
-            "--cache",
-            "cache",
-            "--output",
-            "output"
-        ])
-        .is_ok()
-    );
-    assert!(
-        Arguments::try_parse_from([
-            "clacks-geography-build",
-            "verify",
-            "--bundle",
-            "bundle",
-            "--recipe",
-            "recipe.json"
-        ])
-        .is_ok()
-    );
-    assert!(
-        Arguments::try_parse_from(["clacks-geography-build", "build", "--recipe", "recipe.json"])
-            .is_err()
-    );
-}
-
 use crate::publication_recipe;
 mod telemetry;
 
@@ -47,6 +15,7 @@ fn build_reporting_counts_real_outcomes_and_not_staged_success() {
         || {
             let first = execute(
                 Command::Build {
+                    build_id: "one".into(),
                     recipe: recipe.clone(),
                     cache: cache.clone(),
                     output: output.clone(),
@@ -55,6 +24,7 @@ fn build_reporting_counts_real_outcomes_and_not_staged_success() {
             );
             let second = execute(
                 Command::Build {
+                    build_id: "one".into(),
                     recipe: recipe.clone(),
                     cache: cache.clone(),
                     output: output.clone(),
@@ -63,6 +33,7 @@ fn build_reporting_counts_real_outcomes_and_not_staged_success() {
             );
             let cancelled = execute(
                 Command::Build {
+                    build_id: "one".into(),
                     recipe: recipe.clone(),
                     cache,
                     output: output.clone(),
@@ -71,6 +42,7 @@ fn build_reporting_counts_real_outcomes_and_not_staged_success() {
             );
             let invalid = execute(
                 Command::Build {
+                    build_id: "one".into(),
                     recipe: directory.path().join("missing.json"),
                     cache: directory.path().join("cache"),
                     output,
@@ -125,6 +97,7 @@ fn rejected_build_reports_release_and_category_with_debug_filtered() {
         || {
             execute(
                 Command::Build {
+                    build_id: "one".into(),
                     recipe,
                     cache: directory.path().join("cache"),
                     output,

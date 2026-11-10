@@ -1,0 +1,57 @@
+[
+  {
+    "pin": {
+      "id": "aleutian-faces-02013",
+      "publisher": "U.S. Census Bureau",
+      "upstream_version": "2026",
+      "citation_urls": [
+        "https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc.pdf#page=153"
+      ],
+      "download_url": "https://www2.census.gov/geo/tiger/TIGER2026/FACES/tl_2026_02013_faces.zip?download=1",
+      "archive_sha256": "9bf445f2f2d870d661ad43d3685578967dc913ea45918077839bbde28110cc01",
+      "expected_coordinate_declaration": "GEOGCS[\"GCS_North_American_1983\",DATUM[\"D_North_American_1983\",SPHEROID[\"GRS_1980\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]",
+      "text_encoding": "UTF-8",
+      "archive_members": [
+        "tl_2026_02013_faces.cpg",
+        "tl_2026_02013_faces.dbf",
+        "tl_2026_02013_faces.prj",
+        "tl_2026_02013_faces.shp",
+        "tl_2026_02013_faces.shp.ea.iso.xml",
+        "tl_2026_02013_faces.shp.iso.xml",
+        "tl_2026_02013_faces.shx"
+      ],
+      "notice_paths": [
+        "notices/census.txt"
+      ],
+      "attribute_domains": {
+        "LWFLAG": [
+          "G",
+          "I",
+          "L",
+          "P",
+          "S"
+        ]
+      },
+      "kind": "shapefile",
+      "limits": {
+        "download_bytes": 536870912,
+        "member_bytes": 1073741824,
+        "expanded_bytes": 2147483648,
+        "members": 128
+      }
+    },
+    "selection": {
+      "source_id": "aleutian-faces-02013",
+      "identity_fields": [
+        "TFID"
+      ],
+      "properties": {
+        "LWFLAG": [
+          "L"
+        ]
+      },
+      "feature_sha256": null,
+      "expected_count": 1989
+    }
+  }
+]

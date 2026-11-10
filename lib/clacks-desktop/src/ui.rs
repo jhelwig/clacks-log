@@ -12,6 +12,7 @@ mod equipment;
 mod feedback;
 mod fields;
 pub(crate) mod fonts;
+mod geography;
 mod logbooks;
 mod logging;
 mod menu_commands;
@@ -47,6 +48,8 @@ use tracing_appender::non_blocking::ErrorCounter;
 
 /// Runtime handles and diagnostic resources transferred to the native window.
 pub(crate) struct UiResources {
+    /// Selected geographic data readiness, independent of workspace initialization.
+    pub geography_view: watch::Receiver<crate::geography::GeographyStatus>,
     /// Ordered WS entry updates belonging to this workspace.
     pub entry_calls: mpsc::UnboundedReceiver<crate::ws_suite::EntryCall>,
     /// Current workspace's shared directory client.
@@ -81,6 +84,8 @@ pub(crate) struct UiResources {
 
 /// Window-owned view state and standard communication handles.
 pub(crate) struct DesktopApp {
+    /// Shared reader readiness for operation-specific geographic requests.
+    geography_view: watch::Receiver<crate::geography::GeographyStatus>,
     /// Native Select all is delivered through egui's next ordinary text input pass.
     pending_text_select_all: Option<egui::Id>,
     /// Entry updates drained even while entry is hidden.
@@ -153,6 +158,7 @@ impl DesktopApp {
     /// Attach the actual session and diagnostic state to one native window.
     pub fn new(resources: UiResources) -> Self {
         let UiResources {
+            geography_view,
             entry_calls,
             ws_suite_view,
             lookup_view,
@@ -170,6 +176,7 @@ impl DesktopApp {
             file_failure,
         } = resources;
         Self {
+            geography_view,
             entry_calls,
             ws_suite: Default::default(),
             ws_suite_view,
@@ -229,6 +236,11 @@ impl DesktopApp {
 
     /// Apply background notifications and native close handling, including while hidden.
     fn update_lifecycle(&mut self, context: &egui::Context) {
+        let geography = self.geography_view.borrow_and_update().clone();
+        self.workbench
+            .advance_geography(&self.commands, &geography, self.close_requested);
+        self.settings
+            .advance_geography(&self.commands, &geography, self.close_requested);
         if self.contact_changes.has_changed().unwrap_or(false) {
             self.contact_changes.borrow_and_update();
             self.workbench.entry.changed = true;

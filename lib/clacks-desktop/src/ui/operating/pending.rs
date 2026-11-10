@@ -84,6 +84,10 @@ pub(super) fn show(
                 frame.validation.edited(ui.input(|input| input.time));
             }
             editor.station_changed(&previous, definitions);
+            if frame.geography.show(ui, &mut editor.station) {
+                frame.validation.edited(ui.input(|input| input.time));
+                editor.station_changed(&previous, definitions);
+            }
             if ui.button("Save station values as profile…").clicked() {
                 navigation.next = Some(Screen::Profile(Box::new(ProfileEditor::new(
                     None,

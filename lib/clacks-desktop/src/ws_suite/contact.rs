@@ -3,6 +3,7 @@ use super::protocol::{CompletionFormat, DecodedCompletion, IncomingFacts, Primar
 use clacks_client_store::{
     logbooks::selection::SelectedView, operating::OperatingState, settings::SettingsSnapshot,
 };
+use clacks_geography::{artifact::Field, assistance::populate};
 use clacks_model::{
     contact::{
         BandFrequency, OperatorInformationFields, OwnOperatingContext, Qso, StationSnapshot,
@@ -22,6 +23,7 @@ use clacks_model::{
     scalar::{Hertz, Milliwatts, RecordedCallsign},
 };
 use clacks_sync::record::{RecordState, RecordValue};
+use std::collections::BTreeSet;
 
 /// One immutable capture basis, independent of the unfinished manual contact.
 #[derive(Clone, Debug)]
@@ -58,6 +60,10 @@ impl CaptureContext {
 pub(crate) struct CaptureProjection {
     /// Complete checked contact, ready for the existing save operation.
     pub qso: Qso,
+    /// Supplied own fields, including rejected nonempty supplied absence.
+    pub own_protected: BTreeSet<Field>,
+    /// Supplied contacted fields, including rejected nonempty supplied absence.
+    pub contacted_protected: BTreeSet<Field>,
     /// Supplied optional fields omitted or unsupported in the native model.
     pub warnings: Vec<String>,
 }
@@ -199,6 +205,8 @@ pub(crate) fn build(
             .map(|current| current.station.callsign.clone())
             .ok_or_else(|| anyhow::anyhow!("Our station callsign is missing."))?,
     };
+    let own_protected = supplied_protection(facts, true);
+    let contacted_protected = supplied_protection(facts, false);
     let own_location = location(
         facts,
         true,
@@ -327,5 +335,79 @@ pub(crate) fn build(
         tags,
     }
     .try_into()?;
-    Ok(CaptureProjection { qso, warnings })
+    Ok(CaptureProjection {
+        qso,
+        warnings,
+        own_protected,
+        contacted_protected,
+    })
+}
+
+/// Mark wire eligibility before parsing; invalid nonempty input is protected absence.
+fn supplied_protection(facts: &IncomingFacts, own: bool) -> BTreeSet<Field> {
+    [
+        (Field::Dxcc, if own { "MY_DXCC" } else { "DXCC" }),
+        (
+            Field::PrimarySubdivision,
+            if own { "MY_STATE" } else { "STATE" },
+        ),
+        (
+            Field::SecondarySubdivision,
+            if own { "MY_CNTY" } else { "CNTY" },
+        ),
+        (Field::CqZone, if own { "MY_CQ_ZONE" } else { "CQZ" }),
+        (Field::ItuZone, if own { "MY_ITU_ZONE" } else { "ITUZ" }),
+    ]
+    .into_iter()
+    .filter_map(|(field, name)| facts.text(name).map(|_| field))
+    .collect()
+}
+
+/// Assist the selected stable projection before a contact transaction is opened.
+/// Failure and ambiguity leave a valid capture usable with its existing warnings.
+pub(crate) async fn assist(
+    mut projection: CaptureProjection,
+    geography: &crate::geography::Client,
+) -> CaptureProjection {
+    let mut fields = projection.qso.clone().into_fields();
+    assist_station(
+        &mut fields.own_station,
+        &projection.own_protected,
+        geography,
+    )
+    .await;
+    assist_station(
+        &mut fields.contacted_station,
+        &projection.contacted_protected,
+        geography,
+    )
+    .await;
+    match fields.try_into() {
+        Ok(qso) => projection.qso = qso,
+        Err(_) => tracing::error!(event = "geography.capture_projection_failed"),
+    }
+    projection
+}
+
+/// Populate eligible native station fields, retaining all non-geographic station facts.
+async fn assist_station(
+    station: &mut StationSnapshot,
+    protected: &BTreeSet<Field>,
+    geography: &crate::geography::Client,
+) {
+    let Some(location) = station.location.as_ref() else {
+        return;
+    };
+    let Some(position) = location.position().as_ref().cloned() else {
+        return;
+    };
+    let Ok(result) = geography.lookup(position).await else {
+        return;
+    };
+    let mut fields = location.clone().into_fields();
+    populate(&mut fields, protected, &result);
+    match fields.try_into() {
+        Ok(location) => station.location = Some(location),
+        Err(_) => tracing::error!(event = "geography.capture_station_failed"),
+    }
 }

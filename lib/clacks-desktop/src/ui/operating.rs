@@ -111,6 +111,8 @@ pub(super) struct DeletionReview {
 
 /// An originating screen's form, validation and independently owned response.
 pub(super) struct Frame {
+    /// Replies and choices belonging to this frame's pending station, not a reusable record.
+    pub(super) geography: super::geography::GeographyView,
     /// Native widget to focus when this destination is dismissed.
     opener: Option<egui::Id>,
     /// Purpose-specific form or list.
@@ -134,6 +136,7 @@ impl Frame {
     /// Open a new navigation destination without inheriting another form's request.
     fn new(screen: Screen) -> Self {
         Self {
+            geography: Default::default(),
             opener: None,
             screen,
             tab: Default::default(),
@@ -216,6 +219,32 @@ enum OperatingTab {
     Operator,
 }
 impl SettingsUi {
+    /// Apply eligible native results within the existing pending editor boundary.
+    pub(super) fn advance_geography(
+        &mut self,
+        commands: &mpsc::Sender<crate::session::SessionCommand>,
+        status: &crate::geography::GeographyStatus,
+        closing: bool,
+    ) {
+        for frame in &mut self.stack {
+            let station = match &mut frame.screen {
+                Screen::Operating(editor) => Some((&mut editor.station, "operating_settings")),
+                Screen::Profile(editor) => Some((&mut editor.station, "station_profile")),
+                _ => None,
+            };
+            if let Some((station, context)) = station
+                && frame.geography.advance(
+                    station,
+                    commands,
+                    status,
+                    closing || frame.response.is_some(),
+                    context,
+                )
+            {
+                frame.validation.invalidate();
+            }
+        }
+    }
     /// Open a specific saved profile for reference repair without loading its values.
     pub fn open_profile(&mut self, record: ClientRecord) {
         if let Some(profile) = profile(&record) {

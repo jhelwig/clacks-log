@@ -20,6 +20,10 @@ use tokio::sync::mpsc;
 
 /// Saved facts being edited, never the unfinished new-contact entry.
 pub(super) struct ContactEditor {
+    /// Replies and choices for this saved contact's own location only.
+    pub(super) own_geography: crate::ui::geography::GeographyView,
+    /// Replies and choices for this saved contact's contacted location only.
+    pub(super) dx_geography: crate::ui::geography::GeographyView,
     /// Separate directory preview for this saved contact.
     pub directory: crate::ui::logging::directory::DirectoryView,
     /// Complete record used by the store's stale-save protection.
@@ -44,6 +48,8 @@ impl ContactEditor {
         };
         let form = ContactForm::from_qso(qso);
         Ok(Self {
+            own_geography: Default::default(),
+            dx_geography: Default::default(),
             directory: crate::ui::logging::directory::DirectoryView::saved(&form.dx.callsign),
             expected,
             baseline: form.clone(),
@@ -134,6 +140,7 @@ impl ContactsUi {
                     );
                     changed |= detail.edited;
                     enter |= detail.save;
+                    changed |= editor.dx_geography.show(ui, &mut editor.form.dx);
                     ui.strong("Our operating settings");
                     let detail = crate::ui::logging::details::show(
                         ui,
@@ -149,6 +156,7 @@ impl ContactsUi {
                     );
                     changed |= detail.edited;
                     enter |= detail.save;
+                    changed |= editor.own_geography.show(ui, &mut editor.form.own);
                     if changed {
                         editor.validation.edited(now);
                     }

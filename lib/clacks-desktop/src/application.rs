@@ -71,7 +71,10 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
     let (contact_changes, contact_view) = watch::channel(());
     let (ws_suite_calls, entry_calls) = mpsc::unbounded_channel();
     let (ws_suite_updates, ws_suite_view) = watch::channel(Default::default());
+    let (geography, geography_view) = watch::channel(crate::geography::GeographyStatus::Opening);
     let resources = SessionResources {
+        geography,
+        geography_bundle: config.geography_bundle.clone(),
         ws_suite: crate::ws_suite::Outputs {
             updates: ws_suite_updates,
             calls: ws_suite_calls,
@@ -107,6 +110,7 @@ pub(crate) fn run(config: DesktopConfig) -> anyhow::Result<()> {
         options,
         context,
         UiResources {
+            geography_view,
             entry_calls,
             ws_suite_view,
             lookup_view,

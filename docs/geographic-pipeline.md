@@ -9,7 +9,11 @@ The [reader guide](../lib/clacks-geography/README.md) and
 [producer guide](../lib/clacks-geography-builder/README.md) document concrete
 interfaces, commands and numerical limits. The
 [representative recipe](../references/geography/representative.json) carries
-the pinned inputs and acceptance cases.
+the pinned inputs and acceptance cases. Issue #23 adds the separately maintained
+[shipping recipe](../references/geography/shipping.json), shared population rules
+and desktop consumers. The [build procedure](../references/geography/BUILDING.md)
+describes the cacheable data dependency: exact hits reuse validated output and
+misses generate it automatically from the current checkout. Server-provided replacements are future work.
 
 DX Century Club is abbreviated DXCC; International Telecommunication Union is
 ITU. CQ refers to CQ magazine's operating zones. Geographic JavaScript Object
@@ -59,7 +63,7 @@ Production dependency direction:
 clacks-geography -> clacks-model
 clacks-geography-builder -> clacks-geography + clacks-model
 clacks-geography-build executable -> clacks-geography-builder
-later desktop/web composition -> clacks-geography + clacks-model
+clacks-desktop -> clacks-geography + clacks-model
 ```
 
 | Workspace component | Owning modules and responsibilities |
@@ -71,7 +75,7 @@ later desktop/web composition -> clacks-geography + clacks-model
 These module boundaries are engineering choices in this draft. No additional
 shared crate, backend/plugin framework, generic task dispatcher or xtask is needed.
 Readers do not depend on downloads, shapefile decoding or coordinate transformation
-libraries. The builder uses the production reader for acceptance validation.
+libraries. The builder uses the explicit artifact validator for production acceptance.
 
 Use Rust 1.99.1, workspace-inherited dependencies/metadata, ordinary Serde types,
 named module files and owning-module APIs. Follow repository documentation,
@@ -134,8 +138,6 @@ identifiers across arbitrary source changes.
 ```text
 BuildRecipe
   schema_version = 1
-  release_id: nonempty caller-supplied data-release identity
-  producer_revision: pinned Clacks source revision
   sources: SourcePin[]
   selections: SourceSelection[]
   operations: CoordinateOperation[]
@@ -156,7 +158,7 @@ GeometryCorrection
   rationale, supporting_citations, notice_ids
 
 ValueMapping
-  id, source_feature_selectors, field, parent_scope
+  id, source_feature_selectors, optional source_components, field, parent_scope
   recordable_value, display_label, citations
 
 MappingException
@@ -168,6 +170,18 @@ ReviewedOmission
   id, affected_field, source_selectors_or_geometry_reference
   reason, citations
 ```
+
+`source_components` contains `ComponentMask` entries with an exact original
+feature identity and an interior longitude/latitude anchor in that source's
+coordinate convention. Each anchor must identify exactly one original polygon.
+Selected components pass through the same prescribed coordinate operations as
+whole-feature mappings, retaining source provenance. This supports distinct
+DXCC islands within one administrative feature without copying untransformed
+source coordinates into target-frame replacement files. Whole-feature and
+component selections for the same original feature cannot overlap in one
+mapping. Existing mapped exclusions subtract the selected transformed geometry.
+This is producer recipe information; runtime artifact schema and lookup rules
+remain unchanged.
 
 Selectors use source-defined keys, such as the Census geographic identifier
 field `GEOID`, not source file row
@@ -326,8 +340,8 @@ explicit. The reader never interprets an absent/corrupt layer as empty coverage.
 ```text
 Manifest
   schema_version: 1
-  release_id, producer_revision, recipe_sha256
-  coordinate_convention: wgs84_longitude_latitude_degrees
+  release_id: generated build-input identity, independent of application version
+  recipe_sha256
   files: {relative_path, bytes, sha256}[]
   layers: {field, path, feature_count, extent_or_empty}[]
   values: {key, field, parent_scope, recordable_value, display_label}[]
@@ -336,8 +350,9 @@ Manifest
   sources: source versions/commits, archive digests, declarations,
            publisher/citations and notice references
   operations, corrections, mappings, exceptions: provenance records
+    (shared identity/rationale/citations/notices appear once; definition holds rule parameters)
   omissions: reviewed reason and affected feature/geometry references
-  scope: representative coverage description and selected source identities
+  scope: representative coverage description
   limitations: source/accuracy/polar/geometry limits
 ```
 
@@ -346,6 +361,11 @@ duplicates and symlinks. `files` covers every payload/notices file, not the
 manifest itself. Checksums establish integrity relative to the supplied manifest,
 not publisher authentication. Application packaging supplies the trusted bundle;
 cryptographic release signing is not introduced by this contract.
+
+Generated manifests use compact JSON. Coordinate interpretation is fixed by
+this schema and the FlatGeobuf CRS84 headers; it is not a separately configurable
+manifest field. Source identities belong to output derivations and specific
+omissions, not an inventory of every intermediate input feature.
 
 Each FlatGeobuf feature has fixed string properties `part_id`, `value_key` and
 `derivation_key`, referencing manifest entries. Part IDs are unique within a
@@ -382,7 +402,8 @@ Public responsibilities, with concrete Rust naming left to the implementation
 plan:
 
 ```text
-open_bundle(path) -> Result<Bundle>
+read.open_bundle(path, expected_manifest_sha256) -> Result<Bundle>
+validate.open_bundle(path) -> Result<Bundle>  # production acceptance
 Bundle.lookup(LookupGeometry) -> Result<LookupResult>
 
 LookupResult
@@ -411,10 +432,23 @@ Validate supplied grid bounds at the lookup boundary: denominators must be
 nonzero, conversion must produce finite coordinates, and bounds must describe
 a nonempty area within the permitted latitude/longitude range. Invalid query
 geometry returns an ordinary error rather than panicking or producing coverage.
-Open verifies supported schema, required files, hashes and structural references
-before exposing the bundle. It binds subsequent queries to that immutable
-release, not a repeatedly resolved current pointer. Failed reads during query
-propagate errors. No best-effort success from a partially read/corrupt layer.
+Selection supplies an expected manifest digest independently of the selected
+directory: packaged data uses the checked-in release descriptor, and an external
+release uses its explicitly configured digest (or the packaged digest when using
+the same release elsewhere). Runtime opening hashes that same manifest handle
+before interpreting it, checks supported schema, verifies declared payload hashes
+and lengths, and retains their file handles. It performs no full metadata,
+feature, topology, index or directory-inventory validation. Subsequent queries
+remain bound to those immutable files, not a repeatedly resolved current pointer.
+Ordinary decoding guards and I/O errors apply as data is used; failed reads must
+not become successful unknown coverage.
+
+Exhaustive acceptance belongs to `artifact::validate::open_bundle`: manifest
+semantics, feature references, coordinate bounds, polygon topology, framing,
+canonical indexes, counts/extents and complete inventory. Build, explicit verify
+operations use that production path before caching an artifact.
+Native packaging verifies its build-provided manifest and payload identities;
+it does not repeat geographic production acceptance.
 
 For each field:
 
@@ -435,8 +469,9 @@ One candidate with complete coverage is eligible for autofill. Several candidate
 are ambiguous even when one occupies most of the area. Partial coverage never
 permits autofill, even with one candidate. No candidates/none means unknown.
 Do not discard ambiguity in one field to force a jointly consistent location;
-fields resolve independently under D184. Manual selection/application belongs
-to #23. The reader never fills or modifies a `RecordedLocation` itself.
+fields resolve independently under D184. Shared `assistance` rules populate
+eligible native fields; editor adapters record explicit choices. The reader
+never fills or modifies a `RecordedLocation` itself.
 
 ## 8. Publication, reproducibility and command-line boundary
 
@@ -552,8 +587,8 @@ names and bounded resource limits may evolve without changing caller-visible con
 The [representative recipe](../references/geography/representative.json) names
 source selections, guarded replacements, explicit mappings, operation masks and
 independently justified acceptance cases. Its [data documentation](../references/geography/README.md)
-records coverage and authorship. Full geographic crosswalks and expanded coverage
-belong to issue #23; unsupported areas remain explicit omissions.
+records coverage and authorship. The shipping recipe expands this representative
+scope; unsupported areas remain explicit omissions in its maintained notes.
 
 Provenance records retain human-readable descriptions and structured `definition`
 parameters separately. These describe resolved production rules; the reader does

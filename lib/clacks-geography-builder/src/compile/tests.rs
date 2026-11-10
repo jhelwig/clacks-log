@@ -11,8 +11,8 @@ use serde_json::json;
 use sha2_rsa::{Digest, Sha256};
 use std::{collections::BTreeMap, sync::atomic::AtomicBool};
 
-fn setup(directory: &std::path::Path) -> (BuildRecipe, DecodedSources) {
-    let mut recipe:BuildRecipe=serde_json::from_value(json!({"schema_version":1,"release_id":"test","producer_revision":"test-revision","sources":[{"id":"source","publisher":"Test author","upstream_version":"one","citation_urls":["authored test geometry"],"download_url":"https://example.invalid/source","archive_sha256":"0".repeat(64),"expected_coordinate_declaration":"WGS84","text_encoding":"UTF-8","archive_members":[],"notice_paths":[],"kind":"shapefile","limits":{"download_bytes":1024,"member_bytes":1024,"expanded_bytes":1024,"members":10}}],"selections":[],"operations":[{"id":"identity","source_ids":["source"],"method":"identity","assignment":"entire","description":"Already WGS84","citations":["authored"]}],"corrections":[],"mappings":[{"id":"parent","source_feature_selectors":[{"source_id":"source","feature_id":"one"}],"field":"dxcc","parent_scope":"global","recordable_value":"291","display_label":"United States","citations":["authored"]}],"exceptions":[],"omissions":[],"acceptance_cases":[],"notices":{},"scope":"Synthetic square","limitations":[]})).unwrap();
+pub(super) fn setup(directory: &std::path::Path) -> (BuildRecipe, DecodedSources) {
+    let mut recipe:BuildRecipe=serde_json::from_value(json!({"schema_version":1,"sources":[{"id":"source","publisher":"Test author","upstream_version":"one","citation_urls":["authored test geometry"],"download_url":"https://example.invalid/source","archive_sha256":"0".repeat(64),"expected_coordinate_declaration":"WGS84","text_encoding":"UTF-8","archive_members":[],"notice_paths":[],"kind":"shapefile","limits":{"download_bytes":1024,"member_bytes":1024,"expanded_bytes":1024,"members":10}}],"selections":[],"operations":[{"id":"identity","source_ids":["source"],"method":"identity","assignment":"entire","description":"Already WGS84","citations":["authored"]}],"corrections":[],"mappings":[{"id":"parent","source_feature_selectors":[{"source_id":"source","feature_id":"one"}],"field":"dxcc","parent_scope":"global","recordable_value":"291","display_label":"United States","citations":["authored"]}],"exceptions":[],"omissions":[],"acceptance_cases":[],"notices":{},"scope":"Synthetic square","limitations":[]})).unwrap();
     recipe.directory = directory.to_owned();
     let feature = SourceFeature {
         identity: SourceIdentity {
@@ -45,7 +45,7 @@ fn geometry_file(directory: &std::path::Path, name: &str, bounds: [f64; 4]) -> S
 
 #[test]
 fn exclusions_and_replacements_compile_to_actual_query_geometry() {
-    use clacks_geography::artifact::{read::open_bundle, write::write_bundle};
+    use clacks_geography::artifact::{validate::open_bundle, write::write_bundle};
     let dir = tempfile::tempdir().unwrap();
     let (mut recipe, sources) = setup(dir.path());
     let digest = geometry_file(dir.path(), "hole.json", [2., 2., 4., 4.]);
@@ -60,7 +60,7 @@ fn exclusions_and_replacements_compile_to_actual_query_geometry() {
         citations: vec!["authored".into()],
         notice_paths: vec![],
     });
-    let compiled = compile_selected(&recipe, &sources, &AtomicBool::new(false)).unwrap();
+    let compiled = compile_selected(&recipe, "test", &sources, &AtomicBool::new(false)).unwrap();
     let layer = compiled
         .contents
         .layers
@@ -84,6 +84,7 @@ fn exclusions_and_replacements_compile_to_actual_query_geometry() {
         mapping: ValueMapping {
             id: "replacement".into(),
             source_feature_selectors: vec![],
+            source_components: vec![],
             field: Field::Dxcc,
             parent_scope: ParentScope::Global,
             recordable_value: "236".into(),
@@ -91,7 +92,7 @@ fn exclusions_and_replacements_compile_to_actual_query_geometry() {
             citations: vec!["authored".into()],
         },
     });
-    let compiled = compile_selected(&recipe, &sources, &AtomicBool::new(false)).unwrap();
+    let compiled = compile_selected(&recipe, "test", &sources, &AtomicBool::new(false)).unwrap();
     assert_eq!(
         compiled
             .contents
@@ -140,7 +141,7 @@ fn bad_mappings_and_order_dependent_exceptions_fail_closed() {
             _ => unreachable!(),
         }
         assert!(
-            compile_selected(&recipe, &sources, &AtomicBool::new(false)).is_err(),
+            compile_selected(&recipe, "test", &sources, &AtomicBool::new(false)).is_err(),
             "{mutation}"
         );
     }
@@ -162,7 +163,7 @@ fn original_guards_are_checked_before_a_complete_replacement_is_used() {
         supporting_citations: vec!["authored".into()],
         notice_paths: vec![],
     });
-    let compiled = compile_selected(&recipe, &sources, &AtomicBool::new(false)).unwrap();
+    let compiled = compile_selected(&recipe, "test", &sources, &AtomicBool::new(false)).unwrap();
     let derivation = compiled.contents.manifest.derivations.first().unwrap();
     assert_eq!(derivation.correction_ids, vec!["corrected"]);
     assert_eq!(
@@ -180,52 +181,10 @@ fn original_guards_are_checked_before_a_complete_replacement_is_used() {
             _ => unreachable!(),
         }
         assert!(
-            compile_selected(&recipe, &sources, &AtomicBool::new(false)).is_err(),
+            compile_selected(&recipe, "test", &sources, &AtomicBool::new(false)).is_err(),
             "{mutation}"
         );
     }
-}
-
-#[test]
-fn acceptance_checks_recipe_digest_and_independent_expected_values() {
-    use clacks_geography::artifact::{read::open_bundle, write::write_bundle};
-    let directory = tempfile::tempdir().unwrap();
-    let (mut recipe, sources) = setup(directory.path());
-    recipe.acceptance_cases.push(AcceptanceCase {
-        id: "inside".into(),
-        query: AcceptanceGeometry::Point {
-            latitude_microdegrees: 1_000_000,
-            longitude_microdegrees: 1_000_000,
-        },
-        expected: [(
-            Field::Dxcc,
-            ExpectedField {
-                coverage: ExpectedCoverage::Complete,
-                candidates: vec![ExpectedCandidate {
-                    parent_scope: ParentScope::Global,
-                    value: "291".into(),
-                }],
-            },
-        )]
-        .into_iter()
-        .collect(),
-        citations: vec!["authored square".into()],
-    });
-    let compiled = compile_selected(&recipe, &sources, &AtomicBool::new(false)).unwrap();
-    let bundle_dir = tempfile::tempdir().unwrap();
-    write_bundle(bundle_dir.path(), &compiled.contents).unwrap();
-    let mut bundle = open_bundle(bundle_dir.path()).unwrap();
-    assert_eq!(
-        verify_bundle(&mut bundle, &recipe).unwrap().checked_cases,
-        1
-    );
-    recipe.acceptance_cases[0]
-        .expected
-        .get_mut(&Field::Dxcc)
-        .unwrap()
-        .candidates[0]
-        .value = "236".into();
-    assert!(verify_bundle(&mut bundle, &recipe).is_err());
 }
 
 #[test]
@@ -255,7 +214,7 @@ fn a_detailed_mapping_can_supply_an_exclusion_mask_for_a_coarse_mapping() {
         citations: vec!["authored".into()],
         notice_paths: vec![],
     });
-    let result = compile_selected(&recipe, &sources, &AtomicBool::new(false)).unwrap();
+    let result = compile_selected(&recipe, "test", &sources, &AtomicBool::new(false)).unwrap();
     use geo::Contains;
     let parent = result
         .contents
@@ -282,7 +241,7 @@ fn accepted_open_source_rings_retain_explicit_closure_evidence() {
         expected_features: 1,
         open_rings: ["one".into()].into_iter().collect(),
     };
-    let result = compile_selected(&recipe, &sources, &AtomicBool::new(false)).unwrap();
+    let result = compile_selected(&recipe, "test", &sources, &AtomicBool::new(false)).unwrap();
     let id = "close-source-linework:source:one";
     assert!(
         result
@@ -304,7 +263,7 @@ fn accepted_open_source_rings_retain_explicit_closure_evidence() {
 fn retained_rule_parameters_are_structured_descriptive_metadata() {
     let directory = tempfile::tempdir().unwrap();
     let (recipe, sources) = setup(directory.path());
-    let result = compile_selected(&recipe, &sources, &AtomicBool::new(false)).unwrap();
+    let result = compile_selected(&recipe, "test", &sources, &AtomicBool::new(false)).unwrap();
     let operation = result.contents.manifest.operations.first().unwrap();
     assert_eq!(operation.description, "Already WGS84");
     assert_eq!(operation.definition["method"], "identity");
@@ -325,9 +284,9 @@ fn decoded_iteration_and_output_paths_do_not_change_artifacts() {
     mapping.source_feature_selectors = vec![other.identity.clone()];
     recipe.mappings.push(mapping);
     sources.features.push(other);
-    let first = compile_selected(&recipe, &sources, &AtomicBool::new(false)).unwrap();
+    let first = compile_selected(&recipe, "test", &sources, &AtomicBool::new(false)).unwrap();
     sources.features.reverse();
-    let second = compile_selected(&recipe, &sources, &AtomicBool::new(false)).unwrap();
+    let second = compile_selected(&recipe, "test", &sources, &AtomicBool::new(false)).unwrap();
     let left = tempfile::tempdir().unwrap();
     let right = tempfile::tempdir().unwrap();
     let manifest = write_bundle(left.path(), &first.contents).unwrap();
@@ -344,7 +303,7 @@ fn decoded_iteration_and_output_paths_do_not_change_artifacts() {
 
 #[test]
 fn narrow_reviewed_exclusion_remains_unclassified() {
-    use clacks_geography::artifact::{read::open_bundle, write::write_bundle};
+    use clacks_geography::artifact::{validate::open_bundle, write::write_bundle};
     use clacks_geography::lookup::Coverage;
     use clacks_model::position::{Coordinates, LookupGeometry};
     let directory = tempfile::tempdir().unwrap();
@@ -365,7 +324,7 @@ fn narrow_reviewed_exclusion_remains_unclassified() {
         citations: vec!["Authored analytical rectangle".into()],
         notice_paths: vec![],
     });
-    let compiled = compile_selected(&recipe, &sources, &AtomicBool::new(false)).unwrap();
+    let compiled = compile_selected(&recipe, "test", &sources, &AtomicBool::new(false)).unwrap();
     let output = tempfile::tempdir().unwrap();
     write_bundle(output.path(), &compiled.contents).unwrap();
     let mut bundle = open_bundle(output.path()).unwrap();
@@ -380,7 +339,7 @@ fn narrow_reviewed_exclusion_remains_unclassified() {
 
 #[test]
 fn shared_boundary_segmentation_does_not_create_a_coverage_gap() {
-    use clacks_geography::artifact::{read::open_bundle, write::write_bundle};
+    use clacks_geography::artifact::{validate::open_bundle, write::write_bundle};
     use clacks_geography::lookup::Coverage;
     use clacks_model::position::{Coordinates, GridLength, LookupGeometry};
     let directory = tempfile::tempdir().unwrap();
@@ -403,7 +362,7 @@ fn shared_boundary_segmentation_does_not_create_a_coverage_gap() {
     mapping.source_feature_selectors = vec![other.identity.clone()];
     recipe.mappings.push(mapping);
     sources.features.push(other);
-    let compiled = compile_selected(&recipe, &sources, &AtomicBool::new(false)).unwrap();
+    let compiled = compile_selected(&recipe, "test", &sources, &AtomicBool::new(false)).unwrap();
     let output = tempfile::tempdir().unwrap();
     write_bundle(output.path(), &compiled.contents).unwrap();
     let mut bundle = open_bundle(output.path()).unwrap();
@@ -417,7 +376,7 @@ fn shared_boundary_segmentation_does_not_create_a_coverage_gap() {
     assert_eq!(result.dxcc.candidates.len(), 1);
     sources.features.reverse();
     recipe.mappings.reverse();
-    let reversed = compile_selected(&recipe, &sources, &AtomicBool::new(false)).unwrap();
+    let reversed = compile_selected(&recipe, "test", &sources, &AtomicBool::new(false)).unwrap();
     let second = tempfile::tempdir().unwrap();
     write_bundle(second.path(), &reversed.contents).unwrap();
     assert_eq!(

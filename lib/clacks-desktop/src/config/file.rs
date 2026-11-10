@@ -9,6 +9,8 @@ use std::{collections::BTreeMap, path::PathBuf};
 pub(super) struct FileConfig {
     /// Selected account workspace directory, relative to this file when not absolute.
     pub workspace: Option<PathBuf>,
+    /// Offline geographic bundle selection.
+    pub geography: GeographyOptions,
     /// Local structured-output preferences.
     pub logs: LogOptions,
     /// Explicit export opt-in and destination controls.
@@ -66,4 +68,14 @@ pub(super) struct SignalFile {
     pub headers: Option<BTreeMap<String, String>>,
     /// Signal-specific request deadline.
     pub timeout_ms: Option<u64>,
+}
+
+/// Optional immutable geographic bundle selected by this startup file.
+#[derive(Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub(super) struct GeographyOptions {
+    /// Bundle directory, relative to the startup file when not absolute.
+    pub bundle: Option<PathBuf>,
+    /// Expected manifest identity for an external release; defaults to packaged identity.
+    pub manifest_sha256: Option<String>,
 }

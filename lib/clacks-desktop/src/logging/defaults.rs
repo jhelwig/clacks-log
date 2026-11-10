@@ -71,11 +71,19 @@ impl NewEntry {
         }
         changed!(callsign, own.callsign);
         changed!(position, own.position);
-        changed!(dxcc, own.dxcc);
-        changed!(primary_subdivision, own.primary_subdivision);
-        changed!(secondary_subdivision, own.secondary_subdivision);
-        changed!(cq_zone, own.cq_zone);
-        changed!(itu_zone, own.itu_zone);
+        if before.own.position == self.form.own.position {
+            changed!(dxcc, own.dxcc);
+            changed!(primary_subdivision, own.primary_subdivision);
+            changed!(secondary_subdivision, own.secondary_subdivision);
+            changed!(cq_zone, own.cq_zone);
+            changed!(itu_zone, own.itu_zone);
+        } else {
+            self.corrections.dxcc = false;
+            self.corrections.primary_subdivision = false;
+            self.corrections.secondary_subdivision = false;
+            self.corrections.cq_zone = false;
+            self.corrections.itu_zone = false;
+        }
         changed!(references, own.references);
 
         changed!(operator, operator);
@@ -95,21 +103,29 @@ impl NewEntry {
                 if !self.corrections.$flag { self.form.$($target).+ = $value; }
             };
         }
+        if !self.corrections.position {
+            if self.form.own.follow_position(&source.station) {
+                self.corrections.dxcc = false;
+                self.corrections.primary_subdivision = false;
+                self.corrections.secondary_subdivision = false;
+                self.corrections.cq_zone = false;
+                self.corrections.itu_zone = false;
+            }
+            follow!(dxcc, own.dxcc, source.station.dxcc);
+            follow!(
+                primary_subdivision,
+                own.primary_subdivision,
+                source.station.primary_subdivision
+            );
+            follow!(
+                secondary_subdivision,
+                own.secondary_subdivision,
+                source.station.secondary_subdivision
+            );
+            follow!(cq_zone, own.cq_zone, source.station.cq_zone);
+            follow!(itu_zone, own.itu_zone, source.station.itu_zone);
+        }
         follow!(callsign, own.callsign, source.station.callsign);
-        follow!(position, own.position, source.station.position);
-        follow!(dxcc, own.dxcc, source.station.dxcc);
-        follow!(
-            primary_subdivision,
-            own.primary_subdivision,
-            source.station.primary_subdivision
-        );
-        follow!(
-            secondary_subdivision,
-            own.secondary_subdivision,
-            source.station.secondary_subdivision
-        );
-        follow!(cq_zone, own.cq_zone, source.station.cq_zone);
-        follow!(itu_zone, own.itu_zone, source.station.itu_zone);
         follow!(references, own.references, source.station.references);
 
         follow!(operator, operator, source.operator_callsign);

@@ -4,14 +4,13 @@ use std::collections::BTreeMap;
 
 pub fn contents() -> BundleContents {
     let manifest: Manifest = serde_json::from_value(serde_json::json!({
-        "schema_version":1,"release_id":"representative-1","producer_revision":"test",
-        "recipe_sha256":"0".repeat(64),"coordinate_convention":"wgs84_longitude_latitude_degrees",
+        "schema_version":1,"release_id":"representative-1","recipe_sha256":"0".repeat(64),
         "files":[],"layers":[],
         "values":[{"key":"wa","field":"primary_subdivision","parent_scope":{"entity":"291"},"recordable_value":"WA","display_label":"Washington"}],
         "derivations":[{"key":"census-wa","source_identities":[{"source_id":"census","feature_id":"53"}],"operation_ids":[],"correction_ids":[],"mapping_ids":[],"exception_ids":[]}],
         "sources":[{"id":"census","publisher":"Census","upstream_version":"2026","sha256":"1".repeat(64),"coordinate_declaration":"NAD83","citations":["https://www.census.gov/"],"notice_paths":["notices/census.txt"]}],
         "operations":[],"corrections":[],"mappings":[],"exceptions":[],"omissions":[],
-        "scope":{"description":"synthetic geometry","selected_source_identities":[{"source_id":"census","feature_id":"53"}]},"limitations":["not real boundaries"]
+        "scope":{"description":"synthetic geometry"},"limitations":["not real boundaries"]
     })).unwrap();
     let geometry = MultiPolygon(vec![
         polygon![(x:0.,y:0.),(x:2.,y:0.),(x:2.,y:1.),(x:0.,y:1.),(x:0.,y:0.)],

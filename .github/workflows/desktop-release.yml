@@ -64,10 +64,73 @@ jobs:
             metadata.json
           if-no-files-found: error
 
-  windows:
+  geography:
     needs: eligibility
     if: >-
       always() && !cancelled() &&
+      (github.event_name == 'workflow_dispatch' || needs.eligibility.result == 'success')
+    runs-on: [self-hosted, Linux, X64, clacks-linux]
+    env:
+      RUST_LOG: info
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Use persistent local Cargo build artifacts
+        run: printf 'CARGO_TARGET_DIR=%s\n' "$(dirname "$GITHUB_WORKSPACE")/target" >> "$GITHUB_ENV"
+      - name: Identify geographic build inputs
+        id: inputs
+        env:
+          # Include transitive local sources and embedded catalogs, not app source
+          # or the repository revision. Keep settings in this key aligned with the
+          # producer invocation below. Root manifest/lock changes are conservative.
+          INPUTS: ${{ hashFiles('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/**', 'bin/clacks-geography-build/Cargo.toml', 'bin/clacks-geography-build/src/**', 'lib/clacks-geography-builder/Cargo.toml', 'lib/clacks-geography-builder/src/**', 'lib/clacks-geography/Cargo.toml', 'lib/clacks-geography/src/**', 'lib/clacks-model/Cargo.toml', 'lib/clacks-model/src/**', 'lib/clacks-model/data/**', 'references/geography/shipping.json', 'references/geography/shipping/itu-*.json', 'references/geography/shipping/egypt.json') }}
+        run: |
+          echo "key=geography-linux-x64-release-locked-offline-$INPUTS" >> "$GITHUB_OUTPUT"
+      - name: Restore validated geographic output
+        id: cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: target/geography-build
+          key: ${{ steps.inputs.outputs.key }}
+      - name: Build geographic data on a cache miss
+        if: steps.cache.outputs.cache-hit != 'true'
+        env:
+          BUILD_ID: ${{ steps.inputs.outputs.key }}
+        run: |
+          set -euo pipefail
+          cargo fetch --locked
+          cargo build -p clacks-geography-build --release --locked --offline
+          cache="$(dirname "$GITHUB_WORKSPACE")/geography-source-cache"
+          output="$RUNNER_TEMP/geography-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          tool="$CARGO_TARGET_DIR/release/clacks-geography-build"
+          "$tool" fetch --recipe references/geography/shipping.json --cache "$cache"
+          "$tool" build --recipe references/geography/shipping.json --build-id "$BUILD_ID" --cache "$cache" --output "$output"
+          rm -rf target/geography-build
+          mkdir -p target/geography-build
+          cp -R "$output/releases/$BUILD_ID" target/geography-build/geography
+          jq -er .manifest_sha256 "$output/current.json" > target/geography-build/manifest-sha256.txt
+      - name: Inspect the common native payload
+        run: |
+          cargo fetch --locked
+          cargo build -p clacks-desktop-package --locked --offline
+          digest=$(cat target/geography-build/manifest-sha256.txt)
+          "$CARGO_TARGET_DIR/debug/clacks-desktop-package" geography-inspect --manifest-sha256 "$digest" --bundle target/geography-build/geography --output target/geography-build/geography-evidence.json
+      - name: Save validated geographic output
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: target/geography-build
+          key: ${{ steps.inputs.outputs.key }}
+      - name: Preserve the common validated native data payload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-geography-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/geography-build
+          if-no-files-found: error
+
+  windows:
+    needs: [eligibility, geography]
+    if: >-
+      always() && !cancelled() && needs.geography.result == 'success' &&
       ((github.event_name == 'workflow_dispatch' && (inputs.platform == 'windows' || inputs.platform == 'both')) ||
       (github.event_name == 'push' && needs.eligibility.result == 'success'))
     runs-on: [self-hosted, Windows, X64, clacks-windows]
@@ -103,6 +166,15 @@ jobs:
         with:
           name: ${{ needs.eligibility.outputs.artifact }}
           path: target/windows-package
+      - name: Retrieve common geographic data
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: desktop-geography-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/geography-build
+      - name: Select geographic identity for native compilation
+        run: |
+          $digest = (Get-Content target/geography-build/manifest-sha256.txt -Raw).Trim()
+          "CLACKS_GEOGRAPHY_MANIFEST_SHA256=$digest" >> $env:GITHUB_ENV
       - name: Resolve Windows build identity
         id: identity
         env:
@@ -151,6 +223,12 @@ jobs:
           $hash = (Get-FileHash target/windows-package/msi-builder.zip -Algorithm SHA256).Hash
           if ($hash -ne 'd528277ae68218335318e8f335c01bdbfaa89882ffa53625251ad3e70c7735a7') { throw 'MSI compiler digest mismatch' }
           Expand-Archive target/windows-package/msi-builder.zip target/msi-builder
+      - name: Verify common geographic payload before MSI compilation
+        run: |
+          & "$env:CARGO_TARGET_DIR/debug/clacks-desktop-package.exe" geography-inspect --manifest-sha256 "$env:CLACKS_GEOGRAPHY_MANIFEST_SHA256" --bundle target/geography-build/geography --output target/windows-package/geography-evidence.json
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      # The pinned compiler's mandatory cabinet read-back compares every file's
+      # SHA-256 with these verified sources, including the geographic manifest.
       - name: Validate and build MSI with default payload read-back
         env:
           APP_VERSION: ${{ steps.identity.outputs.version }}
@@ -188,6 +266,8 @@ jobs:
           $ci = $null
           if ($env:GITHUB_EVENT_NAME -eq 'push') { $ci = Get-Content target/windows-package/ci-evidence.json -Raw | ConvertFrom-Json }
           @{
+            geography = (Get-Content target/windows-package/geography-evidence.json -Raw | ConvertFrom-Json)
+            package_bytes = (Get-Item "$delivery/$env:MSI_NAME").Length
             application = $metadata
             artifact = $env:MSI_NAME
             sha256 = $hash
@@ -219,9 +299,9 @@ jobs:
           if-no-files-found: error
 
   macos:
-    needs: eligibility
+    needs: [eligibility, geography]
     if: >-
-      always() && !cancelled() &&
+      always() && !cancelled() && needs.geography.result == 'success' &&
       ((github.event_name == 'workflow_dispatch' && (inputs.platform == 'macos' || inputs.platform == 'both')) ||
       (github.event_name == 'push' && needs.eligibility.result == 'success'))
     runs-on: macos-26
@@ -283,6 +363,13 @@ jobs:
         with:
           name: ${{ needs.eligibility.outputs.artifact }}
           path: target/macos-package
+      - name: Retrieve common geographic data
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: desktop-geography-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/geography-build
+      - name: Select geographic identity for native compilation
+        run: echo "CLACKS_GEOGRAPHY_MANIFEST_SHA256=$(cat target/geography-build/manifest-sha256.txt)" >> "$GITHUB_ENV"
       - name: Resolve macOS build identity
         id: identity
         env:
@@ -332,6 +419,8 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $APP_VERSION" "$app_bundle/Contents/Info.plist"
           /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $APP_VERSION" "$app_bundle/Contents/Info.plist"
           ditto lib/clacks-desktop/assets/clacks-log.icns "$app_bundle/Contents/Resources/clacks-log.icns"
+          ditto target/geography-build/geography "$app_bundle/Contents/Resources/geography"
+          target/debug/clacks-desktop-package geography-inspect --manifest-sha256 "$CLACKS_GEOGRAPHY_MANIFEST_SHA256" --bundle "$app_bundle/Contents/Resources/geography" --output target/macos-package/geography-evidence.json
           ditto LICENSE "$app_bundle/Contents/Resources/LICENSE.txt"
           ditto NOTICE "$app_bundle/Contents/Resources/NOTICE.txt"
           ditto target/macos-package/THIRD-PARTY-NOTICES.txt "$app_bundle/Contents/Resources/THIRD-PARTY-NOTICES.txt"
@@ -450,6 +539,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/clacks-dmg"
           hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$RUNNER_TEMP/clacks-dmg"
           mounted_app="$RUNNER_TEMP/clacks-dmg/Clacks Log.app"
+          target/debug/clacks-desktop-package geography-inspect --manifest-sha256 "$CLACKS_GEOGRAPHY_MANIFEST_SHA256" --bundle "$mounted_app/Contents/Resources/geography" --output target/macos-package/installed-geography-evidence.json
           codesign --verify --strict "$mounted_app"
           spctl -a -t exec -vv "$mounted_app"
           # The outer DMG carries the stapled ticket. syspolicy_check's inner
@@ -470,11 +560,11 @@ jobs:
           NOTARY_SUBMISSION: ${{ steps.notary.outputs.submission }}
         run: |
           hash=$(shasum -a 256 "target/macos-package/delivery/$DMG_NAME" | awk '{print $1}')
-          jq -n --slurpfile application target/macos-package/metadata.json \
-            --arg package "$DMG_NAME" --arg hash "$hash" --arg identity "$SIGNING_IDENTITY" \
+          jq -n --slurpfile application target/macos-package/metadata.json --slurpfile geography target/macos-package/installed-geography-evidence.json \
+            --argjson bytes "$(stat -f %z "target/macos-package/delivery/$DMG_NAME")" --arg package "$DMG_NAME" --arg hash "$hash" --arg identity "$SIGNING_IDENTITY" \
             --arg team "$SIGNING_TEAM" --arg profile "$PROFILE_ID" --arg expiry "$PROFILE_EXPIRY" \
             --arg submission "$NOTARY_SUBMISSION" --arg image "$ImageOS/$ImageVersion" \
-            '{source: $application[0], artifact: $package, sha256: $hash, signing: "Developer ID Application", identity: $identity, team: $team, profile: $profile, profile_expiry: $expiry, notarization: "Accepted", submission: $submission, stapled: true, image: $image, native_acceptance: "not established by packaging; see issue #80"}'
+            '{source: $application[0], geography: $geography[0], package_bytes: $bytes, artifact: $package, sha256: $hash, signing: "Developer ID Application", identity: $identity, team: $team, profile: $profile, profile_expiry: $expiry, notarization: "Accepted", submission: $submission, stapled: true, image: $image, native_acceptance: "not established by packaging; see issue #80"}'
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then cat target/macos-package/ci-evidence.json; fi
           {
             echo '### macOS package'
@@ -519,6 +609,10 @@ jobs:
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
+          name: desktop-geography-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/geography-build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
           name: ${{ needs.windows.outputs.artifact }}
           path: target/windows-package/delivery
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -537,6 +631,8 @@ jobs:
         run: |
           test "$WINDOWS_SHA" = "$MACOS_SHA"
           test "$WINDOWS_SHA" = "$GITHUB_SHA"
+          geography_release=$(jq -er .release_id target/geography-build/geography-evidence.json)
+          geography_manifest=$(cat target/geography-build/manifest-sha256.txt)
           cat > "$RUNNER_TEMP/release-notes.txt" <<EOF
           Pre-alpha Clacks Log desktop packages for $GITHUB_REF_NAME.
 
@@ -545,6 +641,8 @@ jobs:
 
           Test these exact downloads before manually publishing this draft.
           Source revision: $WINDOWS_SHA.
+          Geographic data release: $geography_release.
+          Geographic manifest SHA-256: $geography_manifest.
           Final checksums, signing identity and build diagnostics: $BUILD_URL.
           Installed-artifact acceptance is separate from packaging checks; macOS evidence belongs in issue #80.
           EOF
