@@ -7,8 +7,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-clacks-geography-builder.workspace = true
 anyhow.workspace = true
+clacks-geography-builder.workspace = true
 
 [lints]
 workspace = true

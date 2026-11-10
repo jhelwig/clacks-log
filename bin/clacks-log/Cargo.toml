@@ -7,12 +7,12 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[target.'cfg(windows)'.build-dependencies]
+winresource.workspace = true
+
 [dependencies]
 anyhow.workspace = true
 clacks-desktop.workspace = true
-
-[target.'cfg(windows)'.build-dependencies]
-winresource.workspace = true
 
 [lints]
 workspace = true

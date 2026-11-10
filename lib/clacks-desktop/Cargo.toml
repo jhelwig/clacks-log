@@ -7,100 +7,97 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
-[dependencies]
-image.workspace = true
-socket2.workspace = true
-network-interface.workspace = true
-winnow.workspace = true
-sqlx.workspace = true
-opentelemetry-http.workspace = true
-rustls.workspace = true
-tokio-tungstenite.workspace = true
-futures-util.workspace = true
-huskarl.workspace = true
-huskarl-core.workspace = true
-huskarl-crypto-native.workspace = true
-huskarl-reqwest.workspace = true
-reqwest-oauth.workspace = true
-reqwest = { workspace = true, features = ["json"] }
-roxmltree.workspace = true
-httpdate.workspace = true
-keyring-core.workspace = true
-serde_json.workspace = true
-zeroize.workspace = true
-ulid.workspace = true
-eframe.workspace = true
-egui_extras.workspace = true
-fontique.workspace = true
-anyhow.workspace = true
-thiserror.workspace = true
-clap.workspace = true
-serde.workspace = true
-config.workspace = true
-time.workspace = true
-directories.workspace = true
-url.workspace = true
-http.workspace = true
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json", "tracing-log"] }
-percent-encoding.workspace = true
-
-interprocess.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-util", "net", "sync", "time", "fs", "process"] }
-tokio-util.workspace = true
-sha2.workspace = true
-hex.workspace = true
-tracing.workspace = true
-
-tracing-appender.workspace = true
-opentelemetry.workspace = true
-opentelemetry_sdk.workspace = true
-opentelemetry-otlp.workspace = true
-tracing-opentelemetry.workspace = true
-opentelemetry-appender-tracing.workspace = true
-metrics-opentelemetry.workspace = true
-metrics.workspace = true
-clacks-client-store.workspace = true
-clacks-geography.workspace = true
-clacks-model.workspace = true
-clacks-sync.workspace = true
-
-[dev-dependencies]
-tokio = { workspace = true, features = ["test-util"] }
-axum.workspace = true
-metrics-util.workspace = true
-egui_kittest.workspace = true
-serde_json.workspace = true
-sqlx = { workspace = true, features = ["sqlite-bundled"] }
-opentelemetry-proto.workspace = true
-prost.workspace = true
-
-tempfile.workspace = true
-
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
 
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]
 muda.workspace = true
-winit.workspace = true
 raw-window-handle.workspace = true
+winit.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-native-keyring-store.workspace = true
 
 [target.'cfg(windows)'.dependencies]
+widestring.workspace = true
 windows-native-keyring-store.workspace = true
 windows-sys = { workspace = true, features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading", "Win32_System_SystemServices", "Win32_Storage_FileSystem"] }
-widestring.workspace = true
 
 [target.'cfg(any(target_os = "macos", windows))'.dev-dependencies]
+chrono.workspace = true
 clacks-server.workspace = true
 clacks-web = { workspace = true, features = ["ssr"] }
 leptos.workspace = true
 openidconnect.workspace = true
+rand.workspace = true
 reqwest = { workspace = true, features = ["cookies", "json"] }
 rsa.workspace = true
-rand.workspace = true
-chrono.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clacks-client-store.workspace = true
+clacks-geography.workspace = true
+clacks-model.workspace = true
+clacks-sync.workspace = true
+clap.workspace = true
+config.workspace = true
+directories.workspace = true
+eframe.workspace = true
+egui_extras.workspace = true
+fontique.workspace = true
+futures-util.workspace = true
+hex.workspace = true
+http.workspace = true
+httpdate.workspace = true
+huskarl.workspace = true
+huskarl-core.workspace = true
+huskarl-crypto-native.workspace = true
+huskarl-reqwest.workspace = true
+image.workspace = true
+interprocess.workspace = true
+keyring-core.workspace = true
+metrics.workspace = true
+metrics-opentelemetry.workspace = true
+network-interface.workspace = true
+opentelemetry.workspace = true
+opentelemetry-appender-tracing.workspace = true
+opentelemetry-http.workspace = true
+opentelemetry-otlp.workspace = true
+opentelemetry_sdk.workspace = true
+percent-encoding.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+reqwest-oauth.workspace = true
+roxmltree.workspace = true
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+socket2.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-util", "net", "sync", "time", "fs", "process"] }
+tokio-tungstenite.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-opentelemetry.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json", "tracing-log"] }
+ulid.workspace = true
+url.workspace = true
+winnow.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+egui_kittest.workspace = true
+metrics-util.workspace = true
+opentelemetry-proto.workspace = true
+prost.workspace = true
+serde_json.workspace = true
+sqlx = { workspace = true, features = ["sqlite-bundled"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
 
 [lints]
 workspace = true

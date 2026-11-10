@@ -7,33 +7,6 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
-[dependencies]
-anyhow.workspace = true
-clacks-model.workspace = true
-
-serde.workspace = true
-serde_json.workspace = true
-regex.workspace = true
-roxmltree.workspace = true
-tracing.workspace = true
-
-rsa = { workspace = true, optional = true }
-sha1 = { workspace = true, optional = true }
-rand = { workspace = true, optional = true }
-rand_chacha = { workspace = true, optional = true }
-sha2-rsa = { workspace = true, optional = true }
-sha1-archive = { workspace = true, optional = true }
-sha2-archive = { workspace = true, optional = true }
-hmac = { workspace = true, optional = true }
-pkcs5 = { workspace = true, optional = true }
-pkcs12 = { workspace = true, optional = true, features = ["kdf"] }
-der = { workspace = true, optional = true }
-cbc = { workspace = true, optional = true }
-des = { workspace = true, optional = true }
-rc2 = { workspace = true, optional = true }
-hex = { workspace = true, optional = true }
-base64 = { workspace = true, optional = true }
-
 [features]
 fixtures = [
     "dep:rsa",
@@ -53,6 +26,31 @@ fixtures = [
     "dep:hex",
     "dep:base64",
 ]
+
+[dependencies]
+anyhow.workspace = true
+base64 = { workspace = true, optional = true }
+cbc = { workspace = true, optional = true }
+clacks-model.workspace = true
+der = { workspace = true, optional = true }
+des = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
+hmac = { workspace = true, optional = true }
+pkcs12 = { workspace = true, optional = true, features = ["kdf"] }
+pkcs5 = { workspace = true, optional = true }
+rand = { workspace = true, optional = true }
+rand_chacha = { workspace = true, optional = true }
+rc2 = { workspace = true, optional = true }
+regex.workspace = true
+roxmltree.workspace = true
+rsa = { workspace = true, optional = true }
+serde.workspace = true
+serde_json.workspace = true
+sha1 = { workspace = true, optional = true }
+sha1-archive = { workspace = true, optional = true }
+sha2-archive = { workspace = true, optional = true }
+sha2-rsa = { workspace = true, optional = true }
+tracing.workspace = true
 
 [lints]
 workspace = true

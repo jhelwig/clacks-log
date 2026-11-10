@@ -1,26 +1,5 @@
 [workspace]
-members = [
-    "lib/clacks-desktop-packaging",
-    "bin/clacks-desktop-package",
-    "lib/clacks-web",
-    "lib/clacks-server",
-    "bin/clacks-admin",
-    "bin/clacks-server",
-    "lib/clacks-client-store",
-    "lib/clacks-desktop",
-    "lib/clacks-geography",
-    "lib/clacks-geography-builder",
-    "bin/clacks-geography-build",
-    "lib/clacks-model",
-    "lib/clacks-sync",
-    "lib/clacks-lotw",
-    "lib/clacks-reference-data",
-    "bin/clacks-lotw-data",
-    "bin/clacks-account-data",
-    "bin/clacks-log",
-
-    "bin/clacks-lotw-fixtures",
-]
+members = ["bin/*", "lib/*"]
 resolver = "3"
 
 [workspace.package]
@@ -31,136 +10,136 @@ license = "Elastic-2.0"
 publish = false
 
 [workspace.dependencies]
+aes-gcm = { version = "=0.11.1", default-features = false, features = ["aes", "alloc", "zeroize"] }
+anyhow = "1"
+apple-native-keyring-store = { version = "=1.0.2", features = ["protected"] }
+axum = { version = "=0.8.9", features = ["form", "query", "ws"] }
+axum_session = "=0.22.0"
+axum_session_sqlx = { version = "=0.12.0", default-features = false, features = ["postgres", "tls-rustls"] }
+base64 = "0.22"
+cbc = { version = "0.2", features = ["alloc", "block-padding"] }
+chrono = "0.4"
+clacks-client-store = { path = "lib/clacks-client-store" }
+clacks-desktop = { path = "lib/clacks-desktop" }
 clacks-desktop-packaging = { path = "lib/clacks-desktop-packaging" }
-winresource = "=0.1.34"
-image = { version = "=0.25.10", default-features = false, features = ["png"] }
-rustls = { version = "=0.23.46", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
-tokio-tungstenite = { version = "=0.29.0", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
+clacks-geography = { path = "lib/clacks-geography" }
+clacks-geography-builder = { path = "lib/clacks-geography-builder" }
+clacks-model = { path = "lib/clacks-model" }
+clacks-reference-data = { path = "lib/clacks-reference-data" }
+clacks-server = { path = "lib/clacks-server" }
+clacks-sync = { path = "lib/clacks-sync" }
+clacks-web = { path = "lib/clacks-web" }
+clap = { version = "4", features = ["derive"] }
+clipper2-rust = { version = "=1.2.0", default-features = false }
+config = { version = "=0.15.27", default-features = false, features = ["toml"] }
+ctrlc = "3"
+der = { version = "0.8", features = ["std"] }
+des = "0.9"
+deunicode = "1"
+directories = "=6.0.0"
+eframe = { version = "=0.37.0", default-features = false, features = ["accesskit", "clipboard", "default_fonts", "links", "persistence", "system_fonts", "wgpu", "wayland", "x11"] }
+egui_extras = { version = "=0.37.0", default-features = false }
+egui_kittest = { version = "=0.37.0", default-features = false }
+flatgeobuf = { version = "=6.0.1", default-features = false }
+fluent-uri = "=0.4.1"
+fontique = "=0.11.1"
 futures-util = { version = "=0.3.34", features = ["sink"] }
-shlex = "2.0.1"
-oauth-as = { version = "=1.0.1", default-features = false, features = ["dpop", "jwt-p256", "http"] }
+geo = { version = "=0.33.1", default-features = false }
+geo-types = { version = "0.7.19", features = ["serde"] }
+geojson = { version = "0.24", features = ["geo-types"] }
+geozero = { version = "=0.15.1", default-features = false, features = ["with-geo"] }
+getrandom = "0.4"
+hex = "0.4"
+hmac = "0.13"
+http = "1"
+httpdate = "1"
 huskarl = { version = "=0.11.9", features = ["authorization-flow-loopback", "tracing"] }
 huskarl-core = "=0.10.10"
 huskarl-crypto-native = "=0.11.3"
 huskarl-reqwest = { version = "=0.9.3", features = ["rustls-tls"] }
 huskarl-resource-server = "=0.11.12"
+image = { version = "=0.25.10", default-features = false, features = ["png"] }
+interprocess = { version = "=2.4.7", features = ["tokio"] }
 keyring-core = "=1.0.1"
-apple-native-keyring-store = { version = "=1.0.2", features = ["protected"] }
-windows-native-keyring-store = { version = "=1.1.0", default-features = false }
-reqwest-oauth = { package = "reqwest", version = "=0.13.5", default-features = false, features = ["rustls", "json", "query"] }
-fluent-uri = "=0.4.1"
-aes-gcm = { version = "=0.11.1", default-features = false, features = ["aes", "alloc", "zeroize"] }
-zeroize = { version = "=1.9.1", features = ["derive"] }
 leptos = { version = "=0.8.22", default-features = false }
 leptos_axum = "=0.8.10"
 leptos_meta = "0.8"
 leptos_router = "0.8"
-wasm-bindgen = "0.2"
-clacks-web = { path = "lib/clacks-web" }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
-httpdate = "1"
-axum_session = "=0.22.0"
-axum_session_sqlx = { version = "=0.12.0", default-features = false, features = ["postgres", "tls-rustls"] }
-tower-http = { version = "0.7", features = ["trace", "fs"] }
-chrono = "0.4"
-openidconnect = { version = "=4.0.1", default-features = false, features = ["reqwest", "rustls-tls", "timing-resistant-secret-traits"] }
-axum = { version = "=0.8.9", features = ["form", "query", "ws"] }
-clacks-server = { path = "lib/clacks-server" }
-muda = { version = "=0.21.2", default-features = false }
-winit = { version = "=0.30.13", default-features = false }
-raw-window-handle = "=0.6.2"
-eframe = { version = "=0.37.0", default-features = false, features = ["accesskit", "clipboard", "default_fonts", "links", "persistence", "system_fonts", "wgpu", "wayland", "x11"] }
-egui_extras = { version = "=0.37.0", default-features = false }
-egui_kittest = { version = "=0.37.0", default-features = false }
-fontique = "=0.11.1"
-clacks-desktop = { path = "lib/clacks-desktop" }
-config = { version = "=0.15.27", default-features = false, features = ["toml"] }
-directories = "=6.0.0"
-url = "2"
-http = "1"
-tracing-appender = "=0.2.5"
-opentelemetry = { version = "=0.33.1", default-features = false, features = ["trace", "metrics", "logs", "internal-logs"] }
-opentelemetry-http = "=0.33.1"
-opentelemetry-instrumentation-tower = { version = "=0.19.0", features = ["axum"] }
-opentelemetry_sdk = { version = "=0.33.1", default-features = false, features = ["trace", "metrics", "logs", "internal-logs"] }
-opentelemetry-otlp = { version = "=0.33.1", default-features = false, features = ["http-proto", "reqwest-blocking-client", "reqwest-rustls", "trace", "metrics", "logs", "internal-logs"] }
-tracing-opentelemetry = { version = "=0.34.0", default-features = false }
-opentelemetry-appender-tracing = { version = "=0.33.1", default-features = false }
-metrics-opentelemetry = { version = "=0.24033.1", default-features = false }
-opentelemetry-proto = { version = "=0.33.1", default-features = false, features = ["gen-tonic-messages", "trace", "metrics", "logs"] }
-prost = "=0.14.1"
-interprocess = { version = "=2.4.7", features = ["tokio"] }
-tokio-util = { version = "=0.7.16", features = ["rt"] }
 libc = "=0.2.191"
-windows-sys = "=0.61.2"
-widestring = "=1.2.1"
-sha2 = "=0.11.1"
-percent-encoding = "2"
-clacks-client-store = { path = "lib/clacks-client-store" }
-clacks-sync = { path = "lib/clacks-sync" }
-sqlx = { version = "=0.9.0", default-features = false, features = ["runtime-tokio", "macros", "migrate", "sqlx-toml"] }
-tokio = { version = "=1.54.1", default-features = false, features = ["rt", "sync", "time"] }
-clacks-geography = { path = "lib/clacks-geography" }
-clacks-geography-builder = { path = "lib/clacks-geography-builder" }
-shapefile = { version = "=0.9.0", features = ["geo-types"] }
-geojson = { version = "0.24", features = ["geo-types"] }
-proj4rs = { version = "=0.2.1", default-features = false, features = ["tiff"] }
-ureq = { version = "3.5", default-features = false, features = ["rustls"] }
-zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2-zlib-rs"] }
-clap = { version = "4", features = ["derive"] }
-ctrlc = "3"
-geo = { version = "=0.33.1", default-features = false }
-geo-types = { version = "0.7.19", features = ["serde"] }
-clipper2-rust = { version = "=1.2.0", default-features = false }
-flatgeobuf = { version = "=6.0.1", default-features = false }
-geozero = { version = "=0.15.1", default-features = false, features = ["with-geo"] }
-tempfile = "3"
-clacks-reference-data = { path = "lib/clacks-reference-data" }
-roxmltree = "0.21.1"
-clacks-model = { path = "lib/clacks-model" }
-serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["float_roundtrip"] }
-regex = "1"
-winnow = "=1.0.3"
-socket2 = { version = "=0.6.5", features = ["all"] }
+metrics = "0.24.6"
+metrics-opentelemetry = { version = "=0.24033.1", default-features = false }
+metrics-util = { version = "0.20.4", default-features = false, features = ["debugging"] }
+muda = { version = "=0.21.2", default-features = false }
 network-interface = "=2.0.5"
 num-bigint = "=0.4.8"
 num-integer = "=0.1.47"
-ulid = { version = "3", features = ["serde"] }
-getrandom = "0.4"
-thiserror = "2"
-anyhow = "1"
-
-time = { version = "0.3", features = ["formatting", "parsing"] }
-deunicode = "1"
-
-tracing = { version = "0.1.44", default-features = false, features = ["std", "attributes"] }
-metrics = "0.24.6"
-tracing-subscriber = { version = "0.3.23", default-features = false, features = ["std", "registry"] }
-metrics-util = { version = "0.20.4", default-features = false, features = ["debugging"] }
-
-x509-parser = { version = "=0.18.1", default-features = false }
-
+oauth-as = { version = "=1.0.1", default-features = false, features = ["dpop", "jwt-p256", "http"] }
+openidconnect = { version = "=4.0.1", default-features = false, features = ["reqwest", "rustls-tls", "timing-resistant-secret-traits"] }
+opentelemetry = { version = "=0.33.1", default-features = false, features = ["trace", "metrics", "logs", "internal-logs"] }
+opentelemetry-appender-tracing = { version = "=0.33.1", default-features = false }
+opentelemetry-http = "=0.33.1"
+opentelemetry-instrumentation-tower = { version = "=0.19.0", features = ["axum"] }
+opentelemetry-otlp = { version = "=0.33.1", default-features = false, features = ["http-proto", "reqwest-blocking-client", "reqwest-rustls", "trace", "metrics", "logs", "internal-logs"] }
+opentelemetry-proto = { version = "=0.33.1", default-features = false, features = ["gen-tonic-messages", "trace", "metrics", "logs"] }
+opentelemetry_sdk = { version = "=0.33.1", default-features = false, features = ["trace", "metrics", "logs", "internal-logs"] }
 p12-keystore = { version = "=0.4.1", default-features = false, features = ["pbes1"] }
-rsa = "=0.9.10"
-sha1 = { version = "=0.10.7", features = ["oid"] }
-der = { version = "0.8", features = ["std"] }
+percent-encoding = "2"
 pkcs12 = "=0.2.0-pre.0"
-rand = "0.8"
-base64 = "0.22"
-
-# Rust-only fixture construction uses the archive and signing dependency families
-# through encoded bytes, without calling production import/signing operations.
-rand_chacha = "0.3.1"
-sha2-rsa = { package = "sha2", version = "0.10.9", features = ["oid"] }
-sha1-archive = { package = "sha1", version = "0.11" }
-sha2-archive = { package = "sha2", version = "0.11" }
-hmac = "0.13"
 pkcs5 = { version = "0.8", features = ["alloc", "pbes2"] }
-cbc = { version = "0.2", features = ["alloc", "block-padding"] }
-des = "0.9"
+proj4rs = { version = "=0.2.1", default-features = false, features = ["tiff"] }
+prost = "=0.14.1"
+rand = "0.8"
+rand_chacha = "0.3.1"
+raw-window-handle = "=0.6.2"
 rc2 = "0.9"
-hex = "0.4"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+# Desktop enrollment shares reqwest 0.13 types with huskarl-reqwest;
+# other HTTP integrations still use reqwest 0.12.
+reqwest-oauth = { package = "reqwest", version = "=0.13.5", default-features = false, features = ["rustls", "json", "query"] }
+roxmltree = "0.21.1"
+rsa = "=0.9.10"
+rustls = { version = "=0.23.46", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+sha1 = { version = "=0.10.7", features = ["oid"] }
+# Archive fixtures need digest 0.11 for pkcs12 0.2 and hmac 0.13;
+# certificate signing uses sha1 0.10 with rsa 0.9's digest 0.10 traits.
+sha1-archive = { package = "sha1", version = "0.11" }
+sha2 = "=0.11.1"
+# Keep the archive fixture dependency separate from application hashing;
+# pkcs12 0.2 and hmac 0.13 require sha2 0.11's digest traits.
+sha2-archive = { package = "sha2", version = "0.11" }
+# Fixture certificate signing uses rsa 0.9's sha2 0.10 digest traits.
+sha2-rsa = { package = "sha2", version = "0.10.9", features = ["oid"] }
+shapefile = { version = "=0.9.0", features = ["geo-types"] }
+shlex = "2.0.1"
+socket2 = { version = "=0.6.5", features = ["all"] }
+sqlx = { version = "=0.9.0", default-features = false, features = ["runtime-tokio", "macros", "migrate", "sqlx-toml"] }
+tempfile = "3"
+thiserror = "2"
+time = { version = "0.3", features = ["formatting", "parsing"] }
+tokio = { version = "=1.54.1", default-features = false, features = ["rt", "sync", "time"] }
+tokio-tungstenite = { version = "=0.29.0", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
+tokio-util = { version = "=0.7.16", features = ["rt"] }
+tower-http = { version = "0.7", features = ["trace", "fs"] }
+tracing = { version = "0.1.44", default-features = false, features = ["std", "attributes"] }
+tracing-appender = "=0.2.5"
+tracing-opentelemetry = { version = "=0.34.0", default-features = false }
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["std", "registry"] }
+ulid = { version = "3", features = ["serde"] }
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+url = "2"
+wasm-bindgen = "0.2"
+widestring = "=1.2.1"
+windows-native-keyring-store = { version = "=1.1.0", default-features = false }
+windows-sys = "=0.61.2"
+winit = { version = "=0.30.13", default-features = false }
+winnow = "=1.0.3"
+winresource = "=0.1.34"
+x509-parser = { version = "=0.18.1", default-features = false }
+zeroize = { version = "=1.9.1", features = ["derive"] }
+zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [[workspace.metadata.leptos]]
 name = "clacks-web"

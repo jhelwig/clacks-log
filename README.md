@@ -186,6 +186,8 @@ server guide; they never skip silently when that configuration is missing.
 Verify the workspace:
 
 ```sh
+cargo +1.99.1 install cargo-sort --version 2.1.4 --locked
+cargo +1.99.1 sort --workspace --check --check-format
 cargo +1.99.1 fmt --all --check
 cargo +1.99.1 test --workspace --all-targets --locked --offline
 cargo +1.99.1 test --workspace --doc --locked --offline
@@ -193,6 +195,15 @@ cargo +1.99.1 clippy --workspace --all-targets --locked --offline -- -D warnings
 cargo +1.99.1 check --workspace --all-targets --target x86_64-pc-windows-msvc --locked --offline
 RUSTDOCFLAGS='-D warnings' cargo +1.99.1 doc --workspace --no-deps --document-private-items --locked --offline
 ```
+
+Use `members = ["bin/*", "lib/*"]` so new crates join the workspace automatically
+without maintaining an individual member list. Keep all dependency tables
+alphabetical, with no informal blank-line groups.
+[cargo-sort](https://github.com/DevinR528/cargo-sort) handles
+the root and member manifests, including target-specific dependencies; run
+`cargo +1.99.1 sort --workspace` from the repository root to apply the formatting
+configured in `tomlfmt.toml`. Comments belong beside the entry whose purpose or
+constraint they explain. CI runs the same check before compiling applications.
 
 The server-side [LoTW library](lib/clacks-lotw/README.md) provides checked
 certificate import and signed batch construction without native cryptography.
