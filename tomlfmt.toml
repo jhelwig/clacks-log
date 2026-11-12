@@ -1,0 +1,2 @@
+# Dependency tables are single alphabetical lists, without blank-line groups.
+key_value_newlines = false

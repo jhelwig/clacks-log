@@ -8,58 +8,56 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-oauth-as.workspace = true
-clacks-sync.workspace = true
-huskarl-resource-server.workspace = true
-huskarl-crypto-native.workspace = true
-fluent-uri.workspace = true
-http.workspace = true
 aes-gcm.workspace = true
-zeroize.workspace = true
-sha2.workspace = true
 anyhow.workspace = true
-shlex.workspace = true
-clacks-model.workspace = true
-sqlx = { workspace = true, features = ["postgres", "time", "tls-rustls"] }
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
-tokio-util.workspace = true
-time.workspace = true
-ulid.workspace = true
-rand.workspace = true
-base64.workspace = true
-thiserror.workspace = true
-tracing.workspace = true
-clap.workspace = true
-
-openidconnect.workspace = true
 axum.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-url = { workspace = true, features = ["serde"] }
-config.workspace = true
-tempfile.workspace = true
-
 axum_session.workspace = true
 axum_session_sqlx.workspace = true
-tower-http.workspace = true
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"] }
+base64.workspace = true
+clacks-model.workspace = true
+clacks-sync.workspace = true
+clap.workspace = true
+config.workspace = true
+fluent-uri.workspace = true
+http.workspace = true
+huskarl-crypto-native.workspace = true
+huskarl-resource-server.workspace = true
 metrics.workspace = true
+metrics-opentelemetry.workspace = true
+oauth-as.workspace = true
+openidconnect.workspace = true
 opentelemetry.workspace = true
-opentelemetry_sdk.workspace = true
-opentelemetry-otlp.workspace = true
+opentelemetry-appender-tracing.workspace = true
 opentelemetry-http.workspace = true
 opentelemetry-instrumentation-tower.workspace = true
+opentelemetry-otlp.workspace = true
+opentelemetry_sdk.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+shlex.workspace = true
+sqlx = { workspace = true, features = ["postgres", "time", "tls-rustls"] }
+tempfile.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
+tokio-util.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
 tracing-opentelemetry.workspace = true
-opentelemetry-appender-tracing.workspace = true
-metrics-opentelemetry.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"] }
+ulid.workspace = true
+url = { workspace = true, features = ["serde"] }
+zeroize.workspace = true
 
 [dev-dependencies]
 clacks-client-store.workspace = true
-tokio-tungstenite.workspace = true
+huskarl-core.workspace = true
+metrics-util.workspace = true
 opentelemetry-proto.workspace = true
 prost.workspace = true
-metrics-util.workspace = true
-huskarl-core.workspace = true
+tokio-tungstenite.workspace = true
 
 [lints]
 workspace = true
