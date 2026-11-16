@@ -29,7 +29,7 @@ product requirements.
 
 | Owner | Usable outcome |
 | --- | --- |
-| #13 / PR #58 | Existing enrollment writes encrypted recovery receipts using account keys; operator commands rotate those keys, rewrap them and report actual references. Preserve native enrollment storage. |
+| #13 / [archived PR #58](https://github.com/jhelwig/clacks-log-private-archive/pull/58) | Existing enrollment writes encrypted recovery receipts using account keys; operator commands rotate those keys, rewrap them and report actual references. Preserve native enrollment storage. |
 | #14 | Full-account synchronization and its authenticated transactions. |
 | #17, incorporating #20 | Web directory setup, typed encrypted credential persistence, protected client provisioning, actual desktop QRZ/HamQTH lookup and synchronized snapshots. |
 | #31, incorporating the QRZ/common parts of #28/#29 | QRZ setup, protected credentials, saved-station routing, publication, queries, retries, pauses and essential controls. |
@@ -39,7 +39,7 @@ product requirements.
 
 #13 does not deliver a dormant service-credential table, generic secret CRUD API,
 provider codec, credential envelope or service-credential migration branch.
-Remove these from PR #58 together with their exclusive queries, role grants,
+Remove these from [archived PR #58](https://github.com/jhelwig/clacks-log-private-archive/pull/58) together with their exclusive queries, role grants,
 offline metadata, fixtures and tests. Do not widen visibility or add artificial
 callers to retain them. Both rotation commands remain because enrollment already
 creates encrypted receipts and wrapped account keys.

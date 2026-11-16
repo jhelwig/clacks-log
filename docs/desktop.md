@@ -1,7 +1,7 @@
 # Desktop application foundation
 
 This specification defines the production desktop foundation for
-[issue #46](https://github.com/jhelwig/clacks-log/issues/46), carrying forward
+[issue #39](https://github.com/jhelwig/clacks-log/issues/39), carrying forward
 D270–D279 and the selected egui architecture. The [desktop guide](../lib/clacks-desktop/README.md)
 documents runtime usage and validation. The [product contract](product.md),
 [client store](client-store.md), [native model](native-model.md) and
@@ -22,7 +22,7 @@ covers both platforms; Linux desktop delivery remains deferred. Keep Rust 1.99.1
 Project-owned tooling and non-trivial fixtures are Rust-only.
 
 The foundation does not deliver profile/equipment workflows (#7), tag setup
-(#8), contact membership editing (#51), contact entry/editing/deletion (#9),
+(#8), contact membership editing (#40), contact entry/editing/deletion (#9),
 history/Worked Before (#10), enrollment (#12), live service adapters or installed
 release packaging (#35). Those capabilities integrate into this application.
 The [logbook setup specification](logbooks.md) owns #8's selector and management
@@ -370,7 +370,7 @@ All delivered code and test tooling use the locked Rust toolchain. Verify:
 6. Closing during initialization and admitted operations, delayed shutdown,
    repeated close requests, explicit force quit and reopening after interruption.
    In-flight saves use real store transactions in integration tests; they do not
-   require shipping contact-entry UI in #46.
+   require shipping contact-entry UI in #39.
 7. Through real startup/activation/error/close operations, assert truthful domain
    events, correlation at ordinary filtering, measurement boundaries and deliberate
    sensitive-data exclusion. Exercise the runtime's actual export path against a

@@ -1,6 +1,6 @@
 # Continuous contact tables
 
-Approved design: issue #88 and the user's approval in this chat.
+Approved design: issue #47 and the user's approval in this chat.
 
 History and both Worked Before presentations show one scrolling display of all
 matching contacts. Remove Previous, Next and page numbers. Retain match and

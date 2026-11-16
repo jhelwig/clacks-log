@@ -29,7 +29,7 @@ required for this workflow.
 | Named-tag lifecycle, policies, current view, deletion review and atomic effects | #8, this specification |
 | New-contact entry, individual contact editing/deletion and the basic saved-contact list | #9 |
 | Extend that list with full history, selection, filtering and Worked Before | #10 |
-| Individual/selected-contact tag membership editing | #51, after #9/#10; [membership specification](contact-membership.md) |
+| Individual/selected-contact tag membership editing | #40, after #9/#10; [membership specification](contact-membership.md) |
 | Import-added memberships | #24 |
 | Actual synchronization networking and account-wide conflict review | Their Phase 3 capabilities |
 | Automatic publication and service routing | Their Phase 5 capabilities |
@@ -41,7 +41,7 @@ integration for synchronized deletion now, using the existing transfer APIs;
 a future network adapter must not implement another fallback algorithm.
 
 Tag deletion retains its chosen QSO effects in #8. Moving ordinary membership
-editing into #51 does not remove those effects or restrict deletion to empty
+editing into #40 does not remove those effects or restrict deletion to empty
 logbooks. Store tests can supply real saved contacts before manual entry is
 implemented; those tests are not a demonstration runtime or substitute UI.
 

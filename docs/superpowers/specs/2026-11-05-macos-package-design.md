@@ -1,7 +1,7 @@
 # Early macOS desktop package
 
 Status: approved by the user on November 5, 2026. This specification records
-the discussion of [issue #80][issue-80]. Prepare and review its implementation
+the discussion of [issue #46][issue-80]. Prepare and review its implementation
 plan before coding. Approval does not authorize Apple account changes,
 credential creation, purchases or publication. No application artifact or
 native acceptance is established by this document.
@@ -10,14 +10,14 @@ native acceptance is established by this document.
 
 Deliver the production Clacks Log functionality available at packaging time
 as a native macOS application in a downloadable disk image (DMG). Extend the
-Windows release pipeline established for [#79][issue-79], preserving its
+Windows release pipeline established for [#45][issue-79], preserving its
 distribution rules and exact-artifact acceptance. Do not wait for complete
 MVP workflow readiness. GitHub owns delivery status and completion.
 
 The issue requires stable application identity, runtime assets and notices,
 the existing protected credential integration, repeatable builds and native
 verification of installed artifacts. D391 owns the Data Protection Keychain
-choice; D392 owns early desktop release sequencing. [#70][issue-70] retains
+choice; D392 owns early desktop release sequencing. [#43][issue-70] retains
 complete integrated MVP and final macOS release acceptance. Completing signing
 and notarization here does not establish that later workflow acceptance.
 
@@ -357,12 +357,12 @@ downgrade or delete the owner's normal application state for acceptance.
 Record DMG hash, version/tag, exact source revision, signing identity/team and
 profile identity/expiry, notarization submission/result, runner/tool versions,
 native macOS/hardware/graphics environment, observed trust prompts and each
-scenario's result in issue #80 or its pull request. Ordinary GitHub artifacts
+scenario's result in issue #46 or its pull request. Ordinary GitHub artifacts
 and verification notes suffice. No credentials belong in that evidence.
 
-Keep #80 open until actual installed-artifact evidence satisfies its scope.
+Keep #46 open until actual installed-artifact evidence satisfies its scope.
 Documenting this design, successful cross-compilation, metadata validation or
-signing checks alone cannot complete it. Leave #70's complete-workflow release
+signing checks alone cannot complete it. Leave #43's complete-workflow release
 acceptance and #37/#38's final integrated/recovery coverage with those issues.
 
 ## Work left to implementation planning
@@ -382,9 +382,9 @@ prerequisite and no new developer subscription is assumed.
 
 ## Sources
 
-[issue-80]: https://github.com/jhelwig/clacks-log/issues/80
-[issue-79]: https://github.com/jhelwig/clacks-log/issues/79
-[issue-70]: https://github.com/jhelwig/clacks-log/issues/70
+[issue-80]: https://github.com/jhelwig/clacks-log/issues/46
+[issue-79]: https://github.com/jhelwig/clacks-log/issues/45
+[issue-70]: https://github.com/jhelwig/clacks-log/issues/43
 [desktop-guide]: ../../../lib/clacks-desktop/README.md#native-credential-integration
 [artwork]: ../../../lib/clacks-desktop/assets/README.md
 [packaging]: https://developer.apple.com/documentation/xcode/packaging-mac-software-for-distribution

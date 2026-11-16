@@ -276,7 +276,7 @@ jobs:
             windows_version = [Environment]::OSVersion.Version.ToString()
             workflow_run = $env:GITHUB_RUN_ID
             workflow_attempt = $env:GITHUB_RUN_ATTEMPT
-            native_acceptance = 'not established by packaging; see issue #79'
+            native_acceptance = 'not established by packaging; see issue #45'
           } | ConvertTo-Json -Depth 10
           @(
             '### Windows installer',
@@ -564,7 +564,7 @@ jobs:
             --argjson bytes "$(stat -f %z "target/macos-package/delivery/$DMG_NAME")" --arg package "$DMG_NAME" --arg hash "$hash" --arg identity "$SIGNING_IDENTITY" \
             --arg team "$SIGNING_TEAM" --arg profile "$PROFILE_ID" --arg expiry "$PROFILE_EXPIRY" \
             --arg submission "$NOTARY_SUBMISSION" --arg image "$ImageOS/$ImageVersion" \
-            '{source: $application[0], geography: $geography[0], package_bytes: $bytes, artifact: $package, sha256: $hash, signing: "Developer ID Application", identity: $identity, team: $team, profile: $profile, profile_expiry: $expiry, notarization: "Accepted", submission: $submission, stapled: true, image: $image, native_acceptance: "not established by packaging; see issue #80"}'
+            '{source: $application[0], geography: $geography[0], package_bytes: $bytes, artifact: $package, sha256: $hash, signing: "Developer ID Application", identity: $identity, team: $team, profile: $profile, profile_expiry: $expiry, notarization: "Accepted", submission: $submission, stapled: true, image: $image, native_acceptance: "not established by packaging; see issue #46"}'
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then cat target/macos-package/ci-evidence.json; fi
           {
             echo '### macOS package'
@@ -578,7 +578,7 @@ jobs:
             echo "- Notarization submission: $NOTARY_SUBMISSION"
             echo "- Runner image: $ImageOS/$ImageVersion ($RUNNER_OS/$RUNNER_ARCH)"
             echo "- Workflow run/attempt: $GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT"
-            echo '- Native installed-product acceptance remains separate; see issue #80.'
+            echo '- Native installed-product acceptance remains separate; see issue #46.'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Remove temporary signing material
         if: always()
@@ -644,6 +644,6 @@ jobs:
           Geographic data release: $geography_release.
           Geographic manifest SHA-256: $geography_manifest.
           Final checksums, signing identity and build diagnostics: $BUILD_URL.
-          Installed-artifact acceptance is separate from packaging checks; macOS evidence belongs in issue #80.
+          Installed-artifact acceptance is separate from packaging checks; macOS evidence belongs in issue #46.
           EOF
           gh release create "$GITHUB_REF_NAME" "target/windows-package/delivery/$MSI_NAME" "target/macos-package/delivery/$DMG_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease="$PRERELEASE" --latest=false --title "Clacks Log $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.txt"

@@ -37,7 +37,7 @@ Included:
 Not delivered by this issue:
 
 - Full history filtering and Worked Before (#10), contact membership editing
-  (#51), bulk editing/deletion, import/export or live synchronization transport.
+  (#40), bulk editing/deletion, import/export or live synchronization transport.
 - Directory lookup, geographic autofill or provider submission/downloads.
 - Separate live/historical entry modes, restart-persistent unfinished drafts,
   docking or additional entry windows. Future entry windows share the same
@@ -120,7 +120,7 @@ The selected view supplies new-contact tag membership:
   input. Do not retain the previous named logbook as a hidden default.
 
 An edit to a saved contact retains its tags regardless of current view changes.
-Explicit membership editing follows the #51
+Explicit membership editing follows the #40
 [membership specification](contact-membership.md),
 with changes participating in the same pending contact form and Save/Cancel.
 

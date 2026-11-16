@@ -1,6 +1,6 @@
 # Contact logbook membership editing
 
-This specification defines [issue #51](https://github.com/jhelwig/clacks-log/issues/51).
+This specification defines [issue #40](https://github.com/jhelwig/clacks-log/issues/40).
 It consolidates D243, D249, D250 and D352 with the existing selection, saved-edit
 and bulk-operation contracts. It is a specification for review, not an execution
 plan or a statement that the interface is already implemented.

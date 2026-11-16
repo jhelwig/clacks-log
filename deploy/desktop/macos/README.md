@@ -211,9 +211,9 @@ credential lifecycle.
 ## Native acceptance
 
 Build, signature and policy checks are not installed-product acceptance. Keep
-[#80](https://github.com/jhelwig/clacks-log/issues/80) open until exact installed
+[#46](https://github.com/jhelwig/clacks-log/issues/46) open until exact installed
 artifacts satisfy [the approved native matrix](../../../docs/superpowers/specs/2026-11-05-macos-package-design.md#verification-and-completion-evidence).
-[#70](https://github.com/jhelwig/clacks-log/issues/70) retains complete integrated
+[#43](https://github.com/jhelwig/clacks-log/issues/43) retains complete integrated
 MVP release acceptance; signing this early package does not complete it.
 
 Use clean Apple Silicon environments on macOS 26.0 and the newer current major
@@ -239,6 +239,6 @@ application evidence, not a substitute for this production artifact.
 
 Record DMG hash/version/tag/revision, signing team/profile identity and expiry,
 notarization submission/result, tools/image, native environment, observations and
-per-scenario passed/failed/blocked/untested status in #80 or its pull request.
+per-scenario passed/failed/blocked/untested status in #46 or its pull request.
 Redact secrets and unnecessary personal/device information. Normal GitHub
 artifacts and notes suffice; no separate archival/retention service is required.

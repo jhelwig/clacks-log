@@ -798,8 +798,8 @@ remain required when those adapters exist; passing pure tests is not that proof.
 
 ## 15. Sources and verification limits
 
-The accepted design was developed in the [RFC](https://github.com/jhelwig/clacks-log/issues/3#issuecomment-6280551376)
-and its [module/observation continuation](https://github.com/jhelwig/clacks-log/issues/3#issuecomment-6308284405).
+The accepted design was developed in the [RFC](https://github.com/jhelwig/clacks-log/issues/3#issuecomment-6932569789)
+and its [module/observation continuation](https://github.com/jhelwig/clacks-log/issues/3#issuecomment-6932570159).
 This document consolidates the resulting contract rather than requiring readers
 to reconstruct it from the discussion.
 

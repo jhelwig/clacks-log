@@ -34,7 +34,7 @@ server, directory lookup, service credentials or live provider requests.
 - Preserve editor/deletion integration. Querying, sorting and navigation do not
   save the unfinished QSO, change operating defaults or mutate contacts.
 - History selection supplies real contact identities for later export, bulk
-  lookup and membership workflows. Issue #51 consumes it; membership editing
+  lookup and membership workflows. Issue #40 consumes it; membership editing
   is not a prerequisite for this capability.
 
 This does not add awards, heard-station tracking, directory requests, arbitrary
@@ -471,7 +471,7 @@ out. **E5 default:** return matching-page data and counts from one ordinary
 read snapshot; use 100-row pages initially, with stable ID ties. The concrete
 page/cursor representation is implementation work, not another operator policy.
 
-Per issue #88, these pages are internal reads, never user-facing navigation.
+Per issue #47, these pages are internal reads, never user-facing navigation.
 History and both Worked Before presentations show all matching rows in one
 continuous virtual table. The scrollbar spans the complete result count; jumping
 to a distant position reads the needed rows without fetching intervening pages.

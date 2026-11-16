@@ -460,7 +460,7 @@ geometry-library checks:
   workspaces/configuration. Explicit external selection and snapshot/correction
   preservation need their existing functional evidence, not an installer suite.
   Clean-machine installation, upgrade, uninstall and distribution-trust
-  acceptance belong to #35/#70; they are not completion gates for #23.
+  acceptance belong to #35/#43; they are not completion gates for #23.
 - Verify Clacks's reporting decisions for real selection/query failures and
   obsolete-result handling without testing telemetry-library formatting or
   duplicating the functional suite under every logging configuration.

@@ -124,7 +124,7 @@ empty; its bounds do not shrink to its controls or row count. Reset changes layo
 operating settings, contact data, appearance, fonts or selection.
 
 All table views present their entire result set as one continuous scrolling
-display, without user-facing pagination controls or page numbers (issue #88).
+display, without user-facing pagination controls or page numbers (issue #47).
 Internal bounded reads remain invisible to the user. The scrollbar represents
 the full result set, including rows whose data has not yet arrived.
 
@@ -458,7 +458,7 @@ The [membership specification](contact-membership.md) consolidates the workflows
 save boundaries and integration requirements. This section owns their presentation.
 
 Use the Gmail-style searchable checkbox picker for individual and selected-contact
-membership editing in [issue #51](https://github.com/jhelwig/clacks-log/issues/51).
+membership editing in [issue #40](https://github.com/jhelwig/clacks-log/issues/40).
 Keep its surfaces, typography, control treatment and unapplied-change indicators
 consistent with the shared Clacks components.
 

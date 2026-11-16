@@ -319,7 +319,7 @@ measurement/review evidence on #23/its PR.
   already established query/UI behavior through another full interaction matrix.
   Follow the user-owned machine inventory and verify executable/isolation
   arguments. #23 adds no clean-machine installation or version-upgrade suite;
-  broader platform release acceptance remains with #35/#70.
+  broader platform release acceptance remains with #35/#43.
 - [ ] **3. Complete proportional automated verification after integrations.**
   Run `cargo +1.99.1 fmt --all --check`, affected package tests, and
   `cargo +1.99.1 clippy -p clacks-geography -p clacks-geography-builder -p clacks-desktop -p clacks-desktop-packaging -p clacks-desktop-package --all-targets --locked --offline -- -D warnings`.

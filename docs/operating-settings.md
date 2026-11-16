@@ -15,7 +15,7 @@ independent equipment configurations, entirely offline. Apply makes a complete
 validated operating context active on this client. Reusable-record saves are
 separate actions. Existing contacts retain their recorded historical snapshots.
 
-Extend the real egui desktop application from #46 and SQLite store from #6. Keep
+Extend the real egui desktop application from #39 and SQLite store from #6. Keep
 Rust 1.99.1, the wgpu renderer, the application-owned Tokio runtime, and the thin
 `bin/clacks-log` wrapper around `lib/clacks-desktop`. No mock store, replacement
 application shell, demonstration editor or test-only runtime is a deliverable.
@@ -23,7 +23,7 @@ application shell, demonstration editor or test-only runtime is a deliverable.
 This capability includes station/profile and equipment creation, editing,
 selection, explicit reload, deletion, manual geographic details and reference
 entry. It does not deliver contact entry/history (#9/#10), tag setup (#8),
-contact membership editing (#51), live synchronization/enrollment, the
+contact membership editing (#40), live synchronization/enrollment, the
 account-wide conflict-review interface, geographic autofill (Phase 4), equipment
 inventory, a dedicated amplifier field, contest
 exchanges or serial assistance. Later work integrates the same components.

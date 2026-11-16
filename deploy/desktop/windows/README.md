@@ -53,7 +53,7 @@ introduced. Preserve the candidate needed for an actual native comparison.
    write permission; build and eligibility jobs cannot publish a release.
 5. Download the draft's exact MSI, compare its hash with the workflow summary
    linked from the release notes, and perform the native acceptance scenarios in the approved spec. Record results against its hash
-   and source revision in issue #79/PR. Publish the draft manually after testing;
+   and source revision in issue #45/PR. Publish the draft manually after testing;
    publication does not rebuild, re-sign or otherwise change the tested bytes.
    Apply the macOS guide's native acceptance to its exact DMG as well.
 
@@ -184,7 +184,7 @@ increasing source-versioned installers; meaningful cancellation/environmental
 failure; repeat maintenance/downgrade rejection; uninstall/reinstall preservation.
 Record Windows edition/build, architecture, graphics/runtime environment, exact
 MSI hash/version/revision/signing mode and actual scenario outcomes. Redact native
-verbose logs before sharing. Keep #79 open until actual artifacts and required
+verbose logs before sharing. Keep #45 open until actual artifacts and required
 native evidence exist; report blocked/unavailable checks distinctly.
 
 ## Future signing

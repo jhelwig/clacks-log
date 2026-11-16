@@ -10,7 +10,7 @@ document.
 ## Intent, requirements and boundaries
 
 Deliver the production desktop functionality available now through repeatable
-release-mode builds and a usable installer. Issue [#79] is authoritative for
+release-mode builds and a usable installer. Issue [#45] is authoritative for
 scope and completion; D392 establishes early Windows delivery before complete
 MVP readiness. Do not wait for future logging workflows or geographic assets.
 
@@ -375,7 +375,7 @@ versions for upgrade acceptance. The first package establishes the baseline;
 the final candidate is the exact artifact assessed. Do not fake an upgrade by
 editing an installed executable or rewriting its database. When any required
 environment or trust setting blocks a scenario, retain the concrete limitation
-and leave issue #79 open. Native failures are resolved in scope or brought back
+and leave issue #45 open. Native failures are resolved in scope or brought back
 with evidence; cross-compilation, package construction and plans alone do not
 complete the issue.
 
@@ -393,11 +393,11 @@ These are routine integration choices, not a product approval queue. No new
 storage model, synchronization rule or server deployment is authorized.
 
 After this specification is approved, prepare the concrete implementation plan
-before coding. The specification and plan do not close #79. Preserve unrelated
+before coding. The specification and plan do not close #45. Preserve unrelated
 working-tree changes and obtain authorization appropriate to any subsequent
 public publication or signing purchase.
 
-[#79]: https://github.com/jhelwig/clacks-log/issues/79
+[#45]: https://github.com/jhelwig/clacks-log/issues/45
 [tool-release]: https://github.com/jkroepke/msi-builder/releases/tag/v1.2.0
 [tool-schema]: https://github.com/jkroepke/msi-builder/blob/v1.2.0/docs/design/yaml-schema.md
 [tool-close]: https://github.com/jkroepke/msi-builder/blob/v1.2.0/internal/builder/close.go

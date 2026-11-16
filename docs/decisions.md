@@ -1195,7 +1195,7 @@ Use graceful desktop shutdown with an explicit force-quit option when shutdown i
 
 #### D273
 
-Use wgpu as the initial desktop renderer through eframe, refining D215's previously open renderer choice. Keep the interface in ordinary egui components and retain the Windows MVP and eventual macOS/Linux architecture. Eframe defaults to wgpu; its supported native platform backends fit that direction. Glow remains an evaluated alternative with a documented binary-size advantage, not the selected initial renderer. Exact compatible dependency versions, enabled backend features and actual native rendering verification remain engineering work for issue #46. See [eframe features](https://docs.rs/eframe/latest/eframe/#feature-flags) and [wgpu platform support](https://github.com/gfx-rs/wgpu#supported-platforms).
+Use wgpu as the initial desktop renderer through eframe, refining D215's previously open renderer choice. Keep the interface in ordinary egui components and retain the Windows MVP and eventual macOS/Linux architecture. Eframe defaults to wgpu; its supported native platform backends fit that direction. Glow remains an evaluated alternative with a documented binary-size advantage, not the selected initial renderer. Exact compatible dependency versions, enabled backend features and actual native rendering verification remain engineering work for issue #39. See [eframe features](https://docs.rs/eframe/latest/eframe/#feature-flags) and [wgpu platform support](https://github.com/gfx-rs/wgpu#supported-platforms).
 
 ### Decision D274
 
@@ -1225,7 +1225,7 @@ Use an optional local `config.toml` file for desktop startup and diagnostic sett
 
 #### D278
 
-Use HTTP/protobuf with Rustls for desktop OTLP export. HTTP carries binary Protocol Buffers payloads for traces, metrics and logs; HTTPS uses Rustls. Use the standard Rust OpenTelemetry exporter and preserve D275's explicit opt-in, configured destinations, bounded buffering, failure independence and continued local logs. Concrete compatible dependency versions, feature selection and HTTP-client/processor integration remain engineering work for issue #46. This refines D275's open desktop transport choice.
+Use HTTP/protobuf with Rustls for desktop OTLP export. HTTP carries binary Protocol Buffers payloads for traces, metrics and logs; HTTPS uses Rustls. Use the standard Rust OpenTelemetry exporter and preserve D275's explicit opt-in, configured destinations, bounded buffering, failure independence and continued local logs. Concrete compatible dependency versions, feature selection and HTTP-client/processor integration remain engineering work for issue #39. This refines D275's open desktop transport choice.
 
 ### Decision D279
 

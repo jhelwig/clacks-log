@@ -19,7 +19,7 @@ winresource 0.1.34, cargo-about 0.9.3, GitHub Actions and GitHub CLI.
 
 Implementation is on `feat/windows-installer`. Native Windows construction,
 actual delivery and the specification's native acceptance matrix remain pending.
-Issue #79 remains open. Local portable verification does not establish those
+Issue #45 remains open. Local portable verification does not establish those
 outcomes or authorize publication.
 
 ## Constraints

@@ -27,7 +27,7 @@ below, and an active operating summary provides quick controls. Dedicated entry
 and Worked Before windows add views without changing the main workbench; entry
 views share one in-progress QSO per client. Full operating editing uses a dialog.
 
-The [desktop specification](desktop.md) defines issue #46's production application
+The [desktop specification](desktop.md) defines issue #39's production application
 foundation and its acceptance requirements. It integrates the existing client
 store and native model; later profile/equipment, tag, contact-entry and history
 capabilities extend this same application. Installed release packaging remains
@@ -266,7 +266,7 @@ copies validated contact facts into account-owned local working state without
 requiring a server, provider, profile or external-upload readiness. Editing
 saved contacts does not alter active operating defaults or unfinished entry.
 The basic saved-contact list is part of #9; full history and Worked Before
-extend those components in #10, and membership editing follows in #51.
+extend those components in #10, and membership editing follows in #40.
 
 D88 includes callsign-directory lookup during manual entry in MVP. D89 selects QRZ and HamQTH with a user-selected provider; field application remains open. [Directory research](../references/callsign-directory.md) distinguishes provider access requirements from logbook publication.
 

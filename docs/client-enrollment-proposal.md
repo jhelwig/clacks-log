@@ -2,7 +2,7 @@
 
 The client-enrollment contract for [issue #12](https://github.com/jhelwig/clacks-log/issues/12).
 The completed implementation plan and verification are retained in
-[PR #57](https://github.com/jhelwig/clacks-log/pull/57) and Git history.
+[archived PR #57](https://github.com/jhelwig/clacks-log-private-archive/pull/57) and Git history.
 [accounts.md](accounts.md) owns accepted account behavior;
 [synchronization-model.md](synchronization-model.md) owns admission and recovery.
 

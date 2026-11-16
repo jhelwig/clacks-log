@@ -333,7 +333,7 @@ run and attempt. Use environment `macos-signing` only for the Mac job.
 ### Task 4: Verify exact installed artifacts and preservation
 
 **Files:** Finish `deploy/desktop/macos/README.md` and relevant desktop guide
-links. Record artifact-specific evidence in #80/its pull request when authorized;
+links. Record artifact-specific evidence in #46/its pull request when authorized;
 do not add a second repository delivery-status ledger.
 
 **Interfaces:** Consume Task 3's exact downloaded DMG and hash/version/revision.
@@ -385,9 +385,9 @@ in for the production artifact under test.
   are supplied directly by the library.
 - [ ] Record each scenario as passed, failed, blocked or untested with exact
   native environment, artifacts and observed trust behavior. Redact secrets;
-  ordinary GitHub artifacts/notes suffice. Keep #80 open until its installed
-  artifact evidence is complete; leave #70/#37/#38's final workflow acceptance
-  with those issues. Do not modify closed #79 or publish a release automatically.
+  ordinary GitHub artifacts/notes suffice. Keep #46 open until its installed
+  artifact evidence is complete; leave #43/#37/#38's final workflow acceptance
+  with those issues. Do not modify closed #45 or publish a release automatically.
 - [ ] Run documentation link/whitespace checks and review the complete change
   against the approved spec, including telemetry fields and secret cleanup.
   Commit only reviewed changes using a wrapped message file. Report native

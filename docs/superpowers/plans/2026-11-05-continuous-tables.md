@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use superpowers:executing-plans to implement this plan task by task.
 
-**Goal:** Deliver issue #88's continuous scrolling tables.
+**Goal:** Deliver issue #47's continuous scrolling tables.
 
 **Architecture:** Keep store paging internal. Let egui_extras virtualize all
 matching rows, requesting only the visible 100-row pages through existing
@@ -68,7 +68,7 @@ at their actual offset only for the current complete request inputs.
 
 **Files:** `docs/history.md`, `docs/desktop-ui.md`, client-store/desktop READMEs.
 
-- [x] Replace user-facing pagination wording with the issue #88 contract and
+- [x] Replace user-facing pagination wording with the issue #47 contract and
   document internal bounded reads, full-result scrollbar and independent views.
 - [x] Build and inspect the production desktop with isolated explicit data paths;
   record exercised states, screenshots and unavailable platform checks.
