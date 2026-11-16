@@ -3,6 +3,11 @@
 Clacks Log is owned and published by **Technosorcery, LLC**. See [NOTICE](NOTICE)
 and [LICENSE](LICENSE) for project ownership and license terms.
 
+Bug reports, feature requests, and feedback are welcome; outside code and
+documentation patches are not currently accepted. See
+[CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md) for participation
+and private vulnerability reporting.
+
 Clacks Log is a pre-alpha amateur radio desktop logger with independent offline use on an arbitrary number of clients, reconciliation through a self-hostable server, and server-managed logbook service integration.
 
 Product and architectural planning for the agreed minimum viable product (MVP) is complete (D242). The native-model and synchronization libraries provide pure domain values and conditional transitions. The client-storage library persists those values, pending work, evidence and complete-window receipts in SQLite. The desktop foundation creates or reopens a local account, presents startup diagnostics and coordinates activation and graceful shutdown. The desktop supports local manual contact entry, editing and individual deletion. The server provides PostgreSQL-backed accounts and OIDC login/identity management; enrolled desktops synchronize through authenticated WebSockets, while external-service adapters remain downstream capabilities.
