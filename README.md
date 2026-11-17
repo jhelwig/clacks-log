@@ -210,6 +210,15 @@ the root and member manifests, including target-specific dependencies; run
 configured in `tomlfmt.toml`. Comments belong beside the entry whose purpose or
 constraint they explain. CI runs the same check before compiling applications.
 
+The `Rust` workflow reports a `CI result` check on every pull request. Changes
+limited to root policy/license documents, `README.md` and `AGENTS.md` files,
+or Markdown under `docs/` and `references/` skip workspace and web verification.
+Other changes require both verification jobs to succeed. Classification errors
+and unexpected verification failures or skips fail `CI result`. Pushes to `main`
+always run both verification jobs before the workflow can succeed and trigger
+production deployment. Executable pull-request jobs require a branch in this
+repository; code changes from forks cannot satisfy `CI result`.
+
 The server-side [LoTW library](lib/clacks-lotw/README.md) provides checked
 certificate import and signed batch construction without native cryptography.
 Its tests use independently constructed static inputs; supplied TQSL sources

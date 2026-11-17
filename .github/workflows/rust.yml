@@ -5,18 +5,6 @@ on:
     branches:
       - main
   pull_request:
-    paths:
-      - '.gitattributes'
-      - '.sqlx/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'rust-toolchain.toml'
-      - 'tomlfmt.toml'
-      - 'lib/**'
-      - 'bin/**'
-      - 'deploy/server/**'
-      - '.dockerignore'
-      - '.github/workflows/rust.yml'
 
 permissions:
   contents: read
@@ -26,10 +14,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Classify changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Identify documentation-only pull requests
+        id: classify
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          docs_only=false
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            # Write the complete diff first so a Git failure cannot look empty.
+            # Disable rename folding: moving code into docs still changes code.
+            git diff --name-only -z --no-renames "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/ci-changed-paths"
+            if [[ -s "$RUNNER_TEMP/ci-changed-paths" ]]; then
+              docs_only=true
+              while IFS= read -r -d '' path; do
+                case "$path" in
+                  README.md|CONTRIBUTING.md|SECURITY.md|AGENTS.md|LICENSE|NOTICE|*/README.md|*/AGENTS.md|docs/*.md|references/*.md) ;;
+                  *) docs_only=false ;;
+                esac
+              done < "$RUNNER_TEMP/ci-changed-paths"
+            fi
+          fi
+          printf 'docs_only=%s\n' "$docs_only" >> "$GITHUB_OUTPUT"
+          printf 'Documentation-only PR: `%s`. Main pushes always require verification.\n' "$docs_only" >> "$GITHUB_STEP_SUMMARY"
+
   verify:
-    # Defense in depth for the current private repository. Public conversion
-    # requires an enforced boundary; fork workflows can edit this condition.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: changes
+    # Keep executable PR work on this runner limited to same-repository branches.
+    if: >-
+      needs.changes.outputs.docs_only == 'false' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     strategy:
       fail-fast: false
       matrix:
@@ -137,9 +163,12 @@ jobs:
           du -sh "$CARGO_TARGET_DIR" ~/.cargo
 
   verify-web:
+    needs: changes
     # One dedicated runner executes these jobs sequentially. Cargo keeps build
     # artifacts outside the cleaned source checkout and tracks their freshness.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      needs.changes.outputs.docs_only == 'false' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: [self-hosted, Linux, X64, clacks-linux]
     env:
       SQLX_OFFLINE: 'true'
@@ -166,3 +195,32 @@ jobs:
         run: |
           df -h .
           du -sh "$CARGO_TARGET_DIR" ~/.cargo
+
+  ci-result:
+    name: CI result
+    needs: [changes, verify, verify-web]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require the expected verification outcomes
+        shell: bash
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+          WEB_RESULT: ${{ needs.verify-web.result }}
+        run: |
+          printf 'Classification: %s; docs_only: %s; workspace: %s; web: %s\n' \
+            "$CHANGES_RESULT" "$DOCS_ONLY" "$VERIFY_RESULT" "$WEB_RESULT" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [[ "$CHANGES_RESULT" != success ]]; then
+            echo 'Change classification did not succeed.' >&2
+            exit 1
+          fi
+          case "$DOCS_ONLY:$VERIFY_RESULT:$WEB_RESULT" in
+            true:skipped:skipped|false:success:success) ;;
+            *)
+              echo 'Verification outcomes do not match the classified changes.' >&2
+              exit 1
+              ;;
+          esac
