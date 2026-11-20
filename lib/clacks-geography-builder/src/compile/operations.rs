@@ -437,11 +437,12 @@ fn valid(geometry: &MultiPolygon<f64>) -> Result<()> {
 
 /// Preserve exact contained geometry and use overlay only when clipping is required.
 fn intersection(a: &MultiPolygon<f64>, b: &MultiPolygon<f64>) -> Result<MultiPolygon<f64>> {
-    if a.relate(b).is_covers() {
+    let relation = a.relate(b);
+    if relation.is_covers() {
         Ok(b.clone())
-    } else if b.relate(a).is_covers() {
+    } else if relation.is_coveredby() {
         Ok(a.clone())
-    } else if a.relate(b).is_disjoint() {
+    } else if relation.is_disjoint() {
         Ok(MultiPolygon(vec![]))
     } else {
         overlay(a, b, ClipType::Intersection)
@@ -450,9 +451,10 @@ fn intersection(a: &MultiPolygon<f64>, b: &MultiPolygon<f64>) -> Result<MultiPol
 
 /// Preserve disjoint geometry without quantization during subtraction.
 fn subtract(a: &MultiPolygon<f64>, b: &MultiPolygon<f64>) -> Result<MultiPolygon<f64>> {
-    if b.relate(a).is_covers() {
+    let relation = b.relate(a);
+    if relation.is_covers() {
         Ok(MultiPolygon(vec![]))
-    } else if a.relate(b).is_disjoint() {
+    } else if relation.is_disjoint() {
         Ok(a.clone())
     } else {
         overlay(a, b, ClipType::Difference)
