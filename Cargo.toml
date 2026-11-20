@@ -91,6 +91,7 @@ prost = "=0.14.1"
 rand = "0.8"
 rand_chacha = "0.3.1"
 raw-window-handle = "=0.6.2"
+rayon = "1.12"
 rc2 = "0.9"
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }

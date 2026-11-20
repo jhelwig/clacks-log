@@ -9,6 +9,7 @@ use anyhow::{Context, Result, ensure};
 use clipper2_rust::engine::ClipType;
 use geo::{Contains, CoordsIter, Relate, unary_union};
 use geo_types::{Coord, Geometry, LineString, MultiPolygon, Point, Polygon, Rect};
+use rayon::prelude::*;
 use sha2_rsa::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -303,8 +304,9 @@ pub(super) fn transform_features(
     prepared: &PreparedOperations<'_>,
     cancelled: &AtomicBool,
 ) -> Result<BTreeMap<clacks_geography::artifact::SourceIdentity, TransformedFeature>> {
+    // Preserve feature order for shared-edge numbering and the projection loop.
     let mut partitions = features
-        .iter()
+        .par_iter()
         .map(|feature| {
             partition_feature(feature, prepared, cancelled).with_context(|| {
                 format!(
