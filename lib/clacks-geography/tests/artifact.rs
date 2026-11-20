@@ -396,6 +396,58 @@ fn indexed_topology_validation_checks_crossings_holes_and_parts() {
 }
 
 #[test]
+fn hole_pairs_with_overlapping_bounds_keep_topology_rules() {
+    use clacks_geography::geometry::validate_topology;
+    use geo_types::{MultiPolygon, Polygon, line_string};
+
+    let square = |w, s, e, n| line_string![(x:w,y:s),(x:e,y:s),(x:e,y:n),(x:w,y:n),(x:w,y:s)];
+    let shell = square(-10., -10., 10., 10.);
+    let lower = line_string![(x:2.,y:2.),(x:8.,y:2.),(x:2.,y:8.),(x:2.,y:2.)];
+    let upper = |edge| line_string![(x:8.,y:8.),(x:edge,y:8.),(x:8.,y:edge),(x:8.,y:8.)];
+    let vertex_crossing = line_string![(x:8.,y:4.),(x:6.,y:6.),(x:5.,y:4.),(x:6.,y:2.),(x:8.,y:4.)];
+    for (case, holes, accepted) in [
+        (
+            "nearly collinear boundaries separated by a gap",
+            vec![lower.clone(), upper(2.0_f64.next_up())],
+            true,
+        ),
+        (
+            "nearly collinear boundaries with overlapping interiors",
+            vec![lower, upper(2.0_f64.next_down())],
+            false,
+        ),
+        (
+            "disjoint boundaries with nesting",
+            vec![square(2., 2., 8., 8.), square(3., 3., 7., 7.)],
+            false,
+        ),
+        (
+            "disjoint boundaries with the inner hole first",
+            vec![square(3., 3., 7., 7.), square(2., 2., 8., 8.)],
+            false,
+        ),
+        (
+            "holes touching at one point",
+            vec![square(2., 2., 5., 5.), square(5., 5., 8., 8.)],
+            true,
+        ),
+        (
+            "holes crossing at their vertices",
+            vec![square(2., 2., 6., 6.), vertex_crossing],
+            false,
+        ),
+        (
+            "holes sharing an edge at signed zero",
+            vec![square(-2., 2., -0.0, 5.), square(0.0, 2., 2., 5.)],
+            false,
+        ),
+    ] {
+        let polygon = MultiPolygon(vec![Polygon::new(shell.clone(), holes)]);
+        assert_eq!(validate_topology(&polygon).is_ok(), accepted, "{case}");
+    }
+}
+
+#[test]
 fn hole_contacts_must_not_disconnect_the_polygon_interior() {
     use clacks_geography::geometry::validate_topology;
     use geo_types::{MultiPolygon, Polygon, line_string};
