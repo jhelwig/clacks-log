@@ -3,6 +3,7 @@
 use crate::error::{GeographyError, invalid};
 use geo::{BoundingRect, CoordsIter};
 use geo_types::MultiPolygon;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Reject malformed or unnormalized geometry before library topology operations.
 pub(crate) fn validate(geometry: &MultiPolygon<f64>) -> Result<[f64; 4], GeographyError> {
@@ -49,7 +50,7 @@ pub(crate) fn extend(extent: &mut Option<[f64; 4]>, next: [f64; 4]) {
 pub fn validate_topology(geometry: &MultiPolygon<f64>) -> Result<(), GeographyError> {
     use geo::coordinate_position::CoordPos;
     use geo::dimensions::Dimensions;
-    use geo::{Intersects, PreparedGeometry, Relate};
+    use geo::{CoordinatePosition, Intersects, PreparedGeometry, Relate};
     use geo_types::Polygon;
     if geometry.0.is_empty() {
         return Err(invalid("empty geometry"));
@@ -58,6 +59,8 @@ pub fn validate_topology(geometry: &MultiPolygon<f64>) -> Result<(), GeographyEr
         for ring in std::iter::once(polygon.exterior()).chain(polygon.interiors()) {
             validate_ring(ring)?;
         }
+        // On a failed sweep, retain the pair checks and their earlier diagnostics.
+        let contacting_holes = validate_connected_interior(polygon);
         let shell = Polygon::new(polygon.exterior().clone(), vec![]);
         let prepared = PreparedGeometry::from(&shell);
         for (hole_index, hole) in polygon.interiors().iter().enumerate() {
@@ -69,7 +72,8 @@ pub fn validate_topology(geometry: &MultiPolygon<f64>) -> Result<(), GeographyEr
             {
                 return Err(invalid("hole is not contained or shares a shell edge"));
             }
-            for other in polygon.interiors().iter().skip(hole_index + 1) {
+            for (other_index, other) in polygon.interiors().iter().enumerate().skip(hole_index + 1)
+            {
                 let other = Polygon::new(other.clone(), vec![]);
                 if hole
                     .bounding_rect()
@@ -80,6 +84,21 @@ pub fn validate_topology(geometry: &MultiPolygon<f64>) -> Result<(), GeographyEr
                             .ok_or_else(|| invalid("empty hole bounds"))?,
                     )
                 {
+                    let boundaries_disjoint = contacting_holes
+                        .as_ref()
+                        .is_ok_and(|pairs| !pairs.contains(&(hole_index + 1, other_index + 1)));
+                    // With disjoint simple boundaries, the interiors are either disjoint
+                    // or nested. A vertex of each ring rules out nesting in either direction.
+                    if boundaries_disjoint
+                        && hole.exterior().0.first().is_some_and(|point| {
+                            other.coordinate_position(point) == CoordPos::Outside
+                        })
+                        && other.exterior().0.first().is_some_and(|point| {
+                            hole.coordinate_position(point) == CoordPos::Outside
+                        })
+                    {
+                        continue;
+                    }
                     let relationship = hole.relate(&other);
                     if relationship.get(CoordPos::Inside, CoordPos::Inside)
                         == Dimensions::TwoDimensional
@@ -91,7 +110,7 @@ pub fn validate_topology(geometry: &MultiPolygon<f64>) -> Result<(), GeographyEr
                 }
             }
         }
-        validate_connected_interior(polygon)?;
+        contacting_holes?;
         let bounds = polygon
             .bounding_rect()
             .ok_or_else(|| invalid("empty polygon bounds"))?;
@@ -177,7 +196,7 @@ fn validate_ring(ring: &geo_types::LineString<f64>) -> Result<(), GeographyError
 struct ContactEdge {
     /// Shell is zero; holes follow in their original order.
     ring: usize,
-    /// Unmodified boundary segment.
+    /// Boundary segment with a single representation of zero on the x-axis.
     segment: geo_types::Line<f64>,
 }
 
@@ -188,12 +207,16 @@ impl geo::algorithm::sweep::Cross for ContactEdge {
     }
 }
 
-/// Reject cycles in the ring/contact incidence graph that disconnect the area interior.
-fn validate_connected_interior(polygon: &geo_types::Polygon<f64>) -> Result<(), GeographyError> {
+/// Reject shared ring edges and contacts that disconnect the interior.
+///
+/// Return each contacting hole pair as ascending, one-based ring indices.
+fn validate_connected_interior(
+    polygon: &geo_types::Polygon<f64>,
+) -> Result<BTreeSet<(usize, usize)>, GeographyError> {
     use geo::algorithm::{line_intersection::LineIntersection, sweep::Intersections};
-    use std::collections::{BTreeMap, BTreeSet};
+    let mut contacting_holes = BTreeSet::new();
     if polygon.interiors().is_empty() {
-        return Ok(());
+        return Ok(contacting_holes);
     }
     let rings: Vec<_> = std::iter::once(polygon.exterior())
         .chain(polygon.interiors())
@@ -201,7 +224,15 @@ fn validate_connected_interior(polygon: &geo_types::Polygon<f64>) -> Result<(), 
     let edges = rings.iter().enumerate().flat_map(|(ring, line)| {
         line.lines()
             .filter(|line| line.start != line.end)
-            .map(move |segment| ContactEdge { ring, segment })
+            .map(move |mut segment| {
+                // The sweep's total ordering distinguishes negative and positive zero.
+                for x in [&mut segment.start.x, &mut segment.end.x] {
+                    if *x == 0. {
+                        *x = 0.;
+                    }
+                }
+                ContactEdge { ring, segment }
+            })
     });
     let mut contacts: BTreeMap<(u64, u64), BTreeSet<usize>> = BTreeMap::new();
     for (first, second, intersection) in Intersections::from_iter(edges) {
@@ -211,6 +242,9 @@ fn validate_connected_interior(polygon: &geo_types::Polygon<f64>) -> Result<(), 
         let LineIntersection::SinglePoint { intersection, .. } = intersection else {
             return Err(invalid("rings share an edge"));
         };
+        if first.ring != 0 && second.ring != 0 {
+            contacting_holes.insert((first.ring.min(second.ring), first.ring.max(second.ring)));
+        }
         let key = (
             if intersection.x == 0. {
                 0
@@ -253,5 +287,5 @@ fn validate_connected_interior(polygon: &geo_types::Polygon<f64>) -> Result<(), 
             }
         }
     }
-    Ok(())
+    Ok(contacting_holes)
 }
