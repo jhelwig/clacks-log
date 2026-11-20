@@ -17,6 +17,17 @@ pub(super) fn show<R>(
     title: &str,
     body: impl FnOnce(&mut egui::Ui) -> R,
 ) -> DialogResponse<R> {
+    show_with_dismissal(context, id, title, true, body)
+}
+
+/// With `can_dismiss` false, disable the close button and decline Escape dismissal.
+pub(super) fn show_with_dismissal<R>(
+    context: &egui::Context,
+    id: egui::Id,
+    title: &str,
+    can_dismiss: bool,
+    body: impl FnOnce(&mut egui::Ui) -> R,
+) -> DialogResponse<R> {
     let mut close = false;
     let bounds = context.content_rect();
     let size = egui::vec2(704.0_f32.min(bounds.width() - 32.0), bounds.height() - 64.0);
@@ -28,7 +39,10 @@ pub(super) fn show<R>(
             ui.horizontal(|ui| {
                 ui.heading(title);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    close = ui.button("×").on_hover_text("Cancel and close").clicked();
+                    close = ui
+                        .add_enabled(can_dismiss, egui::Button::new("×"))
+                        .on_hover_text("Cancel and close")
+                        .clicked();
                 });
             });
             ui.separator();
@@ -42,6 +56,6 @@ pub(super) fn show<R>(
         && context.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
     DialogResponse {
         inner: response.inner,
-        cancel_requested: close || escape,
+        cancel_requested: can_dismiss && (close || escape),
     }
 }

@@ -572,12 +572,15 @@ do not prescribe additional per-record, save or checkpoint generation counters.
 Membership generations retain their admission role. This is ordinary local concurrency protection, not a
 new distributed conflict policy or a separate user-facing resolution workflow.
 
-Imported QSO and imported assertions must eventually share a transaction under
-D171. The adapter's private save routines must permit that composition, while the
-Amateur Data Interchange Format (ADIF) importer/review/report remains a later
-capability. Service receipt honors
-`ExactFact` versus `CoveredEffect` dependencies and complete atomic units using
-the existing core. No partial progress acknowledgment can stand in for them.
+Apply each reviewed import row in one guarded local transaction under D170
+and D171. The transaction saves the QSO, its selected tag membership and its
+imported assertions together. Pending changes enter ordinary per-record
+synchronization. If a commit result is uncertain, prepare the source again
+against current saved state before retrying the row.
+
+Service receipt honors `ExactFact` versus `CoveredEffect` dependencies and
+complete atomic units using the existing core. No partial progress
+acknowledgment can stand in for them.
 
 ## 8. Worked examples
 

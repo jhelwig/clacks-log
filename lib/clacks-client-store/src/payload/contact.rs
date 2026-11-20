@@ -335,7 +335,7 @@ pub(super) async fn insert(
 }
 
 /// Restore native quantities from signed columns without truncation or reinterpretation.
-fn pair(frequency: Option<i64>, band: Option<String>) -> anyhow::Result<BandFrequency> {
+pub(crate) fn pair(frequency: Option<i64>, band: Option<String>) -> anyhow::Result<BandFrequency> {
     BandFrequency::from_recorded_pair(
         frequency
             .map(|value| Ok::<_, anyhow::Error>(Hertz::new(value.try_into()?)?))
@@ -343,6 +343,15 @@ fn pair(frequency: Option<i64>, band: Option<String>) -> anyhow::Result<BandFreq
         band.map(|value| Band::from_recorded_label(&value))
             .transpose()?,
     )
+}
+
+pub(crate) fn mode(kind: &str, label: String, parent: Option<String>) -> anyhow::Result<Mode> {
+    let identity = match kind {
+        "parent" if parent.is_none() => ModeIdentity::Parent { label },
+        "specialization" => ModeIdentity::Specialization { label, parent },
+        _ => anyhow::bail!("invalid recorded mode shape"),
+    };
+    Ok(Mode::from_recorded_identity(identity)?)
 }
 
 /// Restore one QSO payload without changing recorded labels or materializing fallback facts.
@@ -362,16 +371,6 @@ pub(super) async fn load(
     let equipment = match row.equipment_id {
         Some(id) => Some(load_equipment(connection, account, id).await?),
         None => None,
-    };
-    let mode = match row.mode_kind.as_str() {
-        "parent" if row.mode_parent.is_none() => ModeIdentity::Parent {
-            label: row.mode_label,
-        },
-        "specialization" => ModeIdentity::Specialization {
-            label: row.mode_label,
-            parent: row.mode_parent,
-        },
-        _ => anyhow::bail!("invalid recorded mode shape"),
     };
     let receive_override = if row.receive_frequency.is_none() && row.receive_band.is_none() {
         None
@@ -402,7 +401,7 @@ pub(super) async fn load(
         contacted_operator: (operator(row.contacted_operator_call, row.contacted_operator_name)?),
         primary: pair(row.frequency, row.band)?,
         receive_override,
-        mode: Mode::from_recorded_identity(mode)?,
+        mode: mode(&row.mode_kind, row.mode_label, row.mode_parent)?,
         sent_report: row.sent_report,
         received_report: row.received_report,
         comment: row.comment,

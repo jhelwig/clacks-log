@@ -5,8 +5,24 @@ use crate::{menus::MenuCommand, session::SessionStatus};
 use eframe::egui;
 
 impl DesktopApp {
+    /// Whether an active workflow prevents opening another workspace action.
+    pub(super) fn modal_open(&self) -> bool {
+        self.appearance.editor.is_some()
+            || self.ws_suite.is_open()
+            || self.enrollment.is_open()
+            || self.logbooks.is_open()
+            || self.settings.is_open()
+            || self.details.is_open()
+            || self.import.is_open()
+            || self.review.is_exclusive()
+            || self.workbench.has_modal()
+    }
+
     /// Current state, not the state when the operating system queued activation.
     pub(super) fn menu_enabled(&self, context: &egui::Context, command: MenuCommand) -> bool {
+        if self.import.is_picking_file() {
+            return false;
+        }
         if command == MenuCommand::Quit {
             return true;
         }
@@ -20,20 +36,14 @@ impl DesktopApp {
             return false;
         }
         if command == MenuCommand::SelectAll
+            && !self.review.is_exclusive()
             && context
                 .memory(|memory| memory.focused())
                 .is_some_and(|id| egui::TextEdit::load_state(context, id).is_some())
         {
             return true;
         }
-        if self.appearance.editor.is_some()
-            || self.ws_suite.is_open()
-            || self.enrollment.is_open()
-            || self.logbooks.is_open()
-            || self.settings.is_open()
-            || self.details.is_open()
-            || self.workbench.has_modal()
-        {
+        if self.modal_open() {
             return false;
         }
         if matches!(command, MenuCommand::Appearance | MenuCommand::Diagnostics) {
@@ -79,6 +89,11 @@ impl DesktopApp {
         context.request_repaint_of(egui::ViewportId::ROOT);
         let opener = context.memory(|memory| memory.focused());
         match command {
+            MenuCommand::ImportAdi => {
+                if let Some(snapshot) = self.settings_view.borrow().as_deref() {
+                    self.import.open(snapshot, opener);
+                }
+            }
             MenuCommand::LookupDirectory => self
                 .workbench
                 .start_directory_lookup(&self.settings_requests),

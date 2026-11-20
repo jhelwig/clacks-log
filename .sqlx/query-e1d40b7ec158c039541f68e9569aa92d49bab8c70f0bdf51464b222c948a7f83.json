@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT w.record_id\nFROM local_working w\nJOIN service_assertion a ON a.payload_id = w.payload_id\nWHERE w.account = ? AND w.kind = 'imported' AND a.qso_id = ?\nORDER BY w.record_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "record_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "client_record",
+            "name": "record_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e1d40b7ec158c039541f68e9569aa92d49bab8c70f0bdf51464b222c948a7f83"
+}

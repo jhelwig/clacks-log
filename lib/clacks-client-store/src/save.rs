@@ -1,6 +1,7 @@
 //! Guarded local saved-state operations for one account workspace.
 
 pub mod contacts;
+pub mod import;
 pub mod tags;
 
 use crate::{metadata::client, store::ClientStore};

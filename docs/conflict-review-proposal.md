@@ -22,8 +22,10 @@ restoration browsing, equipment restoration/cloning, or account-wide atomic save
 
 ## 2. Agreed interaction model
 
-- Open **Unsynchronized changes** in a separate non-modal window. Preserve the
-  workbench's selected view, arrangement, unfinished QSO and normal operation.
+- Open **Unsynchronized changes** as an exclusive desktop action in a separate
+  window. Suspend other desktop interactions while it is open. Preserve the
+  workbench's selected view, arrangement and unfinished QSO for when it closes.
+  Pending edits and conflicts alone do not block normal work.
 - Separate **Conflicts** and **Pending sync** into independently collapsible
   sections. Retain record-type filtering and omit a logbook selector.
 - Show local/shared values and available three-way change attribution. Differing
@@ -43,9 +45,10 @@ restoration browsing, equipment restoration/cloning, or account-wide atomic save
   values for reconsideration, without silently approving them against new inputs.
   A previously chosen deletion requires renewed approval when competing native
   values change; refreshing exposes those values before saving.
-- **Save resolution** saves one validated record locally. It does not claim
-  shared acceptance. Closing the window discards unsaved resolution drafts like
-  Cancel and does not undo completed saves.
+- **Save resolution** saves one validated record locally. Keep the window open
+  until the save result arrives and preserve the draft after a failure or stale
+  result. Closing the idle window discards unsaved resolution drafts like
+  Cancel and leaves completed saves in place.
 
 Draft lifetime is the open window, not a new persisted form/session feature.
 Saved local work and comparison evidence retain their existing durability.
@@ -149,8 +152,9 @@ until the window closes. No new distributed conflict is invented.
 | `ExcludedActor` | Explain that formerly pending work requires explicit reconciliation after reauthorization. Compare real shared values and allow an explicit chosen result. Release only the corresponding saved hold using the existing resolution transaction; do not relabel old prepared proposals. |
 
 For a blocked deletion, provide access to the actual referring QSO/profile editor
-or its own conflict review if it is conflicted. Remove/replace references through
-those records' ordinary guarded saves. Do not infer whether an earlier tag action
+or its own conflict review if it is conflicted. Opening the editor closes
+Unsynchronized changes. Remove or replace references through those records'
+ordinary guarded saves. Do not infer whether an earlier tag action
 meant Delete all, and do not automatically delete newly discovered referrers.
 Allow cancelling a still-pending deletion by choosing the surviving shared live
 record. Do not recreate an already accepted deleted target.
@@ -325,8 +329,8 @@ After commit, acknowledge the actual save to its originating editor, refresh
 ordinary read views, and wake synchronization through the existing local-change
 notification. A later read/exporter failure does not turn that commit into an
 unsuccessful save. While a save is in flight, its record's editor is read-only
-with Saving feedback; navigation or window closure does not cancel an admitted
-write or erase its authoritative outcome.
+with Saving feedback. Keep the window open until the save result arrives.
+Switching records leaves an admitted write in progress.
 
 On stale return, change no saved state; preserve the draft and load a fresh exact
 comparison under D385. Do not rebuild the request with newer expected values and

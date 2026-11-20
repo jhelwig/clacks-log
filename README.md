@@ -75,9 +75,9 @@ contact-owned directory snapshots supply attributed fallback without changing
 recorded contact values, including during sync outages. macOS credential access
 requires the signed/profile-authorized bundle described in the desktop guide;
 the Data Protection Keychain has no legacy migration or fallback.
-The non-modal Unsynchronized changes window separates conflicts from ordinary
-pending work and supports explicit per-field resolution without changing an
-unfinished contact or active operating settings.
+The Unsynchronized Changes window separates conflicts from ordinary pending
+work and supports explicit per-field resolution while preserving unfinished
+contacts and active operating settings.
 
 ## Synchronization library
 

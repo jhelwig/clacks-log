@@ -105,7 +105,9 @@ named-tag creation, names, per-service automatic-upload policies and deletion;
 do not add another permanent management pane. All contacts and Untagged are not
 editable tags. Use the shared Save/Cancel, validation and dismissal behavior.
 Delete opens a separate impact review showing the three agreed choices and
-distinct-contact counts before confirmation.
+distinct-contact counts before confirmation. Keep Manage logbooks open while a
+submitted operation is in progress. Disable Close and Escape dismissal until
+it finishes. Show failures in the originating form or review.
 
 Show short, collision-checked ID suffixes only when tag display names are
 duplicates (D306). Unique names remain unsuffixed. Manage logbooks exposes the
@@ -308,6 +310,7 @@ management commands into OS-native menus using the following agreed structure:
 
 | Native menu | Commands |
 | --- | --- |
+| File | Import ADI… |
 | Edit | Select all (focused text or all matching history contacts across pages), Look up directory information (selected contacts) |
 | Settings | Manage logbooks…, Station profiles…, Equipment configurations…, Refresh settings, account/server management, WS Suite…, Appearance… |
 | View | Reset workbench layout |
@@ -335,6 +338,16 @@ menu drawn in the toolbar is not a substitute. Do not create a separate Logbooks
 menu. A single-entry menu is appropriate only when its future extension is
 obvious, as it is for View and Help. This structure does not introduce new
 settings screens or change the commands' underlying workflows.
+
+**File → Import ADI…** opens file and destination logbook selection, then
+prepares a read-only review of the readable records. Parent the native file
+picker to the Clacks window and keep it exclusive until it returns. Use the
+native field comparison presentation for changes to saved QSOs. Review source
+disagreements and candidate assignments before applying affected rows. Keep the
+destination visible, mark rows still requiring choices, and retain a report of
+committed, dropped, failed and unprocessed work until dismissed.
+Apply the latest WS Suite DX-call update for the current workspace, including
+an empty call, when Import closes.
 
 This correction concerns management-command placement. Preserve existing
 synchronization status and conflict-resolution access; improving their
@@ -606,11 +619,14 @@ lifecycle and unfinished-work rules.
 The [#15 integration contract](conflict-review-proposal.md) maps this interaction
 contract to existing editors and storage, with engineering defaults identified.
 
-Open account-wide review in a separate non-modal **Unsynchronized changes**
-window, preserving the workbench's selected view, pane arrangement and unfinished
-QSO. Separate **Conflicts** and **Pending sync** into independently collapsible
-sections. Retain record-type filtering and omit a logbook selector. Ordinary
-pending edits and deletions need no resolution controls.
+Open account-wide review as an exclusive action in the separate
+**Unsynchronized changes** window. Suspend other desktop interactions until
+review closes. Import and Unsynchronized changes are mutually exclusive.
+Preserve the workbench's selected view, pane arrangement and unfinished QSO so
+the user can resume work. Pending edits and conflicts alone do not block
+workbench actions. Separate **Conflicts** and **Pending sync** into independently
+collapsible sections. Retain record-type filtering and omit a logbook selector.
+Ordinary pending edits and deletions need no resolution controls.
 
 Keep local/shared comparison and three-way attribution visible for conflicts.
 Scalar differences start without a selected side; **Use all local** and **Use
@@ -644,9 +660,10 @@ reflected in the UI.
 Preserve unfinished resolution drafts per record when switching between
 conflicts (D386). Restore the draft on return, retaining D385's refresh
 requirement if its comparison changed. Switching records does not save.
-Closing the window discards unsaved drafts like Cancel, without undoing
-completed resolution saves. Restart persistence of unfinished resolution forms
-is not required.
+Keep the window open while a resolution save is pending. A failed or stale
+save retains the draft. Once the save has settled, closing the window discards
+unsaved drafts like Cancel and leaves completed saves in place. Restart
+persistence of unfinished resolution forms is not required.
 
 ## Shared-component contract
 

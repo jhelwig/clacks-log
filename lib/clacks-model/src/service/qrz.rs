@@ -54,8 +54,9 @@ fn pair(fields: &mut AdifFields, pair: &BandFrequency, rx: bool) {
     }
 }
 
-/// Add a complete selected location, preserving area versus measured-point meaning.
-fn location(fields: &mut AdifFields, l: &RecordedLocation, own: bool) {
+/// Write the supplied location's ADIF fields using the keys for the selected
+/// station. Emit coordinates only for an explicitly recorded point.
+pub fn write_location_fields(fields: &mut AdifFields, l: &RecordedLocation, own: bool) {
     let key = |base: &str| {
         if own {
             format!("MY_{base}")
@@ -261,12 +262,12 @@ fn prepare_fields(
         fields.insert("NAME".into(), name.value);
     }
     if let Some(l) = &q.own_station().location {
-        location(&mut fields, l, true);
+        write_location_fields(&mut fields, l, true);
     }
     if let Some(l) = select_location(q.contacted_station(), eligible, c.definitions)
         .and_then(|l| l.value.location)
     {
-        location(&mut fields, &l, false);
+        write_location_fields(&mut fields, &l, false);
     }
     if let Some(power) = q.own_context().transmit_power {
         fields.insert("TX_PWR".into(), adif::power(power));

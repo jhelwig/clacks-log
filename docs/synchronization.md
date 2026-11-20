@@ -272,6 +272,13 @@ On connection or reconnection, batch-negotiate and transfer missing synchronized
 
 Client catch-up is receive-first: durably incorporate all server updates covered by the completed inbound catch-up and compare pending work against that shared state before publishing any local changes. This includes retries of previously prepared proposals; received state may already establish their incorporation. Logging and local saves continue during catch-up. Once inbound catch-up is complete, unresolved records remain local while eligible changes can publish. Changes accepted after that catch-up point remain subject to D146's conditional acceptance checks.
 
+The desktop import acquires a shared pause guard before reading saved
+candidates and holds it until review or application ends. A holder waits for
+the current exchange to finish. The worker releases its exclusive access before
+waiting idle and can start the next exchange after all guards are released.
+Normal receive-first catch-up reconciles remote changes after the import and
+publishes imported records through the existing per-record exchange.
+
 The protocol needs a gap-free handoff between catch-up and live updates. Changes made during catch-up must be included or queued for subsequent delivery. Retry/overlap must have no second effect, and acknowledgments must not discard work that the peer has not durably accepted. D235 selects encrypted WebSocket transport. Exact snapshot boundaries, subscription/acknowledgment design and backpressure remain specification work. Streaming notifications do not imply retaining a permanent history event for every intermediate edit.
 
 D144 permits automatic fuller state reconciliation when incremental transfer history is unavailable. It remains normal, bidirectional synchronization, preserving enrollment, surviving synchronized evidence, and pending work. A larger comparison or transfer is acceptable. Discovery exhaustion and durable receipt establish the transferred coverage; this fallback alone does not justify collecting causal identities, deletion knowledge, or service evidence.
@@ -320,10 +327,11 @@ History and Worked Before show this client’s saved working version with pendin
 
 ## Account-wide local review (D182)
 
-An ordinary saved edit during review updates the persisted comparison's local
-values in the same transaction as its working record, preserving the conflict
-and original/shared evidence. Already opened comparisons remain pinned and
-require explicit refresh before resolution against the changed values.
+A saved local edit updates the persisted comparison's local values in the same
+transaction as its working record, preserving the conflict and original/shared
+evidence. If the compared values change while a review is open, the displayed
+comparison remains pinned. Refresh it explicitly before resolving against the
+changed values.
 
 See the [#15 integration contract](conflict-review-proposal.md) for presentation,
 editor reuse and storage wiring. Its engineering choices are distinguished from
@@ -334,11 +342,12 @@ account (D383). Separate **Conflicts** and **Pending sync** into independently
 collapsible sections, with record-type filtering and no logbook selector.
 Include hidden pending deletions, contact changes with deleted-tag references,
 and account-shared profile/equipment conflicts. Logbook membership is a QSO field
-subject to resolution, not a synchronization scope. The window is non-modal;
-opening it preserves workbench arrangement, selected view and unfinished entry.
-It remains a view of local pending state, not a server-owned set of unresolved
-proposals or a publication dependency. Normal history and Worked Before remain
-scoped to the current book.
+subject to resolution, not a synchronization scope. The open review owns
+desktop interaction and preserves the workbench arrangement, selected view and
+unfinished entry for when it closes. Pending state alone does not prevent
+ordinary logging. Review shows this client's local pending state. It creates no
+server-owned proposals or publication dependency. Normal history and Worked
+Before remain scoped to the current book.
 
 ## Missing equipment references (D183)
 

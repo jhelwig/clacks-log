@@ -43,8 +43,9 @@ impl WorkedBeforeUi {
             .with_min_inner_size([width, height])
     }
 
-    /// Draw the dedicated window without creating another entry or query model.
-    pub fn show_window(&mut self, context: &egui::Context) -> Option<QsoId> {
+    /// Show the Worked Before window. While interaction is suspended, decline
+    /// close requests and suppress contact selection.
+    pub fn show_window(&mut self, context: &egui::Context, interactive: bool) -> Option<QsoId> {
         if !self.window_open {
             return None;
         }
@@ -55,7 +56,15 @@ impl WorkedBeforeUi {
             builder,
             |ui, _class| {
                 if ui.input(|i| i.viewport().close_requested()) {
-                    self.window_open = false;
+                    if interactive {
+                        self.window_open = false;
+                        return;
+                    }
+                    ui.ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::CancelClose);
+                }
+                if !interactive {
+                    ui.disable();
                 }
                 egui::CentralPanel::default()
                     .frame(crate::ui::theme::pane_frame(ui))

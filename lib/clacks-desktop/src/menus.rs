@@ -7,6 +7,7 @@ pub(crate) enum MenuCommand {
     SelectAll,
     /// Populate or refresh separate directory snapshots for selected saved contacts.
     LookupDirectory,
+    ImportAdi,
     /// Open the tag-defined logbook manager.
     ManageLogbooks,
     /// Open reusable stations.
@@ -35,6 +36,7 @@ impl MenuCommand {
         match self {
             Self::SelectAll => "select_all",
             Self::LookupDirectory => "lookup_directory",
+            Self::ImportAdi => "import_adi",
             Self::ManageLogbooks => "manage_logbooks",
             Self::StationProfiles => "station_profiles",
             Self::EquipmentConfigurations => "equipment_configurations",
@@ -62,6 +64,10 @@ pub(crate) struct MenuGroup {
 
 /// Ordered management commands shared by platform presentations.
 pub(crate) const GROUPS: &[MenuGroup] = &[
+    MenuGroup {
+        title: "File",
+        commands: &[Some(MenuCommand::ImportAdi)],
+    },
     MenuGroup {
         title: "Edit",
         commands: &[
@@ -100,6 +106,7 @@ impl MenuCommand {
         match self {
             Self::SelectAll => "Select all",
             Self::LookupDirectory => "Look up directory information",
+            Self::ImportAdi => "Import ADI…",
             Self::ManageLogbooks => "Manage logbooks…",
             Self::StationProfiles => "Station profiles…",
             Self::EquipmentConfigurations => "Equipment configurations…",

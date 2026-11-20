@@ -1,4 +1,4 @@
-//! Handle logbook results after dialog dismissal or catalog-refresh failure.
+//! Settle logbook requests and distinguish committed edits from catalog-refresh failures.
 
 use super::*;
 
@@ -14,16 +14,6 @@ impl LogbooksUi {
                 self.accept(response, Some(&mut frame));
             }
             self.management = Some(frame);
-        }
-        for mut frame in std::mem::take(&mut self.dismissed) {
-            if let Some(response) = take_response(&mut frame.response) {
-                self.accept(response, Some(&mut frame));
-            }
-            if frame.response.is_some() {
-                self.dismissed.push(frame);
-            } else if let Some(notice) = frame.notice {
-                self.error = Some(notice);
-            }
         }
     }
 

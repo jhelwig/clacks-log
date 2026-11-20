@@ -88,8 +88,6 @@ pub(super) struct LogbooksUi {
     selecting: Option<SelectedView>,
     /// Visible management destination.
     management: Option<Management>,
-    /// Closed dialogs whose submitted requests have not finished.
-    dismissed: Vec<Management>,
     /// Persistent operation/read error.
     error: Option<String>,
     /// Committed destructive effects, retained independently of dialog visibility.
@@ -322,16 +320,11 @@ impl LogbooksUi {
                 .management
                 .as_ref()
                 .is_some_and(|frame| frame.response.is_some())
-            || !self.dismissed.is_empty()
     }
 
-    /// Discard unapplied edits while retaining replies for submitted requests.
+    /// Discard unapplied management edits and schedule focus restoration to the opener.
     fn cancel(&mut self) {
-        if let Some(frame) = self.management.take()
-            && frame.response.is_some()
-        {
-            self.dismissed.push(frame);
-        }
+        self.management = None;
         self.restore_focus = self.opener.take();
     }
 

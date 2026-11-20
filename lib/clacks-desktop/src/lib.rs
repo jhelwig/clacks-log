@@ -6,6 +6,8 @@ mod credentials;
 mod directory;
 mod geography;
 mod icon;
+mod import;
+
 mod instance;
 mod logbooks;
 mod logging;

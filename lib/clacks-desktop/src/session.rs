@@ -41,6 +41,8 @@ pub(crate) enum SessionCommand {
     Enrollment(crate::enrollment::EnrollmentCommand),
     /// Resolve presentation fonts on session-owned workers, without touching account data.
     Font(crate::ui::fonts::FontOperation),
+    /// Start a workspace-owned import that waits for review before applying rows.
+    Import(crate::import::workflow::PrepareRequest),
     /// Retry only after the previous failed open has settled.
     RetryOpen,
     /// Retry local directory access without restarting synchronization or authorization.
@@ -210,7 +212,9 @@ pub(crate) async fn run(
     let mut lookup_stop = CancellationToken::new();
     let (lookup_binding, lookup_binding_view) = watch::channel(None);
     let mut lookup_client: Option<crate::directory::lookup::LookupClient> = None;
-    let mut sync_stop = CancellationToken::new();
+    let mut sync_control = crate::synchronization::Control::default();
+    let mut import_work = JoinSet::new();
+    let mut import_stop = CancellationToken::new();
     let (sync_updates, mut sync_progress) =
         watch::channel(crate::synchronization::Status::Disconnected);
     let mut directory_progress = directory.status.subscribe();
@@ -244,6 +248,7 @@ pub(crate) async fn run(
             && work.is_empty()
             && font_work.is_empty()
             && enrollment_work.is_empty()
+            && import_work.is_empty()
             && sync_work.is_empty()
             && receiver_work.is_empty()
             && lookup_work.is_empty()
@@ -286,10 +291,25 @@ pub(crate) async fn run(
                         let _ = request.reply.send(crate::ws_suite::ReceiverResponse::Closing);
                     }
                 },
+                Some(SessionCommand::Import(request)) => {
+                    if closing.is_none() && enrollment_work.is_empty() && import_work.is_empty()
+                        && let Some(workspace) = &opened
+                    {
+                        import_stop = request.stop.clone();
+                        import_work.spawn(crate::import::workflow::operation::run(
+                            workspace.store.clone(), sync_control.gate.clone(), request, local_changes.clone(), context.clone(),
+                        ).in_current_span().with_current_subscriber());
+                    } else {
+                        let _ = request.completion.send(Err("The workspace is busy. Try the import again.".into()));
+                        if let Some(context) = context.get() {
+                            context.request_repaint();
+                        }
+                    }
+                },
                 Some(SessionCommand::Enrollment(EnrollmentCommand::Cancel)) => {
                     enrollment_stop.cancel();
                 },
-                Some(SessionCommand::Enrollment(command)) if closing.is_none() && enrollment_work.is_empty() => {
+                Some(SessionCommand::Enrollment(command)) if closing.is_none() && enrollment_work.is_empty() && import_work.is_empty() => {
                     while let Some(result) = work.join_next().await {
                         settle_settings(result, &settings_updates, &context);
                     }
@@ -341,7 +361,8 @@ pub(crate) async fn run(
                         let started = Instant::now();
                         closing = Some(started);
                         enrollment_stop.cancel();
-                        sync_stop.cancel();
+                        sync_control.stop.cancel();
+                        import_stop.cancel();
                         lookup.send_replace(None); lookup_client = None; lookup_stop.cancel();
                         receiver_stop.cancel();
                         settings_requests.close();
@@ -377,6 +398,14 @@ pub(crate) async fn run(
                         }
                     }
                     if let Some(context) = context.get() {context.request_repaint();}
+                }
+            },
+            result = import_work.join_next(), if !import_work.is_empty() => {
+                if let Some(Err(_)) = result {
+                    tracing::error!(event = "desktop.import_task_failed");
+                    if let Some(context) = context.get() {
+                        context.request_repaint();
+                    }
                 }
             },
             result = geography_work.join_next(), if !geography_work.is_empty() => {
@@ -419,7 +448,9 @@ pub(crate) async fn run(
                     installed != *lookup_binding.borrow()
                 } else { false };
                 if enrollment_work.is_empty() && (ready || binding_changed) && closing.is_none() && let Some(workspace) = opened.take() {
-                    sync_stop.cancel();
+                    import_stop.cancel();
+                    while import_work.join_next().await.is_some() {}
+                    sync_control.stop.cancel();
                     while let Some(result) = sync_work.join_next().await { if let Err(error) = result { tracing::error!(event="sync.worker.failed", error.type=if error.is_panic() { "task_panic" } else { "task_cancelled" }); } }
                     lookup_stop.cancel();
                     while lookup_work.join_next().await.is_some() {}
@@ -430,7 +461,7 @@ pub(crate) async fn run(
                     receiver_stop = CancellationToken::new();
                     receiver_pairs = Default::default();
                     workspace.store.close().await?;
-                    sync_stop = CancellationToken::new();
+                    sync_control = crate::synchronization::Control::default();
                     lookup_stop = CancellationToken::new();
                     attempt_started = Instant::now();
                     publish(&status, &context, SessionStatus::Opening);
@@ -543,7 +574,7 @@ pub(crate) async fn run(
                                         receiver_stop.clone(),
                                     ).in_current_span().with_current_subscriber(),
                                 );
-                                start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_stop, &directory).await?;
+                                start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_control, &directory).await?;
                             }
                             opened = Some(workspace);
                         }
@@ -658,7 +689,7 @@ async fn start_sync(
     changes: &watch::Sender<()>,
     status: &watch::Sender<crate::synchronization::Status>,
     updates: &watch::Sender<Option<Arc<SettingsSnapshot>>>,
-    stop: &CancellationToken,
+    control: &crate::synchronization::Control,
     directory: &crate::directory::provisioning::Outputs,
 ) -> anyhow::Result<()> {
     if let Some(binding) = clacks_client_store::identity::binding(store).await? {
@@ -669,7 +700,7 @@ async fn start_sync(
                 changes.subscribe(),
                 status.clone(),
                 updates.clone(),
-                stop.clone(),
+                control.clone(),
                 directory.clone(),
             )
             .in_current_span()

@@ -9,6 +9,9 @@ pub(crate) const PHASE_DURATION_METRIC: &str = "clacks_desktop_sync_phase_durati
 mod exchange;
 mod pending;
 
+#[cfg(test)]
+mod pause_tests;
+
 #[cfg(all(test, any(target_os = "macos", windows)))]
 pub(crate) mod tests;
 
@@ -20,7 +23,7 @@ use futures_util::{SinkExt, StreamExt};
 use huskarl::authorizer::HttpAuthorizer;
 use opentelemetry::trace::TraceContextExt;
 use std::sync::Arc;
-use tokio::sync::watch;
+use tokio::sync::{OwnedRwLockReadGuard, OwnedRwLockWriteGuard, RwLock, watch};
 use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
     tungstenite::{self, client::IntoClientRequest},
@@ -28,6 +31,60 @@ use tokio_tungstenite::{
 use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+/// Admission to sync exchanges for one workspace. Multiple callers can hold a
+/// pause concurrently. An exchange has exclusive access until it settles.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct ExchangeGate(Arc<RwLock<()>>);
+
+impl ExchangeGate {
+    /// Wait for any active exchange to finish and return a shared pause guard.
+    /// A cancelled wait returns an error without taking a hold.
+    pub(crate) async fn pause(
+        &self,
+        stop: &CancellationToken,
+    ) -> anyhow::Result<OwnedRwLockReadGuard<()>> {
+        tokio::select! {
+            biased;
+            _ = stop.cancelled() => anyhow::bail!("Import cancelled"),
+            guard = async {
+                match self.0.clone().try_read_owned() {
+                    Ok(guard) => guard,
+                    Err(_) => {
+                        tracing::info!(event = "desktop.import.waiting_for_sync_pause");
+                        self.0.clone().read_owned().await
+                    }
+                }
+            } => Ok(guard),
+        }
+    }
+
+    async fn exchange(
+        &self,
+        stop: &CancellationToken,
+    ) -> anyhow::Result<OwnedRwLockWriteGuard<()>> {
+        tokio::select! {
+            biased;
+            _ = stop.cancelled() => anyhow::bail!("Synchronization stopped"),
+            guard = async {
+                match self.0.clone().try_write_owned() {
+                    Ok(guard) => guard,
+                    Err(_) => {
+                        tracing::info!(event = "sync.waiting_for_workspace_hold");
+                        self.0.clone().write_owned().await
+                    }
+                }
+            } => Ok(guard),
+        }
+    }
+}
+
+/// Workspace shutdown token and exchange gate reused across reconnects.
+#[derive(Clone, Default)]
+pub(crate) struct Control {
+    pub stop: CancellationToken,
+    pub gate: ExchangeGate,
+}
 
 /// Nonsecret connection/error presentation; no aggregate completion timestamp is implied.
 #[derive(Clone, Debug, Default)]
@@ -60,6 +117,7 @@ type Socket = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
 pub(super) struct ConnectionContext {
     /// Cancellation also invalidates native deliveries from this connection.
     pub stop: CancellationToken,
+    pub gate: ExchangeGate,
     /// Existing connection trace linked by each synchronization operation.
     pub trace: opentelemetry::trace::SpanContext,
     /// Purpose-specific responses leave the socket loop through this channel.
@@ -73,9 +131,10 @@ pub(crate) async fn run(
     mut changes: watch::Receiver<()>,
     status: watch::Sender<Status>,
     updates: watch::Sender<Option<Arc<SettingsSnapshot>>>,
-    stop: CancellationToken,
+    control: Control,
     directory_outputs: crate::directory::provisioning::Outputs,
 ) {
+    let Control { stop, gate } = control;
     let (directory_deliveries, incoming) = watch::channel(None);
     let provisioning_stop = stop.child_token();
     let provisioning = tokio::spawn(crate::directory::provisioning::run(
@@ -113,7 +172,7 @@ pub(crate) async fn run(
             tracing::info!(event="sync.connected", account_id=%binding.account, actor_id=%binding.actor);
             status.send_replace(Status::Connected);
             delay = 1;
-            exchange::run(&mut socket, &store, &binding, &mut changes, &updates, &ConnectionContext { stop: connection_stop.clone(), trace: context, directory: directory_deliveries.clone() }).await
+            exchange::run(&mut socket, &store, &binding, &mut changes, &updates, &ConnectionContext { stop: connection_stop.clone(), gate: gate.clone(), trace: context, directory: directory_deliveries.clone() }).await
         }
         .await;
         connection_stop.cancel();

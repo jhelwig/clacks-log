@@ -1,0 +1,110 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT record_id AS \"record_id!\", own_call AS \"own_call!\", start AS \"start!\",\n       frequency, band, mode_kind AS \"mode_kind!\", mode_label AS \"mode_label!\", mode_parent\nFROM local_qso\nWHERE account = ? AND worked_call = ? AND start BETWEEN ? AND ?\nORDER BY start, record_id\n",
+  "describe": {
+    "columns": [
+      {
+        "name": "record_id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "record_id"
+          }
+        }
+      },
+      {
+        "name": "own_call!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "station_snapshot",
+            "name": "callsign"
+          }
+        }
+      },
+      {
+        "name": "start!",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "start"
+          }
+        }
+      },
+      {
+        "name": "frequency",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "frequency"
+          }
+        }
+      },
+      {
+        "name": "band",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "band"
+          }
+        }
+      },
+      {
+        "name": "mode_kind!",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "mode_kind"
+          }
+        }
+      },
+      {
+        "name": "mode_label!",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "mode_label"
+          }
+        }
+      },
+      {
+        "name": "mode_parent",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "qso_payload",
+            "name": "mode_parent"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "6a862df2e5927ea2893463ede05a90f298fb803c1659c97ea576a96aad83f6c9"
+}

@@ -401,10 +401,12 @@ History and Worked Before use this client's saved working values, including newl
 The [#15 integration contract](conflict-review-proposal.md) describes production
 wiring and distinguishes engineering choices from agreed behavior.
 
-Present this client's account-wide work as **Unsynchronized changes**, in a
-separate non-modal window that leaves the workbench and unfinished QSO usable
-(D383). Clearly separate **Conflicts** from **Pending sync** in independently
-collapsible sections. Retain record-type filtering; omit the logbook selector.
+Present this client's account-wide work as **Unsynchronized changes**, an
+exclusive review in a separate window (D383). Preserve the workbench and
+unfinished QSO for when review closes. Pending edits and conflicts do not block
+ordinary work outside the open review. Separate **Conflicts** from **Pending
+sync** in independently collapsible sections. Retain record-type filtering and
+omit the logbook selector.
 Logbooks are QSO memberships, not synchronization buckets.
 
 Include hidden pending contact deletions, QSOs referencing deleted tags, and
@@ -476,7 +478,7 @@ Established MVP scope includes independent offline QSO use, reconciliation, WS S
 
 Certificate import is in MVP; certificate requests and renewals are later scope. D53 supports multiple QRZ logbooks and LoTW certificates, routing each QSO by its saved station callsign and date; missing/ambiguous routing pauses only affected uploads. A server connection is required for certificate import.
 
-Automatic catch-up of contacts missed while Clacks Log was not receiving WS UDP messages is outside MVP. ADIF file import is part of MVP. D38 requires historical imports to use supplied station context without filling gaps from current client defaults. D252 requires explicit historical callsign assignment before creating a contact when our callsign is missing; other missing optional our-station (DE) fields remain unknown. This also applies to downloaded QSOs explicitly added locally. D39 gives matched ADIF records with differing values explicit update, duplicate (create a separate QSO), or skip choices. D40 uses the same field-level conflict-resolution interface as other conflicting updates, letting the user choose which differing fields to apply. D41 compares historical station/worked callsigns, band, normalized mode/submode, and UTC start time at shared supplied precision, with explicit selection among multiple candidates. D42 leaves existing values untouched for omitted fields and offers explicitly empty values as selectable clears in the shared field-level comparison, subject to field-specific ADIF default interpretation and validation. D43 allows partial imports with a clear report of records not imported and the reason for each. Exact validation and detailed comparison semantics remain open. Excluding automatic catch-up does not change the requirement for durable client-to-server synchronization of contacts already captured by Clacks Log.
+Automatic catch-up of contacts missed while Clacks Log was not receiving WS UDP messages is outside MVP. ADIF file import is part of MVP. D38 requires historical imports to use supplied station context without filling gaps from current client defaults. D252 requires explicit historical callsign assignment before creating a contact when our callsign is missing; other missing optional our-station (DE) fields remain unknown. This also applies to downloaded QSOs explicitly added locally. D39 gives matched ADIF records with differing values explicit update, duplicate (create a separate QSO), or skip choices. D40 uses the same field-level conflict-resolution interface as other conflicting updates, letting the user choose which differing fields to apply. D41 compares historical station/worked callsigns, band, normalized mode/submode, and UTC start time at shared supplied precision, with explicit selection among multiple candidates. D42 leaves existing values untouched for omitted fields and offers explicitly empty values as selectable clears in the shared field-level comparison, subject to field-specific ADIF default interpretation and validation. D43 allows partial imports with a report giving the reason for each skipped readable row and the location of an unreliable suffix. See the [ADI import design](superpowers/specs/2026-11-19-adi-import-design.md) for the built-in validation and mapping rules. Excluding automatic catch-up does not change the requirement for durable client-to-server synchronization of contacts already captured by Clacks Log.
 
 D44 includes ADIF export of the whole log or selected contacts in MVP. Export current supported QSO values, including historical station context and supported confirmation information; exact service-history fields still depend on the detailed external-service model.
 
@@ -520,9 +522,9 @@ hard MVP requirement or a committed post-MVP deliverable (D139).
 
 Import adapters preserve field-specific defaults, historical callsign assignment,
 omitted-versus-cleared values, normalization warnings and invalid-optional-value
-diagnostics. Candidate comparison and stale-result revalidation use the shared
-resolution workflow. Import-side `CONTEST_ID` station assignment remains an import
-mapping decision, without adding another native reference scope.
+diagnostics. Candidate comparison reuses the shared field review. When a recognized
+`CONTEST_ID` is the only contest information, the import records group-only
+participation on our station.
 
 Export adapters define complete supported-field mappings, transliteration
 warnings, activation-location partitions and source/output counts, with consistent

@@ -89,9 +89,15 @@ pending independently for each service. A service-level imported claim with no
 known destination does not fabricate one; routing/readiness rules still apply.
 
 Accept recognized positive imported confirmation immediately against the
-imported QSO's contact-identity baseline, preserving supplied dates, provenance
-and unavailable source information. Upload and confirmation assertions are
-independent: neither implies the other.
+imported QSO's contact-identity baseline, preserving representable timestamps,
+provenance and unavailable source information. Upload and confirmation assertions
+are independent.
+
+An imported assertion can retain an exact whole-second UTC timestamp. If a
+recognized claim comes with a calendar date or a timestamp with a nonzero
+fractional second, report the supplied value during preparation and retain the
+claim with its provenance and no timestamp. An agreeing whole-second timestamp
+for the same event can supply the retained value.
 
 The baseline is an explicit interpretation of the import, not proof of the
 historical serialized payload. Do not invent an actual Clacks attempt, provider
@@ -571,11 +577,14 @@ versions without changing the client's author or causal contribution.
 
 | Workflow | Atomic group |
 | --- | --- |
-| Apply one imported contact | QSO creation/update, assertions/baselines and selected coupled tag/association effects. |
 | Retain downloaded input | Observations plus durable pending work; checkpoint advancement only over retained complete coverage. |
 | Finish processing | Disposition, association and any resulting accepted QSO creation/update under current guards. |
 | Accept QSO deletion | Deleted QSO state and required binding/deletion-suppression changes. |
 | Record upload response | Result, attempt/batch correlation, authoritative returned association subject to guards, and durable job state preventing replay. |
+
+On desktop import, one guarded local transaction saves the QSO creation or
+update, selected tag membership and imported assertions with their baselines.
+The resulting records synchronize through the existing per-record exchange.
 
 Durable unmatched review need not block download progress once its input/work
 is safely retained. Provider-only refresh does not create a recorded-fact edit.

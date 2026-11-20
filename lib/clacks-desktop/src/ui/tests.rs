@@ -348,7 +348,8 @@ fn committed_contact_notice_refreshes_history_without_settings_change() {
 }
 
 #[tokio::test]
-async fn queued_calls_do_not_cross_workspace_replacement() -> anyhow::Result<()> {
+async fn ws_calls_follow_the_current_workspace_and_resume_after_import() -> anyhow::Result<()> {
+    use egui_kittest::{Harness, kittest::Queryable};
     let provider = crate::directory::test_support::fixture(vec![]).await?;
     let old =
         crate::directory::lookup::tests::support::Service::new(provider.endpoint.clone()).await?;
@@ -374,6 +375,40 @@ async fn queued_calls_do_not_cross_workspace_replacement() -> anyhow::Result<()>
     })?;
     window.app.update_lifecycle(&window.context);
     assert_eq!(window.app.workbench.entry.contact_call(), "NEWCALL");
+
+    let settings = fixtures::snapshot();
+    let (send, initial_settings) = (&calls, &settings);
+    let notify = |workspace: &crate::directory::lookup::LookupClient, call: &str| {
+        send.send(crate::ws_suite::EntryCall {
+            workspace: workspace.clone(),
+            status: crate::ws_suite::protocol::StatusCall { call: call.into() },
+        })
+    };
+    let mut ui = Harness::builder().build_ui_state(
+        |ui, window: &mut Window| {
+            window.app.update_lifecycle(ui.ctx());
+            window.app.import.show(
+                ui.ctx(),
+                &window.app.commands,
+                Some(initial_settings),
+                &eframe::Frame::_new_kittest(),
+            );
+        },
+        window,
+    );
+    for (before, latest) in [("NEWCALL", "K1XYZ"), ("K1XYZ", "")] {
+        ui.state_mut().app.import.open(&settings, None);
+        notify(&current.client, "W7ABC")?;
+        ui.run();
+        notify(&current.client, latest)?;
+        notify(&old.client, "OLDWORKSPACE")?;
+        ui.run();
+        assert_eq!(ui.state().app.workbench.entry.contact_call(), before);
+        ui.get_by_label("Cancel").click();
+        ui.run();
+        assert!(!ui.state().app.import.is_open());
+        assert_eq!(ui.state().app.workbench.entry.contact_call(), latest);
+    }
     old.close().await?;
     current.close().await
 }

@@ -417,7 +417,7 @@ impl Workbench {
         self.reset = false;
         self.contacts
             .show(ui, snapshot, requests, self.entry.definitions());
-        if let Some(id) = self.worked_before.show_window(ui.ctx()) {
+        if let Some(id) = self.worked_before.show_window(ui.ctx(), ui.is_enabled()) {
             self.contacts.open(id, requests);
         }
         if std::mem::take(&mut self.contacts.changed) {

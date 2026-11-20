@@ -24,7 +24,7 @@ fn review_sections_request_independent_pages() {
 }
 
 #[test]
-fn originating_outcomes_preserve_stale_drafts_and_survive_window_close() -> anyhow::Result<()> {
+fn pending_resolution_stays_open_and_retains_unsaved_drafts() -> anyhow::Result<()> {
     use crate::review::{
         comparison::ComparisonSource,
         fields::{FieldId, QsoField},
@@ -34,61 +34,88 @@ fn originating_outcomes_preserve_stale_drafts_and_survive_window_close() -> anyh
     use clacks_client_store::save::SaveOutcome;
     let basis = crate::review::tests::basis();
     let key = basis.record.key();
-    let mut view = ReviewUi {
-        open: true,
-        selected: Some(key),
-        ..Default::default()
-    };
-    let mut editor = comparison::ReviewEditor::new(basis.clone())?;
-    editor.draft.select_all(ComparisonSource::Local)?;
-    editor.draft.set_custom(
-        FieldId::Qso(QsoField::Comment),
-        FieldInput::Text {
-            value: "My combined comment".into(),
-        },
-    );
-    view.drafts.insert(key, editor);
-    let (reply, response) = oneshot::channel();
-    view.reply = Some(response);
-    view.saving = Some(key);
-    reply
-        .send(SettingsResponse::Review(ReviewResponse::Resolved {
-            key,
-            outcome: Box::new(SaveOutcome::Stale {
-                current: Some(basis.record.clone()),
+    for (outcome, draft_stale) in [
+        (
+            SettingsResponse::Failed("Could not save the resolution".into()),
+            false,
+        ),
+        (
+            SettingsResponse::Review(ReviewResponse::Resolved {
+                key,
+                outcome: Box::new(SaveOutcome::Stale {
+                    current: Some(basis.record.clone()),
+                }),
             }),
-        }))
-        .unwrap();
-    view.poll();
-    assert!(view.drafts.get(&key).unwrap().draft.is_stale());
-    assert!(
-        matches!(view.drafts.get(&key).unwrap().draft.input(FieldId::Qso(QsoField::Comment))?, FieldInput::Text { value } if value == "My combined comment")
-    );
-
-    assert!(
-        view.drafts
-            .get(&key)
-            .unwrap()
+            true,
+        ),
+    ] {
+        let (requests, mut received) = mpsc::channel(8);
+        let context = egui::Context::default();
+        let mut editor = comparison::ReviewEditor::new(basis.clone())?;
+        editor.draft.select_all(ComparisonSource::Local)?;
+        editor.draft.set_custom(
+            FieldId::Qso(QsoField::Comment),
+            FieldInput::Text {
+                value: "My combined comment".into(),
+            },
+        );
+        let chosen = editor
             .draft
             .build(&Default::default())
-            .is_err()
-    );
-    let (reply, response) = oneshot::channel();
-    view.reply = Some(response);
-    view.close();
-    reply
-        .send(SettingsResponse::RefreshFailed {
-            outcome: Box::new(SettingsResponse::Review(ReviewResponse::Resolved {
-                key,
-                outcome: Box::new(SaveOutcome::Saved(basis.record)),
-            })),
-            message: "Settings reload failed".into(),
-        })
-        .unwrap();
-    view.poll();
-    assert!(view.drafts.is_empty());
-    assert!(view.saving.is_none());
-    assert_eq!(view.notice.as_deref(), Some("Settings reload failed"));
+            .expect("the draft should build because every field is selected and the custom comment is valid");
+        let mut view = ReviewUi {
+            open: true,
+            selected: Some(key),
+            submit: Some(SaveRequest {
+                expected: Box::new(basis.record.clone()),
+                shown: Box::new(basis.review.clone()),
+                chosen,
+            }),
+            drafts: [(key, editor)].into(),
+            ..Default::default()
+        };
+        context
+            .run_ui(egui::RawInput::default(), |ui| {
+                view.show_window(ui.ctx(), &requests)
+            })
+            .textures_delta
+            .clear();
+        let request = received.try_recv()?;
+        assert!(matches!(
+            request.action,
+            SettingsAction::Review(ReviewAction::Resolve { .. })
+        ));
+        let mut input = egui::RawInput::default();
+        input
+            .viewports
+            .entry(egui::ViewportId::ROOT)
+            .or_default()
+            .events
+            .push(egui::ViewportEvent::Close);
+        let mut output = context.run_ui(input, |ui| view.show_window(ui.ctx(), &requests));
+        output.textures_delta.clear();
+        assert!(view.open);
+        assert!(output.viewport_output.values().any(|viewport| {
+            viewport
+                .commands
+                .contains(&egui::ViewportCommand::CancelClose)
+        }));
+
+        assert!(request.reply.send(outcome).is_ok());
+        assert!(view.poll());
+        assert!(view.open);
+        assert!(view.saving.is_none());
+        let draft = &view
+            .drafts
+            .get(&key)
+            .expect("the save did not commit, so the submitted draft should remain")
+            .draft;
+        assert_eq!(draft.is_stale(), draft_stale);
+        assert!(
+            matches!(draft.input(FieldId::Qso(QsoField::Comment))?, FieldInput::Text { value } if value == "My combined comment")
+        );
+        assert_eq!(draft.build(&Default::default()).is_err(), draft_stale);
+    }
     Ok(())
 }
 
@@ -106,10 +133,11 @@ fn comparison_edits_comment_and_membership_before_admitting_resolution() -> anyh
         saved: Option<RecordState>,
     }
     let basis = crate::review::tests::basis();
-    let mut editor = comparison::ReviewEditor::new(basis.clone())?;
-    editor.draft.select_all(ComparisonSource::Local)?;
+    let editor = comparison::ReviewEditor::new(basis)?;
     let mut settings = fixtures::snapshot();
-    let input = editor.draft.input(FieldId::Qso(QsoField::Tags))?;
+    let input = editor
+        .draft
+        .source_input(FieldId::Qso(QsoField::Tags), &ComparisonSource::Local)?;
     let FieldInput::Membership { tags } = input else {
         panic!("membership")
     };
@@ -138,6 +166,15 @@ fn comparison_edits_comment_and_membership_before_admitting_resolution() -> anyh
                 saved: None,
             },
         );
+    ui.get_by_label("Use all local").click();
+    ui.run();
+    assert_eq!(
+        ui.state()
+            .editor
+            .draft
+            .selected_source(FieldId::Qso(QsoField::Comment)),
+        Some(&ComparisonSource::Local)
+    );
     let replacement =
         clacks_model::tag::LogbookTag::new(clacks_model::ids::TagId::new(), "Replacement".into());
     ui.get_by_label("Search logbooks").click();

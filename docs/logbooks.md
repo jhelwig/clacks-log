@@ -158,12 +158,10 @@ prevent duplicate submissions using the existing busy-state facilities. On a
 failed write, retain the prior committed view and show an actionable error.
 Do not claim a successful switch merely because a widget changed locally.
 
-Settle an admitted logbook result before allowing another logbook action,
-including when its management dialog was dismissed. This keeps an older
-deletion acknowledgment from overriding a later view choice. Other settings
-and background work retain their existing admission behavior. A successful
-explicit view change clears the prior current-view fallback notice; a failed
-change preserves it.
+Settle an admitted logbook result before allowing another logbook action.
+This keeps an older deletion acknowledgment from overriding a later view
+choice. A successful explicit view change clears the prior current-view fallback
+notice; a failed change preserves it.
 
 View selection does not edit saved QSOs, station/equipment values, publication
 jobs or account synchronization scope. Later history selection follows D297:
@@ -307,9 +305,9 @@ existing contracts, including suppression of downloaded-add offers.
 
 Require an explicit choice and confirmation; no destructive choice is silently
 selected. Empty tags use the same operation with zero contact effects.
-Cancellation before submission changes nothing. Once admitted, the operation
-follows the existing session ownership and transaction-completion rules; closing
-a dialog does not cancel a committed write or manufacture partial cancellation.
+Cancellation before submission changes nothing. Keep the management dialog
+open until an admitted deletion finishes. On failure, show the outcome in the
+deletion review and retain the context needed to retry or reload.
 
 ### 6.2. Revalidation and atomicity
 
@@ -396,9 +394,9 @@ Ordinary catalog refreshes do not discard open form edits or advance their
 expected bases silently. Preserve the last usable snapshot on failure. A
 successful save, selection or deletion remains successful even if the following
 catalog refresh fails: retain its exact committed result, distinguish the refresh
-failure and offer an explicit refresh. Admitted requests outlive originating
-dialog dismissal under the established ownership rules. Shutdown stops new work
-and lets in-flight transactions complete or roll back normally.
+failure and offer an explicit refresh. Keep the dialog open while its submitted
+operation is pending so the user can recover from failure in place. Shutdown
+stops new work and lets in-flight transactions complete or roll back normally.
 
 ## 8. Observability
 
@@ -496,7 +494,7 @@ is introduced.
 | Effective synchronized deletion | Selection and installed deletion commit together; pending QSO references remain for explicit repair. |
 | Staged/unknown/non-effective deletion | No fallback from staging, unknown knowledge, failed reads or an unresolved live working alternative. |
 | Idempotent deletion installation | Reprocessing does not create extra mutations or lose the persisted fallback. |
-| Refresh failure after commit/dismissed editor | Exact operation result survives; no automatic mutation retry or stale-selection restoration. |
+| Refresh failure after commit | Exact operation result survives; no automatic mutation retry or stale-selection restoration. |
 | UI integration | Real selector/dialog, validation, Save/Cancel, copied full ID, readable duplicate labels and deletion review work across the existing appearances/scales. |
 | Entry/history handoff | Later consumers use the same authoritative selection; no placeholders are required to verify #8. |
 | Telemetry | Focused IDs/outcomes/counts match real commits and exclude tag names and payload data. |

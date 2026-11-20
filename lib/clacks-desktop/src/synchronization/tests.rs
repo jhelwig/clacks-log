@@ -27,6 +27,7 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     let stop = CancellationToken::new();
     let connection = super::ConnectionContext {
         stop: stop.clone(),
+        gate: Default::default(),
         trace: opentelemetry::trace::SpanContext::empty_context(),
         directory: tokio::sync::watch::channel(None).0,
     };
