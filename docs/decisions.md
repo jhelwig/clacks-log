@@ -1460,7 +1460,9 @@ Provide a compact main-window logbook/view selector with immediate switching and
 a Manage logbooks action opening a dedicated dialog. The dialog manages named
 tags, their names and per-service automatic-upload policies through the existing
 Save/Cancel contract. Built-in views are not editable tags. Delete opens a
-separate impact review with the agreed three choices and contact counts. The
+separate impact review with the agreed three choices and contact counts. Keep
+the dialog open while a submitted management operation is in progress. Show
+failures in the dialog so the user can recover there. The
 [desktop UI contract](desktop-ui.md) owns this interaction boundary.
 
 ### Decision D306

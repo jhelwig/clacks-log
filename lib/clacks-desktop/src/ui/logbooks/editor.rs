@@ -16,16 +16,17 @@ impl LogbooksUi {
         let Some(frame) = &mut self.management else {
             return;
         };
+        let pending = frame.response.is_some();
         let mut cancel = false;
-        let result = dialog::show(
+        let result = dialog::show_with_dismissal(
             context,
             egui::Id::unique("logbooks.manage"),
             "Manage logbooks",
+            !pending,
             |ui| {
                 if let Some(notice) = &frame.notice {
                     feedback::problem(ui, notice);
                 }
-                let pending = frame.response.is_some();
                 ui.add_enabled_ui(!pending, |ui| {
                 if frame.deletion.is_some() {
                     super::deletion::show(ui, frame, sender);
@@ -64,7 +65,7 @@ impl LogbooksUi {
                 }
             },
         );
-        if result.cancel_requested || cancel {
+        if (result.cancel_requested || cancel) && frame.response.is_none() {
             self.cancel();
         }
     }

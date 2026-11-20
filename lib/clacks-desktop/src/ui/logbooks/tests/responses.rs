@@ -42,33 +42,42 @@ fn stale_deletion_requires_reload_and_a_new_explicit_choice() {
 }
 
 #[test]
-fn dismissed_request_keeps_other_actions_blocked_until_its_reply_arrives() {
+fn pending_deletion_keeps_its_dialog_and_recovers_in_place_on_failure() {
     let mut ui = mount();
     deletion_review(&mut ui);
     ui.get_by_label("Leave all contacts (delete 0)").click();
     ui.run();
     ui.get_by_label("Confirm deletion").click();
     ui.step();
-    let request = ui.state_mut().requests.try_recv().unwrap();
+    let request = ui
+        .state_mut()
+        .requests
+        .try_recv()
+        .expect("a deletion request should be queued because the test selected a deletion option and confirmed it");
+
+    ui.run_steps(2);
+    assert!(ui.get_by_label("×").accesskit_node().is_disabled());
     ui.key_press(egui::Key::Escape);
     ui.step();
-    assert!(
-        ui.get_by_label("Manage logbooks…")
-            .accesskit_node()
-            .is_disabled()
-    );
+    assert!(ui.query_by_label("Working…").is_some());
+
     request
         .reply
         .send(SettingsResponse::Failed("Could not delete logbook".into()))
-        .unwrap();
+        .expect("sending the failed result should succeed because the open deletion review still holds the reply receiver");
     ui.run();
+    assert!(ui.query_by_label("Could not delete logbook").is_some());
     assert!(
-        !ui.get_by_label("Manage logbooks…")
+        !ui.get_by_label("Confirm deletion")
             .accesskit_node()
             .is_disabled()
     );
-    assert!(ui.query_by_label("Could not delete logbook").is_some());
+    assert!(!ui.get_by_label("×").accesskit_node().is_disabled());
     assert!(ui.state_mut().requests.try_recv().is_err());
+
+    ui.key_press(egui::Key::Escape);
+    ui.run();
+    assert!(ui.query_by_label("Confirm deletion").is_none());
 }
 
 #[test]

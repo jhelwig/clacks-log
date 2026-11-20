@@ -105,7 +105,9 @@ named-tag creation, names, per-service automatic-upload policies and deletion;
 do not add another permanent management pane. All contacts and Untagged are not
 editable tags. Use the shared Save/Cancel, validation and dismissal behavior.
 Delete opens a separate impact review showing the three agreed choices and
-distinct-contact counts before confirmation.
+distinct-contact counts before confirmation. Keep Manage logbooks open while a
+submitted operation is in progress. Disable Close and Escape dismissal until
+it finishes. Show failures in the originating form or review.
 
 Show short, collision-checked ID suffixes only when tag display names are
 duplicates (D306). Unique names remain unsuffixed. Manage logbooks exposes the
