@@ -138,8 +138,24 @@ jobs:
           else
             "$CARGO_TARGET_DIR/debug/clacks-log" --help
           fi
+      - name: Install pinned cargo-nextest
+        shell: bash
+        run: |
+          nextest_dir=$(mktemp -d "$RUNNER_TEMP/nextest.XXXXXX")
+          version=0.9.152
+          archive="cargo-nextest-$version-x86_64-unknown-linux-gnu.tar.gz"
+          release="https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-$version"
+          curl --proto '=https' --fail --silent --show-error --location --retry 3 \
+            "$release/$archive" -o "$nextest_dir/$archive"
+          (
+            cd "$nextest_dir"
+            printf '%s  %s\n' d039b43c3e0958441b6ad0a39c8884d018b3d2e8fb9928f209074b1100b5e17a "$archive" |
+              sha256sum --check
+            tar -xzf "$archive" cargo-nextest
+          )
+          printf '%s\n' "$nextest_dir" >> "$GITHUB_PATH"
       - name: Test workspace
-        run: cargo test --workspace --all-targets --locked --offline
+        run: cargo nextest run --workspace --all-targets --locked --offline
       - name: Test documentation
         run: cargo test --workspace --doc --locked --offline
       - name: Check idiomatic Rust
