@@ -1,5 +1,6 @@
 //! Per-record conflict comparison and the operator's unsaved resolution.
 
+use super::choices::{self, SourceChoice};
 use crate::{
     review::{
         comparison::{ComparisonBasis, ComparisonSource},
@@ -123,22 +124,19 @@ impl ReviewEditor {
         }
         ui.add_enabled_ui(!busy && !self.settled, |ui| {
             ui.horizontal_wrapped(|ui| {
-                for (label, source) in [
-                    ("Use all local", ComparisonSource::Local),
-                    ("Use all shared", ComparisonSource::Shared),
-                ] {
-                    if ui
-                        .add_enabled(
-                            self.draft.basis.source(&source).is_ok(),
-                            egui::Button::new(label),
-                        )
-                        .clicked()
-                    {
-                        match self.draft.select_all(source) {
-                            Ok(()) => self.validation.edited(now),
-                            Err(error) => {
-                                self.errors = vec![crate::operating::issue("Comparison", error)]
-                            }
+                let options = [
+                    (ComparisonSource::Local, "Use all local"),
+                    (ComparisonSource::Shared, "Use all shared"),
+                ]
+                .map(|(source, label)| {
+                    let available = self.draft.basis.source(&source).is_ok();
+                    (source, label, available)
+                });
+                if let Some(source) = choices::choose_all(ui, options) {
+                    match self.draft.select_all(source) {
+                        Ok(()) => self.validation.edited(now),
+                        Err(error) => {
+                            self.errors = vec![crate::operating::issue("Comparison", error)]
                         }
                     }
                 }
@@ -349,26 +347,21 @@ impl ReviewEditor {
                 stamp.accepted_at().revision
             ),
         };
-        let selected = self.draft.selected_source(field) == Some(&source);
-        if ui
-            .add_enabled(input.is_ok(), egui::Button::selectable(selected, label))
-            .clicked()
-        {
-            match self.draft.select(field, source.clone()) {
+        let choice = SourceChoice {
+            label: &label,
+            selected: self.draft.selected_source(field) == Some(&source),
+            input: input.as_ref().map_err(|_| {
+                if matches!(self.draft.basis.source(&source), Ok(RecordState::Deleted)) {
+                    "Deleted"
+                } else {
+                    "No live values available"
+                }
+            }),
+        };
+        if choice.show(ui, field, tags, definitions, settings) {
+            match self.draft.select(field, source) {
                 Ok(()) => self.validation.edited(now),
                 Err(error) => self.errors = vec![crate::operating::issue(&field.label(), error)],
-            }
-        }
-        match input {
-            Ok(input) => super::value::show(ui, field, &input, tags, definitions, settings),
-            Err(_) => {
-                ui.weak(
-                    if matches!(self.draft.basis.source(&source), Ok(RecordState::Deleted)) {
-                        "Deleted"
-                    } else {
-                        "No live values available"
-                    },
-                );
             }
         }
     }

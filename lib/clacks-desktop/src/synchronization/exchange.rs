@@ -33,6 +33,7 @@ pub(super) async fn response(
 }
 
 /// Negotiate, repair retained accepted state if needed, then alternate complete inbound and pending phases.
+#[tracing::instrument(skip_all, name = "desktop.sync.exchange_session", fields(account_id = %binding.account, actor_id = %binding.actor))]
 pub(super) async fn run(
     socket: &mut Socket,
     store: &ClientStore,
@@ -42,6 +43,7 @@ pub(super) async fn run(
     connection: &ConnectionContext,
 ) -> anyhow::Result<()> {
     let stop = &connection.stop;
+    let negotiation_guard = connection.gate.exchange(stop).await?;
     let negotiation = tracing::info_span!(parent: None, "desktop.sync.negotiate", account_id=%binding.account, actor_id=%binding.actor);
     negotiation.add_link(connection.trace.clone());
     negotiation.in_scope(|| tracing::info!(event="sync.waiting_for_peer", phase="negotiation", account_id=%binding.account, actor_id=%binding.actor));
@@ -102,6 +104,7 @@ pub(super) async fn run(
         anyhow::bail!("Negotiation did not return a server checkpoint");
     };
     drop(negotiation);
+    drop(negotiation_guard);
     let mut server_coverage = clacks_sync::transfer::discovery::target_coverage(
         &checkpoint,
         &clacks_sync::account::EvidenceView {
@@ -111,6 +114,7 @@ pub(super) async fn run(
     )?;
     let mut exchange = 1_u64;
     loop {
+        let exchange_guard = connection.gate.exchange(stop).await?;
         send(socket, stop, ClientMessage::DirectoryConfiguration).await?;
         // Mark local notifications consumed before discovery; writes during it remain visible afterward.
         changes.borrow_and_update();
@@ -222,6 +226,7 @@ pub(super) async fn run(
         exchange = exchange
             .checked_add(1)
             .ok_or_else(|| anyhow::anyhow!("Exchange sequence exhausted"))?;
+        drop(exchange_guard);
         if dirty || changes.has_changed()? {
             continue;
         }

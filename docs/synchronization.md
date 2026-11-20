@@ -272,6 +272,13 @@ On connection or reconnection, batch-negotiate and transfer missing synchronized
 
 Client catch-up is receive-first: durably incorporate all server updates covered by the completed inbound catch-up and compare pending work against that shared state before publishing any local changes. This includes retries of previously prepared proposals; received state may already establish their incorporation. Logging and local saves continue during catch-up. Once inbound catch-up is complete, unresolved records remain local while eligible changes can publish. Changes accepted after that catch-up point remain subject to D146's conditional acceptance checks.
 
+The desktop import acquires a shared pause guard before reading saved
+candidates and holds it until review or application ends. A holder waits for
+the current exchange to finish. The worker releases its exclusive access before
+waiting idle and can start the next exchange after all guards are released.
+Normal receive-first catch-up reconciles remote changes after the import and
+publishes imported records through the existing per-record exchange.
+
 The protocol needs a gap-free handoff between catch-up and live updates. Changes made during catch-up must be included or queued for subsequent delivery. Retry/overlap must have no second effect, and acknowledgments must not discard work that the peer has not durably accepted. D235 selects encrypted WebSocket transport. Exact snapshot boundaries, subscription/acknowledgment design and backpressure remain specification work. Streaming notifications do not imply retaining a permanent history event for every intermediate edit.
 
 D144 permits automatic fuller state reconciliation when incremental transfer history is unavailable. It remains normal, bidirectional synchronization, preserving enrollment, surviving synchronized evidence, and pending work. A larger comparison or transfer is acceptable. Discovery exhaustion and durable receipt establish the transferred coverage; this fallback alone does not justify collecting causal identities, deletion knowledge, or service evidence.

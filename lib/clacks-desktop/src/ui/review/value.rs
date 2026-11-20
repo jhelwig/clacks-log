@@ -8,7 +8,7 @@ use eframe::egui;
 use std::collections::BTreeMap;
 
 /// Display one native field with catalog labels, without introducing editable state.
-pub(super) fn show(
+pub(in crate::ui) fn show(
     ui: &mut egui::Ui,
     field: FieldId,
     input: &FieldInput,

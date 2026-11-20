@@ -10,19 +10,21 @@ The [ADIF specification](https://www.adif.org/316/ADIF_316.htm) allows Coordinat
 
 Compare worked callsign, historical station callsign, band, normalized mode/submode, and UTC start date/time. Callsign suffixes remain significant. Location, reports, and other editable details are compared after candidate identification so their differences do not prevent an update being offered.
 
-Use the time precision actually supplied: a minute-only time can identify candidates within that minute, while two second-precision times are compared at second precision. This is Clacks Log's accepted candidate-matching policy, not an ADIF-mandated identity rule. D225 handles incomplete identity information as possible matches requiring review, as described below. D226 adds a wider window only for possible matches requiring explicit selection. Explicitly inconsistent identity fields remain separate from missing information.
+Compare both UTC timestamps at the lowest precision available between the two QSOs. A minute-only time is compared at minute precision with either record as the source. Two second-precision times are compared at second precision. D225 handles compatible incomplete identity information as candidates requiring explicit review. Explicitly inconsistent identity fields exclude a candidate.
 
 Never arbitrarily choose among multiple candidate local QSOs. Show candidates for explicit selection before update; retain duplicate/skip choices. If station identity is unknown, do not silently pick one using current defaults. A candidate with differing values uses D39-D40's existing interface, including the option to create a separate QSO.
 
 Under D225, compatible but incomplete identity information produces possible matches, not confident matches. For example, an incoming record lacking our historical station callsign can be a possible match to an otherwise matching contact; a broad mode can be a possible match to its known specialization. Explain what information is missing and require explicit selection before updating or treating the record as unchanged, including when there is only one candidate. Preserve create-separate-contact and skip choices. Missing information is neither a contradiction nor proof of identity; explicitly different values are not missing information. Never infer historical station identity from current defaults. This review requirement qualifies D165’s automatic unchanged skip: it applies automatically only to confident matches.
 
-Under D226, include otherwise compatible contacts within 30 minutes either side of the incoming start time as possible matches across the account under D247. Compare full UTC dates/times, so this window can cross midnight. Require explicit selection even for one possible match; a unique nearby contact does not become a confident match. Retain D41’s precision-aware confident-match rules and D165’s automatic unchanged skip only for confident matches, alongside update/create-separate-contact/skip choices. Explain time differences as well as incomplete identity information under D225. Exact boundary treatment for minute-precision values remains specification work under these precision-aware principles.
+Under D226, include otherwise compatible contacts within an inclusive 30-minute window in either direction. Apply the same lowest available precision as for exact time equality and compare full UTC dates and times, including across midnight. Explain the time difference and require explicit selection even when the candidate is unique.
 
 For context, the [LoTW matching rules](https://lotw.arrl.org/lotw-help/frequently-asked-questions/#datamatch) allow start times within 30 minutes, [QRZ confirmation rules](https://www.qrz.com/docs/logbook30/confirmations-how) allow a 30-minute difference, and the [eQSL matching FAQ](https://www.eqsl.cc/qslcard/FAQDisplay.cfm?Topic=1058) describes a one-hour allowance. These services compare the two operators’ accounts of a contact. Their tolerances do not establish local deduplication identity or justify automatic application of a possible import match. D226 explicitly selects the review-only 30-minute import window.
 
 Apply these ADIF import candidate rules to all account QSOs, including untagged contacts (D247). Apply the selected tag when reusing a matched QSO; tag changes are ordinary QSO edits under D243. Preserve Update/Duplicate/Skip and explicit ambiguous/possible selection. Skip changes neither facts nor tags. Report added memberships separately from unchanged contact facts. Unassociated Logbook of The World (LoTW)/QRZ downloads use the same confident/possible distinction with account-wide search and established-association precedence (D227). Each external record has at most one associated local QSO within the account/service destination; ambiguous matching selects at most one (D251), as described in [download reconciliation](service-reconciliation.md). Local candidate rules are distinct from provider confirmation matching; candidate-matching fields are not a uniqueness constraint on the QSO store. Distinct contacts may share those fields while external-record associations remain unique under D251.
 
-D165 selects automatic skipping of confidently matched records that add no information after mapping/normalization. Under D247, adding a missing selected tag is a change even when contact facts are unchanged; skip the whole record only when neither facts nor membership add information. Still open: exact compatibility tables for incomplete input under D225, precision-aware window boundary details under D226, implementation of the accepted complete ADIF 3.1.8 recognition baseline and matching of unrecognized classifications under D174/D175, and detailed repeated-import/report mechanics.
+Each incoming row can be assigned to at most one saved QSO, and each saved QSO can receive at most one row per import. Require explicit assignment when multiple rows target one saved QSO, even if their facts would be unchanged. The user can drop a row or create a separate QSO. The candidate set is the prepared account working snapshot. It excludes source rows and contacts created during this import. Assignments last only for the current review.
+
+An unambiguous row that requires no explicit selection may be counted as unchanged when it adds no contact facts, membership, or service evidence. A missing selected tag is a membership change even when contact facts agree. For the same unfamiliar submode, a parent supplied on only one side makes the match reviewable. Differing supplied parents exclude the candidate.
 
 ## Accepted missing/empty-field handling for updates (D42)
 
@@ -60,15 +62,30 @@ Preparation makes no logbook changes. Scan record contents, discover fields acro
 
 D168 defines the eligible prefix after a structural error, not a requirement to commit records while parsing. Do not claim to have inspected fields or counted records in the undecodable remainder. Apply prepared source content and reviewed choices; a changed source must not silently replace what was prepared. The staging representation remains open. D172 selects built-in mappings for MVP: show unsupported fields before application and omit them if the user proceeds. No custom mapping editor is needed for MVP; exact built-in coverage remains open. D171 does not require persistent preparation or import-session resumption.
 
-A prepared comparison can become stale as local edits or synchronization continue. Existing D146 conditional acceptance and D39–D42 comparison choices still apply; preparation is not a lock or permission to overwrite newer values. D170 selects cancellation behavior below; exact local application/revalidation mechanics remain open.
+The import holds a shared sync pause guard before reading the saved candidates and through application. The desktop finishes an active exchange before granting the hold and can start another exchange after all holders release it. Guard release on completion, cancellation, or failure allows normal receive-first reconciliation. Ordinary local transactional save guards remain in effect.
+
+Resolve overlapping fields according to their meaning and source provenance. When two usable inputs disagree and neither has established authority, show both values. The user can choose either value or omit the disputed fact while keeping the rest of the QSO.
 
 ## Cancellation (D170)
 
-Cancellation during preparation/review makes no logbook changes. Once application starts, preserve completed changes, stop at a safe record boundary, and report the remainder as unprocessed. Apply each contact and its associated imported service evidence together; do not leave a partly applied record when cancelling. Whole-import rollback is not required. Re-importing uses D165 unchanged-record skipping and the existing match/update choices. Exact transaction batching remains open. D171 selects rerunning normal import for crash recovery and treats dedicated import-session resumption as unnecessary.
+Cancellation during preparation or review makes no logbook changes. During
+application, let the current row settle, keep completed rows, and report the
+remaining rows as unprocessed. Apply each contact, its selected tag membership,
+and its imported service evidence in one local transaction. The resulting
+records synchronize through ordinary per-record acceptance.
+
+A stale basis or an error before commit leaves that row unapplied. If the
+commit result is uncertain, check current saved state through ordinary re-import
+before retrying. D171 uses the normal matching, review, and D165 unchanged-record
+checks for recovery.
 
 ## Crash recovery (D171)
 
-Completed changes survive a crash; an interrupted contact and its imported service evidence cannot be partly applied. Recover by rerunning normal import: prepare the source again, skip unchanged records under D165, and use existing matching/update choices for remaining records. Prior review choices and saved import-session position need not survive. Dedicated session resumption is unnecessary and is not a post-MVP backlog item. Exact storage transactions and prepared-input representation remain open.
+Committed rows survive a crash. If the crash interrupts a commit or prevents
+the caller from receiving its result, normal import reads the saved state on
+the next preparation. Skip unchanged rows under D165 and use the existing
+matching and update choices for remaining rows. Recovery uses a new review of
+the source and current saved records.
 
 ## Built-in mappings and unsupported fields (D172)
 

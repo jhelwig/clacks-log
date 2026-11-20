@@ -1,11 +1,12 @@
 //! Account-wide review of pending sync and conflicts in an exclusive window.
 
+pub(super) mod choices;
 mod comparison;
 mod detail;
 mod editors;
 mod references;
 mod state;
-mod value;
+pub(super) mod value;
 
 #[cfg(test)]
 mod tests;

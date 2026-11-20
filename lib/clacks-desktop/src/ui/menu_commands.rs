@@ -13,12 +13,16 @@ impl DesktopApp {
             || self.logbooks.is_open()
             || self.settings.is_open()
             || self.details.is_open()
+            || self.import.is_open()
             || self.review.is_exclusive()
             || self.workbench.has_modal()
     }
 
     /// Current state, not the state when the operating system queued activation.
     pub(super) fn menu_enabled(&self, context: &egui::Context, command: MenuCommand) -> bool {
+        if self.import.is_picking_file() {
+            return false;
+        }
         if command == MenuCommand::Quit {
             return true;
         }
@@ -85,6 +89,11 @@ impl DesktopApp {
         context.request_repaint_of(egui::ViewportId::ROOT);
         let opener = context.memory(|memory| memory.focused());
         match command {
+            MenuCommand::ImportAdi => {
+                if let Some(snapshot) = self.settings_view.borrow().as_deref() {
+                    self.import.open(snapshot, opener);
+                }
+            }
             MenuCommand::LookupDirectory => self
                 .workbench
                 .start_directory_lookup(&self.settings_requests),

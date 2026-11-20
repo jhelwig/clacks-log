@@ -310,6 +310,7 @@ management commands into OS-native menus using the following agreed structure:
 
 | Native menu | Commands |
 | --- | --- |
+| File | Import ADI… |
 | Edit | Select all (focused text or all matching history contacts across pages), Look up directory information (selected contacts) |
 | Settings | Manage logbooks…, Station profiles…, Equipment configurations…, Refresh settings, account/server management, WS Suite…, Appearance… |
 | View | Reset workbench layout |
@@ -337,6 +338,16 @@ menu drawn in the toolbar is not a substitute. Do not create a separate Logbooks
 menu. A single-entry menu is appropriate only when its future extension is
 obvious, as it is for View and Help. This structure does not introduce new
 settings screens or change the commands' underlying workflows.
+
+**File → Import ADI…** opens file and destination logbook selection, then
+prepares a read-only review of the readable records. Parent the native file
+picker to the Clacks window and keep it exclusive until it returns. Use the
+native field comparison presentation for changes to saved QSOs. Review source
+disagreements and candidate assignments before applying affected rows. Keep the
+destination visible, mark rows still requiring choices, and retain a report of
+committed, dropped, failed and unprocessed work until dismissed.
+Apply the latest WS Suite DX-call update for the current workspace, including
+an empty call, when Import closes.
 
 This correction concerns management-command placement. Preserve existing
 synchronization status and conflict-resolution access; improving their
@@ -610,7 +621,7 @@ contract to existing editors and storage, with engineering defaults identified.
 
 Open account-wide review as an exclusive action in the separate
 **Unsynchronized changes** window. Suspend other desktop interactions until
-review closes.
+review closes. Import and Unsynchronized changes are mutually exclusive.
 Preserve the workbench's selected view, pane arrangement and unfinished QSO so
 the user can resume work. Pending edits and conflicts alone do not block
 workbench actions. Separate **Conflicts** and **Pending sync** into independently

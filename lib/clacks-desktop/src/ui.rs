@@ -13,6 +13,7 @@ mod feedback;
 mod fields;
 pub(crate) mod fonts;
 mod geography;
+mod import;
 mod logbooks;
 mod logging;
 mod menu_commands;
@@ -90,6 +91,8 @@ pub(crate) struct DesktopApp {
     pending_text_select_all: Option<egui::Id>,
     /// Entry updates drained even while entry is hidden.
     entry_calls: mpsc::UnboundedReceiver<crate::ws_suite::EntryCall>,
+    /// Latest WS Suite callsign update deferred during Import, including an empty call.
+    import_entry_call: Option<crate::ws_suite::EntryCall>,
     /// Receiver configuration modal and retained outcomes.
     ws_suite: ws_suite::ReceiverUi,
     /// Runtime-owned receiver view.
@@ -132,6 +135,7 @@ pub(crate) struct DesktopApp {
     logbooks: logbooks::LogbooksUi,
     /// Account-wide review in its independent native viewport.
     review: review::ReviewUi,
+    import: import::ImportUi,
     /// Local paths displayed to the operator, never diagnostic payloads.
     paths: WorkspacePaths,
     /// Safe startup degradation details.
@@ -178,6 +182,7 @@ impl DesktopApp {
         Self {
             geography_view,
             entry_calls,
+            import_entry_call: None,
             ws_suite: Default::default(),
             ws_suite_view,
             lookup_view,
@@ -205,6 +210,7 @@ impl DesktopApp {
             settings: Default::default(),
             logbooks: Default::default(),
             review: Default::default(),
+            import: Default::default(),
             shutdown_pending: false,
             close_requested: false,
             close_started: None,
@@ -227,7 +233,7 @@ impl DesktopApp {
 
     /// Request orderly cleanup once; repeated native closes retain the original deadline.
     fn begin_close(&mut self) {
-        if !self.close_requested {
+        if !self.close_requested && !self.import.is_picking_file() {
             self.shutdown_pending = true;
             self.close_requested = true;
             self.close_started = Some(std::time::Instant::now());
@@ -236,6 +242,7 @@ impl DesktopApp {
 
     /// Apply background notifications and native close handling, including while hidden.
     fn update_lifecycle(&mut self, context: &egui::Context) {
+        self.import.poll_picker(context);
         let geography = self.geography_view.borrow_and_update().clone();
         self.workbench
             .advance_geography(&self.commands, &geography, self.close_requested);
@@ -245,14 +252,29 @@ impl DesktopApp {
             self.contact_changes.borrow_and_update();
             self.workbench.entry.changed = true;
         }
-        while let Ok(call) = self.entry_calls.try_recv() {
-            if !self.review.is_exclusive()
-                && self
-                    .lookup_view
-                    .borrow()
+        {
+            let workspace = self.lookup_view.borrow();
+            let is_current = |call: &crate::ws_suite::EntryCall| {
+                workspace
                     .as_ref()
                     .is_some_and(|current| current.same_workspace(&call.workspace))
-            {
+            };
+            let importing = self.import.is_open();
+            let reviewing = self.review.is_exclusive();
+            let mut latest = self.import_entry_call.take().filter(is_current);
+            while let Ok(call) = self.entry_calls.try_recv() {
+                if !is_current(&call) {
+                    continue;
+                }
+                if importing || latest.is_some() {
+                    latest = Some(call);
+                } else if !reviewing {
+                    self.workbench.incoming_call(&call.status.call);
+                }
+            }
+            if importing || reviewing {
+                self.import_entry_call = latest;
+            } else if let Some(call) = latest {
                 self.workbench.incoming_call(&call.status.call);
             }
         }
@@ -268,7 +290,9 @@ impl DesktopApp {
 
         let state = self.status.borrow_and_update().clone();
         if matches!(state, SessionStatus::Closed) {
-            context.send_viewport_cmd(egui::ViewportCommand::Close);
+            if !self.import.is_picking_file() {
+                context.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
             return;
         }
 
@@ -354,7 +378,7 @@ impl eframe::App for DesktopApp {
         self.process_menus(context);
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let state = self.status.borrow().clone();
         let closing = self.close_requested
             || matches!(
@@ -388,7 +412,7 @@ impl eframe::App for DesktopApp {
         }
         #[cfg(not(any(target_os = "macos", windows)))]
         self.show_menus(ui);
-        if !closing && self.review.is_exclusive() {
+        if !closing && (self.review.is_exclusive() || self.import.is_open()) {
             ui.disable();
         }
         egui::Panel::top("application.header").show(ui, |ui| {
@@ -495,6 +519,8 @@ impl eframe::App for DesktopApp {
             self.ws_suite.show(ui.ctx(), &self.commands);
             self.enrollment
                 .show(ui.ctx(), &self.commands, &mut self.enrollment_view);
+            self.import
+                .show(ui.ctx(), &self.commands, snapshot.as_deref(), frame);
         }
         #[cfg(any(target_os = "macos", windows))]
         self.update_menu_state(ui.ctx());

@@ -68,7 +68,7 @@ pub(crate) struct ContactProjection {
 }
 
 /// Current account definitions and public compatibility inputs for one read.
-struct ReadContext {
+pub struct ReadContext {
     /// Ordinary synchronized reference definitions, not fresh seed data.
     definitions: DefinitionSet,
     /// Saved output profiles, including ordinary interchange.
@@ -85,7 +85,7 @@ struct ReadContext {
 
 impl ReadContext {
     /// Borrow the installed ordinary context for service normalization.
-    fn projection(&self) -> anyhow::Result<ProjectionContext<'_>> {
+    pub fn projection(&self) -> anyhow::Result<ProjectionContext<'_>> {
         Ok(ProjectionContext {
             recognition: self.recognition,
             definitions: &self.definitions,
@@ -97,10 +97,20 @@ impl ReadContext {
             resolutions: &self.resolutions,
         })
     }
+
+    /// The account's saved reference definitions at the time of the read.
+    pub fn definitions(&self) -> &DefinitionSet {
+        &self.definitions
+    }
+
+    /// The Logbook of The World rules loaded for service projection.
+    pub fn lotw(&self) -> &LotwConfiguration {
+        &self.lotw
+    }
 }
 
 /// Read account definitions from current working roles in this snapshot.
-async fn context(
+pub(super) async fn context(
     connection: &mut SqliteConnection,
     account_id: AccountId,
 ) -> anyhow::Result<ReadContext> {

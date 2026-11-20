@@ -698,11 +698,11 @@ Prepare and validate ADIF imports before making any logbook changes. Scan record
 
 #### D170
 
-Cancelling an import preserves completed changes, stops application at a safe record boundary, and reports the remainder as unprocessed. Cancellation during read-only preparation/review leaves the logbook unchanged under D169. Apply a contact and its associated imported service evidence together so cancellation does not leave a partly applied record. No whole-import rollback is required. Exact application transaction/batch implementation and crash-resume scope remain open.
+Cancelling an import preserves completed changes, stops application at a safe record boundary, and reports the remainder as unprocessed. Cancellation during read-only preparation/review leaves the logbook unchanged under D169. Apply a contact, its selected tag membership and its imported service evidence in one local transaction so cancellation does not leave a partly applied record. The resulting records synchronize through ordinary per-record acceptance. Whole-import rollback is unnecessary.
 
 #### D171
 
-After an import-time crash, rerunning the normal import is sufficient for MVP recovery. Completed records remain durable and interrupted records must not be partly applied. Reprepare the source and use existing unchanged-record skipping and match/update rules; prior review choices or an import-session position need not survive. Dedicated import-session resumption is considered unnecessary, not deferred to a post-MVP backlog. Exact storage transaction mechanics remain open.
+After an import-time crash, rerunning the normal import is sufficient for MVP recovery. Completed records remain durable and interrupted records must not be partly applied. Reprepare the source and use existing unchanged-record skipping and match/update rules; prior review choices or an import-session position need not survive. Dedicated import-session resumption is unnecessary. Recovery uses the local transaction boundary in D170.
 
 #### D172
 

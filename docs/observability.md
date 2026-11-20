@@ -448,6 +448,22 @@ comment, provider report, secret reference, certificate/private key or workspace
 path is included in its telemetry. Runtime error boundaries decide deliberate
 logging and operator diagnostics; the library propagates concrete causes.
 
+## Desktop ADI import
+
+The `desktop.import` span correlates preparation, review and application using
+the local account and a fresh run ID. Preparation reports readable row, warning
+and unsupported-field counts and whether parsing stopped at a damaged suffix.
+The sync worker reports a wait only when an exchange cannot acquire the shared
+workspace gate. A waiting import reports the same contention from its side.
+
+`clacks_desktop_import_runs_total` counts settled runs by outcome. Preparation
+and Apply have separate duration histograms in seconds, excluding the user's
+review time. The settled event reports actual committed effects, dropped and
+unprocessed rows, and failures. Row failure counts use the bounded reasons
+`planning`, `stale` and `storage`. The client store owns durable mutation counts.
+Import instrumentation excludes source names and paths, QSO values, source
+fingerprints, and raw error text.
+
 ## Manual-logging runtime
 
 Contact requests use the `desktop.contacts` span on the existing runtime. The

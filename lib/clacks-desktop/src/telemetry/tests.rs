@@ -75,6 +75,9 @@ fn log_output_failure_is_degraded_operation() -> anyhow::Result<()> {
 #[ignore = "isolated process fixture, invoked by composition tests"]
 fn child_entry() -> anyhow::Result<()> {
     let case = std::env::var("CLACKS_TELEMETRY_CASE")?;
+    if case == "adi-import" {
+        return crate::import::workflow::tests::run_isolated();
+    }
     if case.starts_with("ws-suite-session-") {
         return crate::session::tests::ws_suite::run_isolated(&case);
     }

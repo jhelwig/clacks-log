@@ -177,7 +177,10 @@ fn location(
 }
 
 /// Resolve a source-supplied local contest through eligible ordinary literal bindings.
-fn contest(code: &str, definitions: &DefinitionSet) -> anyhow::Result<ReferenceAssociation> {
+pub(crate) fn contest(
+    code: &str,
+    definitions: &DefinitionSet,
+) -> anyhow::Result<ReferenceAssociation> {
     let mut groups=definitions.iter().filter(|group|!group.identifier().required&&group.export_mappings().ordinary_interchange.iter().any(|binding|{
         binding.field.eq_ignore_ascii_case("CONTEST_ID")&&matches!(&binding.value,ValueExpression::Literal(value) if value.trim().eq_ignore_ascii_case(code.trim()))&&matches!(binding.when,BindingCondition::Always|BindingCondition::AssociationPresent(StationSide::Own))
     }));

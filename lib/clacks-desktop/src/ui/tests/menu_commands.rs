@@ -633,15 +633,93 @@ fn pending_contact_open_blocks_other_modal() {
     );
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+struct PaneSnapshot {
+    height: f32,
+    width: f32,
+}
+
+#[test]
+fn unsynchronized_changes_preserves_workbench_and_excludes_import() {
+    use eframe::App;
+    use egui_kittest::kittest::{NodeT, Queryable};
+
+    let mut window = Window::new();
+    ready(&mut window);
+    let mut storage = Storage::default();
+    eframe::set_value(
+        &mut storage,
+        "clacks.workbench.panes.v1",
+        &PaneSnapshot {
+            height: 500.0,
+            width: 800.0,
+        },
+    );
+    window.app.workbench.restore(Some(&storage));
+
+    let mut ui = main_screen::mount(window);
+    let callsign = ui.get_by_role_and_label(egui::Role::TextInput, "Callsign");
+    callsign.focus();
+    callsign.type_text("OK2CQR");
+    ui.step();
+    ui.state_mut().app.save(&mut storage);
+    let before: PaneSnapshot = eframe::get_value(&storage, "clacks.workbench.panes.v1")
+        .expect("the pane snapshot should exist because the test mounted and saved the workbench with restored pane sizes");
+    assert_ne!(
+        before,
+        PaneSnapshot {
+            height: 350.0,
+            width: 610.0
+        }
+    );
+
+    ui.get_by_role_and_label(egui::Role::Button, "Unsynchronized changes")
+        .click();
+    ui.run();
+    assert!(ui.state().app.review.is_exclusive());
+    assert!(
+        ui.get_by_role_and_label(egui::Role::TextInput, "Callsign")
+            .accesskit_node()
+            .is_disabled()
+    );
+
+    let context = ui.ctx.clone();
+    for command in [MenuCommand::ImportAdi, MenuCommand::ResetLayout] {
+        ui.state_mut().app.dispatch_menu(&context, command);
+    }
+    assert!(!ui.state().app.import.is_open());
+
+    ui.get_by_role_and_label(egui::Role::Button, "Close")
+        .click();
+    ui.run();
+    assert!(!ui.state().app.review.is_exclusive());
+    assert_eq!(ui.state().app.workbench.entry.contact_call(), "OK2CQR");
+    ui.state_mut().app.save(&mut storage);
+    let after: Option<PaneSnapshot> = eframe::get_value(&storage, "clacks.workbench.panes.v1");
+    assert_eq!(after, Some(before));
+
+    ui.state_mut()
+        .app
+        .dispatch_menu(&context, MenuCommand::ImportAdi);
+    ui.run();
+    assert!(ui.state().app.import.is_open());
+    assert!(
+        ui.get_by_role_and_label(egui::Role::Button, "Unsynchronized changes")
+            .accesskit_node()
+            .is_disabled()
+    );
+    assert!(!ui.state().app.review.is_exclusive());
+    ui.get_by_role_and_label(egui::Role::Button, "Cancel")
+        .click();
+    ui.run();
+    assert!(!ui.state().app.import.is_open());
+    assert_eq!(ui.state().app.workbench.entry.contact_call(), "OK2CQR");
+}
+
 #[test]
 fn reset_menu_restores_panes_without_discarding_contact() {
     use eframe::App;
     use egui_kittest::kittest::Queryable;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    struct PaneSnapshot {
-        height: f32,
-        width: f32,
-    }
     let mut window = Window::new();
     ready(&mut window);
     let mut storage = Storage::default();
