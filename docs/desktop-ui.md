@@ -608,11 +608,14 @@ lifecycle and unfinished-work rules.
 The [#15 integration contract](conflict-review-proposal.md) maps this interaction
 contract to existing editors and storage, with engineering defaults identified.
 
-Open account-wide review in a separate non-modal **Unsynchronized changes**
-window, preserving the workbench's selected view, pane arrangement and unfinished
-QSO. Separate **Conflicts** and **Pending sync** into independently collapsible
-sections. Retain record-type filtering and omit a logbook selector. Ordinary
-pending edits and deletions need no resolution controls.
+Open account-wide review as an exclusive action in the separate
+**Unsynchronized changes** window. Suspend other desktop interactions until
+review closes.
+Preserve the workbench's selected view, pane arrangement and unfinished QSO so
+the user can resume work. Pending edits and conflicts alone do not block
+workbench actions. Separate **Conflicts** and **Pending sync** into independently
+collapsible sections. Retain record-type filtering and omit a logbook selector.
+Ordinary pending edits and deletions need no resolution controls.
 
 Keep local/shared comparison and three-way attribution visible for conflicts.
 Scalar differences start without a selected side; **Use all local** and **Use
@@ -646,9 +649,10 @@ reflected in the UI.
 Preserve unfinished resolution drafts per record when switching between
 conflicts (D386). Restore the draft on return, retaining D385's refresh
 requirement if its comparison changed. Switching records does not save.
-Closing the window discards unsaved drafts like Cancel, without undoing
-completed resolution saves. Restart persistence of unfinished resolution forms
-is not required.
+Keep the window open while a resolution save is pending. A failed or stale
+save retains the draft. Once the save has settled, closing the window discards
+unsaved drafts like Cancel and leaves completed saves in place. Restart
+persistence of unfinished resolution forms is not required.
 
 ## Shared-component contract
 

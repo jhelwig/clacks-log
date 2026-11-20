@@ -2353,8 +2353,11 @@ scalar value directly instead of choosing either compared value.
 
 #### D383
 
-Present account-wide **Unsynchronized changes** in a separate non-modal window,
-leaving the workbench, its selected view, arrangement and unfinished QSO usable.
+Present account-wide **Unsynchronized changes** as an exclusive review in a
+separate window. While it is open, suspend other desktop interactions and
+preserve the workbench's selected view, arrangement and unfinished QSO for when
+review closes. The presence of pending edits or conflicts alone does not block
+ordinary logging or other workbench actions.
 Separate **Conflicts** from **Pending sync** in independently collapsible
 sections. Retain record-type filtering and omit a logbook selector: logbooks are
 QSO memberships subject to conflict resolution, not synchronization buckets.

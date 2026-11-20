@@ -320,10 +320,11 @@ History and Worked Before show this client’s saved working version with pendin
 
 ## Account-wide local review (D182)
 
-An ordinary saved edit during review updates the persisted comparison's local
-values in the same transaction as its working record, preserving the conflict
-and original/shared evidence. Already opened comparisons remain pinned and
-require explicit refresh before resolution against the changed values.
+A saved local edit updates the persisted comparison's local values in the same
+transaction as its working record, preserving the conflict and original/shared
+evidence. If the compared values change while a review is open, the displayed
+comparison remains pinned. Refresh it explicitly before resolving against the
+changed values.
 
 See the [#15 integration contract](conflict-review-proposal.md) for presentation,
 editor reuse and storage wiring. Its engineering choices are distinguished from
@@ -334,11 +335,12 @@ account (D383). Separate **Conflicts** and **Pending sync** into independently
 collapsible sections, with record-type filtering and no logbook selector.
 Include hidden pending deletions, contact changes with deleted-tag references,
 and account-shared profile/equipment conflicts. Logbook membership is a QSO field
-subject to resolution, not a synchronization scope. The window is non-modal;
-opening it preserves workbench arrangement, selected view and unfinished entry.
-It remains a view of local pending state, not a server-owned set of unresolved
-proposals or a publication dependency. Normal history and Worked Before remain
-scoped to the current book.
+subject to resolution, not a synchronization scope. The open review owns
+desktop interaction and preserves the workbench arrangement, selected view and
+unfinished entry for when it closes. Pending state alone does not prevent
+ordinary logging. Review shows this client's local pending state. It creates no
+server-owned proposals or publication dependency. Normal history and Worked
+Before remain scoped to the current book.
 
 ## Missing equipment references (D183)
 

@@ -246,11 +246,12 @@ impl DesktopApp {
             self.workbench.entry.changed = true;
         }
         while let Ok(call) = self.entry_calls.try_recv() {
-            if self
-                .lookup_view
-                .borrow()
-                .as_ref()
-                .is_some_and(|current| current.same_workspace(&call.workspace))
+            if !self.review.is_exclusive()
+                && self
+                    .lookup_view
+                    .borrow()
+                    .as_ref()
+                    .is_some_and(|current| current.same_workspace(&call.workspace))
             {
                 self.workbench.incoming_call(&call.status.call);
             }
@@ -305,6 +306,14 @@ impl DesktopApp {
 
 impl eframe::App for DesktopApp {
     fn raw_input_hook(&mut self, context: &egui::Context, input: &mut egui::RawInput) {
+        if input.viewport_id == egui::ViewportId::ROOT
+            && self.review.is_exclusive()
+            && !context.embed_viewports()
+        {
+            input.events.clear();
+            self.pending_text_select_all = None;
+            return;
+        }
         if let Some(target) = self.pending_text_select_all.take()
             && context.memory(|memory| memory.focused() == Some(target))
         {
@@ -379,16 +388,23 @@ impl eframe::App for DesktopApp {
         }
         #[cfg(not(any(target_os = "macos", windows)))]
         self.show_menus(ui);
+        if !closing && self.review.is_exclusive() {
+            ui.disable();
+        }
         egui::Panel::top("application.header").show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.heading("Clacks Log");
                 if let Some(snapshot) = &snapshot {
                     self.logbooks
                         .show(ui, &snapshot.logbooks, &self.settings_requests);
-                    self.review.action(ui);
+                    let review_available = !self.modal_open();
+                    self.review.action(ui, review_available);
                 }
             });
         });
+        if !closing && self.review.is_exclusive() {
+            ui.disable();
+        }
         if let Some(snapshot) = &snapshot {
             egui::Panel::top("operating.strip")
                 .frame(
@@ -462,7 +478,9 @@ impl eframe::App for DesktopApp {
                     .dialog(ui.ctx(), &snapshot.logbooks, &self.settings_requests);
             }
             self.review.show_window(ui.ctx(), &self.settings_requests);
-            if let Some(record) = self.review.repair.take() {
+            if let Some(record) = self.review.take_repair() {
+                ui.ctx()
+                    .send_viewport_cmd_to(egui::ViewportId::ROOT, egui::ViewportCommand::Focus);
                 match record.key().id {
                     clacks_sync::record::RecordId::Qso(id) => {
                         self.workbench.open_contact(id, &self.settings_requests)

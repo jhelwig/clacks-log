@@ -1,4 +1,4 @@
-//! Field comparison and per-record editor state for the non-modal review window.
+//! Per-record conflict comparison and the operator's unsaved resolution.
 
 use crate::{
     review::{

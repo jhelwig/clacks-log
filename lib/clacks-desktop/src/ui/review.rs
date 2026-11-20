@@ -1,4 +1,4 @@
-//! Non-modal account-wide pending-work presentation on the normal session path.
+//! Account-wide review of pending sync and conflicts in an exclusive window.
 
 mod comparison;
 mod detail;
@@ -39,7 +39,7 @@ pub(super) struct ReviewUi {
     /// Next bounded accepted-reference read.
     read_references: Option<(RecordKey, Option<RecordId>)>,
     /// Explicit request to open a referrer in its existing normal editor.
-    pub repair: Option<clacks_sync::client::ClientRecord>,
+    repair: Option<clacks_sync::client::ClientRecord>,
 
     /// Explicit comparison refresh requested for one record.
     refresh_for: Option<RecordKey>,
@@ -76,9 +76,15 @@ pub(super) struct ReviewUi {
 }
 
 impl ReviewUi {
-    /// Offer account-wide review without replacing the selected history or entry.
-    pub fn action(&mut self, ui: &mut egui::Ui) {
-        if ui.button("Unsynchronized changes").clicked() {
+    pub fn is_exclusive(&self) -> bool {
+        self.open
+    }
+
+    pub fn action(&mut self, ui: &mut egui::Ui, available: bool) {
+        if ui
+            .add_enabled(available, egui::Button::new("Unsynchronized changes"))
+            .clicked()
+        {
             self.open = true;
             self.invalidate();
         }
@@ -93,15 +99,18 @@ impl ReviewUi {
         }
     }
 
-    /// Draw a separately usable native window using standard viewport ownership.
+    /// Keep the review viewport open while a resolution save is pending.
     pub fn show_window(
         &mut self,
         context: &egui::Context,
         requests: &mpsc::Sender<SettingsRequest>,
     ) {
         let viewport = egui::ViewportId::from_hash_of("clacks.unsynchronized_changes");
-        if self.poll() && self.open {
-            context.request_repaint_of(viewport);
+        if self.poll() {
+            context.request_repaint_of(egui::ViewportId::ROOT);
+            if self.open {
+                context.request_repaint_of(viewport);
+            }
         }
 
         if !self.open {
@@ -114,7 +123,12 @@ impl ReviewUi {
                 .with_inner_size([1120.0, 720.0]),
             |ui, _class| {
                 if ui.input(|input| input.viewport().close_requested()) {
-                    self.close();
+                    if self.saving.is_none() {
+                        self.close();
+                        return;
+                    }
+                    ui.ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::CancelClose);
                 }
                 egui::CentralPanel::default()
                     .frame(theme::section_frame(ui))
@@ -123,6 +137,10 @@ impl ReviewUi {
                     });
             },
         );
+        if !self.open {
+            context.request_repaint_of(egui::ViewportId::ROOT);
+            return;
+        }
         if let Some(save) = self.submit.take() {
             let key = save.expected.key();
             if self.request(
@@ -160,6 +178,7 @@ impl ReviewUi {
 
     /// Render the actual list/detail controls independently of viewport creation.
     fn show_contents(&mut self, ui: &mut egui::Ui, requests: &mpsc::Sender<SettingsRequest>) {
+        let mut close = false;
         ui.horizontal_wrapped(|ui| {
             ui.heading("Unsynchronized changes");
             ui.label("Account-wide");
@@ -185,10 +204,14 @@ impl ReviewUi {
             if ui.button("Refresh").clicked() {
                 self.invalidate();
             }
-            if ui.button("Close").clicked() {
-                self.close();
-            }
+            close = ui
+                .add_enabled(self.saving.is_none(), egui::Button::new("Close"))
+                .clicked();
         });
+        if close {
+            self.close();
+            return;
+        }
         if let Some(notice) = &self.notice {
             feedback::problem(ui, notice);
         }
@@ -279,8 +302,20 @@ impl ReviewUi {
             });
     }
 
-    /// Close only this review window, leaving committed work and logging untouched.
+    /// Return a requested referrer and close review. Defer this handoff while a save is pending.
+    pub fn take_repair(&mut self) -> Option<clacks_sync::client::ClientRecord> {
+        if self.saving.is_some() {
+            return None;
+        }
+        let record = self.repair.take()?;
+        self.close();
+        Some(record)
+    }
+
+    /// Discard unresolved drafts when dismissing review. Call only with no save pending.
     fn close(&mut self) {
+        self.submit = None;
+        self.repair = None;
         self.drafts.clear();
         self.references = None;
         self.read_references = None;
