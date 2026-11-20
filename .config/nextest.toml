@@ -1,0 +1,16 @@
+[test-groups]
+server-key-maintenance = { max-threads = 1 }
+
+[[profile.default.overrides]]
+# These tests share maintenance::keys::tests::SERIAL under cargo test.
+# A process-local mutex cannot coordinate separate nextest processes.
+filter = '''
+package(clacks-server) & (
+    test(=maintenance::cli::tests::operator_exports_committed_rotation_and_flushes_failure)
+    | test(=store::tests::directory::directory_configuration_is_account_scoped_and_stale_safe)
+    | test(=store::tests::key_rotation::account_rotation_resumes_and_preserves_enrollment)
+    | test(=store::tests::key_rotation::rewrap::rewrap_preserves_inactive_keys_and_rejects_missing_recovery_material)
+    | test(=store::tests::key_rotation::taken_receipt_is_resealed_after_rotation_and_still_contains_replay)
+)
+'''
+test-group = "server-key-maintenance"

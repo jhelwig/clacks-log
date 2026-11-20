@@ -151,10 +151,9 @@ cargo +1.99.1 test -p clacks-client-store --test integration --locked --offline 
 ```
 
 Continuous integration (CI) builds workspace applications and tests together,
-runs the resulting desktop
-executable for its command-line smoke check, then runs the full test suite.
-Compilation and execution have separate workflow steps. The workflows define the runner requirements for Linux workspace and web
-verification. Job-scoped PostgreSQL containers provide disposable test databases.
+then runs the desktop command-line smoke check. Linux workspace verification
+runs tests with `cargo-nextest` and doctests separately with `cargo test --doc`.
+Job-scoped PostgreSQL containers provide disposable test databases.
 Windows CI is temporarily disabled because of its runtime cost. Cargo
 timing HTML is available in the `cargo-timings-ubuntu-latest` artifact for seven
 days and reports compilation units and their dependency timelines.
