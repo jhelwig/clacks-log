@@ -3,7 +3,7 @@
 use anyhow::{Context, Result, ensure};
 use clipper2_rust::{
     FillRule,
-    core::{Path64, Paths64, Point64},
+    core::{Path64, Paths64, Point64, get_bounds_path, get_bounds_paths},
     engine::ClipType,
     engine_public::{Clipper64, PolyTree64},
 };
@@ -105,6 +105,11 @@ pub(super) fn overlay(
         noded.push(*path.last().context("empty producer path")?);
         *path = noded;
     }
+    let clip = if matches!(kind, ClipType::Intersection | ClipType::Difference) {
+        clip_paths_overlapping_subject(&subject, clip, &b)?
+    } else {
+        clip
+    };
     let mut clipper = Clipper64::new();
     clipper.set_preserve_collinear(true);
     clipper.add_subject(&subject);
@@ -121,6 +126,36 @@ pub(super) fn overlay(
             .context("invalid producer overlay result")?;
     }
     Ok(result)
+}
+
+/// Keep whole clip polygons whose integer path bounds meet the subject's bounds.
+///
+/// Clip paths follow polygon order, with a shell followed by its holes. A
+/// mismatched path count is an error.
+fn clip_paths_overlapping_subject(
+    subject: &Paths64,
+    clip: Paths64,
+    clip_geometry: &MultiPolygon<f64>,
+) -> Result<Paths64> {
+    let subject_bounds = get_bounds_paths(subject);
+    let mut remaining = clip.as_slice();
+    let mut keep = Vec::with_capacity(clip.len());
+    for polygon in &clip_geometry.0 {
+        let (paths, rest) = remaining
+            .split_at_checked(1 + polygon.interiors().len())
+            .context("missing clip polygon paths")?;
+        remaining = rest;
+        let overlaps = paths
+            .iter()
+            .any(|path| subject_bounds.intersects(&get_bounds_path(path)));
+        keep.extend(std::iter::repeat_n(overlaps, paths.len()));
+    }
+    ensure!(remaining.is_empty(), "extra clip polygon paths");
+    Ok(clip
+        .into_iter()
+        .zip(keep)
+        .filter_map(|(path, keep)| keep.then_some(path))
+        .collect())
 }
 
 /// One shared coordinate lattice and its exact source/intersection-node dictionary.

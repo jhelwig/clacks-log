@@ -8,7 +8,19 @@ use geo_types::{Point, Polygon, Rect, polygon};
 fn touching_mask_holes_preserve_a_thin_disconnected_classified_piece() {
     let width = 2_f64.powi(-30);
     let county = MultiPolygon(vec![Rect::new((-2., -0.5), (width, 0.5)).to_polygon()]);
-    let land = MultiPolygon(vec![Polygon::new(
+    let remote = Polygon::new(
+        Rect::new((10., 10.), (14., 14.))
+            .to_polygon()
+            .exterior()
+            .clone(),
+        vec![
+            Rect::new((11., 11.), (13., 13.))
+                .to_polygon()
+                .exterior()
+                .clone(),
+        ],
+    );
+    let local = Polygon::new(
         Rect::new((-3., -3.), (3., 3.))
             .to_polygon()
             .exterior()
@@ -21,7 +33,8 @@ fn touching_mask_holes_preserve_a_thin_disconnected_classified_piece() {
                 .exterior()
                 .clone(),
         ],
-    )]);
+    );
+    let land = MultiPolygon(vec![remote, local]);
     clacks_geography::geometry::validate_topology(&land).unwrap();
     let result = overlay(&county, &land, ClipType::Intersection).unwrap();
     assert_eq!(result.0.len(), 2);
