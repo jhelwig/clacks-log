@@ -472,9 +472,9 @@ GroupExportPlan
   entry_expansion: list<ExpansionRule>
 ```
 
-The full interchange adapter will supply common QSO field mappings and format
-requirements. This library's `OutputProfile` contains ID, name, purpose and
-context-sensitive field names; it does not implement the complete format adapter.
+`OutputProfile` names the format, purpose, and context-sensitive fields used by
+reference planning. The [desktop ADI export adapter](superpowers/specs/2026-11-20-adi-export-design.md)
+combines reference output with common QSO fields and applies format validation.
 Expression-valued partition dimensions retain absence as a distinct unknown
 component, without adding an output field or requiring optional QSO information.
 Required station-reference partitions still reject missing references.
@@ -499,10 +499,9 @@ to the selected contact set. Ordinary reference information still follows the
 ordinary interchange mappings. Conflicting assignments within the selected
 definition are configuration errors reported before writing output.
 
-Do not replace these rules with a blanket per-binding `omit_with_warning`
-collision policy. This specification does not choose the import-side ownership
-of ADIF `CONTEST_ID`; that pending mapping decision belongs to import design.
-It does not change the native two-side association model.
+The [ADI import mapping](superpowers/specs/2026-11-19-adi-import-design.md#built-in-contact-and-activity-mappings)
+assigns a recognized standalone `CONTEST_ID` to group participation on our
+station. This preserves the two station sides in the native association model.
 
 ### 10.2 POTA mappings as a worked example
 

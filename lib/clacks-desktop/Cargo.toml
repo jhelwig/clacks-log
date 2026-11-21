@@ -76,6 +76,7 @@ serde_json.workspace = true
 sha2.workspace = true
 socket2.workspace = true
 sqlx.workspace = true
+tempfile.workspace = true
 thiserror.workspace = true
 time.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-util", "net", "sync", "time", "fs", "process"] }
@@ -98,7 +99,6 @@ opentelemetry-proto.workspace = true
 prost.workspace = true
 serde_json.workspace = true
 sqlx = { workspace = true, features = ["sqlite-bundled"] }
-tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 
 [lints]

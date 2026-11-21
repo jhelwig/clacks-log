@@ -6,6 +6,7 @@ mod tests;
 mod evidence;
 mod station;
 
+use super::{export::ConfirmationDate, history::HistoryRow};
 use crate::{payload, rows::contact::WorkingContactRow};
 use clacks_model::{
     effective::Sourced,
@@ -65,14 +66,16 @@ pub(crate) struct ContactProjection {
     pub(crate) id: QsoId,
     /// Selected source facts and derived status.
     pub(crate) facts: ContactFacts,
+    /// Dates supplied by applicable imported positive confirmations.
+    pub(super) confirmation_dates: Vec<ConfirmationDate>,
 }
 
 /// Current account definitions and public compatibility inputs for one read.
 pub struct ReadContext {
     /// Ordinary synchronized reference definitions, not fresh seed data.
-    definitions: DefinitionSet,
+    pub(super) definitions: DefinitionSet,
     /// Saved output profiles, including ordinary interchange.
-    profiles: ProfileSet,
+    pub(super) profiles: ProfileSet,
     /// Chosen ordinary output context when this account has one.
     ordinary: Option<ExportContext>,
     /// No unrecorded per-contact export ambiguity choices are invented.
@@ -169,6 +172,17 @@ pub(crate) async fn load(
     if ids.is_empty() {
         return Ok(Vec::new());
     }
+    let rows = working_contacts(connection, account_id, ids).await?;
+    let context = context(connection, account_id).await?;
+    project(connection, account_id, &rows, &context, needs).await
+}
+
+/// Load saved working values for a bounded batch of explicit identities.
+pub(super) async fn working_contacts(
+    connection: &mut SqliteConnection,
+    account_id: AccountId,
+    ids: &[QsoId],
+) -> anyhow::Result<Vec<HistoryRow>> {
     let account = account_id.to_string();
     let ids = serde_json::to_string(ids)?;
     let rows = sqlx::query_file_as!(
@@ -179,14 +193,27 @@ pub(crate) async fn load(
     )
     .fetch_all(&mut *connection)
     .await?;
-    let rows = super::history::working_contacts(connection, account_id, rows).await?;
-    let context = context(connection, account_id).await?;
+    super::history::working_contacts(connection, account_id, rows).await
+}
+
+/// Evaluate each saved row in order against account settings and evidence in the same snapshot.
+pub(super) async fn project(
+    connection: &mut SqliteConnection,
+    account_id: AccountId,
+    rows: &[HistoryRow],
+    context: &ReadContext,
+    needs: ProjectionNeeds,
+) -> anyhow::Result<Vec<ContactProjection>> {
+    if rows.is_empty() {
+        return Ok(Vec::new());
+    }
     let evidence = if needs.station || needs.services {
+        let ids = serde_json::to_string(&rows.iter().map(|row| row.qso.id()).collect::<Vec<_>>())?;
         evidence::load(connection, account_id, &ids).await?
     } else {
         Default::default()
     };
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(rows.len());
     for row in rows {
         let directory = if needs.station || needs.services {
             let key = RecordKey {
@@ -205,7 +232,7 @@ pub(crate) async fn load(
         } else {
             None
         };
-        let mut facts = evidence::evaluate(&row.qso, &evidence, &context, needs, directory)?;
+        let mut facts = evidence::evaluate(&row.qso, &evidence, context, needs, directory)?;
         if needs.station {
             station::select(&row.qso, &context.definitions, &mut facts);
         }
@@ -225,6 +252,7 @@ pub(crate) async fn load(
         result.push(ContactProjection {
             id: row.qso.id(),
             facts: facts.facts,
+            confirmation_dates: facts.confirmation_dates,
         });
     }
     Ok(result)

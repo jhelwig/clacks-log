@@ -1,6 +1,7 @@
 //! Confirmation applicability and eligible counterpart facts from retained evidence.
 
 use super::{Evaluated, Evidence, ReadContext};
+use crate::read::export::ConfirmationDate;
 use clacks_model::{
     contact::Qso,
     service::{
@@ -102,6 +103,13 @@ pub(super) fn evaluate(
             })? == ConfirmationApplicability::Confirmed
             {
                 positive_imports.push(assertion.as_ref());
+                if let Some(date) = assertion.date {
+                    result.confirmation_dates.push(ConfirmationDate {
+                        service,
+                        date,
+                        provenance: assertion.provenance.clone(),
+                    });
+                }
                 match service {
                     Service::Lotw => result.facts.lotw.confirmed = true,
                     Service::Qrz => result.facts.qrz.confirmed = true,
@@ -242,6 +250,9 @@ pub(super) fn evaluate(
                 &selected.confirmation_supporting,
                 &positive_imports,
             ) {
+                result
+                    .confirmation_dates
+                    .retain(|claim| claim.service != service);
                 match service {
                     Service::Lotw => result.facts.lotw.confirmed = false,
                     Service::Qrz => result.facts.qrz.confirmed = false,

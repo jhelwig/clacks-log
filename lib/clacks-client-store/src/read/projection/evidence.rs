@@ -4,6 +4,7 @@ mod observations;
 mod status;
 
 use super::{ContactFacts, ProjectionNeeds, ReadContext};
+use crate::read::export::ConfirmationDate;
 use crate::{metadata, payload};
 use clacks_model::{contact::Qso, effective::StationFacts, service::evidence::ServicePayload};
 use clacks_sync::{
@@ -43,6 +44,8 @@ pub(super) struct Evaluated {
     pub(super) lotw: Option<StationFacts>,
     /// Eligible QRZ counterpart facts before whole-source selection.
     pub(super) qrz: Option<StationFacts>,
+    /// Dates retained with currently applicable positive confirmation claims.
+    pub(super) confirmation_dates: Vec<ConfirmationDate>,
 }
 
 /// Load this batch's roots and their real retained interpretation dependencies.

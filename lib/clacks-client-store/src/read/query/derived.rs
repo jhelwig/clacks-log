@@ -1,9 +1,9 @@
 //! Operation-local native facts, composed with SQLx's ordinary transaction lifetime.
 
 use super::compiler;
-use crate::read::{
-    contacts::{ContactColumn, ContactPageQuery},
-    projection::{self, ProjectionNeeds},
+use crate::{
+    logbooks::selection::SelectedView,
+    read::projection::{self, ProjectionNeeds},
 };
 use clacks_model::ids::AccountId;
 use sqlx::{Row, SqliteConnection};
@@ -34,26 +34,20 @@ impl Needs {
 pub(super) async fn populate(
     connection: &mut SqliteConnection,
     account: AccountId,
-    query: &ContactPageQuery,
+    view: SelectedView,
+    needs: Needs,
 ) -> anyhow::Result<()> {
     sqlx::query(include_str!("../../../sql/read/query/facts.sql"))
         .execute(&mut *connection)
         .await?;
-    let mut needs = compiler::needs(&query.filter);
-    if matches!(
-        query.order.column,
-        ContactColumn::Grid | ContactColumn::OwnGrid
-    ) {
-        needs.station = true;
-        needs.all_positions = true;
-    }
     if !needs.station && !needs.services {
         return Ok(());
     }
+    let mut incomplete = 0usize;
     let mut after: Option<String> = None;
     loop {
         let mut selection = compiler::start("SELECT q.record_id ");
-        compiler::view(&mut selection, account, query.view);
+        compiler::view(&mut selection, account, view);
         if let Some(after) = &after {
             selection
                 .push(" AND q.record_id > ")
@@ -134,9 +128,15 @@ pub(super) async fn populate(
                 .execute(&mut *connection)
                 .await?;
             if !value.facts.diagnostics.is_empty() {
-                tracing::warn!(event = "contact_query.evidence_incomplete", qso_id = %value.id, diagnostics = ?value.facts.diagnostics);
+                incomplete += 1;
             }
         }
+    }
+    if incomplete > 0 {
+        tracing::warn!(
+            affected_contacts = incomplete,
+            "Some contact query evidence needs reconciliation"
+        );
     }
     Ok(())
 }

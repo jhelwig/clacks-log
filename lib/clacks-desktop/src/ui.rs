@@ -9,6 +9,7 @@ mod diagnostics;
 mod dialog;
 mod enrollment;
 mod equipment;
+mod export;
 mod feedback;
 mod fields;
 pub(crate) mod fonts;
@@ -136,6 +137,7 @@ pub(crate) struct DesktopApp {
     /// Account-wide review in its independent native viewport.
     review: review::ReviewUi,
     import: import::ImportUi,
+    export: export::ExportUi,
     /// Local paths displayed to the operator, never diagnostic payloads.
     paths: WorkspacePaths,
     /// Safe startup degradation details.
@@ -211,6 +213,7 @@ impl DesktopApp {
             logbooks: Default::default(),
             review: Default::default(),
             import: Default::default(),
+            export: Default::default(),
             shutdown_pending: false,
             close_requested: false,
             close_started: None,
@@ -233,7 +236,9 @@ impl DesktopApp {
 
     /// Request orderly cleanup once; repeated native closes retain the original deadline.
     fn begin_close(&mut self) {
-        if !self.close_requested && !self.import.is_picking_file() {
+        if !self.close_requested
+            && !(self.import.is_picking_file() || self.export.is_picking_file())
+        {
             self.shutdown_pending = true;
             self.close_requested = true;
             self.close_started = Some(std::time::Instant::now());
@@ -289,8 +294,13 @@ impl DesktopApp {
         }
 
         let state = self.status.borrow_and_update().clone();
+        let account = match state {
+            SessionStatus::Ready { identity, .. } => Some(identity.account),
+            _ => None,
+        };
+        self.export.poll(context, &self.commands, account);
         if matches!(state, SessionStatus::Closed) {
-            if !self.import.is_picking_file() {
+            if !(self.import.is_picking_file() || self.export.is_picking_file()) {
                 context.send_viewport_cmd(egui::ViewportCommand::Close);
             }
             return;
@@ -412,7 +422,11 @@ impl eframe::App for DesktopApp {
         }
         #[cfg(not(any(target_os = "macos", windows)))]
         self.show_menus(ui);
-        if !closing && (self.review.is_exclusive() || self.import.is_open()) {
+        if !closing
+            && (self.review.is_exclusive()
+                || self.import.is_open()
+                || self.export.is_picking_file())
+        {
             ui.disable();
         }
         egui::Panel::top("application.header").show(ui, |ui| {
@@ -521,6 +535,7 @@ impl eframe::App for DesktopApp {
                 .show(ui.ctx(), &self.commands, &mut self.enrollment_view);
             self.import
                 .show(ui.ctx(), &self.commands, snapshot.as_deref(), frame);
+            self.export.show(ui.ctx(), &self.commands, frame);
         }
         #[cfg(any(target_os = "macos", windows))]
         self.update_menu_state(ui.ctx());

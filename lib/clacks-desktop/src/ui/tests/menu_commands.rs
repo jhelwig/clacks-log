@@ -786,3 +786,130 @@ fn ws_suite_menu_uses_shared_modal_admission() {
             .menu_enabled(&window.context, MenuCommand::WsSuite)
     );
 }
+
+#[test]
+fn file_export_captures_applied_history_and_preserves_selection() -> anyhow::Result<()> {
+    use crate::session::settings::{
+        SettingsAction, SettingsResponse,
+        contacts::{ContactAction, ContactResponse},
+    };
+    use clacks_client_store::{logbooks::selection::SelectedView, read::query_state::QueryState};
+    use clacks_model::{
+        ids::TagId,
+        query::{
+            Predicate, Query,
+            field::Field,
+            value::{TextMatch, Value},
+        },
+        tag::LogbookTag,
+    };
+    use clacks_sync::record::RecordValue;
+    use egui_kittest::kittest::Queryable;
+
+    let mut window = Window::new();
+    ready(&mut window);
+    let mut snapshot = fixtures::snapshot();
+    let logbook: TagId = "000000000000000000000000AA".parse()?;
+    let peer: TagId = "000000000000000000000000BB".parse()?;
+    snapshot.logbooks.selected_view = SelectedView::Logbook(logbook);
+    snapshot.logbooks.tags = [logbook, peer]
+        .map(|id| {
+            fixtures::row(RecordValue::Tag(Box::new(LogbookTag::new(
+                id,
+                "Field log".into(),
+            ))))
+        })
+        .into();
+    window.app.settings_view = watch::channel(Some(Arc::new(snapshot))).1;
+    let (settings_sender, mut settings_requests) = mpsc::channel(16);
+    window.app.settings_requests = settings_sender;
+    let (commands_sender, mut commands) = mpsc::channel(16);
+    window.app.commands = commands_sender;
+
+    let mut ui = main_screen::mount(window);
+    let applied = "K1T000";
+    settings_requests
+        .try_recv()?
+        .reply
+        .send(SettingsResponse::Contacts(ContactResponse::QueryState(
+            QueryState {
+                edited: "mode:".into(),
+                applied: applied.into(),
+            },
+        )))
+        .map_err(|_| anyhow::anyhow!("History must accept its restored query state"))?;
+    ui.run_steps(2);
+    let page = fixtures::contact_page(0, 1, 2);
+    let selected = page
+        .rows
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("The page has one selectable contact"))?
+        .working
+        .qso
+        .id();
+    settings_requests
+        .try_recv()?
+        .reply
+        .send(SettingsResponse::Contacts(ContactResponse::Page(page)))
+        .map_err(|_| anyhow::anyhow!("History must display the matching contact"))?;
+    ui.run_steps(2);
+    ui.get_by_label("K1T000").click();
+    ui.run_steps(2);
+
+    let context = ui.ctx.clone();
+    ui.state_mut()
+        .app
+        .dispatch_menu(&context, MenuCommand::SelectAll);
+    let another_page = clacks_model::ids::QsoId::new();
+    let complete_selection = std::iter::from_fn(|| settings_requests.try_recv().ok())
+        .find(|request| {
+            matches!(
+                request.action,
+                SettingsAction::Contacts(ContactAction::SelectAll { .. })
+            )
+        })
+        .ok_or_else(|| {
+            anyhow::anyhow!("The history command must request the complete matching selection")
+        })?;
+    complete_selection
+        .reply
+        .send(SettingsResponse::Contacts(ContactResponse::SelectedAll(
+            [selected, another_page].into(),
+        )))
+        .map_err(|_| anyhow::anyhow!("History must accept the selection across all pages"))?;
+    ui.state_mut()
+        .app
+        .dispatch_menu(&context, MenuCommand::ExportAdi);
+    let request = std::iter::from_fn(|| commands.try_recv().ok())
+        .find_map(|command| match command {
+            SessionCommand::Export(request) => Some(request),
+            _ => None,
+        })
+        .ok_or_else(|| anyhow::anyhow!("File → Export ADI must prepare a workspace export"))?;
+    let crate::session::export::Action::Prepare {
+        history,
+        scope,
+        format,
+        ..
+    } = request.action
+    else {
+        anyhow::bail!("Opening Export ADI must prepare data before a destination is chosen");
+    };
+    assert_eq!(scope, crate::session::export::Scope::Selected);
+    assert_eq!(format, crate::export::ExportFormat::Ordinary);
+    assert_eq!(history.view, SelectedView::Logbook(logbook));
+    assert_eq!(
+        history.filter,
+        Query::Predicate(Predicate {
+            field: Field::ContactCall,
+            value: Value::Text {
+                text: applied.into(),
+                matching: TextMatch::Prefix,
+            },
+        })
+    );
+    assert_eq!(history.selected, [selected, another_page].into());
+    ui.run_steps(2);
+    ui.get_by_label("Field log · …000000AA · K1T000");
+    Ok(())
+}

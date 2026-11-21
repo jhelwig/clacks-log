@@ -15,6 +15,26 @@ pub(super) struct PendingSelection {
 }
 
 impl ContactsUi {
+    /// Export uses the applied expression and only completed selection.
+    pub(in crate::ui) fn export_history(
+        &self,
+    ) -> anyhow::Result<(crate::session::export::History, String)> {
+        let applied = self.filter.state.applied.clone();
+        let catalog = clacks_model::recognition::RecognitionCatalog::adif_318()?;
+        let filter = clacks_model::query::parse(&applied, catalog)?;
+        let selected = if self.selection_pending() {
+            BTreeSet::new()
+        } else {
+            self.selected.clone()
+        };
+        let history = crate::session::export::History {
+            view: self.query.view,
+            filter,
+            selected,
+        };
+        Ok((history, applied))
+    }
+
     /// Start Select all without publishing a partial selection or blocking redraws.
     pub fn select_all(&mut self, requests: &mpsc::Sender<SettingsRequest>) {
         if self.selection.is_some() {

@@ -4,6 +4,7 @@ mod application;
 mod config;
 mod credentials;
 mod directory;
+mod export;
 mod geography;
 mod icon;
 mod import;
