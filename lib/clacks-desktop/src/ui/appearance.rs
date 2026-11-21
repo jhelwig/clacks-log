@@ -13,16 +13,13 @@ use tokio::sync::mpsc;
 pub(super) struct AppearanceEditor {
     /// Values currently shown in the preview.
     pub pending: AppearancePreferences,
-    /// Native control that opened this preview and receives focus on dismissal.
-    opener: Option<egui::Id>,
 }
 
 impl AppearanceEditor {
     /// Start a preview using the last committed presentation choices.
-    pub fn new(preferences: &AppearancePreferences, opener: Option<egui::Id>) -> Self {
+    pub fn new(preferences: &AppearancePreferences) -> Self {
         Self {
             pending: preferences.clone(),
-            opener,
         }
     }
 }
@@ -38,8 +35,6 @@ pub(super) enum AppearanceAction {
 /// Application-owned preference state shared by every view in this client.
 #[derive(Default)]
 pub(super) struct AppearanceUi {
-    /// Native opener awaiting focus after the modal has left the active frame.
-    restore_focus: Option<egui::Id>,
     /// Actual native-family catalog and role requests, independent of domain forms.
     fonts: FontsUi,
     /// Only these values reach the framework save hook.
@@ -92,9 +87,9 @@ impl AppearanceUi {
     }
 
     /// Open the local appearance editor without replacing an existing preview.
-    pub fn open(&mut self, opener: Option<egui::Id>) {
+    pub fn open(&mut self) {
         self.editor
-            .get_or_insert_with(|| AppearanceEditor::new(&self.committed, opener));
+            .get_or_insert_with(|| AppearanceEditor::new(&self.committed));
     }
 
     /// Complete a user action and install the corresponding valid appearance.
@@ -109,83 +104,49 @@ impl AppearanceUi {
             self.committed = editor.pending.clone();
             self.notice = None;
         }
-        if let Some(editor) = self.editor.take() {
-            self.restore_focus = editor.opener;
+        if self.editor.take().is_some() {
             context.request_repaint();
         }
         theme::install(context, &self.committed);
     }
 
-    /// Render the actual appearance dialog and preview valid presentation edits.
-    pub fn show(&mut self, context: &egui::Context) {
-        if let Some(opener) = self.restore_focus.take() {
-            context.memory_mut(|memory| memory.request_focus(opener));
-        }
+    /// Whether the preview holds a change for the shared Settings draft.
+    pub fn changed(&self) -> bool {
+        self.editor
+            .as_ref()
+            .is_some_and(|editor| editor.pending != self.committed)
+    }
+
+    /// Draw the Appearance section and install valid previews immediately.
+    pub fn show_section(&mut self, ui: &mut egui::Ui) {
         let Some(editor) = &mut self.editor else {
             return;
         };
         let before = editor.pending.clone();
-        let mut action = None;
-        let response = super::dialog::show(
-            context,
-            egui::Id::unique("appearance.editor"),
-            "Appearance",
-            |ui| {
-                ui.set_width(340.0_f32.min(ui.available_width()));
-                ui.label("Appearance");
-                ui.horizontal(|ui| {
-                    ui.selectable_value(
-                        &mut editor.pending.appearance,
-                        Appearance::System,
-                        "System",
-                    );
-                    ui.selectable_value(&mut editor.pending.appearance, Appearance::Light, "Light");
-                    ui.selectable_value(&mut editor.pending.appearance, Appearance::Dark, "Dark");
-                });
-                let scale_label = ui.label("UI scale");
-                ui.add(
-                    egui::Slider::new(&mut editor.pending.zoom, 0.75..=2.0)
-                        .step_by(0.05)
-                        .custom_formatter(|value, _| format!("{:.0}%", value * 100.0)),
-                )
-                .labelled_by(scale_label.id);
-                if ui.button("Reset scale to 100%").clicked() {
-                    editor.pending.zoom = 1.0;
-                }
-                self.fonts.show(ui, &mut editor.pending);
-                if editor.pending != self.committed {
-                    let colors = theme::palette(context.theme());
-                    egui::Frame::new()
-                        .fill(colors.edited_fill)
-                        .stroke(egui::Stroke::new(1.0, colors.edited_edge))
-                        .inner_margin(4)
-                        .show(ui, |ui| {
-                            ui.label("Not applied");
-                        });
-                }
-                let errors = editor.pending.validate().err().unwrap_or_default();
-                for error in &errors {
-                    ui.colored_label(ui.visuals().error_fg_color, &error.message);
-                }
-                ui.separator();
-                ui.horizontal(|ui| {
-                    if super::actions::primary(ui, "Apply", errors.is_empty()).clicked() {
-                        action = Some(AppearanceAction::Apply);
-                    }
-                    if ui.button("Cancel").clicked() {
-                        action = Some(AppearanceAction::Cancel);
-                    }
-                });
-            },
-        );
+        ui.horizontal(|ui| {
+            ui.selectable_value(&mut editor.pending.appearance, Appearance::System, "System");
+            ui.selectable_value(&mut editor.pending.appearance, Appearance::Light, "Light");
+            ui.selectable_value(&mut editor.pending.appearance, Appearance::Dark, "Dark");
+        });
+        let scale_label = ui.label("UI scale");
+        ui.add(
+            egui::Slider::new(&mut editor.pending.zoom, 0.75..=2.0)
+                .step_by(0.05)
+                .custom_formatter(|value, _| format!("{:.0}%", value * 100.0)),
+        )
+        .labelled_by(scale_label.id);
+        if ui.button("Reset scale to 100%").clicked() {
+            editor.pending.zoom = 1.0;
+        }
+        self.fonts.show(ui, &mut editor.pending);
+        for error in editor.pending.validate().err().unwrap_or_default() {
+            super::feedback::problem(ui, &error.message);
+        }
+        if let Some(notice) = &self.notice {
+            super::feedback::problem(ui, notice);
+        }
         if editor.pending != before && editor.pending.validate().is_ok() {
-            theme::install(context, &editor.pending);
-        }
-        if response.cancel_requested {
-            action = Some(AppearanceAction::Cancel);
-        }
-        if let Some(action) = action {
-            self.finish(context, action);
+            theme::install(ui.ctx(), &editor.pending);
         }
     }
 }

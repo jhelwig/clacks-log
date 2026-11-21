@@ -1,6 +1,6 @@
 //! WS Suite receiver configuration using the shared desktop settings controls.
 use super::{
-    actions, dialog, feedback,
+    feedback,
     fields::{self, FieldPresentation},
     validation::ValidationState,
 };
@@ -17,6 +17,7 @@ use eframe::egui;
 use tokio::sync::{mpsc, oneshot};
 
 /// Editable connection text, independent of active listener state.
+#[derive(PartialEq)]
 struct Form {
     /// Proposed reception enable flag.
     enabled: bool,
@@ -144,10 +145,10 @@ impl Form {
     }
 }
 
-/// Dialog state and pending outcomes remain owned even while the dialog is dismissed.
+/// Receiver form and outcomes owned by the desktop window.
 #[derive(Default)]
 pub(super) struct ReceiverUi {
-    /// Visible settings modal.
+    /// Whether Settings has opened the receiver draft.
     open: bool,
     /// Pending input, absent until receiver settings load.
     form: Option<Form>,
@@ -159,36 +160,31 @@ pub(super) struct ReceiverUi {
     pending: Option<oneshot::Receiver<ReceiverResponse>>,
     /// Submitted operation was an Apply rather than an enumeration.
     applying: bool,
+    /// Restarting reception using the last committed receiver settings.
+    retrying: bool,
     /// Independent OS enumeration feedback.
     notice: Option<String>,
     /// Current active-field errors.
     errors: Vec<FieldError>,
     /// Existing 300 ms validation state.
     validation: ValidationState,
-    /// Focus destination after dismissal.
-    opener: Option<egui::Id>,
-    /// Deferred focus restoration after the modal leaves the frame.
-    restore_focus: Option<egui::Id>,
+    /// The settled Apply result, distinct from interface enumeration.
+    applied: Option<Result<(), FieldError>>,
 }
 
 impl ReceiverUi {
-    /// Participate in shared single-modal admission.
+    /// Expose the receiver draft to component tests.
+    #[cfg(test)]
     pub fn is_open(&self) -> bool {
         self.open
     }
 
     /// Open committed settings and enumerate current interfaces without blocking presentation.
-    pub fn open(
-        &mut self,
-        opener: Option<egui::Id>,
-        view: &ReceiverView,
-        commands: &mpsc::Sender<SessionCommand>,
-    ) {
+    pub fn open(&mut self, view: &ReceiverView, commands: &mpsc::Sender<SessionCommand>) {
         if self.open {
             return;
         }
         self.open = true;
-        self.opener = opener;
         self.view = view.clone();
         self.form = view.settings.clone().map(Form::new);
         self.validation.invalidate();
@@ -198,7 +194,7 @@ impl ReceiverUi {
     }
 
     /// Submit one bounded operation and retain its response independently of modal visibility.
-    fn submit(&mut self, action: ReceiverAction, commands: &mpsc::Sender<SessionCommand>) {
+    fn submit(&mut self, action: ReceiverAction, commands: &mpsc::Sender<SessionCommand>) -> bool {
         let applying = matches!(action, ReceiverAction::Apply { .. });
         let (reply, result) = oneshot::channel();
         match commands.try_send(SessionCommand::WsSuite(ReceiverRequest { action, reply })) {
@@ -206,8 +202,12 @@ impl ReceiverUi {
                 self.pending = Some(result);
                 self.applying = applying;
                 self.notice = None;
+                true
             }
-            Err(_) => self.notice = Some("The workspace is busy or closing. Try again.".into()),
+            Err(_) => {
+                self.notice = Some("The workspace is busy or closing.".into());
+                false
+            }
         }
     }
 
@@ -227,6 +227,8 @@ impl ReceiverUi {
             ),
         };
         self.pending = None;
+        let retrying = std::mem::take(&mut self.retrying);
+        let applying = std::mem::take(&mut self.applying) && !retrying;
         match response {
             ReceiverResponse::Interfaces(result) => match result {
                 Ok(interfaces) => {
@@ -237,60 +239,111 @@ impl ReceiverUi {
             },
             ReceiverResponse::Applied(view) => {
                 self.form = view.settings.clone().map(Form::new);
-                let failed = matches!(view.reception, ReceptionState::Failed(_));
-                self.view = view;
-                if !failed {
-                    self.dismiss();
+                if applying {
+                    self.applied = Some(match &view.reception {
+                        ReceptionState::Failed(error) => Err(issue("Reception", error.clone())),
+                        _ => Ok(()),
+                    });
                 }
+                self.view = view;
                 self.validation.invalidate();
             }
-            ReceiverResponse::Failed(error) => self.notice = Some(error),
-            ReceiverResponse::Closing => self.notice = Some("The workspace is closing.".into()),
+            ReceiverResponse::Failed(error) => {
+                if applying {
+                    self.applied = Some(Err(issue("WS Suite", error)));
+                } else {
+                    self.notice = Some(error);
+                }
+            }
+            ReceiverResponse::Closing => {
+                if applying {
+                    self.applied = Some(Err(issue("WS Suite", "The workspace is closing.")));
+                }
+            }
         }
     }
 
-    /// Dismiss pending edits without undoing any submitted operation.
-    fn dismiss(&mut self) {
+    /// Discard receiver form edits and leave Settings.
+    pub fn close(&mut self) {
         self.open = false;
         self.form = None;
         self.errors.clear();
-        self.restore_focus = self.opener;
+    }
+
+    /// Whether receiver fields include any changes to submit or report.
+    pub fn changed(&self) -> bool {
+        self.form
+            .as_ref()
+            .is_some_and(|form| match form.build(&self.interfaces) {
+                Ok(next) => next != form.basis,
+                Err(_) => Form::new(form.basis.clone()) != *form,
+            })
+    }
+
+    /// Whether the committed receiver configuration failed to activate.
+    pub fn reception_failed(&self) -> bool {
+        matches!(self.view.reception, ReceptionState::Failed(_))
+    }
+
+    /// Whether receiver work is already in progress.
+    pub fn busy(&self) -> bool {
+        self.pending.is_some()
+    }
+
+    /// Validate and send the receiver portion of the shared draft.
+    pub fn apply(
+        &mut self,
+        commands: &mpsc::Sender<SessionCommand>,
+    ) -> Result<(), Vec<FieldError>> {
+        let Some(form) = &self.form else {
+            return Err(vec![issue(
+                "WS Suite",
+                "Receiver settings are unavailable.",
+            )]);
+        };
+        let next = form.build(&self.interfaces)?;
+        if self.pending.is_some() || !self.submit(ReceiverAction::Apply { next }, commands) {
+            return Err(vec![issue(
+                "WS Suite",
+                "Could not submit receiver settings.",
+            )]);
+        }
+        Ok(())
+    }
+
+    /// Take the result of an explicit save, including any receiver activation failure.
+    pub fn take_applied(&mut self) -> Option<Result<(), FieldError>> {
+        self.applied.take()
+    }
+
+    /// Restore the current saved values after a shared Apply.
+    pub fn reset_form(&mut self) {
+        self.form = self.view.settings.clone().map(Form::new);
+        self.errors.clear();
+        self.validation.invalidate();
     }
 
     /// Show only actionable failures outside the modal, with direct settings access.
-    pub fn feedback(
+    pub fn feedback(&self, ui: &mut egui::Ui, available: bool) -> Option<egui::Id> {
+        let failure = match &self.view.reception {
+            ReceptionState::Failed(error) => Some(error.as_str()),
+            _ => self.view.capture_notice.as_deref(),
+        };
+        failure.and_then(|failure| {
+            feedback::problem(ui, failure);
+            let button = ui.add_enabled(available, egui::Button::new("WS Suite settings…"));
+            button.clicked().then_some(button.id)
+        })
+    }
+
+    /// Render receiver settings and field diagnostics inside Settings.
+    pub fn show_section(
         &mut self,
         ui: &mut egui::Ui,
         commands: &mpsc::Sender<SessionCommand>,
-        available: bool,
+        apply_errors: &[FieldError],
     ) {
-        if self.open {
-            return;
-        }
-        let failure = match &self.view.reception {
-            ReceptionState::Failed(error) => Some(error.as_str()),
-            _ => self
-                .notice
-                .as_deref()
-                .or(self.view.capture_notice.as_deref()),
-        };
-        if let Some(failure) = failure {
-            feedback::problem(ui, failure);
-            let button = ui.add_enabled(available, egui::Button::new("WS Suite settings…"));
-            if button.clicked() {
-                self.open(Some(button.id), &self.view.clone(), commands);
-            }
-        }
-    }
-
-    /// Render the existing shared settings chrome, field treatment and Apply/Cancel flow.
-    pub fn show(&mut self, context: &egui::Context, commands: &mpsc::Sender<SessionCommand>) {
-        if let Some(opener) = self.restore_focus.take() {
-            context.memory_mut(|memory| memory.request_focus(opener));
-        }
-        if !self.open {
-            return;
-        }
+        let context = ui.ctx().clone();
         let now = context.input(|input| input.time);
         if self.validation.due(now) {
             self.errors = self
@@ -300,147 +353,133 @@ impl ReceiverUi {
                 .unwrap_or_default();
             self.validation.validated();
         }
-        self.validation.request_repaint(context, now);
+        self.validation.request_repaint(&context, now);
         let busy = self.pending.is_some();
-        let mut action = None;
-        let mut cancel = false;
-        let response = dialog::show(
-            context,
-            egui::Id::unique("ws_suite.dialog"),
-            "WS Suite",
-            |ui| {
-                let Some(form) = &mut self.form else {
-                    ui.label("Loading receiver settings…");
-                    if let ReceptionState::Failed(error) = &self.view.reception {
-                        feedback::problem(ui, error);
-                    }
-                    cancel = ui.button("Cancel").clicked();
-                    return;
-                };
-                let mut edited = false;
-                ui.add_enabled_ui(!busy, |ui| {
-                    if ui.checkbox(&mut form.enabled, "Receive WS Suite updates").changed() {
-                        edited = true;
-                        self.validation.invalidate();
-                    }
-                    ui.add_enabled_ui(form.enabled, |ui| {
-                        ui.horizontal(|ui| {
-                            edited |= ui.selectable_value(&mut form.multicast, false, "Unicast").changed();
-                            edited |= ui.selectable_value(&mut form.multicast, true, "Multicast").changed();
-                        });
-                        let basis = Form::new(form.basis.clone());
-                        let label = if form.multicast { "Group address" } else { "Local address" };
-                        let value = if form.multicast { &mut form.group } else { &mut form.local };
-                        let basis_address = if form.multicast { &basis.group } else { &basis.local };
-                        let changed = *value != *basis_address || form.multicast != basis.multicast;
-                        edited |= fields::text(
-                            ui, egui::Id::unique("ws_suite.address"), label, value,
-                            FieldPresentation {
-                                edited: changed,
-                                read_only: false,
-                                errors: &self.errors,
-                                validation_label: None,
-                                radio_data: true,
-                            },
-                        ).changed();
-                        let port_changed = form.port != basis.port;
-                        edited |= fields::text(
-                            ui, egui::Id::unique("ws_suite.port"), "Port", &mut form.port,
-                            FieldPresentation {
-                                edited: port_changed,
-                                read_only: false,
-                                errors: &self.errors,
-                                validation_label: None,
-                                radio_data: true,
-                            },
-                        ).changed();
-                        if form.multicast {
-                            let interface_label = ui.label("Network interface");
-                            let label = match &form.interface {
-                                InterfaceSelection::SystemDefault => "System default".into(),
-                                InterfaceSelection::Explicit { name, address } => {
-                                    let available = self.interfaces.iter().any(|entry| &entry.name == name && &entry.address == address);
-                                    format!("{name} · {address}{}", if available { "" } else { " (unavailable)" })
-                                }
-                            };
-                            let before = form.interface.clone();
-                            egui::ComboBox::from_id_salt("ws_suite.interface")
-                                .selected_text(label)
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(&mut form.interface, InterfaceSelection::SystemDefault, "System default");
-                                    let family = form.group.parse::<std::net::IpAddr>().ok();
-                                    for entry in self.interfaces.iter().filter(|entry| family.is_none_or(|group| group.is_ipv4() == entry.address.is_ipv4())) {
-                                        ui.selectable_value(
-                                            &mut form.interface,
-                                            InterfaceSelection::Explicit { name: entry.name.clone(), address: entry.address },
-                                            format!("{} · {}", entry.name, entry.address),
-                                        );
-                                    }
-                                }).response.labelled_by(interface_label.id);
-                            edited |= before != form.interface;
-                            for error in self.errors.iter().filter(|error| error.field == "Network interface") {
-                                ui.colored_label(ui.visuals().error_fg_color, &error.message);
-                            }
-                            if ui.button("Refresh interfaces").clicked() {
-                                action = Some(ReceiverAction::Interfaces);
-                            }
-                            ui.small("Other applications can receive the same multicast updates. Enable capture in one Clacks client for each WS Suite source.");
-                        }
-                    });
-                });
-                if edited {
-                    self.validation.edited(now);
-                    if !form.enabled {
-                        self.errors.clear();
-                        self.validation.validated();
-                    }
-                }
-                if let ReceptionState::Failed(error) = &self.view.reception {
-                    feedback::problem(ui, &format!("Reception unavailable. {error}"));
-                }
-                if let Some(error) = &self.view.capture_notice {
-                    feedback::problem(ui, error);
-                }
-                if let Some(error) = &self.notice {
-                    feedback::problem(ui, error);
-                }
-                ui.separator();
-                ui.horizontal(|ui| {
-                    if !self.errors.is_empty() {
-                        let fields: std::collections::BTreeSet<_> = self
-                            .errors
-                            .iter()
-                            .map(|error| error.field.as_str())
-                            .collect();
-                        ui.small(format!(
-                            "Cannot apply: {}.",
-                            fields.into_iter().collect::<Vec<_>>().join(", ")
-                        ));
-                    } else if form.build(&self.interfaces).ok().as_ref() != Some(&form.basis) {
-                        ui.small("Not applied");
-                    }
-                    if actions::primary(
-                        ui,
-                        "Apply",
-                        !busy && self.validation.can_submit(&self.errors),
-                    )
-                    .clicked()
-                    {
-                        match form.build(&self.interfaces) {
-                            Ok(next) => action = Some(ReceiverAction::Apply { next }),
-                            Err(errors) => self.errors = errors,
-                        }
-                    }
-                    cancel = ui.button("Cancel").clicked();
-                });
-            },
+        let mut refresh_interfaces = false;
+        let mut errors = self.errors.clone();
+        errors.extend(
+            apply_errors
+                .iter()
+                .map(|error| issue(&error.field, format!("⚠ {}", error.message))),
         );
-        if let Some(action) = action {
-            self.submit(action, commands);
+
+        let Some(form) = &mut self.form else {
+            ui.label("Loading receiver settings…");
+            if let ReceptionState::Failed(error) = &self.view.reception {
+                feedback::problem(ui, error);
+            }
+            return;
+        };
+        let mut edited = false;
+        ui.add_enabled_ui(!busy, |ui| {
+            if ui.checkbox(&mut form.enabled, "Receive WS Suite updates").changed() {
+                edited = true;
+                self.validation.invalidate();
+            }
+            ui.add_enabled_ui(form.enabled, |ui| {
+                ui.horizontal(|ui| {
+                    edited |= ui.selectable_value(&mut form.multicast, false, "Unicast").changed();
+                    edited |= ui.selectable_value(&mut form.multicast, true, "Multicast").changed();
+                });
+                let basis = Form::new(form.basis.clone());
+                let label = if form.multicast { "Group address" } else { "Local address" };
+                let value = if form.multicast { &mut form.group } else { &mut form.local };
+                let basis_address = if form.multicast { &basis.group } else { &basis.local };
+                let changed = *value != *basis_address || form.multicast != basis.multicast;
+                edited |= fields::text(
+                    ui, egui::Id::unique("ws_suite.address"), label, value,
+                    FieldPresentation {
+                        edited: changed,
+                        read_only: false,
+                        errors: &errors,
+                        validation_label: None,
+                        radio_data: true,
+                    },
+                ).changed();
+                let port_changed = form.port != basis.port;
+                edited |= fields::text(
+                    ui, egui::Id::unique("ws_suite.port"), "Port", &mut form.port,
+                    FieldPresentation {
+                        edited: port_changed,
+                        read_only: false,
+                        errors: &errors,
+                        validation_label: None,
+                        radio_data: true,
+                    },
+                ).changed();
+                if form.multicast {
+                    let interface_label = ui.label("Network interface");
+                    let label = match &form.interface {
+                        InterfaceSelection::SystemDefault => "System default".into(),
+                        InterfaceSelection::Explicit { name, address } => {
+                            let available = self.interfaces.iter().any(|entry| &entry.name == name && &entry.address == address);
+                            format!("{name} · {address}{}", if available { "" } else { " (unavailable)" })
+                        }
+                    };
+                    let before = form.interface.clone();
+                    egui::ComboBox::from_id_salt("ws_suite.interface")
+                        .selected_text(label)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut form.interface, InterfaceSelection::SystemDefault, "System default");
+                            let family = form.group.parse::<std::net::IpAddr>().ok();
+                            for entry in self.interfaces.iter().filter(|entry| family.is_none_or(|group| group.is_ipv4() == entry.address.is_ipv4())) {
+                                ui.selectable_value(
+                                    &mut form.interface,
+                                    InterfaceSelection::Explicit { name: entry.name.clone(), address: entry.address },
+                                    format!("{} · {}", entry.name, entry.address),
+                                );
+                            }
+                        }).response.labelled_by(interface_label.id);
+                    edited |= before != form.interface;
+                    for error in errors.iter().filter(|error| error.field == "Network interface") {
+                        ui.colored_label(ui.visuals().error_fg_color, &error.message);
+                    }
+                    if ui.button("Refresh interfaces").clicked() {
+                        refresh_interfaces = true;
+                    }
+                    ui.small("Other applications can receive the same multicast updates. Enable capture in one Clacks client for each WS Suite source.");
+                }
+            });
+        });
+        if edited {
+            self.validation.edited(now);
+            if !form.enabled {
+                self.errors.clear();
+                self.validation.validated();
+            }
         }
-        if cancel || response.cancel_requested {
-            self.dismiss();
-            context.request_repaint();
+        let multicast = form.multicast;
+        if let ReceptionState::Failed(error) = &self.view.reception {
+            feedback::problem(ui, &format!("Reception unavailable. {error}"));
+            let retry = ui.add_enabled(
+                !busy && !self.changed(),
+                egui::Button::new("Retry reception"),
+            );
+            if retry.clicked()
+                && let Some(next) = self.view.settings.clone()
+            {
+                self.retrying = self.submit(ReceiverAction::Apply { next }, commands);
+            }
+        }
+        if let Some(error) = &self.view.capture_notice {
+            feedback::problem(ui, error);
+        }
+        for error in apply_errors
+            .iter()
+            .filter(|error| match error.field.as_str() {
+                "Reception" | "Port" => false,
+                "Local address" => multicast,
+                "Group address" | "Network interface" => !multicast,
+                _ => true,
+            })
+        {
+            feedback::problem(ui, &format!("⚠ {}: {}", error.field, error.message));
+        }
+        if let Some(error) = &self.notice {
+            feedback::problem(ui, error);
+        }
+        if refresh_interfaces {
+            self.submit(ReceiverAction::Interfaces, commands);
         }
     }
 }

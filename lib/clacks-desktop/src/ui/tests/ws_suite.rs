@@ -5,10 +5,7 @@ use crate::{
     ws_suite::{ReceiverAction, ReceiverView},
 };
 use clacks_client_store::ws_suite::{ReceiverConnection, ReceiverSettings};
-use egui_kittest::{
-    Harness,
-    kittest::{NodeT, Queryable},
-};
+use egui_kittest::{Harness, kittest::Queryable};
 use tokio::sync::{mpsc, watch};
 
 struct Screen {
@@ -23,7 +20,7 @@ fn screen() -> (Harness<'static, Screen>, mpsc::Receiver<SessionCommand>) {
         ..Default::default()
     });
     let mut form = ReceiverUi::default();
-    form.open(None, &view.borrow(), &commands);
+    form.open(&view.borrow(), &commands);
     let screen = Screen {
         form,
         view,
@@ -34,7 +31,15 @@ fn screen() -> (Harness<'static, Screen>, mpsc::Receiver<SessionCommand>) {
         .build_ui_state(
             |ui, s: &mut Screen| {
                 s.form.poll(&s.view.borrow());
-                s.form.show(ui.ctx(), &s.commands);
+                if s.form.is_open() {
+                    s.form.show_section(ui, &s.commands, &[]);
+                    if ui.button("Apply").clicked() {
+                        let _ = s.form.apply(&s.commands);
+                    }
+                    if ui.button("Cancel").clicked() {
+                        s.form.close();
+                    }
+                }
             },
             screen,
         );
@@ -121,7 +126,7 @@ fn off_bypasses_unavailable_fields() {
 }
 
 #[test]
-fn unchanged_failed_apply_retries_and_closes_only_on_success() {
+fn receiver_activation_failure_preserves_saved_intent() {
     let (mut h, mut input) = screen();
     let SessionCommand::WsSuite(request) = input.try_recv().unwrap() else {
         panic!("interface request")
@@ -163,26 +168,26 @@ fn unchanged_failed_apply_retries_and_closes_only_on_success() {
         h.query_by_label("Reception unavailable. Port in use")
             .is_some()
     );
-    assert!(!h.get_by_label("Apply").accesskit_node().is_disabled());
-    h.get_by_label("Apply").click();
+    assert!(!h.state().form.changed());
+    let result = h
+        .state_mut()
+        .form
+        .take_applied()
+        .expect("receiver apply settled");
+    assert_eq!(
+        result.expect_err("socket activation failed").message,
+        "Port in use"
+    );
+    h.get_by_label("Retry reception").click();
     h.run();
-    let SessionCommand::WsSuite(request) = input.try_recv().unwrap() else {
-        panic!("retry")
+    let SessionCommand::WsSuite(request) = input.try_recv().expect("retry submits receiver work")
+    else {
+        panic!("receiver retry");
     };
     let ReceiverAction::Apply { next } = request.action else {
-        panic!("Apply")
+        panic!("retry applies committed receiver settings");
     };
-    assert_eq!(next, failed.settings.clone().unwrap());
-    request
-        .reply
-        .send(crate::ws_suite::ReceiverResponse::Applied(ReceiverView {
-            settings: failed.settings,
-            reception: crate::ws_suite::ReceptionState::Listening,
-            ..Default::default()
-        }))
-        .unwrap();
-    h.step();
-    assert!(!h.state().form.is_open());
+    assert_eq!(Some(next), failed.settings);
 }
 
 #[test]
@@ -210,9 +215,15 @@ fn local_scope_validation_identifies_the_interface_by_apply() {
     h.input_mut().time = Some(now + 0.31);
     h.step();
     h.run();
-    assert!(h.get_by_label("Apply").accesskit_node().is_disabled());
+    let state = h.state_mut();
+    let errors = state
+        .form
+        .apply(&state.commands)
+        .expect_err("link-local multicast requires an interface");
     assert!(
-        h.query_by_label("Cannot apply: Network interface.")
-            .is_some()
+        errors
+            .iter()
+            .any(|error| error.field == "Network interface")
     );
+    assert!(input.try_recv().is_err());
 }

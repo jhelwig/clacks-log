@@ -102,7 +102,7 @@ fn activate(
         }
         Err(error) => {
             view.reception = ReceptionState::Failed(format!(
-                "Could not start reception: {error}. Correct the settings or Apply again to retry."
+                "Could not start reception: {error}. Check the receiver settings or retry reception."
             ));
             tracing::error!(event = "ws_suite.receiver_failed", stage = "activation");
             None
@@ -340,7 +340,7 @@ pub(crate) async fn run(
                     Err(_) => {
                         listener = None;
                         view.reception = ReceptionState::Failed(
-                            "WS Suite reception stopped. Apply the receiver settings to retry."
+                            "WS Suite reception stopped. Open WS Suite settings to retry reception."
                                 .into(),
                         );
                         outputs.publish(view.clone());
@@ -433,7 +433,7 @@ pub(crate) async fn run(
                 if ready.is_err() {
                     listener = None;
                     view.reception = ReceptionState::Failed(
-                        "WS Suite reception stopped. Apply the receiver settings to retry.".into(),
+                        "WS Suite reception stopped. Open WS Suite settings to retry reception.".into(),
                     );
                     outputs.publish(view.clone());
                     tracing::error!(event = "ws_suite.receiver_failed", stage = "readiness");

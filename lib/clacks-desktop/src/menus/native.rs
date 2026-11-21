@@ -7,7 +7,7 @@ mod platform;
 #[path = "windows.rs"]
 mod platform;
 
-use super::{GROUPS, MenuCommand};
+use super::{MenuCommand, NATIVE_GROUPS};
 use eframe::egui;
 use muda::accelerator::{Accelerator, Code, Modifiers};
 use muda::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
@@ -61,7 +61,7 @@ impl MenuAdapter {
         platform::application_menu(&menu, &mut items)?;
         #[cfg(target_os = "macos")]
         let mut help = None;
-        for group in GROUPS {
+        for group in NATIVE_GROUPS {
             let submenu = Submenu::new(platform::menu_title(group.title), true);
             for command in group.commands {
                 if let Some(command) = command {
@@ -73,12 +73,8 @@ impl MenuAdapter {
                         };
                         Accelerator::new(modifier, Code::KeyA)
                     });
-                    let item = MenuItem::with_id(
-                        command.id(),
-                        item_text(*command, false),
-                        false,
-                        accelerator,
-                    );
+                    let item =
+                        MenuItem::with_id(command.id(), item_text(*command), false, accelerator);
                     submenu.append(&item)?;
                     items.push(CommandItem {
                         command: *command,
@@ -163,25 +159,12 @@ impl MenuAdapter {
         Ok(())
     }
 
-    /// Apply application policy only when a native item's value changes.
-    pub fn set_enabled(&self, command: MenuCommand, enabled: bool) {
-        if let Some(item) = self.items.iter().find(|item| item.command == command)
-            && item.item.is_enabled() != enabled
-        {
-            item.item.set_enabled(enabled);
-        }
-    }
-
-    /// Enrollment changes do not depend on painting a removed opener button.
-    pub fn set_connection_label(&self, enrolled: bool) {
-        if let Some(item) = self
-            .items
-            .iter()
-            .find(|item| item.command == MenuCommand::Connection)
-        {
-            let label = item_text(MenuCommand::Connection, enrolled);
-            if item.item.text() != label {
-                item.item.set_text(&label);
+    /// Update registered items, including the macOS application menu.
+    pub fn update_enabled(&self, is_enabled: impl Fn(MenuCommand) -> bool) {
+        for item in &self.items {
+            let enabled = is_enabled(item.command);
+            if item.item.is_enabled() != enabled {
+                item.item.set_enabled(enabled);
             }
         }
     }
@@ -201,6 +184,11 @@ impl Drop for MenuAdapter {
 }
 
 /// Muda treats single ampersands as mnemonics on native platforms.
-pub(crate) fn item_text(command: MenuCommand, enrolled: bool) -> String {
-    command.label(enrolled).replace('&', "&&")
+pub(crate) fn item_text(command: MenuCommand) -> String {
+    let label = command.label().replace('&', "&&");
+    #[cfg(windows)]
+    if command == MenuCommand::OpenSettings {
+        return format!("&{label}");
+    }
+    label
 }

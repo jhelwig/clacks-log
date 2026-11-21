@@ -99,10 +99,10 @@ async fn historical_qso_copies_survive_source_changes_apply_collection_and_reope
 
     let preview = settings::preview_equipment_deletion(&f.store, f.a.id()).await?;
     assert_eq!(preview.referring_profiles.len(), 2);
-    assert_eq!(
+    assert!(matches!(
         settings::delete_equipment(&f.store, &preview, &choices(&f)).await?,
-        EquipmentDeleteOutcome::Applied
-    );
+        EquipmentDeleteOutcome::Applied { .. }
+    ));
     let after = settings::snapshot(&f.store).await?;
     assert_eq!(default(&after, f.home.id()), Some(f.b.id()));
     assert_eq!(default(&after, f.field.id()), None);

@@ -1,75 +1,25 @@
-//! Local view selection and independent saved-logbook management.
+//! Immediate selection of the working logbook view.
 
-mod deletion;
 pub(super) mod editor;
 pub(super) mod labels;
-mod responses;
 
-use super::{dialog, feedback, theme, validation::ValidationState};
-use crate::{
-    logbooks::TagEditor,
-    operating::FieldError,
-    session::settings::{
+use super::{feedback, theme};
+use crate::session::{
+    SessionCommand,
+    settings::{
         SettingsAction, SettingsRequest, SettingsResponse,
         logbooks::{LogbookAction, LogbookResponse},
     },
 };
-use clacks_client_store::{
-    logbooks::{LogbookSnapshot, selection::SelectedView},
-    save::SaveOutcome,
-};
+use clacks_client_store::logbooks::{LogbookSnapshot, selection::SelectedView};
 use clacks_model::{ids::TagId, tag::LogbookTag};
 use clacks_sync::{
     client::ClientRecord,
     record::{RecordId, RecordState, RecordValue},
 };
 use eframe::egui;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use tokio::sync::{mpsc, oneshot};
-
-/// Saved-record editing state, distinct from the workspace's selected view.
-struct TagForm {
-    /// Unapplied field values.
-    editor: TagEditor,
-    /// Complete original save basis.
-    expected: Option<ClientRecord>,
-    /// Current field feedback.
-    errors: Vec<FieldError>,
-    /// Validation timing and Save availability for the edited fields.
-    validation: ValidationState,
-    /// Whether the saved tag changed after this editor was opened.
-    stale: bool,
-}
-
-impl TagForm {
-    /// Start a new or existing tag form without selecting it.
-    fn new(expected: Option<ClientRecord>) -> Self {
-        let editor = expected
-            .as_ref()
-            .and_then(tag)
-            .map(TagEditor::from_tag)
-            .unwrap_or_else(|| TagEditor::new(TagId::new()));
-        Self {
-            editor,
-            expected,
-            errors: vec![],
-            validation: Default::default(),
-            stale: false,
-        }
-    }
-}
-
-/// Management-dialog state retained until its pending request finishes.
-struct Management {
-    /// New/edit form, absent for the saved-tag list.
-    form: Option<TagForm>,
-    /// Deletion preview and the chosen QSO treatment.
-    deletion: Option<deletion::DeletionReview>,
-    /// Reply for a submitted operation, retained if the dialog closes.
-    response: Option<oneshot::Receiver<SettingsResponse>>,
-    /// Actionable failure or stale-review feedback.
-    notice: Option<String>,
-}
 
 /// Window-owned presentation; SQLite remains the selected-view authority.
 #[derive(Default)]
@@ -78,32 +28,20 @@ pub(super) struct LogbooksUi {
     observed: Option<LogbookSnapshot>,
     /// Exact selection acknowledgment retained when a following read fails.
     acknowledged_view: Option<SelectedView>,
-    /// Exact saved acknowledgments retained until a fresh catalog arrives.
-    acknowledged_tags: BTreeMap<TagId, ClientRecord>,
-    /// Known committed deletions absent from a stale catalog.
-    deleted_tags: BTreeSet<TagId>,
-    /// Selection request, separate from management editing.
+    /// Pending selection until the store acknowledges its result.
     selection_response: Option<oneshot::Receiver<SettingsResponse>>,
-    /// Desired view while its write is pending.
-    selecting: Option<SelectedView>,
-    /// Visible management destination.
-    management: Option<Management>,
-    /// Persistent operation/read error.
+    /// Read the authoritative selection after a lost response.
+    recover: bool,
+    /// Persistent selection failure.
     error: Option<String>,
-    /// Committed destructive effects, retained independently of dialog visibility.
-    completion_notice: Option<String>,
     /// Deleted tag whose fallback needs explanation.
     fallback_notice: Option<TagId>,
     /// Whether the startup fallback has already been considered.
     startup_observed: bool,
-    /// Focused workbench widget before management opened.
-    opener: Option<egui::Id>,
-    /// Button to focus after the modal has finished closing.
-    restore_focus: Option<egui::Id>,
 }
 
 impl LogbooksUi {
-    /// Observe committed catalog changes without replacing unapplied form values.
+    /// Observe the selected view and explain a fallback caused by deleting its logbook.
     pub fn observe(&mut self, snapshot: &LogbookSnapshot, restored_from: Option<TagId>) {
         let startup_fallback = if !self.startup_observed {
             self.startup_observed = true;
@@ -128,46 +66,15 @@ impl LogbooksUi {
             None
         };
         self.acknowledged_view = None;
-        self.acknowledged_tags.clear();
-        self.deleted_tags.clear();
-        if let Some(form) = self.management.as_mut().and_then(|view| view.form.as_mut())
-            && form.expected.is_some()
-            && snapshot
-                .tags
-                .iter()
-                .find(|row| row.key().id == RecordId::Tag(form.editor.id))
-                != form.expected.as_ref()
-        {
-            form.stale = true;
-        }
         self.observed = Some(snapshot.clone());
         if let Some(id) = startup_fallback.or(detected_fallback) {
             self.fallback(id);
         }
     }
 
-    /// Whether the logbook manager is already open.
-    pub fn is_open(&self) -> bool {
-        self.management.is_some()
-    }
-
-    /// Open management without replacing an unfinished edit.
-    pub fn open_management(&mut self, opener: Option<egui::Id>) {
-        if self.management.is_none() && !self.is_busy() {
-            self.opener = opener;
-            self.management = Some(Management {
-                form: None,
-                deletion: None,
-                response: None,
-                notice: None,
-            });
-        }
-    }
-
-    /// Describe a history scope using the same saved catalog as the toolbar.
+    /// Describe a history scope using the same live catalog as the toolbar.
     pub(super) fn view_caption(&self, snapshot: &LogbookSnapshot, view: SelectedView) -> String {
-        let records = self.records(snapshot);
-        let tags: Vec<_> = self.visible_tags(&records);
+        let tags: Vec<_> = snapshot.tags.iter().filter_map(tag).collect();
         view_caption(view, &labels::labels(&tags))
     }
 
@@ -178,18 +85,7 @@ impl LogbooksUi {
         snapshot: &LogbookSnapshot,
         sender: &mpsc::Sender<SettingsRequest>,
     ) {
-        self.poll();
-        if self.restore_focus.is_some() {
-            if ui.ctx().memory(|memory| memory.top_modal_layer().is_none()) {
-                if let Some(id) = self.restore_focus.take() {
-                    ui.ctx().memory_mut(|memory| memory.request_focus(id));
-                }
-            } else {
-                ui.ctx().request_repaint();
-            }
-        }
-        let records = self.records(snapshot);
-        let mut tags: Vec<_> = self.visible_tags(&records);
+        let mut tags: Vec<_> = snapshot.tags.iter().filter_map(tag).collect();
         tags.sort_by(|a, b| a.name.cmp(&b.name).then(a.id.cmp(&b.id)));
         let labels = labels::labels(&tags);
         let selected = self.acknowledged_view.unwrap_or(snapshot.selected_view);
@@ -235,16 +131,12 @@ impl LogbooksUi {
         });
         if self.is_busy() {
             ui.spinner();
-            ui.small(if self.selecting.is_some() {
-                "Changing view…"
-            } else {
-                "Finishing logbook request…"
-            });
+            ui.small("Changing view…");
         }
     }
 
     /// Present actionable results outside the compact application bar.
-    pub fn feedback(&mut self, ui: &mut egui::Ui, sender: &mpsc::Sender<SettingsRequest>) {
+    pub fn feedback(&mut self, ui: &mut egui::Ui) {
         if let Some(id) = self.fallback_notice {
             ui.horizontal_wrapped(|ui| {
                 ui.label(format!(
@@ -258,104 +150,67 @@ impl LogbooksUi {
         if let Some(error) = &self.error {
             feedback::problem(ui, error);
         }
-        if let Some(message) = &self.completion_notice {
-            let dismiss = ui
-                .horizontal_wrapped(|ui| {
-                    ui.label(message);
-                    ui.button("Dismiss result").clicked()
-                })
-                .inner;
-            if dismiss {
-                self.completion_notice = None;
-            }
-        }
-        if self.error.is_some()
-            && ui
-                .add_enabled(!self.is_busy(), egui::Button::new("Refresh logbooks"))
-                .clicked()
-        {
-            self.send_selection(sender, SettingsAction::Refresh);
-        }
     }
 
-    /// Show the native manager after the window's ordinary chrome has been laid out.
-    pub fn dialog(
-        &mut self,
-        context: &egui::Context,
-        snapshot: &LogbookSnapshot,
-        sender: &mpsc::Sender<SettingsRequest>,
-    ) {
-        if self.management.is_none() {
-            return;
-        }
-        let records = self.records(snapshot);
-        let mut tags: Vec<_> = self.visible_tags(&records);
-        tags.sort_by(|a, b| a.name.cmp(&b.name).then(a.id.cmp(&b.id)));
-        let labels = labels::labels(&tags);
-        self.show_management(context, sender, &records, &tags, &labels);
-    }
-
-    /// Select live tags from the supplied records after locally acknowledged deletions.
-    fn visible_tags<'a>(&self, records: &'a [ClientRecord]) -> Vec<&'a LogbookTag> {
-        records
-            .iter()
-            .filter_map(tag)
-            .filter(|value| !self.deleted_tags.contains(&value.id))
-            .collect()
-    }
-
-    /// Merge acknowledged saves into the catalog until a refreshed catalog arrives.
-    fn records(&self, snapshot: &LogbookSnapshot) -> Vec<ClientRecord> {
-        let mut records = snapshot.tags.clone();
-        for (id, record) in &self.acknowledged_tags {
-            records.retain(|row| row.key().id != RecordId::Tag(*id));
-            records.push(record.clone());
-        }
-        records
-    }
-
-    /// Whether a submitted logbook request still has an unconsumed reply.
+    /// Whether an immediate selection is awaiting acknowledgment.
     pub fn is_busy(&self) -> bool {
         self.selection_response.is_some()
-            || self
-                .management
-                .as_ref()
-                .is_some_and(|frame| frame.response.is_some())
-    }
-
-    /// Discard unapplied management edits and schedule focus restoration to the opener.
-    fn cancel(&mut self) {
-        self.management = None;
-        self.restore_focus = self.opener.take();
     }
 
     /// Submit an explicit view choice without changing its committed caption early.
     fn select(&mut self, sender: &mpsc::Sender<SettingsRequest>, next: SelectedView) {
-        if self.send_selection(
-            sender,
-            SettingsAction::Logbooks(LogbookAction::SelectView { next }),
-        ) {
-            self.selecting = Some(next);
-        }
-    }
-
-    /// Submit a view change or refresh, retaining the receiver if submission succeeds.
-    fn send_selection(
-        &mut self,
-        sender: &mpsc::Sender<SettingsRequest>,
-        action: SettingsAction,
-    ) -> bool {
         let (reply, response) = oneshot::channel();
+        let action = SettingsAction::Logbooks(LogbookAction::SelectView { next });
         match sender.try_send(SettingsRequest { action, reply }) {
             Ok(()) => {
                 self.selection_response = Some(response);
                 self.error = None;
-                true
             }
-            Err(error) => {
-                self.error = Some(format!("Could not submit logbook request: {error}"));
-                false
+            Err(error) => self.error = Some(format!("Could not select the logbook: {error}")),
+        }
+    }
+
+    /// Consume the selection acknowledgment independently of its follow-up read.
+    pub(in crate::ui) fn poll(&mut self) {
+        let Some(response) = &mut self.selection_response else {
+            return;
+        };
+        let mut outcome = match response.try_recv() {
+            Ok(outcome) => outcome,
+            Err(oneshot::error::TryRecvError::Empty) => return,
+            Err(oneshot::error::TryRecvError::Closed) => {
+                self.recover = true;
+                self.selection_response = None;
+                return;
             }
+        };
+        self.selection_response = None;
+        if let SettingsResponse::RefreshFailed {
+            outcome: settled, ..
+        } = outcome
+        {
+            outcome = *settled;
+        }
+        match outcome {
+            SettingsResponse::Logbooks(LogbookResponse::Selected(view)) => {
+                self.acknowledged_view = Some(view);
+                self.fallback_notice = None;
+            }
+            SettingsResponse::Failed(message) => self.error = Some(message),
+            SettingsResponse::Closing => self.error = Some("The application is closing.".into()),
+            _ => self.recover = true,
+        }
+    }
+
+    /// Request an authoritative read after losing a selection response.
+    pub(super) fn recover_view(&mut self, commands: &mpsc::Sender<SessionCommand>) {
+        if self.recover
+            && commands
+                .try_send(SessionCommand::RecoverSettingsView)
+                .is_ok()
+        {
+            self.recover = false;
+            self.acknowledged_view = None;
         }
     }
 
@@ -395,29 +250,11 @@ fn view_caption(view: SelectedView, labels: &BTreeMap<TagId, String>) -> String 
 }
 
 /// Read only a live effective tag, excluding tombstones and unavailable states.
-fn tag(record: &ClientRecord) -> Option<&LogbookTag> {
+pub(super) fn tag(record: &ClientRecord) -> Option<&LogbookTag> {
     match record.working_state() {
         Some(RecordState::Live(RecordValue::Tag(value))) => Some(value),
         _ => None,
     }
 }
-
-impl Management {
-    /// Submit one request and retain its reply receiver until completion.
-    fn send(&mut self, sender: &mpsc::Sender<SettingsRequest>, action: LogbookAction) {
-        let (reply, response) = oneshot::channel();
-        match sender.try_send(SettingsRequest {
-            action: SettingsAction::Logbooks(action),
-            reply,
-        }) {
-            Ok(()) => {
-                self.response = Some(response);
-                self.notice = None;
-            }
-            Err(error) => self.notice = Some(format!("Could not submit logbook request: {error}")),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests;

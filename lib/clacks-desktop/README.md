@@ -50,19 +50,20 @@ Both built-ins supply no default new-contact tag. A named view supplies that tag
 future QSO entry follows subsequent view changes without retaining an old proposed
 membership. Saved contacts and existing-contact editors are unaffected.
 
-**Manage logbooks…** opens a dedicated dialog with New/Edit and Save/Cancel
-boundaries. A save changes only the tag, never the selected view or station and
-equipment settings. New tags use **Neither** for both LoTW and QRZ upload policies.
+The **Logbooks** section adds new records and edits to the shared Settings
+draft. Applying a tag rename or policy edit preserves the current view and
+contact membership. New tags use **Neither** for both LoTW and QRZ upload policies.
 Each service independently supports Enable, Forbid and Neither; any Forbid wins
 when contact eligibility is evaluated across tags. Duplicate names are allowed.
 Only duplicate names display a short collision-checked ID suffix; full IDs are
-visible and copyable in the manager. A tag named All contacts remains distinct
+visible and copyable in the Logbooks section. A tag named All contacts remains distinct
 from the built-in view in the selector's named-logbook group.
 
 Deletion first reads a consistent review showing distinct affected, shared and
 unique contact counts. Explicitly choose whether to leave all contacts, delete all
 contacts, or delete only contacts unique to this tag, then confirm. A changed tag
-or contact makes the review stale and requires reloading and confirming again.
+or contact makes the review stale. Review the updated impact and confirm it
+again before submitting a new deletion.
 Deleting the selected tag atomically selects All contacts and explains why.
 Known incoming deletion uses the same fallback; unknown/unavailable targets and
 live pending tag alternatives are preserved instead. External copies are untouched.
@@ -180,7 +181,7 @@ competing saved values are shown before an explicit retry. If a profile saves
 with an unavailable default, it stays open with saved-local/missing-reference
 feedback and replacement/None choices. A failed read after a completed write is
 reported separately: the committed result stands and the previous summary is
-marked stale until **Refresh settings** succeeds. An acknowledged Apply supplies
+marked stale while Clacks rereads the saved settings. An acknowledged Apply supplies
 the summary and next editor's operating basis even when that read failed. Do not repeat the write merely
 to refresh its view. Confirmed deletions remain authoritative while that view is
 stale: deleted sources are excluded from load/target choices, and new operating
@@ -393,13 +394,16 @@ For appearance/shared-control acceptance:
 - Close normally during a request. If cleanup is delayed, verify Continue
   Waiting/Force Quit are accessible, including when Appearance was open.
 
-For logbook-setup acceptance, use the same production executable and a disposable
-workspace. Create two Main tags, compare/copy their full IDs, change independent
-upload policies, select one and verify its ID after restart and rename. Switch
-both built-in views, cancel edits through Cancel/Escape/close, and delete selected
-and unselected empty tags after explicit review. Check All contacts fallback and
-its dismissible explanation in both themes/scales. Populated and incoming deletion
-use real automated store/session tests until logging/network consumers arrive.
+For Settings acceptance, use the production executable in a disposable
+workspace. Open Settings from the platform menu. Edit a logbook and preview
+Appearance while moving across sections. Verify one Apply and Cancel preserve
+the shared draft until submission or dismissal. Apply a valid change and an
+invalid receiver port together. Check that the saved values and failure
+indicators appear at the affected places. Stage and confirm a logbook
+deletion, exercise All contacts fallback, and check focus and the unfinished
+contact when returning to the workbench. In an enrolled disposable setup,
+verify that local changes save during the pause and sync after closing the
+screen.
 
 ## Manual contact logging
 
@@ -465,17 +469,17 @@ wait for human interaction or expose delay flags.
 
 ## WS Suite capture
 
-Open **Settings → WS Suite…**, enable **Receive WS Suite updates**, choose
-Unicast or Multicast, and Apply. Unicast receives on the selected Local address
+Open the **WS Suite** section of Settings and enable **Receive WS Suite updates**.
+Choose Unicast or Multicast and click Apply. Unicast receives on the selected Local address
 and Port. Multicast joins the supplied Group address and Port on System default
 or an explicitly selected Network interface. Refresh interfaces updates the
 available names/addresses. IPv6 local-scope multicast requires an explicit
 interface. No file editing or application restart is needed.
 
-The checkbox and normal unapplied-field treatment convey configuration. Only
-failures have a separate reception message. Apply retries failed reception even
-without changes; successful retry clears the message and closes the dialog.
-Failed activation retains saved values and keeps the dialog open. Applying Off
+The checkbox and normal unapplied-field treatment convey configuration. A
+saved configuration with failed activation shows the saved values and a
+reception diagnostic. Apply stays in Settings and reports each attempted
+change at the affected setting. Applying Off
 preserves the last committed connection and works despite unavailable interfaces
 or invalid disabled inputs. Cancel/Escape/close discard unsubmitted edits.
 
@@ -517,7 +521,7 @@ Use the [migration walkthrough](#bring-an-independent-log-into-a-synchronized-ac
 to keep the original workspace and bring its contacts into the account.
 
 Before enrollment, the server can be corrected and Connect safely replaces only
-uninstalled connection material. **Connection…** offers Reauthorize for the existing
+uninstalled connection material. **Connection** offers Reauthorize for the existing
 account/server. Previously unsent work retains its recovery restrictions if the
 writer was replaced. Native access failures and transient server failures preserve
 credentials instead of reopening browser approval. A verified rejected credential
@@ -527,7 +531,7 @@ While connecting, duplicate submission is disabled. Open browser is available du
 approval. Cancel, Escape and close stop local work without promising to undo remote
 approval. Failures retain inputs and permit retry through the same primary action,
 with a concise explanation and sanitized expandable details. Successful completion
-closes the dialog; the existing status display reports synchronization separately.
+keeps the Settings draft open. Sync resumes when Settings closes.
 Committed installation remains installed if cleanup fails, and retry finishes the
 remaining local work without another authorization. Account-qualified services reload
 when the durable binding changes, including when cleanup remains pending.

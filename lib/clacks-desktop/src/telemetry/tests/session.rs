@@ -46,6 +46,8 @@ pub(super) fn complete(
         enrollment_updates: tokio::sync::watch::channel(Default::default()).0,
         settings_requests: requests,
         settings_updates,
+        settings_intent: watch::channel(None).1,
+        settings_basis: watch::channel(None).0,
         paths: paths.clone(),
         listener,
         telemetry,

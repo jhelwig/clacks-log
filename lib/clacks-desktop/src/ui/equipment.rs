@@ -22,15 +22,28 @@ pub(super) fn default_selector(
     records: &[ClientRecord],
     known_deletions: &std::collections::BTreeSet<clacks_sync::record::RecordId>,
 ) {
+    let options = records
+        .iter()
+        .filter(|row| !known_deletions.contains(&row.key().id))
+        .filter_map(configuration)
+        .map(|value| (value.id(), equipment_label(value)));
+    association(ui, id, selected, options);
+}
+
+/// Choose a default from the configurations available in this editor.
+pub(super) fn association(
+    ui: &mut egui::Ui,
+    id: &str,
+    selected: &mut Option<EquipmentConfigurationId>,
+    options: impl Iterator<Item = (EquipmentConfigurationId, String)> + Clone,
+) {
     let label = ui.label("Associated default equipment configuration");
     let text = selected
         .map(|id| {
-            records
-                .iter()
-                .filter(|r| !known_deletions.contains(&r.key().id))
-                .filter_map(configuration)
-                .find(|e| e.id() == id)
-                .map(equipment_label)
+            options
+                .clone()
+                .find(|(key, _)| *key == id)
+                .map(|(_, label)| label)
                 .unwrap_or_else(|| format!("Unavailable {id} — replace or choose None"))
         })
         .unwrap_or_else(|| "None (loading keeps current equipment)".into());
@@ -38,16 +51,38 @@ pub(super) fn default_selector(
         .selected_text(text)
         .show_ui(ui, |ui| {
             ui.selectable_value(selected, None, "None");
-            for e in records
-                .iter()
-                .filter(|r| !known_deletions.contains(&r.key().id))
-                .filter_map(configuration)
-            {
-                ui.selectable_value(selected, Some(e.id()), equipment_label(e));
+            for (id, label) in options {
+                ui.selectable_value(selected, Some(id), label);
             }
         })
         .response
         .labelled_by(label.id);
+}
+
+/// Edit the name and copied equipment facts against the original saved configuration.
+pub(super) fn fields(
+    ui: &mut egui::Ui,
+    editor: &mut EquipmentEditor,
+    errors: &[crate::operating::FieldError],
+) -> bool {
+    let baseline = editor.expected.as_ref().and_then(configuration);
+    let edited = operating::fields::text_changed(&editor.name, baseline.map(|value| value.name()));
+    let changed = operating::fields::text(
+        ui,
+        "equipment.name",
+        "Configuration name",
+        &mut editor.name,
+        errors,
+        edited,
+    );
+    let baseline = EquipmentForm::from_values(baseline.map(|value| value.values()));
+    operating::fields::equipment(
+        ui,
+        "equipment",
+        &mut editor.equipment,
+        errors,
+        Some(&baseline),
+    ) || changed
 }
 
 /// Render configuration editing and deletion without changing active operating facts.
@@ -136,27 +171,7 @@ pub(super) fn show(
                 frame.stale = None;
                 frame.validation.invalidate();
             }
-            let baseline = editor.expected.as_ref().and_then(configuration);
-            let edited =
-                operating::fields::text_changed(&editor.name, baseline.map(|value| value.name()));
-            if operating::fields::text(
-                ui,
-                "equipment.name",
-                "Configuration name",
-                &mut editor.name,
-                &frame.errors,
-                edited,
-            ) {
-                frame.validation.edited(ui.input(|input| input.time));
-            }
-            let baseline = EquipmentForm::from_values(baseline.map(|value| value.values()));
-            if operating::fields::equipment(
-                ui,
-                "equipment",
-                &mut editor.equipment,
-                &frame.errors,
-                Some(&baseline),
-            ) {
+            if fields(ui, editor, &frame.errors) {
                 frame.validation.edited(ui.input(|input| input.time));
             }
             if crate::ui::actions::primary(

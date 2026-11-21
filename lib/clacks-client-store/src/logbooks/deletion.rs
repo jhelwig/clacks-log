@@ -46,6 +46,8 @@ pub struct TagDeletionPreview {
 pub enum TagDeleteOutcome {
     /// The tag deletion, chosen QSO changes and any view fallback committed together.
     Applied {
+        /// Exact post-commit tag and QSO records for subsequent guarded changes.
+        records: Vec<ClientRecord>,
         /// QSOs marked deleted and memberships removed by this operation.
         plan: TagDeletionPlan,
         /// Authoritative local view after commit.
@@ -198,6 +200,7 @@ pub async fn delete_tag(
         qsos.push((**qso).clone());
     }
     let plan = plan_tag_deletion(tag, choice, &qsos);
+    let mut records = Vec::with_capacity(members.len() + 1);
     let mut deleted = 0;
     let mut updated = 0;
     for row in members.values() {
@@ -217,32 +220,31 @@ pub async fn delete_tag(
             )))
         };
         match save_in(&mut transaction, row.key(), Some(row), next).await? {
-            SaveOutcome::Saved(_) => {
+            SaveOutcome::Saved(record) => {
+                records.push(record);
                 if plan.mark_deleted.contains(&id) {
                     deleted += 1;
                 } else {
                     updated += 1;
                 }
             }
-            SaveOutcome::Unchanged(_) => {}
+            SaveOutcome::Unchanged(record) => records.push(record),
             SaveOutcome::Stale { .. } => {
                 anyhow::bail!("tag deletion member changed within its transaction")
             }
         }
     }
-    anyhow::ensure!(
-        !matches!(
-            save_in(
-                &mut transaction,
-                expected_tag.key(),
-                Some(expected_tag),
-                RecordState::Deleted
-            )
-            .await?,
-            SaveOutcome::Stale { .. }
-        ),
-        "tag changed within deletion transaction"
-    );
+    match save_in(
+        &mut transaction,
+        expected_tag.key(),
+        Some(expected_tag),
+        RecordState::Deleted,
+    )
+    .await?
+    {
+        SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record) => records.push(record),
+        SaveOutcome::Stale { .. } => anyhow::bail!("tag changed within deletion transaction"),
+    }
     let selected_view = selection::load_in(&mut transaction).await?;
     let fallback_from = (selected_before == SelectedView::Logbook(tag)).then_some(tag);
     transaction.commit().await?;
@@ -257,6 +259,7 @@ pub async fn delete_tag(
     tracing::info!(event = "tag.deleted", account_id = %store.account, tag_id = %tag, deleted_contacts = deleted, changed_memberships = updated, fallback_from = ?fallback_from);
     metrics::counter!("clacks_client_tag_mutations_total", "change" => "delete").increment(1);
     Ok(TagDeleteOutcome::Applied {
+        records,
         plan,
         selected_view,
         fallback_from,

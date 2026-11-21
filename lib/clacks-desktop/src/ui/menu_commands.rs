@@ -7,10 +7,7 @@ use eframe::egui;
 impl DesktopApp {
     /// Whether an active workflow prevents opening another workspace action.
     pub(super) fn modal_open(&self) -> bool {
-        self.appearance.editor.is_some()
-            || self.ws_suite.is_open()
-            || self.enrollment.is_open()
-            || self.logbooks.is_open()
+        self.settings_screen.is_some()
             || self.settings.is_open()
             || self.details.is_open()
             || self.import.is_open()
@@ -43,10 +40,16 @@ impl DesktopApp {
         {
             return true;
         }
+        if self.settings_screen.is_some() {
+            return command == MenuCommand::OpenSettings;
+        }
         if self.modal_open() {
             return false;
         }
-        if matches!(command, MenuCommand::Appearance | MenuCommand::Diagnostics) {
+        if matches!(
+            command,
+            MenuCommand::OpenSettings | MenuCommand::Diagnostics
+        ) {
             return true;
         }
         if !matches!(*state, SessionStatus::Ready { .. }) || self.settings_view.borrow().is_none() {
@@ -58,10 +61,6 @@ impl DesktopApp {
             MenuCommand::SelectAll => {
                 self.workbench.history_has_focus(context) && !self.workbench.selection_pending()
             }
-            MenuCommand::ManageLogbooks => !self.logbooks.is_busy(),
-            MenuCommand::StationProfiles
-            | MenuCommand::EquipmentConfigurations
-            | MenuCommand::RefreshSettings => !self.settings.is_busy(),
             _ => true,
         }
     }
@@ -124,24 +123,14 @@ impl DesktopApp {
                     self.workbench.select_all_contacts(&self.settings_requests);
                 }
             }
-            MenuCommand::ManageLogbooks => self.logbooks.open_management(opener),
-            MenuCommand::StationProfiles => self.settings.open_profiles(opener),
-            MenuCommand::EquipmentConfigurations => self.settings.open_equipment(opener),
-            MenuCommand::RefreshSettings => self.settings.refresh_settings(&self.settings_requests),
-            MenuCommand::Connection => self.enrollment.open(opener),
-            MenuCommand::Appearance => self.appearance.open(opener),
-            MenuCommand::WsSuite => {
-                self.ws_suite
-                    .open(opener, &self.ws_suite_view.borrow(), &self.commands)
+            MenuCommand::OpenSettings => {
+                self.open_settings(context, super::settings::SettingsDestination::Default)
             }
             MenuCommand::ResetLayout => self.workbench.reset_layout(),
             MenuCommand::Diagnostics => self.details.open(opener),
             MenuCommand::Quit => self.begin_close(),
         }
-        if !matches!(
-            command,
-            MenuCommand::Quit | MenuCommand::RefreshSettings | MenuCommand::ResetLayout
-        ) {
+        if !matches!(command, MenuCommand::Quit | MenuCommand::ResetLayout) {
             for action in [
                 egui::ViewportCommand::Visible(true),
                 egui::ViewportCommand::Minimized(false),
@@ -191,18 +180,7 @@ impl DesktopApp {
     #[cfg(any(target_os = "macos", windows))]
     pub(super) fn update_menu_state(&self, context: &egui::Context) {
         if let Some(menus) = &self.native_menus {
-            for command in crate::menus::GROUPS
-                .iter()
-                .flat_map(|group| group.commands.iter().flatten())
-            {
-                menus.set_enabled(*command, self.menu_enabled(context, *command));
-            }
-            menus.set_connection_label(self.is_enrolled());
+            menus.update_enabled(|command| self.menu_enabled(context, command));
         }
-    }
-
-    /// Read authoritative account state even before the next rendered frame.
-    pub(super) fn is_enrolled(&self) -> bool {
-        matches!(&*self.status.borrow(), SessionStatus::Ready { identity, .. } if identity.enrolled)
     }
 }

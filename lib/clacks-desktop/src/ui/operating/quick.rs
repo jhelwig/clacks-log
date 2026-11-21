@@ -27,6 +27,8 @@ pub(super) struct QuickOutcome {
     pub acknowledged: Option<OperatingState>,
     /// Failed post-operation read, distinct from the write outcome.
     pub refresh_error: Option<String>,
+    /// Whether a workspace reread must verify this submission.
+    pub lost_response: bool,
 }
 
 /// A power field independent of any full operating form.
@@ -46,6 +48,8 @@ pub(super) struct QuickOperatingUi {
     power_request: Option<PowerRequest>,
     /// Exact newer text explicitly committed while an earlier request was outstanding.
     commit_after_reply: Option<String>,
+    /// Submitted power awaiting readback because its response was lost.
+    unverified: Option<String>,
 }
 
 impl QuickOperatingUi {
@@ -58,11 +62,15 @@ impl QuickOperatingUi {
             Ok(response) => response,
             Err(oneshot::error::TryRecvError::Empty) => return QuickOutcome::default(),
             Err(oneshot::error::TryRecvError::Closed) => {
+                self.unverified = Some(request.submitted.clone());
                 self.power_request = None;
                 self.commit_after_reply = None;
                 self.notice =
-                    Some("No acknowledgment received. Refresh settings before retrying.".into());
-                return QuickOutcome::default();
+                    Some("Checking the stored power after losing the save response.".into());
+                return QuickOutcome {
+                    lost_response: true,
+                    ..Default::default()
+                };
             }
         };
         let submitted = request.submitted.clone();
@@ -105,14 +113,38 @@ impl QuickOperatingUi {
             SettingsResponse::Closing => {
                 self.notice = Some("The application is closing; power was not applied.".into())
             }
-            _ => self.notice = Some("Unexpected settings reply. Refresh before retrying.".into()),
+            _ => {
+                self.notice =
+                    Some("Checking the stored power after an unexpected response.".into());
+                self.unverified = Some(submitted);
+                outcome.lost_response = true;
+            }
         }
         outcome
     }
 
+    /// Compare an uncertain submission with a subsequent verified read, preserving later typing.
+    pub(super) fn verify(&mut self, state: &OperatingState) {
+        let Some(submitted) = self.unverified.take() else {
+            return;
+        };
+        let stored = state.current().and_then(|value| value.transmit_power);
+        let matches = power::parse_watts(&submitted).is_ok_and(|expected| expected == stored);
+        if self.power_text == submitted {
+            self.power_text = power::format_watts(stored);
+            self.dirty = false;
+            self.error = None;
+        }
+        self.notice = if matches {
+            None
+        } else {
+            Some("The stored power differs from the submitted value.".into())
+        };
+    }
+
     /// Report whether an admitted power edit still awaits acknowledgment.
     pub fn is_busy(&self) -> bool {
-        self.power_request.is_some()
+        self.power_request.is_some() || self.unverified.is_some()
     }
 
     /// Render decimal watts inline, committing valid input on Enter or focus departure.
@@ -214,7 +246,8 @@ impl QuickOperatingUi {
             self.dirty = false;
             self.error = None;
             response.surrender_focus();
-        } else if self.dirty
+        } else if self.unverified.is_none()
+            && self.dirty
             && (response.lost_focus()
                 || (response.has_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter))))
         {

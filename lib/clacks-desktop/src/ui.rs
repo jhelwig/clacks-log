@@ -24,6 +24,7 @@ mod operating;
 mod preferences;
 mod profiles;
 mod review;
+mod settings;
 mod startup;
 mod tag_picker;
 #[cfg(test)]
@@ -36,7 +37,9 @@ mod worked_before;
 mod ws_suite;
 
 use crate::{
-    session::{SessionCommand, SessionStatus, settings::SettingsRequest},
+    session::{
+        SessionCommand, SessionStatus, SettingsBasis, SettingsSessionId, settings::SettingsRequest,
+    },
     workspace::WorkspacePaths,
 };
 use clacks_client_store::settings::SettingsSnapshot;
@@ -74,6 +77,10 @@ pub(crate) struct UiResources {
     pub settings_requests: mpsc::Sender<SettingsRequest>,
     /// Last usable committed settings snapshot.
     pub settings_view: watch::Receiver<Option<Arc<SettingsSnapshot>>>,
+    /// Current Settings interval, including dismissal while the session is busy.
+    pub settings_intent: watch::Sender<Option<SettingsSessionId>>,
+    /// Workspace data available after pausing sync.
+    pub settings_basis: watch::Receiver<Option<SettingsBasis>>,
     /// Workspace paths displayed directly to the user.
     pub paths: WorkspacePaths,
     /// Startup diagnostic notices.
@@ -130,6 +137,16 @@ pub(crate) struct DesktopApp {
     settings_requests: mpsc::Sender<SettingsRequest>,
     /// Committed settings snapshots received from the runtime.
     settings_view: watch::Receiver<Option<Arc<SettingsSnapshot>>>,
+    /// Current Settings navigation intent consumed by the session.
+    settings_intent: watch::Sender<Option<SettingsSessionId>>,
+    /// The session's editable basis for the current Settings interval.
+    settings_basis: watch::Receiver<Option<SettingsBasis>>,
+    /// Monotonic identity of the latest opening in this window.
+    next_settings_id: u64,
+    /// Shared Settings editor when the workbench is hidden.
+    settings_screen: Option<settings::SettingsScreen>,
+    /// Reread the saved view after losing a Settings Apply acknowledgment.
+    recover_settings_view: bool,
     /// Real settings navigation and pending editor ownership.
     settings: operating::SettingsUi,
     /// Local logbook selector and independently owned management workflow.
@@ -176,6 +193,8 @@ impl DesktopApp {
             commands,
             settings_requests,
             settings_view,
+            settings_intent,
+            settings_basis,
             paths,
             diagnostics,
             loss,
@@ -205,10 +224,15 @@ impl DesktopApp {
             commands,
             settings_requests,
             settings_view,
+            settings_intent,
+            settings_basis,
             paths,
             diagnostics,
             loss,
             file_failure,
+            settings_screen: None,
+            recover_settings_view: false,
+            next_settings_id: 0,
             settings: Default::default(),
             logbooks: Default::default(),
             review: Default::default(),
@@ -268,7 +292,7 @@ impl DesktopApp {
             let reviewing = self.review.is_exclusive();
             let mut latest = self.import_entry_call.take().filter(is_current);
             while let Ok(call) = self.entry_calls.try_recv() {
-                if !is_current(&call) {
+                if self.settings_screen.is_some() || !is_current(&call) {
                     continue;
                 }
                 if importing || latest.is_some() {
@@ -277,13 +301,27 @@ impl DesktopApp {
                     self.workbench.incoming_call(&call.status.call);
                 }
             }
-            if importing || reviewing {
+            if importing || reviewing || self.settings_screen.is_some() {
                 self.import_entry_call = latest;
             } else if let Some(call) = latest {
                 self.workbench.incoming_call(&call.status.call);
             }
         }
         self.ws_suite.poll(&self.ws_suite_view.borrow());
+        self.enrollment.poll(context, &mut self.enrollment_view);
+        self.settings.poll();
+        self.logbooks.poll();
+        self.settings.recover_view(&self.commands);
+        self.logbooks.recover_view(&self.commands);
+        if self.recover_settings_view {
+            self.recover_settings_view = matches!(
+                self.commands.try_send(SessionCommand::RecoverSettingsView),
+                Err(mpsc::error::TrySendError::Full(_)),
+            );
+            if self.recover_settings_view {
+                context.request_repaint_after(Duration::from_millis(50));
+            }
+        }
         self.workbench
             .advance_lookup(context, self.lookup_view.borrow().as_ref());
         if self.activation.has_changed().unwrap_or(false) {
@@ -422,6 +460,12 @@ impl eframe::App for DesktopApp {
         }
         #[cfg(not(any(target_os = "macos", windows)))]
         self.show_menus(ui);
+        if !closing && self.settings_screen.is_some() {
+            self.show_settings(ui, &state);
+            #[cfg(any(target_os = "macos", windows))]
+            self.update_menu_state(ui.ctx());
+            return;
+        }
         if !closing
             && (self.review.is_exclusive()
                 || self.import.is_open()
@@ -469,14 +513,24 @@ impl eframe::App for DesktopApp {
                 if let Some(notice) = &self.appearance.notice {
                     feedback::problem(ui, notice);
                 }
-                let receiver_available =
-                    self.menu_enabled(ui.ctx(), crate::menus::MenuCommand::WsSuite);
-                self.ws_suite
-                    .feedback(ui, &self.commands, receiver_available);
+                let receiver_available = self
+                    .menu_enabled(ui.ctx(), crate::menus::MenuCommand::OpenSettings)
+                    && snapshot.is_some();
+                if let Some(opener) = self.ws_suite.feedback(ui, receiver_available) {
+                    ui.ctx().memory_mut(|memory| memory.request_focus(opener));
+                    self.open_settings(ui.ctx(), settings::SettingsDestination::Receiver);
+                }
+                if let SessionStatus::Ready {
+                    settings_read_error: Some(error),
+                    ..
+                } = &state
+                {
+                    feedback::problem(ui, error);
+                }
                 startup::diagnostics(self, ui);
                 startup::show(self, ui, &state);
                 if let Some(snapshot) = &snapshot {
-                    self.logbooks.feedback(ui, &self.settings_requests);
+                    self.logbooks.feedback(ui);
                     let available = ui.available_size();
                     if available.x < 900.0 || available.y < 580.0 {
                         egui::ScrollArea::both()
@@ -511,10 +565,6 @@ impl eframe::App for DesktopApp {
                 }
             });
         if !closing {
-            if let Some(snapshot) = &snapshot {
-                self.logbooks
-                    .dialog(ui.ctx(), &snapshot.logbooks, &self.settings_requests);
-            }
             self.review.show_window(ui.ctx(), &self.settings_requests);
             if let Some(record) = self.review.take_repair() {
                 ui.ctx()
@@ -523,16 +573,14 @@ impl eframe::App for DesktopApp {
                     clacks_sync::record::RecordId::Qso(id) => {
                         self.workbench.open_contact(id, &self.settings_requests)
                     }
-                    clacks_sync::record::RecordId::Profile(_) => self.settings.open_profile(record),
+                    clacks_sync::record::RecordId::Profile(id) => {
+                        self.open_settings(ui.ctx(), settings::SettingsDestination::Profile(id))
+                    }
                     _ => {}
                 }
             }
 
             self.details.show(ui.ctx(), &self.paths, &state);
-            self.appearance.show(ui.ctx());
-            self.ws_suite.show(ui.ctx(), &self.commands);
-            self.enrollment
-                .show(ui.ctx(), &self.commands, &mut self.enrollment_view);
             self.import
                 .show(ui.ctx(), &self.commands, snapshot.as_deref(), frame);
             self.export.show(ui.ctx(), &self.commands, frame);

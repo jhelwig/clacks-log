@@ -98,19 +98,15 @@ change it through the existing asynchronous session/store path. Its deletion
 fallback commits atomically with the effective tag deletion; presentation
 preferences do not maintain another saved selection.
 
-Use a compact main-window logbook/view selector for immediate switching, with
-**Manage logbooks…** in the native **Settings** menu. This placement supersedes
-the adjacent management button described in D305. Management opens a dedicated dialog for
-named-tag creation, names, per-service automatic-upload policies and deletion;
-do not add another permanent management pane. All contacts and Untagged are not
-editable tags. Use the shared Save/Cancel, validation and dismissal behavior.
-Delete opens a separate impact review showing the three agreed choices and
-distinct-contact counts before confirmation. Keep Manage logbooks open while a
-submitted operation is in progress. Disable Close and Escape dismissal until
-it finishes. Show failures in the originating form or review.
+Use a compact main-window logbook/view selector for immediate switching.
+Manage named logbooks in **Settings** under **Logbooks**. Create or rename a
+logbook and set its automatic-upload policies in the shared draft. Delete
+opens an impact review with the three agreed choices and distinct-contact
+counts. Confirming the review stages the deletion for Apply. All contacts
+and Untagged are built-in views.
 
 Show short, collision-checked ID suffixes only when tag display names are
-duplicates (D306). Unique names remain unsuffixed. Manage logbooks exposes the
+duplicates (D306). Unique names remain unsuffixed. The Logbooks section exposes the
 full tag ID for viewing and copying. Keep display disambiguation separate from
 the stored name and the full identity used by selection and commands.
 
@@ -312,32 +308,34 @@ management commands into OS-native menus using the following agreed structure:
 | --- | --- |
 | File | Import ADI…, Export ADI… |
 | Edit | Select all (focused text or all matching history contacts across pages), Look up directory information (selected contacts) |
-| Settings | Manage logbooks…, Station profiles…, Equipment configurations…, Refresh settings, account/server management, WS Suite…, Appearance… |
 | View | Reset workbench layout |
 | Help | Workspace & diagnostics… |
 
-**WS Suite…** opens the shared receiver-settings dialog. **Receive WS Suite
-updates** enables its pending Unicast/Multicast fields; **Apply** commits and
-activates them without restarting. Unicast has Local address and Port;
-Multicast has Group address, Port, Network interface and Refresh interfaces.
-A new workspace starts disabled with a loopback unicast proposal. The multicast
-group must be supplied by the operator. Current local interfaces show their OS
-name and address, with System default available where scope permits.
+Open Settings from **Clacks Log → Settings…** or Command–Comma on macOS,
+**Tools → Options** on Windows, and **Edit → Preferences** in the Linux menu
+bar. Settings replaces the workbench with a view whose left navigation lists
+**Logbooks**, **Station profiles**, **Equipment**, **Connection**, **WS Suite**,
+and **Appearance**. Navigation keeps one draft. **Apply** attempts every
+independent change and keeps Settings open with saved values. The completed
+draft is cleared. An indicator on Apply and on affected section labels
+identifies a failed change, with a diagnostic at the affected setting.
+**Cancel** or Escape discards the draft and restores the workbench and any
+previous focus. When the draft is empty, the dismissal action is **Close**.
+Connection starts browser sign-in as an explicit action.
 
-Use the existing 300 ms validation, field errors, unapplied-value treatment,
-Apply/Cancel and opener-focus rules. Disabled connection fields do not block
-applying Off. The checkbox and unapplied treatment convey normal configuration;
-there is no separate Off/Listening status or endpoint summary. A reception
-failure has its own actionable message, retained outside a dismissed dialog
-with direct settings access. Apply can retry unchanged failed settings. A
-successful retry clears that message and closes the dialog; another failure
-keeps it open. Closing or cancelling does not undo an already submitted Apply.
+**Receive WS Suite updates** enables the pending Unicast or Multicast
+fields. Unicast has Local address and Port. Multicast has Group address,
+Port, Network interface and Refresh interfaces. A new workspace starts
+disabled with a loopback unicast proposal. The operator supplies the group
+address. Local interfaces show their OS name and address. System default
+is available where scope permits. A configuration can save successfully
+even when reception fails to start. Show the saved configuration and its
+reception diagnostic, with an action to retry reception using those saved
+values and direct Settings access from workbench failures.
 
-Use the native menu bar, including the screen-level menu bar on macOS; an egui
-menu drawn in the toolbar is not a substitute. Do not create a separate Logbooks
-menu. A single-entry menu is appropriate only when its future extension is
-obvious, as it is for View and Help. This structure does not introduce new
-settings screens or change the commands' underlying workflows.
+Clacks pauses sync for this workspace while Settings is open. Apply saves
+locally. Sync resumes automatically when Settings closes. Clacks rereads the
+settings view automatically after a read failure.
 
 **File → Import ADI…** opens file and destination logbook selection, then
 prepares a read-only review of the readable records. Parent the native file
@@ -358,11 +356,10 @@ the native Save dialog for ordinary ADI and the native folder picker for POTA.
 When writing finishes, retain destination, counts, and warnings in the same
 Export ADI window until **Done**. See the [ADI export design](superpowers/specs/2026-11-20-adi-export-design.md).
 
-This correction concerns management-command placement. Preserve existing
-synchronization status and conflict-resolution access; improving their
-communication is a separate issue. Contact entry and Save are outside this
-change. Reusable station/equipment management does not occupy a permanent
-workbench content panel. The operating strip uses selected values as
+Use the native menu bar on Windows and macOS and the existing egui fallback on
+Linux. The workbench retains contact entry, Save, immediate logbook selection,
+and **Operating settings…**.
+The operating strip uses selected values as
 its quick-change controls instead of separate rows of values and Change buttons.
 Full editing remains **Operating settings…** beside inline power. Reflow or scroll
 when the window cannot accommodate the strip at the selected scale.

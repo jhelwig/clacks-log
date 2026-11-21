@@ -1,6 +1,6 @@
 //! Explicit Linux fallback; Windows/macOS use their operating-system menus.
 use super::DesktopApp;
-use crate::menus::GROUPS;
+use crate::menus::{FALLBACK_GROUPS, MenuCommand};
 use eframe::egui;
 
 impl DesktopApp {
@@ -8,14 +8,18 @@ impl DesktopApp {
     pub(super) fn show_menus(&mut self, ui: &mut egui::Ui) {
         egui::Panel::top("application.menus").show(ui, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
-                for group in GROUPS {
+                for group in FALLBACK_GROUPS {
                     ui.menu_button(group.title, |ui| {
                         for command in group.commands {
                             if let Some(command) = command {
+                                let label = match command {
+                                    MenuCommand::OpenSettings => "Preferences",
+                                    _ => command.label(),
+                                };
                                 if ui
                                     .add_enabled(
                                         self.menu_enabled(ui.ctx(), *command),
-                                        egui::Button::new(command.label(self.is_enrolled())),
+                                        egui::Button::new(label),
                                     )
                                     .clicked()
                                 {

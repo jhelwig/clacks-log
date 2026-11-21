@@ -52,6 +52,7 @@ fn ready(window: &mut Window) {
             enrolled: false,
         },
         restored_view_from: None,
+        settings_read_error: None,
         synchronization: crate::synchronization::Status::Disconnected,
     });
     let (_, view) = watch::channel(Some(Arc::new(fixtures::snapshot())));
@@ -204,30 +205,25 @@ fn bulk_lookup_native_menu_gates_pending_selection_and_reconciles_queued_view_ch
 fn menu_commands_respect_workspace_state() {
     let mut window = Window::new();
     assert!(
-        !window
-            .app
-            .menu_enabled(&window.context, MenuCommand::ManageLogbooks)
-    );
-    assert!(
         window
             .app
-            .menu_enabled(&window.context, MenuCommand::Appearance)
+            .menu_enabled(&window.context, MenuCommand::OpenSettings)
     );
     assert!(
         window
             .app
             .menu_enabled(&window.context, MenuCommand::Diagnostics)
     );
-    ready(&mut window);
-    assert!(
-        window
-            .app
-            .menu_enabled(&window.context, MenuCommand::ManageLogbooks)
-    );
     window
         .app
-        .dispatch_menu(&window.context, MenuCommand::ManageLogbooks);
-    assert!(window.app.logbooks.is_open());
+        .dispatch_menu(&window.context, MenuCommand::OpenSettings);
+    assert!(window.app.settings_screen.is_some());
+    assert!(window.app.settings_intent.borrow().is_some());
+    assert!(
+        !window
+            .app
+            .menu_enabled(&window.context, MenuCommand::ResetLayout)
+    );
 }
 
 #[test]
@@ -236,20 +232,16 @@ fn queued_command_rechecks_modal_and_closing_state() {
     ready(&mut window);
     window
         .app
-        .dispatch_menu(&window.context, MenuCommand::Appearance);
+        .dispatch_menu(&window.context, MenuCommand::Diagnostics);
     window
         .app
-        .dispatch_menu(&window.context, MenuCommand::ManageLogbooks);
-    assert!(!window.app.logbooks.is_open());
-    window.app.appearance.finish(
-        &window.context,
-        crate::ui::appearance::AppearanceAction::Cancel,
-    );
+        .dispatch_menu(&window.context, MenuCommand::OpenSettings);
+    assert!(window.app.settings_screen.is_none());
     window.app.begin_close();
     window
         .app
-        .dispatch_menu(&window.context, MenuCommand::ManageLogbooks);
-    assert!(!window.app.logbooks.is_open());
+        .dispatch_menu(&window.context, MenuCommand::OpenSettings);
+    assert!(window.app.settings_screen.is_none());
 }
 
 #[test]
@@ -257,11 +249,11 @@ fn menu_open_preserves_editor_draft() {
     let mut window = Window::new();
     window
         .app
-        .dispatch_menu(&window.context, MenuCommand::Appearance);
+        .dispatch_menu(&window.context, MenuCommand::OpenSettings);
     window.app.appearance.editor.as_mut().unwrap().pending.zoom = 1.25;
     window
         .app
-        .dispatch_menu(&window.context, MenuCommand::Appearance);
+        .dispatch_menu(&window.context, MenuCommand::OpenSettings);
     assert_eq!(
         window.app.appearance.editor.as_ref().unwrap().pending.zoom,
         1.25
@@ -279,7 +271,7 @@ fn menu_open_without_focus_is_valid() {
     assert!(window.context.memory(|m| m.focused()).is_none());
     window
         .app
-        .dispatch_menu(&window.context, MenuCommand::Appearance);
+        .dispatch_menu(&window.context, MenuCommand::OpenSettings);
     window.app.appearance.finish(
         &window.context,
         crate::ui::appearance::AppearanceAction::Cancel,
@@ -304,43 +296,6 @@ fn menu_quit_uses_existing_shutdown_once() {
 }
 
 #[test]
-fn refresh_menu_uses_existing_request_path() {
-    let mut window = Window::new();
-    ready(&mut window);
-    let (sender, mut requests) = mpsc::channel(8);
-    window.app.settings_requests = sender;
-    window
-        .app
-        .dispatch_menu(&window.context, MenuCommand::RefreshSettings);
-    let request = requests.try_recv().expect("actual refresh request");
-    assert!(matches!(
-        request.action,
-        crate::session::settings::SettingsAction::Refresh
-    ));
-    // A second activation cannot enqueue another request while the first is pending.
-    window
-        .app
-        .dispatch_menu(&window.context, MenuCommand::RefreshSettings);
-    assert!(requests.try_recv().is_err());
-}
-
-#[test]
-fn busy_management_commands_do_not_mutate_state() {
-    let mut window = Window::new();
-    ready(&mut window);
-    let (sender, mut requests) = mpsc::channel(8);
-    window.app.settings_requests = sender;
-    window
-        .app
-        .dispatch_menu(&window.context, MenuCommand::RefreshSettings);
-    let _pending = requests.try_recv().unwrap();
-    window
-        .app
-        .dispatch_menu(&window.context, MenuCommand::StationProfiles);
-    assert!(!window.app.settings.is_open());
-}
-
-#[test]
 fn diagnostics_menu_discloses_existing_details() {
     use egui_kittest::kittest::Queryable;
     let mut window = Window::new();
@@ -354,25 +309,6 @@ fn diagnostics_menu_discloses_existing_details() {
     ui.get_by_label("Done").click();
     ui.run();
     assert!(ui.query_by_label_contains("Diagnostic logs:").is_none());
-}
-
-#[test]
-fn remaining_commands_keep_existing_destinations() {
-    for command in [
-        MenuCommand::EquipmentConfigurations,
-        MenuCommand::Connection,
-        MenuCommand::ResetLayout,
-    ] {
-        let mut window = Window::new();
-        ready(&mut window);
-        window.app.dispatch_menu(&window.context, command);
-        match command {
-            MenuCommand::EquipmentConfigurations => assert!(window.app.settings.is_open()),
-            MenuCommand::Connection => assert!(window.app.enrollment.is_open()),
-            MenuCommand::ResetLayout => assert!(!window.app.settings.is_open()),
-            _ => unreachable!(),
-        }
-    }
 }
 
 #[test]
@@ -395,33 +331,6 @@ fn toolbar_retains_logbook_and_conflict_access() {
 }
 
 #[test]
-fn menu_dialog_restores_previous_focus() {
-    use egui_kittest::{Harness, kittest::Queryable};
-    let mut ui = Harness::builder()
-        .with_size(egui::vec2(900.0, 900.0))
-        .build_ui_state(
-            |ui, state: &mut (Window, String)| {
-                let label = ui.label("Contact input");
-                ui.text_edit_singleline(&mut state.1).labelled_by(label.id);
-                state.0.app.appearance.show(ui.ctx());
-            },
-            (Window::new(), "unfinished contact".into()),
-        );
-    ui.get_by_label("Contact input").focus();
-    ui.run();
-    let context = ui.ctx.clone();
-    ui.state_mut()
-        .0
-        .app
-        .dispatch_menu(&context, MenuCommand::Appearance);
-    ui.run();
-    ui.get_by_label("Cancel").click();
-    ui.run();
-    assert!(ui.get_by_label("Contact input").is_focused());
-    assert_eq!(ui.state().1, "unfinished contact");
-}
-
-#[test]
 fn menu_metrics_count_dispatch_not_persistence() {
     use metrics_util::debugging::{DebugValue, DebuggingRecorder};
     let recorder = DebuggingRecorder::new();
@@ -430,10 +339,10 @@ fn menu_metrics_count_dispatch_not_persistence() {
         let mut window = Window::new();
         window
             .app
-            .dispatch_menu(&window.context, MenuCommand::Appearance);
+            .dispatch_menu(&window.context, MenuCommand::OpenSettings);
         window
             .app
-            .dispatch_menu(&window.context, MenuCommand::ManageLogbooks);
+            .dispatch_menu(&window.context, MenuCommand::LookupDirectory);
     });
     let values = snapshotter.snapshot().into_vec();
     let entries: Vec<_> = values
@@ -450,8 +359,8 @@ fn menu_metrics_count_dispatch_not_persistence() {
             .collect();
         assert_eq!(labels.len(), 2);
         match labels["command"] {
-            "appearance" => assert_eq!(labels["outcome"], "accepted"),
-            "manage_logbooks" => assert_eq!(labels["outcome"], "stale_disabled"),
+            "open_settings" => assert_eq!(labels["outcome"], "accepted"),
+            "lookup_directory" => assert_eq!(labels["outcome"], "stale_disabled"),
             other => panic!("unexpected command metric {other}"),
         }
     }
@@ -529,56 +438,24 @@ fn menu_quit_waits_for_pending_query() {
 }
 
 #[test]
-fn linux_menus_route_management_commands() {
-    use egui_kittest::{
-        Harness,
-        kittest::{NodeT, Queryable},
-    };
+fn linux_menus_route_settings() {
+    use egui_kittest::{Harness, kittest::Queryable};
     let mut ui = Harness::builder().build_ui_state(
         |ui, window: &mut Window| {
             window.app.show_menus(ui);
-            window.app.appearance.show(ui.ctx());
+            window.app.show_settings(ui, &SessionStatus::Opening);
         },
         Window::new(),
     );
-    ui.get_by_label("Settings").click();
+    assert!(ui.query_by_label("Settings").is_none());
+    ui.get_by_label("Edit").click();
     ui.run();
-    assert!(
-        ui.get_by_label("Manage logbooks…")
-            .accesskit_node()
-            .is_disabled()
-    );
-    ui.get_by_label("Appearance…").click();
+    ui.get_by_label("Preferences").click();
     ui.run();
-    assert!(ui.state().app.appearance.editor.is_some());
-    ui.get_by_label("Cancel").click();
+    assert!(ui.query_by_label("Appearance").is_some());
+    ui.get_by_label("Close").click();
     ui.run();
-    assert!(ui.state().app.appearance.editor.is_none());
-}
-
-#[test]
-#[cfg(any(target_os = "macos", windows))]
-fn completed_request_reenables_menu_without_a_painted_frame() {
-    let mut window = Window::new();
-    ready(&mut window);
-    let (sender, mut requests) = mpsc::channel(8);
-    window.app.settings_requests = sender;
-    window
-        .app
-        .dispatch_menu(&window.context, MenuCommand::RefreshSettings);
-    let pending = requests.try_recv().unwrap();
-    pending
-        .reply
-        .send(crate::session::settings::SettingsResponse::Refresh(
-            fixtures::snapshot(),
-        ))
-        .unwrap();
-    window.app.process_menus(&window.context);
-    assert!(
-        window
-            .app
-            .menu_enabled(&window.context, MenuCommand::StationProfiles)
-    );
+    assert!(ui.state().app.settings_screen.is_none());
 }
 
 #[test]
@@ -591,7 +468,9 @@ fn current_native_close_rejects_queued_management_command() {
     window.app.settings_requests = settings;
     let (sender, receiver) = std::sync::mpsc::channel();
     window.app.menu_receiver = Some(receiver);
-    sender.send(MenuCommand::RefreshSettings).unwrap();
+    sender
+        .send(MenuCommand::OpenSettings)
+        .expect("the window retains the native menu receiver");
     let mut input = egui::RawInput::default();
     input
         .viewports
@@ -606,8 +485,9 @@ fn current_native_close_rejects_queued_management_command() {
     });
     assert!(
         requests.try_recv().is_err(),
-        "closing must not admit queued refresh"
+        "closing must not admit a queued Settings open"
     );
+    assert!(window.app.settings_screen.is_none());
     assert!(matches!(
         window.commands.try_recv(),
         Ok(SessionCommand::BeginShutdown)
@@ -626,7 +506,7 @@ fn pending_contact_open_blocks_other_modal() {
     let _pending = requests.try_recv().expect("saved contact load");
     window
         .app
-        .dispatch_menu(&window.context, MenuCommand::Appearance);
+        .dispatch_menu(&window.context, MenuCommand::OpenSettings);
     assert!(
         window.app.appearance.editor.is_none(),
         "pending contact editor reserves modal input"
@@ -753,38 +633,10 @@ fn reset_menu_restores_panes_without_discarding_contact() {
 #[cfg(any(target_os = "macos", windows))]
 fn native_menu_text_preserves_literal_ampersand() {
     assert_eq!(
-        crate::menus::native::item_text(MenuCommand::Diagnostics, false),
+        crate::menus::native::item_text(MenuCommand::Diagnostics),
         "Workspace && diagnostics…"
     );
-    assert_eq!(
-        MenuCommand::Diagnostics.label(false),
-        "Workspace & diagnostics…"
-    );
-}
-
-#[test]
-fn ws_suite_menu_uses_shared_modal_admission() {
-    let mut window = Window::new();
-    assert!(
-        !window
-            .app
-            .menu_enabled(&window.context, MenuCommand::WsSuite)
-    );
-    ready(&mut window);
-    window
-        .app
-        .dispatch_menu(&window.context, MenuCommand::WsSuite);
-    assert!(window.app.ws_suite.is_open());
-    assert!(
-        !window
-            .app
-            .menu_enabled(&window.context, MenuCommand::ManageLogbooks)
-    );
-    assert!(
-        !window
-            .app
-            .menu_enabled(&window.context, MenuCommand::WsSuite)
-    );
+    assert_eq!(MenuCommand::Diagnostics.label(), "Workspace & diagnostics…");
 }
 
 #[test]

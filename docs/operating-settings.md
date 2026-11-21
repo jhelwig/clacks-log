@@ -216,6 +216,15 @@ The save does not alter the operating selection, reattach detached equipment,
 change any profile's default reference or apply the context. Explicitly load the
 saved result if it is to become the selected operating configuration.
 
+### 4.4. Manage reusable records across Settings sections
+
+The **Station profiles** and **Equipment** sections of desktop Settings stage reusable records
+in the shared draft. Apply attempts independent changes and checks reviewed
+deletion effects again. If a change fails, show its diagnostic beside the
+record and display the saved values. The separate **Operating settings…**
+workflow in the workbench still applies the active setup and retains its
+nested save actions.
+
 ## 5. Entry and validation
 
 Reuse native validation and transformations rather than introducing a parallel

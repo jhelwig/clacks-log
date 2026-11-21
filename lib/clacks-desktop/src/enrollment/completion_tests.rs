@@ -12,7 +12,8 @@ use clacks_sync::protocol::ClientIdentity;
 use tokio_util::sync::CancellationToken;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn connect_enrolls_existing_empty_workspace() -> anyhow::Result<()> {
+async fn settings_pause_survives_connect_enrolling_the_existing_empty_workspace()
+-> anyhow::Result<()> {
     use crate::session::{
         self, SessionCommand, SessionStatus,
         tests::{Fixture, next_matching},
@@ -21,6 +22,8 @@ async fn connect_enrolls_existing_empty_workspace() -> anyhow::Result<()> {
     let paths = fixture.resources.paths.clone();
     let enrollment_updates = fixture.resources.enrollment_updates.clone();
     let enrollment_view = enrollment_updates.subscribe();
+    let opening = session::SettingsSessionId(1);
+    fixture.settings_intent.send_replace(Some(opening));
     let task = tokio::spawn(session::run(
         fixture.resources,
         fixture.input,
@@ -101,6 +104,39 @@ async fn connect_enrolls_existing_empty_workspace() -> anyhow::Result<()> {
         fixture.settings_view.borrow().as_ref().unwrap().operating,
         operating
     );
+    let basis = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        fixture.settings_basis.wait_for(|basis| {
+            basis.as_ref().is_some_and(|basis| {
+                basis.id == opening
+                    && basis.identity.enrolled
+                    && basis.identity.account == verified.identity.account
+            })
+        }),
+    )
+    .await??
+    .clone();
+    assert_eq!(basis.map(|b| b.snapshot.operating.clone()), Some(operating));
+    assert!(matches!(
+        *fixture.status.borrow(),
+        SessionStatus::Ready {
+            synchronization: crate::synchronization::Status::Disconnected,
+            ..
+        }
+    ));
+
+    fixture.settings_intent.send_replace(None);
+    next_matching(&mut fixture.status, |s| {
+        matches!(
+            s,
+            SessionStatus::Ready {
+                synchronization: crate::synchronization::Status::Connecting
+                    | crate::synchronization::Status::Failed(_),
+                ..
+            }
+        )
+    })
+    .await?;
     fixture.commands.send(SessionCommand::BeginShutdown).await?;
     task.await??;
     opened.store.close().await?;

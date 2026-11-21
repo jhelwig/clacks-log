@@ -53,13 +53,13 @@ Reuse `LogbookTag`, `TagId`, QSO tag sets and ordinary whole-record reconciliati
 Independent membership replication, automatic set merging and separate QSO copies
 are outside the agreed model. Duplicate names do not merge identities.
 
-### Dedicated management dialog
+### The Logbooks section in Settings
 
-Use a compact main-window selector with **Manage logbooks…** in the native
-**Settings** menu, following the desktop UI contract. Immediate
-view selection stays available without a permanent management pane. The dedicated
-dialog separates named-tag edits and deletion from routine view changes. It uses
-the existing Save/Cancel, validation, focus, dismissal and feedback facilities.
+Use the main-window selector for immediate view selection. Create, edit,
+and review deletions of named logbooks in the **Logbooks** section of
+Settings. Confirming a deletion stages it in the shared Settings
+draft. Apply commits each eligible change under its existing record and
+impact checks.
 
 ### Client-local SQLite selection
 
@@ -220,7 +220,7 @@ entry windows; #8 does not add independent drafts or implement entry windows.
 ### 5.1. Selection and identity presentation
 
 The compact selector includes both built-in views and live named logbooks.
-Manage logbooks exposes the named records and their full IDs for viewing and
+The Logbooks section exposes the named records and their full IDs for viewing and
 copying. Identify edited/deleted targets by the full ID, never by name or row
 position. A tag rename preserves all contact memberships and the selected ID.
 
@@ -237,7 +237,7 @@ Engineering defaults for the implementation plan:
   the grouping distinguishes it from the built-in choice without reserving names.
 - For duplicate tag names, start with the final eight characters of the canonical
   ID. Extend colliding suffixes until each is distinct within that duplicate-name
-  group, up to the full ID. Use the same disambiguation in selector and dialog.
+  group, up to the full ID. Use the same disambiguation in the selector and Settings.
 - Compare the actual displayed names for this purpose; do not silently case-fold
   or rename stored values. Sort by display name with full ID as a deterministic
   secondary key. Exact label typography follows the shared UI contract.
@@ -247,17 +247,16 @@ metadata or identity rules. The full ID remains available independently of them.
 
 ### 5.2. Create, rename and configure
 
-Use the existing editor pattern: pending form values, live debounced validation,
-Save/Cancel, an edited-state highlight and disabled Save while errors remain.
-Submission validates the latest form again. Close/Escape follows Cancel without
-an extra discard prompt. Keep errors visible and preserve edits on failure.
+Use edited-state treatment and live validation in the Logbooks section. Apply
+validates the final values and attempts each independent record. It displays
+the resulting saved values and any record-specific failures. Cancel and Escape
+discard the whole Settings draft.
 
 Create uses a fresh native TagId and both policies set to Neither. Rename and
 policy edits target the existing full tag ID and use its exact expected record
 basis. No-op saves preserve pending evidence and produce no mutation count.
-A stale save does not overwrite an intervening edit or resurrect a deleted tag;
-retain the user's input, explain the stale state and use the established explicit
-reload/review workflow. Do not silently turn a failed edit into a new tag.
+A stale save preserves the intervening record or deletion. Display the current
+saved value and explain which edit could not apply.
 
 Engineering defaults for the implementation plan:
 
@@ -267,9 +266,6 @@ Engineering defaults for the implementation plan:
   inspectable even if they would not pass new-entry validation.
 - Saving a tag creates/updates that record without opening it or changing the
   selected view. Opening a view remains the selector's explicit operation.
-- Give each record editor its own Save/Cancel boundary. A completed record save
-  survives later dismissal of Manage logbooks. Moving between management and
-  deletion review follows the existing nested-editor rules, not autosave.
 
 ### 5.3. Policy editing
 
@@ -394,9 +390,9 @@ Ordinary catalog refreshes do not discard open form edits or advance their
 expected bases silently. Preserve the last usable snapshot on failure. A
 successful save, selection or deletion remains successful even if the following
 catalog refresh fails: retain its exact committed result, distinguish the refresh
-failure and offer an explicit refresh. Keep the dialog open while its submitted
-operation is pending so the user can recover from failure in place. Shutdown
-stops new work and lets in-flight transactions complete or roll back normally.
+failure and refresh the view automatically. Keep Settings open while its
+submitted Apply is pending. Shutdown stops new work and lets in-flight
+transactions complete or roll back normally.
 
 ## 8. Observability
 
@@ -433,7 +429,7 @@ functional suite solely to exercise configured/unconfigured telemetry.
 ### Duplicate names and restart
 
 Create two tags named Main with different TagIds. Both remain selectable with
-distinct suffixes and full IDs in Manage logbooks. Select one and restart: restore
+distinct suffixes and full IDs in the Logbooks section. Select one and restart: restore
 that exact ID. Rename either tag: labels update, but saved selection and contact
 memberships keep their original identity.
 
@@ -495,7 +491,7 @@ is introduced.
 | Staged/unknown/non-effective deletion | No fallback from staging, unknown knowledge, failed reads or an unresolved live working alternative. |
 | Idempotent deletion installation | Reprocessing does not create extra mutations or lose the persisted fallback. |
 | Refresh failure after commit | Exact operation result survives; no automatic mutation retry or stale-selection restoration. |
-| UI integration | Real selector/dialog, validation, Save/Cancel, copied full ID, readable duplicate labels and deletion review work across the existing appearances/scales. |
+| UI integration | Real selector and Settings screen, shared Apply/Cancel, copied full ID, readable duplicate labels and deletion review work across the existing appearances/scales. |
 | Entry/history handoff | Later consumers use the same authoritative selection; no placeholders are required to verify #8. |
 | Telemetry | Focused IDs/outcomes/counts match real commits and exclude tag names and payload data. |
 

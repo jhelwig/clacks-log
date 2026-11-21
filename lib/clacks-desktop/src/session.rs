@@ -3,6 +3,7 @@
 pub(crate) mod export;
 mod opening;
 pub(crate) mod settings;
+mod settings_view;
 mod shutdown;
 #[cfg(test)]
 pub(crate) mod tests;
@@ -31,6 +32,21 @@ use tracing::instrument::WithSubscriber;
 /// Bound blocking font discovery/loading so rapid preference changes cannot grow workers indefinitely.
 const MAX_FONT_TASKS: usize = 4;
 
+/// One opening of the main-window Settings editor.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct SettingsSessionId(pub(crate) u64);
+
+/// Current workspace settings read after synchronization settled for this opening.
+#[derive(Clone, Debug)]
+pub(crate) struct SettingsBasis {
+    /// Opening that requested the editing basis.
+    pub(crate) id: SettingsSessionId,
+    /// Workspace whose settings were read.
+    pub(crate) identity: WorkspaceStatus,
+    /// Last verified local settings for this opening.
+    pub(crate) snapshot: Arc<SettingsSnapshot>,
+}
+
 /// Lifecycle, presentation and enrollment requests owned by one workspace session.
 #[derive(Debug)]
 pub(crate) enum SessionCommand {
@@ -50,6 +66,8 @@ pub(crate) enum SessionCommand {
     RetryOpen,
     /// Retry local directory access without restarting synchronization or authorization.
     RetryDirectoryStorage,
+    /// Verify stored settings after an operation lost its acknowledgment.
+    RecoverSettingsView,
     /// Stop admitting work and begin resource cleanup.
     BeginShutdown,
 }
@@ -63,6 +81,8 @@ pub(crate) enum SessionStatus {
     Ready {
         /// Live sync worker status or a diagnostic if the task stopped unexpectedly.
         synchronization: crate::synchronization::Status,
+        /// Last failed automatic settings read, cleared after successful verification.
+        settings_read_error: Option<String>,
         /// Stable local account and enrollment status.
         identity: WorkspaceStatus,
         /// Tag whose known deletion caused startup to select All contacts.
@@ -112,6 +132,10 @@ pub(crate) struct SessionResources {
     pub context: Arc<OnceLock<egui::Context>>,
     /// Bounded requests from actual settings editors.
     pub settings_requests: mpsc::Receiver<settings::SettingsRequest>,
+    /// Most recent Settings opening, preserved through workspace transitions.
+    pub settings_intent: watch::Receiver<Option<SettingsSessionId>>,
+    /// Fresh editing basis, absent while a pause or workspace change settles.
+    pub settings_basis: watch::Sender<Option<SettingsBasis>>,
     /// Ordered committed settings view for native presentation.
     pub settings_updates: watch::Sender<Option<Arc<SettingsSnapshot>>>,
 }
@@ -132,11 +156,13 @@ fn publish(
 fn settle_settings(
     result: Result<Option<settings::Completion>, tokio::task::JoinError>,
     settings_updates: &watch::Sender<Option<Arc<SettingsSnapshot>>>,
+    settings_basis: &watch::Sender<Option<SettingsBasis>>,
     context: &OnceLock<egui::Context>,
+    reads: &mut settings_view::Recovery,
 ) {
     match result {
         Ok(Some(completion)) => {
-            if let Some(snapshot) = completion.snapshot {
+            let published = if let Some(snapshot) = completion.snapshot {
                 if let Some(previous) = settings_updates.borrow().as_ref() {
                     if let Some(profile) = &previous.operating.selected_profile()
                         && snapshot.operating.selected_profile().is_none()
@@ -163,7 +189,39 @@ fn settle_settings(
                         tracing::info!(event = "operating.deleted_equipment_forgotten", account_id = %deleted.key().account, equipment_id = %equipment.id());
                     }
                 }
-                settings_updates.send_replace(Some(Arc::new(snapshot)));
+                let snapshot = Arc::new(snapshot);
+                settings_updates.send_replace(Some(snapshot.clone()));
+                Some(snapshot)
+            } else if let settings::SettingsResponse::RefreshFailed { outcome, .. } =
+                &completion.response
+                && let settings::SettingsResponse::ApplyAccountChanges(result) = outcome.as_ref()
+            {
+                let mut patched = None;
+                settings_updates.send_if_modified(|latest| {
+                    let Some(latest) = latest else { return false };
+                    result.update_snapshot(Arc::make_mut(latest));
+                    patched = Some(latest.clone());
+                    true
+                });
+                patched
+            } else {
+                None
+            };
+            if let Some(snapshot) = published {
+                settings_basis.send_if_modified(|basis| {
+                    if let Some(basis) = basis {
+                        basis.snapshot = snapshot;
+                        true
+                    } else {
+                        false
+                    }
+                });
+            }
+            if matches!(
+                completion.response,
+                settings::SettingsResponse::RefreshFailed { .. }
+            ) {
+                reads.schedule();
             }
             let _ = completion.reply.send(completion.response);
             if let Some(context) = context.get() {
@@ -171,7 +229,10 @@ fn settle_settings(
             }
         }
         Ok(None) => {}
-        Err(_) => tracing::error!(event = "desktop.settings_task_failed"),
+        Err(_) => {
+            reads.schedule();
+            tracing::error!(event = "desktop.settings_task_failed");
+        }
     }
 }
 
@@ -195,6 +256,8 @@ pub(crate) async fn run(
         activation,
         context,
         mut settings_requests,
+        mut settings_intent,
+        settings_basis,
         settings_updates,
     } = resources;
 
@@ -213,7 +276,7 @@ pub(crate) async fn run(
     let mut receiver_pairs = crate::ws_suite::pairing::Pairing::default();
     let mut receiver_commands: Option<mpsc::Sender<crate::ws_suite::ReceiverRequest>> = None;
     let mut lookup_stop = CancellationToken::new();
-    let (lookup_binding, lookup_binding_view) = watch::channel(None);
+    let (workspace_binding, workspace_binding_view) = watch::channel(None);
     let mut lookup_client: Option<crate::directory::lookup::LookupClient> = None;
     let mut sync_control = crate::synchronization::Control::default();
     let mut export_work = JoinSet::new();
@@ -232,6 +295,10 @@ pub(crate) async fn run(
     let mut enrollment_progress = enrollment_updates.subscribe();
     let mut enrollment_stop = CancellationToken::new();
     let mut settings_open = true;
+    let mut intent_open = true;
+    let mut pause = *settings_intent.borrow_and_update();
+    let mut sync_requested = false;
+    let mut reads = settings_view::Recovery::default();
     let mut opening = JoinSet::new();
     opening::begin(&mut opening, paths.clone());
 
@@ -325,9 +392,11 @@ pub(crate) async fn run(
                 },
                 Some(SessionCommand::Enrollment(command)) if closing.is_none() && enrollment_work.is_empty() && import_work.is_empty() => {
                     while let Some(result) = work.join_next().await {
-                        settle_settings(result, &settings_updates, &context);
+                        settle_settings(result, &settings_updates, &settings_basis, &context, &mut reads);
                     }
                     if let Some(workspace) = &opened {
+                        settings_basis.send_replace(None);
+                        reads = Default::default();
                         receiver_stop.cancel();
                         while let Some(result) = receiver_work.join_next().await {
                             if let Ok(Ok(pairs)) = result {
@@ -370,10 +439,14 @@ pub(crate) async fn run(
                 Some(SessionCommand::RetryDirectoryStorage) => {
                     if closing.is_none() { directory.retry.notify_one(); }
                 },
+                Some(SessionCommand::RecoverSettingsView) => {
+                    if closing.is_none() && opened.is_some() { reads.schedule(); }
+                }
                 Some(SessionCommand::BeginShutdown) | None => {
                     if closing.is_none() {
                         let started = Instant::now();
                         closing = Some(started);
+                        settings_basis.send_replace(None);
                         enrollment_stop.cancel();
                         sync_control.stop.cancel();
                         import_stop.cancel();
@@ -397,6 +470,14 @@ pub(crate) async fn run(
                         commands_open = false;
                     }
                 }
+            },
+            changed = settings_intent.changed(), if intent_open => {
+                intent_open = changed.is_ok();
+                pause = if intent_open { *settings_intent.borrow_and_update() } else { None };
+                settings_basis.send_replace(None);
+                sync_requested = true;
+                if pause.is_some() { sync_control.stop.cancel(); }
+                if let Some(context) = context.get() { context.request_repaint(); }
             },
             result = geography_opening.join_next(), if !geography_opening.is_empty() => {
                 if let Some(result) = result {
@@ -466,15 +547,21 @@ pub(crate) async fn run(
                 let ready = matches!(*enrollment_progress.borrow_and_update(), EnrollmentStatus::Ready);
                 let binding_changed = if let Some(workspace) = &opened {
                     let installed = clacks_client_store::identity::binding(&workspace.store).await?;
-                    installed != *lookup_binding.borrow()
+                    installed != *workspace_binding.borrow()
                 } else { false };
                 if enrollment_work.is_empty() && (ready || binding_changed) && closing.is_none() && let Some(workspace) = opened.take() {
+                    settings_basis.send_replace(None);
+                    sync_control.stop.cancel();
                     import_stop.cancel();
                     while import_work.join_next().await.is_some() {}
                     export_stop.cancel();
                     while export_work.join_next().await.is_some() {}
                     export_stop = CancellationToken::new();
-                    sync_control.stop.cancel();
+                    while let Some(result) = work.join_next().await {
+                        settle_settings(result, &settings_updates, &settings_basis, &context, &mut reads);
+                    }
+                    settings_updates.send_replace(None);
+                    reads = Default::default();
                     while let Some(result) = sync_work.join_next().await { if let Err(error) = result { tracing::error!(event="sync.worker.failed", error.type=if error.is_panic() { "task_panic" } else { "task_cancelled" }); } }
                     lookup_stop.cancel();
                     while lookup_work.join_next().await.is_some() {}
@@ -516,13 +603,21 @@ pub(crate) async fn run(
                 if let Some(context) = context.get() {context.request_repaint();}
             },
             _ = settings_progress.changed() => {
-                settings_progress.borrow_and_update();
+                let latest = settings_progress.borrow_and_update().clone();
+                if let Some(snapshot) = latest {
+                    settings_basis.send_if_modified(|basis| {
+                        if let Some(basis) = basis && !Arc::ptr_eq(&basis.snapshot, &snapshot) {
+                            basis.snapshot = snapshot;
+                            true
+                        } else { false }
+                    });
+                }
                 if let Some(context) = context.get() {context.request_repaint();}
             },
             _ = sync_progress.changed() => {
                 let synchronization = sync_progress.borrow_and_update().clone();
                 let next = match &*status.borrow() {
-                    SessionStatus::Ready {identity, restored_view_from, ..} if closing.is_none() => Some(SessionStatus::Ready {identity:*identity, restored_view_from:*restored_view_from, synchronization}),
+                    SessionStatus::Ready {identity, restored_view_from, settings_read_error, ..} if closing.is_none() => Some(SessionStatus::Ready {identity:*identity, restored_view_from:*restored_view_from, settings_read_error: settings_read_error.clone(), synchronization}),
                     _ => None,
                 };
                 if let Some(next) = next {publish(&status, &context, next);}
@@ -532,9 +627,10 @@ pub(crate) async fn run(
                     tracing::error!(event="sync.worker.failed", error.type=if error.is_panic() { "task_panic" } else { "task_cancelled" });
                     sync_progress.borrow_and_update();
                     let next = match &*status.borrow() {
-                        SessionStatus::Ready {identity, restored_view_from, ..} if closing.is_none() => Some(SessionStatus::Ready {
+                        SessionStatus::Ready {identity, restored_view_from, settings_read_error, ..} if closing.is_none() => Some(SessionStatus::Ready {
                             identity: *identity,
                             restored_view_from: *restored_view_from,
+                            settings_read_error: settings_read_error.clone(),
                             synchronization: crate::synchronization::Status::Failed("Synchronization task stopped unexpectedly".into()),
                         }),
                         _ => None,
@@ -574,8 +670,8 @@ pub(crate) async fn run(
                                     enrollment_updates.send_replace(enrollment);
                                 }
                                 settings_updates.send_replace(Some(Arc::new(workspace.settings.clone())));
-                                lookup_binding.send_replace(clacks_client_store::identity::binding(&workspace.store).await?);
-                                let (client, runtime) = crate::directory::lookup::runtime::LookupRuntime::new(workspace.store.clone(), lookup_binding_view.clone(), directory.installed.subscribe(), context.clone()).await;
+                                workspace_binding.send_replace(clacks_client_store::identity::binding(&workspace.store).await?);
+                                let (client, runtime) = crate::directory::lookup::runtime::LookupRuntime::new(workspace.store.clone(), workspace_binding_view.clone(), directory.installed.subscribe(), context.clone()).await;
                                 lookup.send_replace(Some(client.clone()));
                                 lookup_client = Some(client.clone());
                                 lookup_work.spawn(runtime.run(lookup_stop.clone()));
@@ -590,6 +686,7 @@ pub(crate) async fn run(
                                     SessionStatus::Ready {
                                         synchronization: crate::synchronization::Status::Disconnected,
                                         identity: workspace.identity,
+                                        settings_read_error: None,
                                         restored_view_from: workspace.restored_view_from,
                                     },
                                 );
@@ -607,7 +704,7 @@ pub(crate) async fn run(
                                         receiver_stop.clone(),
                                     ).in_current_span().with_current_subscriber(),
                                 );
-                                start_sync(&mut sync_work, &workspace.store, &local_changes, &sync_updates, &settings_updates, &sync_control, &directory).await?;
+                                sync_requested = true;
                             }
                             opened = Some(workspace);
                         }
@@ -626,10 +723,45 @@ pub(crate) async fn run(
                     }
                 }
             },
+            _ = std::future::ready(()), if sync_requested && pause.is_none() && closing.is_none() && opened.is_some() && sync_work.is_empty() && enrollment_work.is_empty() => {
+                sync_requested = false;
+                if let Some(workspace) = &opened && settings_intent.borrow().is_none()
+                    && let Some(binding) = workspace_binding.borrow().clone() {
+                    sync_control.stop = CancellationToken::new();
+                    sync_work.spawn(crate::synchronization::run(
+                        workspace.store.clone(), binding, local_changes.subscribe(),
+                        sync_updates.clone(), settings_updates.clone(), sync_control.clone(), directory.clone(),
+                    ).in_current_span().with_current_subscriber());
+                }
+            },
+            _ = reads.wait(), if closing.is_none() && opened.is_some() && work.is_empty() && enrollment_work.is_empty() && (reads.scheduled() || (pause.is_some() && sync_work.is_empty() && settings_basis.borrow().is_none())) => {
+                if let Some(workspace) = &opened {
+                    let read = reads.read(&workspace.store, &settings_updates).await;
+                    let failure = read.as_ref().err().map(|error| format!("Could not read the stored settings. Retrying automatically. {error:#}"));
+                    status.send_if_modified(|status| {
+                        if let SessionStatus::Ready { settings_read_error, .. } = status && *settings_read_error != failure {
+                            *settings_read_error = failure;
+                            true
+                        } else { false }
+                    });
+                    if let Ok(Some(snapshot)) = read && sync_work.is_empty()
+                        && let Some(id) = pause && *settings_intent.borrow() == Some(id) {
+                        settings_basis.send_replace(Some(SettingsBasis {id, identity: workspace.identity, snapshot}));
+                    }
+                    if let Some(context) = context.get() { context.request_repaint(); }
+                }
+            },
             request = settings_requests.recv(), if settings_open && closing.is_none() && work.is_empty() && enrollment_work.is_empty() => {
                 match request {
                     Some(request) => {
                         if let Some(workspace) = &opened {
+                            if matches!(&request.action, settings::SettingsAction::ApplyAccountChanges(_))
+                                && !settings_basis.borrow().as_ref().is_some_and(|basis|
+                                    Some(basis.id) == *settings_intent.borrow() && basis.identity == workspace.identity)
+                            {
+                                let _ = request.reply.send(settings::SettingsResponse::Failed("Workspace settings are not ready for this edit.".into()));
+                                continue;
+                            }
                             let lookup = lookup_client.clone();
                             let store = workspace.store.clone();
                             let changes = local_changes.clone();
@@ -647,7 +779,7 @@ pub(crate) async fn run(
                 }
             },
             completion = work.join_next(), if !work.is_empty() => {
-                if let Some(completion) = completion { settle_settings(completion, &settings_updates, &context); }
+                if let Some(completion) = completion { settle_settings(completion, &settings_updates, &settings_basis, &context, &mut reads); }
             },
             changed = directory_progress.changed() => {
                 if changed.is_ok() && let Some(context) = context.get() { context.request_repaint(); }
@@ -713,32 +845,4 @@ async fn activation_notices(
             }
         }
     }
-}
-
-/// Start the actual enrolled workspace's driver under the owning session lifetime.
-async fn start_sync(
-    tasks: &mut JoinSet<()>,
-    store: &clacks_client_store::store::ClientStore,
-    changes: &watch::Sender<()>,
-    status: &watch::Sender<crate::synchronization::Status>,
-    updates: &watch::Sender<Option<Arc<SettingsSnapshot>>>,
-    control: &crate::synchronization::Control,
-    directory: &crate::directory::provisioning::Outputs,
-) -> anyhow::Result<()> {
-    if let Some(binding) = clacks_client_store::identity::binding(store).await? {
-        tasks.spawn(
-            crate::synchronization::run(
-                store.clone(),
-                binding,
-                changes.subscribe(),
-                status.clone(),
-                updates.clone(),
-                control.clone(),
-                directory.clone(),
-            )
-            .in_current_span()
-            .with_current_subscriber(),
-        );
-    }
-    Ok(())
 }

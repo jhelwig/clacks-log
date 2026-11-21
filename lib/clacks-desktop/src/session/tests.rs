@@ -21,6 +21,8 @@ pub(crate) struct Fixture {
     pub(crate) input: mpsc::Receiver<SessionCommand>,
     pub(crate) settings: mpsc::Sender<super::settings::SettingsRequest>,
     pub(crate) lookup: watch::Receiver<Option<crate::directory::lookup::LookupClient>>,
+    pub(crate) settings_intent: watch::Sender<Option<SettingsSessionId>>,
+    pub(crate) settings_basis: watch::Receiver<Option<SettingsBasis>>,
     pub(crate) settings_view:
         watch::Receiver<Option<Arc<clacks_client_store::settings::SettingsSnapshot>>>,
 }
@@ -59,6 +61,8 @@ impl Fixture {
         let telemetry = crate::telemetry::initialize(&config, &paths);
         let (settings, requests) = mpsc::channel(8);
         let (settings_updates, settings_view) = watch::channel(None);
+        let (intent, settings_intent) = watch::channel(None);
+        let (settings_basis, basis) = watch::channel(None);
         let (lookup_output, lookup) = watch::channel(None);
         let resources = SessionResources {
             geography: watch::channel(Default::default()).0,
@@ -78,6 +82,8 @@ impl Fixture {
             enrollment_updates: watch::channel(Default::default()).0,
             settings_requests: requests,
             settings_updates,
+            settings_intent,
+            settings_basis,
             paths,
             listener,
             telemetry,
@@ -97,6 +103,8 @@ impl Fixture {
             settings,
             lookup,
             settings_view,
+            settings_intent: intent,
+            settings_basis: basis,
         })
     }
 }
@@ -210,3 +218,39 @@ async fn close_while_failed_preserves_file_and_releases_resources() -> anyhow::R
 }
 
 pub(crate) mod ws_suite;
+
+#[tokio::test(flavor = "multi_thread")]
+async fn settings_pause_uses_latest_open_interval_through_startup_and_shutdown()
+-> anyhow::Result<()> {
+    let mut fixture = Fixture::new()?;
+    fixture
+        .settings_intent
+        .send_replace(Some(SettingsSessionId(1)));
+    fixture.settings_intent.send_replace(None);
+    let current = SettingsSessionId(2);
+    fixture.settings_intent.send_replace(Some(current));
+    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
+
+    let identity = match next_matching(&mut fixture.status, |s| {
+        matches!(s, SessionStatus::Ready { .. })
+    })
+    .await?
+    {
+        SessionStatus::Ready { identity, .. } => identity,
+        _ => anyhow::bail!("workspace should have opened"),
+    };
+    let basis = tokio::time::timeout(
+        Duration::from_secs(5),
+        fixture
+            .settings_basis
+            .wait_for(|basis| basis.as_ref().is_some_and(|b| b.id == current)),
+    )
+    .await??
+    .clone();
+    assert_eq!(basis.map(|b| b.identity), Some(identity));
+
+    fixture.commands.send(SessionCommand::BeginShutdown).await?;
+    task.await??;
+    assert!(fixture.settings_basis.borrow().is_none());
+    Ok(())
+}
