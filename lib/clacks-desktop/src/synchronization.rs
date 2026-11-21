@@ -59,9 +59,11 @@ impl ExchangeGate {
         }
     }
 
+    /// Acquire exclusive access, reporting when a workspace hold delays it.
     async fn exchange(
         &self,
         stop: &CancellationToken,
+        on_wait: impl FnOnce(),
     ) -> anyhow::Result<OwnedRwLockWriteGuard<()>> {
         tokio::select! {
             biased;
@@ -71,6 +73,7 @@ impl ExchangeGate {
                     Ok(guard) => guard,
                     Err(_) => {
                         tracing::info!(event = "sync.waiting_for_workspace_hold");
+                        on_wait();
                         self.0.clone().write_owned().await
                     }
                 }
@@ -86,7 +89,7 @@ pub(crate) struct Control {
     pub gate: ExchangeGate,
 }
 
-/// Nonsecret connection/error presentation; no aggregate completion timestamp is implied.
+/// Live connection and exchange progress for desktop presentation.
 #[derive(Clone, Debug, Default)]
 pub(crate) enum Status {
     /// No native connection is active.
@@ -94,8 +97,14 @@ pub(crate) enum Status {
     Disconnected,
     /// Connecting or refreshing through the existing enrolled credential.
     Connecting,
-    /// The native connection is established; individual records may still require review.
-    Connected,
+    /// The connected worker is negotiating or exchanging changes.
+    Syncing,
+    /// The worker is waiting for a workspace hold to release.
+    Paused,
+    /// The exchange settled with saved local changes still outstanding.
+    UnsynchronizedChanges,
+    /// The worker has completed the exchange and has no pending work.
+    UpToDate,
     /// Current actionable failure, without any loss of local work.
     Failed(String),
 }
@@ -170,9 +179,8 @@ pub(crate) async fn run(
             let context = span.context().span().span_context().clone();
             drop(span);
             tracing::info!(event="sync.connected", account_id=%binding.account, actor_id=%binding.actor);
-            status.send_replace(Status::Connected);
             delay = 1;
-            exchange::run(&mut socket, &store, &binding, &mut changes, &updates, &ConnectionContext { stop: connection_stop.clone(), gate: gate.clone(), trace: context, directory: directory_deliveries.clone() }).await
+            exchange::run(&mut socket, &store, &binding, &mut changes, &status, &updates, &ConnectionContext { stop: connection_stop.clone(), gate: gate.clone(), trace: context, directory: directory_deliveries.clone() }).await
         }
         .await;
         connection_stop.cancel();
