@@ -1,15 +1,18 @@
 //! Receive-first synchronization cycles over the actual SQLite receipt adapter.
 
-use super::{ConnectionContext, ServerFailure, Socket, pending, receive, send};
+use super::{ConnectionContext, ServerFailure, Socket, Status, pending, receive, send};
 use clacks_client_store::{
     identity::EnrollmentBinding, settings::SettingsSnapshot, store::ClientStore, synchronization,
     transfer,
 };
 use clacks_sync::protocol::messages::{self, ClientMessage, ServerMessage, TransferMessage};
 use std::sync::Arc;
-use tokio::sync::watch;
+use tokio::sync::{OwnedRwLockWriteGuard, watch};
 use tracing::Instrument;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+#[cfg(test)]
+mod tests;
 
 /// Consume wakeups while waiting for an ordered reply; wakeups never establish coverage.
 pub(super) async fn response(
@@ -39,11 +42,12 @@ pub(super) async fn run(
     store: &ClientStore,
     binding: &EnrollmentBinding,
     changes: &mut watch::Receiver<()>,
+    status: &watch::Sender<Status>,
     updates: &watch::Sender<Option<Arc<SettingsSnapshot>>>,
     connection: &ConnectionContext,
 ) -> anyhow::Result<()> {
     let stop = &connection.stop;
-    let negotiation_guard = connection.gate.exchange(stop).await?;
+    let negotiation_guard = begin_exchange(connection, status).await?;
     let negotiation = tracing::info_span!(parent: None, "desktop.sync.negotiate", account_id=%binding.account, actor_id=%binding.actor);
     negotiation.add_link(connection.trace.clone());
     negotiation.in_scope(|| tracing::info!(event="sync.waiting_for_peer", phase="negotiation", account_id=%binding.account, actor_id=%binding.actor));
@@ -114,7 +118,7 @@ pub(super) async fn run(
     )?;
     let mut exchange = 1_u64;
     loop {
-        let exchange_guard = connection.gate.exchange(stop).await?;
+        let exchange_guard = begin_exchange(connection, status).await?;
         send(socket, stop, ClientMessage::DirectoryConfiguration).await?;
         // Mark local notifications consumed before discovery; writes during it remain visible afterward.
         changes.borrow_and_update();
@@ -230,6 +234,15 @@ pub(super) async fn run(
         if dirty || changes.has_changed()? {
             continue;
         }
+        let pending = synchronization::state(store).await?.pending;
+        if changes.has_changed()? {
+            continue;
+        }
+        status.send_replace(if pending.is_empty() {
+            Status::UpToDate
+        } else {
+            Status::UnsynchronizedChanges
+        });
         tracing::info!(event="sync.idle", account_id=%binding.account, actor_id=%binding.actor, exchange);
         tokio::select! {
             _ = stop.cancelled() => return Ok(()),
@@ -237,6 +250,27 @@ pub(super) async fn run(
             result = receive(socket, connection) => match result? {ServerMessage::Changed => {}, ServerMessage::Failure {kind,message} => return Err(ServerFailure {kind,message}.into()), _ => anyhow::bail!("Unexpected idle synchronization message")},
         }
     }
+}
+
+/// Report the worker's wait and start states around exclusive exchange access.
+async fn begin_exchange(
+    connection: &ConnectionContext,
+    status: &watch::Sender<Status>,
+) -> anyhow::Result<OwnedRwLockWriteGuard<()>> {
+    let guard = connection
+        .gate
+        .exchange(&connection.stop, || {
+            status.send_replace(Status::Paused);
+        })
+        .await?;
+    status.send_if_modified(|current| {
+        if matches!(current, Status::Syncing) {
+            return false;
+        }
+        *current = Status::Syncing;
+        true
+    });
+    Ok(guard)
 }
 
 /// Discover and durably complete a fixed inbound target before acknowledging it.

@@ -12,7 +12,7 @@ async fn shutdown_releases_a_worker_waiting_for_an_import() -> anyhow::Result<()
         .with_max_level(tracing::Level::INFO)
         .with_writer(std::sync::Mutex::new(output.reopen()?))
         .finish();
-    let exchange = gate.exchange(&stop).with_subscriber(subscriber);
+    let exchange = gate.exchange(&stop, || {}).with_subscriber(subscriber);
     tokio::pin!(exchange);
     assert!(futures_util::poll!(&mut exchange).is_pending());
     let logged = std::fs::read_to_string(output.path())?;
