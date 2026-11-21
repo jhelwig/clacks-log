@@ -1,7 +1,7 @@
 //! Headless tests of the production session with real workspace resources.
 
 mod logbooks;
-mod settings;
+pub(crate) mod settings;
 
 use super::*;
 use crate::{
@@ -33,8 +33,14 @@ impl Fixture {
 
     /// Reopen the same real workspace after its prior session and owner have stopped.
     pub(crate) fn with_directory(directory: tempfile::TempDir) -> anyhow::Result<Self> {
+        Self::with_log_filter(directory, None)
+    }
+
+    fn with_log_filter(directory: tempfile::TempDir, filter: Option<&str>) -> anyhow::Result<Self> {
+        let mut cli = Cli::try_parse_from(["clacks-log"])?;
+        cli.log_filter = filter.map(str::to_owned);
         let config = config::resolve(
-            Cli::try_parse_from(["clacks-log"])?,
+            cli,
             &StartupContext {
                 cwd: directory.path().into(),
                 environment: ::config::Environment::default().source(Some(Default::default())),

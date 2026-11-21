@@ -164,6 +164,13 @@ impl LogbooksUi {
         }
     }
 
+    /// Describe a history scope using the same saved catalog as the toolbar.
+    pub(super) fn view_caption(&self, snapshot: &LogbookSnapshot, view: SelectedView) -> String {
+        let records = self.records(snapshot);
+        let tags: Vec<_> = self.visible_tags(&records);
+        view_caption(view, &labels::labels(&tags))
+    }
+
     /// Render immediate view selection in the in-window toolbar.
     pub fn show(
         &mut self,
@@ -182,22 +189,11 @@ impl LogbooksUi {
             }
         }
         let records = self.records(snapshot);
-        let mut tags: Vec<_> = records
-            .iter()
-            .filter_map(tag)
-            .filter(|value| !self.deleted_tags.contains(&value.id))
-            .collect();
+        let mut tags: Vec<_> = self.visible_tags(&records);
         tags.sort_by(|a, b| a.name.cmp(&b.name).then(a.id.cmp(&b.id)));
         let labels = labels::labels(&tags);
         let selected = self.acknowledged_view.unwrap_or(snapshot.selected_view);
-        let caption = match selected {
-            SelectedView::AllContacts => "All contacts".into(),
-            SelectedView::Untagged => "Untagged".into(),
-            SelectedView::Logbook(id) => labels
-                .get(&id)
-                .cloned()
-                .unwrap_or_else(|| format!("Unavailable logbook {id}")),
-        };
+        let caption = view_caption(selected, &labels);
         let label =
             ui.small(egui::RichText::new("Logbook").color(theme::palette(ui.ctx().theme()).muted));
         ui.add_enabled_ui(!self.is_busy(), |ui| {
@@ -293,14 +289,19 @@ impl LogbooksUi {
             return;
         }
         let records = self.records(snapshot);
-        let mut tags: Vec<_> = records
-            .iter()
-            .filter_map(tag)
-            .filter(|tag| !self.deleted_tags.contains(&tag.id))
-            .collect();
+        let mut tags: Vec<_> = self.visible_tags(&records);
         tags.sort_by(|a, b| a.name.cmp(&b.name).then(a.id.cmp(&b.id)));
         let labels = labels::labels(&tags);
         self.show_management(context, sender, &records, &tags, &labels);
+    }
+
+    /// Select live tags from the supplied records after locally acknowledged deletions.
+    fn visible_tags<'a>(&self, records: &'a [ClientRecord]) -> Vec<&'a LogbookTag> {
+        records
+            .iter()
+            .filter_map(tag)
+            .filter(|value| !self.deleted_tags.contains(&value.id))
+            .collect()
     }
 
     /// Merge acknowledged saves into the catalog until a refreshed catalog arrives.
@@ -378,6 +379,18 @@ impl LogbooksUi {
             }
             self.fallback_notice = Some(id);
         }
+    }
+}
+
+/// Format a built-in view or a named logbook using the provided catalog labels.
+fn view_caption(view: SelectedView, labels: &BTreeMap<TagId, String>) -> String {
+    match view {
+        SelectedView::AllContacts => "All contacts".into(),
+        SelectedView::Untagged => "Untagged".into(),
+        SelectedView::Logbook(id) => labels
+            .get(&id)
+            .cloned()
+            .unwrap_or_else(|| format!("Unavailable logbook {id}")),
     }
 }
 

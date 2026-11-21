@@ -2,11 +2,12 @@
 
 mod compiler;
 mod derived;
+mod export;
 mod predicate;
 
 use super::{
     ReadSnapshot,
-    contacts::{ContactPage, ContactPageQuery, ContactRow},
+    contacts::{ContactColumn, ContactPage, ContactPageQuery, ContactRow},
     history,
     projection::{self, ProjectionNeeds},
 };
@@ -37,7 +38,15 @@ impl ReadSnapshot {
             "Contact page size must be between 1 and 1000"
         );
         let mut transaction = self.transaction.begin().await?;
-        derived::populate(&mut transaction, self.account, query).await?;
+        let mut needs = compiler::needs(&query.filter);
+        if matches!(
+            query.order.column,
+            ContactColumn::Grid | ContactColumn::OwnGrid
+        ) {
+            needs.station = true;
+            needs.all_positions = true;
+        }
+        derived::populate(&mut transaction, self.account, query.view, needs).await?;
         let counts: Counts = compiler::counts(self.account, query)?
             .build_query_as()
             .fetch_one(&mut *transaction)

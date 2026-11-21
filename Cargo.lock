@@ -6775,9 +6775,9 @@ checksum = "d55d956fa96f5ec02be2e13af0e20391a5aa83d6a074e3ad368959d0fab299ea"
 
 [[package]]
 name = "qso-io"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15e3aa3e3a202be88a6bf60ff6a17045378eb9f9b70c7dfda450b44d2a056e36"
+checksum = "7fe2cc179f1bce42548275814614bfc133bd8521b769097d56f7653a5acb5bd9"
 dependencies = [
  "bigdecimal",
  "caseless",

@@ -114,6 +114,13 @@ impl Workbench {
         self.contacts.selection_pending()
     }
 
+    /// Capture the current completed history scope for Export ADI.
+    pub(super) fn export_history(
+        &self,
+    ) -> anyhow::Result<(crate::session::export::History, String)> {
+        self.contacts.export_history()
+    }
+
     /// Apply the WS callsign to the shared entry observed by lookup and history.
     pub(super) fn incoming_call(&mut self, call: &str) {
         self.entry.incoming_call(call);

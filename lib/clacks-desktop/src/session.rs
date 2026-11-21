@@ -1,5 +1,6 @@
 //! Workspace session lifetime, independent of native redraws.
 
+pub(crate) mod export;
 mod opening;
 pub(crate) mod settings;
 mod shutdown;
@@ -43,6 +44,8 @@ pub(crate) enum SessionCommand {
     Font(crate::ui::fonts::FontOperation),
     /// Start a workspace-owned import that waits for review before applying rows.
     Import(crate::import::workflow::PrepareRequest),
+    /// Prepare or publish a read-only saved-contact export.
+    Export(export::Request),
     /// Retry only after the previous failed open has settled.
     RetryOpen,
     /// Retry local directory access without restarting synchronization or authorization.
@@ -213,6 +216,8 @@ pub(crate) async fn run(
     let (lookup_binding, lookup_binding_view) = watch::channel(None);
     let mut lookup_client: Option<crate::directory::lookup::LookupClient> = None;
     let mut sync_control = crate::synchronization::Control::default();
+    let mut export_work = JoinSet::new();
+    let mut export_stop = CancellationToken::new();
     let mut import_work = JoinSet::new();
     let mut import_stop = CancellationToken::new();
     let (sync_updates, mut sync_progress) =
@@ -249,6 +254,7 @@ pub(crate) async fn run(
             && font_work.is_empty()
             && enrollment_work.is_empty()
             && import_work.is_empty()
+            && export_work.is_empty()
             && sync_work.is_empty()
             && receiver_work.is_empty()
             && lookup_work.is_empty()
@@ -289,6 +295,14 @@ pub(crate) async fn run(
                         }
                     } else {
                         let _ = request.reply.send(crate::ws_suite::ReceiverResponse::Closing);
+                    }
+                },
+                Some(SessionCommand::Export(request)) => {
+                    if closing.is_none() && enrollment_work.is_empty() && let Some(workspace) = &opened {
+                        export_work.spawn(export::run(workspace.store.clone(), request, export_stop.clone(), context.clone()).with_current_subscriber());
+                    } else {
+                        let _ = request.reply.send(Err("The workspace is busy. Try the export again.".into()));
+                        if let Some(context) = context.get() { context.request_repaint(); }
                     }
                 },
                 Some(SessionCommand::Import(request)) => {
@@ -363,6 +377,7 @@ pub(crate) async fn run(
                         enrollment_stop.cancel();
                         sync_control.stop.cancel();
                         import_stop.cancel();
+                        export_stop.cancel();
                         lookup.send_replace(None); lookup_client = None; lookup_stop.cancel();
                         receiver_stop.cancel();
                         settings_requests.close();
@@ -398,6 +413,12 @@ pub(crate) async fn run(
                         }
                     }
                     if let Some(context) = context.get() {context.request_repaint();}
+                }
+            },
+            result = export_work.join_next(), if !export_work.is_empty() => {
+                if matches!(result, Some(Err(_))) {
+                    tracing::error!(event = "desktop.export_task_failed");
+                    if let Some(context) = context.get() { context.request_repaint(); }
                 }
             },
             result = import_work.join_next(), if !import_work.is_empty() => {
@@ -450,6 +471,9 @@ pub(crate) async fn run(
                 if enrollment_work.is_empty() && (ready || binding_changed) && closing.is_none() && let Some(workspace) = opened.take() {
                     import_stop.cancel();
                     while import_work.join_next().await.is_some() {}
+                    export_stop.cancel();
+                    while export_work.join_next().await.is_some() {}
+                    export_stop = CancellationToken::new();
                     sync_control.stop.cancel();
                     while let Some(result) = sync_work.join_next().await { if let Err(error) = result { tracing::error!(event="sync.worker.failed", error.type=if error.is_panic() { "task_panic" } else { "task_cancelled" }); } }
                     lookup_stop.cancel();

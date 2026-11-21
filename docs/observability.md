@@ -464,6 +464,22 @@ unprocessed rows, and failures. Row failure counts use the bounded reasons
 Import instrumentation excludes source names and paths, QSO values, source
 fingerprints, and raw error text.
 
+## Desktop ADI export
+
+The span `desktop.export` uses an attempt ID to correlate preparation and
+publication. Preparation reports the requested and skipped QSO counts and
+planned file count. Publication reports its outcome and actual QSO, entry,
+and file counts, including files published before a partial failure.
+
+`clacks.desktop.export.prepare.duration` and
+`clacks.desktop.export.publish.duration` measure phase time in seconds.
+Their dimensions are format and outcome. Preparation covers snapshot capture
+and mapping, or mapping alone when resolving a choice from an existing
+snapshot. Publication covers staging and finalization. User review and native
+picker time are outside both measurements. The phase events exclude
+callsigns, destination paths, contact values, and raw error text. Paths and
+contact-level diagnostics belong in the local export results.
+
 ## Manual-logging runtime
 
 Contact requests use the `desktop.contacts` span on the existing runtime. The

@@ -221,3 +221,178 @@ async fn settings_requests_save_without_apply_then_publish_committed_operation()
     reopened.store.close().await?;
     Ok(())
 }
+
+#[test]
+fn export_session_publishes_reviewed_values_after_the_selected_contact_changes()
+-> anyhow::Result<()> {
+    crate::telemetry::tests::child_case("adi-export")
+}
+
+/// Exercise export and its local telemetry in an isolated subscriber process.
+pub(crate) async fn export_session_isolated() -> anyhow::Result<()> {
+    use crate::{
+        directory::lookup::tests::support,
+        export::{ExportFormat, publish::ExportDestination},
+        session::{
+            export::{Action, History, Reply, Request, Scope},
+            settings::contacts::{ContactAction, ContactResponse},
+        },
+    };
+    use clacks_model::{ids::QsoId, query::Query};
+    use qso_io::adif::adi::parser::{
+        options::ParseOpts,
+        strict::{Section, StrictParser},
+    };
+    use std::collections::BTreeMap;
+
+    let mut fixture = Fixture::with_log_filter(
+        tempfile::tempdir()?,
+        Some("warn,clacks_desktop::session::export=info"),
+    )?;
+    let destination = fixture._directory.path().join("reviewed.adi");
+    let log_directory = fixture.resources.paths.log_directory.clone();
+    let task = tokio::spawn(run(fixture.resources, fixture.input, fixture.updates));
+    let SessionStatus::Ready { identity, .. } = next_matching(&mut fixture.status, |state| {
+        matches!(state, SessionStatus::Ready { .. })
+    })
+    .await?
+    else {
+        anyhow::bail!("The disposable workspace must be ready for export");
+    };
+    let issue = |action| {
+        let (reply, result) = oneshot::channel();
+        (
+            SessionCommand::Export(Request {
+                account: identity.account,
+                attempt: 1,
+                action,
+                stop: CancellationToken::new(),
+                reply,
+            }),
+            result,
+        )
+    };
+    let saved = QsoId::new();
+    let ContactResponse::Saved(SaveOutcome::Saved(expected)) = contact_request(
+        &fixture.settings,
+        ContactAction::Save {
+            expected: None,
+            next: Box::new(support::contact(saved, "K1OLD")),
+            directory: None,
+        },
+    )
+    .await?
+    else {
+        anyhow::bail!("The selected contact must first be saved to the workspace");
+    };
+    assert!(matches!(
+        contact_request(
+            &fixture.settings,
+            ContactAction::Save {
+                expected: None,
+                next: Box::new(support::contact(QsoId::new(), "K1OTHER")),
+                directory: None,
+            }
+        )
+        .await?,
+        ContactResponse::Saved(SaveOutcome::Saved(_))
+    ));
+    let (command, result) = issue(Action::Prepare {
+        history: Arc::new(History {
+            view: Default::default(),
+            filter: Query::All,
+            selected: [saved].into(),
+        }),
+        scope: Scope::Selected,
+        format: ExportFormat::Ordinary,
+        capture: None,
+        resolutions: BTreeMap::new(),
+    });
+    fixture.commands.send(command).await?;
+    let Reply::Prepared { capture, plan } = tokio::time::timeout(Duration::from_secs(5), result)
+        .await??
+        .map_err(anyhow::Error::msg)?
+    else {
+        anyhow::bail!("Preparation must return the reviewed contact and plan");
+    };
+    assert!(matches!(
+        contact_request(
+            &fixture.settings,
+            ContactAction::Save {
+                expected: Some(Box::new(expected)),
+                next: Box::new(support::contact(saved, "K1NEW")),
+                directory: None,
+            }
+        )
+        .await?,
+        ContactResponse::Saved(SaveOutcome::Saved(_))
+    ));
+
+    let (command, result) = issue(Action::Publish {
+        plan,
+        captured_workspace_stop: capture.workspace_stop.clone(),
+        destination: ExportDestination::Ordinary {
+            path: destination.clone(),
+            replace: false,
+        },
+    });
+    fixture.commands.send(command).await?;
+    let Reply::Published(report) = tokio::time::timeout(Duration::from_secs(5), result)
+        .await??
+        .map_err(anyhow::Error::msg)?
+    else {
+        anyhow::bail!("Publication must report the actual export outcome");
+    };
+    let report = report?;
+    assert_eq!(report.paths, std::slice::from_ref(&destination));
+    assert_eq!(report.entries_written, 1);
+    assert_eq!(report.qsos_exported, 1);
+    let adi = std::fs::read(destination)?;
+    let mut parser = StrictParser::new(&adi, ParseOpts::default());
+    let mut calls = Vec::new();
+    for section in &mut parser {
+        if let Section::Record(record) = section.map_err(|error| anyhow::anyhow!("{error}"))? {
+            let call = record
+                .field("CALL")?
+                .ok_or_else(|| anyhow::anyhow!("The exported contact must have a callsign"))?;
+            calls.push(call.text().to_owned());
+        }
+    }
+    assert_eq!(calls, ["K1OLD"]);
+    fixture.commands.send(SessionCommand::BeginShutdown).await?;
+    tokio::time::timeout(Duration::from_secs(15), task).await???;
+
+    let traces = std::fs::read_dir(log_directory)?
+        .map(|entry| std::fs::read_to_string(entry?.path()))
+        .collect::<Result<Vec<_>, _>>()?
+        .join("\n");
+    let events = traces
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter(|event| event["target"] == "clacks_desktop::session::export")
+        .collect::<Vec<_>>();
+    let prepared = events
+        .iter()
+        .find(|event| event["fields"]["requested"].is_number())
+        .ok_or_else(|| anyhow::anyhow!("Preparation must record its reviewed scope"))?;
+    let published = events
+        .iter()
+        .find(|event| {
+            event["fields"]["outcome"].is_string() && event["fields"]["entries"].is_number()
+        })
+        .ok_or_else(|| anyhow::anyhow!("Publication must record its actual result"))?;
+    assert_eq!(prepared["fields"]["requested"], 1);
+    assert_eq!(published["fields"]["outcome"], "published");
+    assert_eq!(published["fields"]["entries"], 1);
+    for event in [prepared, published] {
+        assert!(event["spans"].as_array().is_some_and(|spans| {
+            spans
+                .iter()
+                .any(|span| span["name"] == "desktop.export" && span["attempt"] == 1)
+        }));
+    }
+    for excluded in ["K1OLD", "K1NEW", "K1OTHER", "reviewed.adi"] {
+        assert!(!traces.contains(excluded));
+    }
+    Ok(())
+}

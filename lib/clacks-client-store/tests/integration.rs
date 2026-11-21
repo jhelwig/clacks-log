@@ -31,6 +31,7 @@ mod settings_observability;
 mod tags;
 mod transfers;
 
+mod export_input;
 mod history_queries;
 
 mod history_query_state;

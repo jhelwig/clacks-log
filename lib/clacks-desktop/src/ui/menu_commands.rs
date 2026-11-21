@@ -20,7 +20,7 @@ impl DesktopApp {
 
     /// Current state, not the state when the operating system queued activation.
     pub(super) fn menu_enabled(&self, context: &egui::Context, command: MenuCommand) -> bool {
-        if self.import.is_picking_file() {
+        if self.import.is_picking_file() || self.export.is_picking_file() {
             return false;
         }
         if command == MenuCommand::Quit {
@@ -54,6 +54,7 @@ impl DesktopApp {
         }
         match command {
             MenuCommand::LookupDirectory => self.workbench.can_lookup_directory(),
+            MenuCommand::ExportAdi => !self.export.is_open(),
             MenuCommand::SelectAll => {
                 self.workbench.history_has_focus(context) && !self.workbench.selection_pending()
             }
@@ -92,6 +93,23 @@ impl DesktopApp {
             MenuCommand::ImportAdi => {
                 if let Some(snapshot) = self.settings_view.borrow().as_deref() {
                     self.import.open(snapshot, opener);
+                }
+            }
+            MenuCommand::ExportAdi => {
+                let state = self.status.borrow();
+                if let SessionStatus::Ready { identity, .. } = &*state
+                    && let Some(snapshot) = self.settings_view.borrow().as_deref()
+                    && let Ok((history, applied)) = self.workbench.export_history()
+                {
+                    let view_label = self.logbooks.view_caption(&snapshot.logbooks, history.view);
+                    self.export.open(
+                        identity.account,
+                        history,
+                        applied,
+                        view_label,
+                        opener,
+                        &self.commands,
+                    );
                 }
             }
             MenuCommand::LookupDirectory => self

@@ -310,7 +310,7 @@ management commands into OS-native menus using the following agreed structure:
 
 | Native menu | Commands |
 | --- | --- |
-| File | Import ADI… |
+| File | Import ADI…, Export ADI… |
 | Edit | Select all (focused text or all matching history contacts across pages), Look up directory information (selected contacts) |
 | Settings | Manage logbooks…, Station profiles…, Equipment configurations…, Refresh settings, account/server management, WS Suite…, Appearance… |
 | View | Reset workbench layout |
@@ -348,6 +348,15 @@ destination visible, mark rows still requiring choices, and retain a report of
 committed, dropped, failed and unprocessed work until dismissed.
 Apply the latest WS Suite DX-call update for the current workspace, including
 an empty call, when Import closes.
+
+**File → Export ADI…** opens contact scope and format selection. Offer the
+explicit selection, all matches in the applied history view and filter, and
+all saved working contacts in the workspace. Place the POTA readiness warning
+and affected-contact details under **POTA-compatible**. On **Continue…**,
+omit the reported ineligible contacts and review the planned POTA files. Use
+the native Save dialog for ordinary ADI and the native folder picker for POTA.
+When writing finishes, retain destination, counts, and warnings in the same
+Export ADI window until **Done**. See the [ADI export design](superpowers/specs/2026-11-20-adi-export-design.md).
 
 This correction concerns management-command placement. Preserve existing
 synchronization status and conflict-resolution access; improving their

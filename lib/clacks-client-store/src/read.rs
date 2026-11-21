@@ -1,6 +1,7 @@
 //! Consistent local-working snapshots for history, review, export and entry defaults.
 
 pub mod contacts;
+pub mod export;
 pub mod history;
 pub mod import;
 
