@@ -512,9 +512,9 @@ is used.
 First enrollment connects the current application instance and existing empty
 workspace. Unchanged bundled definitions are replaced by the account's synchronized
 definitions; local operating facts and preferences remain. Populated standalone logs
-are rejected before authorization and checked again during installation under D56:
-export contacts, connect an empty log, then import through the accepted import
-workflow. Connect does not create another workspace or launch a process.
+are rejected before authorization and checked again during installation under D56.
+Use the [migration walkthrough](#bring-an-independent-log-into-a-synchronized-account)
+to keep the original workspace and bring its contacts into the account.
 
 Before enrollment, the server can be corrected and Connect safely replaces only
 uninstalled connection material. **Connection…** offers Reauthorize for the existing
@@ -531,6 +531,35 @@ closes the dialog; the existing status display reports synchronization separatel
 Committed installation remains installed if cleanup fails, and retry finishes the
 remaining local work without another authorization. Account-qualified services reload
 when the durable binding changes, including when cleanup remains pending.
+
+### Bring an independent log into a synchronized account
+
+1. In the standalone workspace, choose **File → Export ADI…**, select
+   **All contacts in this workspace** and **Ordinary ADI**, and save the file.
+   Keep the original workspace intact.
+2. Launch Clacks Log with `--workspace <directory>` pointing to a fresh directory.
+   Choose **Connect…** and sign in to the existing account. Wait for **Up to date**
+   in the footer before opening **Import ADI…**. Import matches against the
+   contacts already saved locally and pauses sync during preparation and review.
+3. Choose **File → Import ADI…**, select the **Destination logbook**, choose the
+   exported file, and select **Prepare import**. Create a named logbook first
+   if none is available. Review possible or ambiguous matches explicitly.
+   Reusing a saved contact adds the selected tag if needed. Choose to create a
+   separate contact or skip the row where appropriate, then select
+   **Apply reviewed contacts**.
+
+ADI is the text form of Amateur Data Interchange Format. Ordinary ADI carries
+supported saved contact facts and applicable confirmations. Review the export
+results for conversions and omissions. Import accepts applicable recognized
+positive status fields with the provenance provided by the file. Missing upload
+status is treated as pending. Importing a status leaves external-record
+associations and their uniqueness rules intact.
+
+Keep the standalone workspace for native pending and conflict evidence,
+credentials, profile definitions, and complete service history. See
+[Backup and recovery](../../docs/backup-recovery.md#recovery-needs) for those
+records. An already enrolled client can reauthorize or resume after an offline
+period through its ordinary connection and sync flows.
 
 ### Native credential integration
 

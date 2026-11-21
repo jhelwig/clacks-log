@@ -4,7 +4,7 @@ use super::{DesktopApp, theme};
 use crate::session::{SessionCommand, SessionStatus};
 use eframe::egui;
 
-/// Show current local readiness without implying a server connection.
+/// Show the workspace lifecycle or the enrolled worker's live status.
 pub(super) fn status(ui: &mut egui::Ui, state: &SessionStatus) {
     let label = match state {
         SessionStatus::Opening => "Opening local workspace…",
@@ -13,16 +13,13 @@ pub(super) fn status(ui: &mut egui::Ui, state: &SessionStatus) {
             synchronization,
             ..
         } if identity.enrolled => match synchronization {
-            crate::synchronization::Status::Disconnected => {
-                "Local workspace ready · Server disconnected"
-            }
-            crate::synchronization::Status::Connecting => {
-                "Local workspace ready · Connecting to server…"
-            }
-            crate::synchronization::Status::Connected => "Local workspace ready · Server connected",
-            crate::synchronization::Status::Failed(_) => {
-                "Local workspace ready · Synchronization unavailable"
-            }
+            crate::synchronization::Status::Disconnected => "Server disconnected",
+            crate::synchronization::Status::Connecting => "Connecting to server…",
+            crate::synchronization::Status::Syncing => "Syncing…",
+            crate::synchronization::Status::Paused => "Sync paused",
+            crate::synchronization::Status::UnsynchronizedChanges => "Unsynchronized changes",
+            crate::synchronization::Status::UpToDate => "Up to date",
+            crate::synchronization::Status::Failed(_) => "Synchronization unavailable",
         },
         SessionStatus::Ready { .. } => "Local workspace ready · Standalone account",
         SessionStatus::Failed { .. } => "Workspace needs attention",

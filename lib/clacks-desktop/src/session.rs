@@ -61,7 +61,7 @@ pub(crate) enum SessionStatus {
     Opening,
     /// The real store and initial persisted defaults are available.
     Ready {
-        /// Current native connection or error, independently of pending record resolution.
+        /// Live sync worker status or a diagnostic if the task stopped unexpectedly.
         synchronization: crate::synchronization::Status,
         /// Stable local account and enrollment status.
         identity: WorkspaceStatus,
@@ -527,10 +527,19 @@ pub(crate) async fn run(
                 };
                 if let Some(next) = next {publish(&status, &context, next);}
             },
-                        result = sync_work.join_next(), if !sync_work.is_empty() => {
+            result = sync_work.join_next(), if !sync_work.is_empty() => {
                 if let Some(Err(error)) = result {
                     tracing::error!(event="sync.worker.failed", error.type=if error.is_panic() { "task_panic" } else { "task_cancelled" });
-                    sync_updates.send_replace(crate::synchronization::Status::Failed("Synchronization task stopped unexpectedly".into()));
+                    sync_progress.borrow_and_update();
+                    let next = match &*status.borrow() {
+                        SessionStatus::Ready {identity, restored_view_from, ..} if closing.is_none() => Some(SessionStatus::Ready {
+                            identity: *identity,
+                            restored_view_from: *restored_view_from,
+                            synchronization: crate::synchronization::Status::Failed("Synchronization task stopped unexpectedly".into()),
+                        }),
+                        _ => None,
+                    };
+                    if let Some(next) = next {publish(&status, &context, next);}
                 }
             },
 
