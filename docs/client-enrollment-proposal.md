@@ -387,15 +387,13 @@ Keep Open browser as a fallback during browser approval. On failure preserve inp
 show a concise actionable explanation and sanitized expandable technical details,
 and make the primary action available after the worker exits. Cancel, Escape and
 close stop the local operation and dismiss the dialog without promising remote
-rollback. On local success close the dialog; existing connection diagnostics own
-subsequent synchronization status. Do not display a destination path or an overall
-synchronization success claim.
+rollback. On local success return to the Connection section of the open Settings draft.
+The workspace footer reports synchronization progress after Settings closes.
 
 The session owns terminal publication after joining the worker. Preserve the existing
-startup behavior; this cleanup adds no automatic startup authorization or background
-retry policy. The [connection workflow design](superpowers/specs/2026-11-03-connection-workflow-design.md)
-and [implementation plan](superpowers/plans/2026-11-03-connection-workflow.md) define
-the connection workflow and its verification requirements.
+startup behavior and report failure only when the worker has settled. See the
+[desktop connection guide](../lib/clacks-desktop/README.md#server-connection)
+for the operator workflow.
 
 ## 7. Reauthorization and revoked work
 

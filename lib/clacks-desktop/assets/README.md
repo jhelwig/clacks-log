@@ -2,7 +2,7 @@
 
 The user selected image-generation option 2 on November 4, 2026: pale blue CL
 letters on the existing desktop's dark workspace color. The original is
-`docs/superpowers/specs/assets/2026-11-04-clacks-log-icon.png`. No SVG source or
+`lib/clacks-desktop/assets/clacks-log-original.png`. No SVG source or
 additional iconography was selected. These renditions preserve its appearance.
 
 Generated with the built-in image generation tool. Prompt: a single standalone
@@ -17,11 +17,11 @@ Technosorcery, LLC and accompanies the project under its root LICENSE; no extern
 Renditions were generated with macOS ImageIO (`sips`), without redrawing:
 
 ```sh
-sips -z 256 256 docs/superpowers/specs/assets/2026-11-04-clacks-log-icon.png \
+sips -z 256 256 lib/clacks-desktop/assets/clacks-log-original.png \
   --out lib/clacks-desktop/assets/clacks-log.png
 rustc --edition 2024 lib/clacks-desktop/assets/convert-icon.rs -o /tmp/clacks-convert-icon
 /tmp/clacks-convert-icon \
-  docs/superpowers/specs/assets/2026-11-04-clacks-log-icon.png \
+  lib/clacks-desktop/assets/clacks-log-original.png \
   lib/clacks-desktop/assets/clacks-log.ico
 ```
 
@@ -42,11 +42,11 @@ icon_dir=$(mktemp -d "$TMPDIR/clacks-icon.XXXXXX")
 mkdir "$icon_dir/Clacks.iconset"
 for size in 16 32 128 256 512; do
   sips -z "$size" "$size" \
-    docs/superpowers/specs/assets/2026-11-04-clacks-log-icon.png \
+    lib/clacks-desktop/assets/clacks-log-original.png \
     --out "$icon_dir/Clacks.iconset/icon_${size}x${size}.png"
   double=$((size * 2))
   sips -z "$double" "$double" \
-    docs/superpowers/specs/assets/2026-11-04-clacks-log-icon.png \
+    lib/clacks-desktop/assets/clacks-log-original.png \
     --out "$icon_dir/Clacks.iconset/icon_${size}x${size}@2x.png"
 done
 iconutil -c icns "$icon_dir/Clacks.iconset" \

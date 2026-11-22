@@ -127,6 +127,36 @@ ADIF log, historical import and #21's status/selection workflow are separate
 capabilities. ADIF file import remains part of MVP; its historical import
 semantics are separate from this live capture path.
 
+### WS Suite status and directory lookup
+
+An inbound status message supplies the other station's callsign to the shared
+entry. Use the entry's trim and uppercase rules and retain slash components.
+Apply readable updates in arrival order, including repeats that supersede a
+local edit. A valid empty call clears the entry's call, directory display and
+Worked Before. Malformed packets leave the entry alone. Status does not change
+mode, frequency, defaults, other draft fields or a contact already submitted.
+Worked Before reads the effective entry call with literal prefix matching.
+
+Entry lookup debounces changes to the effective call for 500 ms, including a
+change that maps to the same directory key. An unchanged effective call does
+not restart the timer. Clear and a successful save share the fresh-entry reset;
+neither cancels lookup interest already retained by a submitted contact.
+
+Capture requests directory data independently by the actual projected contact's
+lookup key, without entry debounce or waiting to save. Entry, capture and bulk
+lookup share in-flight operations and reuse successful results for 24 hours
+from completion, up to 128 reusable results per workspace. Evict the least
+recently used success at capacity. Cache hits preserve original provider,
+completion time and lookup identity. Expiry and eviction leave existing
+consumers and saved snapshots intact.
+
+The save caller freezes its submitted call/key and retains the lookup interest.
+A manual save submitted during debounce keeps the original deadline in its
+saved-contact consumer. A ready result can commit with the contact. A late
+result can apply only after a successful save and only while the actual contact
+remains live with the matching key. A failed save or a later change to another
+key leaves other consumers of the same lookup unaffected.
+
 ## Primary references
 
 - [American Radio Relay League (ARRL) submission guidance](https://lotw.arrl.org/lotw-help/developer-submit-qsos/)

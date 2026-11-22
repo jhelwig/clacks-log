@@ -228,8 +228,9 @@ library. Windows target checks do not exercise the runtime or installer.
 
 Follow [collaboration guidance](AGENTS.md) when working on an issue. Keep
 maintained requirements and integration contracts in their owning documents.
-Completed execution plans are retained in Git history and pull requests; active
-plans may remain under `docs/superpowers/plans/` while their work is in review.
+Keep active specs and plans under `docs/superpowers/` while their work is in
+review. After merge, carry any continuing requirements into the owning docs
+and retire the dated working documents to Git history and pull requests.
 
 ## Desktop packaging
 

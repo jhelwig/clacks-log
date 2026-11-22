@@ -52,8 +52,9 @@ introduced. Preserve the candidate needed for an actual native comparison.
    combined draft. Only delivery has contents
    write permission; build and eligibility jobs cannot publish a release.
 5. Download the draft's exact MSI, compare its hash with the workflow summary
-   linked from the release notes, and perform the native acceptance scenarios in the approved spec. Record results against its hash
-   and source revision in issue #45/PR. Publish the draft manually after testing;
+   linked from the release notes, and perform the [native acceptance scenarios](#preservation-trust-and-acceptance).
+   Record results against its hash and source revision in issue #45/PR.
+   Publish the draft manually after testing;
    publication does not rebuild, re-sign or otherwise change the tested bytes.
    Apply the macOS guide's native acceptance to its exact DMG as well.
 
@@ -182,6 +183,10 @@ CRUD/reopen; available connected enrollment/sync/credentials; running-app
 install/upgrade/removal with admitted saves and full/quiet modes; two genuinely
 increasing source-versioned installers; meaningful cancellation/environmental
 failure; repeat maintenance/downgrade rejection; uninstall/reinstall preservation.
+Confirm the installation scope, installed-program metadata, icon and Start
+menu entry. After upgrade, confirm one product registration, updated files and
+usable credentials. After cancellation or failure, check that the prior
+installation and data remain usable and record where the operation stopped.
 Record Windows edition/build, architecture, graphics/runtime environment, exact
 MSI hash/version/revision/signing mode and actual scenario outcomes. Redact native
 verbose logs before sharing. Keep #45 open until actual artifacts and required

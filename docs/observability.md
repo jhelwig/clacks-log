@@ -529,9 +529,10 @@ by the middleware's attribute extractor; unknown routes omit `http.route`.
 
 The selected release matches raw parameter names, so percent-encoded spellings of
 sensitive names are not redacted. It also derives scheme from the request URI and
-does not normalize extension methods. See the
-[integration evaluation](superpowers/evaluations/2026-11-02-observability-integrations.md)
-for these qualification limits. Authorization, proof and cookie headers are not
+does not normalize extension methods. Its 5xx response handling leaves
+`error.type` unset for the HTTP status. These limits apply to the published
+[Tower middleware](https://docs.rs/crate/opentelemetry-instrumentation-tower/0.19.0/source/src/http/server.rs).
+Authorization, proof and cookie headers are not
 recorded. The request URI passed to application handlers is not rewritten.
 
 Expected HTTP server refusals in the 4xx range do not automatically

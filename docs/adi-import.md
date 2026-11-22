@@ -1,6 +1,6 @@
 # Prepared ADI import and account-wide matching
 
-[Clacks Log #24](https://github.com/jhelwig/clacks-log/issues/24) delivers a reviewable migration path for existing contacts. Amateur Data Interchange Format (ADIF) text files (`.adi` and `.adif`) use built-in mappings. The workflow has no custom mapping editor, saved import session, or opaque field archive. See [import requirements](../../../references/adif-matching.md), [product scope](../../product.md#import-and-export), and [service evidence](../../service-evidence.md).
+[Clacks Log #24](https://github.com/jhelwig/clacks-log/issues/24) tracks the desktop workflow for preparing and applying existing contacts. Amateur Data Interchange Format (ADIF) text files (`.adi` and `.adif`) use built-in mappings. The workflow has no custom mapping editor, saved import session, or opaque field archive. See [import requirements](../references/adif-matching.md), [product scope](product.md#import-and-export), and [service evidence](service-evidence.md).
 
 ## Prepare and review
 
@@ -36,7 +36,7 @@ Make each candidate’s recorded QSO details and logbook memberships available i
 | `CONTEST_ID` | When it is the only contest information, resolve an applicable literal contest code through the account group definitions and add group-only participation to our station. Dedicated exchange fields remain disclosed as unsupported. |
 | `ADIF_VER`, `PROGRAMID`, `PROGRAMVERSION` | Source metadata for diagnostics and provenance. |
 
-[ADIF definitions](https://www.adif.org/318/ADIF_318.htm#QSO_Fields) · [Reference groups](../../native-model.md#8-participationreference-associations) · [POTA conventions](https://docs.pota.app/docs/activator_reference/ADIF_for_POTA_reference.html) · [Whole-location fallback](../../decisions.md#d238)
+[ADIF definitions](https://www.adif.org/318/ADIF_318.htm#QSO_Fields) · [Reference groups](native-model.md#8-participationreference-associations) · [POTA conventions](https://docs.pota.app/docs/activator_reference/ADIF_for_POTA_reference.html) · [Whole-location fallback](decisions.md#d238)
 
 ## Imported service evidence
 
@@ -50,7 +50,7 @@ Make each candidate’s recorded QSO details and logbook memberships available i
 
 Upload and confirmation claims are independent. D50–D52 accept applicable recognized positives immediately, with independent pending status when upload is missing or unsent. Store a supplied timestamp when it represents an exact whole second in UTC. Report calendar-only dates and timestamps with nonzero fractional seconds during preparation. Retain the recognized claim and source field provenance when its timestamp is unavailable. Disclose contradictions without established precedence and apply the review choice to the disputed claim or date. For a confirmed claim with a disputed date, omitting the date can retain the otherwise agreed claim. Retain source field provenance and frozen source-only comparison baselines. A match assignment identifies where to retain the claim. The existing coverage and applicability rules decide current status using the imported baseline and the resulting QSO, including when review retains a different saved time or the source lacked a required comparison value. Preserve the historical claim if current applicability cannot be established. Never fabricate a dispatch, provider observation, destination, remote ID, or external association from a status flag. A download flag describes download only. Existing association uniqueness remains in force.
 
-[Imported evidence](../../service-evidence.md#31-imported-baselines) · [QRZ export behavior](https://www.qrz.com/docs/logbook30/adif-standard) · [LOG4OM confirmation documentation](https://www.log4om.com/l4ong/usermanual/Log4OMNG_ENU.pdf)
+[Imported evidence](service-evidence.md#31-imported-baselines) · [QRZ export behavior](https://www.qrz.com/docs/logbook30/adif-standard) · [LOG4OM confirmation documentation](https://www.log4om.com/l4ong/usermanual/Log4OMNG_ENU.pdf)
 
 ## Disclosed fields and follow-ups
 
@@ -82,4 +82,4 @@ added memberships, updates and creations, warnings, failures, dropped rows,
 and unprocessed work without conflating these counts. The import guard releases
 on every terminal path.
 
-Reuse the existing working-QSO model, generic group definitions, field-level comparison, local save guard, and service claims. Import matching lives in the import review. [Client-store save contract](../../client-store.md) · [Service evidence transactions](../../service-evidence.md#11-transactions-dispatch-and-interrupted-transfer)
+Reuse the existing working-QSO model, generic group definitions, field-level comparison, local save guard, and service claims. Import matching lives in the import review. [Client-store save contract](client-store.md) · [Service evidence transactions](service-evidence.md#11-transactions-dispatch-and-interrupted-transfer)
