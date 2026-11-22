@@ -352,6 +352,31 @@ pub(super) async fn verify(
             clacks_sync::record::RecordValue::Qso(Box::new(qso.clone()))
         ))
     );
+    // Pause an established connection and await the post-join editing basis.
+    let opening = session::SettingsSessionId(1);
+    first.settings_intent.send_replace(Some(opening));
+    tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        first
+            .settings_basis
+            .wait_for(|basis| basis.as_ref().is_some_and(|b| b.id == opening)),
+    )
+    .await??;
+    let mut local = qso.clone().into_fields();
+    local.id = QsoId::new();
+    let local_id = local.id;
+    assert!(matches!(
+        action(
+            &first.settings,
+            SettingsAction::Contacts(ContactAction::Save {
+                directory: None,
+                expected: None,
+                next: Box::new(local.try_into()?)
+            })
+        )
+        .await?,
+        SettingsResponse::Contacts(ContactResponse::Saved(SaveOutcome::Saved(_)))
+    ));
     let mut corrected = qso.into_fields();
     corrected.comment = Some("Second desktop correction".into());
     let corrected = clacks_model::contact::Qso::try_from(corrected)?;
@@ -367,10 +392,32 @@ pub(super) async fn verify(
         .await?,
         SettingsResponse::Contacts(ContactResponse::Saved(SaveOutcome::Saved(_)))
     ));
-    contact(&first.settings, &mut first.settings_view, id, |row| row.pending().is_none() && matches!(row.working_state(),Some(clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(qso))) if qso.comment().as_deref() == Some("Second desktop correction"))).await?;
+    // The peer's durable acceptance is the barrier for checking isolation in both directions.
     contact(&second.settings, &mut second.settings_view, id, |row| {
         row.pending().is_none()
     })
+    .await?;
+    assert!(matches!(
+        action(
+            &second.settings,
+            SettingsAction::Contacts(ContactAction::Load { id: local_id })
+        )
+        .await?,
+        SettingsResponse::Contacts(ContactResponse::Loaded(None, _))
+    ));
+    assert!(matches!(
+        action(&first.settings, SettingsAction::Contacts(ContactAction::Load { id })).await?,
+        SettingsResponse::Contacts(ContactResponse::Loaded(Some(row), _)) if matches!(row.working_state(),
+            Some(clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(local))) if local.comment().as_deref() != Some("Second desktop correction"))
+    ));
+    first.settings_intent.send_replace(None);
+    contact(&first.settings, &mut first.settings_view, id, |row| row.pending().is_none() && matches!(row.working_state(),Some(clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(qso))) if qso.comment().as_deref() == Some("Second desktop correction"))).await?;
+    contact(
+        &second.settings,
+        &mut second.settings_view,
+        local_id,
+        |row| row.pending().is_none(),
+    )
     .await?;
 
     second.commands.send(SessionCommand::BeginShutdown).await?;
@@ -438,11 +485,20 @@ pub(super) async fn verify(
     })
     .await?;
     let mut second = session::tests::Fixture::with_directory(second._directory)?;
+    second.settings_intent.send_replace(Some(opening));
     let second_task = tokio::spawn(session::run(second.resources, second.input, second.updates));
     session::tests::next_matching(&mut second.status, |state| {
         matches!(state, session::SessionStatus::Ready { .. })
     })
     .await?;
+    tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        second
+            .settings_basis
+            .wait_for(|basis| basis.as_ref().is_some_and(|b| b.id == opening)),
+    )
+    .await??;
+    second.settings_intent.send_replace(None);
     contact(&second.settings, &mut second.settings_view, id, |row| row.pending().is_some() && matches!(row.latest(), clacks_sync::record::Observation::Accepted(shared) if matches!(shared.state(), clacks_sync::record::RecordState::Live(clacks_sync::record::RecordValue::Qso(qso)) if qso.comment().as_deref() == Some("Catch up after offline restart")))).await?;
     // Unrelated pending work publishes while the first contact still requires review.
     contact(

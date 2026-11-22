@@ -42,7 +42,11 @@ impl SettingsUi {
             Err(oneshot::error::TryRecvError::Empty) => return PollResult::default(),
             Err(oneshot::error::TryRecvError::Closed) => {
                 frame.response = None;
-                frame.notice = Some("The background request ended without an acknowledgment. Refresh before retrying.".into());
+                self.recovery_needed = true;
+                frame.notice = Some(
+                    "The request ended without acknowledgment. Checking the stored settings."
+                        .into(),
+                );
                 return PollResult::default();
             }
         };
@@ -62,7 +66,7 @@ impl SettingsUi {
         };
         match response {
             SettingsResponse::Logbooks(_) | SettingsResponse::Contacts(_) => {},
-            SettingsResponse::Refresh(_) => frame.notice = None,
+            SettingsResponse::ApplyAccountChanges(_) => frame.notice = Some("Unexpected account settings response.".into()),
             SettingsResponse::Apply(OperatingSaveOutcome::Saved(state) | OperatingSaveOutcome::Unchanged(state)) => {
                 self.acknowledged = Some(state);
                 pop = true;
@@ -76,7 +80,7 @@ impl SettingsUi {
                     SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record) => {
                         if refresh_failed {
                             self.acknowledged_records.insert(record.key().id, record.clone());
-                            self.completion_notice = Some("Profile saved locally. Refresh settings to recover the remaining view; do not repeat the save.".into());
+                            self.completion_notice = Some("Profile saved locally. Updating the remaining settings.".into());
                         }
                         if result.missing_equipment.is_some() {
                             if let Screen::Profile(editor) = &mut frame.screen { editor.expected = Some(record); }
@@ -90,7 +94,7 @@ impl SettingsUi {
                 SaveOutcome::Saved(record) | SaveOutcome::Unchanged(record) => {
                     if refresh_failed {
                         self.acknowledged_records.insert(record.key().id, record);
-                        self.completion_notice = Some("Equipment saved locally. Refresh settings to recover the remaining view; do not repeat the save.".into());
+                        self.completion_notice = Some("Equipment saved locally. Updating the remaining settings.".into());
                     }
                     pop = true;
                 },
@@ -101,7 +105,7 @@ impl SettingsUi {
                 SaveOutcome::Stale { current } => stale(frame, current),
             },
             SettingsResponse::PreviewEquipmentDeletion(preview) => next = Some(Screen::DeleteEquipment(Box::new(DeletionReview { preview, choices: BTreeMap::new() }))),
-            SettingsResponse::DeleteEquipment(EquipmentDeleteOutcome::Applied) => {
+            SettingsResponse::DeleteEquipment(EquipmentDeleteOutcome::Applied { .. }) => {
                 if let Screen::DeleteEquipment(review) = &frame.screen { deleted = Some(review.preview.equipment.key().id); }
                 pop = true;
             },
@@ -112,11 +116,11 @@ impl SettingsUi {
                 }
                 frame.notice = Some("The deletion review changed; nothing was deleted. Review every current profile and confirm again.".into());
             }
-            SettingsResponse::DeleteEquipment(EquipmentDeleteOutcome::Unavailable { .. }) => frame.notice = Some("The configuration is no longer available. No deletion or profile repair was applied. Cancel and refresh.".into()),
+            SettingsResponse::DeleteEquipment(EquipmentDeleteOutcome::Unavailable { .. }) => frame.notice = Some("The configuration is no longer available. No deletion or profile repair was applied.".into()),
             SettingsResponse::Failed(message) => frame.notice = Some(message),
             SettingsResponse::Closing => frame.notice = Some("The application is closing; this request did not start.".into()),
             SettingsResponse::Review(_) => frame.notice = Some("Unexpected review response in settings.".into()),
-            SettingsResponse::RefreshFailed { .. } => frame.notice = Some("A refresh failed. Refresh settings before continuing.".into()),
+            SettingsResponse::RefreshFailed { .. } => frame.notice = Some("The current settings could not be read. Checking again automatically.".into()),
         }
         if let Some(id) = deleted {
             self.known_deletions.insert(id);

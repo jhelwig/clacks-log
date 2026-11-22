@@ -196,6 +196,7 @@ pub(super) async fn apply(
         choices.len() == reviewed.len(),
         "every referring profile requires an explicit replacement or removal"
     );
+    let mut records = Vec::with_capacity(fresh.referring_profiles.len() + 1);
     for row in &fresh.referring_profiles {
         let Some(RecordState::Live(RecordValue::Profile(profile))) = row.working_state() else {
             anyhow::bail!("reviewed profile has no live working value")
@@ -211,10 +212,10 @@ pub(super) async fn apply(
             RecordState::Live(RecordValue::Profile(Box::new(next.try_into()?))),
         )
         .await?;
-        anyhow::ensure!(
-            matches!(outcome, SaveOutcome::Saved(_)),
-            "profile changed within deletion transaction"
-        );
+        let SaveOutcome::Saved(profile) = outcome else {
+            anyhow::bail!("profile changed within deletion transaction")
+        };
+        records.push(profile);
     }
     let outcome = save::save_in(
         &mut transaction,
@@ -223,10 +224,10 @@ pub(super) async fn apply(
         RecordState::Deleted,
     )
     .await?;
-    anyhow::ensure!(
-        matches!(outcome, SaveOutcome::Saved(_)),
-        "equipment changed within deletion transaction"
-    );
+    let SaveOutcome::Saved(equipment) = outcome else {
+        anyhow::bail!("equipment changed within deletion transaction")
+    };
+    records.push(equipment);
     let repaired = u64::try_from(fresh.referring_profiles.len())?;
     transaction.commit().await?;
     tracing::info!(event = "equipment.deleted", account_id = %store.account, equipment_id = %target, repaired_profiles = repaired);
@@ -235,5 +236,5 @@ pub(super) async fn apply(
         metrics::counter!("clacks_client_profile_mutations_total", "change" => "update")
             .increment(repaired);
     }
-    Ok(EquipmentDeleteOutcome::Applied)
+    Ok(EquipmentDeleteOutcome::Applied { records })
 }

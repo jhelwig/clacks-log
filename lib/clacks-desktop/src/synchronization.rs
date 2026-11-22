@@ -164,6 +164,8 @@ pub(crate) async fn run(
         let connection_stop = stop.child_token();
         let result = async {
             if authorizer.is_none() {
+                // Finish the native credential read. Token refresh and the socket
+                // handshake both occur inside the cancellable connect below.
                 authorizer = Some(crate::enrollment::flow::protected(&binding).await?);
             }
             let authorizer = authorizer
@@ -172,7 +174,7 @@ pub(crate) async fn run(
             let span = tracing::info_span!(parent: None, "desktop.sync.connect", otel.kind="client", otel.name="GET", network.protocol.version="1.1", http.request.method="GET", account_id=%binding.account, actor_id=%binding.actor);
             span.in_scope(|| tracing::info!(event="sync.connecting", account_id=%binding.account, actor_id=%binding.actor));
             let mut socket = tokio::select! {
-
+                biased;
                 _ = stop.cancelled() => anyhow::bail!("Synchronization stopped"),
                 result = connect(&binding, authorizer, &span).instrument(span.clone()) => match result { Ok(socket) => socket, Err(error) => { span.set_status(opentelemetry::trace::Status::error("")); span.set_attribute("error.type", crate::telemetry::failure::error_class(&error)); return Err(error); } },
             };
@@ -196,7 +198,11 @@ pub(crate) async fn run(
             tracing::warn!(event="sync.connection.interrupted", account_id=%binding.account, actor_id=%binding.actor, ?failure_kind, error.type=crate::telemetry::failure::error_class(&error), "Account synchronization will reconnect");
             metrics::counter!("clacks_desktop_sync_reconnects_total").increment(1);
         }
-        tokio::select! {_ = stop.cancelled() => break, _ = tokio::time::sleep(std::time::Duration::from_secs(delay)) => {}}
+        tokio::select! {
+            biased;
+            _ = stop.cancelled() => break,
+            _ = tokio::time::sleep(std::time::Duration::from_secs(delay)) => {}
+        }
         delay = delay.saturating_mul(2).min(30);
     }
     provisioning_stop.cancel();
@@ -318,7 +324,11 @@ async fn receive(
 ) -> anyhow::Result<ServerMessage> {
     let stop = &connection.stop;
     loop {
-        let frame = tokio::select! {_ = stop.cancelled() => anyhow::bail!("Synchronization stopped"), frame = socket.next() => frame};
+        let frame = tokio::select! {
+            biased;
+            _ = stop.cancelled() => anyhow::bail!("Synchronization stopped"),
+            frame = socket.next() => frame,
+        };
         match frame {
             Some(Ok(tungstenite::Message::Text(text))) => {
                 let message: ServerMessage = serde_json::from_str(&text)?;

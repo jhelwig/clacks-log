@@ -121,17 +121,7 @@ pub(super) fn show(
                 frame.stale = None;
                 frame.validation.invalidate();
             }
-            let baseline = editor.expected.as_ref().and_then(profile);
-            let edited =
-                operating::fields::text_changed(&editor.name, baseline.map(|value| value.name()));
-            if operating::fields::text(
-                ui,
-                "profile.name",
-                "Profile name",
-                &mut editor.name,
-                &frame.errors,
-                edited,
-            ) {
+            if name_field(ui, editor, &frame.errors) {
                 frame.validation.edited(ui.input(|input| input.time));
             }
             let previous_default = editor.default_equipment;
@@ -148,15 +138,7 @@ pub(super) fn show(
             if ui.button("Manage equipment").clicked() {
                 navigation.next = Some(Screen::Equipment);
             }
-            let baseline = baseline.map(|value| StationForm::from_snapshot(value.station()));
-            if operating::fields::station(
-                ui,
-                "profile.station",
-                &mut editor.station,
-                definitions,
-                &frame.errors,
-                baseline.as_ref(),
-            ) {
+            if station_fields(ui, editor, definitions, &frame.errors) {
                 frame.validation.edited(ui.input(|input| input.time));
             }
             if frame.geography.show(ui, &mut editor.station) {
@@ -191,4 +173,44 @@ pub(super) fn show(
         }
         _ => {}
     }
+}
+
+/// Present the profile name against its original stored value.
+pub(super) fn name_field(
+    ui: &mut egui::Ui,
+    editor: &mut ProfileEditor,
+    errors: &[crate::operating::FieldError],
+) -> bool {
+    let baseline = editor.expected.as_ref().and_then(profile);
+    let edited = operating::fields::text_changed(&editor.name, baseline.map(|value| value.name()));
+    operating::fields::text(
+        ui,
+        "profile.name",
+        "Profile name",
+        &mut editor.name,
+        errors,
+        edited,
+    )
+}
+
+/// Edit station facts using the current reference definitions and the original profile basis.
+pub(super) fn station_fields(
+    ui: &mut egui::Ui,
+    editor: &mut ProfileEditor,
+    definitions: &DefinitionSet,
+    errors: &[crate::operating::FieldError],
+) -> bool {
+    let baseline = editor
+        .expected
+        .as_ref()
+        .and_then(profile)
+        .map(|value| StationForm::from_snapshot(value.station()));
+    operating::fields::station(
+        ui,
+        "profile.station",
+        &mut editor.station,
+        definitions,
+        errors,
+        baseline.as_ref(),
+    )
 }

@@ -2,7 +2,7 @@
 
 mod appearance;
 pub(in crate::ui) mod fixtures;
-mod main_screen;
+pub(in crate::ui) mod main_screen;
 
 use super::*;
 use std::time::Instant;
@@ -36,10 +36,7 @@ fn appearance_apply_survives_app_save_and_reconstruction() {
     let mut storage = Storage::default();
     storage.0.insert("unrelated".into(), "keep me".into());
 
-    window
-        .app
-        .appearance
-        .open(Some(egui::Id::unique("test.appearance.opener")));
+    window.app.appearance.open();
     let pending = &mut window.app.appearance.editor.as_mut().unwrap().pending;
     pending.appearance = Appearance::Light;
     pending.zoom = 1.25;
@@ -80,10 +77,7 @@ fn appearance_cancelled_preview_is_not_saved() {
     use eframe::App;
 
     let mut window = Window::new();
-    window
-        .app
-        .appearance
-        .open(Some(egui::Id::unique("test.appearance.opener")));
+    window.app.appearance.open();
     let pending = &mut window.app.appearance.editor.as_mut().unwrap().pending;
     pending.appearance = Appearance::Dark;
     pending.zoom = 1.5;
@@ -126,14 +120,14 @@ fn appearance_invalid_saved_preferences_do_not_prevent_startup() {
 pub(in crate::ui) struct Window {
     pub(in crate::ui) app: DesktopApp,
     context: egui::Context,
-    updates: watch::Sender<SessionStatus>,
+    pub(in crate::ui) updates: watch::Sender<SessionStatus>,
     notices: watch::Sender<()>,
-    commands: mpsc::Receiver<SessionCommand>,
+    pub(in crate::ui) commands: mpsc::Receiver<SessionCommand>,
     _writer: tracing_appender::non_blocking::WorkerGuard,
 }
 
 impl Window {
-    fn new() -> Self {
+    pub(in crate::ui) fn new() -> Self {
         let (updates, status) = watch::channel(SessionStatus::Opening);
         let (notices, activation) = watch::channel(());
         let (commands, input) = mpsc::channel(8);
@@ -164,6 +158,8 @@ impl Window {
                 file_failure: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
                 settings_requests,
                 settings_view,
+                settings_intent: watch::channel(None).0,
+                settings_basis: watch::channel(None).1,
             }),
             context: Default::default(),
             updates,
@@ -267,10 +263,7 @@ fn native_close_while_failed_is_cancelled_until_cleanup_acknowledges() {
 fn closing_discards_appearance_preview_and_continue_waiting_keeps_the_window_open() {
     use egui_kittest::kittest::Queryable;
     let mut window = Window::new();
-    window
-        .app
-        .appearance
-        .open(Some(egui::Id::unique("test.appearance.opener")));
+    window.app.appearance.open();
     window.app.appearance.editor.as_mut().unwrap().pending.zoom = 1.5;
     window.app.begin_close();
     window.updates.send_replace(SessionStatus::Closing {

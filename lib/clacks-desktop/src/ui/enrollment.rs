@@ -1,4 +1,4 @@
-//! Connection dialog using the shared modal, fields and debounced validation.
+//! Connection section using the shared fields and debounced validation.
 
 #[cfg(test)]
 mod tests;
@@ -17,14 +17,18 @@ use tokio::sync::{mpsc, watch};
 
 /// Transient connection input and the latest nonsecret runtime context.
 pub(super) struct EnrollmentUi {
-    /// Whether the connection modal is visible.
+    /// Whether Settings owns the connection inputs.
     open: bool,
     /// Deployment origin typed or loaded from an existing binding.
     server: String,
+    /// Connection origin restored when the draft is dismissed.
+    saved_server: String,
     /// Preserve user server edits when late startup context arrives.
     server_edited: bool,
     /// Installation label for browser approval.
     label: String,
+    /// Last installation label submitted successfully.
+    saved_label: String,
     /// Whether this window's workspace is already enrolled.
     enrolled: bool,
     /// A request is queued before its first runtime status arrives.
@@ -35,10 +39,6 @@ pub(super) struct EnrollmentUi {
     errors: Vec<FieldError>,
     /// Action admission error that leaves the form available for retry.
     notice: Option<String>,
-    /// Native control whose focus should return after dismissal.
-    opener: Option<egui::Id>,
-    /// Focus request deferred until the modal has left the active frame.
-    restore_focus: Option<egui::Id>,
 }
 
 impl Default for EnrollmentUi {
@@ -46,44 +46,29 @@ impl Default for EnrollmentUi {
         Self {
             open: false,
             server: "https://clacks.w7hex.com".into(),
+            saved_server: "https://clacks.w7hex.com".into(),
             server_edited: false,
             label: "Desktop".into(),
+            saved_label: "Desktop".into(),
             enrolled: false,
             submitted: false,
             validation: Default::default(),
             errors: Vec::new(),
             notice: None,
-            opener: None,
-            restore_focus: None,
         }
     }
 }
 
 impl EnrollmentUi {
-    /// Current modal visibility participates in menu availability.
-    pub fn is_open(&self) -> bool {
-        self.open
+    /// Begin editing the Connection section as part of Settings.
+    pub fn open(&mut self) {
+        self.open = true;
+        self.validation.invalidate();
+        self.notice = None;
     }
 
-    /// Open the connection workflow without resetting its inputs.
-    pub fn open(&mut self, opener: Option<egui::Id>) {
-        if !self.open {
-            self.open = true;
-            self.opener = opener;
-            self.validation.invalidate();
-        }
-    }
-
-    /// Present current progress, explicit retries and validated native authorization requests.
-    pub fn show(
-        &mut self,
-        context: &egui::Context,
-        commands: &mpsc::Sender<SessionCommand>,
-        view: &mut watch::Receiver<EnrollmentStatus>,
-    ) {
-        if let Some(opener) = self.restore_focus.take() {
-            context.memory_mut(|memory| memory.request_focus(opener));
-        }
+    /// Publish connection progress even when the Connection section is hidden.
+    pub fn poll(&mut self, context: &egui::Context, view: &mut watch::Receiver<EnrollmentStatus>) {
         let changed = view.has_changed().unwrap_or(false);
         let status = view.borrow_and_update().clone();
         if changed {
@@ -92,10 +77,11 @@ impl EnrollmentUi {
                 EnrollmentStatus::Idle {
                     server, enrolled, ..
                 } => {
-                    if (*enrolled || !self.open || !self.server_edited)
-                        && let Some(server) = server
-                    {
-                        self.server = server.clone();
+                    if let Some(server) = server {
+                        self.saved_server = server.clone();
+                        if *enrolled || !self.open || !self.server_edited {
+                            self.server = server.clone();
+                        }
                     }
                     self.enrolled = *enrolled;
                     self.validation.invalidate();
@@ -108,21 +94,57 @@ impl EnrollmentUi {
                 }
                 EnrollmentStatus::Ready => {
                     self.enrolled = true;
-                    self.open = false;
-                    self.restore_focus = self.opener;
+                    self.saved_server.clone_from(&self.server);
+                    self.saved_label.clone_from(&self.label);
                     context.request_repaint();
                 }
                 _ => {}
             }
         }
-        if !self.open {
-            return;
-        }
-        let busy = self.submitted
+    }
+
+    /// Whether enrollment owns the workspace or a browser sign-in is pending.
+    pub fn busy(&self, status: &EnrollmentStatus) -> bool {
+        self.submitted
             || matches!(
                 status,
                 EnrollmentStatus::Authorizing { .. } | EnrollmentStatus::Saving
-            );
+            )
+    }
+
+    /// End the connection editor and cancel sign-in according to its existing rules.
+    pub fn close(
+        &mut self,
+        commands: &mpsc::Sender<SessionCommand>,
+        status: &EnrollmentStatus,
+    ) -> bool {
+        if self.busy(status)
+            && commands
+                .try_send(SessionCommand::Enrollment(EnrollmentCommand::Cancel))
+                .is_err()
+        {
+            self.notice = Some("The workspace is busy. Try closing Settings again.".into());
+            return false;
+        }
+        self.open = false;
+        if self.server_edited && !self.enrolled {
+            self.server = self.saved_server.clone();
+        }
+        self.server_edited = false;
+        self.label.clone_from(&self.saved_label);
+        self.notice = None;
+        true
+    }
+
+    /// Render connection fields, the browser action and its result.
+    pub fn show_section(
+        &mut self,
+        ui: &mut egui::Ui,
+        commands: &mpsc::Sender<SessionCommand>,
+        status: &EnrollmentStatus,
+    ) {
+        let context = ui.ctx().clone();
+        let busy = self.busy(status);
         let now = context.input(|input| input.time);
 
         if self.validation.due(now) {
@@ -136,103 +158,88 @@ impl EnrollmentUi {
             }
             self.validation.validated();
         }
-        self.validation.request_repaint(context, now);
+        self.validation.request_repaint(&context, now);
         let mut action = None;
-        let mut dismiss = false;
-        let response = super::dialog::show(
-            context,
-            egui::Id::unique("enrollment.dialog"),
-            if self.enrolled {
-                "Client authorization"
-            } else {
-                "Connect to server"
+        ui.style_mut().spacing.text_edit_width = ui.available_width();
+        ui.label(if self.enrolled {"Sign in again to this workspace's existing account. Previously unsent work may need review if this client's access was revoked."}else{"Connect this app to your account. You will sign in and approve access in your browser."});
+        let mut edited = fields::text(
+            ui,
+            egui::Id::unique("enrollment.server"),
+            "Server",
+            &mut self.server,
+            FieldPresentation {
+                edited: false,
+                read_only: busy || self.enrolled,
+                errors: &self.errors,
+                validation_label: None,
+                radio_data: false,
             },
-            |ui| {
-                ui.style_mut().spacing.text_edit_width = ui.available_width();
-                ui.label(if self.enrolled {"Sign in again to this workspace's existing account. Previously unsent work may need review if this client's access was revoked."}else{"Connect this app to your account. You will sign in and approve access in your browser."});
-                let mut edited = fields::text(
-                    ui,
-                    egui::Id::unique("enrollment.server"),
-                    "Server",
-                    &mut self.server,
-                    FieldPresentation {
-                        edited: false,
-                        read_only: busy || self.enrolled,
-                        errors: &self.errors,
-                        validation_label: None,
-                        radio_data: false,
-                    },
+        )
+        .changed();
+        self.server_edited |= edited;
+        edited |= fields::text(
+            ui,
+            egui::Id::unique("enrollment.label"),
+            "Client label",
+            &mut self.label,
+            FieldPresentation {
+                edited: false,
+                read_only: busy,
+                errors: &self.errors,
+                validation_label: None,
+                radio_data: false,
+            },
+        )
+        .changed();
+        ui.small("Identifies this installation in your account's client list.");
+        if edited {
+            self.validation.edited(now);
+        }
+        match &status {
+            EnrollmentStatus::Authorizing { authorization_url } => {
+                ui.label("Complete sign-in in your browser.");
+                if ui.button("Open browser").clicked() {
+                    context.open_url(egui::OpenUrl::new_tab(authorization_url));
+                }
+            }
+            EnrollmentStatus::Saving => {
+                ui.label("Connecting…");
+            }
+            EnrollmentStatus::Ready => {}
+            EnrollmentStatus::Failed {
+                message, details, ..
+            } => {
+                super::feedback::problem(ui, message);
+                if let Some(details) = details {
+                    ui.collapsing("Technical details", |ui| {
+                        ui.label(details);
+                    });
+                }
+            }
+            EnrollmentStatus::Idle { .. } => {}
+        }
+        if let Some(notice) = &self.notice {
+            super::feedback::problem(ui, notice);
+        }
+        ui.separator();
+        ui.horizontal_wrapped(|ui| {
+            if ui
+                .add_enabled(
+                    !busy && self.validation.can_submit(&self.errors),
+                    egui::Button::new(if self.enrolled {
+                        "Reauthorize"
+                    } else {
+                        "Connect"
+                    }),
                 )
-                .changed();
-                self.server_edited |= edited;
-                edited |= fields::text(
-                    ui,
-                    egui::Id::unique("enrollment.label"),
-                    "Client label",
-                    &mut self.label,
-                    FieldPresentation {
-                        edited: false,
-                        read_only: busy,
-                        errors: &self.errors,
-                        validation_label: None,
-                        radio_data: false,
-                    },
-                )
-                .changed();
-                ui.small("Identifies this installation in your account's client list.");
-                if edited {
-                    self.validation.edited(now);
-                }
-                match &status {
-                    EnrollmentStatus::Authorizing { authorization_url } => {
-                        ui.label("Complete sign-in in your browser.");
-                        if ui.button("Open browser").clicked() {
-                            context.open_url(egui::OpenUrl::new_tab(authorization_url));
-                        }
-                    }
-                    EnrollmentStatus::Saving => {
-                        ui.label("Connecting…");
-                    }
-                    EnrollmentStatus::Ready => {}
-                    EnrollmentStatus::Failed {
-                        message, details, ..
-                    } => {
-                        super::feedback::problem(ui, message);
-                        if let Some(details) = details {
-                            ui.collapsing("Technical details", |ui| {
-                                ui.label(details);
-                            });
-                        }
-                    }
-                    EnrollmentStatus::Idle { .. } => {}
-                }
-                if let Some(notice) = &self.notice {
-                    super::feedback::problem(ui, notice);
-                }
-                ui.separator();
-                ui.horizontal_wrapped(|ui| {
-                    if ui
-                        .add_enabled(
-                            !busy && self.validation.can_submit(&self.errors),
-                            egui::Button::new(if self.enrolled {
-                                "Reauthorize"
-                            } else {
-                                "Connect"
-                            }),
-                        )
-                        .clicked()
-                    {
-                        action = Some(EnrollmentCommand::Connect {
-                            server: self.server.trim().into(),
-                            label: self.label.trim().into(),
-                        });
-                    }
-                    if ui.button("Cancel").clicked() {
-                        dismiss = true;
-                    }
+                .clicked()
+            {
+                action = Some(EnrollmentCommand::Connect {
+                    server: self.server.trim().into(),
+                    label: self.label.trim().into(),
                 });
-            },
-        );
+            }
+        });
         if let Some(action) = action {
             match commands.try_send(SessionCommand::Enrollment(action)) {
                 Ok(()) => {
@@ -244,19 +251,6 @@ impl EnrollmentUi {
                         Some("The workspace is busy. Try the connection action again.".into())
                 }
             }
-        }
-        if dismiss || response.cancel_requested {
-            if busy
-                && commands
-                    .try_send(SessionCommand::Enrollment(EnrollmentCommand::Cancel))
-                    .is_err()
-            {
-                self.notice = Some("The workspace is busy. Retry Cancel.".into());
-                return;
-            }
-            self.open = false;
-            self.restore_focus = self.opener;
-            context.request_repaint();
         }
     }
 }

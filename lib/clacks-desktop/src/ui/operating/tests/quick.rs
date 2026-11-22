@@ -75,3 +75,32 @@ fn acknowledgment_does_not_overwrite_later_typing_or_repeat_a_failed_request() {
     assert!(ui.state_mut().requests.try_recv().is_err());
     assert!(ui.query_by_label("Acknowledgment unavailable").is_some());
 }
+
+#[test]
+fn lost_power_reply_checks_the_stored_value_without_resubmitting() -> anyhow::Result<()> {
+    let mut ui = mount();
+    replace(&mut ui, "Power", "25");
+    ui.key_press(egui::Key::Enter);
+    ui.step();
+    let request = ui.state_mut().requests.try_recv()?;
+    let SettingsAction::Apply { next, .. } = request.action else {
+        anyhow::bail!("the power field should submit an operating edit");
+    };
+    drop(request.reply);
+    ui.run();
+    assert!(ui.state().view.quick.is_busy());
+
+    let (commands, mut input) = mpsc::channel(2);
+    ui.state_mut().view.recover_view(&commands);
+    assert!(matches!(
+        input.try_recv()?,
+        crate::session::SessionCommand::RecoverSettingsView
+    ));
+    Arc::make_mut(&mut ui.state_mut().snapshot).operating = next;
+    ui.run();
+
+    assert!(!ui.state().view.quick.is_busy());
+    assert_eq!(ui.state().view.quick.power_text, "25");
+    assert!(ui.state_mut().requests.try_recv().is_err());
+    Ok(())
+}

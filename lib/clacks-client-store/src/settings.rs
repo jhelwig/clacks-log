@@ -87,7 +87,10 @@ pub struct ProfileEquipmentReplacement {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EquipmentDeleteOutcome {
     /// All profile repairs and the deletion committed together.
-    Applied,
+    Applied {
+        /// Exact post-commit equipment and repaired profile records.
+        records: Vec<ClientRecord>,
+    },
     /// Reviewed state changed; no deletion or repair was committed.
     Stale(EquipmentDeletionPreview),
     /// Target no longer has a usable live working configuration.

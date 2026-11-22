@@ -10,9 +10,15 @@ use winit::platform::macos::EventLoopBuilderExtMacOS;
 /// Preserve standard application actions while Quit uses Clacks's lifecycle.
 pub(super) fn application_menu(menu: &Menu, items: &mut Vec<CommandItem>) -> anyhow::Result<()> {
     let app = Submenu::new("Clacks Log", true);
+    let settings = MenuItem::with_id(
+        MenuCommand::OpenSettings.id(),
+        MenuCommand::OpenSettings.label(),
+        false,
+        Some(Accelerator::new(Modifiers::META, Code::Comma)),
+    );
     let quit = MenuItem::with_id(
         MenuCommand::Quit.id(),
-        MenuCommand::Quit.label(false),
+        MenuCommand::Quit.label(),
         true,
         Some(Accelerator::new(Modifiers::META, Code::KeyQ)),
     );
@@ -27,6 +33,8 @@ pub(super) fn application_menu(menu: &Menu, items: &mut Vec<CommandItem>) -> any
             }),
         ),
         &PredefinedMenuItem::separator(),
+        &settings,
+        &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::services(None),
         &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::hide(None),
@@ -36,6 +44,10 @@ pub(super) fn application_menu(menu: &Menu, items: &mut Vec<CommandItem>) -> any
         &quit,
     ])?;
     menu.append(&app)?;
+    items.push(CommandItem {
+        command: MenuCommand::OpenSettings,
+        item: settings,
+    });
     items.push(CommandItem {
         command: MenuCommand::Quit,
         item: quit,

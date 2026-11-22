@@ -3,7 +3,7 @@
 use super::*;
 use egui_kittest::{Harness, kittest::Queryable};
 
-pub(super) fn mount(window: Window) -> Harness<'static, Window> {
+pub(in crate::ui) fn mount(window: Window) -> Harness<'static, Window> {
     Harness::builder()
         .allow_missing_glyphs()
         .with_size(egui::vec2(1200.0, 900.0))
@@ -25,6 +25,7 @@ fn workspace_details_are_disclosed_only_on_request() {
             enrolled: false,
         },
         restored_view_from: None,
+        settings_read_error: None,
         synchronization: crate::synchronization::Status::Disconnected,
     });
     let mut ui = mount(window);

@@ -396,3 +396,58 @@ pub(crate) async fn export_session_isolated() -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+#[tokio::test]
+async fn failed_follow_up_read_recovers_the_committed_logbook_selection() -> anyhow::Result<()> {
+    use crate::session::{
+        settings::{self, logbooks::LogbookResponse},
+        settings_view::Recovery,
+    };
+    use clacks_client_store::logbooks::selection::{self, SelectedView};
+    let fixture = Fixture::new()?;
+    let workspace = crate::workspace::open(&fixture.resources.paths).await?;
+    let (published, view) = watch::channel(Some(Arc::new(workspace.settings)));
+    let selected = selection::select(&workspace.store, SelectedView::Untagged).await?;
+
+    // Release this handle between the acknowledged write and its follow-up read.
+    workspace.store.close().await?;
+    let (reply, response) = oneshot::channel();
+    let result = settings::complete(
+        reply,
+        SettingsResponse::Logbooks(LogbookResponse::Selected(selected)),
+        &workspace.store,
+        "select",
+    )
+    .await;
+    let mut recovery = Recovery::default();
+    settle_settings(
+        Ok(Some(result)),
+        &published,
+        &fixture.resources.settings_basis,
+        &fixture.resources.context,
+        &mut recovery,
+    );
+
+    assert!(
+        matches!(response.await?, SettingsResponse::RefreshFailed { outcome, .. } if matches!(*outcome, SettingsResponse::Logbooks(LogbookResponse::Selected(SelectedView::Untagged))))
+    );
+    assert!(recovery.scheduled());
+    assert_eq!(
+        view.borrow().as_ref().map(|s| s.logbooks.selected_view),
+        Some(SelectedView::AllContacts)
+    );
+    let reopened = clacks_client_store::store::ClientStore::open_discovered(
+        &fixture.resources.paths.database,
+        Default::default(),
+    )
+    .await?;
+    recovery.wait().await;
+    recovery.read(&reopened, &published).await?;
+    assert!(!recovery.scheduled());
+    assert_eq!(
+        view.borrow().as_ref().map(|s| s.logbooks.selected_view),
+        Some(SelectedView::Untagged)
+    );
+    reopened.close().await?;
+    Ok(())
+}

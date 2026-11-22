@@ -7,23 +7,12 @@ pub(crate) enum MenuCommand {
     SelectAll,
     /// Populate or refresh separate directory snapshots for selected saved contacts.
     LookupDirectory,
+    /// Import contacts from an ADI file.
     ImportAdi,
     /// Export a saved contact scope to ADI files.
     ExportAdi,
-    /// Open the tag-defined logbook manager.
-    ManageLogbooks,
-    /// Open reusable stations.
-    StationProfiles,
-    /// Open reusable equipment.
-    EquipmentConfigurations,
-    /// Reload committed settings.
-    RefreshSettings,
-    /// Open enrollment/connection management.
-    Connection,
-    /// Configure WS Suite reception.
-    WsSuite,
-    /// Preview local appearance preferences.
-    Appearance,
+    /// Open the unified desktop Settings editor.
+    OpenSettings,
     /// Restore workbench pane sizes.
     ResetLayout,
     /// Show workspace identity and log locations.
@@ -40,13 +29,7 @@ impl MenuCommand {
             Self::LookupDirectory => "lookup_directory",
             Self::ImportAdi => "import_adi",
             Self::ExportAdi => "export_adi",
-            Self::ManageLogbooks => "manage_logbooks",
-            Self::StationProfiles => "station_profiles",
-            Self::EquipmentConfigurations => "equipment_configurations",
-            Self::RefreshSettings => "refresh_settings",
-            Self::Connection => "connection",
-            Self::WsSuite => "ws_suite",
-            Self::Appearance => "appearance",
+            Self::OpenSettings => "open_settings",
             Self::ResetLayout => "reset_layout",
             Self::Diagnostics => "diagnostics",
             Self::Quit => "quit",
@@ -65,12 +48,28 @@ pub(crate) struct MenuGroup {
     pub commands: &'static [Option<MenuCommand>],
 }
 
-/// Ordered management commands shared by platform presentations.
-pub(crate) const GROUPS: &[MenuGroup] = &[
-    MenuGroup {
-        title: "File",
-        commands: &[Some(MenuCommand::ImportAdi), Some(MenuCommand::ExportAdi)],
-    },
+/// File operations shared by all menu presentations.
+const FILE: MenuGroup = MenuGroup {
+    title: "File",
+    commands: &[Some(MenuCommand::ImportAdi), Some(MenuCommand::ExportAdi)],
+};
+
+/// Workbench display actions shared by all menu presentations.
+const VIEW: MenuGroup = MenuGroup {
+    title: "View",
+    commands: &[Some(MenuCommand::ResetLayout)],
+};
+
+/// Diagnostic actions shared by all menu presentations.
+const HELP: MenuGroup = MenuGroup {
+    title: "Help",
+    commands: &[Some(MenuCommand::Diagnostics)],
+};
+
+/// Native window menus following the platform's application menu, if any.
+#[cfg(any(target_os = "macos", windows))]
+pub(crate) const NATIVE_GROUPS: &[MenuGroup] = &[
+    FILE,
     MenuGroup {
         title: "Edit",
         commands: &[
@@ -79,46 +78,45 @@ pub(crate) const GROUPS: &[MenuGroup] = &[
             Some(MenuCommand::LookupDirectory),
         ],
     },
+    VIEW,
+    #[cfg(windows)]
     MenuGroup {
-        title: "Settings",
+        title: "Tools",
+        commands: &[Some(MenuCommand::OpenSettings)],
+    },
+    HELP,
+];
+
+/// Append Preferences to Edit in the Linux fallback menu.
+#[cfg(any(test, not(any(target_os = "macos", windows))))]
+pub(crate) const FALLBACK_GROUPS: &[MenuGroup] = &[
+    FILE,
+    MenuGroup {
+        title: "Edit",
         commands: &[
-            Some(MenuCommand::ManageLogbooks),
-            Some(MenuCommand::StationProfiles),
-            Some(MenuCommand::EquipmentConfigurations),
-            Some(MenuCommand::RefreshSettings),
+            Some(MenuCommand::SelectAll),
             None,
-            Some(MenuCommand::Connection),
-            Some(MenuCommand::WsSuite),
+            Some(MenuCommand::LookupDirectory),
             None,
-            Some(MenuCommand::Appearance),
+            Some(MenuCommand::OpenSettings),
         ],
     },
-    MenuGroup {
-        title: "View",
-        commands: &[Some(MenuCommand::ResetLayout)],
-    },
-    MenuGroup {
-        title: "Help",
-        commands: &[Some(MenuCommand::Diagnostics)],
-    },
+    VIEW,
+    HELP,
 ];
 
 impl MenuCommand {
-    /// Visible command text, including the current enrollment state.
-    pub const fn label(self, enrolled: bool) -> &'static str {
+    /// Visible command text, independent of enrollment state.
+    pub const fn label(self) -> &'static str {
         match self {
             Self::SelectAll => "Select all",
             Self::LookupDirectory => "Look up directory information",
             Self::ImportAdi => "Import ADI…",
             Self::ExportAdi => "Export ADI…",
-            Self::ManageLogbooks => "Manage logbooks…",
-            Self::StationProfiles => "Station profiles…",
-            Self::EquipmentConfigurations => "Equipment configurations…",
-            Self::RefreshSettings => "Refresh settings",
-            Self::Connection if enrolled => "Connection…",
-            Self::Connection => "Connect…",
-            Self::WsSuite => "WS Suite…",
-            Self::Appearance => "Appearance…",
+            #[cfg(windows)]
+            Self::OpenSettings => "Options",
+            #[cfg(not(windows))]
+            Self::OpenSettings => "Settings…",
             Self::ResetLayout => "Reset workbench layout",
             Self::Diagnostics => "Workspace & diagnostics…",
             Self::Quit => "Quit Clacks Log",

@@ -245,6 +245,7 @@ pub(super) async fn run(
         });
         tracing::info!(event="sync.idle", account_id=%binding.account, actor_id=%binding.actor, exchange);
         tokio::select! {
+            biased;
             _ = stop.cancelled() => return Ok(()),
             result = changes.changed() => {result?;},
             result = receive(socket, connection) => match result? {ServerMessage::Changed => {}, ServerMessage::Failure {kind,message} => return Err(ServerFailure {kind,message}.into()), _ => anyhow::bail!("Unexpected idle synchronization message")},

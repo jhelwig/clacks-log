@@ -206,6 +206,8 @@ pub(super) struct SettingsUi {
     known_deletions: BTreeSet<RecordId>,
     /// A failed post-operation read makes the last view visibly stale.
     refresh_error: Option<String>,
+    /// Request a workspace reread when a submitted operation lost its response.
+    recovery_needed: bool,
 }
 /// Views share one pending operation and a single Apply/Cancel pair.
 #[derive(Default, PartialEq, Eq)]
@@ -245,61 +247,29 @@ impl SettingsUi {
             }
         }
     }
-    /// Open a specific saved profile for reference repair without loading its values.
-    pub fn open_profile(&mut self, record: ClientRecord) {
-        if let Some(profile) = profile(&record) {
-            let station = crate::operating::station::StationForm::from_snapshot(profile.station());
-            self.stack
-                .push(Frame::new(Screen::Profile(Box::new(ProfileEditor::new(
-                    Some(record),
-                    station,
-                )))));
-        }
-    }
-
     /// A modal workflow, excluding the invisible home frame.
     pub fn is_open(&self) -> bool {
         self.stack.len() > 1
     }
 
-    /// Pending requests retain their existing admission guard.
-    pub fn is_busy(&self) -> bool {
-        !self.dismissed.is_empty() || self.stack.iter().any(|frame| frame.response.is_some())
+    /// Schedule automatic verification after an originating workbench request loses its reply.
+    pub(super) fn recover_view(&mut self, commands: &mpsc::Sender<crate::session::SessionCommand>) {
+        if self.recovery_needed
+            && commands
+                .try_send(crate::session::SessionCommand::RecoverSettingsView)
+                .is_ok()
+        {
+            self.recovery_needed = false;
+        }
     }
 
-    /// Open the existing reusable station list.
-    pub fn open_profiles(&mut self, opener: Option<egui::Id>) {
-        self.open_management(Screen::Profiles, opener);
-    }
-
-    /// Open the existing reusable equipment list.
-    pub fn open_equipment(&mut self, opener: Option<egui::Id>) {
-        self.open_management(Screen::Equipment, opener);
-    }
-
-    fn open_management(&mut self, screen: Screen, opener: Option<egui::Id>) {
-        if self.is_open() || self.is_busy() {
-            return;
-        }
-        if self.stack.is_empty() {
-            self.stack.push(Frame::new(Screen::Home));
-        }
-        let mut frame = Frame::new(screen);
-        frame.opener = opener;
-        self.stack.push(frame);
-    }
-
-    /// Refresh through the same request owner used by saved-settings management.
-    pub fn refresh_settings(&mut self, sender: &mpsc::Sender<SettingsRequest>) {
-        if self.is_busy() {
-            return;
-        }
-        if self.stack.is_empty() {
-            self.stack.push(Frame::new(Screen::Home));
-        }
-        if let Some(frame) = self.stack.last_mut() {
-            frame.send(sender, SettingsAction::Refresh);
-        }
+    /// Return the definitions used to validate edits against this verified workspace snapshot.
+    pub(super) fn observe_for_settings(
+        &mut self,
+        snapshot: &Arc<SettingsSnapshot>,
+    ) -> &DefinitionSet {
+        self.refresh(snapshot);
+        &self.definitions
     }
 
     /// Render current operating controls and the existing modal stack.
@@ -315,6 +285,7 @@ impl SettingsUi {
         self.refresh(snapshot);
         self.poll();
         let quick_outcome = self.quick.poll();
+        self.recovery_needed |= quick_outcome.lost_response;
         if let Some(error) = &quick_outcome.refresh_error {
             self.refresh_error = Some(error.clone());
         }
@@ -505,6 +476,8 @@ impl SettingsUi {
             return;
         }
         self.acknowledged = None;
+        self.refresh_error = None;
+        self.quick.verify(&snapshot.operating);
         self.acknowledged_records.clear();
         for frame in &mut self.stack {
             frame.validation.invalidate();

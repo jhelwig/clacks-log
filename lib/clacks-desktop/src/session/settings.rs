@@ -7,6 +7,7 @@ pub(crate) const CONTACT_QUERY_DURATION_METRIC: &str =
 #[cfg(test)]
 mod tests;
 
+pub(crate) mod apply;
 pub(crate) mod contacts;
 pub(crate) mod logbooks;
 pub(crate) mod review;
@@ -35,8 +36,6 @@ pub(crate) enum SettingsAction {
     Contacts(contacts::ContactAction),
     /// Manage logbooks or the local view without altering operating settings.
     Logbooks(logbooks::LogbookAction),
-    /// Reload the current committed settings view.
-    Refresh,
     /// Commit a validated operating edit under its expected active basis.
     Apply {
         /// Applied state read when the operating editor opened.
@@ -44,6 +43,8 @@ pub(crate) enum SettingsAction {
         /// Complete desired facts and optional source selections.
         next: OperatingState,
     },
+    /// Commit all independently guarded account edits submitted from Settings.
+    ApplyAccountChanges(apply::AccountChanges),
     /// Save a profile as shared local working state, without applying it.
     SaveProfile {
         /// Existing target basis, absent for a new profile.
@@ -94,10 +95,10 @@ pub(crate) enum SettingsResponse {
     Contacts(contacts::ContactResponse),
     /// Authoritative outcome from the originating logbook workflow.
     Logbooks(logbooks::LogbookResponse),
-    /// Refreshed committed state.
-    Refresh(SettingsSnapshot),
     /// Applied, unchanged or stale operating state.
     Apply(OperatingSaveOutcome),
+    /// Independent outcomes from the submitted account settings.
+    ApplyAccountChanges(apply::AccountApplyResult),
     /// Profile save and its optional missing-reference issue.
     SaveProfile(ProfileSaveResult),
     /// Saved, unchanged or stale equipment record.
@@ -190,12 +191,12 @@ pub(super) async fn execute(
         SettingsAction::Logbooks(action) => logbooks::execute(&store, action)
             .await
             .map(SettingsResponse::Logbooks),
-        SettingsAction::Refresh => settings::snapshot(&store)
-            .await
-            .map(SettingsResponse::Refresh),
         SettingsAction::Apply { expected, next } => operating::save(&store, &expected, &next)
             .await
             .map(SettingsResponse::Apply),
+        SettingsAction::ApplyAccountChanges(changes) => Ok(SettingsResponse::ApplyAccountChanges(
+            apply::execute(&store, changes).await,
+        )),
         SettingsAction::SaveProfile { expected, next } => {
             settings::save_profile(&store, expected.as_ref(), &next)
                 .await
@@ -221,7 +222,7 @@ pub(super) async fn execute(
             .await
             .map(SettingsResponse::DeleteEquipment),
     };
-    let mut response = match result {
+    let response = match result {
         Ok(value) => value,
         Err(error) => {
             tracing::error!(event = "desktop.settings_failed", account_id = %account, action = %action_kind, error.type = crate::telemetry::failure::error_class(&error));
@@ -232,6 +233,16 @@ pub(super) async fn execute(
             });
         }
     };
+    Some(complete(request.reply, response, &store, &action_kind).await)
+}
+
+/// Pair an acknowledged operation with the following read, preserving its result if the read fails.
+pub(super) async fn complete(
+    reply: oneshot::Sender<SettingsResponse>,
+    mut response: SettingsResponse,
+    store: &ClientStore,
+    action_kind: &str,
+) -> Completion {
     let snapshot = match &response {
         SettingsResponse::Review(
             review::ReviewResponse::Page { .. }
@@ -248,11 +259,10 @@ pub(super) async fn execute(
             | contacts::ContactResponse::QueryState(_)
             | contacts::ContactResponse::QueryStateSaved(_),
         ) => None,
-        SettingsResponse::Refresh(view) => Some(view.clone()),
-        _ => match settings::snapshot(&store).await {
+        _ => match settings::snapshot(store).await {
             Ok(view) => Some(view),
             Err(error) => {
-                tracing::error!(event = "desktop.settings_refresh_failed", account_id = %account, action = %action_kind, error.type = crate::telemetry::failure::error_class(&error));
+                tracing::error!(event = "desktop.settings_refresh_failed", account_id = %store.account_id(), action = %action_kind, error.type = crate::telemetry::failure::error_class(&error));
                 response = SettingsResponse::RefreshFailed {
                     outcome: Box::new(response),
                     message: format!(
@@ -263,11 +273,11 @@ pub(super) async fn execute(
             }
         },
     };
-    Some(Completion {
-        reply: request.reply,
+    Completion {
+        reply,
         response,
         snapshot,
-    })
+    }
 }
 
 impl SettingsAction {
@@ -277,8 +287,8 @@ impl SettingsAction {
             Self::Review(action) => format!("review.{}", action.diagnostic_name()).into(),
             Self::Contacts(action) => format!("contacts.{}", action.diagnostic_name()).into(),
             Self::Logbooks(action) => format!("logbooks.{}", action.diagnostic_name()).into(),
-            Self::Refresh => "refresh".into(),
             Self::Apply { .. } => "apply_operating".into(),
+            Self::ApplyAccountChanges(_) => "apply_account_changes".into(),
             Self::SaveProfile { .. } => "save_profile".into(),
             Self::SaveEquipment { .. } => "save_equipment".into(),
             Self::DeleteProfile { .. } => "delete_profile".into(),
@@ -297,9 +307,8 @@ impl SettingsAction {
                 contacts::ContactAction::Save { .. }
                     | contacts::ContactAction::Delete { .. }
                     | contacts::ContactAction::ChangeMembership(_)
-            ) | Self::Logbooks(
-                logbooks::LogbookAction::SaveTag { .. } | logbooks::LogbookAction::DeleteTag { .. }
-            ) | Self::SaveProfile { .. }
+            ) | Self::ApplyAccountChanges(_)
+                | Self::SaveProfile { .. }
                 | Self::SaveEquipment { .. }
                 | Self::DeleteProfile { .. }
                 | Self::DeleteEquipment { .. }

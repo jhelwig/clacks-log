@@ -41,7 +41,7 @@ pub async fn select(store: &ClientStore, next: SelectedView) -> anyhow::Result<S
                 row.working_state(),
                 Some(RecordState::Live(RecordValue::Tag(_)))
             )),
-            "logbook {id} is not available as a live tag; refresh logbooks before selecting it"
+            "logbook {id} is not available as a live logbook"
         );
     }
     if next != current {

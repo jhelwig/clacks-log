@@ -22,7 +22,14 @@ fn connection_form_validates_submits_once_and_cancels_pending_work() {
         .with_size(egui::vec2(900.0, 800.0))
         .build_ui_state(
             |ui, host: &mut Host| {
-                host.view.show(ui.ctx(), &host.commands, &mut host.status);
+                host.view.poll(ui.ctx(), &mut host.status);
+                let status = host.status.borrow().clone();
+                if host.view.open {
+                    host.view.show_section(ui, &host.commands, &status);
+                    if ui.button("Close Settings").clicked() {
+                        host.view.close(&host.commands, &status);
+                    }
+                }
             },
             Host {
                 view: EnrollmentUi {
@@ -82,7 +89,7 @@ fn connection_form_validates_submits_once_and_cancels_pending_work() {
             .accesskit_node()
             .is_read_only()
     );
-    harness.get_by_label("Cancel").click();
+    harness.get_by_label("Close Settings").click();
     harness.run();
     assert!(matches!(
         harness.state_mut().requests.try_recv().unwrap(),
@@ -106,6 +113,10 @@ fn connection_form_validates_submits_once_and_cancels_pending_work() {
             .is_disabled(),
         "a failed connection must be retryable through Connect"
     );
+    harness
+        .get_by_label("Server")
+        .set_text_value_accesskit("https://clacks.example");
+    harness.run();
     harness.get_by_label("Connect").click();
     harness.run();
     assert!(matches!(harness.state_mut().requests.try_recv().unwrap(),
@@ -115,8 +126,7 @@ fn connection_form_validates_submits_once_and_cancels_pending_work() {
         .updates
         .send_replace(EnrollmentStatus::Ready);
     harness.run();
-    assert!(!harness.state().view.is_open());
-    harness.state_mut().view.open(None);
+    assert!(harness.state().view.open);
     harness.run();
     assert!(
         harness
@@ -137,7 +147,7 @@ fn fresh_connection_can_submit_hosted_defaults() {
     let (commands, mut requests) = mpsc::channel(8);
     let (updates, mut status) = watch::channel(EnrollmentStatus::default());
     let mut view = EnrollmentUi::default();
-    view.open(None);
+    view.open();
     // Startup publishes the lack of a binding; this must not erase the default.
     updates.send_replace(EnrollmentStatus::Idle {
         server: None,
@@ -145,7 +155,10 @@ fn fresh_connection_can_submit_hosted_defaults() {
     });
     let mut harness = Harness::builder()
         .with_size(egui::vec2(900.0, 800.0))
-        .build_ui(|ui| view.show(ui.ctx(), &commands, &mut status));
+        .build_ui(|ui| {
+            view.poll(ui.ctx(), &mut status);
+            view.show_section(ui, &commands, &status.borrow());
+        });
     harness.run();
     assert!(
         !harness
@@ -165,14 +178,17 @@ fn installed_server_replaces_untouched_hosted_default_when_dialog_opens_first() 
     let (commands, mut requests) = mpsc::channel(8);
     let (updates, mut status) = watch::channel(EnrollmentStatus::default());
     let mut view = EnrollmentUi::default();
-    view.open(None);
+    view.open();
     updates.send_replace(EnrollmentStatus::Idle {
         server: Some("https://self-hosted.example".into()),
         enrolled: true,
     });
     let mut harness = Harness::builder()
         .with_size(egui::vec2(900.0, 800.0))
-        .build_ui(|ui| view.show(ui.ctx(), &commands, &mut status));
+        .build_ui(|ui| {
+            view.poll(ui.ctx(), &mut status);
+            view.show_section(ui, &commands, &status.borrow());
+        });
     harness.run();
     assert!(
         harness

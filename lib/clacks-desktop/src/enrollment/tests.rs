@@ -220,6 +220,8 @@ async fn verify_native_enrollment() -> anyhow::Result<()> {
     assert_eq!(resumed.server.trim_end_matches('/'), origin);
     assert_eq!(resumed.credential_reference, reference);
     assert_eq!(credentials::load(&reference)?.refresh, Some(refresh));
+    let opening = crate::session::SettingsSessionId(1);
+    desktop.settings_intent.send_replace(Some(opening));
     let session = tokio::spawn(crate::session::run(
         desktop.resources,
         desktop.input,
@@ -239,6 +241,22 @@ async fn verify_native_enrollment() -> anyhow::Result<()> {
         ))
         .await?;
     crate::session::tests::next_matching(&mut desktop.status, |status| matches!(status, crate::session::SessionStatus::Ready { identity, .. } if identity.account == expected.account && identity.enrolled)).await?;
+    tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        desktop.settings_basis.wait_for(|basis| {
+            basis.as_ref().is_some_and(|b| {
+                b.id == opening && b.identity.account == expected.account && b.identity.enrolled
+            })
+        }),
+    )
+    .await??;
+    assert!(matches!(
+        *desktop.status.borrow(),
+        crate::session::SessionStatus::Ready {
+            synchronization: crate::synchronization::Status::Disconnected,
+            ..
+        }
+    ));
     desktop
         .commands
         .send(crate::session::SessionCommand::BeginShutdown)

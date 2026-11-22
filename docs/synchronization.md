@@ -25,6 +25,16 @@ Local edits are durable working changes. Synchronization can coalesce accumulate
 
 The [production core](../lib/clacks-sync/README.md) supplies revision representation, server-originated acceptance and retention planning; real-store integration must enforce their emitted conditions. No Git storage format, logbook-wide commit model, or full per-edit event log is selected. D137 permits reconciliation without a conflict flow for one-sided record changes and equal resulting records; no general merge algorithm or interdependent-field conflict model is selected. D237 supersedes D36's confirmation-to-recorded-fact replacement behavior. D32 publication-attempt snapshots remain separate from recorded facts and provider evidence. Implementation batching must preserve the accepted record-level conflict semantics.
 
+## Desktop Settings pause
+
+Opening desktop Settings pauses synchronization for the local workspace
+before the settings draft becomes editable. An entered local sync operation
+settles at its durable boundary. Apply saves locally while the pause is
+active. Closing Settings resumes normal synchronization for an enrolled
+workspace once the workspace is ready. A sign-in that reopens the workspace
+while Settings remains open keeps the pause in effect. Other clients can
+continue to sync, and any competing edits are reconciled after resume.
+
 ## Vector-based direction and revocation cutoff (D151–D152)
 
 The production core uses explicit record-local client/server vectors and interpretable baselines. D152 closes automatic acceptance from an actor when its client is revoked. This supplies a policy boundary: unsynchronized edits not accepted before revocation do not remain eligible for automatic submission. A lost installation need not cooperate or report its final local counter. Recovering such work later requires explicit manual reconciliation; reauthorization does not reopen automatic acceptance from the old actor.
