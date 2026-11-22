@@ -15,6 +15,25 @@ and desktop consumers. The [build procedure](../references/geography/BUILDING.md
 describes the cacheable data dependency: exact hits reuse validated output and
 misses generate it automatically from the current checkout. Server-provided replacements are future work.
 
+Desktop editors and live capture share the same workspace reader and native
+population rules. Use the entire grid area or the explicit point. Fill an
+eligible field automatically only when it has one fully covered value. Editors
+can show partial or ambiguous results for explicit review. A manual edit,
+clear or choice takes precedence while the position stays the same, including
+through incomplete input or a display-grid precision change at the same point.
+Moving or removing the position clears old-position corrections. Opening or
+loading a saved snapshot copies its recorded values without recalculating them.
+
+Bind asynchronous results to the current operation, position and data release.
+Discard stale results and preserve intervening manual choices. Editors can save
+while assistance is pending or unavailable. The result cannot alter a submitted
+form or enrich it after commit. Live capture queries after selecting its usable
+completion and applying supplied facts and own-station defaults. It fills only
+eligible absences. Invalid supplied fields retain their diagnostic and protected
+absence. Ambiguity or unavailable data leaves otherwise valid capture usable.
+Synchronization, restore, conflict resolution and exports preserve their
+selected facts without running geographic assistance.
+
 DX Century Club is abbreviated DXCC; International Telecommunication Union is
 ITU. CQ refers to CQ magazine's operating zones. Geographic JavaScript Object
 Notation is GeoJSON; its underlying data notation is JSON. North American Datum

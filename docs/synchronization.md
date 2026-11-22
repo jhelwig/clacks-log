@@ -35,6 +35,27 @@ workspace once the workspace is ready. A sign-in that reopens the workspace
 while Settings remains open keeps the pause in effect. Other clients can
 continue to sync, and any competing edits are reconciled after resume.
 
+## Desktop synchronization status
+
+The footer reflects the local worker's progress for the enrolled workspace.
+
+| Worker state | Footer |
+| --- | --- |
+| Stopped or awaiting startup | **Server disconnected** |
+| Connecting or retrying | **Connecting to server…** |
+| Negotiating or exchanging data | **Syncing…** |
+| An exchange is waiting for the local pause gate | **Sync paused** |
+| An exchange settled with pending local work, including work awaiting review | **Unsynchronized changes** |
+| An exchange settled with no pending local work | **Up to date** |
+| Connection or exchange failed | **Synchronization unavailable**, with diagnostic details |
+
+The worker reports a settled status after it commits the inbound checkpoint,
+handles eligible outgoing work, and checks for another exchange. **Up to date**
+describes the exchange through that checkpoint. A local save or server change
+can trigger another exchange. An idle worker retains its settled status while
+the pause gate is held. An exchange waiting on the gate resumes after the final
+pause holder releases it.
+
 ## Vector-based direction and revocation cutoff (D151–D152)
 
 The production core uses explicit record-local client/server vectors and interpretable baselines. D152 closes automatic acceptance from an actor when its client is revoked. This supplies a policy boundary: unsynchronized edits not accepted before revocation do not remain eligible for automatic submission. A lost installation need not cooperate or report its final local counter. Recovering such work later requires explicit manual reconciliation; reauthorization does not reopen automatic acceptance from the old actor.

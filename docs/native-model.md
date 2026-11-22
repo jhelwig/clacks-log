@@ -473,7 +473,7 @@ GroupExportPlan
 ```
 
 `OutputProfile` names the format, purpose, and context-sensitive fields used by
-reference planning. The [desktop ADI export adapter](superpowers/specs/2026-11-20-adi-export-design.md)
+reference planning. The [desktop ADI export workflow](desktop-ui.md#export-adi)
 combines reference output with common QSO fields and applies format validation.
 Expression-valued partition dimensions retain absence as a distinct unknown
 component, without adding an output field or requiring optional QSO information.
@@ -499,7 +499,7 @@ to the selected contact set. Ordinary reference information still follows the
 ordinary interchange mappings. Conflicting assignments within the selected
 definition are configuration errors reported before writing output.
 
-The [ADI import mapping](superpowers/specs/2026-11-19-adi-import-design.md#built-in-contact-and-activity-mappings)
+The [ADI import mapping](adi-import.md#built-in-contact-and-activity-mappings)
 assigns a recognized standalone `CONTEST_ID` to group participation on our
 station. This preserves the two station sides in the native association model.
 
@@ -530,6 +530,13 @@ without fabricating a band. Catalog metadata is not an implicit repair source.
 Exact qualified-reference transforms, complete field mappings and their
 fixtures are part of implementing the interchange contract, not new native
 schema approval questions.
+
+For POTA-compatible output, keep unknown activation locations separate from
+known locations and interpret location evidence in its own code system before
+deciding whether it conflicts. Apply the [POTA logging rules](https://docs.pota.app/docs/rules.html#logging-requirements)
+for self-contacts and the `SUBMM` exception. An absent contacted park or
+omittable optional field does not make a contact ineligible. Mapping conflicts
+and read failures are export errors.
 
 Exports read consistent saved local working state, include unsynchronized and
 unresolved working values, exclude pending deletions, and retain existing

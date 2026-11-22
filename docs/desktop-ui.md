@@ -321,7 +321,12 @@ draft is cleared. An indicator on Apply and on affected section labels
 identifies a failed change, with a diagnostic at the affected setting.
 **Cancel** or Escape discards the draft and restores the workbench and any
 previous focus. When the draft is empty, the dismissal action is **Close**.
-Connection starts browser sign-in as an explicit action.
+Connection starts browser sign-in as an explicit action. Keep unrelated draft
+edits through sign-in, revalidate them if the workspace reopens, and wait for
+sign-in and reopening to settle before allowing Apply. Appearance remains
+available when the workspace is unavailable. Cancel restores the previous
+appearance if a draft preview was active. A stale deletion review must be
+confirmed again against the updated impact before Apply can commit it.
 
 **Receive WS Suite updates** enables the pending Unicast or Multicast
 fields. Unicast has Local address and Port. Multicast has Group address,
@@ -334,8 +339,10 @@ reception diagnostic, with an action to retry reception using those saved
 values and direct Settings access from workbench failures.
 
 Clacks pauses sync for this workspace while Settings is open. Apply saves
-locally. Sync resumes automatically when Settings closes. Clacks rereads the
-settings view automatically after a read failure.
+locally. Sync resumes automatically when Settings closes. On a read failure,
+Clacks retains the last verified view and reloads automatically, preserving
+confirmed writes and new draft edits. Check stored state before retrying a
+write whose outcome is unknown.
 
 **File → Import ADI…** opens file and destination logbook selection, then
 prepares a read-only review of the readable records. Parent the native file
@@ -346,15 +353,6 @@ destination visible, mark rows still requiring choices, and retain a report of
 committed, dropped, failed and unprocessed work until dismissed.
 Apply the latest WS Suite DX-call update for the current workspace, including
 an empty call, when Import closes.
-
-**File → Export ADI…** opens contact scope and format selection. Offer the
-explicit selection, all matches in the applied history view and filter, and
-all saved working contacts in the workspace. Place the POTA readiness warning
-and affected-contact details under **POTA-compatible**. On **Continue…**,
-omit the reported ineligible contacts and review the planned POTA files. Use
-the native Save dialog for ordinary ADI and the native folder picker for POTA.
-When writing finishes, retain destination, counts, and warnings in the same
-Export ADI window until **Done**. See the [ADI export design](superpowers/specs/2026-11-20-adi-export-design.md).
 
 Use the native menu bar on Windows and macOS and the existing egui fallback on
 Linux. The workbench retains contact entry, Save, immediate logbook selection,
@@ -401,6 +399,55 @@ and 13-point monospace radio values. Section titles use emphasis within that
 hierarchy. Keep labels separate from their recessed value controls in the
 operating strip, with label/value groups wrapping together. Apply the selected
 font families and unified scale consistently to these roles.
+
+## Export ADI
+
+**File → Export ADI…** opens one window for contact scope and export format.
+Capture the history state at launch and offer these scopes.
+
+| Scope | Contacts included |
+| --- | --- |
+| **Selected contacts** | Active saved contacts in the complete selection, including contacts hidden by the applied filter. Show the total and the count outside the filter. |
+| **Contacts matching the current view and filter** | All active saved matches in the current named logbook, **All contacts**, or **Untagged**. Show the view, applied expression when present, and count. |
+| **All contacts in this workspace** | Every active saved contact in the account, including untagged contacts. Show the count. |
+
+Default to **Selected contacts** when available and to the current view and
+filter otherwise. Use the applied filter regardless of unsubmitted filter edits
+or **Show selected**. Wait for **Select all** to finish before using its
+selection. Disable **Continue…** with an explanation while preparation is
+incomplete or the chosen scope is empty.
+
+Default to **Ordinary ADI**, the text form of Amateur Data Interchange Format.
+Under **Parks on the Air (POTA)-compatible**, show the readiness warning and
+the count of contacts that would be skipped. **Show affected QSOs** lists the
+contacts and the missing facts. **Continue…** accepts those omissions and opens
+the file review for the eligible contacts. Disable it when all contacts are
+ineligible. A change of scope or format invalidates preparation and the skip
+decision. Use the same prepared snapshot for readiness, file review, and output.
+
+For ordinary ADI, resolve mapping choices before opening the parented native
+Save dialog. Stage the file beside the exact returned path. Confirm replacement
+in Clacks if that path is occupied, including when a file arrives after the
+picker returns. Cancellation or failure preserves the prior file.
+
+For POTA, show the filenames and entry count per file before opening the
+parented native folder picker with **New Folder**. Write directly into that
+folder. Filenames include the activation park, applicable location, and a
+shared UTC export timestamp, for example `US-0011-US-WA_20261120T235942Z.adi`.
+Stage the complete set before publishing each file without overwriting. Report
+collisions and allow another folder. If publication fails after some files
+have been published, leave them in place and report them. Once publication
+starts, let it finish or report failure.
+
+Cancelling a picker returns to the preceding setup or file review with its
+prepared data. Replace setup with results in the same window after a write.
+Keep the destination, distinct contacts exported and skipped, entries and files
+written, and conversion or omission details visible until **Done**. Report
+the actionable cause of failures and any files already published.
+
+The [product contract](product.md#export-of-current-client-state-d210) defines
+the saved-state scope. The [native model](native-model.md#10-export-context-and-mapping-contracts)
+defines output profiles and reference mappings.
 
 ## Validation and unapplied changes
 

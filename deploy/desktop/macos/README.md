@@ -212,16 +212,17 @@ credential lifecycle.
 
 Build, signature and policy checks are not installed-product acceptance. Keep
 [#46](https://github.com/jhelwig/clacks-log/issues/46) open until exact installed
-artifacts satisfy [the approved native matrix](../../../docs/superpowers/specs/2026-11-05-macos-package-design.md#verification-and-completion-evidence).
+artifacts satisfy the scenarios below.
 [#43](https://github.com/jhelwig/clacks-log/issues/43) retains complete integrated
 MVP release acceptance; signing this early package does not complete it.
 
 Use clean Apple Silicon environments on macOS 26.0 and the newer current major
 version. Record exact versions/hardware; an upgraded developer Mac or hosted
 runner is not clean-machine evidence. Download through the intended browser,
-preserve quarantine and normal Gatekeeper checks, compare the final hash and
-observe ordinary consent separately from trust failures. Do not prescribe
-security bypasses. Exercise first installation/launch offline as well as online.
+preserve quarantine and normal Gatekeeper checks, and compare the final hash.
+Mount the image, copy the app, eject the image and launch from the installed
+location. Distinguish ordinary consent from trust failures. Do not prescribe
+security bypasses. Exercise first installation and launch offline and online.
 
 Use disposable ordinary-user accounts and explicit isolated `--workspace`,
 `--config` and `--log-directory` paths. Follow the user-owned local development
@@ -231,9 +232,13 @@ personal state. Tests use temporary workspaces and disposable databases.
 
 Exercise offline contact editing/save/reopen; native menus/input/scaling/icons;
 available enrollment/browser return/sync/directory credentials; normal shutdown;
-two genuinely increasing-version upgrades retaining pending work and credential
-access; actual interrupted/rejected copy observations; and reinstall using
-retained state. Test Clacks's installed behavior, not generic Finder, Keychain
+an upgrade between two genuinely increasing source-versioned artifacts with
+the same bundle, team and access-group identity, retaining pending work and
+credential access; interrupted or rejected copy with a running app and an
+admitted save; and same-user reinstall with retained state. Inspect the
+installed bundle identity, icon, version, notices, architecture, deployment
+target, runtime dependencies, signed entitlements/profile, signatures and
+stapled image. Test Clacks's installed behavior, not generic Finder, Keychain
 or Gatekeeper conformance. Existing signed-host integration tests are additional
 application evidence, not a substitute for this production artifact.
 

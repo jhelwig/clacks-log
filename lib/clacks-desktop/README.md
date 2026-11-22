@@ -750,8 +750,8 @@ separately from new pending edits, preserving original author/context.
 
 After committed receipt, normal settings/history/Worked Before views reload.
 Copied active operating values retain their existing selection and adjustment
-rules. The status bar shows connection state and the current error; there is no
-aggregate successful-sync timestamp. Ordinary unresolved records remain local
+rules. The footer shows the [worker's synchronization status](../../docs/synchronization.md#desktop-synchronization-status)
+and the current error. Ordinary unresolved records remain local
 without blocking unrelated publication. The Unsynchronized changes window owns\nexplicit local conflict resolution.
 
 Server-reported failures retain their operational category for structured logs
@@ -792,12 +792,12 @@ comparison evidence exists and its matching review is explicitly resolved.
 
 ## Application menus
 
-Windows and macOS use native **Settings**, **View** and **Help** menus. Settings
-contains logbook management, saved station profiles/equipment, settings refresh,
-connection management and appearance. View resets the workbench layout. Help
-opens workspace/account/log-location details. On macOS, the conventional
-application menu remains available and Command-Q uses the same orderly shutdown
-as closing the window.
+Windows and macOS use native application menus. Open **Settings** from the
+Clacks Log menu or Command–Comma on macOS, **Tools → Options** on Windows,
+or **Edit → Preferences** in the Linux fallback. The
+[desktop UI contract](../../docs/desktop-ui.md#visual-language) lists the
+other commands. On macOS, Command-Q uses the same orderly shutdown as closing
+the window.
 
 The in-window toolbar retains immediate logbook selection and Unsynchronized
 changes. Synchronization status remains in the existing footer. The Linux build

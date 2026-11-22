@@ -266,6 +266,28 @@ D15 still allows certificate import initiated by any connected client; opening i
 
 D96 requires QRZ/HamQTH directory requests to execute directly on clients with securely available directory credentials, even when sync is unavailable. D97 selects central web configuration once per account with secure provisioning to enrolled clients for protected local storage. Credentials last received remain usable during sync outages, with updates received on reconnect. `/account/directory` uses authorized same-origin actions, an expected configuration revision and explicit keep/replace/remove login intents; it does not validate credentials against a provider. Typed server material is encrypted under the current account key. An authenticated client receives only its account's selected material, independently from record checkpoints, and updates one complete owner-checked protected configuration/login value at its fixed workspace-local native entry. Removal prevents new provisioning but cannot make an offline client forget a received secret. macOS uses the Data Protection Keychain with no legacy migration/fallback; see the [native integration requirements](../lib/clacks-desktop/README.md#native-credential-integration). LoTW private keys and publication credentials stay server-side.
 
+Normalize directory keys by trimming, uppercasing and removing terminal `/P`.
+Preserve other slash forms and the recorded callsign. The returned callsign is
+provider provenance and does not replace the lookup key or recorded identity.
+
+| Directory value | QRZ XML | HamQTH v2 |
+| --- | --- | --- |
+| Display name | `nickname`, otherwise `fname` and `name` | `nick`, otherwise `name` |
+| Position | `grid`, `lat`, `lon`, `geoloc` | `location.grid`, `location.lat`, `location.lon` |
+| Geographic identifiers | `dxcc`, `state`, `county`, `cqzone`, `ituzone` | `dxcc`, `region.usState`, `region.usCounty`, `cq`, `itu` |
+| Locality text | `addr2` | `qth` |
+| Islands on the Air reference | `iota` | `iota` |
+
+QRZ's `geoloc=grid` and HamQTH prefer a valid supplied grid as an area and fall
+back to valid coordinates. Otherwise QRZ prefers its valid reported point and
+falls back to a valid grid. Retain the provider's
+supplied locator and coordinates where available. Treat locality and island
+references as separate directory facts. Invalid optional values contribute no
+fact. A successful result replaces the previous snapshot as a whole, while a
+failed or not-found lookup leaves the previous success available.
+[QRZ XML specification](https://www.qrz.com/docs/xml/current_spec.html) ·
+[HamQTH developer guide](https://www.hamqth.com/developers)
+
 ## Account-owned contacts and logbook tags
 
 An account supports multiple Clacks logbooks, represented by tags on account-owned radio contacts (QSOs). These are distinct from external QRZ logbooks. Each QSO has one identity and a complete tag set; multiple tags do not create independent contact copies. Tag identities are stable even when names coincide or change. Universally Unique Lexicographically Sortable Identifier (ULID)-like identifiers remain the preferred direction (D120).
