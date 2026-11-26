@@ -30,52 +30,47 @@ introduced. Preserve the candidate needed for an actual native comparison.
 
 ## Versioned releases
 
-1. Commit a source version with three numeric fields within MSI bounds
-   (major/minor at most 255, build at most 65535). Every distinct delivered
-   release advances one of those fields. Packaging never edits Cargo versions.
-2. Use a commit whose newest existing **Rust** push workflow and latest attempt
-   passed both
-   `verify (ubuntu-latest)` and `verify-web`. Tag that exact commit as `vVERSION`
-   for a release or `vVERSION-rc.N` for a prerelease, where `N` is numeric,
-   through the normal authorized release process.
-3. The tag workflow reads those existing results before scheduling Windows.
-   It does not rerun Linux/web checks. PR checks test a merge revision and are
-   not substituted for an exact commit's push result. Missing, pending, failed,
-   skipped or cancelled results fail eligibility with a diagnostic. Wait for
-   existing checks to finish, then rerun this workflow; it never polls or starts
-   them. Documentation-only commits excluded by existing path filters do not
-   inherit an ancestor's pass.
-4. Each platform uploads only its final package as an Actions artifact. After
-   both Windows and macOS packaging succeed, one delivery job creates a
-   **draft release** with that same MSI and the final Mac DMG attached. A
-   failed Mac build retains the successful Windows artifact but prevents a
-   combined draft. Only delivery has contents
-   write permission; build and eligibility jobs cannot publish a release.
-5. Download the draft's exact MSI, compare its hash with the workflow summary
-   linked from the release notes, and perform the [native acceptance scenarios](#preservation-trust-and-acceptance).
-   Record results against its hash and source revision in issue #45/PR.
-   Publish the draft manually after testing;
-   publication does not rebuild, re-sign or otherwise change the tested bytes.
-   Apply the macOS guide's native acceptance to its exact DMG as well.
+1. Commit the desktop calendar version `YY.M.N` in
+   `bin/clacks-log/Cargo.toml`. Use a two-digit year, unpadded month and
+   a build number within the Windows Installer limit of 65535. Give a
+   changed release candidate a new version.
+2. Merge the version to `main` and wait for the **Rust** push jobs
+   `verify (ubuntu-latest)` and `verify-web` to pass for that exact commit.
+   Tag that revision as `desktop-vYY.M.N`. The tag workflow reuses the
+   push results for the tagged commit. An earlier commit, a pull request
+   run or an incomplete run cannot satisfy this check.
+3. Once both native jobs succeed, the delivery job creates one draft GitHub
+   Release marked as a prerelease, containing the exact MSI and macOS disk
+   image. The workflow records hashes, provenance and signing status.
+4. Compare the draft installers’ hashes with the workflow summary. Publish
+   the draft as a prerelease and use those exact files for
+   [native acceptance](#preservation-trust-and-acceptance). To promote the
+   candidate, clear the prerelease flag and explicitly mark the same release
+   Latest. Keep the tag and installer files in place.
 
-The release filename includes the complete tag without its leading `v`, for
-example `clacks-log-0.1.0-rc.1-windows-x64.msi`. The validated tag supplies the
-release step's prerelease input: false for `vVERSION`, true for `vVERSION-rc.N`.
-Both forms create drafts for manual testing and publication. The MSI keeps the
-numeric Cargo version; RC numbers do not establish newer MSI upgrade versions.
-Standard GitHub CLI creates one draft with the MSI and DMG. Release notes
-identify Windows unsigned status separately from macOS signing/notarization.
-GitHub-reported conflicts or partial upload failures fail delivery; no automatic asset reconciliation,
-replacement or deletion is performed. A partial upload remains unpublished.
-Inspect any partial draft before retrying delivery. Rebuilt bytes need fresh
-acceptance. Tags must not move.
-
-Building this branch locally does not start CI, push a tag or create a release.
-A new workflow cannot be manually dispatched until GitHub knows it on the
-repository's default branch. No temporary Windows PR trigger is added to work
-around that platform rule.
+The MSI filename uses the numeric version, for example
+`clacks-log-26.11.1-windows-x64.msi`. A partial upload stays unpublished.
+Inspect an existing partial draft before retrying delivery.
 
 ## Package policy and local build
+
+About and `--version` report the application version and any build provenance.
+For a local PowerShell build from a Git working tree, set the inputs before
+invoking Cargo:
+
+```powershell
+$env:CLACKS_BUILD_REVISION = git rev-parse HEAD
+$env:CLACKS_BUILD_DIRTY = if (git status --porcelain) { "true" } else { "false" }
+cargo build -p clacks-log --locked
+```
+
+To read command-line output from the Windows GUI executable, redirect its
+standard output and wait for it to exit:
+
+```powershell
+Start-Process -FilePath .\target\debug\clacks-log.exe -ArgumentList "--version" -RedirectStandardOutput version.txt -Wait
+Get-Content version.txt
+```
 
 The Windows job uses the dedicated `clacks-windows` runner. Cargo's standard
 `CARGO_TARGET_DIR` points to a `target` directory beside `GITHUB_WORKSPACE`, outside

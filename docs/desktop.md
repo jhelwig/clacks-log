@@ -412,7 +412,9 @@ Primary API references supporting the integration boundaries:
 ## Desktop installation artifacts
 
 See the [Windows packaging guide](../deploy/desktop/windows/README.md) for the
-manual development artifact and tag-triggered draft release workflow. The
+manual development artifact and tag-triggered draft release workflow. Desktop
+releases use the executable's calendar version and `desktop-vYY.M.N` tags.
+About and `--version` report the version and available build provenance. The
 installer targets Windows 11 x64 and current-user scope, preserves application
 state/credentials on uninstall and never initializes a workspace. The desktop
 continues to own migrations and graceful shutdown. Unsigned early packaging

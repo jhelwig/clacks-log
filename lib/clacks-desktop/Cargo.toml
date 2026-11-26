@@ -38,7 +38,7 @@ clacks-client-store.workspace = true
 clacks-geography.workspace = true
 clacks-model.workspace = true
 clacks-sync.workspace = true
-clap.workspace = true
+clap = { workspace = true, features = ["string"] }
 config.workspace = true
 directories.workspace = true
 eframe.workspace = true
@@ -90,6 +90,9 @@ ulid.workspace = true
 url.workspace = true
 winnow.workspace = true
 zeroize.workspace = true
+
+[build-dependencies]
+toml.workspace = true
 
 [dev-dependencies]
 axum.workspace = true

@@ -42,7 +42,10 @@ pub(super) fn initialize(config: &TelemetryConfig, diagnostics: &mut Vec<String>
     let resource = Resource::builder()
         .with_service_name("clacks-log")
         .with_attributes([
-            KeyValue::new("service.version", env!("CARGO_PKG_VERSION")),
+            KeyValue::new(
+                "service.version",
+                crate::build_identity::BUILD_IDENTITY.version,
+            ),
             KeyValue::new("process.pid", i64::from(std::process::id())),
         ])
         .build();

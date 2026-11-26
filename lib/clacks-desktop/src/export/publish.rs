@@ -339,7 +339,7 @@ fn stage_file(
         },
         HeaderField::Standard {
             field: StandardField::ProgramVersion,
-            value: env!("CARGO_PKG_VERSION"),
+            value: crate::build_identity::BUILD_IDENTITY.version,
         },
     ];
     let header = Header {

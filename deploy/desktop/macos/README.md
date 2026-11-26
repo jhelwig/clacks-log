@@ -16,25 +16,22 @@ The `macos-package-SHA-RUN-ATTEMPT` Actions artifact contains only the final DMG
 The summary/logs record its final SHA-256, source revision, version, signing and
 notarization evidence, tools and runner image. Normal GitHub availability applies.
 
-Immutable version tags `vVERSION` and `vVERSION-rc.N` must match committed Cargo
-versions and the newest existing exact-commit **Rust** push verification's latest
-attempt. Both Linux and web jobs must pass. Packaging reuses those results;
-it does not dispatch, poll or rerun them, use a PR merge result or inherit an
-ancestor's pass. Missing/pending/unsuccessful results stop release eligibility.
+Tags of the form `desktop-vYY.M.N` build both platforms and create one draft
+GitHub prerelease with the exact MSI and DMG. Follow the
+[shared release steps](../windows/README.md#versioned-releases) for exact-commit
+verification, publishing the draft, and promoting the same files to Latest.
 
-Tags build both platforms and create **one draft GitHub Release** with the
-exact MSI and DMG only after both succeed. Manual dispatch creates no release.
-The owner downloads, hashes and tests those exact files before manually
-publishing. Publication never rebuilds or re-signs the tested bytes. Existing
-release/asset conflicts and partial uploads fail delivery; inspect the partial
-draft before retrying. No asset replacement, moving tags or release-recovery
-service is provided. Rebuilt bytes need fresh native acceptance.
+The Mac release filename is `clacks-log-VERSION-macos-arm64.dmg`. Development
+filenames include the source version, revision, workflow run and attempt.
+Both About and `--version` expose the numeric application version and available
+build provenance. To supply provenance to a local build from a Git working
+tree:
 
-Mac release filenames are `clacks-log-VERSION-macos-arm64.dmg`, including
-`-rc.N` from prerelease tags. Development names include Cargo version,
-revision, run and attempt; rebuilding a version is not an ordered upgrade.
-Each distinct release advances the shared numeric Cargo version. Windows may
-remain unsigned while the Mac artifact is Developer ID signed and notarized.
+```sh
+CLACKS_BUILD_REVISION="$(git rev-parse HEAD)" \
+CLACKS_BUILD_DIRTY="$(if [ -n "$(git status --porcelain)" ]; then echo true; else echo false; fi)" \
+  cargo build -p clacks-log --locked
+```
 
 ## Geographic build artifact
 
@@ -70,7 +67,8 @@ The owner must separately authorize account/credential and GitHub environment
 setup, purchases and software publication.
 
 Configure environment **macos-signing** with deployment ref restrictions
-allowing only trusted source code. A manual dispatch cannot bypass those rules;
+allowing only trusted source code. For tagged desktop releases, update the
+allowed tag pattern from `v*` to `desktop-v*`. A manual dispatch cannot bypass those rules;
 the selected branch executes workflow code and must be trusted. Provide these
 inputs as encrypted environment secrets (the team ID may also be a variable
 only if the workflow is updated to read it there):

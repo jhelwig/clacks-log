@@ -1,6 +1,6 @@
 //! AppKit menus installed on eframe's main thread.
 use super::{CommandItem, MenuAdapter};
-use crate::menus::MenuCommand;
+use crate::{build_identity::BUILD_IDENTITY, menus::MenuCommand};
 use muda::{
     Menu, MenuItem, PredefinedMenuItem, Submenu,
     accelerator::{Accelerator, Code, Modifiers},
@@ -27,7 +27,8 @@ pub(super) fn application_menu(menu: &Menu, items: &mut Vec<CommandItem>) -> any
             Some("About Clacks Log"),
             Some(muda::AboutMetadata {
                 name: Some("Clacks Log".into()),
-                version: Some(env!("CARGO_PKG_VERSION").into()),
+                version: Some(BUILD_IDENTITY.version.into()),
+                credits: BUILD_IDENTITY.provenance(),
                 copyright: Some("Copyright (c) 2026 Technosorcery, LLC.".into()),
                 ..Default::default()
             }),
