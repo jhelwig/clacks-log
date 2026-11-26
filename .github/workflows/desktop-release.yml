@@ -14,7 +14,7 @@ on:
           - both
   push:
     tags:
-      - 'v*'
+      - 'desktop-v*'
 
 permissions:
   contents: read
@@ -148,7 +148,6 @@ jobs:
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: '-C target-feature=+crt-static'
     outputs:
       sha: ${{ steps.identity.outputs.sha }}
-      prerelease: ${{ steps.identity.outputs.prerelease }}
       package: ${{ steps.identity.outputs.name }}
       artifact: ${{ steps.identity.outputs.artifact }}
     steps:
@@ -199,20 +198,34 @@ jobs:
           $metadata = Get-Content target/windows-package/metadata.json -Raw | ConvertFrom-Json
           $version = $metadata.version
           $name = "clacks-log-$version-windows-x64.msi"
-          if ($env:GITHUB_EVENT_NAME -eq 'push') { $name = "clacks-log-$($env:GITHUB_REF_NAME.Substring(1))-windows-x64.msi" }
           if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') { $name = "clacks-log-$version-dev-$($sha.Substring(0,7))-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT-windows-x64.msi" }
+          "CLACKS_BUILD_REVISION=$sha" >> $env:GITHUB_ENV
+          "CLACKS_BUILD_RUN_ID=$env:GITHUB_RUN_ID" >> $env:GITHUB_ENV
+          "CLACKS_BUILD_RUN_ATTEMPT=$env:GITHUB_RUN_ATTEMPT" >> $env:GITHUB_ENV
           "sha=$sha" >> $env:GITHUB_OUTPUT
           "version=$version" >> $env:GITHUB_OUTPUT
-          "prerelease=$($metadata.prerelease.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
           "name=$name" >> $env:GITHUB_OUTPUT
           "artifact=windows-installer-$sha-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT" >> $env:GITHUB_OUTPUT
       - name: Build production desktop with Windows resources
         run: cargo build -p clacks-log --release --target x86_64-pc-windows-msvc --locked --offline
-      - name: Smoke-check command-line startup without opening a workspace
+      - name: Verify executable build identity without opening a workspace
+        env:
+          APP_VERSION: ${{ steps.identity.outputs.version }}
+          SOURCE_SHA: ${{ steps.identity.outputs.sha }}
         run: |
           & "$env:CARGO_TARGET_DIR/x86_64-pc-windows-msvc/release/clacks-log.exe" --help
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          & "$env:CARGO_TARGET_DIR/x86_64-pc-windows-msvc/release/clacks-log.exe" --version
+          $exe = "$env:CARGO_TARGET_DIR/x86_64-pc-windows-msvc/release/clacks-log.exe"
+          $output = "$env:RUNNER_TEMP/clacks-desktop-version.txt"
+          $process = Start-Process -FilePath $exe -ArgumentList '--version' -RedirectStandardOutput $output -Wait -PassThru
+          if ($process.ExitCode) { exit $process.ExitCode }
+          $actual = Get-Content $output
+          $actual
+          $expected = @("clacks-log $env:APP_VERSION", "Source commit: $env:SOURCE_SHA",
+                        "Workflow run: $env:GITHUB_RUN_ID", "Workflow attempt: $env:GITHUB_RUN_ATTEMPT")
+          if (($actual -join [char]10) -cne ($expected -join [char]10)) {
+            throw 'Executable version or build provenance differs from the packaging inputs'
+          }
       - name: Install pinned notice harvester
         run: cargo install cargo-about --version 0.9.3 --features cli --locked --root target/notice-tool
       - name: Harvest desktop runtime notices
@@ -254,8 +267,12 @@ jobs:
           MSI_NAME: ${{ steps.identity.outputs.name }}
           APP_VERSION: ${{ steps.identity.outputs.version }}
         run: |
-          target/msi-builder/msi-builder.exe inspect "target/windows-package/delivery/$env:MSI_NAME"
+          target/msi-builder/msi-builder.exe inspect "target/windows-package/delivery/$env:MSI_NAME" |
+            Tee-Object -Variable installerTables
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if ($installerTables -cnotcontains ("ProductVersion" + [char]9 + $env:APP_VERSION)) {
+            throw 'Installer ProductVersion differs from Cargo version'
+          }
           $exe = "$env:CARGO_TARGET_DIR/x86_64-pc-windows-msvc/release/clacks-log.exe"
           $version = (Get-Item $exe).VersionInfo
           if ($version.FileVersion -ne $env:APP_VERSION -or $version.ProductVersion -ne $env:APP_VERSION) { throw 'Executable version differs from Cargo version' }
@@ -322,7 +339,6 @@ jobs:
         shell: bash
     outputs:
       sha: ${{ steps.identity.outputs.sha }}
-      prerelease: ${{ steps.identity.outputs.prerelease }}
       package: ${{ steps.identity.outputs.name }}
       artifact: ${{ steps.identity.outputs.artifact }}
     steps:
@@ -391,16 +407,19 @@ jobs:
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then tag_args=(--tag "$GITHUB_REF_NAME"); fi
           target/debug/clacks-desktop-package prepare --platform macos-arm64 --metadata target/macos-package/cargo-metadata.json --revision "$sha" "${tag_args[@]}" --output target/macos-package/metadata.json
           version=$(jq -r .version target/macos-package/metadata.json)
-          prerelease=$(jq -r .prerelease target/macos-package/metadata.json)
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then
-            name="clacks-log-${GITHUB_REF_NAME#v}-macos-arm64.dmg"
+            name="clacks-log-$version-macos-arm64.dmg"
           else
             name="clacks-log-$version-dev-${sha:0:7}-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-macos-arm64.dmg"
           fi
           {
+            echo "CLACKS_BUILD_REVISION=$sha"
+            echo "CLACKS_BUILD_RUN_ID=$GITHUB_RUN_ID"
+            echo "CLACKS_BUILD_RUN_ATTEMPT=$GITHUB_RUN_ATTEMPT"
+          } >> "$GITHUB_ENV"
+          {
             echo "sha=$sha"
             echo "version=$version"
-            echo "prerelease=$prerelease"
             echo "name=$name"
             echo "artifact=macos-package-$sha-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           } >> "$GITHUB_OUTPUT"
@@ -408,7 +427,6 @@ jobs:
         run: |
           cargo build -p clacks-log --release --target aarch64-apple-darwin --locked --offline
           target/aarch64-apple-darwin/release/clacks-log --help
-          target/aarch64-apple-darwin/release/clacks-log --version
       - name: Generate macOS runtime notices
         run: |
           cargo install cargo-about --version 0.9.3 --features cli --locked --root target/notice-tool
@@ -534,6 +552,8 @@ jobs:
       - name: Staple and verify final distribution
         env:
           DMG_NAME: ${{ steps.identity.outputs.name }}
+          APP_VERSION: ${{ steps.identity.outputs.version }}
+          SOURCE_SHA: ${{ steps.identity.outputs.sha }}
         run: |
           dmg="$PWD/target/macos-package/delivery/$DMG_NAME"
           xcrun stapler staple "$dmg"
@@ -543,6 +563,7 @@ jobs:
           spctl -a -t open --context context:primary-signature -v "$dmg"
           mkdir -p "$RUNNER_TEMP/clacks-dmg"
           hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$RUNNER_TEMP/clacks-dmg"
+          trap 'hdiutil detach "$RUNNER_TEMP/clacks-dmg"' EXIT
           mounted_app="$RUNNER_TEMP/clacks-dmg/Clacks Log.app"
           target/debug/clacks-desktop-package geography-inspect --manifest-sha256 "$CLACKS_GEOGRAPHY_MANIFEST_SHA256" --bundle "$mounted_app/Contents/Resources/geography" --output target/macos-package/installed-geography-evidence.json
           codesign --verify --strict "$mounted_app"
@@ -553,8 +574,22 @@ jobs:
           # authorization; help/version exit before discovering a workspace.
           smoke_args=(--workspace "$RUNNER_TEMP/clacks-smoke/workspace" --config "$RUNNER_TEMP/clacks-smoke/config.toml" --log-directory "$RUNNER_TEMP/clacks-smoke/logs")
           "$mounted_app/Contents/MacOS/clacks-log" "${smoke_args[@]}" --help
-          "$mounted_app/Contents/MacOS/clacks-log" "${smoke_args[@]}" --version
+          actual=$("$mounted_app/Contents/MacOS/clacks-log" "${smoke_args[@]}" --version)
+          printf '%s\n' "$actual"
+          expected=$(printf '%s\n' "clacks-log $APP_VERSION" "Source commit: $SOURCE_SHA" \
+            "Workflow run: $GITHUB_RUN_ID" "Workflow attempt: $GITHUB_RUN_ATTEMPT")
+          if [[ "$actual" != "$expected" ]]; then
+            echo 'Executable version or build provenance differs from the packaging inputs' >&2
+            exit 1
+          fi
+          for key in CFBundleShortVersionString CFBundleVersion; do
+            if [[ "$(plutil -extract "$key" raw -o - "$mounted_app/Contents/Info.plist")" != "$APP_VERSION" ]]; then
+              echo "$key differs from Cargo version" >&2
+              exit 1
+            fi
+          done
           hdiutil detach "$RUNNER_TEMP/clacks-dmg"
+          trap - EXIT
       - name: Record final checksum and build evidence
         env:
           DMG_NAME: ${{ steps.identity.outputs.name }}
@@ -627,7 +662,6 @@ jobs:
       - name: Create unpublished release with both platform packages
         env:
           GH_TOKEN: ${{ github.token }}
-          PRERELEASE: ${{ needs.windows.outputs.prerelease }}
           MSI_NAME: ${{ needs.windows.outputs.package }}
           DMG_NAME: ${{ needs.macos.outputs.package }}
           WINDOWS_SHA: ${{ needs.windows.outputs.sha }}
@@ -644,11 +678,11 @@ jobs:
           - Windows 11 x64: unsigned MSI.
           - macOS 26 Tahoe and newer on Apple Silicon: Developer ID signed, notarized and stapled DMG.
 
-          Test these exact downloads before manually publishing this draft.
+          Publish this draft as a prerelease for testing. Promote the same installers to final.
           Source revision: $WINDOWS_SHA.
           Geographic data release: $geography_release.
           Geographic manifest SHA-256: $geography_manifest.
           Final checksums, signing identity and build diagnostics: $BUILD_URL.
           Installed-artifact acceptance is separate from packaging checks; macOS evidence belongs in issue #46.
           EOF
-          gh release create "$GITHUB_REF_NAME" "target/windows-package/delivery/$MSI_NAME" "target/macos-package/delivery/$DMG_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease="$PRERELEASE" --latest=false --title "Clacks Log $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.txt"
+          gh release create "$GITHUB_REF_NAME" "target/windows-package/delivery/$MSI_NAME" "target/macos-package/delivery/$DMG_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --latest=false --title "Clacks Log ${GITHUB_REF_NAME#desktop-v}" --notes-file "$RUNNER_TEMP/release-notes.txt"

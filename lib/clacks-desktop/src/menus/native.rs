@@ -84,6 +84,19 @@ impl MenuAdapter {
                     submenu.append(&PredefinedMenuItem::separator())?;
                 }
             }
+            #[cfg(windows)]
+            if group.title == "Help" {
+                use crate::build_identity::BUILD_IDENTITY;
+                submenu.append(&PredefinedMenuItem::about(
+                    Some("About Clacks Log"),
+                    Some(muda::AboutMetadata {
+                        name: Some("Clacks Log".into()),
+                        version: Some(BUILD_IDENTITY.version.into()),
+                        comments: BUILD_IDENTITY.provenance(),
+                        ..Default::default()
+                    }),
+                ))?;
+            }
             menu.append(&submenu)?;
             #[cfg(target_os = "macos")]
             if group.title == "Help" {

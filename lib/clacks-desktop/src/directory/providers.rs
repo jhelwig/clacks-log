@@ -94,7 +94,7 @@ pub(crate) fn client() -> anyhow::Result<reqwest::Client> {
         .connect_timeout(Duration::from_secs(5))
         .timeout(Duration::from_secs(15))
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent(concat!("Clacks-Log/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("Clacks-Log/", env!("CLACKS_DESKTOP_VERSION")))
         .build()?)
 }
 

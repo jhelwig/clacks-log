@@ -16,7 +16,8 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[command(
     name = "clacks-log",
-    version,
+    version = crate::build_identity::BUILD_IDENTITY.version,
+    long_version = crate::build_identity::BUILD_IDENTITY.to_string(),
     about = "Clacks Log native desktop logger"
 )]
 pub(crate) struct Cli {

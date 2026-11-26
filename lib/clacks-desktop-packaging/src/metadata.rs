@@ -13,7 +13,7 @@ pub(crate) enum PackagePlatform {
 /// Validated identity carried through package construction and final evidence.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct BuildMetadata {
-    /// Cargo workspace application version, also used by MSI.
+    /// Cargo executable package version, also used by MSI.
     pub version: String,
     /// Exact commit packaged, never a moving branch name.
     pub revision: String,
@@ -23,8 +23,6 @@ pub(crate) struct BuildMetadata {
     pub architecture: String,
     /// Pinned package compiler version, when one package compiler is used.
     pub tool_version: Option<String>,
-    /// Whether the validated release tag selects a GitHub prerelease.
-    pub prerelease: bool,
     /// Preparation status; macOS distribution signing is established afterward.
     pub signing_mode: String,
 }
@@ -53,23 +51,32 @@ pub(crate) fn prepare(
         .get("version")
         .and_then(serde_json::Value::as_str)
         .ok_or_else(|| anyhow::anyhow!("missing application version"))?;
-    let prerelease = if let Some(tag) = tag {
-        if tag == format!("v{version}") {
-            false
-        } else {
-            let candidate = tag.strip_prefix(&format!("v{version}-rc."));
-            anyhow::ensure!(
-                candidate.is_some_and(
-                    |number| !number.is_empty() && number.bytes().all(|b| b.is_ascii_digit())
-                ),
-                "release tag {tag} must be v{version} or v{version}-rc.N (N is numeric)"
-            );
-            true
-        }
-    } else {
-        false
-    };
-    tracing::info!(%version, prerelease, ?platform, "validated application package identity");
+    if let Some(tag) = tag {
+        anyhow::ensure!(
+            tag == format!("desktop-v{version}"),
+            "release tag {tag} must match desktop-v{version}"
+        );
+        let mut components = version.split('.');
+        let valid = match (
+            components.next(),
+            components.next(),
+            components.next(),
+            components.next(),
+        ) {
+            (Some(year), Some(month), Some(number), None) => {
+                year.len() == 2
+                    && year.bytes().all(|byte| byte.is_ascii_digit())
+                    && matches!(month.parse::<u8>(), Ok(1..=12))
+                    && number.parse::<u16>().is_ok()
+            }
+            _ => false,
+        };
+        anyhow::ensure!(
+            valid,
+            "desktop release version {version} must be YY.M.N with month 1–12 and build number at most 65535"
+        );
+    }
+    tracing::info!(%version, ?platform, "validated application package identity");
 
     let mut metadata = BuildMetadata {
         version: version.into(),
@@ -77,7 +84,6 @@ pub(crate) fn prepare(
         target: "x86_64-pc-windows-msvc".into(),
         architecture: "x64".into(),
         tool_version: Some("1.2.0".into()),
-        prerelease,
         signing_mode: "unsigned".into(),
     };
     if let PackagePlatform::MacosArm64 = platform {

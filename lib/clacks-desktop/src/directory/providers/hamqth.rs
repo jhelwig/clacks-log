@@ -132,8 +132,10 @@ impl HamQthSession {
             })?
             .pop_if_empty()
             .push(key.as_str());
-        url.query_pairs_mut()
-            .append_pair("app", concat!("Clacks-Log/", env!("CARGO_PKG_VERSION")));
+        url.query_pairs_mut().append_pair(
+            "app",
+            concat!("Clacks-Log/", env!("CLACKS_DESKTOP_VERSION")),
+        );
         for attempt in 0..2 {
             let token = self.authenticated().await?;
             dispatched("hamqth");

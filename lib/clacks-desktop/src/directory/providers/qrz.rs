@@ -77,7 +77,10 @@ impl QrzSession {
             .form(&[
                 ("username", material.login.username.as_str()),
                 ("password", material.login.password.as_str()),
-                ("agent", concat!("Clacks-Log/", env!("CARGO_PKG_VERSION"))),
+                (
+                    "agent",
+                    concat!("Clacks-Log/", env!("CLACKS_DESKTOP_VERSION")),
+                ),
             ])
             .send()
             .await

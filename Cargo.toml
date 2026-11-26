@@ -125,6 +125,7 @@ time = { version = "0.3", features = ["formatting", "parsing"] }
 tokio = { version = "=1.54.1", default-features = false, features = ["rt", "sync", "time"] }
 tokio-tungstenite = { version = "=0.29.0", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
 tokio-util = { version = "=0.7.16", features = ["rt"] }
+toml = "=1.1.8"
 tower-http = { version = "0.7", features = ["trace", "fs"] }
 tracing = { version = "0.1.44", default-features = false, features = ["std", "attributes"] }
 tracing-appender = "=0.2.5"

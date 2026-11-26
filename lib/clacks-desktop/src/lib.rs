@@ -1,6 +1,7 @@
 //! Production native desktop startup and composition for Clacks Log.
 
 mod application;
+mod build_identity;
 mod config;
 mod credentials;
 mod directory;

@@ -32,58 +32,42 @@ fn platform_metadata_does_not_claim_distribution_before_verification() {
 }
 
 #[test]
-fn release_tag_must_match_the_application_version() {
-    let input = json!({"packages":[{"name":"clacks-log","version":"0.1.0"}]});
+fn desktop_tag_validates_the_application_version() {
+    let input = json!({"packages":[
+        {"name":"clacks-desktop","version":"0.1.0"},
+        {"name":"clacks-log","version":"26.11.1"}
+    ]});
     let revision = "a".repeat(40);
+    let platform = PackagePlatform::WindowsX64;
+    let metadata = prepare(&input, &revision, Some("desktop-v26.11.1"), platform).unwrap();
+    assert_eq!(metadata.version, "26.11.1");
 
-    assert!(
-        prepare(
-            &input,
-            &revision,
-            Some("v0.2.0"),
-            PackagePlatform::WindowsX64
-        )
-        .is_err()
-    );
-    assert!(
-        prepare(
-            &input,
-            &revision,
-            Some("v0.1.0"),
-            PackagePlatform::WindowsX64
-        )
-        .is_ok()
-    );
-    assert!(prepare(&input, &revision, None, PackagePlatform::WindowsX64).is_ok());
-}
-
-#[test]
-fn rc_tags_select_prerelease_delivery_without_changing_the_msi_version() {
-    let input = json!({"packages":[{"name":"clacks-log","version":"0.1.0"}]});
-    let revision = "a".repeat(40);
-
-    let release = prepare(
-        &input,
-        &revision,
-        Some("v0.1.0"),
-        PackagePlatform::WindowsX64,
-    )
-    .unwrap();
-    let candidate = prepare(
-        &input,
-        &revision,
-        Some("v0.1.0-rc.1"),
-        PackagePlatform::WindowsX64,
-    )
-    .unwrap();
-
-    assert!(!release.prerelease);
-    assert!(candidate.prerelease);
-    assert_eq!(candidate.version, release.version);
-    for tag in ["v0.2.0-rc.1", "v0.1.0-rc.", "v0.1.0-rc.latest"] {
+    for tag in ["desktop-v26.11.2", "sync-server-v26.11.1"] {
         assert!(
-            prepare(&input, &revision, Some(tag), PackagePlatform::WindowsX64).is_err(),
+            prepare(&input, &revision, Some(tag), platform).is_err(),
             "{tag}"
         );
     }
+
+    for version in ["126.11.1", "26.13.1", "26.11.65536"] {
+        let input = json!({"packages":[{"name":"clacks-log","version":version}]});
+        assert!(
+            prepare(
+                &input,
+                &revision,
+                Some(&format!("desktop-v{version}")),
+                platform
+            )
+            .is_err(),
+            "{version}"
+        );
+    }
+
+    let development = json!({"packages":[{"name":"clacks-log","version":"0.1.0"}]});
+    assert_eq!(
+        prepare(&development, &revision, None, platform)
+            .unwrap()
+            .version,
+        "0.1.0"
+    );
 }
