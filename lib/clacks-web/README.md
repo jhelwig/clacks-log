@@ -6,6 +6,11 @@ server's session, mutation-origin and request-observability policies. Account
 operations live in `clacks-server`; only explicit display values cross into
 browser hydration. A browser-supplied account ID never authorizes an operation.
 
+The public landing page at `/` links to sign-in and to `/download`. The
+download page reads GitHub Latest in the browser and links to the Windows and
+macOS installers on GitHub. Its release-history link is available in the
+initial HTML, including when the browser cannot load the latest release.
+
 For local PostgreSQL, OIDC credentials and the cargo-leptos watch loop, use the
 [server development workflow](../../docs/server-development.md).
 

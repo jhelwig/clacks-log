@@ -53,6 +53,22 @@ async fn account_page_and_direct_server_function_require_the_same_login() -> any
         .cookie_provider(jar.clone())
         .redirect(reqwest::redirect::Policy::none())
         .build()?;
+
+    let landing = client.get(&base).send().await?;
+    assert_eq!(landing.status(), reqwest::StatusCode::OK);
+    let landing = landing.text().await?;
+    assert!(landing.contains("href=\"/download\""));
+    assert!(landing.contains("href=\"/sign-in\""));
+
+    let download = client.get(format!("{base}/download")).send().await?;
+    assert_eq!(download.status(), reqwest::StatusCode::OK);
+    assert!(
+        download
+            .text()
+            .await?
+            .contains("https://github.com/jhelwig/clacks-log/releases")
+    );
+
     let sign_in = client
         .get(format!("{base}/sign-in"))
         .send()

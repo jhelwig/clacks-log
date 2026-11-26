@@ -6,6 +6,8 @@ use leptos::prelude::*;
 
 pub mod clients;
 pub mod directory;
+pub mod download;
+pub mod landing;
 
 /// Offer the deployment's configured providers without exposing credentials.
 #[component]

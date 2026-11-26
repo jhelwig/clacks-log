@@ -21,7 +21,7 @@ ssr = [
     "dep:axum",
     "dep:axum_session_sqlx",
 ]
-hydrate = ["leptos/hydrate", "dep:wasm-bindgen"]
+hydrate = ["leptos/hydrate", "dep:gloo-net", "dep:wasm-bindgen"]
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 getrandom = { workspace = true, features = ["wasm_js"] }
@@ -32,6 +32,8 @@ axum_session_sqlx = { workspace = true, optional = true }
 clacks-model.workspace = true
 clacks-server = { workspace = true, optional = true }
 clacks-sync = { workspace = true, optional = true }
+comrak.workspace = true
+gloo-net = { workspace = true, optional = true }
 leptos.workspace = true
 leptos_axum = { workspace = true, optional = true }
 leptos_meta.workspace = true
