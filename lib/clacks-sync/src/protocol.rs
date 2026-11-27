@@ -1,5 +1,6 @@
 //! Shared application wire values used before synchronization begins.
 
+pub mod contracts;
 pub mod directory;
 pub mod messages;
 

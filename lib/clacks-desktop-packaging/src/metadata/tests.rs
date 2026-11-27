@@ -3,17 +3,18 @@ use serde_json::json;
 
 /// Platform selection must not leak Windows package identity into Mac evidence.
 #[test]
-fn platform_metadata_does_not_claim_distribution_before_verification() {
+fn platform_metadata_does_not_claim_distribution_before_verification() -> anyhow::Result<()> {
     let input = json!({"packages":[{"name":"clacks-log","version":"0.1.0"}]});
     let revision = "a".repeat(40);
 
-    for (platform, target, architecture, tool, mode) in [
+    for (platform, target, architecture, tool, mode, installer) in [
         (
             PackagePlatform::WindowsX64,
             "x86_64-pc-windows-msvc",
             "x64",
             Some("1.2.0"),
             "unsigned",
+            "Clacks-Log-0.1.0-Development-Windows-x64.msi",
         ),
         (
             PackagePlatform::MacosArm64,
@@ -21,26 +22,37 @@ fn platform_metadata_does_not_claim_distribution_before_verification() {
             "arm64",
             None,
             "not-established",
+            "Clacks-Log-0.1.0-Development-macOS-Apple-Silicon.dmg",
         ),
     ] {
-        let metadata = prepare(&input, &revision, None, platform).unwrap();
+        let metadata = prepare(&input, &revision, None, platform)?;
+
         assert_eq!(metadata.target, target);
         assert_eq!(metadata.architecture, architecture);
         assert_eq!(metadata.tool_version.as_deref(), tool);
         assert_eq!(metadata.signing_mode, mode);
+        assert_eq!(metadata.installer_name, installer);
     }
+
+    Ok(())
 }
 
 #[test]
-fn desktop_tag_validates_the_application_version() {
+fn desktop_tag_validates_the_application_version() -> anyhow::Result<()> {
     let input = json!({"packages":[
         {"name":"clacks-desktop","version":"0.1.0"},
         {"name":"clacks-log","version":"26.11.1"}
     ]});
     let revision = "a".repeat(40);
     let platform = PackagePlatform::WindowsX64;
-    let metadata = prepare(&input, &revision, Some("desktop-v26.11.1"), platform).unwrap();
+    let metadata = prepare(&input, &revision, Some("desktop-v26.11.1"), platform)?;
+
     assert_eq!(metadata.version, "26.11.1");
+    assert_eq!(
+        metadata.installer_name,
+        "Clacks-Log-26.11.1-Windows-x64.msi"
+    );
+    assert_eq!(metadata.artifact_name, "Clacks-Log-26.11.1-Windows-x64");
 
     for tag in ["desktop-v26.11.2", "sync-server-v26.11.1"] {
         assert!(
@@ -49,7 +61,7 @@ fn desktop_tag_validates_the_application_version() {
         );
     }
 
-    for version in ["126.11.1", "26.13.1", "26.11.65536"] {
+    for version in ["126.11.1", "26.01.1", "26.13.1", "26.11.65536"] {
         let input = json!({"packages":[{"name":"clacks-log","version":version}]});
         assert!(
             prepare(
@@ -65,9 +77,9 @@ fn desktop_tag_validates_the_application_version() {
 
     let development = json!({"packages":[{"name":"clacks-log","version":"0.1.0"}]});
     assert_eq!(
-        prepare(&development, &revision, None, platform)
-            .unwrap()
-            .version,
+        prepare(&development, &revision, None, platform)?.version,
         "0.1.0"
     );
+
+    Ok(())
 }

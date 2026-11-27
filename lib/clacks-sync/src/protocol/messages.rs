@@ -1,4 +1,4 @@
-//! Native versioned WebSocket messages; connection correlation never establishes causality.
+//! Native WebSocket messages; connection correlation never establishes causality.
 
 use super::ClientIdentity;
 use crate::{
@@ -10,9 +10,6 @@ use crate::{
     transfer::discovery::{DiscoveryEnd, DiscoveryPage, DiscoveryStart},
 };
 use serde::{Deserialize, Serialize};
-
-/// Initial native synchronization wire contract, independent of application versions.
-pub const VERSION: u16 = 1;
 
 /// Common discovery messages used in either direction over the authenticated hub connection.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,8 +60,6 @@ pub enum ClientMessage {
     DirectoryConfiguration,
     /// Negotiate before any state-changing exchange.
     Hello {
-        /// Required protocol contract.
-        version: u16,
         /// Previously completed coverage retained by this workspace.
         checkpoint: Option<InstalledCheckpoint>,
         /// Retained interpretation offered for recovery negotiation.
@@ -118,8 +113,6 @@ pub enum ServerMessage {
     },
     /// Describe authoritative membership and real accepted coverage.
     Hello {
-        /// Selected compatible protocol contract.
-        version: u16,
         /// Account/actor derived from verified authorization.
         identity: ClientIdentity,
         /// Current complete accepted coverage.
@@ -162,8 +155,6 @@ pub enum ServerMessage {
 /// Operational failure categories for native exchange handling.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FailureKind {
-    /// Client/server wire contracts are incompatible.
-    Incompatible,
     /// Message scope, sequence or native contents are invalid.
     Invalid,
     /// Current authority no longer admits this connection's work.

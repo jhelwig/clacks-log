@@ -370,3 +370,12 @@ database error code when available. Normal shutdown and access expiry do not
 produce failure responses. Broken transports are not used for another write.
 All failure writes remain subject to cancellation and the authorization deadline.
 A failed exchange preserves committed work and advertises no unverified coverage.
+
+## Deployment sync capabilities
+
+`GET /api/sync/capabilities` returns the deployment's ordered accepted contract
+identifiers and `Cache-Control: no-store`, without account lookup or credentials.
+Authenticated `/api/sync` upgrades select the first server-accepted contract in
+the desktop's offer. Missing/disjoint offers receive HTTP 400 before upgrade;
+ordinary authorization remains required for sync. Both paths use the same
+server-local accepted list. The selected contract determines the native exchange.

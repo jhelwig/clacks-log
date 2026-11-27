@@ -1,7 +1,10 @@
 //! Public download page and browser-owned release lookup.
 
+use clacks_desktop_release::ReleaseVersion;
 use leptos::prelude::*;
 
+#[cfg(any(feature = "hydrate", test))]
+mod compatibility;
 #[cfg(any(feature = "hydrate", test))]
 mod release;
 
@@ -11,8 +14,8 @@ const RELEASES_URL: &str = "https://github.com/jhelwig/clacks-log/releases";
 /// Installer links and notes selected from the same published desktop release.
 #[derive(Clone)]
 struct DesktopRelease {
-    /// Calendar version displayed to the visitor.
-    version: String,
+    /// Validated identity of the selected release, including its exact canonical tag.
+    version: ReleaseVersion,
     /// GitHub URL of the Windows installer, if available.
     windows: Option<String>,
     /// GitHub URL of the macOS disk image, if available.
@@ -75,8 +78,26 @@ async fn load_latest() -> Result<Option<DesktopRelease>, ()> {
 /// Present one release with its installer choices and formatted notes.
 #[component]
 fn ReleaseDetails(release: DesktopRelease) -> impl IntoView {
+    let tag = release.version.tag();
+    let compatibility = LocalResource::new(move || {
+        let tag = tag.clone();
+        async move {
+            #[cfg(feature = "hydrate")]
+            {
+                compatibility::load_compatibility(&tag).await.message()
+            }
+            #[cfg(not(feature = "hydrate"))]
+            {
+                let _ = tag;
+                std::future::pending::<&'static str>().await
+            }
+        }
+    });
     view! {
-        <p class="muted download-version">"Current release "<strong>{release.version}</strong></p>
+        <p class="muted download-version">"Current release "<strong>{release.version.as_str().to_owned()}</strong></p>
+        <Suspense fallback=|| view! { <p class="muted" role="status">"Checking sync compatibility with this server…"</p> }>
+            {move || compatibility.get().map(|status| view! { <p class="muted" role="status">{status}</p> })}
+        </Suspense>
         <div class="download-platforms">
             <Installer
                 platform="Windows"

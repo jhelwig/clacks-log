@@ -18,11 +18,15 @@ pub(crate) mod tests;
 use clacks_client_store::{
     identity::EnrollmentBinding, settings::SettingsSnapshot, store::ClientStore,
 };
-use clacks_sync::protocol::messages::{ClientMessage, FailureKind, ServerMessage};
+use clacks_sync::protocol::{
+    contracts::SyncContract,
+    messages::{ClientMessage, FailureKind, ServerMessage},
+};
 use futures_util::{SinkExt, StreamExt};
 use huskarl::authorizer::HttpAuthorizer;
 use opentelemetry::trace::TraceContextExt;
 use std::sync::Arc;
+use strum::IntoEnumIterator;
 use tokio::sync::{OwnedRwLockReadGuard, OwnedRwLockWriteGuard, RwLock, watch};
 use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
@@ -171,18 +175,67 @@ pub(crate) async fn run(
             let authorizer = authorizer
                 .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("protected authorization unavailable"))?;
-            let span = tracing::info_span!(parent: None, "desktop.sync.connect", otel.kind="client", otel.name="GET", network.protocol.version="1.1", http.request.method="GET", account_id=%binding.account, actor_id=%binding.actor);
-            span.in_scope(|| tracing::info!(event="sync.connecting", account_id=%binding.account, actor_id=%binding.actor));
-            let mut socket = tokio::select! {
+            let span = tracing::info_span!(
+                parent: None,
+                "desktop.sync.connect",
+                otel.kind = "client",
+                otel.name = "GET",
+                network.protocol.version = "1.1",
+                http.request.method = "GET",
+                account_id = %binding.account,
+                actor_id = %binding.actor,
+            );
+            span.in_scope(|| {
+                tracing::info!(
+                    event = "sync.connecting",
+                    account_id = %binding.account,
+                    actor_id = %binding.actor,
+                );
+            });
+
+            let Connected { mut socket, contract } = tokio::select! {
                 biased;
                 _ = stop.cancelled() => anyhow::bail!("Synchronization stopped"),
-                result = connect(&binding, authorizer, &span).instrument(span.clone()) => match result { Ok(socket) => socket, Err(error) => { span.set_status(opentelemetry::trace::Status::error("")); span.set_attribute("error.type", crate::telemetry::failure::error_class(&error)); return Err(error); } },
+                result = connect(&binding, authorizer, &span).instrument(span.clone()) => {
+                    match result {
+                        Ok(connected) => connected,
+                        Err(error) => {
+                            span.set_status(opentelemetry::trace::Status::error(""));
+                            span.set_attribute("error.type", crate::telemetry::failure::error_class(&error));
+                            return Err(error);
+                        }
+                    }
+                },
             };
             let context = span.context().span().span_context().clone();
             drop(span);
-            tracing::info!(event="sync.connected", account_id=%binding.account, actor_id=%binding.actor);
+            tracing::info!(
+                event = "sync.connected",
+                account_id = %binding.account,
+                actor_id = %binding.actor,
+                ?contract,
+            );
             delay = 1;
-            exchange::run(&mut socket, &store, &binding, &mut changes, &status, &updates, &ConnectionContext { stop: connection_stop.clone(), gate: gate.clone(), trace: context, directory: directory_deliveries.clone() }).await
+
+            match contract {
+                SyncContract::V1 => {
+                    exchange::run(
+                        &mut socket,
+                        &store,
+                        &binding,
+                        &mut changes,
+                        &status,
+                        &updates,
+                        &ConnectionContext {
+                            stop: connection_stop.clone(),
+                            gate: gate.clone(),
+                            trace: context,
+                            directory: directory_deliveries.clone(),
+                        },
+                    )
+                    .await
+                }
+            }
         }
         .await;
         connection_stop.cancel();
@@ -213,12 +266,20 @@ pub(crate) async fn run(
     status.send_replace(Status::Disconnected);
 }
 
+/// A connected socket associated with the selected implemented contract.
+struct Connected {
+    /// Transport admitted by the authenticated handshake.
+    socket: Socket,
+    /// Implementation selected by the server.
+    contract: SyncContract,
+}
+
 /// Use the same validated deployment origin for the HTTPS proof and WSS transport target.
 async fn connect(
     binding: &EnrollmentBinding,
     authorizer: &HttpAuthorizer,
     span: &tracing::Span,
-) -> anyhow::Result<Socket> {
+) -> anyhow::Result<Connected> {
     let target = crate::enrollment::flow::origin(&binding.server)?.join("api/sync")?;
     span.set_attribute("url.full", target.to_string());
     span.set_attribute("url.scheme", target.scheme().to_owned());
@@ -241,6 +302,13 @@ async fn connect(
         .map_err(|_| anyhow::anyhow!("invalid native transport scheme"))?;
     let mut request = endpoint.as_str().into_client_request()?;
     request.headers_mut().extend(headers);
+    let offers = SyncContract::iter()
+        .map(SyncContract::id)
+        .collect::<Vec<_>>()
+        .join(", ");
+    request
+        .headers_mut()
+        .insert(http::header::SEC_WEBSOCKET_PROTOCOL, offers.parse()?);
     opentelemetry::global::get_text_map_propagator(|propagator| {
         propagator.inject_context(
             &span.context(),
@@ -286,7 +354,15 @@ async fn connect(
                 i64::from(response.status().as_u16()),
             );
             authorizer.process_response(&proof_target, response.headers());
-            Ok(socket)
+            let contract = response
+                .headers()
+                .get(http::header::SEC_WEBSOCKET_PROTOCOL)
+                .and_then(|value| value.to_str().ok())
+                .and_then(SyncContract::from_id)
+                .ok_or_else(|| {
+                    anyhow::anyhow!("selected synchronization contract could not be resolved")
+                })?;
+            Ok(Connected { socket, contract })
         }
         Err(tungstenite::Error::Http(response)) => {
             authorizer.process_response(&proof_target, response.headers());

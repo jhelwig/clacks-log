@@ -11,6 +11,15 @@ download page reads GitHub Latest in the browser and links to the Windows and
 macOS installers on GitHub. Its release-history link is available in the
 initial HTML, including when the browser cannot load the latest release.
 
+Compatibility compares the serving deployment's `/api/sync/capabilities` with
+`deploy/desktop/sync-contracts.json` from the displayed release's exact tag via
+GitHub's raw Repository Contents API. Both declaration requests omit credentials;
+deployment discovery uses `no-store`. The browser treats contract IDs as opaque
+strings, so an older web build can compare future contracts. Pending, disjoint
+and unavailable checks leave installer links and release notes accessible.
+Version/tag parsing and installer names share `clacks-desktop-release` with
+packaging and promotion; application versions do not establish sync compatibility.
+
 For local PostgreSQL, OIDC credentials and the cargo-leptos watch loop, use the
 [server development workflow](../../docs/server-development.md).
 

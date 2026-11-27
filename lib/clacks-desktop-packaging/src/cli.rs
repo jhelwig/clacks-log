@@ -1,4 +1,5 @@
 //! Packaging command composition; child processes retain literal arguments.
+use clacks_desktop_release::PackagePlatform;
 use clap::{Parser, Subcommand};
 use std::{fs, path::PathBuf};
 
@@ -13,6 +14,48 @@ struct Arguments {
 /// Supported preparation operations.
 #[derive(Subcommand)]
 enum Operation {
+    /// Prepare the desktop application's release version without changing dependencies.
+    ReleaseVersion {
+        /// Desktop application manifest to edit.
+        #[arg(long)]
+        manifest: PathBuf,
+        /// Requested YY.M.N version.
+        #[arg(long)]
+        version: String,
+    },
+    /// Tag a checked committed desktop version and start native candidate packaging.
+    ReleaseStart {
+        /// GitHub repository owning the release.
+        #[arg(long)]
+        repository: String,
+        /// Exact source already checked out in the current directory.
+        #[arg(long)]
+        revision: String,
+    },
+    /// Continue release preparation after a merged main-push verification run.
+    ReleaseContinue {
+        /// GitHub repository owning the release.
+        #[arg(long)]
+        repository: String,
+        /// Exact completed main-push source already checked out.
+        #[arg(long)]
+        revision: String,
+    },
+    /// Promote the same existing candidate and installer files to final and Latest.
+    Promote {
+        /// GitHub repository owning the release.
+        #[arg(long)]
+        repository: String,
+        /// Existing published desktop candidate tag.
+        #[arg(long)]
+        tag: String,
+    },
+    /// Regenerate the browser publication copy of implemented sync contracts.
+    SyncContracts {
+        /// Generated JSON destination.
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Reopen an assembled geographic payload against the build-provided identity.
     GeographyInspect {
         /// Expected manifest digest from the common geographic build output.
@@ -41,8 +84,8 @@ enum Operation {
     /// Validate source-owned Cargo version and optional release tag.
     Prepare {
         /// Native package platform; source/tag validation is shared.
-        #[arg(long, value_enum)]
-        platform: crate::metadata::PackagePlatform,
+        #[arg(long)]
+        platform: PackagePlatform,
         /// Standard cargo metadata JSON file.
         #[arg(long)]
         metadata: PathBuf,
@@ -66,6 +109,21 @@ pub(crate) fn run() -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("cannot initialize packaging diagnostics: {e}"))?;
     let args = Arguments::parse();
     let result = match args.command {
+        Operation::ReleaseVersion { manifest, version } => {
+            let preparation = crate::release::set_desktop_version(&manifest, &version)?;
+            println!("{}", serde_json::to_string(&preparation)?);
+            Ok(())
+        }
+        Operation::ReleaseStart {
+            repository,
+            revision,
+        } => crate::release::start_release(&repository, &revision),
+        Operation::ReleaseContinue {
+            repository,
+            revision,
+        } => crate::release::continue_release(&repository, &revision),
+        Operation::Promote { repository, tag } => crate::release::promote(&repository, &tag),
+        Operation::SyncContracts { output } => crate::sync_contracts::write(&output),
         Operation::GeographyInspect {
             manifest_sha256,
             bundle,

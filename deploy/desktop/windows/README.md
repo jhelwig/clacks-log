@@ -12,44 +12,46 @@ Store distribution and an updater are separate work.
 
 After this workflow is present on the default branch, open GitHub Actions →
 **Desktop packages** → **Run workflow**, select the desired branch/tag, leave
-platform set to **windows** and start it. The shared geographic preparation and
+platform set to **windows**, leave **release** disabled and start it. The shared geographic preparation and
 Windows packaging checks run. Select **both** to request macOS too, with its
 signing prerequisites.
-No PR, ordinary push,
-merge or schedule starts a Windows build. Download the run's
-`windows-installer-SHA-RUN-ATTEMPT` artifact and extract it before installation.
+Ordinary PRs and pushes do not start native packaging; merged release-preparation
+PRs continue the requested release automatically. Download the run's
+`Clacks-Log-VERSION-Development-Windows-x64` artifact and extract it before installation.
 The ZIP contains only the MSI. The workflow summary records its SHA-256, version,
 source commit, signing status, runner name and Windows version. Installer tables, executable
 metadata, native imports and reused verification results remain in the job logs.
 
-Development filenames include the unchanged Cargo version, revision and run
-identity. Rebuilding the same version does not make it a newer MSI release.
+Development filenames use the unchanged Cargo version, for example
+`Clacks-Log-26.11.1-Development-Windows-x64.msi`. Revision and run identity remain
+in About, `--version` and workflow output. Rebuilding the same version does not make it a newer MSI release.
 Do not use development rebuilds as evidence of ordered version upgrades.
 GitHub's normal artifact availability applies; no archival/retention service is
 introduced. Preserve the candidate needed for an actual native comparison.
 
 ## Versioned releases
 
-1. Commit the desktop calendar version `YY.M.N` in
-   `bin/clacks-log/Cargo.toml`. Use a two-digit year, unpadded month and
-   a build number within the Windows Installer limit of 65535. Give a
-   changed release candidate a new version.
-2. Merge the version to `main` and wait for the **Rust** push jobs
-   `verify (ubuntu-latest)` and `verify-web` to pass for that exact commit.
-   Tag that revision as `desktop-vYY.M.N`. The tag workflow reuses the
-   push results for the tagged commit. An earlier commit, a pull request
-   run or an incomplete run cannot satisfy this check.
-3. Once both native jobs succeed, the delivery job creates one draft GitHub
-   Release marked as a prerelease, containing the exact MSI and macOS disk
-   image. The workflow records hashes, provenance and signing status.
-4. Compare the draft installers’ hashes with the workflow summary. Publish
-   the draft as a prerelease and use those exact files for
-   [native acceptance](#preservation-trust-and-acceptance). To promote the
-   candidate, clear the prerelease flag and explicitly mark the same release
-   Latest. Keep the tag and installer files in place.
+1. Run **Desktop release preparation** with the source revision and requested
+   `YY.M.N` version: two-digit year, unpadded month and build number 0–65535.
+   The workflow creates the desktop version PR. Review and merge it normally;
+   GitHub may require **Approve workflows to run** for a bot-created PR.
+   Actions PR creation must be enabled in repository settings.
+2. After successful **Rust** push verification of the merged commit, automation
+   derives the tag from that commit's desktop application version and starts
+   both native builds. If the source already has the requested version, the
+   preparation action reuses its existing verification and skips the empty PR.
+   A missing/failed exact-source run or conflicting tag stops the release.
+3. Both installers are uploaded to one draft; successful completion publishes
+   it automatically as a prerelease with Latest disabled. A failed build or
+   partial upload stays unpublished. Normal summaries retain build diagnostics.
+4. Use those files for [native acceptance](#preservation-trust-and-acceptance).
+   When satisfied, run **Desktop release promotion** with the candidate tag.
+   Invoking promotion confirms acceptance. It marks the same release final and
+   Latest, preserving the tag and installer files. A changed candidate needs
+   a new version; promotion does not rebuild or replace it.
 
 The MSI filename uses the numeric version, for example
-`clacks-log-26.11.1-windows-x64.msi`. A partial upload stays unpublished.
+`Clacks-Log-26.11.1-Windows-x64.msi`. The Actions artifact uses its filename stem.
 Inspect an existing partial draft before retrying delivery.
 
 ## Package policy and local build

@@ -350,7 +350,7 @@ Clients preserve the same underlying mode value and supplied context despite dif
 
 ## Incompatible client versions (D179)
 
-Schema or protocol incompatibility may require a client upgrade before synchronization resumes. Preserve enrollment, local data, pending working values, and comparison evidence through the upgrade. Indefinite offline eligibility does not promise perpetual protocol compatibility for old executables, but version incompatibility must not force re-enrollment or ADIF export/import. Compatible recognition differences use D178’s stable underlying mode representation and are not themselves grounds to require an upgrade. Exact compatibility negotiation, migration mechanisms, and supported-version policy remain open.
+Schema or protocol incompatibility may require a client upgrade before synchronization resumes. Preserve enrollment, local data, pending working values, and comparison evidence through the upgrade. Indefinite offline eligibility does not promise perpetual protocol compatibility for old executables, but version incompatibility must not force re-enrollment or ADIF export/import. Compatible recognition differences use D178’s stable underlying mode representation and are not themselves grounds to require an upgrade. WebSocket subprotocol negotiation selects the first server-accepted contract offered by the desktop before sync messages are exchanged. Public `/api/sync/capabilities` exposes that same ordered acceptance policy without account data. The initial contract is `clacks-sync-v1`; future implementations and migrations remain separate work.
 
 ## Local working values in contact views (D180)
 

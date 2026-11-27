@@ -814,3 +814,11 @@ application menu, Help search and Command-Q. Open Unsynchronized changes and
 check that macOS application-menu commands target the main workbench when that
 auxiliary window has focus. Component tests and cross-compilation do not replace
 these platform checks.
+
+## Sync compatibility
+
+Connection setup offers the implemented `SyncContract` identifiers through
+WebSocket subprotocol negotiation. The server's accepted order chooses the
+contract; setup retains its typed binding and dispatches that implementation.
+There is no duplicate numeric version in Hello. Normal connection failures keep
+local work, enrollment and pending changes available for offline use/reconnect.

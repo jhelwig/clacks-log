@@ -1,6 +1,7 @@
 //! The GitHub release fields used to select public desktop downloads.
 
 use super::{DesktopRelease, RELEASES_URL};
+use clacks_desktop_release::{PackagePlatform, ReleaseVersion};
 use serde::Deserialize;
 
 /// Release fields read from GitHub Latest.
@@ -34,35 +35,19 @@ impl GitHubRelease {
             return Err(());
         }
 
-        let version = self.tag_name.strip_prefix("desktop-v").ok_or(())?;
-        let mut parts = version.split('.');
-        let (Some(year), Some(month), Some(number), None) =
-            (parts.next(), parts.next(), parts.next(), parts.next())
-        else {
-            return Err(());
-        };
-        if year.len() != 2
-            || ![year, month, number].iter().all(|part| {
-                part.bytes().all(|byte| byte.is_ascii_digit())
-                    && (part.len() == 1 || !part.starts_with('0'))
-            })
-            || !matches!(month.parse::<u8>(), Ok(1..=12))
-            || number.parse::<u16>().is_err()
-        {
-            return Err(());
-        }
+        let version = ReleaseVersion::from_tag(&self.tag_name).map_err(|_| ())?;
 
         Ok(DesktopRelease {
-            windows: self.installer(version, "windows-x64.msi"),
-            macos: self.installer(version, "macos-arm64.dmg"),
-            version: version.to_owned(),
+            windows: self.installer(version.as_str(), PackagePlatform::WindowsX64),
+            macos: self.installer(version.as_str(), PackagePlatform::MacosArm64),
+            version,
             notes: self.body.filter(|body| !body.trim().is_empty()),
         })
     }
 
     /// Return the link for the expected platform installer at this release tag.
-    fn installer(&self, version: &str, platform: &str) -> Option<String> {
-        let name = format!("clacks-log-{version}-{platform}");
+    fn installer(&self, version: &str, platform: PackagePlatform) -> Option<String> {
+        let name = platform.installer_name(version, false);
         let expected_url = format!("{RELEASES_URL}/download/{}/{name}", self.tag_name);
 
         self.assets
@@ -75,12 +60,14 @@ impl GitHubRelease {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::Context;
     use serde_json::json;
 
     #[test]
-    fn selects_installers_for_the_same_release_and_keeps_available_downloads() {
-        let windows_name = "clacks-log-26.11.1-windows-x64.msi";
-        let macos_name = "clacks-log-26.11.1-macos-arm64.dmg";
+    fn selects_installers_for_the_same_release_and_keeps_available_downloads() -> anyhow::Result<()>
+    {
+        let windows_name = "Clacks-Log-26.11.1-Windows-x64.msi";
+        let macos_name = "Clacks-Log-26.11.1-macOS-Apple-Silicon.dmg";
         let windows_url = format!("{RELEASES_URL}/download/desktop-v26.11.1/{windows_name}");
         let macos_url = format!("{RELEASES_URL}/download/desktop-v26.11.1/{macos_name}");
         let mut response = json!({
@@ -95,16 +82,27 @@ mod tests {
             ]
         });
 
-        let parsed: GitHubRelease = serde_json::from_value(response.clone()).unwrap();
-        let release = parsed.into_desktop_release().unwrap();
-        assert_eq!(release.version, "26.11.1");
+        let parsed: GitHubRelease = serde_json::from_value(response.clone())?;
+        let release = parsed
+            .into_desktop_release()
+            .map_err(|()| anyhow::anyhow!("fixture identifies a final desktop release"))?;
+
+        assert_eq!(release.version.as_str(), "26.11.1");
         assert_eq!(release.windows.as_deref(), Some(windows_url.as_str()));
         assert_eq!(release.macos.as_deref(), Some(macos_url.as_str()));
 
-        response["assets"].as_array_mut().unwrap().pop();
-        let parsed: GitHubRelease = serde_json::from_value(response).unwrap();
-        let release = parsed.into_desktop_release().unwrap();
+        response["assets"]
+            .as_array_mut()
+            .context("fixture assets are an array")?
+            .pop();
+        let parsed: GitHubRelease = serde_json::from_value(response)?;
+        let release = parsed
+            .into_desktop_release()
+            .map_err(|()| anyhow::anyhow!("removing one installer preserves the final release"))?;
+
         assert_eq!(release.windows.as_deref(), Some(windows_url.as_str()));
         assert!(release.macos.is_none());
+
+        Ok(())
     }
 }

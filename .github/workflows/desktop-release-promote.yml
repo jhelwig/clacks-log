@@ -1,0 +1,33 @@
+name: Desktop release promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Accepted desktop candidate to promote (desktop-vYY.M.N)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: desktop-release-promotion
+      - name: Build release tooling
+        run: |
+          cargo fetch --locked
+          cargo build -p clacks-desktop-package --locked --offline
+      - name: Promote the accepted candidate without replacing installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_TAG: ${{ inputs.tag }}
+          RUST_LOG: info
+        run: target/debug/clacks-desktop-package promote --repository "$GITHUB_REPOSITORY" --tag "$CANDIDATE_TAG"

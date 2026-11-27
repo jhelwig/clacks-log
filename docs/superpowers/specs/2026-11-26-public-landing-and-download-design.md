@@ -49,9 +49,14 @@ Downloads link directly to the release assets on GitHub. GitHub release history
 preserves access to older releases. In-app updates use the exact GitHub release
 the desktop checked.
 
-Deliver the public pages first. [Issue #73] adds compatibility with the server
-serving the page. The first phase makes no compatibility claim. Downloads stay
-available when compatibility information is added.
+[Issue #73] adds compatibility with the server serving the page. Fetch its
+public capabilities without credentials and compare them with generated
+`deploy/desktop/sync-contracts.json` through the raw Repository Contents API
+at the displayed release's exact tag. The server's accepted-contract order
+governs live selection; the page only determines whether support overlaps.
+Downloads remain available while checking and for incompatible or unknown
+results. Shared release identity/naming operations supply the friendly installer
+names and version parsing used by both packaging and this page.
 
 Existing web request tracing covers serving the public routes. The browser's
 GitHub request uses visible loading and failure feedback without reporting the

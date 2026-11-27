@@ -1308,6 +1308,7 @@ dependencies = [
  "sha2 0.11.1",
  "socket2",
  "sqlx",
+ "strum 0.28.0",
  "tempfile",
  "thiserror 2.0.21",
  "time",
@@ -1342,15 +1343,27 @@ name = "clacks-desktop-packaging"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clacks-desktop-release",
  "clacks-geography",
+ "clacks-sync",
  "clap",
  "hex",
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "strum 0.28.0",
  "tempfile",
+ "toml_edit 0.25.13+spec-1.1.0",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "clacks-desktop-release"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "strum 0.28.0",
 ]
 
 [[package]]
@@ -1556,6 +1569,7 @@ dependencies = [
  "sha2 0.11.1",
  "shlex",
  "sqlx",
+ "strum 0.28.0",
  "tempfile",
  "thiserror 2.0.21",
  "time",
@@ -1596,6 +1610,7 @@ dependencies = [
  "metrics-util",
  "serde",
  "serde_json",
+ "strum 0.28.0",
  "thiserror 2.0.21",
  "tracing",
  "tracing-subscriber",
@@ -1607,14 +1622,17 @@ dependencies = [
 name = "clacks-web"
 version = "0.1.0"
 dependencies = [
+ "any_spawner",
  "anyhow",
  "axum",
  "axum_session_sqlx",
  "chrono",
+ "clacks-desktop-release",
  "clacks-model",
  "clacks-server",
  "clacks-sync",
  "comrak",
+ "futures-util",
  "getrandom 0.4.3",
  "gloo-net",
  "huskarl-core",
@@ -1631,11 +1649,13 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "tokio-tungstenite",
  "tracing",
  "tracing-subscriber",
  "ulid",
  "url",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -9108,6 +9128,7 @@ dependencies = [
  "indexmap 2.14.2",
  "toml_datetime 1.1.2+spec-1.1.0",
  "toml_parser",
+ "toml_writer",
  "winnow 1.0.5",
 ]
 

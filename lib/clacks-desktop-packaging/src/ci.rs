@@ -61,12 +61,8 @@ fn qualify(run: &Value, revision: &str) -> anyhow::Result<CiEvidence> {
     })
 }
 
-/// Query the newest exact-commit push run and its current latest results.
-///
-/// GitHub CLI owns workflow/commit filtering, result ordering, pagination and
-/// job retrieval. No success filter or historical fallback is applied.
-#[tracing::instrument(skip_all, fields(repository, revision))]
-pub(crate) fn gate(repository: &str, revision: &str) -> anyhow::Result<CiEvidence> {
+/// Select the newest push verification for the exact source commit.
+fn latest_run(repository: &str, revision: &str) -> anyhow::Result<u64> {
     let runs = crate::command_json(
         "gh",
         &[
@@ -88,7 +84,33 @@ pub(crate) fn gate(repository: &str, revision: &str) -> anyhow::Result<CiEvidenc
     )?;
     let selected = runs.as_array().and_then(|runs| runs.first())
         .ok_or_else(|| anyhow::anyhow!("no existing Rust push workflow result for exact commit {revision}; no checks were dispatched"))?;
-    let id = crate::number(selected, "databaseId")?;
+    crate::number(selected, "databaseId")
+}
+
+/// Wait for the existing source verification without dispatching another run.
+pub(crate) fn wait(repository: &str, revision: &str) -> anyhow::Result<()> {
+    let id = latest_run(repository, revision)?;
+    crate::command_output(
+        "gh",
+        &[
+            "run".into(),
+            "watch".into(),
+            id.to_string().into(),
+            "--repo".into(),
+            repository.into(),
+            "--exit-status".into(),
+        ],
+    )?;
+    Ok(())
+}
+
+/// Query the newest exact-commit push run and its current latest results.
+///
+/// GitHub CLI owns workflow/commit filtering, result ordering, pagination and
+/// job retrieval. No success filter or historical fallback is applied.
+#[tracing::instrument(skip_all, fields(repository, revision))]
+pub(crate) fn gate(repository: &str, revision: &str) -> anyhow::Result<CiEvidence> {
+    let id = latest_run(repository, revision)?;
     // Omitting --attempt requests the latest attempt, including one started
     // since listing runs; do not request an older successful attempt.
     let run = crate::command_json(

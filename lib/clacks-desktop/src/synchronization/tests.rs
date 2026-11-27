@@ -1,6 +1,6 @@
 //! Real authenticated endpoint checks using the existing native enrollment host.
 
-use super::{connect, exchange, receive, send};
+use super::{Connected, connect, exchange, receive, send};
 use clacks_client_store::{
     identity::{self, EnrollmentBinding},
     save,
@@ -13,8 +13,9 @@ use clacks_model::{
 };
 use clacks_sync::{
     client::Preparation,
-    protocol::messages::{
-        self, ClientMessage, FailureKind, ProposalOutcome, ServerMessage, TransferMessage,
+    protocol::{
+        contracts::SyncContract,
+        messages::{ClientMessage, FailureKind, ProposalOutcome, ServerMessage, TransferMessage},
     },
     record::{RecordId, RecordKey, RecordState, RecordValue},
 };
@@ -31,7 +32,10 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
         trace: opentelemetry::trace::SpanContext::empty_context(),
         directory: tokio::sync::watch::channel(None).0,
     };
-    let mut socket = connect(binding, &authorizer, &tracing::Span::none()).await?;
+    let Connected {
+        mut socket,
+        contract: SyncContract::V1,
+    } = connect(binding, &authorizer, &tracing::Span::none()).await?;
     let cancelled = CancellationToken::new();
     cancelled.cancel();
     assert!(
@@ -39,7 +43,6 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
             &mut socket,
             &cancelled,
             ClientMessage::Hello {
-                version: messages::VERSION,
                 checkpoint: None,
                 baselines: vec![],
                 lineage: None
@@ -49,25 +52,6 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
         .is_err()
     );
 
-    send(
-        &mut socket,
-        &stop,
-        ClientMessage::Hello {
-            version: messages::VERSION + 1,
-            checkpoint: None,
-            baselines: vec![],
-            lineage: None,
-        },
-    )
-    .await?;
-    assert!(matches!(
-        receive(&mut socket, &connection).await?,
-        ServerMessage::Failure {
-            kind: FailureKind::Incompatible,
-            ..
-        }
-    ));
-
     let directory = tempfile::tempdir()?;
     let store = ClientStore::create(
         &directory.path().join("workspace.sqlite"),
@@ -76,12 +60,14 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     )
     .await?;
     identity::bind(&store, None, binding.clone()).await?;
-    let mut socket = connect(binding, &authorizer, &tracing::Span::none()).await?;
+    let Connected {
+        mut socket,
+        contract: SyncContract::V1,
+    } = connect(binding, &authorizer, &tracing::Span::none()).await?;
     send(
         &mut socket,
         &stop,
         ClientMessage::Hello {
-            version: messages::VERSION,
             checkpoint: None,
             baselines: vec![],
             lineage: None,
@@ -118,7 +104,10 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     ));
     assert!(receive(&mut socket, &connection).await.is_err());
     // Invalid contents must not be echoed back as a diagnostic.
-    let mut malformed = connect(binding, &authorizer, &tracing::Span::none()).await?;
+    let Connected {
+        socket: mut malformed,
+        contract: SyncContract::V1,
+    } = connect(binding, &authorizer, &tracing::Span::none()).await?;
     malformed
         .send(super::tungstenite::Message::Text(
             r#"{"unrecognized":"PRIVATE-PAYLOAD-CANARY"}"#.into(),
@@ -132,12 +121,14 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
     assert_eq!(typed.kind, FailureKind::Invalid);
     assert!(!typed.message.contains("PRIVATE-PAYLOAD-CANARY"));
 
-    let mut socket = connect(binding, &authorizer, &tracing::Span::none()).await?;
+    let Connected {
+        mut socket,
+        contract: SyncContract::V1,
+    } = connect(binding, &authorizer, &tracing::Span::none()).await?;
     send(
         &mut socket,
         &stop,
         ClientMessage::Hello {
-            version: messages::VERSION,
             checkpoint: None,
             baselines: vec![],
             lineage: None,
@@ -202,13 +193,15 @@ pub(crate) async fn verify(binding: &EnrollmentBinding) -> anyhow::Result<()> {
             .prepared
             .is_some()
     );
-    let mut socket = connect(binding, &authorizer, &tracing::Span::none()).await?;
+    let Connected {
+        mut socket,
+        contract: SyncContract::V1,
+    } = connect(binding, &authorizer, &tracing::Span::none()).await?;
     let local = synchronization::state(&store).await?;
     send(
         &mut socket,
         &stop,
         ClientMessage::Hello {
-            version: messages::VERSION,
             checkpoint: local.checkpoint,
             baselines: local.baselines,
             lineage: local.lineage,

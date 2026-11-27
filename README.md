@@ -235,17 +235,40 @@ and retire the dated working documents to Git history and pull requests.
 ## Desktop packaging
 
 The [desktop package workflow](deploy/desktop/windows/README.md) provides
-manual development builds as Actions artifacts and version-tag builds as draft
-GitHub Releases. It targets current-user installation on Windows 11 x64;
+manual development builds as Actions artifacts and automated versioned
+prereleases after both native installer uploads succeed. It targets current-user installation on Windows 11 x64;
 early artifacts are unsigned. Windows builds do not run for pull requests or
 ordinary branch pushes. Release builds reuse existing successful Linux/web
 results for the exact tagged commit rather than rerunning them. Native Windows
-acceptance and release publication remain distinct from package construction.
+acceptance and final promotion remain distinct from package construction.
 
 The same workflow builds a [macOS disk image](deploy/desktop/macos/README.md)
 for macOS 26 Tahoe and newer on Apple Silicon. Mac development downloads and
 tagged artifacts require Developer ID signing, the existing Keychain profile
 authorization, notarization and stapling. Manual dispatch selects Windows,
-macOS or both; tags require both packages before creating one unpublished draft.
-The owner supplies signing inputs and tests the exact installed artifacts before
-publication. Packaging automation alone does not establish native acceptance.
+macOS or both; release builds require both packages before publishing their
+candidate. The owner supplies signing inputs and tests the exact distributed
+installers before invoking final promotion. Packaging automation alone does not
+establish native acceptance.
+
+## Desktop compatibility and release preparation
+
+The download page reads `/api/sync/capabilities` without credentials and compares
+it with the displayed release's generated `deploy/desktop/sync-contracts.json`
+through GitHub's raw Repository Contents API at that exact tag. Compatibility
+lookup does not block downloads or offline desktop use.
+
+After changing implemented sync contracts, regenerate the publication copy and
+run the normal packaging test, which checks freshness without modifying it:
+
+```sh
+cargo run --bin clacks-desktop-package --locked --offline -- sync-contracts --output deploy/desktop/sync-contracts.json
+cargo test -p clacks-desktop-packaging --locked --offline
+```
+
+To request a release, run **Desktop release preparation** with source and
+`YY.M.N` version. Review and merge its version PR normally. Successful exact-source
+verification continues through tagging, both native packages and prerelease
+publication automatically. Run **Desktop release promotion** with the tested
+tag to confirm acceptance and make those same installers final and Latest.
+See the [release procedure](deploy/desktop/windows/README.md#versioned-releases).
