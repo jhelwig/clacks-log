@@ -40,6 +40,9 @@ enum Operation {
         /// Exact completed main-push source already checked out.
         #[arg(long)]
         revision: String,
+        /// Merged release-request branch selected by the continuation workflow.
+        #[arg(long)]
+        request_branch: String,
     },
     /// Promote the same existing candidate and installer files to final and Latest.
     Promote {
@@ -121,7 +124,8 @@ pub(crate) fn run() -> anyhow::Result<()> {
         Operation::ReleaseContinue {
             repository,
             revision,
-        } => crate::release::continue_release(&repository, &revision),
+            request_branch,
+        } => crate::release::continue_release(&repository, &revision, &request_branch),
         Operation::Promote { repository, tag } => crate::release::promote(&repository, &tag),
         Operation::SyncContracts { output } => crate::sync_contracts::write(&output),
         Operation::GeographyInspect {

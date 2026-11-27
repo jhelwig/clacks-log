@@ -16,7 +16,7 @@ concurrency:
 jobs:
   changes:
     name: Classify changes
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, clacks-linux]
     timeout-minutes: 5
     outputs:
       docs_only: ${{ steps.classify.outputs.docs_only }}
@@ -85,9 +85,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Use persistent local Cargo build artifacts
-        env:
-          CARGO_TARGET_DIR: ${{ runner.workspace }}/target
-        run: printf 'CARGO_TARGET_DIR=%s\n' "$CARGO_TARGET_DIR" >> "$GITHUB_ENV"
+        run: printf 'CARGO_TARGET_DIR=%s\n' "$(dirname "$GITHUB_WORKSPACE")/target" >> "$GITHUB_ENV"
       - name: Resolve repository Rust toolchain
         run: rustup show active-toolchain
       - name: Install pinned Cargo manifest sorter
@@ -192,9 +190,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Use persistent local Cargo build artifacts
-        env:
-          CARGO_TARGET_DIR: ${{ runner.workspace }}/target
-        run: printf 'CARGO_TARGET_DIR=%s\n' "$CARGO_TARGET_DIR" >> "$GITHUB_ENV"
+        run: printf 'CARGO_TARGET_DIR=%s\n' "$(dirname "$GITHUB_WORKSPACE")/target" >> "$GITHUB_ENV"
       - name: Resolve repository Rust toolchain
         run: rustup show active-toolchain
       - name: Fetch locked Rust dependencies
@@ -216,7 +212,7 @@ jobs:
     name: CI result
     needs: [changes, verify, verify-web]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, clacks-linux]
     timeout-minutes: 5
     steps:
       - name: Require the expected verification outcomes
