@@ -138,11 +138,13 @@ including macOS notarization/stapling and the ability to add Windows signing.
 
 ### 1. Prepare a candidate
 
-The maintainer starts a release workflow with a source revision and desktop
-version `YY.M.N`. The workflow prepares the version change in
-`bin/clacks-log/Cargo.toml` through the normal review and merge process. If the
-committed version is already correct, no empty change is needed. A version-only
-change leaves sync-contract metadata unchanged.
+The maintainer starts a release workflow with a source revision. Preparation
+allocates `YY.M.N` from the UTC date, starting at `1` each month and advancing
+past existing desktop tags and committed preparation versions. It commits the
+version change in `bin/clacks-log/Cargo.toml` through the normal review and merge
+process. The workflow run identifies its request branch; retries reuse that
+branch or its existing PR and the version in its committed manifest. A
+version-only change leaves sync-contract metadata unchanged.
 
 Starting this workflow requests preparation and prerelease publication. Final
 promotion is a later maintainer action.
@@ -156,14 +158,13 @@ build. Ordinary merges skip the release job.
 
 After preparation lands on `main`, automation uses the resulting commit as the
 release source. It reuses the existing Linux/web checks for that exact commit,
-including the normal metadata-generation check, validates the release version
+including the normal metadata freshness test, validates the release version
 and creates `desktop-vYY.M.N`. An existing tag for different source is an error.
 
-The continuation workflow passes the selected request branch and verified
-commit to the helper. The helper reads that checkout's application version and
-compares the request branch with the branch derived from that version before
-tagging. The workflow owns merged-PR selection; the helper does not repeat the
-lookup.
+The continuation workflow passes the verified commit to the helper, which
+reads that checkout's application version before tagging. The workflow owns
+merged-PR selection; the helper does not repeat the lookup or interpret the
+request branch as a version declaration.
 
 Automation then starts native packaging for that tag. Account for [GitHub token
 event behavior]: a tag created with `GITHUB_TOKEN` does not itself trigger the

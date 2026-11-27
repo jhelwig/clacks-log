@@ -61,7 +61,7 @@ fn desktop_tag_validates_the_application_version() -> anyhow::Result<()> {
         );
     }
 
-    for version in ["126.11.1", "26.01.1", "26.13.1", "26.11.65536"] {
+    for version in ["126.11.1", "26.01.1", "26.13.1", "26.11.0", "26.11.65536"] {
         let input = json!({"packages":[{"name":"clacks-log","version":version}]});
         assert!(
             prepare(

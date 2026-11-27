@@ -38,7 +38,7 @@ jobs:
                 .base.ref == "main" and
                 .head.repo.full_name == $repository and
                 .merge_commit_sha == $revision and
-                (.head.ref | startswith("release/desktop-v"))
+                (.head.ref | startswith("release/desktop-"))
               ) | .head.ref) // empty
             ')
           printf 'branch=%s\n' "$branch" >> "$GITHUB_OUTPUT"
@@ -69,8 +69,6 @@ jobs:
       - name: Continue the selected release request
         env:
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
-          REQUEST_BRANCH: ${{ needs.request.outputs.branch }}
         run: >-
           "$CARGO_TARGET_DIR/debug/clacks-desktop-package" release-continue
           --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_SHA"
-          --request-branch "$REQUEST_BRANCH"

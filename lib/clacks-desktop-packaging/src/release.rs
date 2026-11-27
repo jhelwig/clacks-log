@@ -1,70 +1,18 @@
 //! Version preparation and publication of exact-source desktop candidates.
 
+pub(crate) mod preparation;
+
 use anyhow::Context;
 use clacks_desktop_release::{PackagePlatform, ReleaseVersion};
-use serde::{Deserialize, Serialize};
-use std::path::Path;
+use serde::Deserialize;
 use strum::IntoEnumIterator;
-
-/// Version-preparation outcome consumed by the release workflow.
-#[derive(Serialize)]
-pub(crate) struct VersionPreparation {
-    /// Whether the application manifest was updated.
-    changed: bool,
-    /// Request branch derived from the validated desktop version.
-    branch: String,
-}
 
 /// A checked source commit and the desktop release version committed there.
 struct Candidate {
-    /// Exact source commit selected by the request or completed main push.
+    /// Exact source commit selected by the completed main push.
     revision: String,
     /// Parsed application version, from which the tag is derived.
     version: ReleaseVersion,
-}
-
-/// Request branch derived from the source-owned release identity.
-fn request_branch(version: &ReleaseVersion) -> String {
-    format!("release/{}", version.tag())
-}
-
-/// Change only the explicitly selected desktop application's version.
-#[tracing::instrument(skip_all, fields(?manifest, version))]
-pub(crate) fn set_desktop_version(
-    manifest: &Path,
-    version: &str,
-) -> anyhow::Result<VersionPreparation> {
-    let version = ReleaseVersion::parse(version)?;
-    let text = std::fs::read_to_string(manifest)?;
-    let mut document: toml_edit::DocumentMut = text.parse()?;
-    let package = document
-        .get_mut("package")
-        .and_then(toml_edit::Item::as_table_mut)
-        .context("desktop manifest has no package table")?;
-    anyhow::ensure!(
-        package.get("name").and_then(toml_edit::Item::as_str) == Some("clacks-log"),
-        "expected the clacks-log application manifest"
-    );
-    let field = package
-        .get_mut("version")
-        .and_then(toml_edit::Item::as_value_mut)
-        .context("desktop application needs an explicit package version")?;
-    let current = field
-        .as_str()
-        .context("desktop package version is not a string")?;
-
-    let changed = current != version.as_str();
-    if changed {
-        let mut replacement = toml_edit::Value::from(version.as_str());
-        replacement.decor_mut().clone_from(field.decor());
-        *field = replacement;
-        std::fs::write(manifest, document.to_string())?;
-    }
-
-    Ok(VersionPreparation {
-        changed,
-        branch: request_branch(&version),
-    })
 }
 
 /// Read the application version using Cargo's metadata for the current checkout.
@@ -156,27 +104,10 @@ fn start(repository: &str, candidate: Candidate) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Continue the workflow-selected request after matching it to the checked-out version.
-#[tracing::instrument(skip_all, fields(repository, revision, branch))]
-pub(crate) fn continue_release(
-    repository: &str,
-    revision: &str,
-    branch: &str,
-) -> anyhow::Result<()> {
-    let candidate = candidate(revision)?;
-    anyhow::ensure!(
-        branch == request_branch(&candidate.version),
-        "release request branch does not match committed desktop version"
-    );
-
-    start(repository, candidate)
-}
-
-/// Wait for existing CI and start a release whose version is committed in this checkout.
+/// Release the verified commit selected by the merged-request workflow.
 #[tracing::instrument(skip_all, fields(repository, revision))]
-pub(crate) fn start_release(repository: &str, revision: &str) -> anyhow::Result<()> {
+pub(crate) fn continue_release(repository: &str, revision: &str) -> anyhow::Result<()> {
     let candidate = candidate(revision)?;
-    crate::ci::wait(repository, revision)?;
     start(repository, candidate)
 }
 
@@ -225,7 +156,7 @@ impl Release {
     fn installers(&self, version: &ReleaseVersion) -> anyhow::Result<Vec<Asset>> {
         PackagePlatform::iter()
             .map(|platform| {
-                let name = platform.installer_name(version.as_str(), false);
+                let name = platform.installer_name(&version.to_string(), false);
                 self.assets
                     .iter()
                     .find(|asset| asset.name == name && asset.state == "uploaded")

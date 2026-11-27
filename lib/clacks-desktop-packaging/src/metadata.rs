@@ -41,7 +41,7 @@ pub(crate) fn prepare(
     if let Some(tag) = tag {
         let release = ReleaseVersion::from_tag(tag)?;
         anyhow::ensure!(
-            release.as_str() == version,
+            release.to_string() == version,
             "release tag {tag} must match desktop-v{version}"
         );
     }

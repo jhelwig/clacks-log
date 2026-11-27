@@ -1343,6 +1343,7 @@ name = "clacks-desktop-packaging"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clacks-desktop-release",
  "clacks-geography",
  "clacks-sync",
@@ -1363,6 +1364,7 @@ name = "clacks-desktop-release"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "serde",
  "strum 0.28.0",
 ]
 
