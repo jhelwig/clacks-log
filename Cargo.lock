@@ -1437,7 +1437,7 @@ dependencies = [
 
 [[package]]
 name = "clacks-log"
-version = "0.1.0"
+version = "26.11.1"
 dependencies = [
  "anyhow",
  "clacks-desktop",
