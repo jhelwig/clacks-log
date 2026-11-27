@@ -103,7 +103,7 @@ mod tests {
 
         let render = leptos_axum::render_app_to_stream(move || {
             let release = super::super::DesktopRelease {
-                version: version.clone(),
+                version,
                 windows: Some("https://example.test/installer.msi".into()),
                 macos: None,
                 notes: Some("Candidate notes".into()),

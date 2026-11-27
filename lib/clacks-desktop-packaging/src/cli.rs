@@ -14,23 +14,14 @@ struct Arguments {
 /// Supported preparation operations.
 #[derive(Subcommand)]
 enum Operation {
-    /// Prepare the desktop application's release version without changing dependencies.
-    ReleaseVersion {
-        /// Desktop application manifest to edit.
-        #[arg(long)]
-        manifest: PathBuf,
-        /// Requested YY.M.N version.
-        #[arg(long)]
-        version: String,
-    },
-    /// Tag a checked committed desktop version and start native candidate packaging.
-    ReleaseStart {
+    /// Allocate the next UTC desktop version or reuse this workflow run's preparation.
+    ReleasePrepare {
         /// GitHub repository owning the release.
         #[arg(long)]
         repository: String,
-        /// Exact source already checked out in the current directory.
+        /// GitHub workflow run ID, unchanged across retries of this request.
         #[arg(long)]
-        revision: String,
+        request_id: u64,
     },
     /// Continue release preparation after a merged main-push verification run.
     ReleaseContinue {
@@ -40,9 +31,6 @@ enum Operation {
         /// Exact completed main-push source already checked out.
         #[arg(long)]
         revision: String,
-        /// Merged release-request branch selected by the continuation workflow.
-        #[arg(long)]
-        request_branch: String,
     },
     /// Promote the same existing candidate and installer files to final and Latest.
     Promote {
@@ -112,20 +100,18 @@ pub(crate) fn run() -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("cannot initialize packaging diagnostics: {e}"))?;
     let args = Arguments::parse();
     let result = match args.command {
-        Operation::ReleaseVersion { manifest, version } => {
-            let preparation = crate::release::set_desktop_version(&manifest, &version)?;
+        Operation::ReleasePrepare {
+            repository,
+            request_id,
+        } => {
+            let preparation = crate::release::preparation::prepare(&repository, request_id)?;
             println!("{}", serde_json::to_string(&preparation)?);
             Ok(())
         }
-        Operation::ReleaseStart {
-            repository,
-            revision,
-        } => crate::release::start_release(&repository, &revision),
         Operation::ReleaseContinue {
             repository,
             revision,
-            request_branch,
-        } => crate::release::continue_release(&repository, &revision, &request_branch),
+        } => crate::release::continue_release(&repository, &revision),
         Operation::Promote { repository, tag } => crate::release::promote(&repository, &tag),
         Operation::SyncContracts { output } => crate::sync_contracts::write(&output),
         Operation::GeographyInspect {

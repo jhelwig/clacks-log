@@ -266,8 +266,11 @@ cargo run --bin clacks-desktop-package --locked --offline -- sync-contracts --ou
 cargo test -p clacks-desktop-packaging --locked --offline
 ```
 
-To request a release, run **Desktop release preparation** with source and
-`YY.M.N` version. This workflow is manual-only. Review and merge its version PR
+To request a release, run **Desktop release preparation** with the source revision.
+This workflow is manual-only. It allocates `YY.M.N` using the UTC year and month,
+starting each month's sequence at `1` and advancing past allocated versions.
+The version is committed in a preparation branch identified by the workflow run;
+retries reuse that request and its committed version. Review and merge its PR
 normally. **Desktop release continuation** checks successful main-push verification
 for a merged release request before checking out source or building the helper.
 Ordinary merges skip its release job. A matching request continues through

@@ -8,10 +8,6 @@ on:
         required: true
         default: main
         type: string
-      version:
-        description: Desktop release version (YY.M.N)
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -37,35 +33,36 @@ jobs:
         run: |
           cargo fetch --locked
           cargo build -p clacks-desktop-package --locked --offline
-      - name: Prepare desktop version or start an already prepared release
-        env:
-          RELEASE_VERSION: ${{ inputs.version }}
+      - name: Prepare the next desktop release
         run: |
-          source_sha=$(git rev-parse HEAD)
-          preparation=$("$CARGO_TARGET_DIR/debug/clacks-desktop-package" release-version --manifest bin/clacks-log/Cargo.toml --version "$RELEASE_VERSION")
-          if [[ $(jq -r .changed <<< "$preparation") == true ]]; then
+          preparation=$("$CARGO_TARGET_DIR/debug/clacks-desktop-package" release-prepare --repository "$GITHUB_REPOSITORY" --request-id "$GITHUB_RUN_ID")
+          version=$(jq -er .version <<< "$preparation")
+          branch=$(jq -er .branch <<< "$preparation")
+          if [[ $(jq -r .new_request <<< "$preparation") == true ]]; then
             cargo metadata --format-version 1 --offline > "$RUNNER_TEMP/desktop-cargo-metadata.json"
-            branch=$(jq -er .branch <<< "$preparation")
             git checkout -b "$branch"
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
             git add bin/clacks-log/Cargo.toml Cargo.lock
             cat > "$RUNNER_TEMP/desktop-version-commit.txt" <<EOF_COMMIT
-          Prepare desktop release $RELEASE_VERSION
+          Prepare desktop release $version
 
           Commit the desktop application version before native candidate builds.
           Keep shared library versions and sync-contract definitions unchanged.
           EOF_COMMIT
             git commit --file "$RUNNER_TEMP/desktop-version-commit.txt"
             git push origin "HEAD:refs/heads/$branch"
+          fi
+          pr=$(jq -r '.pull_request // empty' <<< "$preparation")
+          if [[ -n "$pr" ]]; then
+            printf 'Existing release preparation: %s\n' "$pr"
+          else
             cat > "$RUNNER_TEMP/desktop-version-pr.md" <<EOF_PR
-          Prepare desktop release $RELEASE_VERSION from source $source_sha.
+          Prepare desktop release $version.
 
           Set the desktop application version and its lockfile entry so the
           merged source can be tagged and packaged automatically after normal
           main-branch verification. Shared library versions are unchanged.
           EOF_PR
-            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" --title "Prepare desktop release $RELEASE_VERSION" --body-file "$RUNNER_TEMP/desktop-version-pr.md"
-          else
-            "$CARGO_TARGET_DIR/debug/clacks-desktop-package" release-start --repository "$GITHUB_REPOSITORY" --revision "$source_sha"
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" --title "Prepare desktop release $version" --body-file "$RUNNER_TEMP/desktop-version-pr.md"
           fi

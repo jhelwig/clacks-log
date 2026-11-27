@@ -6,9 +6,19 @@ Clacks Log. It builds on the existing [desktop packaging workflow] and the
 
 ## Release identity and build provenance
 
-The desktop uses calendar versioning (`YY.M.N`). `YY` is the two-digit year,
-`M` is the unpadded month, and `N` orders distinct release builds within that
-month. Commit the numeric version before cutting a candidate and tag the
+The desktop uses calendar versioning (`YY.M.N`). `YY` is the two-digit UTC year,
+`M` is the unpadded UTC month at allocation, and `N` starts at `1` each month.
+Preparation allocates one above the highest number already allocated in that
+month, up to `65535`. Desktop tags, preparation-request manifests and an existing
+calendar version in the selected source reserve their numbers. The committed
+application version remains the source of release identity.
+
+Each manual preparation run has a stable `release/desktop-<workflow-run-id>`
+branch. Retries reuse the version in that branch or its PR's committed head,
+even after a month boundary or deletion of the merged branch. Request branches
+identify preparation runs; they do not encode release versions.
+
+Commit the numeric version before cutting a candidate and tag the
 matching revision as `desktop-vYY.M.N`. A changed candidate gets a new version.
 Promotion keeps the candidate's version, tag and installer bytes, including
 when promotion falls in a later month. Both installer filenames use the

@@ -31,16 +31,18 @@ introduced. Preserve the candidate needed for an actual native comparison.
 
 ## Versioned releases
 
-1. Run **Desktop release preparation** with the source revision and requested
-   `YY.M.N` version: two-digit year, unpadded month and build number 0–65535.
+1. Run **Desktop release preparation** with the source revision. It allocates
+   `YY.M.N` from the current UTC year/month and the next sequence, starting at
+   `1` each month and bounded by `65535`. Existing desktop tags and committed
+   preparation versions reserve their numbers. Retries of the same workflow run
+   reuse its preparation branch and version, including across a month boundary.
    The workflow creates the desktop version PR. Review and merge it normally;
    GitHub may require **Approve workflows to run** for a bot-created PR.
    Actions PR creation must be enabled in repository settings.
 2. After successful **Rust** push verification of the merged commit, automation
    derives the tag from that commit's desktop application version and starts
-   both native builds. If the source already has the requested version, the
-   preparation action reuses its existing verification and skips the empty PR.
-   A missing/failed exact-source run or conflicting tag stops the release.
+   both native builds. A missing/failed exact-source run or conflicting tag
+   stops the release.
 3. Both installers are uploaded to one draft; successful completion publishes
    it automatically as a prerelease with Latest disabled. A failed build or
    partial upload stays unpublished. Normal summaries retain build diagnostics.

@@ -87,23 +87,6 @@ fn latest_run(repository: &str, revision: &str) -> anyhow::Result<u64> {
     crate::number(selected, "databaseId")
 }
 
-/// Wait for the existing source verification without dispatching another run.
-pub(crate) fn wait(repository: &str, revision: &str) -> anyhow::Result<()> {
-    let id = latest_run(repository, revision)?;
-    crate::command_output(
-        "gh",
-        &[
-            "run".into(),
-            "watch".into(),
-            id.to_string().into(),
-            "--repo".into(),
-            repository.into(),
-            "--exit-status".into(),
-        ],
-    )?;
-    Ok(())
-}
-
 /// Query the newest exact-commit push run and its current latest results.
 ///
 /// GitHub CLI owns workflow/commit filtering, result ordering, pagination and

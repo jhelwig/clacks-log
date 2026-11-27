@@ -36,10 +36,11 @@ impl GitHubRelease {
         }
 
         let version = ReleaseVersion::from_tag(&self.tag_name).map_err(|_| ())?;
+        let numeric_version = version.to_string();
 
         Ok(DesktopRelease {
-            windows: self.installer(version.as_str(), PackagePlatform::WindowsX64),
-            macos: self.installer(version.as_str(), PackagePlatform::MacosArm64),
+            windows: self.installer(&numeric_version, PackagePlatform::WindowsX64),
+            macos: self.installer(&numeric_version, PackagePlatform::MacosArm64),
             version,
             notes: self.body.filter(|body| !body.trim().is_empty()),
         })
@@ -87,7 +88,7 @@ mod tests {
             .into_desktop_release()
             .map_err(|()| anyhow::anyhow!("fixture identifies a final desktop release"))?;
 
-        assert_eq!(release.version.as_str(), "26.11.1");
+        assert_eq!(release.version.to_string(), "26.11.1");
         assert_eq!(release.windows.as_deref(), Some(windows_url.as_str()));
         assert_eq!(release.macos.as_deref(), Some(macos_url.as_str()));
 

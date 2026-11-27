@@ -94,7 +94,7 @@ fn ReleaseDetails(release: DesktopRelease) -> impl IntoView {
         }
     });
     view! {
-        <p class="muted download-version">"Current release "<strong>{release.version.as_str().to_owned()}</strong></p>
+        <p class="muted download-version">"Current release "<strong>{release.version.to_string()}</strong></p>
         <Suspense fallback=|| view! { <p class="muted" role="status">"Checking sync compatibility with this server…"</p> }>
             {move || compatibility.get().map(|status| view! { <p class="muted" role="status">{status}</p> })}
         </Suspense>

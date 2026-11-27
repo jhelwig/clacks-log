@@ -1,55 +1,105 @@
 //! Pure desktop release identity and installer names shared by browser and packaging.
 
+use anyhow::Context;
+use std::{fmt, num::NonZeroU16};
+
 /// Prefix identifying desktop release tags.
 const TAG_PREFIX: &str = "desktop-v";
 
 /// A canonical desktop calendar version that can identify a public release.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ReleaseVersion(String);
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ReleaseVersion {
+    /// Two-digit UTC calendar year.
+    year: u8,
+    /// UTC calendar month, from January through December.
+    month: u8,
+    /// Release allocation within the month, starting at one.
+    number: NonZeroU16,
+}
 
 impl ReleaseVersion {
-    /// Parse YY.M.N, with an unpadded month and installer-compatible build number.
+    /// Parse canonical YY.M.N with month 1–12 and sequence 1–65535.
     pub fn parse(value: &str) -> anyhow::Result<Self> {
         let mut parts = value.split('.');
-        let valid = match (parts.next(), parts.next(), parts.next(), parts.next()) {
-            (Some(year), Some(month), Some(number), None) => {
-                let decimal = |part: &str| {
-                    !part.is_empty()
-                        && part.bytes().all(|byte| byte.is_ascii_digit())
-                        && (part.len() == 1 || !part.starts_with('0'))
-                };
-                year.len() == 2
-                    && year.bytes().all(|byte| byte.is_ascii_digit())
-                    && decimal(month)
-                    && matches!(month.parse::<u8>(), Ok(1..=12))
-                    && decimal(number)
-                    && number.parse::<u16>().is_ok()
-            }
-            _ => false,
+        let (Some(year), Some(month), Some(number), None) =
+            (parts.next(), parts.next(), parts.next(), parts.next())
+        else {
+            anyhow::bail!("desktop release version {value} must be YY.M.N");
+        };
+        let decimal = |part: &str| {
+            !part.is_empty()
+                && part.bytes().all(|byte| byte.is_ascii_digit())
+                && (part.len() == 1 || !part.starts_with('0'))
         };
         anyhow::ensure!(
-            valid,
-            "desktop release version {value} must be YY.M.N with unpadded month 1–12 and build number 0–65535"
+            year.len() == 2
+                && year.bytes().all(|byte| byte.is_ascii_digit())
+                && decimal(month)
+                && decimal(number),
+            "desktop release version {value} must use YY.M.N without month/sequence padding"
         );
-        Ok(Self(value.to_owned()))
+        Self::new(
+            year.parse()?,
+            month.parse()?,
+            number
+                .parse()
+                .context("desktop release sequence must be 1–65535")?,
+        )
     }
 
-    /// Canonical numeric version used by the application and installers.
-    pub fn as_str(&self) -> &str {
-        &self.0
+    /// Allocate after the highest used sequence in this UTC month, or start at one.
+    /// Reject invalid calendar components or an exhausted sequence.
+    pub fn next_for_month(year: u8, month: u8, allocated: &[Self]) -> anyhow::Result<Self> {
+        let last = allocated
+            .iter()
+            .filter(|version| version.year == year && version.month == month)
+            .map(|version| version.number)
+            .max();
+        let number = match last {
+            Some(last) => last
+                .checked_add(1)
+                .context("desktop release month exhausted sequence 65535")?,
+            None => NonZeroU16::MIN,
+        };
+        Self::new(year, month, number)
+    }
+
+    /// Construct a version with a valid two-digit year and month.
+    fn new(year: u8, month: u8, number: NonZeroU16) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            year <= 99 && (1..=12).contains(&month),
+            "invalid desktop release year/month"
+        );
+        Ok(Self {
+            year,
+            month,
+            number,
+        })
     }
 
     /// Source tag for this desktop release.
     pub fn tag(&self) -> String {
-        format!("{TAG_PREFIX}{}", self.0)
+        format!("{TAG_PREFIX}{self}")
     }
 
     /// Parse a desktop source tag through the same calendar-version rules.
     pub fn from_tag(tag: &str) -> anyhow::Result<Self> {
         Self::parse(
             tag.strip_prefix(TAG_PREFIX)
-                .ok_or_else(|| anyhow::anyhow!("expected a desktop-vYY.M.N tag"))?,
+                .ok_or_else(|| anyhow::anyhow!("expected a {TAG_PREFIX}YY.M.N tag"))?,
         )
+    }
+}
+
+impl fmt::Display for ReleaseVersion {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{:02}.{}.{}", self.year, self.month, self.number)
+    }
+}
+
+impl serde::Serialize for ReleaseVersion {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
     }
 }
 
@@ -85,3 +135,6 @@ impl std::str::FromStr for PackagePlatform {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

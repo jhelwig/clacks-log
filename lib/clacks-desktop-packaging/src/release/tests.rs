@@ -1,27 +1,6 @@
-//! Project-owned version preparation and promotion file selection.
+//! Promotion selects the existing installers for every distributed platform.
 
 use super::*;
-
-#[test]
-fn preparation_changes_only_the_selected_application_version() -> anyhow::Result<()> {
-    let directory = tempfile::tempdir()?;
-    let manifest = directory.path().join("Cargo.toml");
-    let original = "[package]\nname = \"clacks-log\"\nversion = \"0.1.0\" # desktop\n\n[dependencies]\nclacks-desktop = { path = \"../../lib/clacks-desktop\" }\n";
-    std::fs::write(&manifest, original)?;
-
-    let preparation = set_desktop_version(&manifest, "26.11.1")?;
-    assert!(preparation.changed);
-    assert_eq!(preparation.branch, "release/desktop-v26.11.1");
-    assert_eq!(
-        std::fs::read_to_string(&manifest)?,
-        original.replacen("version = \"0.1.0\"", "version = \"26.11.1\"", 1)
-    );
-    let preparation = set_desktop_version(&manifest, "26.11.1")?;
-    assert!(!preparation.changed);
-    assert_eq!(preparation.branch, "release/desktop-v26.11.1");
-
-    Ok(())
-}
 
 #[test]
 fn promotion_selects_both_candidate_installers_and_requires_completeness() -> anyhow::Result<()> {
