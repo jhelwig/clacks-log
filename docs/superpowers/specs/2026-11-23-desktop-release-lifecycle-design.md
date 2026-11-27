@@ -43,16 +43,14 @@ initial targets follow the current packaging pipeline.
 
 The maintainer publishes the draft as a GitHub prerelease for testers. To
 promote it, clear the prerelease flag and explicitly mark that same release
-Latest. The website's public download page shows the recommended final release
-identified by GitHub Latest, with both installers and its release notes. The
-website provides the user-facing download URL. GitHub can serve the installer
-files.
+Latest. The [public download page] shows the recommended final release from
+GitHub Latest, links to both installers on GitHub, and shows the release notes.
 
-To withdraw a recommendation, explicitly mark the previous usable final Latest
-and add a withdrawal notice to the affected release. If this is the first final
-release, publish a usable replacement for Latest. Keep the withdrawn release
-and its installers accessible in release history. Desktops compare versions in
-numeric order and offer upgrades only.
+To withdraw a recommendation, explicitly mark the previous usable final Latest.
+If this is the first final release, publish a usable replacement for Latest.
+Keep the withdrawn release and its installers accessible in release history.
+The affected release's notes can explain the withdrawal. Desktops compare
+versions in numeric order and offer upgrades only.
 
 ## Sync compatibility
 
@@ -98,12 +96,10 @@ manual checks consider final releases only.
 | Installed version is equal to or newer than the recommended final | A manual check reports that no newer release is recommended. |
 | Latest release information could not be obtained or validated | A manual check reports that the update check could not complete. |
 
-The download action opens the project's website for the **exact release the
-app checked**. The page identifies that release and links to its installers.
-If it has been withdrawn, show the withdrawal notice and direct the user back
-to **Check for Updates**. Its installers remain accessible through release
-history. A newer release becoming Latest while the browser opens leaves the
-link pointed at the checked release.
+The download action opens the GitHub page for the **exact release the app
+checked**. That release page shows its installers and current notes. A newer
+release becoming Latest while the browser opens leaves the link pointed at the
+checked release.
 
 For MVP, dismissing an automatic notice suppresses automatic notices for that
 release on the installation, including after restart. A subsequent newer
@@ -123,11 +119,12 @@ diagnosable without per-message instrumentation.
 
 Verify candidate promotion preserves both installer assets and that changing
 Latest changes the website's general recommendation. Exercise the update
-decision table, dismissal across restart, and the exact-release link if Latest
-changes or the release is withdrawn. Exercise a shared and a disjoint sync
+decision table, dismissal across restart, and the exact GitHub release link
+when Latest changes. Exercise a shared and a disjoint sync
 contract at the live handshake and through the pre-install check. Verify that
 the packaged application exposes its intended version and build provenance.
 
 [desktop packaging workflow]: ../../../.github/workflows/desktop-release.yml
+[public download page]: 2026-11-26-public-landing-and-download-design.md
 [synchronization model]: ../../synchronization-model.md
 [observability contract]: ../../observability.md

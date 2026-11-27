@@ -98,6 +98,87 @@ p {
   max-width:35rem;
   margin:3rem auto
 }
+.public-page {
+  max-width:60rem;
+  margin:clamp(1.5rem,5vw,4rem) auto;
+  padding:clamp(1rem,4vw,2.75rem);
+  border-radius:.75rem
+}
+.public-page h1 {
+  font-size:clamp(1.75rem,5vw,3.25rem);
+  letter-spacing:-.035em;
+  line-height:1.12;
+  font-weight:750
+}
+.landing h1 {
+  max-width:20ch
+}
+.landing-intro {
+  max-width:49ch;
+  color:var(--muted);
+  font-size:1.13rem;
+  margin:1rem 0 1.4rem
+}
+.public-action {
+  display:inline-block;
+  padding:.65rem 1rem;
+  border:1px solid var(--button);
+  border-radius:.4rem;
+  background:var(--button);
+  color:var(--button-text);
+  text-decoration:none;
+  font-weight:650
+}
+.public-action:hover {
+  text-decoration:underline
+}
+.sync-setup {
+  margin:1.5rem 0 0
+}
+.download-version {
+  margin-bottom:1.25rem
+}
+.download-platforms {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:1rem;
+  margin-bottom:1.5rem
+}
+.download-platform {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  background:var(--raised);
+  border:1px solid var(--border);
+  border-radius:.5rem;
+  padding:1.15rem
+}
+.download-platform h2 {
+  border:0;
+  padding:0;
+  margin:0
+}
+.download-platform .public-action {
+  margin-top:auto
+}
+.installer-format {
+  margin:.45rem 0 0
+}
+.release-notes {
+  margin-bottom:1.5rem;
+  overflow-wrap:anywhere
+}
+.release-notes img {
+  max-width:100%
+}
+.release-notes pre {
+  overflow:auto
+}
+@media(max-width:40rem) {
+  .download-platforms {
+    grid-template-columns:1fr
+  }
+}
 .action-grid {
   display:grid;
   grid-template-columns:1fr 1fr;
