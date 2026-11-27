@@ -32,7 +32,9 @@ is outside this design.
 ## Package, publish and promote
 
 GitHub Releases are for the desktop application. Use the existing combined
-packaging job and exact-commit checks, with `desktop-v*` as the release trigger.
+packaging job and exact-commit checks. The release-preparation workflow creates
+the version PR and continues after its merged main-push checks, creating the
+matching `desktop-v*` tag and explicitly starting native packaging.
 A draft contains both native installers from the same source revision. The
 initial targets follow the current packaging pipeline.
 
@@ -41,9 +43,10 @@ initial targets follow the current packaging pipeline.
 | Windows 11 x64 | Current-user Windows Installer (MSI) package. The initial release can use the unsigned pipeline. Add signing at the existing point before final inspection and hashing when signing is available. |
 | macOS 26 Tahoe and newer on Apple Silicon | Developer ID signed, notarized and stapled disk image (DMG). Preserve the existing protected-credential provisioning. |
 
-The maintainer publishes the draft as a GitHub prerelease for testers. To
-promote it, clear the prerelease flag and explicitly mark that same release
-Latest. The [public download page] shows the recommended final release from
+Automation publishes the draft as a GitHub prerelease for testers after both
+installer uploads succeed. The maintainer invokes desktop release promotion
+to confirm acceptance and mark that same release final and Latest, preserving
+its files. The [public download page] shows the recommended final release from
 GitHub Latest, links to both installers on GitHub, and shows the release notes.
 
 To withdraw a recommendation, explicitly mark the previous usable final Latest.
@@ -69,16 +72,17 @@ deployment retires the old contract across that deployment. The server owns
 migration of accepted shared data. A desktop upgrade preserves its workspace
 and pending local edits for reconciliation when sync resumes.
 
-### Proposed integration
+### Compatibility integration
 
-Publish a `desktop-release.json` asset containing `sync_contracts`, generated
-from the desktop's actual contract declarations. Use the validated numeric
-release tag for version ordering and retrieve the metadata asset from that same
-release. Have the running server expose its accepted contracts through a
-read-only HTTPS lookup, backed by the same declarations the live handshake
-uses. The handshake can select a common contract using WebSocket subprotocol
-negotiation before the existing sync exchange. The current protocol is the
-initial contract for both sides.
+Generate committed `deploy/desktop/sync-contracts.json` from the implemented
+`SyncContract` variants. A normal packaging test compares in-memory generation
+with the on-disk file without modifying it. Browser reads use GitHub's raw
+Repository Contents API at the exact selected release tag, because direct
+release-asset fetches do not provide the browser cross-origin access needed
+for reading metadata. The server exposes `/api/sync/capabilities` from the same
+ordered acceptance definition used for WebSocket subprotocol selection.
+The initial contract is `clacks-sync-v1`; application versions remain separate.
+See the [compatibility and release design](2026-11-26-sync-compatibility-design.md).
 
 ## Desktop update experience
 

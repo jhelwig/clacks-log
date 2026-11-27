@@ -3,6 +3,7 @@ mod ci;
 mod cli;
 pub mod geography;
 mod metadata;
+mod release;
 mod sync_contracts;
 
 use anyhow::Context;

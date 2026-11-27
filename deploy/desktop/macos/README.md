@@ -10,19 +10,23 @@ macOS distribution. Current functionality is pre-alpha.
 
 The **Desktop packages** workflow is the executable recipe for both platforms.
 After it is on the default branch, manually dispatch it with platform `macos`
-or `both` for development downloads. The default remains `windows`. Pull
-requests, ordinary pushes, merges and schedules do not start packaging.
-The `macos-package-SHA-RUN-ATTEMPT` Actions artifact contains only the final DMG.
+or `both` for development downloads, leaving **release** disabled. The default
+remains `windows`. Ordinary PRs and pushes do not start packaging; merged
+release-preparation PRs continue the requested release automatically.
+The `Clacks-Log-VERSION-Development-macOS-Apple-Silicon` artifact contains only the DMG.
 The summary/logs record its final SHA-256, source revision, version, signing and
 notarization evidence, tools and runner image. Normal GitHub availability applies.
 
-Tags of the form `desktop-vYY.M.N` build both platforms and create one draft
-GitHub prerelease with the exact MSI and DMG. Follow the
+Release preparation creates `desktop-vYY.M.N`, explicitly dispatches both
+platforms, and publishes one prerelease after both exact-source installers
+are uploaded successfully. Follow the
 [shared release steps](../windows/README.md#versioned-releases) for exact-commit
-verification, publishing the draft, and promoting the same files to Latest.
+verification, automated publication, and promoting the same files to Latest.
 
-The Mac release filename is `clacks-log-VERSION-macos-arm64.dmg`. Development
-filenames include the source version, revision, workflow run and attempt.
+The Mac release filename is `Clacks-Log-VERSION-macOS-Apple-Silicon.dmg`;
+development uses `Clacks-Log-VERSION-Development-macOS-Apple-Silicon.dmg`.
+Actions artifact names are the filename stems. Revision, run and attempt remain
+in ordinary provenance output.
 Both About and `--version` expose the numeric application version and available
 build provenance. To supply provenance to a local build from a Git working
 tree:

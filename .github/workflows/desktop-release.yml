@@ -3,6 +3,10 @@ name: Desktop packages
 on:
   workflow_dispatch:
     inputs:
+      release:
+        description: Build both release installers from the selected desktop tag
+        type: boolean
+        default: false
       platform:
         description: Native packages to build (development downloads only)
         required: true
@@ -21,20 +25,28 @@ permissions:
 
 jobs:
   eligibility:
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       actions: read
     outputs:
       sha: ${{ steps.source.outputs.sha }}
+      release: ${{ steps.source.outputs.release }}
+      tag: ${{ steps.source.outputs.tag }}
       artifact: ${{ steps.source.outputs.artifact }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Resolve immutable tagged source
         id: source
+        env:
+          RELEASE_MODE: ${{ github.event_name == 'push' || inputs.release }}
         run: |
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "release=$RELEASE_MODE" >> "$GITHUB_OUTPUT"
+          if [[ "$RELEASE_MODE" == true ]]; then
+            case "$GITHUB_REF" in refs/tags/*) ;; *) echo 'Release packaging requires a tag' >&2; exit 1 ;; esac
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          fi
           echo "artifact=release-eligibility-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
@@ -44,18 +56,21 @@ jobs:
       - name: Build focused packaging helper
         run: cargo build -p clacks-desktop-package --locked --offline
       - name: Check tag against committed Cargo version
+        if: steps.source.outputs.release == 'true'
         env:
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
         run: |
           cargo metadata --no-deps --format-version 1 --locked --offline > cargo-metadata.json
           target/debug/clacks-desktop-package prepare --platform windows-x64 --metadata cargo-metadata.json --revision "$SOURCE_SHA" --tag "$GITHUB_REF_NAME" --output metadata.json
       - name: Reuse exact-commit Linux and web results
+        if: steps.source.outputs.release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
           RUST_LOG: info
         run: target/debug/clacks-desktop-package gate --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_SHA" --output ci-evidence.json
       - name: Preserve existing verification identity
+        if: steps.source.outputs.release == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.source.outputs.artifact }}
@@ -66,9 +81,6 @@ jobs:
 
   geography:
     needs: eligibility
-    if: >-
-      always() && !cancelled() &&
-      (github.event_name == 'workflow_dispatch' || needs.eligibility.result == 'success')
     runs-on: [self-hosted, Linux, X64, clacks-linux]
     env:
       RUST_LOG: info
@@ -76,6 +88,8 @@ jobs:
       artifact: ${{ steps.artifact.outputs.name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.eligibility.outputs.sha }}
       - name: Use persistent local Cargo build artifacts
         run: printf 'CARGO_TARGET_DIR=%s\n' "$(dirname "$GITHUB_WORKSPACE")/target" >> "$GITHUB_ENV"
       - name: Identify geographic build inputs
@@ -136,10 +150,12 @@ jobs:
     needs: [eligibility, geography]
     if: >-
       always() && !cancelled() && needs.geography.result == 'success' &&
-      ((github.event_name == 'workflow_dispatch' && (inputs.platform == 'windows' || inputs.platform == 'both')) ||
-      (github.event_name == 'push' && needs.eligibility.result == 'success'))
+      needs.eligibility.result == 'success' &&
+      (needs.eligibility.outputs.release == 'true' || inputs.platform == 'windows' || inputs.platform == 'both')
     runs-on: [self-hosted, Windows, X64, clacks-windows]
     env:
+      RELEASE_MODE: ${{ needs.eligibility.outputs.release }}
+      SOURCE_TAG: ${{ needs.eligibility.outputs.tag }}
       SQLX_OFFLINE: 'true'
       RUST_LOG: info
       # The desktop must not depend on a developer-installed VC runtime.
@@ -148,10 +164,13 @@ jobs:
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: '-C target-feature=+crt-static'
     outputs:
       sha: ${{ steps.identity.outputs.sha }}
+      version: ${{ steps.identity.outputs.version }}
       package: ${{ steps.identity.outputs.name }}
       artifact: ${{ steps.identity.outputs.artifact }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.eligibility.outputs.sha }}
       - name: Use persistent local Cargo build artifacts
         run: |
           $target = Join-Path (Split-Path $env:GITHUB_WORKSPACE -Parent) 'target'
@@ -165,7 +184,7 @@ jobs:
       - name: Lint Windows packaging helper
         run: cargo clippy -p clacks-desktop-packaging -p clacks-desktop-package --all-targets --locked --offline -- -D warnings
       - name: Retrieve release eligibility evidence
-        if: github.event_name == 'push'
+        if: needs.eligibility.outputs.release == 'true'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.eligibility.outputs.artifact }}
@@ -188,11 +207,11 @@ jobs:
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force target/windows-package/delivery | Out-Null
           $sha = git rev-parse HEAD
-          if ($env:GITHUB_EVENT_NAME -eq 'push' -and $sha -ne $env:ELIGIBLE_SHA) { throw 'Source differs from eligible commit' }
+          if ($sha -ne $env:ELIGIBLE_SHA) { throw 'Source differs from resolved commit' }
           cargo metadata --no-deps --format-version 1 --locked --offline | Out-File -Encoding utf8 target/windows-package/cargo-metadata.json
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $tagArgs = @()
-          if ($env:GITHUB_EVENT_NAME -eq 'push') { $tagArgs = @('--tag', $env:GITHUB_REF_NAME) }
+          if ($env:RELEASE_MODE -eq 'true') { $tagArgs = @('--tag', $env:SOURCE_TAG) }
           & "$env:CARGO_TARGET_DIR/debug/clacks-desktop-package.exe" prepare --platform windows-x64 --metadata target/windows-package/cargo-metadata.json --revision $sha @tagArgs --output target/windows-package/metadata.json
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $metadata = Get-Content target/windows-package/metadata.json -Raw | ConvertFrom-Json
@@ -285,7 +304,7 @@ jobs:
           $hash = (Get-FileHash "$delivery/$env:MSI_NAME" -Algorithm SHA256).Hash.ToLowerInvariant()
           $metadata = Get-Content target/windows-package/metadata.json -Raw | ConvertFrom-Json
           $ci = $null
-          if ($env:GITHUB_EVENT_NAME -eq 'push') { $ci = Get-Content target/windows-package/ci-evidence.json -Raw | ConvertFrom-Json }
+          if ($env:RELEASE_MODE -eq 'true') { $ci = Get-Content target/windows-package/ci-evidence.json -Raw | ConvertFrom-Json }
           @{
             geography = (Get-Content target/windows-package/geography-evidence.json -Raw | ConvertFrom-Json)
             package_bytes = (Get-Item "$delivery/$env:MSI_NAME").Length
@@ -323,11 +342,13 @@ jobs:
     needs: [eligibility, geography]
     if: >-
       always() && !cancelled() && needs.geography.result == 'success' &&
-      ((github.event_name == 'workflow_dispatch' && (inputs.platform == 'macos' || inputs.platform == 'both')) ||
-      (github.event_name == 'push' && needs.eligibility.result == 'success'))
+      needs.eligibility.result == 'success' &&
+      (needs.eligibility.outputs.release == 'true' || inputs.platform == 'macos' || inputs.platform == 'both')
     runs-on: macos-26
     environment: macos-signing
     env:
+      RELEASE_MODE: ${{ needs.eligibility.outputs.release }}
+      SOURCE_TAG: ${{ needs.eligibility.outputs.tag }}
       SQLX_OFFLINE: 'true'
       LEPTOS_OUTPUT_NAME: clacks-web
       MACOSX_DEPLOYMENT_TARGET: '26.0'
@@ -342,6 +363,8 @@ jobs:
       artifact: ${{ steps.identity.outputs.artifact }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.eligibility.outputs.sha }}
       - name: Require distribution signing inputs
         env:
           APPLE_SIGNING_P12_BASE64: ${{ secrets.APPLE_SIGNING_P12_BASE64 }}
@@ -378,7 +401,7 @@ jobs:
           cargo test -p clacks-desktop-packaging --all-targets --locked --offline
           cargo clippy -p clacks-desktop-packaging -p clacks-desktop-package --all-targets --locked --offline -- -D warnings
       - name: Retrieve release eligibility evidence
-        if: github.event_name == 'push'
+        if: needs.eligibility.outputs.release == 'true'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.eligibility.outputs.artifact }}
@@ -397,13 +420,13 @@ jobs:
         run: |
           mkdir -p target/macos-package/delivery
           sha=$(git rev-parse HEAD)
-          if [[ "$GITHUB_EVENT_NAME" == push && "$sha" != "$ELIGIBLE_SHA" ]]; then
-            echo 'Source differs from eligible commit' >&2
+          if [[ "$sha" != "$ELIGIBLE_SHA" ]]; then
+            echo 'Source differs from resolved commit' >&2
             exit 1
           fi
           cargo metadata --no-deps --format-version 1 --locked --offline > target/macos-package/cargo-metadata.json
           tag_args=()
-          if [[ "$GITHUB_EVENT_NAME" == push ]]; then tag_args=(--tag "$GITHUB_REF_NAME"); fi
+          if [[ "$RELEASE_MODE" == true ]]; then tag_args=(--tag "$SOURCE_TAG"); fi
           target/debug/clacks-desktop-package prepare --platform macos-arm64 --metadata target/macos-package/cargo-metadata.json --revision "$sha" "${tag_args[@]}" --output target/macos-package/metadata.json
           version=$(jq -r .version target/macos-package/metadata.json)
           name=$(jq -r .installer_name target/macos-package/metadata.json)
@@ -601,7 +624,7 @@ jobs:
             --arg team "$SIGNING_TEAM" --arg profile "$PROFILE_ID" --arg expiry "$PROFILE_EXPIRY" \
             --arg submission "$NOTARY_SUBMISSION" --arg image "$ImageOS/$ImageVersion" \
             '{source: $application[0], geography: $geography[0], package_bytes: $bytes, artifact: $package, sha256: $hash, signing: "Developer ID Application", identity: $identity, team: $team, profile: $profile, profile_expiry: $expiry, notarization: "Accepted", submission: $submission, stapled: true, image: $image, native_acceptance: "not established by packaging; see issue #46"}'
-          if [[ "$GITHUB_EVENT_NAME" == push ]]; then cat target/macos-package/ci-evidence.json; fi
+          if [[ "$RELEASE_MODE" == true ]]; then cat target/macos-package/ci-evidence.json; fi
           {
             echo '### macOS package'
             echo "- Disk image: $DMG_NAME"
@@ -633,14 +656,14 @@ jobs:
           path: target/macos-package/delivery/${{ steps.identity.outputs.name }}
           if-no-files-found: error
 
-  draft:
-    if: github.event_name == 'push' && needs.windows.result == 'success' && needs.macos.result == 'success'
-    needs: [geography, windows, macos]
+  publish:
+    if: needs.eligibility.outputs.release == 'true' && needs.windows.result == 'success' && needs.macos.result == 'success'
+    needs: [eligibility, geography, windows, macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     concurrency:
-      group: desktop-packages-draft-${{ github.ref }}
+      group: desktop-packages-release-${{ needs.eligibility.outputs.tag }}
       cancel-in-progress: false
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -655,30 +678,32 @@ jobs:
         with:
           name: ${{ needs.macos.outputs.artifact }}
           path: target/macos-package/delivery
-      - name: Create unpublished release with both platform packages
+      - name: Publish candidate after both installer uploads succeed
         env:
           GH_TOKEN: ${{ github.token }}
           MSI_NAME: ${{ needs.windows.outputs.package }}
           DMG_NAME: ${{ needs.macos.outputs.package }}
           WINDOWS_SHA: ${{ needs.windows.outputs.sha }}
           MACOS_SHA: ${{ needs.macos.outputs.sha }}
+          SOURCE_SHA: ${{ needs.eligibility.outputs.sha }}
+          SOURCE_TAG: ${{ needs.eligibility.outputs.tag }}
+          DESKTOP_VERSION: ${{ needs.windows.outputs.version }}
           BUILD_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           test "$WINDOWS_SHA" = "$MACOS_SHA"
-          test "$WINDOWS_SHA" = "$GITHUB_SHA"
+          test "$WINDOWS_SHA" = "$SOURCE_SHA"
           geography_release=$(jq -er .release_id target/geography-build/geography-evidence.json)
           geography_manifest=$(cat target/geography-build/manifest-sha256.txt)
           cat > "$RUNNER_TEMP/release-notes.txt" <<EOF
-          Pre-alpha Clacks Log desktop packages for $GITHUB_REF_NAME.
+          Clacks Log desktop candidate $SOURCE_TAG.
 
           - Windows 11 x64: unsigned MSI.
           - macOS 26 Tahoe and newer on Apple Silicon: Developer ID signed, notarized and stapled DMG.
 
-          Publish this draft as a prerelease for testing. Promote the same installers to final.
+          Test these installers, then invoke Desktop release promotion for this tag.
           Source revision: $WINDOWS_SHA.
           Geographic data release: $geography_release.
           Geographic manifest SHA-256: $geography_manifest.
           Final checksums, signing identity and build diagnostics: $BUILD_URL.
-          Installed-artifact acceptance is separate from packaging checks; macOS evidence belongs in issue #46.
           EOF
-          gh release create "$GITHUB_REF_NAME" "target/windows-package/delivery/$MSI_NAME" "target/macos-package/delivery/$DMG_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --latest=false --title "Clacks Log ${GITHUB_REF_NAME#desktop-v}" --notes-file "$RUNNER_TEMP/release-notes.txt"
+          gh release create "$SOURCE_TAG" "target/windows-package/delivery/$MSI_NAME" "target/macos-package/delivery/$DMG_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --latest=false --generate-notes --title "Clacks Log $DESKTOP_VERSION" --notes-file "$RUNNER_TEMP/release-notes.txt"
