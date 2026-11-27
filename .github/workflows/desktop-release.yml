@@ -197,15 +197,14 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $metadata = Get-Content target/windows-package/metadata.json -Raw | ConvertFrom-Json
           $version = $metadata.version
-          $name = "clacks-log-$version-windows-x64.msi"
-          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') { $name = "clacks-log-$version-dev-$($sha.Substring(0,7))-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT-windows-x64.msi" }
+          $name = $metadata.installer_name
           "CLACKS_BUILD_REVISION=$sha" >> $env:GITHUB_ENV
           "CLACKS_BUILD_RUN_ID=$env:GITHUB_RUN_ID" >> $env:GITHUB_ENV
           "CLACKS_BUILD_RUN_ATTEMPT=$env:GITHUB_RUN_ATTEMPT" >> $env:GITHUB_ENV
           "sha=$sha" >> $env:GITHUB_OUTPUT
           "version=$version" >> $env:GITHUB_OUTPUT
           "name=$name" >> $env:GITHUB_OUTPUT
-          "artifact=windows-installer-$sha-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT" >> $env:GITHUB_OUTPUT
+          "artifact=$($metadata.artifact_name)" >> $env:GITHUB_OUTPUT
       - name: Build production desktop with Windows resources
         run: cargo build -p clacks-log --release --target x86_64-pc-windows-msvc --locked --offline
       - name: Verify executable build identity without opening a workspace
@@ -407,11 +406,8 @@ jobs:
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then tag_args=(--tag "$GITHUB_REF_NAME"); fi
           target/debug/clacks-desktop-package prepare --platform macos-arm64 --metadata target/macos-package/cargo-metadata.json --revision "$sha" "${tag_args[@]}" --output target/macos-package/metadata.json
           version=$(jq -r .version target/macos-package/metadata.json)
-          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
-            name="clacks-log-$version-macos-arm64.dmg"
-          else
-            name="clacks-log-$version-dev-${sha:0:7}-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-macos-arm64.dmg"
-          fi
+          name=$(jq -r .installer_name target/macos-package/metadata.json)
+          artifact=$(jq -r .artifact_name target/macos-package/metadata.json)
           {
             echo "CLACKS_BUILD_REVISION=$sha"
             echo "CLACKS_BUILD_RUN_ID=$GITHUB_RUN_ID"
@@ -421,7 +417,7 @@ jobs:
             echo "sha=$sha"
             echo "version=$version"
             echo "name=$name"
-            echo "artifact=macos-package-$sha-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+            echo "artifact=$artifact"
           } >> "$GITHUB_OUTPUT"
       - name: Build production Apple Silicon desktop
         run: |

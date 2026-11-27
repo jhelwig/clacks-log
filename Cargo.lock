@@ -1343,6 +1343,7 @@ name = "clacks-desktop-packaging"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clacks-desktop-release",
  "clacks-geography",
  "clacks-sync",
  "clap",
@@ -1354,6 +1355,14 @@ dependencies = [
  "tempfile",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "clacks-desktop-release"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "strum 0.28.0",
 ]
 
 [[package]]
@@ -1612,10 +1621,12 @@ dependencies = [
 name = "clacks-web"
 version = "0.1.0"
 dependencies = [
+ "any_spawner",
  "anyhow",
  "axum",
  "axum_session_sqlx",
  "chrono",
+ "clacks-desktop-release",
  "clacks-model",
  "clacks-server",
  "clacks-sync",
@@ -1643,6 +1654,7 @@ dependencies = [
  "ulid",
  "url",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

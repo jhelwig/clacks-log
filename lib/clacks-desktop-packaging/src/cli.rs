@@ -1,4 +1,5 @@
 //! Packaging command composition; child processes retain literal arguments.
+use clacks_desktop_release::PackagePlatform;
 use clap::{Parser, Subcommand};
 use std::{fs, path::PathBuf};
 
@@ -47,8 +48,8 @@ enum Operation {
     /// Validate source-owned Cargo version and optional release tag.
     Prepare {
         /// Native package platform; source/tag validation is shared.
-        #[arg(long, value_enum)]
-        platform: crate::metadata::PackagePlatform,
+        #[arg(long)]
+        platform: PackagePlatform,
         /// Standard cargo metadata JSON file.
         #[arg(long)]
         metadata: PathBuf,

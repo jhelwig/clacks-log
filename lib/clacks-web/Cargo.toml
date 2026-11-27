@@ -21,7 +21,7 @@ ssr = [
     "dep:axum",
     "dep:axum_session_sqlx",
 ]
-hydrate = ["leptos/hydrate", "dep:gloo-net", "dep:wasm-bindgen"]
+hydrate = ["leptos/hydrate", "dep:gloo-net", "dep:wasm-bindgen", "dep:web-sys"]
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 getrandom = { workspace = true, features = ["wasm_js"] }
@@ -29,6 +29,7 @@ getrandom = { workspace = true, features = ["wasm_js"] }
 [dependencies]
 axum = { workspace = true, optional = true }
 axum_session_sqlx = { workspace = true, optional = true }
+clacks-desktop-release.workspace = true
 clacks-model.workspace = true
 clacks-server = { workspace = true, optional = true }
 clacks-sync = { workspace = true, optional = true }
@@ -40,8 +41,10 @@ leptos_meta.workspace = true
 leptos_router.workspace = true
 serde.workspace = true
 wasm-bindgen = { workspace = true, optional = true }
+web-sys = { workspace = true, optional = true, features = ["RequestCredentials", "RequestCache"] }
 
 [dev-dependencies]
+any_spawner = { workspace = true, features = ["tokio"] }
 anyhow.workspace = true
 chrono.workspace = true
 futures-util.workspace = true

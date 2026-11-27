@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+clacks-desktop-release.workspace = true
 clacks-geography.workspace = true
 clacks-sync.workspace = true
 clap.workspace = true
