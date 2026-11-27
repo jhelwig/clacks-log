@@ -286,14 +286,16 @@ references; this ordering grants no atomicity to the group.
 **Engineering default:** extend `clacks-sync::protocol` with ordinary Serde wire
 values, using JSON text messages on `/api/sync`. Keep native envelopes, proposals,
 checkpoints, baselines and lineage values; do not duplicate their domain schema.
-Start with protocol version 1 and explicit incompatible-version rejection.
+Select `clacks-sync-v1` through authenticated WebSocket subprotocol negotiation
+before decoding native messages. Server preference follows its ordered accepted
+contracts; a missing or disjoint desktop offer is refused before upgrade.
 Compatibility is a protocol contract, not equality of application version strings.
 
 The message families are:
 
 | Family | Contents/purpose |
 | --- | --- |
-| State introduction | Protocol version, real installed coverage and retained history observations needed for negotiation |
+| State introduction | Real installed coverage and retained history observations needed for recovery negotiation under the selected contract |
 | Discovery request | Receiver coverage and incremental/full-state request within the authorized account |
 | Discovery start/page/end | Source coverage target, mode, bounded accepted descriptors/data, required interpretation and explicit enumeration completion |
 | Accepted-state recovery | Previously accepted values and supporting versions returned toward the server, separately from new proposals |
@@ -590,7 +592,7 @@ behavior:
 
 1. Incremental discovery/completion accounting in sections 7–8, adapting the
    earlier manifest-first interface while retaining its actual guarantees.
-2. Native Serde JSON protocol version 1 on `/api/sync`, using existing domain
+2. Native Serde JSON under selected contract `clacks-sync-v1` on `/api/sync`, using existing domain
    values and connection-local request correlation.
 3. In-process Tokio publication/subscription for application events.
 4. Fresh authenticated connection on access expiry, using existing refresh and

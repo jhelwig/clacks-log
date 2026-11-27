@@ -5,7 +5,7 @@ use clacks_sync::{
     account::{AccountMetadata, InstalledCheckpoint},
     protocol::{
         ClientIdentity,
-        messages::{self, ClientMessage, ServerMessage, TransferMessage},
+        messages::{ClientMessage, ServerMessage, TransferMessage},
     },
     transfer::{
         WindowMode,
@@ -104,7 +104,6 @@ async fn status_stays_syncing_until_initial_receipt_completes() -> anyhow::Resul
             to_worker(
                 &mut peer,
                 ServerMessage::Hello {
-                    version: messages::VERSION,
                     identity: ClientIdentity {
                         account,
                         actor: binding.actor,

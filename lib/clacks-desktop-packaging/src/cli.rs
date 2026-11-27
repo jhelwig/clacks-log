@@ -13,6 +13,12 @@ struct Arguments {
 /// Supported preparation operations.
 #[derive(Subcommand)]
 enum Operation {
+    /// Regenerate the browser publication copy of implemented sync contracts.
+    SyncContracts {
+        /// Generated JSON destination.
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Reopen an assembled geographic payload against the build-provided identity.
     GeographyInspect {
         /// Expected manifest digest from the common geographic build output.
@@ -66,6 +72,7 @@ pub(crate) fn run() -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("cannot initialize packaging diagnostics: {e}"))?;
     let args = Arguments::parse();
     let result = match args.command {
+        Operation::SyncContracts { output } => crate::sync_contracts::write(&output),
         Operation::GeographyInspect {
             manifest_sha256,
             bundle,

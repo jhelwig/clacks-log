@@ -3,6 +3,7 @@ mod ci;
 mod cli;
 pub mod geography;
 mod metadata;
+mod sync_contracts;
 
 use anyhow::Context;
 use serde_json::Value;

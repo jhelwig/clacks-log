@@ -5,7 +5,7 @@ use clacks_client_store::{
     identity::EnrollmentBinding, settings::SettingsSnapshot, store::ClientStore, synchronization,
     transfer,
 };
-use clacks_sync::protocol::messages::{self, ClientMessage, ServerMessage, TransferMessage};
+use clacks_sync::protocol::messages::{ClientMessage, ServerMessage, TransferMessage};
 use std::sync::Arc;
 use tokio::sync::{OwnedRwLockWriteGuard, watch};
 use tracing::Instrument;
@@ -59,7 +59,6 @@ pub(super) async fn run(
             socket,
             stop,
             ClientMessage::Hello {
-                version: messages::VERSION,
                 checkpoint: local.checkpoint.clone(),
                 baselines: local.baselines,
                 lineage: local.lineage.clone(),
@@ -68,17 +67,12 @@ pub(super) async fn run(
         .await?;
         let message = response(socket, store, &mut dirty, connection).await?;
         match &message {
-            ServerMessage::Hello {
-                version, identity, ..
-            } if *version == messages::VERSION
-                && identity.account == binding.account
-                && identity.actor == binding.actor =>
+            ServerMessage::Hello { identity, .. }
+                if identity.account == binding.account && identity.actor == binding.actor =>
             {
                 Ok(message)
             }
-            _ => anyhow::bail!(
-                "Server synchronization identity or protocol does not match enrollment"
-            ),
+            _ => anyhow::bail!("Server synchronization identity does not match enrollment"),
         }
     }
     .instrument(negotiation.clone())

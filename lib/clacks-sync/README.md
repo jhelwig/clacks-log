@@ -174,3 +174,21 @@ maintenance workflow obligations. The oldest authorized client's acknowledged
 coverage bounds collection; pending originals, deletion memory and service evidence
 retain their independent obligations. No unconsumed collector or compaction planner
 is shipped as a substitute for that integration.
+
+## Sync contract publication
+
+`protocol::contracts::SyncContract` enumerates implemented contracts. Its `id()`
+operation defines each public identifier once. Desktop offers and generated
+`deploy/desktop/sync-contracts.json` both enumerate these variants; the server's
+ordered acceptance policy determines live selection independently.
+
+When changing implemented support, regenerate and commit the publication copy:
+
+```sh
+cargo run --bin clacks-desktop-package --locked --offline -- sync-contracts --output deploy/desktop/sync-contracts.json
+cargo test -p clacks-desktop-packaging --locked --offline
+```
+
+The normal packaging test compares shared in-memory generation with the on-disk
+file without modifying it. Live exchange dispatch exhaustively matches the
+selected contract; the JSON file is publication output, not executable input.

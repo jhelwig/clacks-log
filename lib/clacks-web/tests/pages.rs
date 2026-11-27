@@ -5,9 +5,11 @@
 use crate::support::provider;
 
 use anyhow::Context;
+use futures_util::{SinkExt, StreamExt};
 use huskarl_core::dpop::{AuthorizationServerDPoP, DPoP, ResourceServerDPoP};
 use leptos::server_fn::ServerFn;
 use reqwest::cookie::CookieStore;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
 #[cfg(feature = "ssr")]
 #[tokio::test]
@@ -208,6 +210,68 @@ async fn account_page_and_direct_server_function_require_the_same_login() -> any
         .and_then(serde_json::Value::as_str)
         .context("missing issued access")?;
     let access = huskarl_core::secrets::SecretString::from(token);
+    // Public deployment support and authenticated admission use the same contract.
+    let capabilities = reqwest::get(format!("{base}/api/sync/capabilities")).await?;
+    assert_eq!(capabilities.status(), reqwest::StatusCode::OK);
+    assert_eq!(capabilities.headers()["cache-control"], "no-store");
+    assert_eq!(
+        capabilities.json::<serde_json::Value>().await?,
+        serde_json::json!({"sync_contracts":["clacks-sync-v1"]})
+    );
+    let sync_target = format!("{base}/api/sync").parse()?;
+    for offered in [
+        Some("clacks-sync-v1"),
+        Some("clacks-sync-unsupported"),
+        None,
+    ] {
+        let proof = dpop
+            .to_resource_server_dpop()
+            .proof(&axum::http::Method::GET, &sync_target, &access, &thumbprint)
+            .await?
+            .context("sync request requires a fresh resource proof")?;
+        let mut request =
+            format!("{}/api/sync", base.replacen("http:", "ws:", 1)).into_client_request()?;
+        request
+            .headers_mut()
+            .insert("authorization", format!("DPoP {token}").parse()?);
+        request
+            .headers_mut()
+            .insert("dpop", proof.expose_secret().parse()?);
+        if let Some(offered) = offered {
+            request
+                .headers_mut()
+                .insert("sec-websocket-protocol", offered.parse()?);
+        }
+        let result = tokio_tungstenite::connect_async(request).await;
+        if offered == Some("clacks-sync-v1") {
+            let (mut socket, response) = result?;
+            assert_eq!(
+                response.headers()["sec-websocket-protocol"],
+                "clacks-sync-v1"
+            );
+            socket
+                .send(tokio_tungstenite::tungstenite::Message::Text(
+                    serde_json::json!({"Hello":{"checkpoint":null,"baselines":[],"lineage":null}})
+                        .to_string()
+                        .into(),
+                ))
+                .await?;
+            let reply = socket
+                .next()
+                .await
+                .context("sync hello must receive a reply")??;
+            let reply: serde_json::Value = serde_json::from_str(reply.to_text()?)?;
+            assert!(
+                reply.get("Hello").is_some(),
+                "supported contract must enter the real exchange"
+            );
+            socket.close(None).await?;
+        } else {
+            assert!(
+                matches!(result, Err(tokio_tungstenite::tungstenite::Error::Http(response)) if response.status() == axum::http::StatusCode::BAD_REQUEST)
+            );
+        }
+    }
     let identity_target = format!("{base}/api/client").parse()?;
     let proof = dpop
         .to_resource_server_dpop()

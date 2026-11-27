@@ -9,5 +9,8 @@ lib/**/tests/fixtures/** -text
 lib/**/data/*.json -text
 references/geography/*.json -text
 
+# Keep the generated publication copy identical to its in-memory LF output.
+deploy/desktop/sync-contracts.json text eol=lf
+
 # SQLx checksums and checked query inputs must not vary across platforms.
 *.sql text eol=lf

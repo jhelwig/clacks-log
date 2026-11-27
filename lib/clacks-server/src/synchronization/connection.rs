@@ -14,9 +14,7 @@ use axum::extract::ws::{Message, WebSocket};
 use clacks_sync::{
     protocol::{
         ClientIdentity,
-        messages::{
-            self, ClientMessage, FailureKind, ProposalOutcome, ServerMessage, TransferMessage,
-        },
+        messages::{ClientMessage, FailureKind, ProposalOutcome, ServerMessage, TransferMessage},
     },
     transfer::receipt::ReceiptState,
 };
@@ -82,7 +80,6 @@ async fn hello(state: &ServerState, client: &AuthorizedClient) -> anyhow::Result
     let checkpoint = synchronization::checkpoint(&account);
     transaction.commit().await?;
     Ok(ServerMessage::Hello {
-        version: messages::VERSION,
         identity: ClientIdentity {
             account: client.account,
             actor: client.actor,
@@ -256,7 +253,6 @@ async fn exchange(
                     .await?;
                 }
                 ClientMessage::Hello {
-                    version,
                     checkpoint,
                     baselines,
                     lineage,
@@ -267,19 +263,6 @@ async fn exchange(
                             reason: "duplicate negotiation"
                         }
                     );
-                    if version != messages::VERSION {
-                        send(
-                            socket,
-                            &state.sync_stop,
-                            client.expires_at,
-                            ServerMessage::Failure {
-                                kind: FailureKind::Incompatible,
-                                message: "Synchronization protocol upgrade required".into(),
-                            },
-                        )
-                        .await?;
-                        return Ok(true);
-                    }
                     synchronization::recovery::negotiate(
                         &state.store,
                         client,
