@@ -12,23 +12,13 @@ on:
         description: Desktop release version (YY.M.N)
         required: true
         type: string
-  workflow_run:
-    workflows: [Rust]
-    types: [completed]
-    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   prepare:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.head_repository.full_name == github.repository)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, clacks-linux]
     permissions:
       contents: write
       pull-requests: write
@@ -39,27 +29,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.source }}
+          ref: ${{ inputs.source }}
           fetch-depth: 0
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          key: desktop-release-preparation
+      - name: Use persistent local Cargo build artifacts
+        run: printf 'CARGO_TARGET_DIR=%s\n' "$(dirname "$GITHUB_WORKSPACE")/target" >> "$GITHUB_ENV"
       - name: Build source-owned release tooling
         run: |
           cargo fetch --locked
           cargo build -p clacks-desktop-package --locked --offline
-      - name: Continue a merged release request
-        if: github.event_name == 'workflow_run'
-        env:
-          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: target/debug/clacks-desktop-package release-continue --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_SHA"
       - name: Prepare desktop version or start an already prepared release
-        if: github.event_name == 'workflow_dispatch'
         env:
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
           source_sha=$(git rev-parse HEAD)
-          preparation=$(target/debug/clacks-desktop-package release-version --manifest bin/clacks-log/Cargo.toml --version "$RELEASE_VERSION")
+          preparation=$("$CARGO_TARGET_DIR/debug/clacks-desktop-package" release-version --manifest bin/clacks-log/Cargo.toml --version "$RELEASE_VERSION")
           if [[ $(jq -r .changed <<< "$preparation") == true ]]; then
             cargo metadata --format-version 1 --offline > "$RUNNER_TEMP/desktop-cargo-metadata.json"
             branch=$(jq -er .branch <<< "$preparation")
@@ -84,5 +67,5 @@ jobs:
           EOF_PR
             gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" --title "Prepare desktop release $RELEASE_VERSION" --body-file "$RUNNER_TEMP/desktop-version-pr.md"
           else
-            target/debug/clacks-desktop-package release-start --repository "$GITHUB_REPOSITORY" --revision "$source_sha"
+            "$CARGO_TARGET_DIR/debug/clacks-desktop-package" release-start --repository "$GITHUB_REPOSITORY" --revision "$source_sha"
           fi

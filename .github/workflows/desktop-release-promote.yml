@@ -13,14 +13,13 @@ permissions:
 
 jobs:
   promote:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, clacks-linux]
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          key: desktop-release-promotion
+      - name: Use persistent local Cargo build artifacts
+        run: printf 'CARGO_TARGET_DIR=%s\n' "$(dirname "$GITHUB_WORKSPACE")/target" >> "$GITHUB_ENV"
       - name: Build release tooling
         run: |
           cargo fetch --locked
@@ -30,4 +29,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_TAG: ${{ inputs.tag }}
           RUST_LOG: info
-        run: target/debug/clacks-desktop-package promote --repository "$GITHUB_REPOSITORY" --tag "$CANDIDATE_TAG"
+        run: '"$CARGO_TARGET_DIR/debug/clacks-desktop-package" promote --repository "$GITHUB_REPOSITORY" --tag "$CANDIDATE_TAG"'

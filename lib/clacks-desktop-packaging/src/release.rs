@@ -3,12 +3,8 @@
 use anyhow::Context;
 use clacks_desktop_release::{PackagePlatform, ReleaseVersion};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::path::Path;
 use strum::IntoEnumIterator;
-
-/// Namespace for release-preparation branches derived from desktop tags.
-const REQUEST_BRANCH_PREFIX: &str = "release/";
 
 /// Version-preparation outcome consumed by the release workflow.
 #[derive(Serialize)]
@@ -25,6 +21,11 @@ struct Candidate {
     revision: String,
     /// Parsed application version, from which the tag is derived.
     version: ReleaseVersion,
+}
+
+/// Request branch derived from the source-owned release identity.
+fn request_branch(version: &ReleaseVersion) -> String {
+    format!("release/{}", version.tag())
 }
 
 /// Change only the explicitly selected desktop application's version.
@@ -62,7 +63,7 @@ pub(crate) fn set_desktop_version(
 
     Ok(VersionPreparation {
         changed,
-        branch: format!("{REQUEST_BRANCH_PREFIX}{}", version.tag()),
+        branch: request_branch(&version),
     })
 }
 
@@ -90,55 +91,6 @@ fn candidate(revision: &str) -> anyhow::Result<Candidate> {
         revision: revision.to_owned(),
         version: ReleaseVersion::parse(crate::metadata::application_version(&metadata)?)?,
     })
-}
-
-/// Find a release-preparation PR merged by this exact main push, then read its checkout.
-fn candidate_for_push(repository: &str, revision: &str) -> anyhow::Result<Option<Candidate>> {
-    let pages = crate::command_json(
-        "gh",
-        &[
-            "api".into(),
-            format!("repos/{repository}/commits/{revision}/pulls").into(),
-            "--paginate".into(),
-            "--slurp".into(),
-        ],
-    )?;
-    let pages = pages
-        .as_array()
-        .context("expected associated pull-request pages")?;
-
-    for page in pages {
-        for pr in page
-            .as_array()
-            .context("expected associated pull requests")?
-        {
-            let Some(head) = pr.pointer("/head/ref").and_then(Value::as_str) else {
-                continue;
-            };
-            if pr.get("merged_at").is_none_or(Value::is_null)
-                || pr.pointer("/base/ref").and_then(Value::as_str) != Some("main")
-                || pr.pointer("/head/repo/full_name").and_then(Value::as_str) != Some(repository)
-                || pr.get("merge_commit_sha").and_then(Value::as_str) != Some(revision)
-            {
-                continue;
-            }
-
-            let Some(tag) = head.strip_prefix(REQUEST_BRANCH_PREFIX) else {
-                continue;
-            };
-            let Ok(requested_version) = ReleaseVersion::from_tag(tag) else {
-                continue;
-            };
-            let candidate = candidate(revision)?;
-            anyhow::ensure!(
-                requested_version == candidate.version,
-                "release request branch does not match committed desktop version"
-            );
-            return Ok(Some(candidate));
-        }
-    }
-
-    Ok(None)
 }
 
 /// Start native release packaging after exact-source CI, creating only a matching tag.
@@ -204,13 +156,20 @@ fn start(repository: &str, candidate: Candidate) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Continue a merged release request; ordinary main pushes have no release side effect.
-#[tracing::instrument(skip_all, fields(repository, revision))]
-pub(crate) fn continue_release(repository: &str, revision: &str) -> anyhow::Result<()> {
-    if let Some(candidate) = candidate_for_push(repository, revision)? {
-        start(repository, candidate)?;
-    }
-    Ok(())
+/// Continue the workflow-selected request after matching it to the checked-out version.
+#[tracing::instrument(skip_all, fields(repository, revision, branch))]
+pub(crate) fn continue_release(
+    repository: &str,
+    revision: &str,
+    branch: &str,
+) -> anyhow::Result<()> {
+    let candidate = candidate(revision)?;
+    anyhow::ensure!(
+        branch == request_branch(&candidate.version),
+        "release request branch does not match committed desktop version"
+    );
+
+    start(repository, candidate)
 }
 
 /// Wait for existing CI and start a release whose version is committed in this checkout.

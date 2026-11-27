@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   eligibility:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, clacks-linux]
     permissions:
       contents: read
       actions: read
@@ -48,9 +48,8 @@ jobs:
             echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
           fi
           echo "artifact=release-eligibility-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          key: windows-installer-preflight
+      - name: Use persistent local Cargo build artifacts
+        run: printf 'CARGO_TARGET_DIR=%s\n' "$(dirname "$GITHUB_WORKSPACE")/target" >> "$GITHUB_ENV"
       - name: Fetch locked dependencies
         run: cargo fetch --locked
       - name: Build focused packaging helper
@@ -61,14 +60,14 @@ jobs:
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
         run: |
           cargo metadata --no-deps --format-version 1 --locked --offline > cargo-metadata.json
-          target/debug/clacks-desktop-package prepare --platform windows-x64 --metadata cargo-metadata.json --revision "$SOURCE_SHA" --tag "$GITHUB_REF_NAME" --output metadata.json
+          "$CARGO_TARGET_DIR/debug/clacks-desktop-package" prepare --platform windows-x64 --metadata cargo-metadata.json --revision "$SOURCE_SHA" --tag "$GITHUB_REF_NAME" --output metadata.json
       - name: Reuse exact-commit Linux and web results
         if: steps.source.outputs.release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
           RUST_LOG: info
-        run: target/debug/clacks-desktop-package gate --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_SHA" --output ci-evidence.json
+        run: '"$CARGO_TARGET_DIR/debug/clacks-desktop-package" gate --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_SHA" --output ci-evidence.json'
       - name: Preserve existing verification identity
         if: steps.source.outputs.release == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -659,7 +658,7 @@ jobs:
   publish:
     if: needs.eligibility.outputs.release == 'true' && needs.windows.result == 'success' && needs.macos.result == 'success'
     needs: [eligibility, geography, windows, macos]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, clacks-linux]
     permissions:
       contents: write
     concurrency:

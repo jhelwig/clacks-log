@@ -267,8 +267,12 @@ cargo test -p clacks-desktop-packaging --locked --offline
 ```
 
 To request a release, run **Desktop release preparation** with source and
-`YY.M.N` version. Review and merge its version PR normally. Successful exact-source
-verification continues through tagging, both native packages and prerelease
-publication automatically. Run **Desktop release promotion** with the tested
+`YY.M.N` version. This workflow is manual-only. Review and merge its version PR
+normally. **Desktop release continuation** checks successful main-push verification
+for a merged release request before checking out source or building the helper.
+Ordinary merges skip its release job. A matching request continues through
+tagging, both native packages and prerelease publication automatically.
+Linux and Windows jobs use the corresponding self-hosted runners; macOS packaging
+uses the hosted macOS runner. Run **Desktop release promotion** with the tested
 tag to confirm acceptance and make those same installers final and Latest.
 See the [release procedure](deploy/desktop/windows/README.md#versioned-releases).

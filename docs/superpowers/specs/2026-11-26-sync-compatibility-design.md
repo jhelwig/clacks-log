@@ -147,12 +147,23 @@ change leaves sync-contract metadata unchanged.
 Starting this workflow requests preparation and prerelease publication. Final
 promotion is a later maintainer action.
 
+Desktop release preparation is a manual-only workflow. A separate Desktop
+release continuation workflow handles successful main-push verification. It
+looks up the merged release request before source checkout or a Rust tooling
+build. Ordinary merges skip the release job.
+
 ### 2. Tag the release source
 
 After preparation lands on `main`, automation uses the resulting commit as the
 release source. It reuses the existing Linux/web checks for that exact commit,
 including the normal metadata-generation check, validates the release version
 and creates `desktop-vYY.M.N`. An existing tag for different source is an error.
+
+The continuation workflow passes the selected request branch and verified
+commit to the helper. The helper reads that checkout's application version and
+compares the request branch with the branch derived from that version before
+tagging. The workflow owns merged-PR selection; the helper does not repeat the
+lookup.
 
 Automation then starts native packaging for that tag. Account for [GitHub token
 event behavior]: a tag created with `GITHUB_TOKEN` does not itself trigger the
