@@ -72,8 +72,8 @@ Selected cryptographic composition:
 | --- | --- |
 | `p12-keystore` 0.4.1 | Archive-level `Pkcs12Archive`; enable legacy `pbes1` support without adopting the wrapper's alias/trust policy. |
 | `x509-parser` 0.18.1 | Public metadata/raw extensions; no `verify` or `verify-aws` features. |
-| RustCrypto `rsa` 0.9.10 | Digest-aware PKCS#1 version 1.5 signing through an explicitly randomized/blinded interface. |
-| `sha1` 0.10.7 | SHA-1 with the digest object identifier needed by digest-aware RSA signing. |
+| RustCrypto `rsa` 0.10.0 | Digest-aware PKCS#1 version 1.5 signing through an explicitly randomized/blinded interface. |
+| `sha1` 0.11.0 | SHA-1 with the digest object identifier needed by digest-aware RSA signing. |
 
 Use standard encoded bytes between incompatible dependency type families.
 Inspect and lock the actual transitive graph/features, including archive-format
@@ -298,10 +298,10 @@ dependency safeguards on any supported path.
 The selected PKCS#12 password-derivation path uses `BmpString` and cannot claim
 arbitrary Unicode password support. Characterize Basic Multilingual Plane (BMP) and
 non-BMP cases against the documented/source-described password semantics and report unsupported encoding explicitly; do not
-rewrite passwords. RSA advisory `RUSTSEC-2023-0071` remains unresolved in the
-selected version. Assess the actual blinded signing path, record the rationale
-and maintenance obligation, and do not blanket-ignore the advisory or describe
-blinding as proof it is fixed.
+rewrite passwords. RSA 0.10 resolves `RUSTSEC-2023-0071` for LoTW signing through
+its constant-time implementation. Blinding alone is not proof that a timing
+advisory is fixed. Continue to review the selected version and its actual use
+when assessing advisories; do not blanket-ignore them.
 
 ## 9. Observability
 

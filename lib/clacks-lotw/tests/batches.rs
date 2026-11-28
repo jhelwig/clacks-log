@@ -174,9 +174,9 @@ fn signatures_match_independent_known_answers_and_exact_wire_values() -> anyhow:
             data.bytes,
             b"5FN318HARTFORDCT20MK1ABC14.074000FT82026-10-2212:34:56Z"
         );
-        let public = rsa::RsaPublicKey::from_public_key_pem(std::str::from_utf8(
-            &support::fixture(&format!("{bits}/public.pem")),
-        )?)?;
+        let public = rsa::PublicKey::from_public_key_pem(std::str::from_utf8(&support::fixture(
+            &format!("{bits}/public.pem"),
+        ))?)?;
         let verifier = rsa::pkcs1v15::VerifyingKey::<sha1::Sha1>::new(public);
         let sig = rsa::pkcs1v15::Signature::try_from(decoded.as_slice())?;
         verifier.verify(&data.bytes, &sig)?;

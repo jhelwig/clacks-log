@@ -34,8 +34,9 @@ Never use them for real credentials. No external tools or TQSL execution occur.
 ///
 /// No arguments or `--help` prints usage. `--write` explicitly replaces files;
 /// `--check` returns an error for changed, missing or unowned fixture files.
-/// Construction never reads the existing fixture bytes or invokes production
-/// import, signing or serialization. Use the committed lockfile for reproducibility.
+/// Construction reads fixed key inputs embedded from this tool's source tree,
+/// never the existing output bytes or production import, signing or serialization.
+/// Use the committed lockfile for reproducibility.
 pub fn run(arguments: impl IntoIterator<Item = String>) -> anyhow::Result<()> {
     let mut arguments = arguments.into_iter();
     let action = arguments.next();
@@ -103,12 +104,16 @@ fn collect(root: &Path, directory: &Path, files: &mut Vec<PathBuf>) -> anyhow::R
 #[tracing::instrument(skip_all, name = "fixtures.lotw.construct", level = "debug")]
 fn generate() -> anyhow::Result<BTreeMap<PathBuf, Vec<u8>>> {
     let mut files = BTreeMap::new();
-    let issuer = signing::key(1024, 10)?;
+    let issuer = signing::key(include_str!("fixtures/keys/issuer.pem"))?;
     let mut primary = None;
     let mut other_key = None;
     let mut other_certificate = None;
-    for (bits, seed) in [(1024, 11), (2048, 12), (4096, 13)] {
-        let key = signing::key(bits, seed)?;
+    for (bits, pem) in [
+        (1024, include_str!("fixtures/keys/station-1024.pem")),
+        (2048, include_str!("fixtures/keys/station-2048.pem")),
+        (4096, include_str!("fixtures/keys/station-4096.pem")),
+    ] {
+        let key = signing::key(pem)?;
         let der = key.to_pkcs8_der()?;
         let cert = certificates::station(&key, &issuer, "")?;
         let signature = signing::sign(&key, signing::INPUT)?;
@@ -336,14 +341,14 @@ fn generate() -> anyhow::Result<BTreeMap<PathBuf, Vec<u8>>> {
 /// Encode a deliberately invalid RSA component without private-key validation.
 fn altered_key(bytes: &[u8], component: &str, value: &[u8]) -> anyhow::Result<Vec<u8>> {
     use rsa::pkcs8::der::{Encode, asn1::UintRef};
-    let mut info = rsa::pkcs8::PrivateKeyInfo::try_from(bytes)?;
-    let mut key = rsa::pkcs1::RsaPrivateKey::try_from(info.private_key)?;
+    let mut info = rsa::pkcs8::PrivateKeyInfoRef::try_from(bytes)?;
+    let mut key = rsa::pkcs1::RsaPrivateKeyRef::try_from(info.private_key.as_bytes())?;
     if component == "modulus" {
         key.modulus = UintRef::new(value)?;
     } else {
         key.private_exponent = UintRef::new(value)?;
     }
     let encoded = key.to_der()?;
-    info.private_key = &encoded;
+    info.private_key = rsa::pkcs8::der::asn1::OctetStringRef::new(&encoded)?;
     Ok(info.to_der()?)
 }

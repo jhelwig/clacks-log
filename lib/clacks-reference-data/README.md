@@ -22,8 +22,8 @@ point. JSON output preserves existing bytes and source-defined signing order.
 
 `bin/clacks-lotw-fixtures` enables this library's optional `fixtures` feature.
 It constructs all 66 certificate, archive, signature and wire fixtures with
-fixed public test inputs, independently of the production importer, signer and
-serializer. Its cryptographic dependencies are confined to that feature.
+fixed public test keys and recipes, independently of the production importer,
+signer and serializer. Its cryptographic dependencies are confined to that feature.
 
 ```sh
 cargo +1.99.1 run --release --bin clacks-lotw-fixtures --locked --offline -- --help
@@ -35,7 +35,10 @@ No arguments or `--help` displays usage. `--check` reconstructs every fixture an
 compares exact bytes, rejecting missing, changed or unowned data files. Only
 `--write` replaces files. Neither construction nor verification invokes external
 programs. See the [fixture recipes](../clacks-lotw/tests/fixtures/README.md) for
-inputs and independence limits. Use the optimized build for RSA key generation.
+inputs and independence limits. The four PKCS#8 PEM key inputs live under
+`src/fixtures/keys`; they are embedded in the tool and are separate from generated
+fixture outputs. Dependency upgrades reuse these keys instead of regenerating
+them from seeds.
 All executable project maintenance and non-trivial fixture generation is Rust.
 
 One debug span covers the maintenance command. Its completion event reports only

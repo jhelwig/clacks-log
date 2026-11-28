@@ -8,10 +8,10 @@ use der::{
     },
 };
 use pkcs12::cms::cert::x509::spki::AlgorithmIdentifierOwned;
-use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
+use rsa::rand_core::SeedableRng;
 use rsa::{
-    RsaPrivateKey,
+    PrivateKey,
     pkcs8::EncodePublicKey,
     signature::{RandomizedSigner, SignatureEncoding},
 };
@@ -131,8 +131,8 @@ fn extension(id: &str, value: &[u8]) -> anyhow::Result<Extension> {
 
 /// Build a synthetic station or named malformed variant using only Rust values.
 pub(super) fn station(
-    key: &RsaPrivateKey,
-    issuer: &RsaPrivateKey,
+    key: &PrivateKey,
+    issuer: &PrivateKey,
     variant: &str,
 ) -> anyhow::Result<Vec<u8>> {
     let call = match variant {
@@ -221,7 +221,7 @@ pub(super) fn station(
         public_key,
         extensions: explicit(3, extensions),
     };
-    let signature = rsa::pkcs1v15::SigningKey::<sha2_rsa::Sha256>::new(issuer.clone())
+    let signature = rsa::pkcs1v15::SigningKey::<sha2::Sha256>::new(issuer.clone())
         .try_sign_with_rng(&mut ChaCha20Rng::from_seed([202; 32]), &body.to_der()?)?
         .to_bytes()
         .to_vec();

@@ -77,13 +77,12 @@ applicable notices when distributing the maintenance tool.
 
 The separate `clacks-lotw-fixtures` command enables `clacks-reference-data`'s
 optional `fixtures` feature. It adds Rust-only construction dependencies including
-`rand_chacha` 0.3.1, `num-bigint` 0.4.8, `sha2` 0.10.9/0.11.1, `hmac` 0.13.0,
+`rand_chacha` 0.10.0, `num-bigint` 0.4.8, `sha2` 0.11.1, `hmac` 0.13.0,
 `pkcs5` 0.8.1, `cbc` 0.2.1, `des` 0.9.0, `rc2` 0.9.0 and `hex` 0.4.3,
 alongside the Rust cryptography families listed below. Their Cargo metadata
 provides MIT/Apache-2.0 options. Keep their applicable notices if distributing
 the fixture tool. This feature is not a dependency of application libraries.
-The RSA advisory assessment below still applies; fixture keys are public test
-inputs and cannot be used for real credentials.
+Fixture keys are public test inputs and cannot be used for real credentials.
 
 ## Contributor rights
 
@@ -92,12 +91,12 @@ The [actual agreement comparison](contributor-agreements.md) preserves findings 
 ## Locked LoTW library dependencies
 
 The `clacks-lotw` graph in the committed lockfile uses `p12-keystore` 0.4.1
-with `pbes1`, `x509-parser` 0.18.1 without verification, `rsa` 0.9.10,
-`sha1` 0.10.7 with `oid`, `base64` 0.22.1 and `rand` 0.8.8. Archive decoding
+with `pbes1`, `x509-parser` 0.18.1 without verification, `rsa` 0.10.0,
+`sha1` 0.11.0 with `oid`, `base64` 0.22.1 and `getrandom` 0.4.3. Archive decoding
 also resolves `cms` 0.3.0-pre.1, `pkcs12` 0.2.0-pre.0, `der` 0.8.2,
-`pkcs8` 0.11.0, `digest` 0.11.3 and `sha1` 0.11.0. RSA retains `der` 0.7.10,
-`pkcs8` 0.10.2 and `digest` 0.10.7. These families exchange encoded bytes;
-the prereleases and parallel families are intentional maintenance costs.
+`pkcs8` 0.11.0, `digest` 0.11.3 and `sha1` 0.11.0. RSA uses these same
+encoding and digest generations. The archive-format prereleases remain
+intentional maintenance costs.
 
 Cargo metadata for third-party packages in the resolved LoTW graph (including
 test and target-specific packages) declares permissive MIT, Apache-2.0, BSD, Unicode-3.0, Unlicense or Zlib

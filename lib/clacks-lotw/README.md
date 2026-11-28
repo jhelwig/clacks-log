@@ -90,13 +90,14 @@ budgets. Events remain useful when operation spans are filtered.
 
 The locked dependency/feature and license assessment is in
 [licensing](../../references/licensing.md#locked-lotw-library-dependencies).
-RSA 0.9.10 remains affected by RUSTSEC-2023-0071. The signing path uses digest-aware
-PKCS#1 v1.5 with SHA-1 and explicit randomized RSA blinding, seeded fallibly from
-operating-system entropy; it provides no ciphertext decryption operation. Blinding
-is mitigation, not resolution of the advisory. The archive decoder also performs
-private-key validation on supplied material. Import admission/concurrency limits
-and restricted server-side access remain adapter obligations. Maintain the pinned
-versions and review security updates rather than suppressing the advisory.
+The signing path uses RSA 0.10's constant-time implementation with digest-aware
+PKCS#1 v1.5, SHA-1 and randomized RSA blinding from fallible operating-system
+randomness. The archive decoder also performs private-key validation on supplied
+material. Import admission/concurrency limits and restricted server-side access
+remain adapter obligations. Maintain the pinned versions and review security
+updates. The separate `openidconnect` dependency still pulls RSA 0.9 into the
+workspace; its [advisory exception](../../docs/development.md#remaining-rsa-advisory)
+is limited to that reviewed dependent and version.
 
 Tests consume committed independently constructed archives/certificates and
 fixed signature and wire expectations. Archive coverage includes SHA-256 and
@@ -104,18 +105,11 @@ legacy SHA-1 integrity, both certificate/key safe orders, and bounded invalid
 private components. They check literal source-derived
 signing bytes, wire fields, producer framing, all three tested key sizes, batch
 membership, failure behavior and the real native-model projection. The dedicated Rust `clacks-lotw-fixtures` command reconstructs every input from
-fixed public test recipes and verifies exact committed bytes. It does not call
+fixed public test keys and recipes and verifies exact committed bytes. It does not call
 this library's importer, signer or serializer. Cryptographic primitives are
 provided by the existing dependencies. Tests check Clacks's expected message,
 key and emitted records without maintaining a second RSA implementation.
-The `clacks-lotw-data` maintenance command only reads supplied TQSL
-reference text. These
-checks establish
-local compatibility evidence; live LoTW acceptance requires later provider tests.
-
-The compatibility suite runs with Rust 1.99.1 on macOS ARM64 and native Linux
-ARM64 in a Rust-only container. Windows x86-64 and Linux x86-64 compile checks
-cover the library, with Windows also checking workspace test targets; they do
-not establish runtime/installer behavior on those targets. The workspace suite,
-doctests, warning-denied Clippy and rustdoc checks run on the development host.
-The advisory scan reports RUSTSEC-2023-0071 without an exception or suppression.
+The `clacks-lotw-data` maintenance command reads supplied TQSL reference text.
+Use the [workspace verification commands](../../README.md#development) for tests,
+doctests, Clippy and documentation checks. Synthetic fixture coverage establishes
+local compatibility; authenticated LoTW acceptance remains unverified.

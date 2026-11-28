@@ -1,25 +1,23 @@
-//! Fixed-seed synthetic keys, signatures and literal protocol expectations.
+//! Fixed synthetic key inputs, signatures and literal protocol expectations.
 
-use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
+use rsa::rand_core::SeedableRng;
 use rsa::{
-    RsaPrivateKey,
+    PrivateKey,
+    pkcs8::DecodePrivateKey,
     signature::{RandomizedSigner, SignatureEncoding},
 };
 
 /// Hand-authored signing input for the representative complete wire fixture.
 pub(super) const INPUT: &[u8] = b"5FN318HARTFORDCT20MK1ABC14.074000FT82026-10-2212:34:56Z";
 
-/// Construct a deterministic, public test key; never use this seed for real keys.
-pub(super) fn key(bits: usize, seed: u8) -> anyhow::Result<RsaPrivateKey> {
-    Ok(RsaPrivateKey::new(
-        &mut ChaCha20Rng::from_seed([seed; 32]),
-        bits,
-    )?)
+/// Decode a fixed synthetic private key published solely as test input.
+pub(super) fn key(pem: &str) -> anyhow::Result<PrivateKey> {
+    Ok(PrivateKey::from_pkcs8_pem(pem)?)
 }
 
 /// Sign an explicit fixture message without calling the production signing path.
-pub(super) fn sign(key: &RsaPrivateKey, input: &[u8]) -> anyhow::Result<Vec<u8>> {
+pub(super) fn sign(key: &PrivateKey, input: &[u8]) -> anyhow::Result<Vec<u8>> {
     let signer = rsa::pkcs1v15::SigningKey::<sha1::Sha1>::new(key.clone());
     let signature = signer
         .try_sign_with_rng(&mut ChaCha20Rng::from_seed([201; 32]), input)?

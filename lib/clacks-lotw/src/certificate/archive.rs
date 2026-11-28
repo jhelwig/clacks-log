@@ -10,9 +10,10 @@ use rsa::{pkcs8::DecodePrivateKey, traits::PublicKeyParts};
 use std::collections::BTreeSet;
 
 /// Reject unbounded integer encodings before private-key construction/validation.
-fn private_key(der: &[u8]) -> anyhow::Result<rsa::RsaPrivateKey> {
-    let info = rsa::pkcs8::PrivateKeyInfo::try_from(der).context("decode private key envelope")?;
-    let raw = rsa::pkcs1::RsaPrivateKey::try_from(info.private_key)
+fn private_key(der: &[u8]) -> anyhow::Result<rsa::PrivateKey> {
+    let info =
+        rsa::pkcs8::PrivateKeyInfoRef::try_from(der).context("decode private key envelope")?;
+    let raw = rsa::pkcs1::RsaPrivateKeyRef::try_from(info.private_key.as_bytes())
         .context("decode RSA private components")?;
     for value in [
         raw.modulus,
@@ -26,7 +27,7 @@ fn private_key(der: &[u8]) -> anyhow::Result<rsa::RsaPrivateKey> {
     ] {
         ensure!(value.as_bytes().len() <= 512, ImportError::KeyTooLarge);
     }
-    rsa::RsaPrivateKey::from_pkcs8_der(der).context("validate RSA private key")
+    rsa::PrivateKey::from_pkcs8_der(der).context("validate RSA private key")
 }
 
 /// Decode an integrity-checked archive into one opaque station credential.
@@ -81,7 +82,7 @@ pub(super) fn import(bytes: &[u8], password: &str) -> anyhow::Result<SigningCred
         .context("key selection unexpectedly empty")?;
     let key = private_key(encoded_key)?;
     let (_, certificate) = x509_parser::parse_x509_certificate(der).map_err(|e| e.to_owned())?;
-    let public = rsa::pkcs1::RsaPublicKey::try_from(
+    let public = rsa::pkcs1::RsaPublicKeyRef::try_from(
         certificate.public_key().subject_public_key.data.as_ref(),
     )
     .context("decode station RSA public key")?;
@@ -90,8 +91,8 @@ pub(super) fn import(bytes: &[u8], password: &str) -> anyhow::Result<SigningCred
         ImportError::KeyTooLarge
     );
     ensure!(
-        key.n().to_bytes_be() == public.modulus.as_bytes()
-            && key.e().to_bytes_be() == public.public_exponent.as_bytes(),
+        key.n().to_be_bytes_trimmed_vartime().as_ref() == public.modulus.as_bytes()
+            && key.e().to_be_bytes_trimmed_vartime().as_ref() == public.public_exponent.as_bytes(),
         ImportError::KeyMismatch
     );
     tracing::debug!(

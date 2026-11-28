@@ -1,0 +1,159 @@
+name: Dependencies
+
+on:
+  workflow_call:
+    inputs:
+      base-revision:
+        description: Base revision for the direct-dependency maintenance comparison
+        type: string
+        required: false
+        default: ''
+  schedule:
+    - cron: '23 10 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependencies:
+    name: Vulnerabilities, maintenance and licenses
+    permissions:
+      contents: read
+      checks: write
+    # Fork scans use fresh hosted runners; never send them to the persistent
+    # runner used for trusted branches. Keep the application job guards intact.
+    runs-on: >-
+      ${{ github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name != github.repository &&
+          'ubuntu-latest' || fromJSON('["self-hosted", "Linux", "X64", "clacks-linux"]') }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: head
+        shell: bash
+    steps:
+      - name: Check out proposed revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: head
+          persist-credentials: false
+      - name: Check out comparison base
+        if: inputs.base-revision != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.base-revision }}
+          path: base
+          persist-credentials: false
+      - name: Resolve repository Rust toolchain
+        run: rustup show active-toolchain
+      - name: Install pinned cargo-deny
+        run: cargo install cargo-deny --version 0.22.2 --locked
+      - name: Verify maintenance classifier
+        run: |
+          cargo fmt --manifest-path tools/dependency-policy/Cargo.toml --all --check
+          cargo test --manifest-path tools/dependency-policy/Cargo.toml --workspace --locked
+          cargo clippy --manifest-path tools/dependency-policy/Cargo.toml --workspace --all-targets --locked -- -D warnings
+      - name: Resolve dependency identities
+        id: metadata
+        env:
+          BASE_REVISION: ${{ inputs.base-revision }}
+        run: |
+          cargo metadata --locked --all-features --format-version 1 > "$RUNNER_TEMP/head-metadata.json"
+          if [[ -n "$BASE_REVISION" ]]; then
+            cargo metadata --manifest-path ../base/Cargo.toml --locked --all-features --format-version 1 > "$RUNNER_TEMP/base-metadata.json"
+          fi
+      - name: Fetch current advisory database
+        run: cargo deny fetch db
+      - name: Scan advisories with maintenance warnings
+        id: advisories
+        # Preserve the report for classification, then require this outcome below.
+        # Only maintenance is downgraded; vulnerability/operational errors fail.
+        continue-on-error: true
+        run: |
+          cargo deny --locked --all-features --offline --format json \
+            --metadata-path "$RUNNER_TEMP/head-metadata.json" \
+            check -W unmaintained --audit-compatible-output advisories \
+            > "$RUNNER_TEMP/advisories.json"
+      - name: Apply direct-dependency maintenance policy
+        id: maintenance
+        if: ${{ !cancelled() && steps.advisories.outcome != 'skipped' }}
+        # Publish the classified findings before enforcing the outcome below.
+        continue-on-error: true
+        env:
+          BASE_REVISION: ${{ inputs.base-revision }}
+        run: |
+          args=("$RUNNER_TEMP/head-metadata.json" "$RUNNER_TEMP/advisories.json")
+          if [[ -n "$BASE_REVISION" ]]; then
+            args+=("$RUNNER_TEMP/base-metadata.json")
+          fi
+          policy_status=0
+          cargo run --manifest-path tools/dependency-policy/Cargo.toml \
+            -p dependency-policy-cli --locked -- "${args[@]}" || policy_status=$?
+          if [[ -f "$GITHUB_STEP_SUMMARY" ]]; then
+            cp "$GITHUB_STEP_SUMMARY" "$RUNNER_TEMP/maintenance-summary.md"
+          fi
+          exit "$policy_status"
+      - name: Publish maintenance check report
+        # Fork pull requests have read-only tokens. Their annotations and Actions
+        # summaries remain available without attempting to publish a custom check.
+        if: >-
+          !cancelled() &&
+          (github.event_name != 'pull_request' ||
+           github.event.pull_request.head.repo.full_name == github.repository)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BLOCKING_COUNT: ${{ steps.maintenance.outputs.blocking_count }}
+          WARNING_COUNT: ${{ steps.maintenance.outputs.warning_count }}
+        run: |
+          summary_path="$RUNNER_TEMP/maintenance-summary.md"
+          if [[ "$BLOCKING_COUNT" =~ ^[0-9]+$ && "$WARNING_COUNT" =~ ^[0-9]+$ && -s "$summary_path" ]]; then
+            if (( BLOCKING_COUNT > 0 )); then
+              conclusion=failure
+              title="Maintenance blockers: $BLOCKING_COUNT; warnings: $WARNING_COUNT"
+            elif (( WARNING_COUNT > 0 )); then
+              conclusion=neutral
+              title="Non-blocking maintenance warnings: $WARNING_COUNT"
+            else
+              conclusion=success
+              title='No dependency maintenance findings'
+            fi
+          else
+            conclusion=failure
+            title='Dependency maintenance could not be evaluated'
+            printf '%s\n' 'The maintenance evaluation did not produce a complete report. Inspect the dependency verification job for the error.' > "$summary_path"
+          fi
+          jq -n \
+            --arg name 'Dependency maintenance report' \
+            --arg sha "$REPORT_SHA" \
+            --arg conclusion "$conclusion" \
+            --arg title "$title" \
+            --rawfile summary "$summary_path" \
+            '{
+              name: $name,
+              head_sha: $sha,
+              status: "completed",
+              conclusion: $conclusion,
+              output: {title: $title, summary: $summary}
+            }' > "$RUNNER_TEMP/maintenance-check-report.json"
+          gh api --method POST "repos/$GITHUB_REPOSITORY/check-runs" \
+            --input "$RUNNER_TEMP/maintenance-check-report.json" > "$RUNNER_TEMP/check-report-response.json"
+          report_url=$(jq -er '.html_url' "$RUNNER_TEMP/check-report-response.json")
+          report_id=$(jq -er '.id' "$RUNNER_TEMP/check-report-response.json")
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/check-runs/$report_id" \
+            -f "details_url=$report_url" > /dev/null
+          printf 'Dependency maintenance report: %s\n' "$report_url"
+      - name: Check dependency licenses
+        if: ${{ !cancelled() && steps.metadata.outcome == 'success' }}
+        run: |
+          cargo deny --locked --all-features \
+            --metadata-path "$RUNNER_TEMP/head-metadata.json" check licenses
+      - name: Require successful advisory and maintenance checks
+        if: always()
+        env:
+          ADVISORY_OUTCOME: ${{ steps.advisories.outcome }}
+          MAINTENANCE_OUTCOME: ${{ steps.maintenance.outcome }}
+        run: |
+          test "$ADVISORY_OUTCOME" = success
+          test "$MAINTENANCE_OUTCOME" = success

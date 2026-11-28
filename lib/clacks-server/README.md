@@ -38,7 +38,7 @@ Fixed PostgreSQL queries use external SQL files and compile-time SQLx checking.
 Install the pinned CLI with both workspace backends and Rustls:
 
 ```sh
-cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features sqlite,postgres,rustls
+cargo install sqlx-cli --version 0.9.1 --locked --no-default-features --features sqlite,postgres,rustls
 ```
 
 Generate metadata against a disposable database with the production migrations

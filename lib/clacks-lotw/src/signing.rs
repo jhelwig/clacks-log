@@ -17,10 +17,6 @@ use crate::{
 use anyhow::{Context, ensure};
 use clacks_model::service::{adif::AdifFields, lotw::LotwSubmission};
 use definition::SignatureDefinitions;
-use rand::{
-    SeedableRng,
-    rngs::{OsRng, StdRng},
-};
 use rsa::signature::{RandomizedSigner, SignatureEncoding};
 use std::{collections::BTreeMap, io::Write};
 use time::OffsetDateTime;
@@ -100,7 +96,7 @@ pub fn write_batch<W: Write>(
         );
         prepared.push(input);
     }
-    let mut randomness = StdRng::from_rng(OsRng).context("seed signing randomness")?;
+    let mut randomness = getrandom::SysRng;
     let header = wire::identification(&application, &version, &definitions.provenance.release);
     writer
         .write_all(&header)

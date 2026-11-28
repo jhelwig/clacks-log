@@ -18,6 +18,8 @@ than opening a public issue.
 ## Maintainer development
 
 The [README](README.md#development) describes development and verification.
+The [maintainer development guide](docs/development.md) documents dependency
+checks and continuous integration.
 [AGENTS.md](AGENTS.md) records collaboration guidance; the product and design
 documents linked from the README define the project's requirements.
 

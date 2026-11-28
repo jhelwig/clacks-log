@@ -58,8 +58,8 @@ hmac = "0.13"
 http = "1"
 httpdate = "1"
 huskarl = { version = "=0.11.9", features = ["authorization-flow-loopback", "tracing"] }
-huskarl-core = "=0.10.10"
-huskarl-crypto-native = "=0.11.3"
+huskarl-core = "=0.10.11"
+huskarl-crypto-native = "=0.11.4"
 huskarl-reqwest = { version = "=0.9.3", features = ["rustls-tls"] }
 huskarl-resource-server = "=0.11.12"
 image = { version = "=0.25.10", default-features = false, features = ["png"] }
@@ -78,7 +78,7 @@ network-interface = "=2.0.5"
 num-bigint = "=0.4.8"
 num-integer = "=0.1.47"
 oauth-as = { version = "=1.0.1", default-features = false, features = ["dpop", "jwt-p256", "http"] }
-openidconnect = { version = "=4.0.1", default-features = false, features = ["reqwest", "rustls-tls", "timing-resistant-secret-traits"] }
+openidconnect = { version = "=4.1.0", default-features = false, features = ["reqwest", "rustls-tls", "timing-resistant-secret-traits"] }
 opentelemetry = { version = "=0.33.1", default-features = false, features = ["trace", "metrics", "logs", "internal-logs"] }
 opentelemetry-appender-tracing = { version = "=0.33.1", default-features = false }
 opentelemetry-http = "=0.33.1"
@@ -94,7 +94,7 @@ proj4rs = { version = "=0.2.1", default-features = false, features = ["tiff"] }
 prost = "=0.14.1"
 qso-io = "=0.3.0"
 rand = "0.8"
-rand_chacha = "0.3.1"
+rand_chacha = "0.10"
 raw-window-handle = "=0.6.2"
 rayon = "1.12"
 rc2 = "0.9"
@@ -105,24 +105,18 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 reqwest-oauth = { package = "reqwest", version = "=0.13.5", default-features = false, features = ["rustls", "json", "query"] }
 rfd = "0.18.0"
 roxmltree = "0.21.1"
-rsa = "=0.9.10"
+rsa = { version = "=0.10.0", features = ["pkcs1v15"] }
 rustls = { version = "=0.23.46", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
-sha1 = { version = "=0.10.7", features = ["oid"] }
-# Archive fixtures need digest 0.11 for pkcs12 0.2 and hmac 0.13;
-# certificate signing uses sha1 0.10 with rsa 0.9's digest 0.10 traits.
-sha1-archive = { package = "sha1", version = "0.11" }
-sha2 = "=0.11.1"
-# Keep the archive fixture dependency separate from application hashing;
-# pkcs12 0.2 and hmac 0.13 require sha2 0.11's digest traits.
-sha2-archive = { package = "sha2", version = "0.11" }
-# Fixture certificate signing uses rsa 0.9's sha2 0.10 digest traits.
+sha1 = { version = "0.11", features = ["oid"] }
+sha2 = { version = "=0.11.1", features = ["oid"] }
+# Geographic artifact hashing uses digest 0.10's std::io::Write support.
 sha2-rsa = { package = "sha2", version = "0.10.9", features = ["oid"] }
 shapefile = { version = "=0.9.0", features = ["geo-types"] }
 shlex = "2.0.1"
 socket2 = { version = "=0.6.5", features = ["all"] }
-sqlx = { version = "=0.9.0", default-features = false, features = ["runtime-tokio", "macros", "migrate", "sqlx-toml"] }
+sqlx = { version = "=0.9.1", default-features = false, features = ["runtime-tokio", "macros", "migrate", "sqlx-toml"] }
 strum = { version = "=0.28.0", features = ["derive"] }
 tempfile = "3"
 thiserror = "2"

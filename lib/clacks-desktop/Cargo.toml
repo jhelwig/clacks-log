@@ -26,6 +26,7 @@ windows-sys = { workspace = true, features = ["Win32_UI_WindowsAndMessaging", "W
 chrono.workspace = true
 clacks-server.workspace = true
 clacks-web = { workspace = true, features = ["ssr"] }
+getrandom = { workspace = true, features = ["sys_rng"] }
 leptos.workspace = true
 openidconnect.workspace = true
 rand.workspace = true
