@@ -110,28 +110,28 @@ fn finish(
     let auth = safes.to_vec().to_der()?;
     let mac_data = if let Some(iterations) = declared_rounds {
         let mac = if legacy {
-            let key = pkcs12::kdf::derive_key_utf8::<sha1_archive::Sha1>(
+            let key = pkcs12::kdf::derive_key_utf8::<sha1::Sha1>(
                 password,
                 SALT,
                 pkcs12::kdf::Pkcs12KeyType::Mac,
                 actual_rounds,
                 20,
             )?;
-            let mut mac = hmac::Hmac::<sha1_archive::Sha1>::new_from_slice(&key)?;
+            let mut mac = hmac::Hmac::<sha1::Sha1>::new_from_slice(&key)?;
             mac.update(&auth);
             DigestInfo {
                 algorithm: algorithm("1.3.14.3.2.26")?,
                 digest: OctetString::new(mac.finalize().into_bytes().to_vec())?,
             }
         } else {
-            let key = pkcs12::kdf::derive_key_utf8::<sha2_archive::Sha256>(
+            let key = pkcs12::kdf::derive_key_utf8::<sha2::Sha256>(
                 password,
                 SALT,
                 pkcs12::kdf::Pkcs12KeyType::Mac,
                 actual_rounds,
                 32,
             )?;
-            let mut mac = hmac::Hmac::<sha2_archive::Sha256>::new_from_slice(&key)?;
+            let mut mac = hmac::Hmac::<sha2::Sha256>::new_from_slice(&key)?;
             mac.update(&auth);
             DigestInfo {
                 algorithm: algorithm("2.16.840.1.101.3.4.2.1")?,
@@ -213,14 +213,14 @@ fn encrypt(
         ));
     }
     let key_length = if certificate { 5 } else { 24 };
-    let key = pkcs12::kdf::derive_key_utf8::<sha1_archive::Sha1>(
+    let key = pkcs12::kdf::derive_key_utf8::<sha1::Sha1>(
         password,
         SALT,
         pkcs12::kdf::Pkcs12KeyType::EncryptionKey,
         iterations.max(1),
         key_length,
     )?;
-    let iv = pkcs12::kdf::derive_key_utf8::<sha1_archive::Sha1>(
+    let iv = pkcs12::kdf::derive_key_utf8::<sha1::Sha1>(
         password,
         SALT,
         pkcs12::kdf::Pkcs12KeyType::Iv,

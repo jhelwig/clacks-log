@@ -98,7 +98,7 @@ Normal compilation uses `SQLX_OFFLINE=true`, without a database connection.
 To regenerate it, install the pinned standard tool:
 
 ```sh
-cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features sqlite
+cargo install sqlx-cli --version 0.9.1 --locked --no-default-features --features sqlite
 ```
 
 Choose a fresh temporary SQLite file, set both `DATABASE_URL` and

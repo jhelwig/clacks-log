@@ -1,11 +1,9 @@
 # LoTW cryptographic dependencies
 
-Checked 22 October 2026 against released crate sources and the pinned TrustedQSL
-2.8.6 implementation. D224 selects pure Rust. The dependency combination and
-narrower trust boundary below are accepted for issue #4; they are not a claim of
-live interoperability. The production library and locked dependency combination
-are implemented and exercised with independent synthetic inputs as described
-below; no private user certificates were inspected or live submissions made.
+The pure-Rust composition selected by D224 supports certificate import,
+interpretation and signing against the pinned TrustedQSL 2.8.6 protocol behavior.
+Independent synthetic fixtures cover local compatibility. Authenticated LoTW
+acceptance remains unverified.
 
 ## Selected combination
 
@@ -13,7 +11,7 @@ below; no private user certificates were inspected or live submissions made.
 | --- | --- | --- |
 | Certificate archive decoding | `p12-keystore` 0.4.1 with `pbes1` support | Use `Pkcs12Archive`, not the alias/trust-store import policy. Support normal and legacy TQSL exports. Require and verify archive integrity. |
 | Certificate interpretation | `x509-parser` 0.18.1 without `verify` or `verify-aws` | Read required LoTW subject attributes/extensions, public key, issuer/serial and validity. Preserve original certificate bytes. |
-| Submission signing | RustCrypto `rsa` 0.9.10 and `sha1` 0.10.7 with digest-identifier support | Use the digest-aware Public-Key Cryptography Standards #1 (PKCS#1) version 1.5 construction and explicit randomized/blinded signing interface. |
+| Submission signing | RustCrypto `rsa` 0.10.0 and `sha1` 0.11.0 with digest-identifier support | Use the digest-aware Public-Key Cryptography Standards #1 (PKCS#1) version 1.5 construction and explicit randomized/blinded signing interface. |
 
 These are server-side dependencies. Shared domain, synchronization and browser/
 desktop consumers do not acquire certificate/private-key or signing-library types.
@@ -92,26 +90,26 @@ needed. [Parser documentation](https://docs.rs/x509-parser/0.18.1/x509_parser/).
 
 ## Signing security and maintenance
 
-In `rsa` 0.9.10, `try_sign_with_rng` supplies random blinding to the private
-operation. Ordinary `try_sign`, digest signing and prehashed signing do not all
-supply blinding. Use the explicitly randomized interface with a cryptographically
-secure random source. Blinding randomizes the private computation without changing
-the resulting protocol signature. [Released signing implementation](https://github.com/RustCrypto/RSA/blob/v0.9.10/src/pkcs1v15/signing_key.rs).
+In `rsa` 0.10.0, `try_sign_with_rng` supplies random blinding to the private
+operation and accepts a fallible cryptographically secure random source.
+Clacks uses operating-system randomness and propagates signing failures without
+an unblinded fallback. Blinding randomizes the private computation without
+changing the resulting protocol signature.
+[Released signing implementation](https://docs.rs/crate/rsa/0.10.0/source/src/pkcs1v15/signing_key.rs).
 
-[RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html) remains
-unpatched. The [upstream tracking issue](https://github.com/RustCrypto/RSA/issues/626)
-focuses on padding/decryption timing; this signing subsystem does not offer RSA
-ciphertext decryption. That distinction and explicit blinding are relevant to a
-version-specific assessment, not grounds to declare the advisory resolved or
-suppress it without explanation. The inspected 0.10.0-rc.19 source also retains
-an explicit randomized signing interface; a prerelease version number alone does
-not establish that the concern is fixed.
+[RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html) identifies
+RSA 0.10.0 as patched, including migration to `crypto-bigint` and constant-time
+mitigations. LoTW signing uses that release. The workspace graph includes
+affected RSA 0.9.10 through `openidconnect` 4.1.0; the
+[source-assessed exception](../docs/development.md#remaining-rsa-advisory) is
+limited to that direct dependent and version.
+Blinding alone is not proof that a timing advisory is resolved.
 
 The top-level archive release is stable, but its manifest includes prerelease
-`pkcs12` and `cms` dependencies. It also uses a newer digest/randomness dependency
-family than `rsa` 0.9.10. Use standard encoded key/certificate bytes at the boundary,
-not an assumption that their Rust library types are interchangeable. A locked,
-resolved dependency/feature inventory and build remain required. The inspected
+`pkcs12` and `cms` dependencies. RSA and the archive implementation share
+the DER 0.8, PKCS#8 0.11 and digest 0.11 generations. Use standard encoded
+key/certificate bytes at the boundary. A locked,
+resolved dependency/feature inventory and build remain required. The
 direct dependencies declare MIT/Apache-2.0 licenses; preserve their notices and
 review the final transitive set. [Archive manifest](https://github.com/ancwrd1/p12-keystore/blob/21a427cacf79b10186aa1fc6f953516d95e0379d/Cargo.toml).
 

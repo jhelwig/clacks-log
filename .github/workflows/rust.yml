@@ -14,6 +14,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  dependencies:
+    uses: ./.github/workflows/dependencies.yml
+    permissions:
+      contents: read
+      checks: write
+    with:
+      base-revision: ${{ github.event.pull_request.base.sha || '' }}
+
   changes:
     name: Classify changes
     runs-on: [self-hosted, Linux, X64, clacks-linux]
@@ -95,7 +103,7 @@ jobs:
       - name: Fetch locked Rust dependencies
         run: cargo fetch --locked
       - name: Install pinned SQLx metadata tooling
-        run: cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features sqlite,postgres,rustls
+        run: cargo install sqlx-cli --version 0.9.1 --locked --no-default-features --features sqlite,postgres,rustls
       - name: Prepare PostgreSQL roles and release-managed schema
         shell: bash
         run: |
@@ -210,7 +218,7 @@ jobs:
 
   ci-result:
     name: CI result
-    needs: [changes, verify, verify-web]
+    needs: [changes, verify, verify-web, dependencies]
     if: always()
     runs-on: [self-hosted, Linux, X64, clacks-linux]
     timeout-minutes: 5
@@ -222,11 +230,16 @@ jobs:
           DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
           VERIFY_RESULT: ${{ needs.verify.result }}
           WEB_RESULT: ${{ needs.verify-web.result }}
+          DEPENDENCIES_RESULT: ${{ needs.dependencies.result }}
         run: |
           printf 'Classification: %s; docs_only: %s; workspace: %s; web: %s\n' \
             "$CHANGES_RESULT" "$DOCS_ONLY" "$VERIFY_RESULT" "$WEB_RESULT" | tee -a "$GITHUB_STEP_SUMMARY"
           if [[ "$CHANGES_RESULT" != success ]]; then
             echo 'Change classification did not succeed.' >&2
+            exit 1
+          fi
+          if [[ "$DEPENDENCIES_RESULT" != success ]]; then
+            echo 'Dependency policy verification did not succeed.' >&2
             exit 1
           fi
           case "$DOCS_ONLY:$VERIFY_RESULT:$WEB_RESULT" in

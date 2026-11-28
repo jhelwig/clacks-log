@@ -12,9 +12,9 @@ anyhow.workspace = true
 base64.workspace = true
 clacks-model.workspace = true
 der.workspace = true
+getrandom = { workspace = true, features = ["sys_rng"] }
 p12-keystore.workspace = true
 pkcs12.workspace = true
-rand.workspace = true
 rsa.workspace = true
 serde.workspace = true
 serde_json.workspace = true

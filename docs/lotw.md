@@ -10,7 +10,7 @@ The supplied TQSL source files are read-only reference material. Never compile, 
 
 Do not reproduce filesystem stores, process-global errors/caches, graphical user interface (GUI) dependencies, incidental import return conventions, or automatic certificate deletion simply because upstream implements them that way.
 
-Cryptographic primitives should come from established libraries. Most application code should be Rust. D224 selects pure-Rust libraries for certificate import, interpretation and signing. The selected combination is `p12-keystore` 0.4.1 with legacy `pbes1` support, `x509-parser` 0.18.1 without verification features, and RustCrypto `rsa` 0.9.10 with `sha1` 0.10.7 using the explicitly randomized/blinded signing interface. The [dependency assessment](../references/lotw-cryptography.md) records source findings and verification limits.
+Cryptographic primitives should come from established libraries. Most application code should be Rust. D224 selects pure-Rust libraries for certificate import, interpretation and signing. The selected combination is `p12-keystore` 0.4.1 with legacy `pbes1` support, `x509-parser` 0.18.1 without verification features, and RustCrypto `rsa` 0.10.0 with `sha1` 0.11.0 using the explicitly randomized/blinded signing interface. The [dependency assessment](../references/lotw-cryptography.md) records source findings and verification limits.
 
 ## Minimum viable product (MVP) certificate workflow
 
@@ -124,9 +124,9 @@ Its archive-format dependencies include prereleases; lock and inspect the resolv
 feature/dependency graph rather than treating the stable top-level version as an
 all-stable dependency graph.
 
-The RSA timing advisory requires a version-specific assessment of the actual
-signing path and continued maintenance. Explicit blinding is a mitigation, not a
-claim that the advisory is resolved. Import and signing remain server-side;
+RSA 0.10 resolves the known RSA timing advisory for the LoTW signing path.
+Continue version-specific assessment of future advisories; explicit blinding
+alone is not proof that an advisory is resolved. Import and signing remain server-side;
 client/browser/model/synchronization dependencies do not inherit these libraries.
 
 The locked feature graph, synthetic archive/password fixtures and independent

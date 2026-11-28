@@ -1,0 +1,140 @@
+# Check the complete resolved graph, including optional features and all targets.
+[advisories]
+unmaintained = "all"
+# CI overrides only the unmaintained diagnostic to warnings, then applies the
+# base-aware direct-dependency gate. Other vulnerabilities remain errors.
+
+# Only this reviewed dependent/version may introduce affected RSA. New RSA
+# dependents and OpenID Connect upgrades require another assessment.
+# Full source assessment: docs/development.md#remaining-rsa-advisory
+[[advisories.ignore]]
+id = "RUSTSEC-2023-0071"
+allow = ["openidconnect@4.1.0"]
+reason = """
+Production OpenID Connect verifies provider signatures with public RSA keys;
+it performs no RSA private signing or decryption. CoreRsaPrivateSigningKey is
+used only by the loopback test provider with ephemeral test keys. Direct LoTW
+signing and Huskarl use patched RSA 0.10. Reassess on OpenID Connect usage or
+version changes; this exception does not establish that RSA 0.9 is fixed.
+"""
+
+[licenses]
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-1-Clause",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Unlicense",
+    "Zlib",
+]
+confidence-threshold = 0.95
+include-dev = true
+
+# Project-owned crates use Elastic-2.0. Name them explicitly rather than
+# excluding every publish=false package, which could hide third-party licenses.
+[[licenses.exceptions]]
+name = "clacks-account-data"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-admin"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-client-store"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-desktop"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-desktop-package"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-desktop-packaging"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-desktop-release"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-geography"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-geography-build"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-geography-builder"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-log"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-lotw"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-lotw-data"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-lotw-fixtures"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-model"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-reference-data"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-server"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-server-app"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-sync"
+allow = ["Elastic-2.0"]
+
+[[licenses.exceptions]]
+name = "clacks-web"
+allow = ["Elastic-2.0"]
+
+# File-level copyleft permits use in a larger application under another license.
+# Distribution must preserve MPL notices and make this crate's source available:
+# https://www.mozilla.org/en-US/MPL/2.0/FAQ/
+[[licenses.exceptions]]
+name = "option-ext"
+version = "=0.2.0"
+allow = ["MPL-2.0"]
+
+# Bundled fonts retain their own licenses and notices. These permissions apply
+# to the font assets, not to the application's code:
+# https://openfontlicense.org/ofl-fonts/bundling/
+# https://canonical.com/legal/font-licence
+[[licenses.exceptions]]
+name = "epaint_default_fonts"
+version = "=0.37.0"
+allow = ["Apache-2.0", "MIT", "OFL-1.1", "Ubuntu-font-1.0"]

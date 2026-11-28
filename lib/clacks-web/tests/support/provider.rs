@@ -97,7 +97,7 @@ pub async fn start(registrations: Option<Arc<AtomicUsize>>) -> anyhow::Result<Pr
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let base = format!("http://{}", listener.local_addr()?);
     let issuer = openidconnect::IssuerUrl::new(base.clone())?;
-    let key = rsa::RsaPrivateKey::new(&mut rand::rngs::OsRng, 2048)?;
+    let key = rsa::PrivateKey::new(&mut getrandom::SysRng, 2048)?;
     let pem = key.to_pkcs1_pem(LineEnding::LF)?;
     let signing = Arc::new(
         CoreRsaPrivateSigningKey::from_pem(&pem, Some(JsonWebKeyId::new("fixture-key".into())))

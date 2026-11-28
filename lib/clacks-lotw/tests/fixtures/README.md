@@ -2,7 +2,7 @@
 
 These 66 committed certificate, archive, signature and wire inputs are constructed
 by the dedicated `clacks-lotw-fixtures` Rust command. Construction starts with
-fixed public test recipes, never existing fixture bytes, and does not call
+fixed public test keys and recipes, never existing output bytes, and does not call
 Clacks's production importer, signer or serializer. It needs no external programs.
 None is a real user credential. All keys, passwords, seeds, salts and initialization
 vectors are public test data and must never be used outside tests.
@@ -17,8 +17,9 @@ cargo +1.99.1 run --release --bin clacks-lotw-fixtures --locked --offline -- --w
 
 No arguments displays help. Only `--write` changes files. `--check` reconstructs
 all bytes and rejects missing, changed or unowned fixture data; this README is
-excluded. The optimized build keeps 4096-bit key generation practical. Dependencies
-must be cached for offline use. Recipes live in
+excluded. The generator decodes fixed key inputs; `--write` regenerates derived
+outputs without replacing those keys. Dependencies must be cached for offline
+use. Recipes live in
 [`clacks-reference-data::fixtures`](../../../clacks-reference-data/src/fixtures.rs),
 behind the `fixtures` feature enabled by the dedicated binary. Exact crate
 versions are recorded in the workspace lockfile. Non-trivial fixture generation
@@ -31,9 +32,10 @@ These fixtures are not outputs obtained by running those sources.
 ## Certificate construction
 
 - Station RSA keys: 1024, 2048 and 4096 bits; exponent 65537. RSA is Rivest–Shamir–Adleman.
-  RustCrypto key generation uses ChaCha20 seeds `[11; 32]`, `[12; 32]` and
-  `[13; 32]`; the separate 1024-bit issuer uses `[10; 32]`. Fixed blinding seeds
-  are `[201; 32]` for contact signatures and `[202; 32]` for certificate signatures.
+  The station and separate 1024-bit issuer keys are fixed PKCS#8 PEM inputs under
+  [`clacks-reference-data/src/fixtures/keys`](../../../clacks-reference-data/src/fixtures/keys).
+  Keep these keys stable when updating dependencies. Fixed blinding seeds are
+  `[201; 32]` for contact signatures and `[202; 32]` for certificate signatures.
 - Subject organization: `Clacks Synthetic Test CA`; unit: `Non-production fixtures`;
   email: `test@example.invalid`; common name: `Not the station callsign`.
 - Station subject attribute `1.3.6.1.4.1.12348.1.1`: `N0CALL`.
