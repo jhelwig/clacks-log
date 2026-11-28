@@ -15,18 +15,22 @@ permissions:
 jobs:
   prepare:
     runs-on: [self-hosted, Linux, X64, clacks-linux]
-    permissions:
-      contents: write
-      pull-requests: write
-      actions: write
     env:
-      GH_TOKEN: ${{ github.token }}
       RUST_LOG: info
     steps:
+      - name: Create release preparation token
+        id: app-token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source }}
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
       - name: Use persistent local Cargo build artifacts
         run: printf 'CARGO_TARGET_DIR=%s\n' "$(dirname "$GITHUB_WORKSPACE")/target" >> "$GITHUB_ENV"
       - name: Build source-owned release tooling
@@ -34,6 +38,8 @@ jobs:
           cargo fetch --locked
           cargo build -p clacks-desktop-package --locked --offline
       - name: Prepare the next desktop release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           preparation=$("$CARGO_TARGET_DIR/debug/clacks-desktop-package" release-prepare --repository "$GITHUB_REPOSITORY" --request-id "$GITHUB_RUN_ID")
           version=$(jq -er .version <<< "$preparation")

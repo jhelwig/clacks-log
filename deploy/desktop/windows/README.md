@@ -31,14 +31,22 @@ introduced. Preserve the candidate needed for an actual native comparison.
 
 ## Versioned releases
 
+Release preparation authenticates its branch push and PR creation with a dedicated
+GitHub App so the PR's normal CI runs without workflow approval. Install the App
+only on this repository with **Contents: read and write** and **Pull requests:
+read and write**, with webhooks disabled. Configure its client ID as the repository
+Actions variable `RELEASE_APP_CLIENT_ID` and its private key as the Actions secret
+`RELEASE_APP_PRIVATE_KEY`. Allow `actions/create-github-app-token@*` in the
+repository's Actions policy; the workflow pins the action to a commit and requests
+a token for the current repository. The action revokes the token when the job ends.
+
 1. Run **Desktop release preparation** with the source revision. It allocates
    `YY.M.N` from the current UTC year/month and the next sequence, starting at
    `1` each month and bounded by `65535`. Existing desktop tags and committed
    preparation versions reserve their numbers. Retries of the same workflow run
    reuse its preparation branch and version, including across a month boundary.
-   The workflow creates the desktop version PR. Review and merge it normally;
-   GitHub may require **Approve workflows to run** for a bot-created PR.
-   Actions PR creation must be enabled in repository settings.
+   The workflow creates the desktop version PR using the App token so normal
+   PR CI runs automatically. Review and merge it normally.
 2. After successful **Rust** push verification of the merged commit, automation
    derives the tag from that commit's desktop application version and starts
    both native builds. A missing/failed exact-source run or conflicting tag

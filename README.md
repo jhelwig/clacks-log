@@ -251,7 +251,7 @@ candidate. The owner supplies signing inputs and tests the exact distributed
 installers before invoking final promotion. Packaging automation alone does not
 establish native acceptance.
 
-## Desktop compatibility and release preparation
+## Desktop compatibility
 
 The download page reads `/api/sync/capabilities` without credentials and compares
 it with the displayed release's generated `deploy/desktop/sync-contracts.json`
@@ -265,17 +265,3 @@ run the normal packaging test, which checks freshness without modifying it:
 cargo run --bin clacks-desktop-package --locked --offline -- sync-contracts --output deploy/desktop/sync-contracts.json
 cargo test -p clacks-desktop-packaging --locked --offline
 ```
-
-To request a release, run **Desktop release preparation** with the source revision.
-This workflow is manual-only. It allocates `YY.M.N` using the UTC year and month,
-starting each month's sequence at `1` and advancing past allocated versions.
-The version is committed in a preparation branch identified by the workflow run;
-retries reuse that request and its committed version. Review and merge its PR
-normally. **Desktop release continuation** checks successful main-push verification
-for a merged release request before checking out source or building the helper.
-Ordinary merges skip its release job. A matching request continues through
-tagging, both native packages and prerelease publication automatically.
-Linux and Windows jobs use the corresponding self-hosted runners; macOS packaging
-uses the hosted macOS runner. Run **Desktop release promotion** with the tested
-tag to confirm acceptance and make those same installers final and Latest.
-See the [release procedure](deploy/desktop/windows/README.md#versioned-releases).
