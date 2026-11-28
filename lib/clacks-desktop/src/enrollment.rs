@@ -5,7 +5,7 @@ pub(crate) mod credentials;
 mod failure;
 pub(crate) mod flow;
 #[cfg(all(test, any(target_os = "macos", windows)))]
-mod tests;
+pub(crate) mod tests;
 pub(crate) mod worker;
 
 use clacks_client_store::identity::EnrollmentBinding;

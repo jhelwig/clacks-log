@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT account_id, actor_id, label, authorized_at, closed_at, created_timeline, created_revision, closed_timeline, closed_revision, acknowledged_checkpoint_id\nFROM clacks.desktop_clients WHERE account_id = $1 ORDER BY authorized_at, actor_id\n",
+  "query": "SELECT account_id, actor_id, label, authorized_at AS \"authorized_at: jiff_sqlx::Timestamp\", closed_at AS \"closed_at: jiff_sqlx::Timestamp\", created_timeline, created_revision, closed_timeline, closed_revision, acknowledged_checkpoint_id\nFROM clacks.desktop_clients WHERE account_id = $1 ORDER BY authorized_at, actor_id\n",
   "describe": {
     "columns": [
       {
@@ -38,7 +38,7 @@
       },
       {
         "ordinal": 3,
-        "name": "authorized_at",
+        "name": "authorized_at: jiff_sqlx::Timestamp",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -49,7 +49,7 @@
       },
       {
         "ordinal": 4,
-        "name": "closed_at",
+        "name": "closed_at: jiff_sqlx::Timestamp",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -132,5 +132,5 @@
       true
     ]
   },
-  "hash": "80a45250057cc2cece4f70d54943ea146421b8d58f227196cd6487e8ed592a4f"
+  "hash": "50a53fd3c24f53b0d1122e4e6abda6eeaa4aafb1819ce61b7b014aecea0d0265"
 }

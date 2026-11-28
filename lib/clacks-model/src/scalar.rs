@@ -130,6 +130,13 @@ impl UtcSecond {
     }
 }
 
+impl From<jiff::Timestamp> for UtcSecond {
+    /// Retain the UTC second containing the instant, including before the epoch.
+    fn from(value: jiff::Timestamp) -> Self {
+        Self(value.as_second() - i64::from(value.subsec_nanosecond() < 0))
+    }
+}
+
 /// An operational observation timestamp with a fractional second.
 ///
 /// Use for provider lookups and catalog acquisition, not contact times.
@@ -166,6 +173,16 @@ impl UtcTimestamp {
             seconds,
             nanoseconds,
         })
+    }
+}
+
+impl From<jiff::Timestamp> for UtcTimestamp {
+    /// Preserve the exact instant using a nonnegative fractional second.
+    fn from(value: jiff::Timestamp) -> Self {
+        Self {
+            seconds: value.as_second() - i64::from(value.subsec_nanosecond() < 0),
+            nanoseconds: value.as_nanosecond().rem_euclid(1_000_000_000) as u32,
+        }
     }
 }
 

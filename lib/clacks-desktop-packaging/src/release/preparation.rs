@@ -1,8 +1,8 @@
 //! UTC version allocation and reuse of native GitHub preparation requests.
 
 use anyhow::Context;
-use chrono::{Datelike, Utc};
 use clacks_desktop_release::ReleaseVersion;
+use jiff::{Timestamp, tz::Offset};
 use serde::Serialize;
 use serde_json::Value;
 use std::{collections::BTreeMap, path::Path};
@@ -68,7 +68,7 @@ pub(crate) fn prepare(repository: &str, request_id: u64) -> anyhow::Result<Versi
     if let Ok(version) = ReleaseVersion::parse(current) {
         allocated.push(version);
     }
-    let now = Utc::now();
+    let now = Offset::UTC.to_datetime(Timestamp::now());
     let year = u8::try_from(now.year().rem_euclid(100))?;
     let month = u8::try_from(now.month())?;
     let version = ReleaseVersion::next_for_month(year, month, &allocated)?;

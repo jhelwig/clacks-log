@@ -20,10 +20,10 @@ fn timestamp(date: &str, clock: &str) -> anyhow::Result<UtcSecond> {
     } else {
         clock.to_owned()
     };
-    let format =
-        time::format_description::parse_borrowed::<2>("[year][month][day][hour][minute][second]")?;
-    let date = time::PrimitiveDateTime::parse(&format!("{date}{clock}"), &format)?.assume_utc();
-    Ok(UtcSecond::from_unix_seconds(date.unix_timestamp()))
+    anyhow::ensure!(clock.get(4..6) != Some("60"), "Invalid ADI seconds.");
+    let civil = jiff::civil::DateTime::strptime("%Y%m%d%H%M%S", format!("{date}{clock}"))?;
+    let elapsed = civil.duration_since(jiff::civil::date(1970, 1, 1).at(0, 0, 0, 0));
+    Ok(UtcSecond::from_unix_seconds(elapsed.as_secs()))
 }
 
 /// Parse one length-framed record with optional header; reject truncated/conflicting fields.

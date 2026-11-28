@@ -5,10 +5,10 @@ use super::{
     field::{Field, FieldType},
 };
 use crate::{position::Locator, recognition::RecognitionCatalog};
+use jiff::civil::{Date, date};
 use num_bigint::BigInt;
 use num_integer::Integer;
 use std::ops::Range;
-use time::{Date, OffsetDateTime, format_description::well_known::Rfc3339};
 use winnow::{
     Parser,
     ascii::{alpha0, digit0},
@@ -264,18 +264,31 @@ fn number(text: &str, op: &str, kind: FieldType) -> Result<IntegerRange, &'stati
 
 /// Compare exact seconds or a complete UTC calendar day.
 fn timestamp(text: &str, op: &str) -> Result<IntegerRange, &'static str> {
-    let date_format = time::format_description::parse_borrowed::<2>("[year]-[month]-[day]")
-        .map_err(|_| "Invalid date format")?;
-    let (start, end) = if let Ok(date) = Date::parse(text, &date_format) {
-        let start = date.midnight().assume_utc().unix_timestamp();
+    let (start, end) = if let Ok(date) = Date::strptime("%Y-%m-%d", text)
+        && date.strftime("%Y-%m-%d").to_string() == text
+    {
+        let start = date
+            .at(0, 0, 0, 0)
+            .duration_since(jiff::civil::date(1970, 1, 1).at(0, 0, 0, 0))
+            .as_secs();
         (start, start + 86_399)
     } else {
-        let time = OffsetDateTime::parse(text, &Rfc3339)
+        let parsed = crate::timestamp::parse(text)
             .map_err(|_| "Use a UTC date or timestamp with an explicit offset")?;
-        if time.nanosecond() != 0 || text.contains('.') {
+        let time = parsed.time().ok_or("Supply a complete timestamp")?;
+        let offset = parsed
+            .to_numeric_offset()
+            .ok_or("Supply an explicit offset")?;
+        if time.subsec_nanosecond() != 0 || text.contains('.') || text.get(17..19) == Some("60") {
             return Err("Contact times use whole seconds");
         }
-        (time.unix_timestamp(), time.unix_timestamp())
+        let seconds = parsed
+            .date()
+            .to_datetime(time)
+            .duration_since(date(1970, 1, 1).at(0, 0, 0, 0))
+            .as_secs()
+            - i64::from(offset.seconds());
+        (seconds, seconds)
     };
     let (lower, upper) = match op {
         ">" => (end.checked_add(1), None),

@@ -10,8 +10,8 @@ use crate::{
 };
 use huskarl_core::dpop::DPoP;
 use huskarl_crypto_native::asymmetric::signer::{GenerateAlgorithm, PrivateKey};
+use jiff::SignedDuration;
 use std::sync::Arc;
-use time::Duration;
 
 #[tokio::test]
 async fn rewrap_preserves_inactive_keys_and_rejects_missing_recovery_material() -> anyhow::Result<()>
@@ -34,11 +34,11 @@ async fn rewrap_preserves_inactive_keys_and_rejects_missing_recovery_material() 
                 subject: ulid::Ulid::generate().to_string(),
                 display_name: None,
             },
-            Duration::days(14),
+            SignedDuration::from_hours(14 * 24),
         )
         .await?;
     let principal = accounts
-        .authenticate(&login, Duration::days(14))
+        .authenticate(&login, SignedDuration::from_hours(14 * 24))
         .await?
         .context("missing login")?;
     let owner = principal.account_id;

@@ -11,12 +11,9 @@ pub fn fixture(name: &str) -> Vec<u8> {
     .expect("committed fixture")
 }
 
-pub fn now() -> time::OffsetDateTime {
-    time::Date::from_calendar_date(2026, time::Month::October, 22)
-        .unwrap()
-        .with_hms(12, 34, 56)
-        .unwrap()
-        .assume_utc()
+/// Fixed evaluation instant matching the authored 2026-10-22 12:34:56 UTC QSO.
+pub fn now() -> jiff::Timestamp {
+    jiff::Timestamp::constant(1_792_672_496, 0)
 }
 
 pub fn submission() -> clacks_model::service::lotw::LotwSubmission {
@@ -62,7 +59,7 @@ pub fn submission() -> clacks_model::service::lotw::LotwSubmission {
         key: LotwRecordKey {
             own_call: identity.callsign,
             worked_call: RecordedCallsign::new("K1ABC").unwrap(),
-            start: UtcSecond::from_unix_seconds(now().unix_timestamp()),
+            start: UtcSecond::from_unix_seconds(now().as_second()),
             band: "20M".into(),
             receive_band: "20M".into(),
             mode: "FT8".into(),

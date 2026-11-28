@@ -1,6 +1,6 @@
 //! Relational issuer fields shared by persistence and authorization operations.
 
-use time::OffsetDateTime;
+use jiff_sqlx::Timestamp;
 
 /// Code lifecycle and optional encrypted replay receipt.
 pub(crate) struct CodeRow {
@@ -17,9 +17,9 @@ pub(crate) struct CodeRow {
     /// Committed desktop signing-key thumbprint.
     pub key_thumbprint: String,
     /// Grant authorization instant.
-    pub issued_at: OffsetDateTime,
+    pub issued_at: Timestamp,
     /// Code/receipt retention deadline.
-    pub expires_at: OffsetDateTime,
+    pub expires_at: Timestamp,
     /// Library issued/consumed/replayed state.
     pub state: String,
     /// Complete encrypted issued-reference receipt, if issuance retained one.
@@ -41,19 +41,19 @@ pub(crate) struct AccessRow {
     /// Bound proof key.
     pub key_thumbprint: String,
     /// Original approval time, not the current refresh time.
-    pub grant_established_at: OffsetDateTime,
+    pub grant_established_at: Timestamp,
     /// Actual access issuance time.
-    pub issued_at: OffsetDateTime,
+    pub issued_at: Timestamp,
     /// Actual access expiry.
-    pub expires_at: OffsetDateTime,
+    pub expires_at: Timestamp,
     /// Family provisional/active/revoked state.
     pub family_state: String,
     /// Deadline retained while provisional, including after revocation.
-    pub provisional_until: Option<OffsetDateTime>,
+    pub provisional_until: Option<Timestamp>,
     /// Enrolled actor, absent before final code transition.
     pub actor_id: Option<String>,
     /// Actor closure time, if explicitly revoked.
-    pub closed_at: Option<OffsetDateTime>,
+    pub closed_at: Option<Timestamp>,
     /// Granted scope set restored through the library parser.
     pub scope: String,
     /// Ordered resource indicators.
@@ -71,19 +71,19 @@ pub(crate) struct RefreshRow {
     /// Bound proof key.
     pub key_thumbprint: String,
     /// Original approval time, not the current refresh time.
-    pub grant_established_at: OffsetDateTime,
+    pub grant_established_at: Timestamp,
     /// Optional refresh expiry.
-    pub expires_at: Option<OffsetDateTime>,
+    pub expires_at: Option<Timestamp>,
     /// Dependency-owned refresh lifecycle discriminator.
     pub token_state: String,
     /// Family provisional/active/revoked state.
     pub family_state: String,
     /// Deadline retained while provisional, including after revocation.
-    pub provisional_until: Option<OffsetDateTime>,
+    pub provisional_until: Option<Timestamp>,
     /// Enrolled actor, absent before final code transition.
     pub actor_id: Option<String>,
     /// Actor closure time, if explicitly revoked.
-    pub closed_at: Option<OffsetDateTime>,
+    pub closed_at: Option<Timestamp>,
     /// Granted scope set restored through the library parser.
     pub scope: String,
     /// Ordered resource indicators.
@@ -101,9 +101,9 @@ pub(crate) struct GrantRow {
     /// Bound proof key.
     pub key_thumbprint: String,
     /// Original authorization time.
-    pub grant_established_at: OffsetDateTime,
+    pub grant_established_at: Timestamp,
     /// Provisional, active or revoked state.
     pub state: String,
     /// Abandoned provisional grant deadline.
-    pub provisional_until: Option<OffsetDateTime>,
+    pub provisional_until: Option<Timestamp>,
 }

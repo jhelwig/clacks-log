@@ -18,9 +18,9 @@ use clacks_sync::{
 };
 use huskarl_core::dpop::DPoP;
 use huskarl_crypto_native::asymmetric::signer::{GenerateAlgorithm, PrivateKey};
+use jiff::SignedDuration;
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
-use time::Duration;
 
 /// One isolated account with two actually admitted clients using the production issuer.
 pub(crate) struct NativeAccount {
@@ -86,11 +86,11 @@ impl NativeAccount {
                     subject: ulid::Ulid::generate().to_string(),
                     display_name: None,
                 },
-                Duration::days(14),
+                SignedDuration::from_hours(14 * 24),
             )
             .await?;
         let principal = store
-            .authenticate(&login, Duration::days(14))
+            .authenticate(&login, SignedDuration::from_hours(14 * 24))
             .await?
             .unwrap();
         let directory = tempfile::tempdir()?;

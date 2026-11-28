@@ -1,7 +1,7 @@
 use crate::support;
 
 use clacks_lotw::certificate::inspect_certificate;
-use time::{Date, Month};
+use jiff::civil::{Date, date};
 
 #[test]
 fn interprets_station_identity_and_full_coverage() -> anyhow::Result<()> {
@@ -15,15 +15,11 @@ fn interprets_station_identity_and_full_coverage() -> anyhow::Result<()> {
             0xcd, 0xef
         ]
     );
-    assert_eq!(
-        metadata.qso_not_before,
-        Date::from_calendar_date(2000, Month::January, 1)?
-    );
-    assert_eq!(
-        metadata.qso_not_after,
-        Date::from_calendar_date(2029, Month::December, 31)?
-    );
-    assert_eq!(metadata.not_after.unix_timestamp(), 1907755200);
+    assert_eq!(metadata.qso_not_before, Date::new(2000, 1, 1)?);
+    assert_eq!(metadata.qso_not_after, Date::new(2029, 12, 31)?);
+    assert_eq!(metadata.not_after, date(2030, 6, 15).at(12, 0, 0, 0));
+    let no_expiry = inspect_certificate(&support::fixture("no-expiry.der"))?;
+    assert_eq!(no_expiry.not_after, date(9999, 12, 31).at(23, 59, 59, 0));
     assert!(!metadata.issuer_der.is_empty());
     Ok(())
 }

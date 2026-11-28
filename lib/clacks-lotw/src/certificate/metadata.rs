@@ -4,7 +4,10 @@ use super::CertificateMetadata;
 use crate::error::CertificateError;
 use anyhow::{Context, ensure};
 use clacks_model::{scalar::RecordedCallsign, service::lotw::PublicSigningIdentity};
-use time::{Date, Month};
+use jiff::{
+    SignedDuration,
+    civil::{Date, date as civil_date},
+};
 use x509_parser::parse_x509_certificate;
 
 /// Interpret exact DER certificate bytes as public LoTW metadata.
@@ -89,8 +92,13 @@ pub(super) fn inspect(der: &[u8]) -> anyhow::Result<CertificateMetadata> {
             reason: "expected positive entity"
         }
     );
-    let not_before = cert.validity().not_before.to_datetime();
-    let not_after = cert.validity().not_after.to_datetime();
+    let epoch = civil_date(1970, 1, 1).at(0, 0, 0, 0);
+    let not_before = epoch.checked_add(SignedDuration::from_secs(
+        cert.validity().not_before.timestamp(),
+    ))?;
+    let not_after = epoch.checked_add(SignedDuration::from_secs(
+        cert.validity().not_after.timestamp(),
+    ))?;
     ensure!(
         not_before <= not_after,
         CertificateError {
@@ -129,11 +137,7 @@ fn date(value: &str) -> anyhow::Result<Date> {
             .all(|b| b.is_ascii_digit()),
         "nondecimal coverage date"
     );
-    let year = year.parse::<i32>()?;
+    let year = year.parse::<i16>()?;
     ensure!((1..=9999).contains(&year), "coverage year out of range");
-    Ok(Date::from_calendar_date(
-        year,
-        Month::try_from(month.parse::<u8>()?)?,
-        day.parse()?,
-    )?)
+    Ok(Date::new(year, month.parse()?, day.parse()?)?)
 }

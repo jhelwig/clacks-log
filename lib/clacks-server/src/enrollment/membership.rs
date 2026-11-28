@@ -14,9 +14,9 @@ use clacks_sync::{
     membership::{ClientMembership, MembershipSnapshot},
     record::Position,
 };
+use jiff::Timestamp;
 use oauth_as::{authorization::AuthorizationCodeRecord, scope::ScopeSet, store::RevocationWindow};
 use sqlx::{PgConnection, PgPool};
-use time::OffsetDateTime;
 
 /// Persisted client lifecycle fields shared by browser listings and membership snapshots.
 struct MemberRow {
@@ -27,9 +27,9 @@ struct MemberRow {
     /// User-visible client label.
     label: String,
     /// Actual admission time.
-    authorized_at: OffsetDateTime,
+    authorized_at: jiff_sqlx::Timestamp,
     /// Explicit closure time, if revoked.
-    closed_at: Option<OffsetDateTime>,
+    closed_at: Option<jiff_sqlx::Timestamp>,
     /// Timeline carrying the admission event.
     created_timeline: String,
     /// Revision carrying the admission event.
@@ -109,7 +109,7 @@ pub(super) async fn activate(
     else {
         return Ok(None);
     };
-    if approval.account_id != code.subject || approval.expires_at <= OffsetDateTime::now_utc() {
+    if approval.account_id != code.subject || approval.expires_at.to_jiff() <= Timestamp::now() {
         return Ok(None);
     }
     let Some((Some(access), Some(refresh))) = code.state.minted() else {
@@ -140,12 +140,12 @@ pub(super) async fn activate(
     let access_grant = GrantState::from_columns(
         &access.family_state,
         access.actor_id.as_deref(),
-        access.provisional_until,
+        access.provisional_until.map(jiff_sqlx::Timestamp::to_jiff),
     )?;
     let refresh_grant = GrantState::from_columns(
         &refresh.family_state,
         refresh.actor_id.as_deref(),
-        refresh.provisional_until,
+        refresh.provisional_until.map(jiff_sqlx::Timestamp::to_jiff),
     )?;
     let scope = ScopeSet::parse(&access.scope)?;
     if access.account_id != code.subject
@@ -321,8 +321,8 @@ pub(super) async fn list(pool: &PgPool, account: AccountId) -> anyhow::Result<Ve
             Ok(ClientSummary {
                 actor: row.actor_id.parse()?,
                 label: row.label,
-                authorized_at: row.authorized_at,
-                closed_at: row.closed_at,
+                authorized_at: row.authorized_at.to_jiff(),
+                closed_at: row.closed_at.map(jiff_sqlx::Timestamp::to_jiff),
             })
         })
         .collect()

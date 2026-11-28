@@ -32,7 +32,7 @@ fn native_projection_survives_storage_and_signing_without_remapping() -> anyhow:
     }]))?)?;
     let mut qso = clacks_model::contact::input::QsoFields {
         id: QsoId::new(),
-        start: UtcSecond::from_unix_seconds(support::now().unix_timestamp()),
+        start: UtcSecond::from_unix_seconds(support::now().as_second()),
         end: None,
         own_station: clacks_model::contact::StationSnapshot {
             callsign: RecordedCallsign::new("N0CALL")?,

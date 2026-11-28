@@ -17,10 +17,10 @@ use crate::{
 use anyhow::Context;
 use huskarl_core::dpop::DPoP;
 use huskarl_crypto_native::asymmetric::signer::{GenerateAlgorithm, PrivateKey};
+use jiff::SignedDuration;
 use oauth_as::store::Storage;
 use sqlx::{Connection, PgConnection, postgres::PgPoolOptions};
 use std::sync::Arc;
-use time::Duration;
 use tokio_util::sync::CancellationToken;
 
 use crate::maintenance::keys::tests::SERIAL as MAINTENANCE_TEST;
@@ -53,11 +53,11 @@ async fn account_rotation_resumes_and_preserves_enrollment() -> anyhow::Result<(
                 subject: ulid::Ulid::generate().to_string(),
                 display_name: None,
             },
-            Duration::days(14),
+            SignedDuration::from_hours(14 * 24),
         )
         .await?;
     let principal = accounts
-        .authenticate(&login, Duration::days(14))
+        .authenticate(&login, SignedDuration::from_hours(14 * 24))
         .await?
         .context("missing login")?;
     let owner = principal.account_id;
@@ -211,9 +211,9 @@ async fn taken_receipt_is_resealed_after_rotation_and_still_contains_replay() ->
     };
     use huskarl_core::dpop::DPoP;
     use huskarl_crypto_native::asymmetric::signer::{GenerateAlgorithm, PrivateKey};
+    use jiff::SignedDuration;
     use oauth_as::store::Storage;
     use std::sync::Arc;
-    use time::Duration;
 
     let _maintenance = MAINTENANCE_TEST.lock().await;
     let url = std::env::var("CLACKS_TEST_DATABASE_URL")?;
@@ -230,11 +230,11 @@ async fn taken_receipt_is_resealed_after_rotation_and_still_contains_replay() ->
                 subject: ulid::Ulid::generate().to_string(),
                 display_name: None,
             },
-            Duration::days(14),
+            SignedDuration::from_hours(14 * 24),
         )
         .await?;
     let principal = accounts
-        .authenticate(&login, Duration::days(14))
+        .authenticate(&login, SignedDuration::from_hours(14 * 24))
         .await?
         .context("missing login")?;
     let directory = tempfile::tempdir()?;

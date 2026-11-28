@@ -6,6 +6,7 @@ use axum::http::{HeaderMap, Method, Uri};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use huskarl_crypto_native::NativeVerifierPlatform;
 use huskarl_resource_server::validator::dpop_proof::DPoPProofValidator;
+use jiff_sqlx::ToSqlx;
 use sha2::{Digest, Sha256};
 use std::{sync::Arc, time::Duration};
 
@@ -98,12 +99,12 @@ pub(crate) async fn authorize(
     }
 
     let jti = verified.jti.ok_or(ClientAuthError::Invalid)?;
-    let until = time::OffsetDateTime::now_utc() + time::Duration::seconds(70);
+    let until = jiff::Timestamp::now() + jiff::SignedDuration::from_secs(70);
     let claimed = sqlx::query_file!(
         "sql/oauth/resource_claim.sql",
         client.key_thumbprint,
         jti,
-        until
+        until.to_sqlx() as _
     )
     .fetch_optional(&state.store.pool)
     .await
@@ -144,14 +145,14 @@ pub(crate) async fn check_current(
     let grant = super::grant::GrantState::from_columns(
         &row.family_state,
         row.actor_id.as_deref(),
-        row.provisional_until,
+        row.provisional_until.map(jiff_sqlx::Timestamp::to_jiff),
     )
     .map_err(unavailable)?;
-    if grant.active_actor(row.closed_at) != Some(client.actor)
+    if grant.active_actor(row.closed_at.map(jiff_sqlx::Timestamp::to_jiff)) != Some(client.actor)
         || row.family_id != client.family
         || row.key_thumbprint != client.key_thumbprint
-        || row.expires_at <= time::OffsetDateTime::now_utc()
-        || client.expires_at <= time::OffsetDateTime::now_utc()
+        || row.expires_at.to_jiff() <= jiff::Timestamp::now()
+        || client.expires_at <= jiff::Timestamp::now()
     {
         return Err(ClientAuthError::Invalid);
     }

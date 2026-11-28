@@ -4,18 +4,12 @@ use clacks_lotw::certificate::{
     eligibility::{CredentialState, EligibilityIssue, eligibility},
     inspect_certificate,
 };
-use time::{Date, Month, OffsetDateTime, UtcOffset};
-
-fn day(y: i32, m: Month, d: u8) -> Date {
-    Date::from_calendar_date(y, m, d).unwrap()
-}
+use jiff::{Timestamp, civil::date, tz::Offset};
 
 #[test]
 fn coverage_is_inclusive_and_expiry_uses_the_utc_day() -> anyhow::Result<()> {
     let c = inspect_certificate(&support::fixture("1024/station.der"))?;
-    let last = day(2030, Month::June, 15)
-        .with_hms(23, 59, 59)?
-        .assume_utc();
+    let last = Offset::UTC.to_timestamp(date(2030, 6, 15).at(23, 59, 59, 0))?;
     for date in [c.qso_not_before, c.qso_not_after] {
         assert!(eligibility(&c, &c.identity, date, CredentialState::Available, last).is_empty());
     }
@@ -23,7 +17,7 @@ fn coverage_is_inclusive_and_expiry_uses_the_utc_day() -> anyhow::Result<()> {
         eligibility(
             &c,
             &c.identity,
-            c.qso_not_before.previous_day().unwrap(),
+            c.qso_not_before.yesterday()?,
             CredentialState::Available,
             last
         ),
@@ -33,13 +27,13 @@ fn coverage_is_inclusive_and_expiry_uses_the_utc_day() -> anyhow::Result<()> {
         eligibility(
             &c,
             &c.identity,
-            c.qso_not_after.next_day().unwrap(),
+            c.qso_not_after.tomorrow()?,
             CredentialState::Available,
             last
         ),
         vec![EligibilityIssue::AfterCoverage]
     );
-    let next = day(2030, Month::June, 16).midnight().assume_utc();
+    let next = Offset::UTC.to_timestamp(date(2030, 6, 16).at(0, 0, 0, 0))?;
     assert_eq!(
         eligibility(
             &c,
@@ -50,17 +44,7 @@ fn coverage_is_inclusive_and_expiry_uses_the_utc_day() -> anyhow::Result<()> {
         ),
         vec![EligibilityIssue::Expired]
     );
-    assert_eq!(
-        eligibility(
-            &c,
-            &c.identity,
-            c.qso_not_before,
-            CredentialState::Available,
-            next.to_offset(UtcOffset::from_hms(-7, 0, 0)?)
-        ),
-        vec![EligibilityIssue::Expired]
-    );
-    let early = day(2010, Month::January, 1).midnight().assume_utc();
+    let early = Offset::UTC.to_timestamp(date(2010, 1, 1).at(0, 0, 0, 0))?;
     assert!(
         eligibility(
             &c,
@@ -80,12 +64,12 @@ fn explains_all_relevant_identity_state_and_date_failures_in_stable_order() -> a
     let mut identity = c.identity.clone();
     identity.callsign = clacks_model::scalar::RecordedCallsign::new("N0CALL/P")?;
     identity.dxcc = "1".into();
-    let now = OffsetDateTime::from_unix_timestamp(2_000_000_000)?;
+    let now = Timestamp::from_second(2_000_000_000)?;
     assert_eq!(
         eligibility(
             &c,
             &identity,
-            c.qso_not_before.previous_day().unwrap(),
+            c.qso_not_before.yesterday()?,
             CredentialState::Superseded,
             now
         ),
@@ -103,7 +87,7 @@ fn explains_all_relevant_identity_state_and_date_failures_in_stable_order() -> a
             &c.identity,
             c.qso_not_before,
             CredentialState::Removed,
-            day(2026, Month::October, 22).midnight().assume_utc()
+            Offset::UTC.to_timestamp(date(2026, 10, 22).at(0, 0, 0, 0))?
         ),
         vec![EligibilityIssue::KeyUnavailable]
     );

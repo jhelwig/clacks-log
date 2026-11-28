@@ -3,8 +3,8 @@
 use der::{
     Encode, Sequence, ValueOrd,
     asn1::{
-        Any, BitString, ContextSpecific, ObjectIdentifier, OctetString, SetOfVec, Uint, UtcTime,
-        Utf8StringRef,
+        Any, BitString, ContextSpecific, GeneralizedTime, ObjectIdentifier, OctetString, SetOfVec,
+        Uint, UtcTime, Utf8StringRef,
     },
 };
 use pkcs12::cms::cert::x509::spki::AlgorithmIdentifierOwned;
@@ -33,8 +33,8 @@ type Name = Vec<SetOfVec<Attribute>>;
 struct Validity {
     /// Fixed beginning, 2020-01-01 UTC.
     not_before: UtcTime,
-    /// Fixed expiry, 2030-06-15 12:00 UTC.
-    not_after: UtcTime,
+    /// UTC or generalized expiry encoding selected by the certificate recipe.
+    not_after: Any,
 }
 
 /// A certificate extension, including deliberately duplicated protocol fields.
@@ -215,7 +215,15 @@ pub(super) fn station(
         issuer: name(&[("2.5.4.3", "Clacks Synthetic Test Root")])?,
         validity: Validity {
             not_before: UtcTime::from_date_time(der::DateTime::new(2020, 1, 1, 0, 0, 0)?)?,
-            not_after: UtcTime::from_date_time(der::DateTime::new(2030, 6, 15, 12, 0, 0)?)?,
+            not_after: if variant == "no-expiry" {
+                Any::encode_from(&GeneralizedTime::from_date_time(der::DateTime::new(
+                    9999, 12, 31, 23, 59, 59,
+                )?))?
+            } else {
+                Any::encode_from(&UtcTime::from_date_time(der::DateTime::new(
+                    2030, 6, 15, 12, 0, 0,
+                )?)?)?
+            },
         },
         subject,
         public_key,

@@ -2,7 +2,7 @@
 
 use super::CertificateMetadata;
 use clacks_model::service::lotw::PublicSigningIdentity;
-use time::{Date, OffsetDateTime, UtcOffset};
+use jiff::{Timestamp, civil::Date, tz::Offset};
 
 /// Current adapter-owned availability of a certificate's signing key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -45,7 +45,7 @@ pub fn eligibility(
     identity: &PublicSigningIdentity,
     qso_date: Date,
     state: CredentialState,
-    now: OffsetDateTime,
+    now: Timestamp,
 ) -> Vec<EligibilityIssue> {
     let mut issues = Vec::new();
     if certificate.identity.callsign != identity.callsign {
@@ -60,8 +60,7 @@ pub fn eligibility(
     if qso_date > certificate.qso_not_after {
         issues.push(EligibilityIssue::AfterCoverage);
     }
-    if now.to_offset(UtcOffset::UTC).date() > certificate.not_after.to_offset(UtcOffset::UTC).date()
-    {
+    if Offset::UTC.to_datetime(now).date() > certificate.not_after.date() {
         issues.push(EligibilityIssue::Expired);
     }
     match state {

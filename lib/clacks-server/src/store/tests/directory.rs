@@ -9,8 +9,8 @@ use crate::{
 };
 use clacks_model::directory::values::DirectoryProvider;
 use clacks_sync::protocol::directory::DirectoryLogin;
+use jiff::SignedDuration;
 use sqlx::postgres::PgPoolOptions;
-use time::Duration;
 
 #[tokio::test]
 async fn directory_configuration_is_account_scoped_and_stale_safe() -> anyhow::Result<()> {
@@ -30,12 +30,12 @@ async fn directory_configuration_is_account_scoped_and_stale_safe() -> anyhow::R
                     subject: ulid::Ulid::generate().to_string(),
                     display_name: None,
                 },
-                Duration::days(1),
+                SignedDuration::from_hours(24),
             )
             .await?;
         principals.push(
             store
-                .authenticate(&login, Duration::days(1))
+                .authenticate(&login, SignedDuration::from_hours(24))
                 .await?
                 .unwrap(),
         );

@@ -9,11 +9,11 @@ publish.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-chrono.workspace = true
 clacks-desktop-release.workspace = true
 clacks-geography.workspace = true
 clacks-sync.workspace = true
 clap.workspace = true
+jiff.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 strum.workspace = true

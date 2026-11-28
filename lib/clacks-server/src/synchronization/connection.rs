@@ -24,10 +24,10 @@ use failure::InvalidMessage;
 async fn send(
     socket: &mut WebSocket,
     stop: &tokio_util::sync::CancellationToken,
-    expires: time::OffsetDateTime,
+    expires: jiff::Timestamp,
     value: ServerMessage,
 ) -> anyhow::Result<()> {
-    let now = time::OffsetDateTime::now_utc();
+    let now = jiff::Timestamp::now();
     anyhow::ensure!(expires > now, "Client authorization expired");
     let remaining = std::time::Duration::try_from(expires - now)?;
     let frame = Message::Text(serde_json::to_string(&value)?.into());
@@ -124,7 +124,7 @@ pub(super) async fn run(mut socket: WebSocket, state: ServerState, client: Autho
     let Err(error) = exchange(&mut socket, &state, &client).await else {
         return;
     };
-    if state.sync_stop.is_cancelled() || client.expires_at <= time::OffsetDateTime::now_utc() {
+    if state.sync_stop.is_cancelled() || client.expires_at <= jiff::Timestamp::now() {
         return;
     }
     if error.downcast_ref::<axum::Error>().is_some() {
@@ -164,7 +164,7 @@ async fn exchange(
     let mut sending: Option<Sending> = None;
     let mut receiving: Option<Receiving> = None;
     let mut facts: Option<FactExchange> = None;
-    let remaining = (client.expires_at - time::OffsetDateTime::now_utc())
+    let remaining = (client.expires_at - jiff::Timestamp::now())
         .try_into()
         .unwrap_or(std::time::Duration::ZERO);
     let expiry = tokio::time::sleep(remaining);

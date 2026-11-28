@@ -227,7 +227,10 @@ impl LoggingUi {
             self.problem = true;
         }
         if self.pending.is_none() && (self.entry.form.start.live || self.entry.form.end.live) {
-            let nanos = 1_000_000_000 - u64::from(::time::OffsetDateTime::now_utc().nanosecond());
+            let nanos = 1_000_000_000
+                - jiff::Timestamp::now()
+                    .as_nanosecond()
+                    .rem_euclid(1_000_000_000) as u64;
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_nanos(nanos));
         }

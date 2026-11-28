@@ -666,9 +666,9 @@ fn service_status_choices_keep_claims_and_only_exact_representable_timestamps() 
             .expect("an upload assertion should remain because the selected date does not alter the agreeing positive statuses");
         let actual_hour = claim
             .date
-            .map(|date| time::OffsetDateTime::from_unix_timestamp(date.unix_seconds()))
+            .map(|date| jiff::Timestamp::from_second(date.unix_seconds()))
             .transpose()?
-            .map(|date| date.hour());
+            .map(|date| jiff::tz::Offset::UTC.to_datetime(date).hour());
         assert_eq!(actual_hour, expected_hour);
         assert_eq!(
             claim.provenance.mapping.contains("QRZCOM_QSO_UPLOAD_DATE"),
@@ -807,13 +807,10 @@ fn service_status_choices_keep_claims_and_only_exact_representable_timestamps() 
     let claim = assertions
         .first()
         .expect("a QRZ upload assertion should exist because its standard status is Y and LOG4OM reports S=Yes");
-    let instant = time::OffsetDateTime::parse(
-        "2026-11-19T10:15:00Z",
-        &time::format_description::well_known::Rfc3339,
-    )?;
+    let instant = "2026-11-19T10:15:00Z".parse::<jiff::Timestamp>()?;
     assert_eq!(
         claim.date.map(|date| date.unix_seconds()),
-        Some(instant.unix_timestamp())
+        Some(instant.as_second())
     );
     assert!(claim.provenance.mapping.contains("QRZCOM_QSO_UPLOAD_DATE"));
     assert!(claim.provenance.mapping.contains("QRZCOM.SD"));
@@ -998,9 +995,7 @@ fn qrz_export_precedence_keeps_status_and_receipt_date_provenance_distinct() -> 
         prepare_source(input.as_bytes(), &definitions)
     };
     let exact = "2026-11-19T10:15:00Z";
-    let expected_timestamp =
-        time::OffsetDateTime::parse(exact, &time::format_description::well_known::Rfc3339)?
-            .unix_timestamp();
+    let expected_timestamp = exact.parse::<jiff::Timestamp>()?.as_second();
     for program in ["qrzlog", "QRZLogbook", "Example"] {
         let source = prepare(program, "N", "", exact);
         let row = source.rows.first().expect(
@@ -1053,7 +1048,14 @@ fn qrz_export_precedence_keeps_status_and_receipt_date_provenance_distinct() -> 
         }
     }
 
-    for (received, fractional) in [(exact, false), ("2026-11-19T10:15:00.5Z", true)] {
+    for (received, fractional, expected) in [
+        (exact, false, Some(expected_timestamp)),
+        ("2026-11-19T10:15:00.5Z", true, None),
+        ("1969-12-31T23:59:59Z", false, Some(-1)),
+        ("9999-12-31T23:59:59Z", false, Some(253_402_300_799)),
+        ("9999-12-31T23:00:00-01:00", false, Some(253_402_300_800)),
+        ("2017-01-01T00:59:60+01:00", true, None),
+    ] {
         let source = prepare("qrzlog", "C", "", received);
         let row = source.rows.first().expect(
             "the source row should be readable because the supplied fields are framed through EOR",
@@ -1072,13 +1074,31 @@ fn qrz_export_precedence_keeps_status_and_receipt_date_provenance_distinct() -> 
         let claim = assertions.first().expect(
             "a confirmation assertion should exist because QRZ reports C and LOG4OM reports R=Yes",
         );
-        assert_eq!(
-            claim.date.map(|value| value.unix_seconds()),
-            (!fractional).then_some(expected_timestamp)
-        );
+        assert_eq!(claim.date.map(|value| value.unix_seconds()), expected);
         for source in ["APP_QRZLOG_STATUS", "QRZCOM.R)", "QRZCOM.RD)"] {
             assert!(claim.provenance.mapping.contains(source));
         }
     }
+    let source = prepare(
+        "qrzlog",
+        "C",
+        "<APP_QRZLOG_QSLDATE:8>20261118",
+        "2026-11-19T10:15:60Z",
+    );
+    let row = source
+        .rows
+        .first()
+        .expect("the framed row supplies a valid QRZ status and calendar date");
+    assert!(
+        row.disputes.is_empty(),
+        "an invalid leap second must not introduce a conflicting source date"
+    );
+    let assertions =
+        row.resolve(&BTreeMap::new())
+            .assertions(QsoId::new(), "file.adi", &lotw, &context)?;
+    let claim = assertions
+        .first()
+        .expect("the valid QRZ confirmation status supplies an assertion");
+    assert!(!claim.provenance.mapping.contains("QRZCOM.RD)"));
     Ok(())
 }

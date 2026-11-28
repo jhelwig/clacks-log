@@ -70,7 +70,9 @@ pub(crate) fn prepare(
     };
     let mut contacts = BTreeMap::new();
     let mut requested = BTreeSet::new();
-    let today = time::OffsetDateTime::now_utc().date();
+    let today = jiff::tz::Offset::UTC
+        .to_datetime(jiff::Timestamp::now())
+        .date();
     for contact in &input.contacts {
         let qso_id = contact.qso.id();
         if !requested.insert(qso_id) {

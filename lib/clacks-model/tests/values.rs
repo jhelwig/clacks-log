@@ -25,6 +25,17 @@ fn quantities_and_operational_time_are_validated() -> TestResult {
     assert!(serde_json::from_str::<Hertz>("0").is_err());
     assert!(serde_json::from_str::<Milliwatts>("0").is_err());
     assert_eq!(UtcSecond::from_unix_seconds(-1).unix_seconds(), -1);
+    for (seconds, nanoseconds, whole, fraction) in [
+        (0, -250_000_000, -1, 750_000_000),
+        (-1, 0, -1, 0),
+        (0, 250_000_000, 0, 250_000_000),
+    ] {
+        let instant = jiff::Timestamp::new(seconds, nanoseconds)?;
+        assert_eq!(UtcSecond::from(instant).unix_seconds(), whole);
+        let observed = UtcTimestamp::from(instant);
+        assert_eq!(observed.unix_seconds(), whole);
+        assert_eq!(observed.subsecond_nanoseconds(), fraction);
+    }
     let t = UtcTimestamp::new(-1, 999_999_999)?;
     assert_eq!(
         serde_json::to_value(t)?,

@@ -107,7 +107,9 @@ pub(crate) async fn start(
         _ => return Err(AuthError::InvalidCallback),
     };
 
-    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    let now = jiff::Timestamp::now()
+        .as_nanosecond()
+        .div_euclid(1_000_000_000) as i64;
     let mut requests: BTreeMap<String, ApprovalRequest> = session.get(REQUESTS).unwrap_or_default();
     requests.retain(|_, request| {
         request.created_at <= now
@@ -152,7 +154,9 @@ pub(crate) fn require_pending(
 fn load(session: &SessionPgSession, request: &str, age: i64) -> Result<ApprovalRequest, AuthError> {
     let mut requests: BTreeMap<String, ApprovalRequest> = session.get(REQUESTS).unwrap_or_default();
     let request = requests.remove(request).ok_or(AuthError::InvalidCallback)?;
-    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    let now = jiff::Timestamp::now()
+        .as_nanosecond()
+        .div_euclid(1_000_000_000) as i64;
     if request.created_at > now || now.saturating_sub(request.created_at) > age {
         return Err(AuthError::InvalidCallback);
     }

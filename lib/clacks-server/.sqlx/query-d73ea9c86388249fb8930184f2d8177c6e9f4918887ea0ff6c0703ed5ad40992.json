@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT closed_at FROM clacks.desktop_clients WHERE account_id=$1 AND actor_id=$2 FOR UPDATE\n",
+  "query": "SELECT closed_at AS \"closed_at: jiff_sqlx::Timestamp\" FROM clacks.desktop_clients WHERE account_id=$1 AND actor_id=$2 FOR UPDATE\n",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "closed_at",
+        "name": "closed_at: jiff_sqlx::Timestamp",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -25,5 +25,5 @@
       true
     ]
   },
-  "hash": "5cd7939bc1c5330ef190e9c30571ec540f81833d8aa56877e2f68fa6d4b600f3"
+  "hash": "d73ea9c86388249fb8930184f2d8177c6e9f4918887ea0ff6c0703ed5ad40992"
 }

@@ -46,11 +46,11 @@ web-sys = { workspace = true, optional = true, features = ["RequestCredentials",
 [dev-dependencies]
 any_spawner = { workspace = true, features = ["tokio"] }
 anyhow.workspace = true
-chrono.workspace = true
 futures-util.workspace = true
 getrandom = { workspace = true, features = ["sys_rng"] }
 huskarl-core.workspace = true
 huskarl-crypto-native.workspace = true
+jiff.workspace = true
 openidconnect.workspace = true
 reqwest = { workspace = true, features = ["cookies", "json"] }
 rsa.workspace = true

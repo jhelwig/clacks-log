@@ -56,7 +56,9 @@ fn timestamp(input: &mut &[u8]) -> anyhow::Result<UtcSecond> {
         .and_then(|seconds| seconds.checked_sub(offset))
         .ok_or_else(|| anyhow::anyhow!("WS timestamp out of range."))?;
     // Qt uses a null/invalid date sentinel; reject it and unrepresentable calendar dates.
-    time::OffsetDateTime::from_unix_timestamp(seconds)
+    jiff::civil::date(1970, 1, 1)
+        .at(0, 0, 0, 0)
+        .checked_add(jiff::SignedDuration::from_secs(seconds))
         .map_err(|_| anyhow::anyhow!("Invalid WS date."))?;
     Ok(UtcSecond::from_unix_seconds(seconds))
 }

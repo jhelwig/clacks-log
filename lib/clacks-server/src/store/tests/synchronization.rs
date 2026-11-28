@@ -7,7 +7,7 @@ mod restore;
 mod retention;
 
 use crate::auth::oidc::VerifiedIdentity;
-use time::Duration;
+use jiff::SignedDuration;
 
 #[tokio::test]
 async fn tag_deletion_checks_current_reverse_references() -> anyhow::Result<()> {
@@ -271,7 +271,7 @@ async fn account_defaults_are_accepted_once() -> anyhow::Result<()> {
                 subject: identity.subject,
                 display_name: identity.display_name,
             },
-            Duration::days(14),
+            SignedDuration::from_hours(14 * 24),
         )
         .await?;
 

@@ -56,7 +56,10 @@ pub(crate) fn load(
     if let Some(expires) = saved.response.client_secret_expires_at() {
         anyhow::ensure!(
             expires.timestamp() == 0
-                || expires.timestamp() > time::OffsetDateTime::now_utc().unix_timestamp(),
+                || expires.timestamp()
+                    > jiff::Timestamp::now()
+                        .as_nanosecond()
+                        .div_euclid(1_000_000_000) as i64,
             "registered client secret has expired; operator action required"
         );
     }

@@ -1,13 +1,14 @@
 //! Bounded removal of expired issuer state, preserving active enrollments.
 
+use jiff::Timestamp;
+use jiff_sqlx::ToSqlx;
 use sqlx::PgPool;
 use std::time::SystemTime;
-use time::OffsetDateTime;
 
 /// Reclaim expired credentials and abandoned provisional grants without idle expiry.
 pub(crate) async fn sweep(pool: &PgPool, now: SystemTime) -> anyhow::Result<u64> {
-    let now = OffsetDateTime::from(now);
-    let accounts = sqlx::query_file!("sql/oauth/cleanup_accounts.sql", now)
+    let now = Timestamp::try_from(now)?;
+    let accounts = sqlx::query_file!("sql/oauth/cleanup_accounts.sql", now.to_sqlx() as _)
         .fetch_all(pool)
         .await?;
     let mut removed = 0;
@@ -20,7 +21,7 @@ pub(crate) async fn sweep(pool: &PgPool, now: SystemTime) -> anyhow::Result<u64>
         account_removed += sqlx::query_file!(
             "sql/oauth/cleanup_desktop_authorization_codes.sql",
             account.account_id,
-            now
+            now.to_sqlx() as _
         )
         .execute(&mut *transaction)
         .await?
@@ -28,7 +29,7 @@ pub(crate) async fn sweep(pool: &PgPool, now: SystemTime) -> anyhow::Result<u64>
         account_removed += sqlx::query_file!(
             "sql/oauth/cleanup_desktop_code_approvals.sql",
             account.account_id,
-            now
+            now.to_sqlx() as _
         )
         .execute(&mut *transaction)
         .await?
@@ -36,7 +37,7 @@ pub(crate) async fn sweep(pool: &PgPool, now: SystemTime) -> anyhow::Result<u64>
         account_removed += sqlx::query_file!(
             "sql/oauth/cleanup_desktop_access_tokens.sql",
             account.account_id,
-            now
+            now.to_sqlx() as _
         )
         .execute(&mut *transaction)
         .await?
@@ -44,7 +45,7 @@ pub(crate) async fn sweep(pool: &PgPool, now: SystemTime) -> anyhow::Result<u64>
         account_removed += sqlx::query_file!(
             "sql/oauth/cleanup_desktop_refresh_tokens.sql",
             account.account_id,
-            now
+            now.to_sqlx() as _
         )
         .execute(&mut *transaction)
         .await?
@@ -52,7 +53,7 @@ pub(crate) async fn sweep(pool: &PgPool, now: SystemTime) -> anyhow::Result<u64>
         account_removed += sqlx::query_file!(
             "sql/oauth/cleanup_desktop_grants.sql",
             account.account_id,
-            now
+            now.to_sqlx() as _
         )
         .execute(&mut *transaction)
         .await?
@@ -61,19 +62,19 @@ pub(crate) async fn sweep(pool: &PgPool, now: SystemTime) -> anyhow::Result<u64>
         metrics::counter!(crate::oauth::OAUTH_EXPIRED_ROWS_TOTAL_METRIC).increment(account_removed);
         removed += account_removed;
     }
-    let count = sqlx::query_file!("sql/oauth/cleanup_replay.sql", now)
+    let count = sqlx::query_file!("sql/oauth/cleanup_replay.sql", now.to_sqlx() as _)
         .execute(pool)
         .await?
         .rows_affected();
     metrics::counter!(crate::oauth::OAUTH_EXPIRED_ROWS_TOTAL_METRIC).increment(count);
     removed += count;
-    let count = sqlx::query_file!("sql/oauth/cleanup_resource_replay.sql", now)
+    let count = sqlx::query_file!("sql/oauth/cleanup_resource_replay.sql", now.to_sqlx() as _)
         .execute(pool)
         .await?
         .rows_affected();
     metrics::counter!(crate::oauth::OAUTH_EXPIRED_ROWS_TOTAL_METRIC).increment(count);
     removed += count;
-    let count = sqlx::query_file!("sql/oauth/cleanup_barriers.sql", now)
+    let count = sqlx::query_file!("sql/oauth/cleanup_barriers.sql", now.to_sqlx() as _)
         .execute(pool)
         .await?
         .rows_affected();

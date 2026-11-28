@@ -3,8 +3,8 @@
 use super::{AccountStore, accounts::BindingRow};
 use crate::auth::principal::Principal;
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+use jiff::SignedDuration;
 use rand::{RngCore, rngs::OsRng};
-use time::Duration;
 
 /// Secret server-side reference to one authoritative browser login.
 pub(crate) struct LoginReference(String);
@@ -33,17 +33,14 @@ impl AccountStore {
     pub(crate) async fn authenticate(
         &self,
         reference: &LoginReference,
-        lifetime: Duration,
+        lifetime: SignedDuration,
     ) -> anyhow::Result<Option<Principal>> {
-        anyhow::ensure!(
-            lifetime.whole_seconds() > 0,
-            "login lifetime must be positive"
-        );
+        anyhow::ensure!(lifetime.as_secs() > 0, "login lifetime must be positive");
         sqlx::query_file_as!(
             BindingRow,
             "sql/login_refresh.sql",
             reference.secret(),
-            lifetime.whole_seconds()
+            lifetime.as_secs()
         )
         .fetch_optional(&self.pool)
         .await?

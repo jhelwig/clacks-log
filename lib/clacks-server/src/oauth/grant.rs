@@ -1,7 +1,7 @@
 //! Typed grant lifecycle restored before authorization decisions.
 
 use clacks_model::ids::ClientActorId;
-use time::OffsetDateTime;
+use jiff::Timestamp;
 
 /// Coherent admission state of an account-owned OAuth grant family.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -9,7 +9,7 @@ pub(crate) enum GrantState {
     /// A bounded, not-yet-activated approval.
     Provisional {
         /// Last instant at which the original approval may activate.
-        until: OffsetDateTime,
+        until: Timestamp,
     },
     /// A grant attached to an enrolled actor whose current admission is checked separately.
     Active {
@@ -25,7 +25,7 @@ impl GrantState {
     pub(crate) fn from_columns(
         state: &str,
         actor: Option<&str>,
-        until: Option<OffsetDateTime>,
+        until: Option<Timestamp>,
     ) -> anyhow::Result<Self> {
         let actor = actor.map(str::parse).transpose()?;
         match (state, actor, until) {
@@ -47,7 +47,7 @@ impl GrantState {
     }
 
     /// Return the active grant actor when the supplied membership closure is absent.
-    pub(crate) fn active_actor(self, closed_at: Option<OffsetDateTime>) -> Option<ClientActorId> {
+    pub(crate) fn active_actor(self, closed_at: Option<Timestamp>) -> Option<ClientActorId> {
         match self {
             Self::Active { actor } if closed_at.is_none() => Some(actor),
             _ => None,
