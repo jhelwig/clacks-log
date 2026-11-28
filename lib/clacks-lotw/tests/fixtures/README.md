@@ -1,6 +1,6 @@
 # Independent synthetic certificate inputs
 
-These 66 committed certificate, archive, signature and wire inputs are constructed
+These 67 committed certificate, archive, signature and wire inputs are constructed
 by the dedicated `clacks-lotw-fixtures` Rust command. Construction starts with
 fixed public test keys and recipes, never existing output bytes, and does not call
 Clacks's production importer, signer or serializer. It needs no external programs.
@@ -42,6 +42,9 @@ These fixtures are not outputs obtained by running those sources.
 - Raw extension bytes at `.1.2`, `.1.3`, `.1.4` under the same enterprise prefix:
   `2000-01-01`, `2029-12-31`, `291`, respectively. They are not nested encoded strings.
 - Certificate validity: `2020-01-01T00:00:00Z` through `2030-06-15T12:00:00Z`.
+  `no-expiry.der` instead encodes `9999-12-31T23:59:59Z` as GeneralizedTime,
+  the undefined-expiry spelling specified by
+  [RFC 5280 section 4.1.2.5](https://www.rfc-editor.org/rfc/rfc5280#section-4.1.2.5).
 - Full serial: `1234567890abcdef1234567890abcdef` (hexadecimal).
 - Certificates are signed with a separate synthetic root; issuer trust is outside
   metadata inspection. The elliptic-curve input exercises an unsupported key type.

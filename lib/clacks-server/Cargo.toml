@@ -22,6 +22,8 @@ fluent-uri.workspace = true
 http.workspace = true
 huskarl-crypto-native.workspace = true
 huskarl-resource-server.workspace = true
+jiff.workspace = true
+jiff-sqlx.workspace = true
 metrics.workspace = true
 metrics-opentelemetry.workspace = true
 oauth-as.workspace = true
@@ -37,10 +39,11 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 shlex.workspace = true
-sqlx = { workspace = true, features = ["postgres", "time", "tls-rustls"] }
+sqlx = { workspace = true, features = ["postgres", "tls-rustls"] }
 strum.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
+# SessionConfig requires time::Duration at the middleware boundary.
 time.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
 tokio-util.workspace = true

@@ -68,13 +68,15 @@ pub(super) fn prepare_input(
         );
         station.insert(name.clone(), text(name, value)?);
     }
-    let instant = time::OffsetDateTime::from_unix_timestamp(submission.key().start.unix_seconds())?;
+    let instant = jiff::civil::date(1970, 1, 1).at(0, 0, 0, 0).checked_add(
+        jiff::SignedDuration::from_secs(submission.key().start.unix_seconds()),
+    )?;
     contact.insert(
         "QSO_DATE".into(),
         format!(
             "{:04}-{:02}-{:02}",
             instant.year(),
-            u8::from(instant.month()),
+            instant.month(),
             instant.day()
         ),
     );

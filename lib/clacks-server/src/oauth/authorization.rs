@@ -11,13 +11,14 @@ use crate::secrets::{
     receipt::{self, IssuedReferences, ReceiptContext},
 };
 use anyhow::Context;
+use jiff::Timestamp;
+use jiff_sqlx::ToSqlx;
 use oauth_as::{
     authorization::{AuthorizationCodeRecord, AuthorizationCodeState},
     client::ClientId,
     scope::ScopeSet,
 };
 use sqlx::PgConnection;
-use time::OffsetDateTime;
 
 /// Seal issued references inside the caller's account-locked code transaction.
 async fn encrypted(
@@ -91,10 +92,10 @@ async fn decode(
         ScopeSet::parse(&row.scope)?,
         row.account_id,
         row.code_challenge,
-        row.expires_at.into(),
+        row.expires_at.to_jiff().try_into()?,
     );
     record.redirect_uri_was_explicit = row.redirect_explicit;
-    record.issued_at = row.issued_at.into();
+    record.issued_at = row.issued_at.to_jiff().try_into()?;
     record.resource = row.resources;
     record.dpop_jkt = Some(row.key_thumbprint.into());
     record.state = match row.state.as_str() {
@@ -204,8 +205,8 @@ async fn put_in(
         AuthorizationCodeState::Consumed { .. } => "consumed",
         AuthorizationCodeState::Replayed { .. } => "replayed",
     };
-    let issued_at = OffsetDateTime::from(record.issued_at);
-    let expires_at = OffsetDateTime::from(record.expires_at);
+    let issued_at = Timestamp::try_from(record.issued_at)?;
+    let expires_at = Timestamp::try_from(record.expires_at)?;
     let receipt = receipt.map(ReceiptEnvelope::encode);
     sqlx::query_file!(
         "sql/oauth/code_put.sql",
@@ -216,8 +217,8 @@ async fn put_in(
         record.redirect_uri_was_explicit,
         record.code_challenge,
         key,
-        issued_at,
-        expires_at,
+        issued_at.to_sqlx() as _,
+        expires_at.to_sqlx() as _,
         state,
         receipt
     )

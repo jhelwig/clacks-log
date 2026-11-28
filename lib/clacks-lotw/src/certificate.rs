@@ -6,7 +6,7 @@ mod metadata;
 pub mod eligibility;
 
 use clacks_model::service::lotw::PublicSigningIdentity;
-use time::{Date, OffsetDateTime};
+use jiff::civil::{Date, DateTime};
 
 /// Public issued-certificate metadata for display and signing eligibility.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -17,10 +17,10 @@ pub struct CertificateMetadata {
     pub issuer_der: Vec<u8>,
     /// Complete unsigned serial bytes, without integer narrowing.
     pub serial: Vec<u8>,
-    /// Certificate validity beginning.
-    pub not_before: OffsetDateTime,
-    /// Certificate validity ending.
-    pub not_after: OffsetDateTime,
+    /// Certificate validity beginning, expressed in UTC.
+    pub not_before: DateTime,
+    /// Certificate validity ending, expressed in UTC, including year 9999.
+    pub not_after: DateTime,
     /// First covered QSO date, inclusive.
     pub qso_not_before: Date,
     /// Last covered QSO date, inclusive.

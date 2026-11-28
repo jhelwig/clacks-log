@@ -182,7 +182,9 @@ pub(crate) async fn authorization_url(
             state: csrf,
             nonce,
             verifier,
-            created_at: time::OffsetDateTime::now_utc().unix_timestamp(),
+            created_at: jiff::Timestamp::now()
+                .as_nanosecond()
+                .div_euclid(1_000_000_000) as i64,
             purpose,
         },
         state.config.pending_seconds,

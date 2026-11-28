@@ -511,7 +511,7 @@ pub(super) enum Edit {
     End(Option<UtcSecond>, bool),
     /// End clock supplied without a date, relative to the reviewed source start.
     RelativeEnd {
-        clock: time::Time,
+        clock: jiff::civil::Time,
         /// Whether the source time omitted seconds.
         minute_precision: bool,
     },

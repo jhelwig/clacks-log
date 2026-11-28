@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT c.account_id, c.client_id, c.redirect_uri, c.redirect_explicit,\nc.code_challenge, c.key_thumbprint, c.issued_at, c.expires_at, c.state,\nc.receipt,\nCOALESCE((SELECT string_agg(scope, ' ' ORDER BY scope) FROM clacks.desktop_code_scopes WHERE code_digest = c.code_digest), '') AS \"scope!\",\nARRAY(SELECT resource FROM clacks.desktop_code_resources WHERE code_digest = c.code_digest ORDER BY ordinal) AS \"resources!\"\nFROM clacks.desktop_authorization_codes c WHERE code_digest = $1 FOR UPDATE OF c\n",
+  "query": "SELECT c.account_id, c.client_id, c.redirect_uri, c.redirect_explicit,\nc.code_challenge, c.key_thumbprint, c.issued_at AS \"issued_at: jiff_sqlx::Timestamp\", c.expires_at AS \"expires_at: jiff_sqlx::Timestamp\", c.state,\nc.receipt,\nCOALESCE((SELECT string_agg(scope, ' ' ORDER BY scope) FROM clacks.desktop_code_scopes WHERE code_digest = c.code_digest), '') AS \"scope!\",\nARRAY(SELECT resource FROM clacks.desktop_code_resources WHERE code_digest = c.code_digest ORDER BY ordinal) AS \"resources!\"\nFROM clacks.desktop_authorization_codes c WHERE code_digest = $1 FOR UPDATE OF c\n",
   "describe": {
     "columns": [
       {
@@ -71,7 +71,7 @@
       },
       {
         "ordinal": 6,
-        "name": "issued_at",
+        "name": "issued_at: jiff_sqlx::Timestamp",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -82,7 +82,7 @@
       },
       {
         "ordinal": 7,
-        "name": "expires_at",
+        "name": "expires_at: jiff_sqlx::Timestamp",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -146,5 +146,5 @@
       null
     ]
   },
-  "hash": "bc2e0fb2bc933a6afd3bbf988a3fb4894d5ef1ae87258f274511c4ac98cf44fa"
+  "hash": "41462b5bb537b48692ff56efb290fbc6cf62be9937a4271f5bd6eb0b3f901896"
 }

@@ -3,7 +3,7 @@
 use super::{AccountStore, logins::LoginReference};
 use crate::auth::{oidc::VerifiedIdentity, principal::Principal};
 use clacks_model::ids::AccountId;
-use time::Duration;
+use jiff::SignedDuration;
 use ulid::Ulid;
 
 /// Binding fields selected together from account-scoped persistence operations.
@@ -28,12 +28,9 @@ impl AccountStore {
     pub(crate) async fn provision_login(
         &self,
         identity: VerifiedIdentity,
-        lifetime: Duration,
+        lifetime: SignedDuration,
     ) -> anyhow::Result<LoginReference> {
-        anyhow::ensure!(
-            lifetime.whole_seconds() > 0,
-            "login lifetime must be positive"
-        );
+        anyhow::ensure!(lifetime.as_secs() > 0, "login lifetime must be positive");
         for _ in 0..3 {
             let mut transaction = self.pool.begin().await?;
             let found = sqlx::query_file_as!(
@@ -102,7 +99,7 @@ impl AccountStore {
                 reference.secret(),
                 principal.account_id.to_string(),
                 principal.identity_id.to_string(),
-                lifetime.whole_seconds()
+                lifetime.as_secs()
             )
             .execute(&mut *transaction)
             .await?;

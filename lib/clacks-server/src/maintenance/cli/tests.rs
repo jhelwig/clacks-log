@@ -131,11 +131,11 @@ async fn operator_process() -> anyhow::Result<()> {
                 subject: ulid::Ulid::generate().to_string(),
                 display_name: None,
             },
-            time::Duration::days(14),
+            jiff::SignedDuration::from_hours(14 * 24),
         )
         .await?;
     let principal = store
-        .authenticate(&login, time::Duration::days(14))
+        .authenticate(&login, jiff::SignedDuration::from_hours(14 * 24))
         .await?
         .context("missing login")?;
     let account = principal.account_id;
@@ -184,11 +184,11 @@ async fn operator_process() -> anyhow::Result<()> {
                     subject: ulid::Ulid::generate().to_string(),
                     display_name: None,
                 },
-                time::Duration::days(14),
+                jiff::SignedDuration::from_hours(14 * 24),
             )
             .await?;
         let later = store
-            .authenticate(&login, time::Duration::days(14))
+            .authenticate(&login, jiff::SignedDuration::from_hours(14 * 24))
             .await?
             .context("missing second login")?;
         let wrong_file = directory.path().join("wrong-key");

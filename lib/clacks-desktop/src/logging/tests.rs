@@ -23,6 +23,23 @@ fn independent_clocks_preserve_unknown_and_overnight_end() -> anyhow::Result<()>
     assert_eq!(end.value()?, None);
     end.unlock(after)?;
     assert_eq!(end.value()?, Some(after));
+    for (seconds, text) in [
+        (-1, "1969-12-31 23:59:59"),
+        (253_402_300_799, "9999-12-31 23:59:59"),
+    ] {
+        let value = UtcSecond::from_unix_seconds(seconds);
+        let timestamp = ContactTimestamp::recorded(Some(value));
+        assert_eq!(timestamp.text, text);
+        assert_eq!(timestamp.value()?, Some(value));
+    }
+    assert_eq!(
+        ContactTimestamp::recorded(Some(UtcSecond::from_unix_seconds(i64::MAX))).text,
+        i64::MAX.to_string()
+    );
+    for text in ["2026-10-27 23:59:60", "2026-1-2 03:04:05"] {
+        start.text = text.into();
+        assert!(start.value().is_err());
+    }
     Ok(())
 }
 

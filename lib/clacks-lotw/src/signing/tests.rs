@@ -13,11 +13,7 @@ use std::collections::BTreeMap;
 fn sample() -> (CertificateMetadata, LotwSubmission) {
     let meta =
         inspect_certificate(include_bytes!("../../tests/fixtures/1024/station.der")).unwrap();
-    let start = time::Date::from_calendar_date(2026, time::Month::October, 22)
-        .unwrap()
-        .with_hms(12, 34, 56)
-        .unwrap()
-        .assume_utc();
+    let start = jiff::Timestamp::constant(1_792_672_496, 0);
     let submission: LotwSubmission = LotwSubmissionFields {
         mapping_provenance: LotwMappingProvenance {
             release: "11.34".into(),
@@ -49,7 +45,7 @@ fn sample() -> (CertificateMetadata, LotwSubmission) {
         key: LotwRecordKey {
             own_call: meta.identity.callsign.clone(),
             worked_call: clacks_model::scalar::RecordedCallsign::new("K1ABC").unwrap(),
-            start: UtcSecond::from_unix_seconds(start.unix_timestamp()),
+            start: UtcSecond::from_unix_seconds(start.as_second()),
             band: "20M".into(),
             receive_band: "20M".into(),
             mode: "FT8".into(),

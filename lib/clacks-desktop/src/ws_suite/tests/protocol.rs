@@ -63,6 +63,19 @@ fn adi_length_framing() -> anyhow::Result<()> {
     assert_eq!(notice.facts.text("COMMENT"), Some("x<EOR>y"));
     assert_eq!(notice.facts.text("NAME"), Some("José"));
     assert_eq!(notice.facts.text("STATION_CALLSIGN"), None);
+    let last =
+        adif(b"<CALL:5>W7HEX<QSO_DATE:8>99991231<TIME_ON:6>235959<FREQ:6>14.074<MODE:3>FT8<EOR>");
+    assert_eq!(
+        super::completion(&last, "127.0.0.1:1".parse()?)?
+            .expect("the complete ADI record has a supported date and time")
+            .identity
+            .start
+            .unix_seconds(),
+        253_402_300_799
+    );
+    let invalid =
+        adif(b"<CALL:5>W7HEX<QSO_DATE:8>20261027<TIME_ON:6>235960<FREQ:6>14.074<MODE:3>FT8<EOR>");
+    assert!(super::completion(&invalid, "127.0.0.1:1".parse()?).is_err());
     assert!(super::completion(&adif(b"<CALL:99>short"), "127.0.0.1:1".parse()?).is_err());
     assert!(
         super::completion(
@@ -88,6 +101,18 @@ fn completion_wire_fields() -> anyhow::Result<()> {
     let notice = super::completion(&bytes, "127.0.0.1:2237".parse()?)?.unwrap();
     assert_eq!(notice.identity.start.unix_seconds(), 0);
     assert_eq!(notice.facts.end.unwrap().unix_seconds(), 1);
+    let mut last = bytes.clone();
+    last.splice(18..26, 5_373_484_u64.to_be_bytes());
+    last.splice(26..30, 86_399_000_u32.to_be_bytes());
+    assert_eq!(
+        super::completion(&last, "127.0.0.1:1".parse()?)?
+            .expect("the binary completion has a supported final calendar day")
+            .facts
+            .end
+            .expect("the completion supplies its end timestamp")
+            .unix_seconds(),
+        253_402_300_799
+    );
     assert_eq!(notice.identity.mode, "FT4");
     assert_eq!(
         notice.identity.primary,

@@ -8,6 +8,8 @@ use super::{
 };
 use crate::enrollment::AuthorizedClient;
 use anyhow::Context;
+use jiff::Timestamp;
+use jiff_sqlx::ToSqlx;
 use oauth_as::{
     client::ClientId,
     scope::ScopeSet,
@@ -16,7 +18,6 @@ use oauth_as::{
 };
 use sqlx::{PgConnection, PgPool};
 use std::sync::Arc;
-use time::OffsetDateTime;
 
 /// Metadata shared by access and refresh writes for the same grant family.
 struct FamilyInput<'a> {
@@ -29,7 +30,7 @@ struct FamilyInput<'a> {
     /// Proof-key thumbprint fixed at approval.
     key: &'a str,
     /// Original grant authorization instant.
-    established: OffsetDateTime,
+    established: Timestamp,
 }
 
 /// Check current family/member state and the library barriers within the write transaction.
@@ -41,7 +42,7 @@ async fn permit(connection: &mut PgConnection, input: &FamilyInput<'_>) -> anyho
         "sql/oauth/barrier_check.sql",
         input.family,
         input.client,
-        input.established
+        input.established.to_sqlx() as _
     )
     .fetch_one(&mut *connection)
     .await?
@@ -62,7 +63,7 @@ async fn permit(connection: &mut PgConnection, input: &FamilyInput<'_>) -> anyho
             input.account,
             input.family,
             input.client,
-            input.established,
+            input.established.to_sqlx() as _,
             input.key
         )
         .execute(&mut *connection)
@@ -80,13 +81,16 @@ async fn permit(connection: &mut PgConnection, input: &FamilyInput<'_>) -> anyho
         row.account_id == input.account
             && row.client_id == input.client
             && row.key_thumbprint == input.key
-            && row.grant_established_at == input.established,
+            && row.grant_established_at.to_jiff() == input.established,
         "credential metadata differs from its grant family"
     );
-    let state =
-        GrantState::from_columns(&row.state, row.actor_id.as_deref(), row.provisional_until)?;
+    let state = GrantState::from_columns(
+        &row.state,
+        row.actor_id.as_deref(),
+        row.provisional_until.map(jiff_sqlx::Timestamp::to_jiff),
+    )?;
     match state {
-        GrantState::Provisional { until } => Ok(until > OffsetDateTime::now_utc()),
+        GrantState::Provisional { until } => Ok(until > Timestamp::now()),
         GrantState::Active { actor } => {
             let member = sqlx::query_file!(
                 "sql/enrollment/client_lock.sql",
@@ -123,22 +127,22 @@ pub(crate) async fn put_access(
         family,
         client: record.client_id.as_str(),
         key,
-        established: record.grant_established_at.into(),
+        established: Timestamp::try_from(record.grant_established_at)?,
     };
     let mut transaction = store.pool.begin().await?;
     if !permit(&mut transaction, &input).await? {
         return Ok(WriteOutcome::RefusedRevoked);
     }
     let hash = digest(CredentialKind::Access, &record.access_token);
-    let issued = OffsetDateTime::from(record.issued_at);
-    let expires = OffsetDateTime::from(record.expires_at);
+    let issued = Timestamp::try_from(record.issued_at)?;
+    let expires = Timestamp::try_from(record.expires_at)?;
     sqlx::query_file!(
         "sql/oauth/access_put.sql",
         hash.as_slice(),
         account,
         family,
-        issued,
-        expires
+        issued.to_sqlx() as _,
+        expires.to_sqlx() as _
     )
     .execute(&mut *transaction)
     .await?;
@@ -190,14 +194,14 @@ pub(crate) async fn put_refresh(
         family: &record.family_id,
         client: record.client_id.as_str(),
         key,
-        established: record.grant_established_at.into(),
+        established: Timestamp::try_from(record.grant_established_at)?,
     };
     let mut transaction = store.pool.begin().await?;
     if !permit(&mut transaction, &input).await? {
         return Ok(WriteOutcome::RefusedRevoked);
     }
     let hash = digest(CredentialKind::Refresh, &record.refresh_token);
-    let expires = record.expires_at.map(OffsetDateTime::from);
+    let expires = record.expires_at.map(Timestamp::try_from).transpose()?;
     let state = match record.state {
         RefreshTokenState::Active => "active",
         RefreshTokenState::Spent => "spent",
@@ -207,7 +211,7 @@ pub(crate) async fn put_refresh(
         hash.as_slice(),
         account,
         record.family_id,
-        expires,
+        expires.map(jiff_sqlx::ToSqlx::to_sqlx) as _,
         state
     )
     .execute(&mut *transaction)
@@ -254,9 +258,12 @@ pub(crate) async fn get_access(
     let grant = GrantState::from_columns(
         &row.family_state,
         row.actor_id.as_deref(),
-        row.provisional_until,
+        row.provisional_until.map(jiff_sqlx::Timestamp::to_jiff),
     )?;
-    if grant.active_actor(row.closed_at).is_none() {
+    if grant
+        .active_actor(row.closed_at.map(jiff_sqlx::Timestamp::to_jiff))
+        .is_none()
+    {
         return Ok(None);
     }
     let mut record = IssuedToken::new(
@@ -264,10 +271,10 @@ pub(crate) async fn get_access(
         ClientId::new(row.client_id),
         Some(row.account_id),
         ScopeSet::parse(&row.scope)?,
-        row.issued_at.into(),
-        row.expires_at.into(),
+        row.issued_at.to_jiff().try_into()?,
+        row.expires_at.to_jiff().try_into()?,
     );
-    record.grant_established_at = row.grant_established_at.into();
+    record.grant_established_at = row.grant_established_at.to_jiff().try_into()?;
     record.family_id = Some(row.family_id);
     record.jkt = Some(row.key_thumbprint.into());
     record.resource = row.resources;
@@ -302,9 +309,12 @@ pub(crate) async fn get_refresh(
     let grant = GrantState::from_columns(
         &row.family_state,
         row.actor_id.as_deref(),
-        row.provisional_until,
+        row.provisional_until.map(jiff_sqlx::Timestamp::to_jiff),
     )?;
-    if grant.active_actor(row.closed_at).is_none() {
+    if grant
+        .active_actor(row.closed_at.map(jiff_sqlx::Timestamp::to_jiff))
+        .is_none()
+    {
         return Ok(None);
     }
     let mut record = RefreshTokenRecord::new(
@@ -314,8 +324,11 @@ pub(crate) async fn get_refresh(
         ScopeSet::parse(&row.scope)?,
         row.family_id,
     );
-    record.grant_established_at = row.grant_established_at.into();
-    record.expires_at = row.expires_at.map(Into::into);
+    record.grant_established_at = row.grant_established_at.to_jiff().try_into()?;
+    record.expires_at = row
+        .expires_at
+        .map(|value| value.to_jiff().try_into())
+        .transpose()?;
     record.jkt = Some(row.key_thumbprint.into());
     record.resource = row.resources;
     record.state = match row.token_state.as_str() {
@@ -348,12 +361,12 @@ pub(crate) async fn authorized(
     let grant = GrantState::from_columns(
         &row.family_state,
         row.actor_id.as_deref(),
-        row.provisional_until,
+        row.provisional_until.map(jiff_sqlx::Timestamp::to_jiff),
     )?;
-    let Some(actor) = grant.active_actor(row.closed_at) else {
+    let Some(actor) = grant.active_actor(row.closed_at.map(jiff_sqlx::Timestamp::to_jiff)) else {
         return Ok(None);
     };
-    if row.expires_at <= OffsetDateTime::now_utc() {
+    if row.expires_at.to_jiff() <= Timestamp::now() {
         return Ok(None);
     }
     let result = AuthorizedClient {
@@ -363,7 +376,7 @@ pub(crate) async fn authorized(
         key_thumbprint: row.key_thumbprint,
         scope: ScopeSet::parse(&row.scope)?,
         access_digest: hash,
-        expires_at: row.expires_at,
+        expires_at: row.expires_at.to_jiff(),
     };
     transaction.commit().await?;
     Ok(Some(result))

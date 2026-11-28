@@ -11,7 +11,10 @@ use clacks_model::{
     },
     scalar::UtcSecond,
 };
-use time::{Date, Duration, Month, OffsetDateTime, Time};
+use jiff::{
+    SignedDuration,
+    civil::{Date, Time, date as civil_date},
+};
 
 pub(super) fn prepare(row: &mut RowInput<'_, '_>) {
     times(row);
@@ -44,17 +47,13 @@ pub(in crate::import) fn date(value: &str) -> anyhow::Result<Date> {
     let month = value
         .get(4..6)
         .ok_or_else(|| anyhow::anyhow!("Missing month"))?
-        .parse::<u8>()?;
+        .parse::<i8>()?;
     let day = value
         .get(6..)
         .ok_or_else(|| anyhow::anyhow!("Missing day"))?
         .parse()?;
     anyhow::ensure!(year > 0, "Expected a positive calendar year");
-    Ok(Date::from_calendar_date(
-        year,
-        Month::try_from(month)?,
-        day,
-    )?)
+    Ok(Date::new(year, month, day)?)
 }
 
 /// Return `true` in the second tuple element when the source omits seconds.
@@ -78,7 +77,7 @@ fn time(value: &str) -> anyhow::Result<(Time, bool)> {
         .map(str::parse)
         .transpose()?
         .unwrap_or(0);
-    Ok((Time::from_hms(hour, minute, second)?, value.len() == 4))
+    Ok((Time::new(hour, minute, second, 0)?, value.len() == 4))
 }
 
 /// Construct source time alternatives. An undated end uses the selected start
@@ -98,8 +97,11 @@ fn times(row: &mut RowInput<'_, '_>) {
     let mut values = Vec::new();
     for (date_source, date) in &dates {
         for (time_source, (start, precision)) in &clocks {
-            let start =
-                UtcSecond::from_unix_seconds(date.with_time(*start).assume_utc().unix_timestamp());
+            let start = UtcSecond::from_unix_seconds(
+                date.to_datetime(*start)
+                    .duration_since(civil_date(1970, 1, 1).at(0, 0, 0, 0))
+                    .as_secs(),
+            );
             starts.insert(start);
             values.push((
                 date_source.join(time_source),
@@ -158,7 +160,9 @@ fn times(row: &mut RowInput<'_, '_>) {
             let Some(date) = date else { continue };
             let source = source.join(&end_source);
             let end = UtcSecond::from_unix_seconds(
-                date.with_time(end_time).assume_utc().unix_timestamp(),
+                date.to_datetime(end_time)
+                    .duration_since(civil_date(1970, 1, 1).at(0, 0, 0, 0))
+                    .as_secs(),
             );
             let precedes = |start: &UtcSecond| keep_seconds(end, *start, minute_precision) < *start;
             if starts.first().is_some_and(precedes) {
@@ -206,24 +210,24 @@ pub(super) fn relative_end(
     end: Time,
     minute_precision: bool,
 ) -> Option<UtcSecond> {
-    let start_date = OffsetDateTime::from_unix_timestamp(start.unix_seconds())
+    let epoch = civil_date(1970, 1, 1).at(0, 0, 0, 0);
+    let start_date = epoch
+        .checked_add(SignedDuration::from_secs(start.unix_seconds()))
         .ok()?
         .date();
-    let same_day = start_date.with_time(end).assume_utc();
+    let same_day = start_date.to_datetime(end);
     let end_on_start_day = keep_seconds(
-        UtcSecond::from_unix_seconds(same_day.unix_timestamp()),
+        UtcSecond::from_unix_seconds(same_day.duration_since(epoch).as_secs()),
         start,
         minute_precision,
     );
     if end_on_start_day >= start {
         return Some(end_on_start_day);
     }
-    let end = same_day
-        .date()
-        .checked_add(Duration::days(1))?
-        .with_time(end)
-        .assume_utc();
-    (end.year() <= 9999).then(|| UtcSecond::from_unix_seconds(end.unix_timestamp()))
+    let end = start_date.tomorrow().ok()?.to_datetime(end);
+    Some(UtcSecond::from_unix_seconds(
+        end.duration_since(epoch).as_secs(),
+    ))
 }
 
 /// Preserve the known instant when the source supplies the same UTC minute.

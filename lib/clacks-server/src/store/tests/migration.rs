@@ -11,9 +11,9 @@ use crate::{
 use clacks_model::ids::AccountId;
 use huskarl_core::dpop::DPoP;
 use huskarl_crypto_native::asymmetric::signer::{GenerateAlgorithm, PrivateKey};
+use jiff::SignedDuration;
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
-use time::Duration;
 
 #[tokio::test]
 async fn existing_account_can_enroll_after_database_upgrade() -> anyhow::Result<()> {
@@ -43,11 +43,11 @@ async fn existing_account_can_enroll_after_database_upgrade() -> anyhow::Result<
                 subject,
                 display_name: Some("Existing operator".into()),
             },
-            Duration::days(14),
+            SignedDuration::from_hours(14 * 24),
         )
         .await?;
     let principal = store
-        .authenticate(&login, Duration::days(14))
+        .authenticate(&login, SignedDuration::from_hours(14 * 24))
         .await?
         .unwrap();
     assert_eq!(principal.account_id, owner);

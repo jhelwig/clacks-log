@@ -6,7 +6,7 @@ use super::{
 };
 use clacks_model::{
     ids::{AssertionId, QsoId},
-    scalar::UtcSecond,
+    scalar::{UtcSecond, UtcTimestamp},
     service::{
         adif::ProjectionContext,
         destination::Service,
@@ -14,10 +14,10 @@ use clacks_model::{
         lotw::LotwConfiguration,
     },
 };
+use jiff::civil::{Date, date};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::BTreeSet;
-use time::{Date, OffsetDateTime, UtcOffset, format_description::well_known::Rfc3339};
 
 mod baseline;
 
@@ -28,9 +28,9 @@ const LOG4OM: &str = "APP_L4ONG_QSO_CONFIRMATIONS";
 pub(super) enum SourceDate {
     /// Calendar day with no supplied time.
     Day(Date),
-    /// Parsed timestamp and the number of fractional decimal digits supplied.
+    /// Exact UTC instant and the number of fractional decimal digits supplied.
     Timestamp {
-        instant: OffsetDateTime,
+        instant: UtcTimestamp,
         fractional_digits: u8,
     },
 }
@@ -39,8 +39,8 @@ impl SourceDate {
     /// Return a timestamp only if the source specifies an exact whole second.
     fn whole_second(self) -> Option<UtcSecond> {
         match self {
-            Self::Timestamp { instant, .. } if instant.nanosecond() == 0 => {
-                Some(UtcSecond::from_unix_seconds(instant.unix_timestamp()))
+            Self::Timestamp { instant, .. } if instant.subsecond_nanoseconds() == 0 => {
+                Some(UtcSecond::from_unix_seconds(instant.unix_seconds()))
             }
             _ => None,
         }
@@ -372,7 +372,25 @@ fn observe(
 /// Retain the fractional digit count separately from the timestamp value.
 fn timestamp(value: &str) -> anyhow::Result<SourceDate> {
     let value = value.trim();
-    let instant = OffsetDateTime::parse(value, &Rfc3339)?;
+    let parsed = clacks_model::timestamp::parse(value)?;
+    let time = parsed
+        .time()
+        .ok_or_else(|| anyhow::anyhow!("Expected a complete timestamp"))?;
+    let offset = parsed
+        .to_numeric_offset()
+        .ok_or_else(|| anyhow::anyhow!("Expected an explicit offset"))?;
+    let seconds = parsed
+        .date()
+        .at(time.hour(), time.minute(), time.second(), 0)
+        .duration_since(date(1970, 1, 1).at(0, 0, 0, 0))
+        .as_secs()
+        - i64::from(offset.seconds());
+    let nanoseconds = if value.get(17..19) == Some("60") {
+        999_999_999
+    } else {
+        time.subsec_nanosecond().unsigned_abs()
+    };
+    let instant = UtcTimestamp::new(seconds, nanoseconds)?;
     let digits = value.split_once('.').map_or(0, |(_, fraction)| {
         fraction.bytes().take_while(u8::is_ascii_digit).count()
     });
@@ -511,8 +529,8 @@ fn merge_dates(values: Vec<(Alternative, SourceDate)>) -> Vec<(SourceDate, Vec<A
 /// Match timestamps by exact instant and calendar dates by UTC day.
 fn agrees(a: SourceDate, b: SourceDate) -> bool {
     match (a, b) {
-        (SourceDate::Day(a), b) => calendar(b) == a,
-        (a, SourceDate::Day(b)) => calendar(a) == b,
+        (a @ SourceDate::Day(_), b) => utc_day(b) == utc_day(a),
+        (a, b @ SourceDate::Day(_)) => utc_day(a) == utc_day(b),
         (SourceDate::Timestamp { instant: a, .. }, SourceDate::Timestamp { instant: b, .. }) => {
             a == b
         }
@@ -528,10 +546,15 @@ fn precision(date: SourceDate) -> u8 {
     }
 }
 
-fn calendar(date: SourceDate) -> Date {
-    match date {
-        SourceDate::Day(date) => date,
-        SourceDate::Timestamp { instant, .. } => instant.to_offset(UtcOffset::UTC).date(),
+/// Return the UTC epoch day for comparing calendar-only and timestamp evidence.
+fn utc_day(value: SourceDate) -> i64 {
+    match value {
+        SourceDate::Day(day) => day
+            .at(0, 0, 0, 0)
+            .duration_since(date(1970, 1, 1).at(0, 0, 0, 0))
+            .as_secs()
+            .div_euclid(86_400),
+        SourceDate::Timestamp { instant, .. } => instant.unix_seconds().div_euclid(86_400),
     }
 }
 

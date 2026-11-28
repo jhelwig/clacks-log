@@ -1242,7 +1242,6 @@ dependencies = [
  "anyhow",
  "apple-native-keyring-store",
  "axum",
- "chrono",
  "clacks-client-store",
  "clacks-geography",
  "clacks-model",
@@ -1267,6 +1266,7 @@ dependencies = [
  "huskarl-reqwest",
  "image",
  "interprocess",
+ "jiff 1.0.3",
  "keyring-core",
  "leptos",
  "libc",
@@ -1301,7 +1301,6 @@ dependencies = [
  "strum 0.28.0",
  "tempfile",
  "thiserror 2.0.21",
- "time",
  "tokio",
  "tokio-tungstenite",
  "tokio-util",
@@ -1333,12 +1332,12 @@ name = "clacks-desktop-packaging"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "chrono",
  "clacks-desktop-release",
  "clacks-geography",
  "clacks-sync",
  "clap",
  "hex",
+ "jiff 1.0.3",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1443,6 +1442,7 @@ dependencies = [
  "clacks-model",
  "der 0.8.2",
  "getrandom 0.4.3",
+ "jiff 1.0.3",
  "p12-keystore",
  "pkcs12",
  "rsa 0.10.0",
@@ -1450,7 +1450,6 @@ dependencies = [
  "serde_json",
  "sha1 0.11.0",
  "thiserror 2.0.21",
- "time",
  "tracing",
  "tracing-subscriber",
  "x509-parser",
@@ -1478,6 +1477,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "deunicode",
+ "jiff 1.0.3",
  "metrics",
  "metrics-util",
  "num-bigint",
@@ -1486,7 +1486,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.21",
- "time",
  "tracing",
  "tracing-subscriber",
  "ulid",
@@ -1539,6 +1538,8 @@ dependencies = [
  "huskarl-core",
  "huskarl-crypto-native",
  "huskarl-resource-server",
+ "jiff 1.0.3",
+ "jiff-sqlx",
  "metrics",
  "metrics-opentelemetry",
  "metrics-util",
@@ -1615,7 +1616,6 @@ dependencies = [
  "anyhow",
  "axum",
  "axum_session_sqlx",
- "chrono",
  "clacks-desktop-release",
  "clacks-model",
  "clacks-server",
@@ -1626,6 +1626,7 @@ dependencies = [
  "gloo-net",
  "huskarl-core",
  "huskarl-crypto-native",
+ "jiff 1.0.3",
  "leptos",
  "leptos_axum",
  "leptos_meta",
@@ -3969,7 +3970,7 @@ dependencies = [
  "huskarl-crypto-native",
  "huskarl-crypto-webcrypto",
  "huskarl-macros",
- "jiff",
+ "jiff 0.2.38",
  "rand 0.10.3",
  "serde",
  "serde_json",
@@ -4001,7 +4002,7 @@ dependencies = [
  "http",
  "httpdate",
  "huskarl-macros",
- "jiff",
+ "jiff 0.2.38",
  "rand 0.10.3",
  "serde",
  "serde_json",
@@ -4104,7 +4105,7 @@ dependencies = [
  "huskarl-core",
  "huskarl-crypto-native",
  "huskarl-crypto-webcrypto",
- "jiff",
+ "jiff 0.2.38",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -4505,14 +4506,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2b005715dcbeb0089a3c0dab99f2ff1cc3b2525323552703d648585d342a383"
 dependencies = [
  "defmt",
- "jiff-core",
- "jiff-static",
+ "jiff-core 0.1.1",
+ "jiff-static 0.2.38",
  "jiff-tzdb-platform",
  "log",
  "portable-atomic",
  "portable-atomic-util",
  "serde_core",
  "windows-link",
+]
+
+[[package]]
+name = "jiff"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "107f2e89536b6818514025f6787b0d94d819e54fe3b40365275fc753de485b3f"
+dependencies = [
+ "jiff-core 1.0.2",
+ "jiff-static 1.0.3",
+ "log",
+ "portable-atomic",
+ "portable-atomic-util",
+ "serde_core",
 ]
 
 [[package]]
@@ -4526,15 +4541,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "jiff-core"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d44c923edf2bf456a982253f1a9ee1f6e89e421dffd0065d9b9a581da0def58f"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "jiff-sqlx"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4996ad290ff7f7081becdda47e28556fbebb81618c599eac5d09182b5a60e38"
+dependencies = [
+ "jiff 1.0.3",
+ "sqlx",
+]
+
+[[package]]
 name = "jiff-static"
 version = "0.2.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2cc9817253cf7c7ee4684451bd327e88d6f3658014e54a29198625590650695c"
 dependencies = [
- "jiff-core",
+ "jiff-core 0.1.1",
  "proc-macro2",
  "quote",
  "syn 2.0.118",
+]
+
+[[package]]
+name = "jiff-static"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4996f71e569e3a3e32b925c28ef8f0027dc30bb1d594b33eeda409eea185f5c8"
+dependencies = [
+ "jiff-core 1.0.2",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
 ]
 
 [[package]]
@@ -6697,14 +6743,14 @@ checksum = "d55d956fa96f5ec02be2e13af0e20391a5aa83d6a074e3ad368959d0fab299ea"
 
 [[package]]
 name = "qso-io"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fe2cc179f1bce42548275814614bfc133bd8521b769097d56f7653a5acb5bd9"
+checksum = "70a7bc85b351eee27ca92e97282afd1cfaccaa1bb03454d4add182d22babb023"
 dependencies = [
  "bigdecimal",
  "caseless",
- "chrono",
  "encoding_rs",
+ "jiff 1.0.3",
  "quick-xml 0.42.0",
  "strum 0.28.0",
  "thiserror 2.0.21",
@@ -7891,7 +7937,7 @@ dependencies = [
  "hex",
  "indexmap 1.9.3",
  "indexmap 2.14.2",
- "jiff",
+ "jiff 0.2.38",
  "schemars 0.9.0",
  "schemars 1.2.3",
  "serde_core",

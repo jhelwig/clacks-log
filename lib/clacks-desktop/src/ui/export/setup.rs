@@ -77,9 +77,7 @@ impl ActiveExport {
                     ExportFormat::Ordinary => self.open_picker(ui.ctx(), parent, picker),
                     ExportFormat::Pota => {
                         if let Some(plan) = &self.plan {
-                            let now = UtcSecond::from_unix_seconds(
-                                time::OffsetDateTime::now_utc().unix_timestamp(),
-                            );
+                            let now = UtcSecond::from(jiff::Timestamp::now());
                             match file_names(plan, now) {
                                 Ok(names) => {
                                     self.names = names;

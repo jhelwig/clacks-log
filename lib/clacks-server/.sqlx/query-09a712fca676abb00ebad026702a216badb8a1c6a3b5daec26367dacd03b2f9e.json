@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT account_id, purpose, target_actor, label, expires_at FROM clacks.desktop_code_approvals WHERE code_digest = $1\n",
+  "query": "SELECT account_id, purpose, target_actor, label, expires_at AS \"expires_at: jiff_sqlx::Timestamp\" FROM clacks.desktop_code_approvals WHERE code_digest = $1\n",
   "describe": {
     "columns": [
       {
@@ -49,7 +49,7 @@
       },
       {
         "ordinal": 4,
-        "name": "expires_at",
+        "name": "expires_at: jiff_sqlx::Timestamp",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -72,5 +72,5 @@
       false
     ]
   },
-  "hash": "01c14415d6d7dbb9ff0377f78711040b5ac60283a6826b879bd6b4b9f3b9c0b2"
+  "hash": "09a712fca676abb00ebad026702a216badb8a1c6a3b5daec26367dacd03b2f9e"
 }

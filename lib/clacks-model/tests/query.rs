@@ -144,7 +144,22 @@ fn typed_fields_dates_units_and_diagnostics() -> anyhow::Result<()> {
         parse("qso_start:2026-10-27T11:00:00-07:00")?
     );
     assert!(parse("qso_start:2026-10-27T18:00:00.1Z").is_err());
+    assert!(parse("qso_start:2026-10-27T18:00:00.0Z").is_err());
     assert!(parse("qso_start:2026-10-27T18:00:00").is_err());
+    assert!(parse("qso_start:2026-1-27T18:00:00Z").is_err());
+    assert!(parse("qso_start:2026-10-27T18:00Z").is_err());
+    assert!(parse("qso_start:2026-1-2").is_err());
+    assert!(parse(r#"qso_start:"2026- 1-01""#).is_err());
+    assert!(parse("qso_start:2026-10-27T18:00:00+24:00").is_err());
+    assert!(parse("qso_start:2016-12-31T23:59:60Z").is_err());
+    assert_eq!(
+        parse("qso_start:2026-10-27t18:00:00z")?,
+        parse("qso_start:2026-10-27T18:00:00Z")?
+    );
+    assert_eq!(
+        parse("qso_start:>=9999-12-31T23:59:59Z")?,
+        parse("qso_start:>9999-12-31T23:59:58Z")?
+    );
     assert!(parse("qso_time:2026-10-27").is_err());
     assert_eq!(parse("mode:SSB")?, parse("MODE:=SSB")?);
     let Query::Predicate(p) = parse(r#"contact.reference:Group\/Name/ID\/1"#)? else {

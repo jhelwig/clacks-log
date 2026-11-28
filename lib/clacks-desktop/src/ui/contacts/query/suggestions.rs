@@ -204,7 +204,10 @@ fn choices(
                         let example = match field.kind() {
                             FieldType::Frequency => "14MHz",
                             FieldType::Power => "100W",
-                            _ => &time::OffsetDateTime::now_utc().date().to_string(),
+                            _ => &jiff::tz::Offset::UTC
+                                .to_datetime(jiff::Timestamp::now())
+                                .date()
+                                .to_string(),
                         };
                         for operator in ["", "=", ">", ">=", "<", "<="] {
                             add(

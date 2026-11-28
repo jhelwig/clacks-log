@@ -11,6 +11,7 @@ use anyhow::Context;
 use http::{Method, Uri};
 use huskarl_core::dpop::{AuthorizationServerDPoP, DPoP};
 use huskarl_crypto_native::asymmetric::signer::{GenerateAlgorithm, PrivateKey};
+use jiff::SignedDuration;
 use oauth_as::{
     authorization::AuthorizationRequest,
     client::ClientId,
@@ -19,7 +20,6 @@ use oauth_as::{
 };
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
-use time::Duration;
 
 /// Issuance details used to compare independent desktop authorizations.
 pub(crate) struct IssuedClient {
@@ -58,11 +58,11 @@ async fn code_exchange_activates_one_member_and_replay_revokes_only_its_grant() 
                 subject: ulid::Ulid::generate().to_string(),
                 display_name: None,
             },
-            Duration::days(14),
+            SignedDuration::from_hours(14 * 24),
         )
         .await?;
     let principal = accounts
-        .authenticate(&login, Duration::days(14))
+        .authenticate(&login, SignedDuration::from_hours(14 * 24))
         .await?
         .context("missing login")?;
     let directory = tempfile::tempdir()?;

@@ -27,7 +27,7 @@ async fn stopped_or_expired_connection_does_not_write_a_native_reply() -> anyhow
                     let stopped = send(
                         &mut socket,
                         &cancelled,
-                        time::OffsetDateTime::now_utc() + time::Duration::minutes(1),
+                        jiff::Timestamp::now() + jiff::SignedDuration::from_mins(1),
                         message(),
                     )
                     .await
@@ -35,7 +35,7 @@ async fn stopped_or_expired_connection_does_not_write_a_native_reply() -> anyhow
                     let expired = send(
                         &mut socket,
                         &CancellationToken::new(),
-                        time::OffsetDateTime::now_utc() - time::Duration::seconds(1),
+                        jiff::Timestamp::now() - jiff::SignedDuration::from_secs(1),
                         message(),
                     )
                     .await

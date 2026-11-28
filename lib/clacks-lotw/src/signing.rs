@@ -17,9 +17,9 @@ use crate::{
 use anyhow::{Context, ensure};
 use clacks_model::service::{adif::AdifFields, lotw::LotwSubmission};
 use definition::SignatureDefinitions;
+use jiff::Timestamp;
 use rsa::signature::{RandomizedSigner, SignatureEncoding};
 use std::{collections::BTreeMap, io::Write};
-use time::OffsetDateTime;
 
 /// A frozen submission with its explicitly selected credential and current state.
 pub struct BatchItem<'a> {
@@ -65,7 +65,7 @@ pub fn write_batch<W: Write>(
     items: &[BatchItem<'_>],
     definitions: &SignatureDefinitions,
     producer: &ProducerInformation<'_>,
-    now: OffsetDateTime,
+    now: Timestamp,
 ) -> anyhow::Result<BatchSummary> {
     ensure!(!items.is_empty(), SigningError::EmptyBatch);
     let application = input::text("producer application", producer.application)?;
@@ -81,8 +81,12 @@ pub fn write_batch<W: Write>(
     for (index, item) in items.iter().enumerate() {
         let input = input::prepare_input(item.submission, item.credential.metadata(), definitions)
             .with_context(|| format!("prepare batch item {index}"))?;
-        let date =
-            OffsetDateTime::from_unix_timestamp(item.submission.key().start.unix_seconds())?.date();
+        let date = jiff::civil::date(1970, 1, 1)
+            .at(0, 0, 0, 0)
+            .checked_add(jiff::SignedDuration::from_secs(
+                item.submission.key().start.unix_seconds(),
+            ))?
+            .date();
         let issues = eligibility(
             item.credential.metadata(),
             item.submission.signing_identity(),

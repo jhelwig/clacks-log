@@ -16,10 +16,10 @@ use crate::{
     },
 };
 use clacks_model::ids::{AccountId, ClientActorId};
+use jiff::Timestamp;
 use oauth_as::{authorization::AuthorizationCodeRecord, scope::ScopeSet};
 use serde::Serialize;
 use sqlx::{PgConnection, PgPool};
-use time::OffsetDateTime;
 
 /// Verified client authority for one protected resource request.
 #[derive(Clone)]
@@ -37,7 +37,7 @@ pub(crate) struct AuthorizedClient {
     /// Existing one-way access lookup used to recheck this connection's authority.
     pub access_digest: [u8; 32],
     /// Original access expiration; refreshing requires another authenticated upgrade.
-    pub expires_at: OffsetDateTime,
+    pub expires_at: Timestamp,
 }
 
 /// Account and former writer selected together for desktop recovery.
@@ -90,9 +90,9 @@ pub struct ClientSummary {
     /// User-visible installation label.
     pub label: String,
     /// Time of actual enrollment activation.
-    pub authorized_at: OffsetDateTime,
+    pub authorized_at: Timestamp,
     /// Explicit revocation time, absent for an authorized client.
-    pub closed_at: Option<OffsetDateTime>,
+    pub closed_at: Option<Timestamp>,
 }
 
 /// Attach immutable account-owner approval before disclosing the code redirect.

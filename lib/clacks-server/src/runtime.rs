@@ -4,9 +4,9 @@ use crate::{config::ServerConfig, store::AccountStore};
 use anyhow::Context;
 use axum_session::{Key, SessionConfig, SessionLayer};
 use axum_session_sqlx::{SessionPgPool, SessionPgSessionStore};
+use jiff::SignedDuration;
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
-use time::Duration;
 
 /// Configured application state; construction never executes schema changes.
 #[derive(Clone)]
@@ -58,7 +58,7 @@ impl ServerState {
         let bytes = std::fs::read(key_file).context("could not read browser-cookie key")?;
         let key = Key::try_from(bytes.as_slice())
             .map_err(|_| anyhow::anyhow!("browser-cookie key requires at least 64 bytes"))?;
-        let duration = Duration::seconds(
+        let duration = time::Duration::seconds(
             config
                 .session_days
                 .checked_mul(86400)
@@ -107,8 +107,8 @@ impl ServerState {
     }
 
     /// Selected authoritative sliding lifetime for account operations.
-    pub(crate) fn lifetime(&self) -> Duration {
-        Duration::days(self.config.session_days)
+    pub(crate) fn lifetime(&self) -> SignedDuration {
+        SignedDuration::from_hours(self.config.session_days * 24)
     }
 }
 

@@ -28,6 +28,7 @@ pub mod error;
 
 pub mod ids;
 pub mod scalar;
+pub mod timestamp;
 
 pub mod location;
 pub mod position;

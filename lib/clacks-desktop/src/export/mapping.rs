@@ -119,7 +119,7 @@ pub(super) fn contact_fields(
     contact: &ExportContact,
     format: ExportFormat,
     catalog: &RecognitionCatalog,
-    today: time::Date,
+    today: jiff::civil::Date,
 ) -> ContactFields {
     let mut output = ContactFields::default();
     let qso = &contact.qso;
@@ -160,7 +160,9 @@ pub(super) fn contact_fields(
     }
     let start = qso.start();
     let future = format == ExportFormat::Pota
-        && time::OffsetDateTime::from_unix_timestamp(start.unix_seconds())
+        && jiff::civil::date(1970, 1, 1)
+            .at(0, 0, 0, 0)
+            .checked_add(jiff::SignedDuration::from_secs(start.unix_seconds()))
             .is_ok_and(|instant| instant.date() > today);
     match adi_contact_time(start) {
         Some((date, time)) if !future => {

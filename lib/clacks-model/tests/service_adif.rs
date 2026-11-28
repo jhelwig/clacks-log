@@ -17,6 +17,14 @@ fn exact_quantities_and_calendar_limits() -> anyhow::Result<()> {
         adif::contact_time(UtcSecond::from_unix_seconds(0))?,
         ("19700101".into(), "000000".into())
     );
+    assert_eq!(
+        adif::contact_time(UtcSecond::from_unix_seconds(-1))?,
+        ("19691231".into(), "235959".into())
+    );
+    assert_eq!(
+        adif::contact_time(UtcSecond::from_unix_seconds(253_402_300_799))?,
+        ("99991231".into(), "235959".into())
+    );
     Ok(())
 }
 

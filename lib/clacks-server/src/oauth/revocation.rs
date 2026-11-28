@@ -1,8 +1,9 @@
 //! Grant revocation barriers and account-owned credential removal.
 
+use jiff::Timestamp;
+use jiff_sqlx::ToSqlx;
 use oauth_as::store::RevocationWindow;
 use sqlx::{PgConnection, PgPool};
-use time::OffsetDateTime;
 
 /// Persist the issuer barrier before deleting credentials that it protects.
 async fn barrier(
@@ -12,11 +13,17 @@ async fn barrier(
     window: RevocationWindow,
 ) -> anyhow::Result<()> {
     anyhow::ensure!(!target.is_empty(), "revocation target is empty");
-    let recorded = OffsetDateTime::from(window.recorded_at);
-    let until = OffsetDateTime::from(window.until);
-    sqlx::query_file!("sql/oauth/barrier_put.sql", scope, target, recorded, until)
-        .execute(connection)
-        .await?;
+    let recorded = Timestamp::try_from(window.recorded_at)?;
+    let until = Timestamp::try_from(window.until)?;
+    sqlx::query_file!(
+        "sql/oauth/barrier_put.sql",
+        scope,
+        target,
+        recorded.to_sqlx() as _,
+        until.to_sqlx() as _
+    )
+    .execute(connection)
+    .await?;
     Ok(())
 }
 

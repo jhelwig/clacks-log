@@ -76,7 +76,9 @@ pub(crate) struct PendingFlow {
 
 /// Retain a request in the standard session, bounding expired/old contexts.
 pub(crate) fn insert(session: &SessionPgSession, flow: PendingFlow, age: i64) {
-    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    let now = jiff::Timestamp::now()
+        .as_nanosecond()
+        .div_euclid(1_000_000_000) as i64;
     let mut flows: BTreeMap<String, PendingFlow> = session.get(PENDING).unwrap_or_default();
     flows.retain(|_, value| value.created_at <= now && now.saturating_sub(value.created_at) <= age);
     while flows.len() >= MAXIMUM_PENDING {
@@ -106,7 +108,9 @@ pub(crate) fn take(
     session.set(PENDING, flows);
     let flow = found
         .ok_or_else(|| anyhow::anyhow!("authorization context is missing; restart the action"))?;
-    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    let now = jiff::Timestamp::now()
+        .as_nanosecond()
+        .div_euclid(1_000_000_000) as i64;
     anyhow::ensure!(
         flow.state == CsrfToken::new(state.to_owned())
             && flow.provider == provider

@@ -33,7 +33,9 @@ pub struct ProjectionContext<'a> {
 
 /// Convert a native start/end instant to ADIF date and time; reject unrepresentable years.
 pub fn contact_time(value: UtcSecond) -> anyhow::Result<(String, String)> {
-    let t = time::OffsetDateTime::from_unix_timestamp(value.unix_seconds())?;
+    let t = jiff::civil::date(1970, 1, 1)
+        .at(0, 0, 0, 0)
+        .checked_add(jiff::SignedDuration::from_secs(value.unix_seconds()))?;
     if !(1..=9999).contains(&t.year()) {
         tracing::debug!(
             event = "projection.conversion_unavailable",
@@ -45,7 +47,7 @@ pub fn contact_time(value: UtcSecond) -> anyhow::Result<(String, String)> {
         .into());
     }
     Ok((
-        format!("{:04}{:02}{:02}", t.year(), u8::from(t.month()), t.day()),
+        format!("{:04}{:02}{:02}", t.year(), t.month(), t.day()),
         format!("{:02}{:02}{:02}", t.hour(), t.minute(), t.second()),
     ))
 }

@@ -58,12 +58,15 @@ impl Provider {
             .get("code_challenge")
             .ok_or_else(|| anyhow::anyhow!("Clacks omitted PKCE challenge"))?;
 
-        let now = chrono::Utc::now();
+        let now = jiff::Timestamp::now();
+        let expires = now.checked_add(std::time::Duration::from_secs(5 * 60))?;
+        let issued_at = std::time::SystemTime::try_from(now)?;
+        let expires_at = std::time::SystemTime::try_from(expires)?;
         let claims = CoreIdTokenClaims::new(
             self.issuer.clone(),
             vec![Audience::new("registered-clacks".into())],
-            now + chrono::Duration::minutes(5),
-            now,
+            expires_at.into(),
+            issued_at.into(),
             StandardClaims::new(SubjectIdentifier::new(subject.to_owned())),
             EmptyAdditionalClaims {},
         )

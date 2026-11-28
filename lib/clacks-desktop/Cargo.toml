@@ -23,7 +23,6 @@ windows-native-keyring-store.workspace = true
 windows-sys = { workspace = true, features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading", "Win32_System_SystemServices", "Win32_Storage_FileSystem"] }
 
 [target.'cfg(any(target_os = "macos", windows))'.dev-dependencies]
-chrono.workspace = true
 clacks-server.workspace = true
 clacks-web = { workspace = true, features = ["ssr"] }
 getrandom = { workspace = true, features = ["sys_rng"] }
@@ -55,6 +54,7 @@ huskarl-crypto-native.workspace = true
 huskarl-reqwest.workspace = true
 image.workspace = true
 interprocess.workspace = true
+jiff.workspace = true
 keyring-core.workspace = true
 metrics.workspace = true
 metrics-opentelemetry.workspace = true
@@ -80,7 +80,6 @@ sqlx.workspace = true
 strum.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
-time.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-util", "net", "sync", "time", "fs", "process"] }
 tokio-tungstenite.workspace = true
 tokio-util.workspace = true

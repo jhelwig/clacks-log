@@ -218,18 +218,14 @@ pub(super) async fn fetch(
                     })
                     .collect();
             }
-            let now = time::OffsetDateTime::now_utc();
-            match UtcTimestamp::new(now.unix_timestamp(), now.nanosecond())
-                .map_err(anyhow::Error::from)
-                .and_then(|lookup_time| {
-                    DirectorySnapshot::new(DirectorySnapshotFields {
-                        provider: selected.provider,
-                        key: key.clone(),
-                        lookup_time,
-                        lookup_id: id,
-                        facts,
-                    })
-                }) {
+            let lookup_time = UtcTimestamp::from(jiff::Timestamp::now());
+            match DirectorySnapshot::new(DirectorySnapshotFields {
+                provider: selected.provider,
+                key: key.clone(),
+                lookup_time,
+                lookup_id: id,
+                facts,
+            }) {
                 Ok(snapshot) => LookupState::Found(Box::new(snapshot)),
                 Err(_) => LookupState::Failed(LookupFailure::new(
                     LookupFailureKind::InvalidFacts,

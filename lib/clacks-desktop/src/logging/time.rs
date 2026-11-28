@@ -52,11 +52,14 @@ impl ContactTimestamp {
         if self.text.trim().is_empty() {
             return Ok(None);
         }
-        let format = time::format_description::parse_borrowed::<2>(
-            "[year]-[month]-[day] [hour]:[minute]:[second]",
-        )?;
-        let value = time::PrimitiveDateTime::parse(self.text.trim(), &format)?.assume_utc();
-        Ok(Some(UtcSecond::from_unix_seconds(value.unix_timestamp())))
+        let text = self.text.trim();
+        let date = jiff::civil::DateTime::strptime("%Y-%m-%d %H:%M:%S", text)?;
+        anyhow::ensure!(
+            date.strftime("%Y-%m-%d %H:%M:%S").to_string() == text,
+            "Use UTC date/time in YYYY-MM-DD HH:MM:SS form"
+        );
+        let elapsed = date.duration_since(jiff::civil::date(1970, 1, 1).at(0, 0, 0, 0));
+        Ok(Some(UtcSecond::from_unix_seconds(elapsed.as_secs())))
     }
 }
 
@@ -67,13 +70,14 @@ pub(crate) fn format(value: UtcSecond) -> String {
 
 /// Format a calendar-representable timestamp, reporting unsupported ranges.
 fn format_checked(value: UtcSecond) -> anyhow::Result<String> {
-    let format = time::format_description::parse_borrowed::<2>(
-        "[year]-[month]-[day] [hour]:[minute]:[second]",
-    )?;
-    Ok(time::OffsetDateTime::from_unix_timestamp(value.unix_seconds())?.format(&format)?)
+    Ok(jiff::civil::date(1970, 1, 1)
+        .at(0, 0, 0, 0)
+        .checked_add(jiff::SignedDuration::from_secs(value.unix_seconds()))?
+        .strftime("%Y-%m-%d %H:%M:%S")
+        .to_string())
 }
 
 /// Capture the current wall clock at the native whole-second resolution.
 pub(crate) fn now() -> UtcSecond {
-    UtcSecond::from_unix_seconds(time::OffsetDateTime::now_utc().unix_timestamp())
+    UtcSecond::from(jiff::Timestamp::now())
 }

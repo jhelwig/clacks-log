@@ -198,6 +198,10 @@ fn generate() -> anyhow::Result<BTreeMap<PathBuf, Vec<u8>>> {
     let other = other_key.context("missing alternate fixture key")?;
     let alternate_cert = other_certificate.context("missing alternate fixture certificate")?;
     let mut malformed = BTreeMap::new();
+    files.insert(
+        "no-expiry.der".into(),
+        certificates::station(&key, &issuer, "no-expiry")?,
+    );
     for name in [
         "common-name-only",
         "duplicate-callsign",

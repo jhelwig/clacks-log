@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT t.account_id,t.family_id,g.client_id,g.key_thumbprint,g.grant_established_at,\nt.issued_at,t.expires_at,g.state AS family_state,g.provisional_until,g.actor_id,c.closed_at,\nCOALESCE((SELECT string_agg(scope,' ' ORDER BY scope) FROM clacks.desktop_access_scopes WHERE access_digest=t.access_digest),'') AS \"scope!\",\nARRAY(SELECT resource FROM clacks.desktop_access_resources WHERE access_digest=t.access_digest ORDER BY ordinal) AS \"resources!\"\nFROM clacks.desktop_access_tokens t JOIN clacks.desktop_grants g USING (account_id,family_id)\nLEFT JOIN clacks.desktop_clients c ON c.account_id=g.account_id AND c.actor_id=g.actor_id\nWHERE t.access_digest=$1 AND t.account_id=$2\n",
+  "query": "SELECT t.account_id,t.family_id,g.client_id,g.key_thumbprint,g.grant_established_at AS \"grant_established_at: jiff_sqlx::Timestamp\",\nt.issued_at AS \"issued_at: jiff_sqlx::Timestamp\",t.expires_at AS \"expires_at: jiff_sqlx::Timestamp\",g.state AS family_state,g.provisional_until AS \"provisional_until: jiff_sqlx::Timestamp\",g.actor_id,c.closed_at AS \"closed_at: jiff_sqlx::Timestamp\",\nCOALESCE((SELECT string_agg(scope,' ' ORDER BY scope) FROM clacks.desktop_access_scopes WHERE access_digest=t.access_digest),'') AS \"scope!\",\nARRAY(SELECT resource FROM clacks.desktop_access_resources WHERE access_digest=t.access_digest ORDER BY ordinal) AS \"resources!\"\nFROM clacks.desktop_access_tokens t JOIN clacks.desktop_grants g USING (account_id,family_id)\nLEFT JOIN clacks.desktop_clients c ON c.account_id=g.account_id AND c.actor_id=g.actor_id\nWHERE t.access_digest=$1 AND t.account_id=$2\n",
   "describe": {
     "columns": [
       {
@@ -49,7 +49,7 @@
       },
       {
         "ordinal": 4,
-        "name": "grant_established_at",
+        "name": "grant_established_at: jiff_sqlx::Timestamp",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -60,7 +60,7 @@
       },
       {
         "ordinal": 5,
-        "name": "issued_at",
+        "name": "issued_at: jiff_sqlx::Timestamp",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -71,7 +71,7 @@
       },
       {
         "ordinal": 6,
-        "name": "expires_at",
+        "name": "expires_at: jiff_sqlx::Timestamp",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -93,7 +93,7 @@
       },
       {
         "ordinal": 8,
-        "name": "provisional_until",
+        "name": "provisional_until: jiff_sqlx::Timestamp",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -115,7 +115,7 @@
       },
       {
         "ordinal": 10,
-        "name": "closed_at",
+        "name": "closed_at: jiff_sqlx::Timestamp",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -159,5 +159,5 @@
       null
     ]
   },
-  "hash": "7145b5bd65afd00b94bb796bbf2a5a0233de33b2f8ba832949f7d2fa711cae36"
+  "hash": "dbb6a5ba550c932050af6f2329d855967c9d4753f840f69a6ff28a1f6e525932"
 }
